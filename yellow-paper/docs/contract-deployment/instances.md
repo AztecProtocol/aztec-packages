@@ -5,7 +5,7 @@ A contract instance is a concrete deployment of a [contract class](./classes.md)
 ## Requirements
 
 - Users must be able to precompute the address of a given contract instance. This allows users to precompute their account contract addresses and receive funds before interacting with the chain, and also allows counterfactual deployments.
-- An address must be linked to its deployer address. This allows simple diversified and stealth account contracts. Related, a precomputed deployment may or may not be restricted to be executed by a given address.
+- An address must be linkable to its deployer address. This allows simple diversified and stealth account contracts. Related, a precomputed deployment may or may not be restricted to be executed by a given address.
 - A user calling into an address must be able to prove that it has not been deployed. This allows the executor to prove that a given call in a transaction is unsatisfiable and revert accordingly.
 - A user should be able to privately call into a contract without publicly deploying it. This allows private applications to deploy contracts without leaking information about their usage.
 
@@ -17,21 +17,15 @@ The structure of a contract instance is defined as:
 | Field | Type | Description |
 |----------|----------|----------|
 | `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract instance struct. |
-| `deployer_address` | `AztecAddress` | Address of the canonical deployer contract that creates this instance. <!-- TODO: explain why this is included. --> |
 | `salt` | `Field` | User-generated pseudorandom value for uniqueness. |
 | `contract_class_id` | `Field` | Identifier of the contract class for this instance. |
-| `contract_args_hash` | `Field` | Hash of the arguments to the constructor. |
+| `initialization_hash` | `Field` | Hash of the selector and arguments to the constructor. |
 | `portal_contract_address` | `EthereumAddress` | Optional address of the L1 portal contract. |
 | `public_keys_hash` | `Field` | Optional hash of the struct of public keys used for encryption and nullifying by this contract. |
 
 <!-- Note: Always ensure the spec above matches the one described in Addresses and Keys. -->
 
-<!-- [Mike review, for @spalladino][cspell:disable-line]
-We don't quite have constructor abstraction, given that a "constructor" is still a concept which the protocol must understand and distinguish -- see how we have a `contract_args_hash` in this `contract_instance` struct and a `constructor_function` field in the `contract_class` struct. Can these fields be removed? We certainly need a way to convey to future users of every contract what the constructor args were. Can this be achieved through notes, nullifiers, and events, or should we retain these constructor fields?
-
-What should `contract_args_hash` be if there is no constructor? `0`?
-Q: why "contract_args_hash" and not "constructor_args_hash"?
--->
+Note the absence of a deployer field. This is because the deployer address is optionally mixed into the `salt` as part of the deployment logic, implemented by the `ContractInstanceDeployer` as described below.
 
 ## Address
 
@@ -39,80 +33,163 @@ The address of the contract instance is computed as the hash of all elements in 
 
 ## Statuses
 
-A contract instance at a given address can be in any of the following statuses:
+A contract instance at a given address can be in any of the following statuses: Uninitialized, Initialized, or Publicly Deployed. A contract instance is Initialized once it emits an Initialization Nullifier, and is Publicly Deployed once the canonical `ContractInstanceDeployer` (described below) emits a Deployment Nullifier for it.
 
-- **Undeployed**: The instance has not yet been deployed. A user who knows the preimage of the address can issue a private call into the contract, as long as it does not require initialization. Public function calls to this address will fail, because existence of the 'contract address nullifier' <!-- n/d --> will be enforced for public calls, so that we can be certain that a sequencer has access to the public function's bytecode.
-- **Privately deployed**: The instance's constructor has been executed <!-- TODO elaborate on what this means. Maybe link to a section which explains this? Does this also mean that the contract instance's address has been emitted as a nullifier? --> , but its [class identifier](./classes.md#class-identifier) has not been [registered](./classes.md#registration) nor broadcasted. A user who knows the preimage of the address can issue a private call into the contract, and successfully submit a private kernel proof of execution of this call to the network. Public function calls to this address will fail. Private deployments are signalled by emitting an initialization nullifier <!-- n/d --> when the constructor runs. <!-- TODO: is this the contract instance initialisation nullifier? I.e. the nullifier of the contract address? -->
-- **Publicly deployed**: The instance constructor has been executed, and the address preimage has been broadcasted. All function calls to the address, private or public, are valid. Public deployments are signalled by emitting a public deployment nullifier.
+### Uninitialized
 
-<!-- TODO: Validate the need for private deployments. They seem cool, and do not incur in extra protocol complexity, but they require having two nullifiers per contract: one to signal initialization, and one to signal broadcasting of the deployment. -->
+The instance has not yet been initialized, meaning its constructor has not been called. This is the default state for any given address. A user who knows the preimage of the address can still issue a private call into a function in the contract, as long as that function does not assert that the contract has been initialized by checking the Initialization Nullifier.
+
+All public function calls to an Uninitialized address _must_ fail, since the Contract Class for it is not known to the network. If the Class is not known to the network, then an Aztec Node, whether it is the elected sequencer or a full node following the chain, may not be able to execute the bytecode for a public function call, which is undesirable. The failing of public function calls to Uninitialized addresses is enforced by having the Public Kernel Circuit check that the Deployment Nullifier for the instance has been emitted.
+
+### Initialized
+
+An instance is Initialized when a constructor for the instance has been invoked, and the constructor has emitted the instance's Initialization Nullifier. All private functions that require the contract to be initialized by checking the existence of the Initialization Nullifier can now be called by any user who knows the address preimage.
+
+The Initialization Nullifier is defined as the contract address itself. Note that the nullifier later gets [siloed by the Private Kernel Circuit](../circuits/private-kernel-tail.md#siloing-values) before it gets broadcasted in a transaction.
+
+In this state, public functions must still fail, for the same reason as for Uninitialized instances.
+
+:::warning
+It may be the case that it is not possible to read a nullifier in the same transaction that it was emitted due to protocol limitations. That would lead to a contract not being callable in the same transaction as it is initialized. To work around this, we can emit an Initialization Commitment along with the Initialization Nullifier, which _can_ be read in the same transaction as it is emitted. If needed, the Initialization Commitment is defined exactly as the Initialization Nullifier.
+:::
+
+### Publicly Deployed
+
+An instance is Publicly Deployed when, in addition to having been Initialized, its preimage has been broadcasted to the network as an event through a canonical `ContractInstanceDeployer` contract, which also emits a Deployment Nullifier associated to the deployed instance. Note that the `ContractInstanceDeployer` checks that the instance is Initialized as a prerequisite for Publicly Deploying it, which requires reading the Initialization Nullifier emitted by the deployed contract.
+
+The Deployment Nullifier is defined as the address of the contract being deployed. Note that it later gets [siloed](../circuits/private-kernel-tail.md#siloing-values) using the `ContractInstanceDeployer` address by the Kernel Circuit, so this nullifier is effectively the hash of the deployed contract address and the `ContractInstanceDeployer` address.
+
+Only in this state public function calls are valid. The Public Kernel Circuit validates that the Deployment Nullifier has been emitted by the `ContractInstanceDeployer` as part of its checks. Note that this requires hardcoding the address of an application-level contract in a protocol circuit.
 
 ## Constructors
 
-Contract constructors are not enshrined in the protocol, but handled at the application circuit level. A contract must satisfy the following requirements:
+Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and a contract may have more than a single constructor. A contract must ensure the following requirements are met:
 
-- The constructor must be invoked exactly once
-- The constructor must be invoked with the arguments in the address preimage
-- Functions that depend on contract initialization cannot be invoked until the constructor is run
+- A contract may be initialized at most once
+- A contract must be initialized using the method and arguments defined in its address preimage
+- All functions that depend on contract initialization cannot be invoked until the contract is initialized
 
-These checks can be embedded in the application circuit itself. The constructor emits a standardized initialization nullifier <!-- TODO: should we propose a standard in this doc? We should certainly establish a name for this nullifier --> when it is invoked, which prevents it from being called more than once. The constructor code must also check that the arguments hash it received matches the ones in the address preimage, supplied via an oracle call. <!-- Can the `ContractInstanceDeployer` contract perform this check instead? It has access to both the `constructor_args_hash` and the args that it passes to the constructor (since it makes the call _to_ the constructor function). It might make the protocol simpler. --> All other functions in the contract must include a merkle membership proof for the nullifier, to prevent them from being called before the constructor is invoked. Note that a contract may choose to allow some functions to be called before initialization.
+These checks are embedded in the application circuits themselves. The constructor emits an Initialization Nullifier when it is invoked, which prevents it from being called more than once. The constructor code must also check that its own selector and the arguments for the call match the ones in the address preimage, which are supplied via an oracle call.
 
-<!-- More generally we should adopt a convention to name all concepts, and consistently use those names throughout. We might wish to also consistently delineate named concepts with Capital Letters (like legal docs) or `inside_back_ticks` -->
+Private functions in the contract should require a merkle membership proof for the Initialization Nullifier, to prevent them from being called before the constructor is invoked. Nevertheless, a contract may choose to allow some functions to be called before initialization, such as in the case of [Diversified and Stealth account contracts](../addresses-and-keys/diversified-and-stealth.md). Public functions, on the other hand, should not need this check, since the Public Kernel Circuit guarantees that the contract is Publicly Deployed, and a contract cannot be Publicly Deployed without being Initialized. Note that every Contract Class needs to have at least one constructor if an instance of it is intended to be Publicly Deployed.
 
-The checks listed above should not be manually implemented by a contract developer, but rather included as part of the Aztec macros for Noir.
+Removing constructors from the protocol itself simplifies the kernel circuit, and decoupling Initialization from Public Deployments allows users to keep contract instances private if they wish to do so.
 
-Constructors may be either private or public functions. Contracts with private constructors can be privately or publicly deployed, contracts with public constructors can only be publicly deployed.
+## Canonical Contract Instance Deployer
 
-<!-- FIXME: the contract class definition says the `constructor_function` is always of type `PrivateFunction`. -->
+A new contract instance can be _Publicly Deployed_ by calling a `deploy` function in a canonical `ContractInstanceDeployer` contract. This function receives the arguments for a `ContractInstance` struct as described [above](#contractinstance-structure):
 
-Removing constructors from the protocol itself simplifies the kernel circuit. Separating initialization from public deployment also enables developers to implement private deployments, since a private deployment is equivalent to just invoking the constructor function at a given address.
-
-## Public Deployment
-
-A new contract instance can be _publicly deployed_ by calling a `deploy` function in a canonical `ContractInstanceDeployer` contract. This function receives the arguments for a `ContractInstance` struct as described [above](#contractinstance-structure), except for the `deployer_address` which is the deployer's own address, and executes the following actions:
-
-- Validates the referenced `contract_class_id` exists.
-- Mixes in the `msg_sender` with the user-provided `salt` by hashing them together, ensuring that the deployment is unique for the requester.
+- Validates the referenced `contract_class_id` exists. This can be done via either a call to the `ClassRegisterer` contract, or by directly reading the corresponding nullifier.
+- Mixes in the `msg_sender` with the user-provided `salt` by hashing them together, ensuring that the deployment is unique for the requester. Alternatively, the deployment can be made independent from the requester, in which case the deployer mixes in its own address into the salt. This allows counterfactual deployments where any party can deploy to a given address.
 - Computes the resulting `new_contract_address`.
-- Emits the resulting address as a `contract_address_nullifier` (a.k.a. `contract_initialization_nullifier`) to signal the public deployment, so callers can prove that the contract has or has not been publicly deployed.
-  - Note: The [private kernel circuit](../circuits/private-kernel-initial.md) will 'silo' <!-- TODO: link to relevant section --> the so-called "inner nullifier" (the `new_contract_address` itself) with the contract address of the `ContractInstanceDeployer` contract to produce a so-called "outer nullifier" (the `contract_address_nullifier`). So nodes will need to reconstruct the `new_contract_address` from the `NewContractInstanceDeployment` event, and then attempt to reconstruct the "outer nullifier", to validate both the `new_contract_address` and that the canonical `ContractInstanceDeployer` was indeed the source of the event.
-- Either proves the corresponding `contract_class_id` has no constructor, or calls the constructor with the preimage of the supplied `contract_args_hash`, or proves that the constructor nullifier <!-- Is this the same as the aforementioned "initialization nullifier"? We should align naming. --> has already been emitted so a previously privately-deployed contract can be publicly deployed.
-- Emits an unencrypted event `NewContractInstanceDeployment`, with the address preimage, excluding the `deployer_address` which is already part of the log.
+- Emits the resulting address as the Deployment Nullifier to signal the public deployment, so callers can prove that the contract has or has not been publicly deployed.
+- Either verifies that the instance has been already initialized by reading its Initialization Nullifier, or executes a call into the resulting address to initialize it and then checks the Initialization Nullifier. Note that it is still necessary to check the Initialization Nullifier in the latter case since the Deployer has no guarantee that the function call corresponded to a constructor that effectively initialized the contract.
+- Emits an unencrypted event `ContractInstanceDeployed` with the address preimage.
 
-<!-- Q: should we write some pseudocode, or do you think these bullet points suffice? -->
+The pseudocode for the process described above is the following:
 
-Upon seeing a `NewContractInstanceDeployment` event from the canonical `ContractInstanceDeployer` contract, nodes are expected to store the address and preimage, to verify executed code during public code execution as described in the next section.
+```
+function deploy (
+  user_salt: Field, 
+  contract_class_id: Field, 
+  initialization_hash: Field, 
+  portal_contract_address: Field, 
+  public_keys_hash: Field, 
+  universal_deploy?: boolean,
+  constructor_selector?: Field,
+  constructor_args?: Field[],
+)
+  assert nullifier_exists silo(contract_class_id, ClassRegisterer)
+  assert is_valid_eth_address(portal_contract_address)
+  
+  deployer = if universal_deploy then this.address else msg_sender
+  salt = pedersen([user_salt, this.address], GENERATOR__ADDRESS_SALT)
+  version = 1
+  address = compute_address(version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
 
-The `ContractInstanceDeployer` contract provides two implementations of the `deploy` function: a private and a public one. Contracts with a private constructor are expected to use the former, and contracts with public constructors expected to use the latter. Contracts with no constructors or that have already been privately-deployed can use either.
+  emit_nullifier(address)
+  if constructor_selector then call(address, constructor_selector, constructor_args)
+  assert nullifier_exists silo(address, address)
 
-Additionally, the `ContractInstanceDeployer` contract provides two `universal_deploy` functions, a private and a public one, with the same arguments as the `deploy` one, that just forwards the call to the `deploy` contract. This makes `msg_sender` in the `deploy` contract to be the `ContractInstanceDeployer` contract itself, and allows for universal deployments that are semantically decoupled from their deployer, and can be permissionlessly invoked by any user who knows the address preimage.
+  emit_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+```
 
-## Who deploys the `ContractInstanceDeployer`?
+Upon seeing a `ContractInstanceDeployed` event from the canonical `ContractInstanceDeployer` contract, nodes are expected to store the address and preimage, so they can verify executed code during public code execution as described in the next section.
 
-The `ContractInstanceDeployer` will need to exist from the genesis of the Aztec Network, otherwise nothing will ever be deployable to the network! The `contract_address_nullifier` for the `ContractInstanceDeployer` contract itself will be pre-inserted into the genesis nullifier tree at leaf index `GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_INSTANCE_DEPLOYER_CLASS_ID_NULLIFIER = 3`.
+The `ContractInstanceDeployer` contract provides two implementations of the `deploy` function: a private and a public one. Contracts with a private constructor are expected to use the former, and contracts with public constructors expected to use the latter. Contracts that have already been privately Initialized can use either.
 
-<!-- Note: that name is a mouthful, but I figure there will be many genesis constants, so ordering the string from left-to-right with the 'most general' info to 'most specific' info feels right. -->
+### Genesis
 
-<!-- TODO: perhaps we need a page of constants? -->
+The `ContractInstanceDeployer` will need to exist from the genesis of the Aztec Network, otherwise nothing will ever be deployable to the network. The Class Nullifier for the `ContractInstanceDeployer` contract will be pre-inserted into the genesis nullifier tree at leaf index `GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_INSTANCE_DEPLOYER_CLASS_ID_NULLIFIER=3`. The canonical instance will be deployed at `CONTRACT_INSTANCE_DEPLOYER_ADDRESS=0x10001`, and its Deployment Nullifier will be inserted at `GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_INSTANCE_DEPLOYER_DEPLOYMENT_NULLIFIER=4`.
+
+<!-- TODO: Perhaps we need a page of constants? -->
 
 <!-- TODO(cryptography): How do we convince the world that there's 'nothing up our sleeves'? What could be the consequences of a cunningly-chosen nullifier being pre-inserted into the nullifier tree? -->
 
-The initial canonical instance of the `ContractInstanceDeployer` contract will have address `???` <!-- TODO -->. The corresponding contract address nullifier <!-- TODO: link to the relevant instances section --> will be `GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_INSTANCE_DEPLOYER_CONTRACT_ADDRESS_NULLIFIER = 4`.
-
 ## Verification of Executed Code
 
-The kernel circuit, both private and public, is responsible for verifying that the code loaded for a given function execution matches the expected one. This requires the following checks:
+The Kernel Circuit, both private and public, is responsible for verifying that the code loaded for a given function execution matches the expected one. This requires the following checks:
 
 - The `contract_class_id` of the address called is the expected one, verified by hashing the address preimage that includes the `contract_class_id`.
-- The function identifier <!-- n/d --> being executed is part of the `contract_class_id`, verified via a Merkle membership proof.
-- The function code <!-- n/d --> executed matches the commitment <!-- n/d --> in the function identifier, verified via a merkle membership proof and a bytecode commitment proof <!-- n/d -->.
+- The [function selector](./classes.md#private-function) being executed is part of the `contract_class_id`, verified via a Merkle membership proof of the selector in the functions tree of the Contract Class.
 
-<!-- Note: I only just thought to use `n/d` to mean "not defined". Please forgive the liberal usage of it. -->
+Specific to private functions:
+- The hash of the `verification_key` matches the `vk_hash` defined in the corresponding [Private Function](./classes.md#private-function) for the Contract Class.
 
-Note that, since constructors are handled at the application level, the kernel circuit is not required to check that a constructor has been run before executing code.
+Specific to public functions:
+- The bytecode loaded by the [AVM](../public-vm/avm.md) for the contract matches the `bytecode_commitment` in the contract class, verified using the [bytecode validation circuit](../public-vm/bytecode-validation-circuit.md).
+- The contract Deployment Nullifier has been emitted, or prove that it hasn't, in which case the transaction is expected to revert. This check is done via a merkle (non-)membership proof of the Deployment Nullifier. Note that a public function should be callable in the same transaction in which its contract Deployment Nullifier was emitted.
 
-The public kernel circuit, additionally, needs to check that the corresponding contract instance has been publicly deployed, or prove that it hasn't. This is done via a merkle (non-)membership proof of the public deployment nullifier <!-- n/d -->.
+Note that, since constructors are handled at the application level, the kernel circuit is not required to check the Initialization Nullifier before executing code.
 
 ## Discarded Approaches
 
-Earlier versions of the protocol relied on a dedicated contract tree, which required dedicated kernel code to process deployments, which had to be enshrined as new outputs from the application circuits. By abstracting contract deployment and storing deployments as nullifiers, the interface between the application and kernel circuits is simplified, and the kernel circuit has fewer responsibilities. Furthermore, multiple contract deployments within a single transaction are now possible.
+### Contracts Tree
+
+Earlier versions of the protocol relied on a dedicated contract tree, which required dedicated kernel code to process deployments, which had to be enshrined as new outputs from the application circuits. By abstracting contract deployment and storing deployments as nullifiers, the interface between the application and kernel circuits is simplified, and the kernel circuit has far fewer responsibilities. Furthermore, multiple contract deployments within a single transaction are now possible.
+
+### Allowing Uninitialized Publicly Deployed Instances
+
+The `ContractInstanceDeployer` requires that a contract is Initialized before agreeing to Publicly Deploy it, either by checking that the Initialization Nullifier has been already emitted, or by invoking a constructor itself and checking immediately after. 
+
+Removing this check greatly simplifies the `ContractInstanceDeployer`, since it does not need to invoke constructors or check initialization nullifiers emitted from other contracts.
+
+```diff
+function deploy (
+  user_salt: Field, 
+  contract_class_id: Field, 
+  initialization_hash: Field, 
+  portal_contract_address: Field, 
+  public_keys_hash: Field, 
+  universal_deploy?: boolean,
+-  constructor_selector?: Field,
+-  constructor_args?: Field[],
+)
+  assert nullifier_exists silo(contract_class_id, ClassRegisterer)
+  assert is_valid_eth_address(portal_contract_address)
+  
+  deployer = if universal_deploy then this.address else msg_sender
+  salt = pedersen([user_salt, this.address], GENERATOR__ADDRESS_SALT)
+  version = 1
+  address = compute_address(version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+
+  emit_nullifier(address)
+-  if constructor_selector then call(address, constructor_selector, constructor_args)
+-  assert nullifier_exists silo(address, address)
+
+  emit_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+```
+
+This approach also allows devs to handle initialization in alternate ways, since there is nothing in the protocol or in a canonical contract that mandates how contracts are expected to be initialized. And it also allows for contracts to _not_ have a constructor at all if it is not needed, while still allowing them to be Publicly Deployed.
+
+However, this opens the door for a contract to be simultaneously Publicly Deployed and Uninitialized, which is a state that does not seem to map to a valid use case. Furthermore, it requires public functions to check the Initialization Nullifier on every call, which in the current approach is not needed as the presence of the Deployment Nullifier checked by the Public Kernel is enough of a guarantee that the contract was initialized.
+
+<!-- To @iAmMichaelConnor: I am tempted to actually implement this approach in spite of its drawbacks. It makes responsibilities so much more clearly defined: Deployer deploys, Initializer initializes, and there is no link between the two. It also allows removing constructors when they are not needed. And the added cost of checking the initialization nullifier from public functions doesn't seem too terrible. -->
+
+### Execute Initialization during Public Deployment only
+
+While it is appealing to allow a user to privately create a new contract instance and not reveal it to the world, we have not yet validated this use case. We could simplify deployment by relying on a single nullifier to track Initialization, and couple it with Public Deployment. Private functions can check initialization via the Deployment Nullifier emitted by the `ContractInstanceDeployer`.
+
+This approach requires that constructors are only invoked as part of Public Deployment, so constructors would require an additional check for `msg_sender` being the canonical `ContractInstanceDeployer`. Furthermore, to ensure that an instance constructor is properly run, the `ContractInstanceDeployer` would need to know the selector for the instance constructor, which now needs to be part of the Contract Class, re-enshrining it into the protocol. 
+
+Alternatively, we could remove constructor abstraction altogether, and have the Private Kernel Circuit check for the Deployment Nullifier, much like the Public Kernel Circuit does. However, this hurts Diversified and Stealth account contracts, which now require an explicit deployment and cannot be used directly.
