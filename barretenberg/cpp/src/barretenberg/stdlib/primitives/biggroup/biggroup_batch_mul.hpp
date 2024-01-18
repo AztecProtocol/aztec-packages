@@ -1,6 +1,6 @@
 #pragma once
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 /**
@@ -58,4 +58,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
     return accumulator;
 }
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

@@ -2,7 +2,7 @@
 
 #include "../circuit_builders/circuit_builders.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 /**
@@ -255,4 +255,4 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
 template class ram_table<bb::UltraCircuitBuilder>;
 template class ram_table<bb::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

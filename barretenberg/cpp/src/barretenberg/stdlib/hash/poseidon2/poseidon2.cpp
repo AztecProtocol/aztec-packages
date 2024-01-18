@@ -3,7 +3,6 @@
 namespace bb::stdlib {
 
 using namespace bb;
-using namespace bb;
 
 /**
  * @brief Hash a vector of field_ct.

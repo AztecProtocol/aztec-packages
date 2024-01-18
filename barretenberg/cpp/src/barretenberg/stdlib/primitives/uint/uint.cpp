@@ -2,9 +2,8 @@
 #include "../circuit_builders/circuit_builders.hpp"
 
 using namespace bb;
-using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 /**
@@ -396,4 +395,4 @@ template class uint<bb::StandardCircuitBuilder, uint32_t>;
 template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

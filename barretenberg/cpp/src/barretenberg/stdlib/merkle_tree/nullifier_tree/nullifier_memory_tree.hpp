@@ -3,7 +3,7 @@
 #include "../memory_tree.hpp"
 #include "nullifier_leaf.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace merkle_tree {
 
@@ -95,4 +95,4 @@ class NullifierMemoryTree : public MemoryTree {
 
 } // namespace merkle_tree
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

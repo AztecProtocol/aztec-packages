@@ -21,7 +21,7 @@
 
 namespace bb::stdlib::types {
 
-using namespace bb::plonk;
+using namespace bb;
 
 using Builder = bb::UltraCircuitBuilder;
 using Composer = plonk::UltraComposer;

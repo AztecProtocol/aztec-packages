@@ -4,7 +4,7 @@
 
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 namespace {
@@ -271,4 +271,4 @@ template class packed_byte_array<bb::UltraCircuitBuilder>;
 template class packed_byte_array<bb::GoblinUltraCircuitBuilder>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

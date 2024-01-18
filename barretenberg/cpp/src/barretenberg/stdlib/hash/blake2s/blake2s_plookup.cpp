@@ -15,7 +15,7 @@
  * 2. replace use of uint32 with basic field_t type
  *
  **/
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 namespace blake2s_plookup {
@@ -172,4 +172,4 @@ template byte_array<bb::GoblinUltraCircuitBuilder> blake2s(const byte_array<bb::
 } // namespace blake2s_plookup
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

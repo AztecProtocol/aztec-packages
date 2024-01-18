@@ -6,7 +6,7 @@
 
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder>
@@ -1145,4 +1145,4 @@ template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::GoblinUltraCircuitBuilder>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

@@ -3,7 +3,7 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 using namespace plookup;
@@ -893,4 +893,4 @@ template class keccak<bb::UltraCircuitBuilder>;
 template class keccak<bb::GoblinUltraCircuitBuilder>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

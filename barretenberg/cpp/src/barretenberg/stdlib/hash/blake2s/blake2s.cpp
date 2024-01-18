@@ -3,7 +3,7 @@
 #include "blake2s_plookup.hpp"
 #include "blake_util.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 namespace {
@@ -141,4 +141,4 @@ template byte_array<bb::UltraCircuitBuilder> blake2s(const byte_array<bb::UltraC
 template byte_array<bb::GoblinUltraCircuitBuilder> blake2s(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

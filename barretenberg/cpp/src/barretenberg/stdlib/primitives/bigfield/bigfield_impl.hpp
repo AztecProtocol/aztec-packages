@@ -11,7 +11,7 @@
 
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder, typename T>
@@ -2938,4 +2938,4 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
 }
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

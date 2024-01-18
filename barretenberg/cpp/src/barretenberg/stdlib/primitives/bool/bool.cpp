@@ -2,9 +2,8 @@
 #include "../circuit_builders/circuit_builders.hpp"
 
 using namespace bb;
-using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder>
@@ -553,4 +552,4 @@ template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::GoblinUltraCircuitBuilder>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

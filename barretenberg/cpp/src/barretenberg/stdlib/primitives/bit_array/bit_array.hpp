@@ -3,7 +3,7 @@
 #include "../uint/uint.hpp"
 #include <algorithm>
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder> class bit_array {
@@ -180,4 +180,4 @@ template <typename Builder> class bit_array {
 };
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

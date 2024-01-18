@@ -6,7 +6,7 @@
 
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 // ULTRA: Further merging with
@@ -385,4 +385,4 @@ template class byte_array<bb::UltraCircuitBuilder>;
 template class byte_array<bb::GoblinUltraCircuitBuilder>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

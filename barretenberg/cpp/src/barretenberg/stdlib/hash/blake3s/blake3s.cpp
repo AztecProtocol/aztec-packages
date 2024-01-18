@@ -3,7 +3,7 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "blake3s_plookup.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 namespace blake3_internal {
@@ -258,4 +258,4 @@ template byte_array<bb::StandardCircuitBuilder> blake3s(const byte_array<bb::Sta
 template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
 template byte_array<bb::GoblinUltraCircuitBuilder> blake3s(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

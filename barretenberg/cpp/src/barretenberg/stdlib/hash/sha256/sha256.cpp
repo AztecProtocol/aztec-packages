@@ -3,7 +3,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "sha256_plookup.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace internal {
 constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -188,4 +188,4 @@ template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_arr
 template packed_byte_array<bb::GoblinUltraCircuitBuilder> sha256(
     const packed_byte_array<bb::GoblinUltraCircuitBuilder>& input);
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

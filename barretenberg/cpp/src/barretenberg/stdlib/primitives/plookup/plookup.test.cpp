@@ -11,7 +11,6 @@
 
 namespace test_stdlib_plookups {
 using namespace bb;
-using namespace bb::plonk;
 using namespace plookup;
 
 // Defining ultra-specific types for local testing.

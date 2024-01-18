@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 namespace blake3s_plookup {
@@ -265,4 +265,4 @@ template byte_array<bb::GoblinUltraCircuitBuilder> blake3s(const byte_array<bb::
 } // namespace blake3s_plookup
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

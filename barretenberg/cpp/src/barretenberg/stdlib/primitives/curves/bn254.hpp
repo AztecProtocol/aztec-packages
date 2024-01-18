@@ -4,7 +4,7 @@
 #include "../field/field.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename CircuitBuilder> struct bn254 {
@@ -41,4 +41,4 @@ template <typename CircuitBuilder> struct bn254 {
 
 }; // namespace bn254
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

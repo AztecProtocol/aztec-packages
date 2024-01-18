@@ -4,7 +4,7 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace ecdsa {
 
@@ -224,4 +224,4 @@ bool_t<Builder> verify_signature_noassert(const stdlib::byte_array<Builder>& mes
 
 } // namespace ecdsa
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

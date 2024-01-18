@@ -2,9 +2,8 @@
 #include "uint.hpp"
 
 using namespace bb;
-using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder, typename Native>
@@ -529,4 +528,4 @@ template class uint<bb::StandardCircuitBuilder, uint32_t>;
 template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

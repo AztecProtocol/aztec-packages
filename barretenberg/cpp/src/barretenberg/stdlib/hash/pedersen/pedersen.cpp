@@ -3,7 +3,6 @@
 namespace bb::stdlib {
 
 using namespace bb;
-using namespace bb;
 
 template <typename C>
 field_t<C> pedersen_hash<C>::hash(const std::vector<field_ct>& inputs, const GeneratorContext context)

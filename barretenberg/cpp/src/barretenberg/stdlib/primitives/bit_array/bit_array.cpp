@@ -3,7 +3,7 @@
 
 #include <bitset>
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder>
@@ -162,4 +162,4 @@ template class bit_array<bb::UltraCircuitBuilder>;
 template class bit_array<bb::GoblinUltraCircuitBuilder>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

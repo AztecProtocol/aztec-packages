@@ -10,7 +10,7 @@
 using namespace crypto::aes128;
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace aes128 {
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;
@@ -306,4 +306,4 @@ INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::UltraCircuitBuilder);
 INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::GoblinUltraCircuitBuilder);
 } // namespace aes128
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

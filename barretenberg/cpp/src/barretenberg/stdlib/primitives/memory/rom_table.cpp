@@ -4,7 +4,7 @@
 
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 template <typename Builder> rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
@@ -125,4 +125,4 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
 template class rom_table<bb::UltraCircuitBuilder>;
 template class rom_table<bb::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

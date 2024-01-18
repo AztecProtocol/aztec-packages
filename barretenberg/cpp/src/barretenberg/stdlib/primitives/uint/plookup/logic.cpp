@@ -3,7 +3,7 @@
 
 using namespace bb;
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 
 using namespace plookup;
@@ -336,4 +336,4 @@ template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
 
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb
