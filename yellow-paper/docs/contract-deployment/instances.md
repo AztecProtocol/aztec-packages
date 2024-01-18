@@ -142,6 +142,8 @@ Specific to public functions:
 
 Note that, since constructors are handled at the application level, the kernel circuit is not required to check the Initialization Nullifier before executing code.
 
+<!-- TODO(@spalladino): Aside from the kernel verifying executed code, the user pxe should verify the unconstrained code to be executed as part of the tx matches the artifact hash reported on chain, to prevent a malicious dapp from injecting incorrect unconstrained code. -->
+
 ## Discarded Approaches
 
 ### Contracts Tree
