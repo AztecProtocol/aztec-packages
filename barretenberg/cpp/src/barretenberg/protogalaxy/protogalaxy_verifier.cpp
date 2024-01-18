@@ -44,13 +44,6 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::sha
         comm_view[idx] =
             transcript->template receive_from_prover<Commitment>(domain_separator + "_" + witness_labels[idx]);
     }
-
-    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
-    auto vk_view = inst->verification_key->get_all();
-    auto vk_labels = inst->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        vk_view[idx] = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
-    }
 }
 
 template <class VerifierInstances>
@@ -98,12 +91,12 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
         inst->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
     }
 
-    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
-    auto vk_view = inst->verification_key->get_all();
-    auto vk_labels = labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        vk_view[idx] = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
-    }
+    // inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
+    // auto vk_view = inst->verification_key->get_all();
+    // auto vk_labels = labels.get_precomputed();
+    // for (size_t idx = 0; idx < vk_labels.size(); idx++) {
+    //     vk_view[idx] = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
+    // }
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
@@ -255,20 +248,20 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
     verified = verified & (next_lookup_grand_product_delta == expected_parameters.lookup_grand_product_delta);
 
-    auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
-    auto vk_labels = commitment_labels.get_precomputed();
-    size_t vk_idx = 0;
-    for (auto& expected_vk : acc_vk->get_all()) {
-        size_t inst = 0;
-        expected_vk = Commitment::infinity();
-        for (auto& instance : instances) {
-            expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
-            inst++;
-        }
-        auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
-        verified = verified & (vk == expected_vk);
-        vk_idx++;
-    }
+    // auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
+    // auto vk_labels = commitment_labels.get_precomputed();
+    // size_t vk_idx = 0;
+    // for (auto& expected_vk : acc_vk->get_all()) {
+    //     size_t inst = 0;
+    //     expected_vk = Commitment::infinity();
+    //     for (auto& instance : instances) {
+    //         expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
+    //         inst++;
+    //     }
+    //     auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
+    //     verified = verified & (vk == expected_vk);
+    //     vk_idx++;
+    // }
 
     return verified;
 }

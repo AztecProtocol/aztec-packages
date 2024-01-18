@@ -74,13 +74,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
         comm_view[idx] = transcript->template receive_from_prover<Commitment>(witness_labels[idx]);
     }
 
-    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
-    auto vk_view = inst->verification_key->get_all();
-    auto vk_labels = inst->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        vk_view[idx] = transcript->template receive_from_prover<Commitment>(vk_labels[idx]);
-    }
-
     VerifierCommitments commitments{ inst->verification_key, inst->witness_commitments };
 
     auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript, inst->target_sum);

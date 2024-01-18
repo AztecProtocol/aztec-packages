@@ -126,7 +126,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     idx++;
 
     for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
-        auto instance = *it;
+        auto instance = *it; // WORKTODO: possible unnecessary copy here?
         auto domain_separator = std::to_string(idx);
         finalise_and_send_instance(instance, domain_separator);
     }
@@ -148,6 +148,9 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
     auto next_accumulator = std::make_shared<Instance>();
+    next_accumulator->proving_key = std::make_shared<ProvingKey>();
+    next_accumulator->proving_key->circuit_size = instances[0]->proving_key->circuit_size;
+    next_accumulator->proving_key->num_public_inputs = instances[0]->proving_key->num_public_inputs;
     next_accumulator->is_accumulator = true;
     next_accumulator->instance_size = instances[0]->instance_size;
     next_accumulator->log_instance_size = instances[0]->log_instance_size;

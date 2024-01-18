@@ -81,7 +81,8 @@ void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumu
 void decide_and_verify(std::shared_ptr<ProverInstance>& accumulator, UltraComposer& composer, bool expected_result)
 {
     auto decider_prover = composer.create_decider_prover(accumulator, composer.commitment_key);
-    auto decider_verifier = composer.create_decider_verifier(accumulator);
+    auto decider_verifier =
+        composer.create_decider_verifier(accumulator); // LEFT OFF HERE: need to pass accumulated vk here.
     auto decision = decider_prover.construct_proof();
     auto verified = decider_verifier.verify_proof(decision);
     EXPECT_EQ(verified, expected_result);
@@ -280,6 +281,7 @@ TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
     builder_3.add_public_variable(FF(1));
     auto instance_3 = composer.create_prover_instance(builder_3);
 
+    // WORKTODO: ensure independence of instance order. I get different failures for different orders now
     instances = std::vector<std::shared_ptr<ProverInstance>>{ first_accumulator, instance_3 };
     auto second_accumulator = fold_and_verify(instances, composer, true);
     check_accumulator_target_sum_manual(second_accumulator, true);
