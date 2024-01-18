@@ -1,4 +1,4 @@
-#include "honk_acir_composer.hpp"
+#include "goblin_acir_composer.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/types.hpp"
@@ -6,9 +6,10 @@
 
 namespace acir_proofs {
 
-HonkAcirComposer::HonkAcirComposer() {}
+GoblinAcirComposer::GoblinAcirComposer() {}
 
-void HonkAcirComposer::create_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness)
+void GoblinAcirComposer::create_circuit(acir_format::acir_format& constraint_system,
+                                        acir_format::WitnessVector& witness)
 {
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     builder_ = acir_format::GoblinBuilder{
@@ -23,18 +24,18 @@ void HonkAcirComposer::create_circuit(acir_format::acir_format& constraint_syste
     GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder_);
 }
 
-std::vector<uint8_t> HonkAcirComposer::accumulate()
+std::vector<uint8_t> GoblinAcirComposer::accumulate()
 {
     // Construct a GUH proof for the circuit via the accumulate mechanism
     return goblin.accumulate_for_acir(builder_);
 }
 
-bool HonkAcirComposer::verify_accumulator(std::vector<uint8_t> const& proof)
+bool GoblinAcirComposer::verify_accumulator(std::vector<uint8_t> const& proof)
 {
     return goblin.verify_accumulator_for_acir(proof);
 }
 
-std::vector<uint8_t> HonkAcirComposer::accumulate_and_prove()
+std::vector<uint8_t> GoblinAcirComposer::accumulate_and_prove()
 {
     // Construct one final GUH proof via the accumulate mechanism
     std::vector<uint8_t> ultra_proof = goblin.accumulate_for_acir(builder_);
@@ -45,7 +46,7 @@ std::vector<uint8_t> HonkAcirComposer::accumulate_and_prove()
     return ultra_proof;
 }
 
-bool HonkAcirComposer::verify(std::vector<uint8_t> const& proof)
+bool GoblinAcirComposer::verify(std::vector<uint8_t> const& proof)
 {
     // Verify the final GUH proof
     bool ultra_verified = goblin.verify_accumulator_for_acir(proof);

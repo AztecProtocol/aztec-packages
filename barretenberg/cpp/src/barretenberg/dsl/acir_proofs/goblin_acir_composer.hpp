@@ -9,12 +9,12 @@ namespace acir_proofs {
  * satisfiability of circuits written in ACIR.
  *
  */
-class HonkAcirComposer {
+class GoblinAcirComposer {
 
     using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
   public:
-    HonkAcirComposer();
+    GoblinAcirComposer();
 
     /**
      * @brief Create a GUH circuit from an acir constraint system and a witness
