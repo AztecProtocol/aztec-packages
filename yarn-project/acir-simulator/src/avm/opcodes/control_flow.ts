@@ -34,6 +34,26 @@ export class Jump extends Instruction {
 }
 
 /** -*/
+export class JumpI extends Instruction {
+  static type: string = 'JUMPI';
+  static numberOfOperands = 1;
+
+  constructor(private jumpOffset: number, private condOffset: number) {
+    super();
+  }
+
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const condition = machineState.readMemory(this.condOffset);
+
+    if (condition.toBigInt() == 0n) {
+      this.incrementPc(machineState);
+    } else {
+      machineState.pc = this.jumpOffset;
+    }
+  }
+}
+
+/** -*/
 export class InternalCall extends Instruction {
   static type: string = 'INTERNALCALL';
   static numberOfOperands = 1;

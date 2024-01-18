@@ -1,3 +1,5 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -5,7 +7,7 @@ import { AvmStateManager } from '../avm_state_manager.js';
 import { Add, Mul, Sub } from './arithmetic.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { Eq, Lt, Lte } from './comparators.js';
-import { InternalCall, InternalCallStackEmptyError, InternalReturn, Jump } from './control_flow.js';
+import { InternalCall, InternalCallStackEmptyError, InternalReturn, Jump, JumpI } from './control_flow.js';
 import { CalldataCopy, Cast, Mov, Set } from './memory.js';
 
 describe('Control Flow Opcodes', () => {
@@ -25,6 +27,37 @@ describe('Control Flow Opcodes', () => {
     const instruction = new Jump(jumpLocation);
     instruction.execute(machineState, stateManager);
     expect(machineState.pc).toBe(jumpLocation);
+  });
+
+  it('Should implement JUMPI - truthy', () => {
+    const jumpLocation = 22;
+    const jumpLocation1 = 69;
+
+    expect(machineState.pc).toBe(0);
+
+    machineState.writeMemory(0, new Fr(1n));
+    machineState.writeMemory(1, new Fr(2n));
+
+    const instruction = new JumpI(jumpLocation, 0);
+    instruction.execute(machineState, stateManager);
+    expect(machineState.pc).toBe(jumpLocation);
+
+    // Truthy can be greater than 1
+    const instruction1 = new JumpI(jumpLocation1, 1);
+    instruction1.execute(machineState, stateManager);
+    expect(machineState.pc).toBe(jumpLocation1);
+  });
+
+  it('Should implement JUMPI - falsy', () => {
+    const jumpLocation = 22;
+
+    expect(machineState.pc).toBe(0);
+
+    machineState.writeMemory(0, new Fr(0n));
+
+    const instruction = new JumpI(jumpLocation, 0);
+    instruction.execute(machineState, stateManager);
+    expect(machineState.pc).toBe(1);
   });
 
   it('Should implement Internal Call and Return', () => {
