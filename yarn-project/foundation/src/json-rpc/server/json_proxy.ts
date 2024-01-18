@@ -51,7 +51,7 @@ export class JsonProxy {
     debug(format('JsonProxy:call', methodName, '<-', convertedParams));
     const rawRet = await (this.handler as any)[methodName](...convertedParams);
     let ret = rawRet;
-    if (skipConversion) {
+    if (!skipConversion) {
       ret = convertToJsonObj(this.classConverter, rawRet);
     }
     debug(format('JsonProxy:call', methodName, '->', ret));
