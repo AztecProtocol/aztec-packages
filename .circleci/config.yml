@@ -1181,22 +1181,16 @@ workflows:
       - cli: *defaults_yarn_project_prod
       - aztec-faucet: *defaults_yarn_project_prod
 
-      # Boxes.
-      - boxes:
-          requires:
-            - aztec-sandbox
-          <<: *defaults
+      # # Boxes.
+      # - boxes:
+      #     requires:
+      #       - aztec-sandbox
+      #     <<: *defaults
       - boxes-blank:
-          requires:
-            - boxes
           <<: *defaults
       - boxes-blank-react:
-          requires:
-            - boxes
           <<: *defaults
       - boxes-token:
-          requires:
-            - boxes
           <<: *defaults
 
       # End to end tests.
