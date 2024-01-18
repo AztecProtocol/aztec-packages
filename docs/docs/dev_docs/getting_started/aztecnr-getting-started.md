@@ -156,7 +156,7 @@ aztec-nargo compile
 
 This will compile the smart contract and create a `target` folder with a `.json` artifact inside.
 
-After compiling, you need to generate the ABI and typescript class. In the same directory, run this:
+After compiling, you can generate a typescript class. In the same directory, run this:
 
 ```bash
 aztec-cli codegen target -o src/artifacts --ts
@@ -207,13 +207,9 @@ Congratulations, you have now written, compiled, and deployed your first Aztec.n
 
 ## Install `nargo` (recommended)
 
-The CLI comes with the Noir compiler, so installing `nargo` is not required, however it is recommended as it provides a better developer experience for writing contracts. You will need nargo installed to take advantage of the [Noir Language Server](https://noir-lang.org/docs/nargo/language_server), which provides syntax highlighting and formatting for your Aztec contracts.
+The CLI comes with the Noir compiler, so installing `nargo` is not required, however it is recommended as it provides a better developer experience for writing contracts. You will need nargo installed to take advantage of the [Noir Language Server](https://noir-lang.org/docs/getting_started/tooling/language_server), which provides syntax highlighting and formatting for your Aztec contracts.
 
 You will also need `nargo` if you want to run unit tests in Noir.
-
-You can install `nargo` with the following commands:
-
-<InstallNargoInstructions />
 
 ## What's next?
 
