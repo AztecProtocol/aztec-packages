@@ -35,7 +35,7 @@ export class Jump extends Instruction {
 
 /** -*/
 export class InternalCall extends Instruction {
-  static type: string = 'INTERNAL_CALL';
+  static type: string = 'INTERNALCALL';
   static numberOfOperands = 1;
 
   constructor(private jumpOffset: number) {
@@ -50,7 +50,7 @@ export class InternalCall extends Instruction {
 
 /** -*/
 export class InternalReturn extends Instruction {
-  static type: string = 'INTERNAL_RETURN';
+  static type: string = 'INTERNALRETURN';
   static numberOfOperands = 0;
 
   constructor() {
