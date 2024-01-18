@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 use dep::value_note::{
     filter::filter_notes_min_sum,
-    value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN},
+    value_note::{ValueNote, VALUE_NOTE_LEN},
 };
 
 struct EasyPrivateUint {
@@ -23,8 +23,7 @@ impl EasyPrivateUint {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         let set = Set {
             context,
-            storage_slot,
-            note_interface: ValueNoteMethods,
+            storage_slot
         };
         EasyPrivateUint {
             context,

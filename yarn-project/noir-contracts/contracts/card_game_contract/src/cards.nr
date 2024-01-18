@@ -20,7 +20,7 @@ use dep::std::{
     option::Option,
 };
 use dep::value_note::{
-    value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN},
+    value_note::{ValueNote, VALUE_NOTE_LEN},
 };
 
 struct Card {
@@ -126,7 +126,6 @@ impl Deck {
         let set = Set {
             context,
             storage_slot,
-            note_interface: ValueNoteMethods,
         };
         Deck {
             set

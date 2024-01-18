@@ -1,6 +1,6 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::{map::Map, public_state::PublicState};
-use dep::aztec::types::type_serialization::bool_serialization::{BoolSerializationMethods,BOOL_SERIALIZED_LEN};
+use dep::aztec::protocol_types::type_serialization::BOOL_SERIALIZED_LEN;
 
 use crate::entrypoint::EntrypointPayload;
 use crate::auth::IS_VALID_SELECTOR;
@@ -20,7 +20,7 @@ impl AccountActions {
         context,
         approved_action_storage_slot,
         |context, slot| {
-          PublicState::new(context, slot, BoolSerializationMethods)
+          PublicState::new(context, slot)
         },
       ),
     }

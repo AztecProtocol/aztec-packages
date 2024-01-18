@@ -1,6 +1,9 @@
 use dep::std::option::Option;
 use dep::aztec::{
-    protocol_types::address::AztecAddress,
+    protocol_types::{
+        address::AztecAddress,
+        traits::{Serialize, Deserialize, Empty}
+    },
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
@@ -20,51 +23,46 @@ struct RulesNote {
     header: NoteHeader,
 }
 
-impl RulesNote {
-    pub fn new(min_points: u8, max_points: u8, maybe_owner: Option<AztecAddress>) -> Self {
-        RulesNote {
-            min_points,
-            max_points,
-            maybe_owner,
-            header: NoteHeader::empty(),
-        }
-    }
-
-    pub fn serialize(self) -> [Field; RULES_NOTE_LEN] {
+impl Serialize<RULES_NOTE_LEN> for RulesNote {
+    fn serialize(self) -> [Field; RULES_NOTE_LEN] {
         [self.min_points as Field, self.max_points as Field]
     }
+}
 
-    pub fn deserialize(serialized_note: [Field; RULES_NOTE_LEN]) -> Self {
-        RulesNote {
+impl Deserialize<RULES_NOTE_LEN> for RulesNote {
+    fn deserialize(serialized_note: [Field; RULES_NOTE_LEN]) -> Self {
+      RulesNote {
             min_points: serialized_note[0] as u8,
             max_points: serialized_note[1] as u8,
             maybe_owner: Option::none(),
             header: NoteHeader::empty(),
         }
     }
+}
 
-    pub fn compute_note_hash(self) -> Field {
+impl NoteInterface for RulesNote {
+    fn compute_note_hash(self) -> Field {
         pedersen_hash([
             self.min_points as Field, 
             self.max_points as Field, 
         ],0)
     }
 
-    pub fn compute_nullifier(_self: Self) -> Field {
+    fn compute_nullifier(_self: Self) -> Field {
         // Not used
         0
     }
 
-    pub fn set_header(&mut self, header: NoteHeader) {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
 
-    pub fn set_owner(&mut self, owner: AztecAddress) {
-        self.maybe_owner = Option::some(owner);
+    fn get_header(self) -> NoteHeader {
+        self.header
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         assert(self.maybe_owner.is_some(), "Note owner must be set when the broadcast flow is triggered.");
         let owner = self.maybe_owner.unwrap_unchecked();
 
@@ -79,41 +77,17 @@ impl RulesNote {
     }
 }
 
-fn deserialize(serialized_note: [Field; RULES_NOTE_LEN]) -> RulesNote {
-    RulesNote::deserialize(serialized_note)
-}
+impl RulesNote {
+    pub fn new(min_points: u8, max_points: u8, maybe_owner: Option<AztecAddress>) -> Self {
+        RulesNote {
+            min_points,
+            max_points,
+            maybe_owner,
+            header: NoteHeader::empty(),
+        }
+    }
 
-fn serialize(note: RulesNote) -> [Field; RULES_NOTE_LEN] {
-    note.serialize()
+    pub fn set_owner(&mut self, owner: AztecAddress) {
+        self.maybe_owner = Option::some(owner);
+    }
 }
-
-fn compute_note_hash(note: RulesNote) -> Field {
-    note.compute_note_hash()
-}
-
-fn compute_nullifier(note: RulesNote) -> Field {
-    note.compute_nullifier()
-}
-
-fn get_header(note: RulesNote) -> NoteHeader {
-    note.header
-}
-
-fn set_header(note: &mut RulesNote, header: NoteHeader) {
-    note.set_header(header)
-}
-
-// Broadcasts the note as an encrypted log on L1.
-fn broadcast(context: &mut PrivateContext, slot: Field, note: RulesNote) {
-    note.broadcast(context, slot);
-}
-
-global RulesNoteMethods = NoteInterface {
-    deserialize,
-    serialize,
-    compute_note_hash,
-    compute_nullifier,
-    get_header,
-    set_header,
-    broadcast,
-};

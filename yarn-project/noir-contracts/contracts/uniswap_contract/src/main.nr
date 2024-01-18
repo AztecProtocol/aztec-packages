@@ -17,12 +17,7 @@ contract Uniswap {
         context::{PrivateContext, PublicContext, Context},
         oracle::{context::get_portal_address},
         state_vars::{map::Map, public_state::PublicState},
-        types::type_serialization::bool_serialization::{
-            BoolSerializationMethods, BOOL_SERIALIZED_LEN,
-        },
-        types::type_serialization::field_serialization::{
-            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
-        },
+        protocol_types::type_serialization::{BOOL_SERIALIZED_LEN,FIELD_SERIALIZED_LEN},
     };
 
     use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_authwit_message_hash};
@@ -45,10 +40,10 @@ contract Uniswap {
                     context,
                     1,
                     |context, slot| {
-                        PublicState::new(context, slot, BoolSerializationMethods)
+                        PublicState::new(context, slot)
                     },
                 ),
-                nonce_for_burn_approval: PublicState::new(context, 2, FieldSerializationMethods),
+                nonce_for_burn_approval: PublicState::new(context, 2),
             }
         }
     }

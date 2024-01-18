@@ -12,6 +12,7 @@ mod constants;
 mod mocked;
 mod hash;
 mod traits;
+mod type_serialization;
 
 mod header;
 

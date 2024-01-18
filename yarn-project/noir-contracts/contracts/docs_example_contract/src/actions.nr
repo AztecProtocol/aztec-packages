@@ -1,6 +1,7 @@
 use dep::aztec::protocol_types::{
     address::AztecAddress,
     constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
+    type_serialization::BOOL_SERIALIZED_LEN
 };
 use dep::aztec::note::{
     note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
@@ -9,7 +10,6 @@ use dep::aztec::state_vars::{
     immutable_singleton::ImmutableSingleton, map::Map, public_state::PublicState, set::Set,
     singleton::Singleton,
 };
-use dep::aztec::types::type_serialization::bool_serialization::BOOL_SERIALIZED_LEN;
 use dep::std::option::Option;
 
 use crate::types::{

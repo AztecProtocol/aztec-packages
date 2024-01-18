@@ -7,6 +7,7 @@ contract DocsExample {
     use dep::aztec::protocol_types::{
         address::AztecAddress,
         abis::function_selector::FunctionSelector,
+        type_serialization::BOOL_SERIALIZED_LEN
     };
     use dep::std::option::Option;
     use dep::aztec::{
@@ -16,19 +17,14 @@ contract DocsExample {
             singleton::Singleton,
         },
     };
-    // docs:start:state_vars-PublicStateBoolImport
-    use dep::aztec::types::type_serialization::bool_serialization::{
-        BoolSerializationMethods, BOOL_SERIALIZED_LEN,
-    };
-    // docs:end:state_vars-PublicStateBoolImport
     use crate::account_contract_interface::AccountContractInterface;
     use crate::actions;
     use crate::options::create_account_card_getter_options;
     use crate::types::{
-        card_note::{CardNote, CardNoteMethods, CARD_NOTE_LEN},
-        profile_note::{ProfileNote, ProfileNoteMethods, PROFILE_NOTE_LEN},
-        queen::{Queen, QueenSerializationMethods, QUEEN_SERIALIZED_LEN},
-        rules_note::{RulesNote, RulesNoteMethods, RULES_NOTE_LEN},
+        card_note::{CardNote, CARD_NOTE_LEN},
+        profile_note::{ProfileNote, PROFILE_NOTE_LEN},
+        queen::{Queen, QUEEN_SERIALIZED_LEN},
+        rules_note::{RulesNote, RULES_NOTE_LEN},
     };
 
     // docs:start:storage-struct-declaration
@@ -57,27 +53,26 @@ contract DocsExample {
         fn init(context: Context) -> Self {
             Storage {
                 // highlight-next-line:state_vars-PublicState
-                locked: PublicState::new(context, 1, BoolSerializationMethods),
+                locked: PublicState::new(context, 1),
                 // highlight-next-line:state_vars-PublicStateCustomStruct
                 queen: PublicState::new(
                     context,
                     2,
-                    QueenSerializationMethods,
                 ),
                 // highlight-next-line:state_vars-ImmutableSingleton
-                game_rules: ImmutableSingleton::new(context, 3, RulesNoteMethods),
+                game_rules: ImmutableSingleton::new(context, 3),
                 // highlight-next-line:state_vars-Singleton
                 // docs:start:start_vars_singleton
-                legendary_card: Singleton::new(context, 4, CardNoteMethods),
+                legendary_card: Singleton::new(context, 4),
                 // docs:end:start_vars_singleton
                 // highlight-next-line:state_vars-Set
-                cards: Set::new(context, 5, CardNoteMethods),
+                cards: Set::new(context, 5),
                 // highlight-next-line:state_vars-MapSingleton
                 profiles: Map::new(
                     context,
                     6,
                     |context, slot| {
-                        Singleton::new(context, slot, ProfileNoteMethods)
+                        Singleton::new(context, slot)
                     },
                 ),
             }

@@ -1,8 +1,16 @@
+use crate::traits::{Serialize, Deserialize};
+
 global GRUMPKIN_POINT_SERIALIZED_LEN: Field = 2;
 
 struct GrumpkinPoint {
     x: Field,
     y: Field,
+}
+
+impl Serialize<GRUMPKIN_POINT_SERIALIZED_LEN> for GrumpkinPoint {
+    fn serialize(self) -> [Field; GRUMPKIN_POINT_SERIALIZED_LEN] {
+        [self.x, self.y]
+    }
 }
 
 impl GrumpkinPoint {
@@ -15,10 +23,6 @@ impl GrumpkinPoint {
             x: 0,
             y: 0,
         }
-    }
-
-    fn serialize(self) -> [Field; GRUMPKIN_POINT_SERIALIZED_LEN] {
-        [self.x, self.y]
     }
 
     // TODO(David): Would be quite careful here as (0,0) is not a point

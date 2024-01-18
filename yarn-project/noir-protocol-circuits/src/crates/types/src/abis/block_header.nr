@@ -5,7 +5,7 @@ use crate::{
     },
     hash::pedersen_hash,
 };
-use crate::traits::Empty;
+use crate::traits::{Empty, Serialize, Deserialize};
 
 // docs:start:block-header
 struct BlockHeader {
@@ -25,17 +25,8 @@ impl Empty for BlockHeader {
     }
 }
 
-impl BlockHeader {
-    pub fn assert_is_zero(self) {
-        assert(self.note_hash_tree_root == 0);
-        assert(self.nullifier_tree_root == 0);
-        assert(self.contract_tree_root == 0);
-        assert(self.l1_to_l2_message_tree_root == 0);
-        assert(self.archive_root == 0);
-        assert(self.public_data_tree_root == 0);
-    }
-
-    pub fn serialize(self) -> [Field; BLOCK_HEADER_LENGTH] {
+impl Serialize<BLOCK_HEADER_LENGTH> for BlockHeader {
+    fn serialize(self) -> [Field; BLOCK_HEADER_LENGTH] {
         // This comment was copied from the cpp codebase.
         //
         // TODO(#3441): Note private_kernel_vk_tree_root, is not included yet as
@@ -50,8 +41,10 @@ impl BlockHeader {
             self.global_variables_hash
         ]
     }
+}
 
-    pub fn deserialize(deserialized: [Field; BLOCK_HEADER_LENGTH]) -> Self {
+impl Deserialize<BLOCK_HEADER_LENGTH> for BlockHeader  {
+    fn deserialize(deserialized: [Field; BLOCK_HEADER_LENGTH]) -> Self {
         BlockHeader {
             note_hash_tree_root: deserialized[0],
             nullifier_tree_root: deserialized[1],
@@ -61,6 +54,17 @@ impl BlockHeader {
             public_data_tree_root: deserialized[5],
             global_variables_hash: deserialized[6],
         }
+    }
+}
+
+impl BlockHeader {
+    pub fn assert_is_zero(self) {
+        assert(self.note_hash_tree_root == 0);
+        assert(self.nullifier_tree_root == 0);
+        assert(self.contract_tree_root == 0);
+        assert(self.l1_to_l2_message_tree_root == 0);
+        assert(self.archive_root == 0);
+        assert(self.public_data_tree_root == 0);
     }
     
     pub fn note_hash_tree_root(self) -> Field {

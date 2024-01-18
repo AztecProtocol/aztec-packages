@@ -13,7 +13,7 @@ contract Token {
     // Libs
     use dep::std::option::Option;
 
-    use dep::safe_math::SafeU120;
+    use dep::safe_math::{SafeU120,SAFE_U120_SERIALIZED_LEN};
 
     use dep::aztec::{
         note::{
@@ -24,17 +24,13 @@ contract Token {
         context::{PrivateContext, PublicContext, Context},
         hash::{compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialization::{
-                field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
-                bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-                address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
-        },
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
+            type_serialization::{FIELD_SERIALIZED_LEN,BOOL_SERIALIZED_LEN, AZTEC_ADDRESS_SERIALIZED_LEN},
         }
     };
-    
+
     // docs:start:import_authwit
     use dep::authwit::{
         auth::{
@@ -45,10 +41,9 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN},
-        token_note::{TokenNote, TokenNoteMethods, TOKEN_NOTE_LEN},
+        transparent_note::{TransparentNote, TRANSPARENT_NOTE_LEN},
+        token_note::{TokenNote, TOKEN_NOTE_LEN},
         balances_map::{BalancesMap},
-        safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN}
     };
     // docs:end::imports
 
@@ -79,7 +74,6 @@ contract Token {
                 admin: PublicState::new(
                     context,
                     1,
-                    AddressSerializationMethods,
                 ),
                 // docs:end:storage_admin_init
                 // docs:start:storage_minters_init
@@ -90,7 +84,6 @@ contract Token {
                         PublicState::new(
                             context,
                             slot,
-                            BoolSerializationMethods,
                         )
                     },
                 ),
@@ -101,10 +94,9 @@ contract Token {
                 total_supply: PublicState::new(
                     context,
                     4,
-                    SafeU120SerializationMethods,
                 ),
                 // docs:start:storage_pending_shields_init
-                pending_shields: Set::new(context, 5, TransparentNoteMethods),
+                pending_shields: Set::new(context, 5),
                 // docs:end:storage_pending_shields_init
                 public_balances: Map::new(
                     context,
@@ -113,7 +105,6 @@ contract Token {
                         PublicState::new(
                             context,
                             slot,
-                            SafeU120SerializationMethods,
                         )
                     },
                 ),
@@ -385,9 +376,9 @@ contract Token {
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 5) {
-            note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, serialized_note)
+            note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
         } else {
-            note_utils::compute_note_hash_and_nullifier(TokenNoteMethods, note_header, serialized_note)
+            note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)
         }
     }
     // docs:end:compute_note_hash_and_nullifier

@@ -4,15 +4,11 @@ contract EasyPrivateVoting {
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
+            type_serialization::{BOOL_SERIALIZED_LEN, FIELD_SERIALIZED_LEN, AZTEC_ADDRESS_SERIALIZED_LEN},
         },
         context::{PrivateContext, Context},
         oracle::get_secret_key::get_secret_key, // used to compute nullifier
-        state_vars::{ map::Map, public_state::PublicState,}, 
-        types::type_serialization::{ // serialization methods for using booleans and aztec addresses
-            bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-            address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
-            field_serialization::{ FieldSerializationMethods, FIELD_SERIALIZED_LEN},
-        }, 
+        state_vars::{ map::Map, public_state::PublicState}, 
     };
     // docs:end:imports
     // docs:start:storage_struct
@@ -29,7 +25,6 @@ contract EasyPrivateVoting {
 		 admin: PublicState::new(
 		    context, 
             1, // storage slot. this can be anything except 0. it is hashed, and hash on 0 = 0
-            AddressSerializationMethods,
 		), 
         tally: Map::new(
 		    context, 
@@ -37,15 +32,13 @@ contract EasyPrivateVoting {
             |context, slot| {
 			PublicState::new(
 			    context,
-                slot, 
-                FieldSerializationMethods,
+                slot,
 			)
 		    },
 		 ),
 		  voteEnded: PublicState::new(
 		    context, 
-            3, 
-            BoolSerializationMethods,
+            3
 		)
 	    } }
 	}

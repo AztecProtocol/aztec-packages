@@ -6,6 +6,7 @@ use dep::protocol_types::{
         GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
     },
     hash::pedersen_hash,
+    traits::{Serialize, Deserialize},
 };
 
 use crate::context::{PrivateContext, PublicContext, Context};
@@ -36,7 +37,6 @@ pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Op
 struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
-    note_interface: NoteInterface<Note, N>,
     compute_initialization_nullifier: fn (Field, Option<AztecAddress>) -> Field,
 }
 // docs:end:struct
@@ -46,13 +46,11 @@ impl<Note, N> Singleton<Note, N> {
     pub fn new(
         context: Context,
         storage_slot: Field,
-        note_interface: NoteInterface<Note, N>,
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Singleton {
             context: context.private,
             storage_slot,
-            note_interface,
             compute_initialization_nullifier: compute_singleton_initialization_nullifier,
         }
     }
@@ -72,7 +70,7 @@ impl<Note, N> Singleton<Note, N> {
         note: &mut Note,
         owner: Option<AztecAddress>,
         broadcast: bool,
-    ) {
+    ) where Note: NoteInterface + Serialize<N> + Deserialize<N> {
         let context = self.context.unwrap();
 
         // Nullify the storage slot.
@@ -80,7 +78,7 @@ impl<Note, N> Singleton<Note, N> {
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, 0);
 
-        create_note(context, self.storage_slot, note, self.note_interface, broadcast);
+        create_note(context, self.storage_slot, note, broadcast);
     }
     // docs:end:initialize
 
@@ -89,38 +87,38 @@ impl<Note, N> Singleton<Note, N> {
         self,
         new_note: &mut Note,
         broadcast: bool,
-    ) {
+    ) where Note: NoteInterface + Serialize<N> + Deserialize<N> {
         let context = self.context.unwrap();
-        let prev_note = get_note(context, self.storage_slot, self.note_interface);
+        let prev_note = get_note(context, self.storage_slot);
 
         // Nullify previous note.
-        destroy_note(context, prev_note, self.note_interface);
+        destroy_note(context, prev_note);
 
         // Add replacement note.
-        create_note(context, self.storage_slot, new_note, self.note_interface, broadcast);
+        create_note(context, self.storage_slot, new_note, broadcast);
     }
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note(self, broadcast: bool) -> Note {
+    pub fn get_note(self, broadcast: bool) -> Note where Note: NoteInterface + Serialize<N> + Deserialize<N> {
         let context = self.context.unwrap();
-        let mut note = get_note(context, self.storage_slot, self.note_interface);
+        let mut note = get_note(context, self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note(context, note, self.note_interface);
+        destroy_note(context, note);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(context, self.storage_slot, &mut note, self.note_interface, broadcast);
+        create_note(context, self.storage_slot, &mut note, broadcast);
 
         note
     }
     // docs:end:get_note
 
     // docs:start:view_note
-    unconstrained pub fn view_note(self) -> Note {
+    unconstrained pub fn view_note(self) -> Note where Note: NoteInterface + Deserialize<N> {
         let options = NoteViewerOptions::new().set_limit(1);
-        view_notes(self.storage_slot, self.note_interface, options)[0].unwrap()
+        view_notes(self.storage_slot, options)[0].unwrap()
     }
     // docs:end:view_note
 }

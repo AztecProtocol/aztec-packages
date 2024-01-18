@@ -24,7 +24,7 @@ use dep::aztec::oracle::{
     get_public_key::get_public_key,
 };
 
-use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
+use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN};
 
 // A set implementing standard manipulation of balances.
 // Does not require spending key, but only knowledge.
@@ -41,7 +41,6 @@ impl BalanceSet {
     let set = Set {
         context,
         storage_slot,
-        note_interface: TokenNoteMethods,
     };
     Self {
         context,

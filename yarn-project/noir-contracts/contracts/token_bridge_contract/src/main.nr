@@ -19,7 +19,6 @@ contract TokenBridge {
         context::{Context},
         hash::{compute_secret_hash},
         state_vars::{public_state::PublicState},
-        types::type_serialization::address_serialization::AddressSerializationMethods,
     };
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
@@ -38,8 +37,7 @@ contract TokenBridge {
             Storage {
                 token: PublicState::new(
                     context,
-                    1,
-                    AddressSerializationMethods,
+                    1
                 ),
             }
         }

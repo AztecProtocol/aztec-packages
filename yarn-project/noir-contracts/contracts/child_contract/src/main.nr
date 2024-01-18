@@ -7,7 +7,7 @@ contract Child {
         context::{PrivateContext, PublicContext, Context},
         log::emit_unencrypted_log,
         state_vars::public_state::PublicState,
-        types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
+        protocol_types::type_serialization::FIELD_SERIALIZED_LEN
     };
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
@@ -24,7 +24,6 @@ contract Child {
                 current_value: PublicState::new(
                     context,
                     1,
-                    FieldSerializationMethods,
                 ),
             }
         }

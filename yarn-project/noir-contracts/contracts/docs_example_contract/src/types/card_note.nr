@@ -1,4 +1,3 @@
-use dep::aztec::protocol_types::address::AztecAddress;
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -12,6 +11,10 @@ use dep::aztec::{
     log::emit_encrypted_log,
     hash::pedersen_hash,
     context::PrivateContext,
+    protocol_types::{
+        address::AztecAddress,
+        traits::{Serialize, Deserialize, Empty}
+    }
 };
 
 global CARD_NOTE_LEN: Field = 3;
@@ -25,21 +28,14 @@ struct CardNote {
 }
 // docs:end:state_vars-CardNote
 
-impl CardNote {
-    pub fn new(points: u8, secret: Field, owner: AztecAddress) -> Self {
-        CardNote {
-            points,
-            secret,
-            owner,
-            header: NoteHeader::empty(),
-        }
-    }
-
-    pub fn serialize(self) -> [Field; CARD_NOTE_LEN] {
+impl Serialize<CARD_NOTE_LEN> for CardNote {
+    fn serialize(self) -> [Field; CARD_NOTE_LEN] {
         [self.points as Field, self.secret, self.owner.to_field()]
     }
+}
 
-    pub fn deserialize(serialized_note: [Field; CARD_NOTE_LEN]) -> Self {
+impl Deserialize<CARD_NOTE_LEN> for CardNote {
+    fn deserialize(serialized_note: [Field; CARD_NOTE_LEN]) -> Self {
         CardNote {
             points: serialized_note[0] as u8,
             secret: serialized_note[1],
@@ -47,8 +43,10 @@ impl CardNote {
             header: NoteHeader::empty(),
         }
     }
+}
 
-    pub fn compute_note_hash(self) -> Field {
+impl NoteInterface for CardNote {
+    fn compute_note_hash(self) -> Field {
         pedersen_hash([
             self.points as Field, 
             self.secret,
@@ -56,8 +54,8 @@ impl CardNote {
         ],0)
     }
 
-    pub fn compute_nullifier(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(CardNoteMethods, self);
+    fn compute_nullifier(self) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
         let secret = get_secret_key(self.owner);
         pedersen_hash([
             note_hash_for_nullify,
@@ -66,12 +64,16 @@ impl CardNote {
         ],0)
     }
 
-    pub fn set_header(&mut self, header: NoteHeader) {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
 
+    fn get_header(note: CardNote) -> NoteHeader {
+        note.header
+    }
+
     // Broadcasts the note as an encrypted log on L1.
-    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
         emit_encrypted_log(
             context,
@@ -83,41 +85,13 @@ impl CardNote {
     }
 }
 
-fn deserialize(serialized_note: [Field; CARD_NOTE_LEN]) -> CardNote {
-    CardNote::deserialize(serialized_note)
+impl CardNote {
+    pub fn new(points: u8, secret: Field, owner: AztecAddress) -> Self {
+        CardNote {
+            points,
+            secret,
+            owner,
+            header: NoteHeader::empty(),
+        }
+    }
 }
-
-fn serialize(note: CardNote) -> [Field; CARD_NOTE_LEN] {
-    note.serialize()
-}
-
-fn compute_note_hash(note: CardNote) -> Field {
-    note.compute_note_hash()
-}
-
-fn compute_nullifier(note: CardNote) -> Field {
-    note.compute_nullifier()
-}
-
-fn get_header(note: CardNote) -> NoteHeader {
-    note.header
-}
-
-fn set_header(note: &mut CardNote, header: NoteHeader) {
-    note.set_header(header)
-}
-
-// Broadcasts the note as an encrypted log on L1.
-fn broadcast(context: &mut PrivateContext, slot: Field, note: CardNote) {
-    note.broadcast(context, slot);
-}
-
-global CardNoteMethods = NoteInterface {
-    deserialize,
-    serialize,
-    compute_note_hash,
-    compute_nullifier,
-    get_header,
-    set_header,
-    broadcast,
-};

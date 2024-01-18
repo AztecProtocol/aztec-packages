@@ -1,5 +1,8 @@
 use dep::aztec::{
-    protocol_types::address::AztecAddress,
+    protocol_types::{
+        address::AztecAddress,
+        traits::{Deserialize, Serialize}
+    },
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
@@ -26,23 +29,14 @@ struct ValueNote {
 }
 // docs:end:value-note-def
 
-impl ValueNote {
-    pub fn new(value: Field, owner: AztecAddress) -> Self {
-        let randomness = rand();
-        let header = NoteHeader::empty();
-        ValueNote {
-            value,
-            owner,
-            randomness,
-            header,
-        }
-    }
-
-    pub fn serialize(self) -> [Field; VALUE_NOTE_LEN] {
+impl Serialize<VALUE_NOTE_LEN> for ValueNote {
+    fn serialize(self) -> [Field; VALUE_NOTE_LEN] {
         [self.value, self.owner.to_field(), self.randomness]
     }
+}
 
-    pub fn deserialize(serialized_note: [Field; VALUE_NOTE_LEN]) -> Self {
+impl Deserialize<VALUE_NOTE_LEN> for ValueNote {
+    fn deserialize(serialized_note: [Field; VALUE_NOTE_LEN]) -> Self {
         ValueNote {
             value: serialized_note[0],
             owner: AztecAddress::from_field(serialized_note[1]),
@@ -50,16 +44,19 @@ impl ValueNote {
             header: NoteHeader::empty(),
         }
     }
+}
 
-    pub fn compute_note_hash(self) -> Field {
+impl NoteInterface for ValueNote {
+
+    fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash(self.serialize(),0)
     }
 
     // docs:start:nullifier
 
-    pub fn compute_nullifier(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ValueNoteMethods, self);
+    fn compute_nullifier(self) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
         let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -71,12 +68,16 @@ impl ValueNote {
 
     // docs:end:nullifier
 
-    pub fn set_header(&mut self, header: NoteHeader) {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
 
+    fn get_header(self) -> NoteHeader {
+        self.header
+    }
+
     // Broadcasts the note as an encrypted log on L1.
-    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
         emit_encrypted_log(
             context,
@@ -88,41 +89,15 @@ impl ValueNote {
     }
 }
 
-fn deserialize(serialized_note: [Field; VALUE_NOTE_LEN]) -> ValueNote {
-    ValueNote::deserialize(serialized_note)
+impl ValueNote {
+    pub fn new(value: Field, owner: AztecAddress) -> Self {
+        let randomness = rand();
+        let header = NoteHeader::empty();
+        ValueNote {
+            value,
+            owner,
+            randomness,
+            header,
+        }
+    }
 }
-
-fn serialize(note: ValueNote) -> [Field; VALUE_NOTE_LEN] {
-    note.serialize()
-}
-
-fn compute_note_hash(note: ValueNote) -> Field {
-    note.compute_note_hash()
-}
-
-fn compute_nullifier(note: ValueNote) -> Field {
-    note.compute_nullifier()
-}
-
-fn get_header(note: ValueNote) -> NoteHeader {
-    note.header
-}
-
-fn set_header(note: &mut ValueNote, header: NoteHeader) {
-    note.set_header(header)
-}
-
-// Broadcasts the note as an encrypted log on L1.
-fn broadcast(context: &mut PrivateContext, slot: Field, note: ValueNote) {
-    note.broadcast(context, slot);
-}
-
-global ValueNoteMethods = NoteInterface {
-    deserialize,
-    serialize,
-    compute_note_hash,
-    compute_nullifier,
-    get_header,
-    set_header,
-    broadcast,
-};

@@ -23,13 +23,9 @@ contract Lending {
             map::Map,
             public_state::PublicState,
         },
-        types::type_serialization::{
-            field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
-            TypeSerializationInterface,
-            address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
-        },
+        protocol_types::type_serialization::FIELD_SERIALIZED_LEN
     };
-    use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerializationMethods};
+    use crate::asset::{ASSET_SERIALIZED_LEN, Asset};
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
@@ -48,13 +44,11 @@ contract Lending {
             Storage {
                 collateral_asset: PublicState::new(
                     context,
-                    1,
-                    AddressSerializationMethods,
+                    1
                 ),
                 stable_coin: PublicState::new(
                     context,
-                    2,
-                    AddressSerializationMethods,
+                    2
                 ),
                 assets: Map::new(
                     context,
@@ -62,8 +56,7 @@ contract Lending {
                     |context, slot| {
                         PublicState::new(
                             context,
-                            slot,
-                            AssetSerializationMethods,
+                            slot
                         )
                     },
                 ),
@@ -73,8 +66,7 @@ contract Lending {
                     |context, slot| {
                         PublicState::new(
                             context,
-                            slot,
-                            FieldSerializationMethods,
+                            slot
                         )
                     },
                 ),
@@ -84,8 +76,7 @@ contract Lending {
                     |context, slot| {
                         PublicState::new(
                             context,
-                            slot,
-                            FieldSerializationMethods,
+                            slot
                         )
                     },
                 ),

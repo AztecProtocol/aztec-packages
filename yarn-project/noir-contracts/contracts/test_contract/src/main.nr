@@ -34,7 +34,7 @@ contract Test {
         types::vec::BoundedVec,
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
-    use dep::field_note::field_note::{FieldNote, FieldNoteMethods, FIELD_NOTE_LEN};
+    use dep::field_note::field_note::{FieldNote, FIELD_NOTE_LEN};
 
     #[event]
     struct ExampleEvent {
@@ -48,7 +48,7 @@ contract Test {
     impl Storage {
         fn init(context: Context) -> Self {
             Storage {
-                example_constant: ImmutableSingleton::new(context, 1, FieldNoteMethods),
+                example_constant: ImmutableSingleton::new(context, 1),
             }
         }
     }
@@ -242,6 +242,6 @@ contract Test {
     ) -> pub [Field; 4] {
         assert(storage_slot == 1);
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(FieldNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize, note_header, serialized_note)
     }
 }
