@@ -4,6 +4,7 @@ import { dirname, resolve } from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
+import HtmlWebPackPlugin from 'html-webpack-plugin';
 
 const require = createRequire(import.meta.url);
 

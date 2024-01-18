@@ -5,10 +5,9 @@
   "type": "module",
   "main": "./dest/index.js",
   "scripts": {
-    "build": "yarn clean && yarn compile && yarn codegen && tsc -b && webpack",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/artifacts ./src/contracts/target",
-    "start": "serve -p 3000 ./dest",
-    "start:dev": "webpack serve --mode=development",
+    "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
+    "start:dev": "yarn prep && webpack serve --mode development",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
@@ -32,11 +31,12 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/accounts": "^0.16.9",
+    "@aztec/accounts": "0.19.0",
     "@aztec/aztec-ui": "^0.1.14",
-    "@aztec/aztec.js": "^0.16.9",
+    "@aztec/aztec.js": "0.19.0",
     "classnames": "^2.3.2",
     "formik": "^2.4.3",
+    "html-webpack-plugin": "^5.6.0",
     "node-sass": "^9.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -75,7 +75,7 @@
     "tty-browserify": "^0.0.1",
     "typescript": "^5.0.4",
     "util": "^0.12.5",
-    "webpack": "^5.88.2",
+    "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1"
   },

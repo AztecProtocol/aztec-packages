@@ -19,7 +19,7 @@
     "resolveJsonModule": true,
     "composite": true,
     "skipLibCheck": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
   },
-  "include": ["src", "src/contracts/target/*.json"]
+  "include": ["src", "src/contracts/target/*.json", "src/artifacts/*.json"],
 }
