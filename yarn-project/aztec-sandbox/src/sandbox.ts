@@ -1,29 +1,9 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecNode } from '@aztec/circuit-types';
-import {
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
-  NULL_KEY,
-  createEthereumChain,
-  deployL1Contracts,
-} from '@aztec/ethereum';
+import { DeployL1Contracts, NULL_KEY, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
-  ContractDeploymentEmitterAbi,
-  ContractDeploymentEmitterBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-} from '@aztec/l1-artifacts';
 import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
@@ -75,36 +55,9 @@ async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Pro
  * @param hdAccount - Account for publishing L1 contracts
  */
 export async function deployContractsToL1(aztecNodeConfig: AztecNodeConfig, hdAccount: HDAccount) {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    contractDeploymentEmitter: {
-      contractAbi: ContractDeploymentEmitterAbi,
-      contractBytecode: ContractDeploymentEmitterBytecode,
-    },
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-  };
-
   aztecNodeConfig.l1Contracts = (
     await waitThenDeploy(aztecNodeConfig, () =>
-      deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger, l1Artifacts),
+      deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger),
     )
   ).l1ContractAddresses;
 

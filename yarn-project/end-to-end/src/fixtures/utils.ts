@@ -8,7 +8,6 @@ import {
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
-  L1ContractArtifactsForDeployment,
   L2BlockL2Logs,
   LogType,
   PXE,
@@ -19,34 +18,11 @@ import {
   deployL1Contracts,
   waitForPXE,
 } from '@aztec/aztec.js';
-import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
-  ContractDeploymentEmitterAbi,
-  ContractDeploymentEmitterBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-} from '@aztec/l1-artifacts';
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
 
 import * as path from 'path';
-import {
-  Account,
-  Chain,
-  HDAccount,
-  HttpTransport,
-  PrivateKeyAccount,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
+import { Account, Chain, HDAccount, HttpTransport, createPublicClient, createWalletClient, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
@@ -65,40 +41,6 @@ const getAztecNodeUrl = () => {
   const url = new URL(PXE_URL);
   url.port = '8079';
   return url.toString();
-};
-
-export const setupL1Contracts = async (
-  l1RpcUrl: string,
-  account: HDAccount | PrivateKeyAccount,
-  logger: DebugLogger,
-) => {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    contractDeploymentEmitter: {
-      contractAbi: ContractDeploymentEmitterAbi,
-      contractBytecode: ContractDeploymentEmitterBytecode,
-    },
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-  };
-  return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);
 };
 
 /**
@@ -282,7 +224,7 @@ export async function setup(
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, hdAccount, logger));
+    opts.deployL1ContractsValues ?? (await deployL1Contracts(config.rpcUrl, hdAccount, localAnvil, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;

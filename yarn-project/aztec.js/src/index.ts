@@ -125,12 +125,7 @@ export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 export { FieldsOf } from '@aztec/foundation/types';
 
-export {
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
-  deployL1Contract,
-  deployL1Contracts,
-} from '@aztec/ethereum';
+export { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 
 // Start of section that exports public api via granular api.
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.

@@ -26,7 +26,7 @@ import {
   makeNewSideEffectLinkedToNoteHash,
   makeProof,
 } from '@aztec/circuits.js/factories';
-import { createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -60,7 +60,7 @@ import {
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { setupL1Contracts } from './fixtures/utils.js';
+import { localAnvil } from './fixtures/fixtures.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -104,12 +104,12 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    const {
-      l1ContractAddresses,
-      walletClient,
-      publicClient: publicClient_,
-    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
-    publicClient = publicClient_;
+    const { walletClient, publicClient, l1ContractAddresses } = await deployL1Contracts(
+      config.rpcUrl,
+      deployerAccount,
+      localAnvil,
+      logger,
+    );
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());

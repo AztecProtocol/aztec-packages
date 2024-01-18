@@ -1,10 +1,8 @@
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
-import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { NoirPackageConfig } from '@aztec/foundation/noir';
-import { AvailabilityOracleAbi, AvailabilityOracleBytecode } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
@@ -47,50 +45,12 @@ export async function deployAztecContracts(
   mnemonic: string,
   debugLogger: DebugLogger,
 ) {
-  const {
-    ContractDeploymentEmitterAbi,
-    ContractDeploymentEmitterBytecode,
-    InboxAbi,
-    InboxBytecode,
-    OutboxAbi,
-    OutboxBytecode,
-    RegistryAbi,
-    RegistryBytecode,
-    RollupAbi,
-    RollupBytecode,
-  } = await import('@aztec/l1-artifacts');
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey ? mnemonicToAccount(mnemonic!) : privateKeyToAccount(`0x${privateKey}`);
   const chain = createEthereumChain(rpcUrl, apiKey);
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    contractDeploymentEmitter: {
-      contractAbi: ContractDeploymentEmitterAbi,
-      contractBytecode: ContractDeploymentEmitterBytecode,
-    },
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-  };
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts);
+  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger);
 }
 
 /**
