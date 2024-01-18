@@ -28,10 +28,12 @@ export type MinimalTransactionReceipt = {
   status: boolean;
   /** Hash of the transaction. */
   transactionHash: string;
-  /** Effective gas used by the tx */
+  /** Effective gas used by the tx. */
   gasUsed: bigint;
-  /** Effective gas price paid by the tx */
+  /** Effective gas price paid by the tx. */
   gasPrice: bigint;
+  /** Logs emitted in this tx. */
+  logs: any[];
 };
 
 /**
@@ -154,6 +156,7 @@ export class L1Publisher implements L2BlockReceiver {
 
     const encodedBody = block.bodyToBuffer();
 
+    // Publish block body
     while (!this.interrupted) {
       if (await this.txSender.checkIfBodyIsAvailable(block)) {
         this.log(`Body of a block ${block.number} already published.`);
@@ -171,7 +174,15 @@ export class L1Publisher implements L2BlockReceiver {
       }
 
       if (receipt.status) {
-        this.log.info(`Block body published`);
+        let txsHash;
+        if (receipt.logs.length === 1) {
+          // txsHash from IAvailabilityOracle.BlockPublished event
+          txsHash = receipt.logs[0].data;
+        } else {
+          this.log(`Expected 1 log, got ${receipt.logs.length}`);
+        }
+
+        this.log.info(`Block body published, txsHash: ${txsHash}`);
         break;
       }
 
@@ -187,6 +198,7 @@ export class L1Publisher implements L2BlockReceiver {
       proof: Buffer.alloc(0),
     };
 
+    // Process block
     while (!this.interrupted) {
       const txHash = await this.sendProcessTx(processTxArgs);
       if (!txHash) {

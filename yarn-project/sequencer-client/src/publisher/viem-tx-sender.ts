@@ -125,6 +125,7 @@ export class ViemTxSender implements L1PublisherTxSender {
         transactionHash: txHash,
         gasUsed: receipt.gasUsed,
         gasPrice: receipt.effectiveGasPrice,
+        logs: receipt.logs,
       };
     }
 

@@ -3,7 +3,7 @@
 pragma solidity >=0.8.18;
 
 interface IAvailabilityOracle {
-  event BodyPublished(bytes32 indexed txsHash);
+  event BodyPublished(bytes32 txsHash);
 
   function publish(bytes calldata _body) external returns (bytes32);
 
