@@ -6,14 +6,15 @@
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-namespace barretenberg {
+namespace barretenberg::field_conversion_utils {
 // convert bn254::frs to grumpkin::fr
 
 static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
 
 std::array<uint64_t, 2> inline decompose_bn254_fr_to_two_limbs(const barretenberg::fr& field_val)
 {
-    ASSERT(field_val < (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits, technically 127 or less
+    ASSERT(uint256_t(field_val) <
+           (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits, technically 127 or less
     // split bn254_fr into two 64 bit limbs
     constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_CONVERSION_LIMB_BITS) - 1;
     const uint256_t value = field_val;
@@ -251,9 +252,9 @@ template <typename T> constexpr size_t calc_num_frs()
     } else if constexpr (std::is_same_v<T, barretenberg::fr> || std::is_integral_v<T> || std::is_same_v<T, bool>) {
         return 1;
     } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
-        return 2 * calc_num_frs<barretenberg::fr>();
-    } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
         return 2 * calc_num_frs<grumpkin::fr>();
+    } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
+        return 2 * calc_num_frs<barretenberg::fr>();
     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
         return 43;
     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
@@ -345,20 +346,25 @@ T<U, TT> inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
 template <typename T> T inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
 {
     // TODO: possibly merge this with calc_num_frs()
-    if constexpr (std::is_same_v<T, bool>) {
+    if constexpr (std::is_same_v<T, bool>) { // TODO: add asserts for correct lengths
+        ASSERT(fr_vec.size() == 1);
         T val{ fr_vec[0] != 0 };
         return val;
     } else if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
+        ASSERT(fr_vec.size() == 1);
         T val{ fr_vec[0] };
         return val;
     } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
+        ASSERT(fr_vec.size() == 2);
         return convert_barretenberg_fr_to_grumpkin_fr(fr_vec[0], fr_vec[1]);
     } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
+        ASSERT(fr_vec.size() == 4);
         curve::BN254::AffineElement val;
-        val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec);
-        val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec);
+        val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(0, 2));
+        val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(2, 2));
         return val;
     } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
+        ASSERT(fr_vec.size() == 2);
         curve::Grumpkin::AffineElement val;
         val.x = fr_vec[0];
         val.y = fr_vec[1];
@@ -499,4 +505,4 @@ template <typename AllValues> std::vector<barretenberg::fr> inline convert_to_bn
 
 // now convert_from_bn254_frs
 
-} // namespace barretenberg
+} // namespace barretenberg::field_conversion_utils

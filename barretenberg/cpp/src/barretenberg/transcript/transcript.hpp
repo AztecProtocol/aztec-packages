@@ -122,7 +122,7 @@ class BaseTranscript {
             is_first_challenge = false;
         }
         if (!current_round_data.empty()) {
-            // full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
+            full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
             current_round_data.clear(); // clear the round data buffer since it has been used
         }
 
@@ -275,7 +275,7 @@ class BaseTranscript {
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
         // convert element to field elements
-        auto element_frs = barretenberg::convert_to_bn254_frs(element);
+        auto element_frs = barretenberg::field_conversion_utils::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
 
 #ifdef LOG_INTERACTIONS
@@ -294,7 +294,8 @@ class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        constexpr size_t element_size = barretenberg::calc_num_frs<T>(); // TODO: need to change calculation
+        constexpr size_t element_size =
+            barretenberg::field_conversion_utils::calc_num_frs<T>(); // TODO: need to change calculation
         ASSERT(num_frs_read + element_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
@@ -303,7 +304,7 @@ class BaseTranscript {
         BaseTranscript::consume_prover_element_frs(label, element_frs);
 
         // T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
-        auto element = barretenberg::convert_from_bn254_frs<T>(element_frs);
+        auto element = barretenberg::field_conversion_utils::convert_from_bn254_frs<T>(element_frs);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {

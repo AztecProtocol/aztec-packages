@@ -38,12 +38,14 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
         auto log_n = numeric::get_msb(circuit_size);
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+        size_t size_Fr = 2;
+        size_t size_Fq = 1;
+        size_t size_G = 2 * size_Fq;
+        size_t size_uni = MAX_PARTIAL_RELATION_LENGTH * size_Fr;
+        size_t size_evals = (Flavor::NUM_ALL_ENTITIES)*size_Fr;
+        size_t size_uint32 = 1;
         size_t size_FF = sizeof(FF);
-        size_t size_G = 2 * size_FF;
-        size_t size_uni = MAX_PARTIAL_RELATION_LENGTH * size_FF;
-        size_t size_evals = (Flavor::NUM_ALL_ENTITIES)*size_FF;
-        size_t size_uint32 = 4;
-        size_t size_uint64 = 8;
+        size_t size_uint64 = 1;
 
         size_t round = 0;
         manifest_expected.add_entry(round, "circuit_size", size_uint32);

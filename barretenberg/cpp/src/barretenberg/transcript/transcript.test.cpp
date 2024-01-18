@@ -25,26 +25,26 @@ TEST(BaseTranscript, TwoProversTwoFields)
     EXPECT_STATE(prover_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 0);
     Fr elt_a = 1377;
     prover_transcript.send_to_verifier("a", elt_a);
-    EXPECT_STATE(prover_transcript, /*start*/ 0, /*written*/ 32, /*read*/ 0);
+    EXPECT_STATE(prover_transcript, /*start*/ 0, /*written*/ 1, /*read*/ 0);
     Transcript verifier_transcript{ prover_transcript.export_proof() };
     // export resets read/write state and sets start in prep for next export
-    EXPECT_STATE(prover_transcript, /*start*/ 32, /*written*/ 0, /*read*/ 0);
+    EXPECT_STATE(prover_transcript, /*start*/ 1, /*written*/ 0, /*read*/ 0);
     // state initializes to zero
     EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 0);
     Fr received_a = verifier_transcript.receive_from_prover<Fr>("a");
-    // receiving is reading bytes input and writing them to an internal proof_data buffer
-    EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 32, /*read*/ 32);
+    // receiving is reading frs input and writing them to an internal proof_data buffer
+    EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 1, /*read*/ 1);
     EXPECT_EQ(received_a, elt_a);
 
     Fq elt_b = 773;
     prover_transcript.send_to_verifier("b", elt_b);
-    EXPECT_STATE(prover_transcript, /*start*/ 32, /*written*/ 32, /*read*/ 0);
+    EXPECT_STATE(prover_transcript, /*start*/ 1, /*written*/ 2, /*read*/ 0);
     verifier_transcript.load_proof(prover_transcript.export_proof());
-    EXPECT_STATE(prover_transcript, /*start*/ 64, /*written*/ 0, /*read*/ 0);
+    EXPECT_STATE(prover_transcript, /*start*/ 3, /*written*/ 0, /*read*/ 0);
     // load proof is not an action by a prover or verifeir, so it does not change read/write counts
-    EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 32, /*read*/ 32);
+    EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 1, /*read*/ 1);
     Fq received_b = verifier_transcript.receive_from_prover<Fq>("b");
-    EXPECT_STATE(verifier_transcript, 0, 64, 64);
+    EXPECT_STATE(verifier_transcript, 0, 3, 3);
     EXPECT_EQ(received_b, elt_b);
 }
 
