@@ -105,8 +105,11 @@ class Goblin {
 
         // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;
-        auto instance = composer.create_prover_instance(circuit_builder);
-        auto prover = composer.create_prover(instance);
+        auto prover_instance = composer.create_prover_instance(circuit_builder);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/831): SRS is too small if the verifier instance is
+        // created after merge proving.
+        auto verifier_instance = composer.create_verifier_instance(prover_instance);
+        auto prover = composer.create_prover(prover_instance);
         auto ultra_proof = prover.construct_proof();
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
@@ -116,9 +119,6 @@ class Goblin {
         if (!merge_proof_exists) {
             merge_proof_exists = true;
         }
-
-        // WORKTODO: proper handling
-        auto verifier_instance = composer.create_verifier_instance(instance);
 
         return { ultra_proof, verifier_instance->verification_key };
     };
