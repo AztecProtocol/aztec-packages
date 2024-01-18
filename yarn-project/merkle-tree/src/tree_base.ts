@@ -310,10 +310,8 @@ export abstract class TreeBase implements MerkleTree {
       this.cache[cacheKey] = leaves[i];
     }
 
-    // changed here
+    // changed here, i.e. why not do this
     let lastIndex = firstIndex + BigInt(leaves.length - 1);
-
-    // let lastIndex = firstIndex + BigInt(leaves.length);
 
     // 2. Iterate over all the levels from the bottom up
     while (level > 0) {
