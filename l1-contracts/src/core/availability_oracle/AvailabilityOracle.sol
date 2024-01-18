@@ -24,6 +24,9 @@ contract AvailabilityOracle is IAvailabilityOracle {
   function publish(bytes calldata _body) external override(IAvailabilityOracle) returns (bytes32) {
     bytes32 _txsHash = TxsDecoder.decode(_body);
     isAvailable[_txsHash] = true;
+
+    emit BodyPublished(_txsHash);
+
     return _txsHash;
   }
 }
