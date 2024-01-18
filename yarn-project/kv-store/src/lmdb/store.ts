@@ -9,7 +9,7 @@ import { AztecMap, AztecMultiMap } from '../interfaces/map.js';
 import { AztecSingleton } from '../interfaces/singleton.js';
 import { AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
-import { LMDBCounter } from './counter.js';
+import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap } from './map.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
@@ -91,7 +91,7 @@ export class AztecLmdbStore implements AztecKVStore {
   }
 
   createCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
-    return new LMDBCounter(this.#data, name);
+    return new LmdbAztecCounter(this.#data, name);
   }
 
   /**

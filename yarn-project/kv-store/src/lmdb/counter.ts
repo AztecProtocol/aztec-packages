@@ -9,7 +9,7 @@ type CountMapKey<K> = ['count_map', string, 'slot', K];
 /**
  * A counter implementation backed by LMDB
  */
-export class LMDBCounter<K extends Key> implements AztecCounter<K> {
+export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
   #db: Database<[K, number], CountMapKey<K>>;
   #name: string;
 
@@ -33,9 +33,16 @@ export class LMDBCounter<K extends Key> implements AztecCounter<K> {
       const slot = this.#slot(key);
       const [_, current] = this.#db.get(slot) ?? [key, 0];
       const next = current + delta;
+
+      if (next < 0) {
+        throw new Error(`Cannot update ${key} in counter ${this.#name} below zero`);
+      }
+
       if (next === 0) {
         void this.#db.remove(slot);
       } else {
+        // store the key inside the entry because LMDB might return an internal representation
+        // of the key when iterating over the database
         void this.#db.put(slot, [key, next]);
       }
 
