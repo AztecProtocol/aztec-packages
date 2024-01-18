@@ -76,6 +76,7 @@ async function initGoblin(bytecodePath: string, crsPath: string) {
   const hardcodedGrumpkinSubgroupSizeHack = 262144;
   const initData = await init(bytecodePath, crsPath, hardcodedGrumpkinSubgroupSizeHack);
   const { api } = initData;
+  initData.acirComposer = await api.acirNewGoblinAcirComposer();
 
   // Plus 1 needed! (Move +1 into Crs?)
   // Need both grumpkin and bn254 SRS's currently

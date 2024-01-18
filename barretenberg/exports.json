@@ -467,6 +467,17 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_new_goblin_acir_composer",
+    "inArgs": [],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "out_ptr"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_delete_acir_composer",
     "inArgs": [
       {

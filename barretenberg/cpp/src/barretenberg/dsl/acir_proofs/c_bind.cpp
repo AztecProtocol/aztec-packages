@@ -27,6 +27,11 @@ WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
     *out = new acir_proofs::AcirComposer(ntohl(*size_hint));
 }
 
+WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out)
+{
+    *out = new acir_proofs::GoblinAcirComposer();
+}
+
 WASM_EXPORT void acir_delete_acir_composer(in_ptr acir_composer_ptr)
 {
     delete reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
