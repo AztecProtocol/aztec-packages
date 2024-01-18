@@ -55,7 +55,7 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = '' } = process.env;
 
 const getAztecUrl = () => {
   return PXE_URL;
