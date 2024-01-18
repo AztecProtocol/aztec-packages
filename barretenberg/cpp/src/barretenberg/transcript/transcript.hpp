@@ -122,7 +122,7 @@ class BaseTranscript {
             is_first_challenge = false;
         }
         if (!current_round_data.empty()) {
-            full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
+            // full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
             current_round_data.clear(); // clear the round data buffer since it has been used
         }
 
