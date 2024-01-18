@@ -16,7 +16,7 @@ pub fn create_note<Note, N>(
     storage_slot: Field,
     note: &mut Note,
     broadcast: bool
-) where Note: NoteInterface + Serialize<N> + Deserialize<N> {
+) -> [Field; N] where Note: NoteInterface + Serialize<N> + Deserialize<N> {
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
@@ -31,6 +31,8 @@ pub fn create_note<Note, N>(
     if broadcast {
         Note::broadcast(*note, context, storage_slot);
     }
+    // TODO: Not returning the serialized not makes the compiler crash
+    serialized_note
 }
 
 pub fn create_note_hash_from_public<Note, N>(context: &mut PublicContext, storage_slot: Field, note: &mut Note) where Note: NoteInterface {
