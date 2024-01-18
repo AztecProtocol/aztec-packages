@@ -3,8 +3,7 @@
 
 using namespace bb;
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief Constrain accumulators
@@ -394,5 +393,4 @@ template class uint<bb::StandardCircuitBuilder, uint16_t>;
 template class uint<bb::StandardCircuitBuilder, uint32_t>;
 template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

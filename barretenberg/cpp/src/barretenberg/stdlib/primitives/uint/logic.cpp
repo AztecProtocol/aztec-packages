@@ -3,8 +3,7 @@
 
 using namespace bb;
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::operator&(const uint& other) const
@@ -527,5 +526,4 @@ template class uint<bb::StandardCircuitBuilder, uint16_t>;
 template class uint<bb::StandardCircuitBuilder, uint32_t>;
 template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

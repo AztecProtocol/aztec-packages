@@ -11,8 +11,7 @@
 
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename T> class bigfield {
 
@@ -497,7 +496,6 @@ template <typename C, typename T> inline std::ostream& operator<<(std::ostream& 
     return os << v.get_value();
 }
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib
 
 #include "bigfield_impl.hpp"

@@ -3,8 +3,7 @@
 #include "../uint/uint.hpp"
 #include <algorithm>
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder> class bit_array {
   public:
@@ -179,5 +178,4 @@ template <typename Builder> class bit_array {
     std::vector<bool_t<Builder>> values;
 };
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

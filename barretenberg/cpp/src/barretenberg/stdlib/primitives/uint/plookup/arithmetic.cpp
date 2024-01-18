@@ -3,8 +3,7 @@
 
 using namespace bb;
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename Native>
 uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator+(const uint_plookup& other) const
@@ -264,5 +263,4 @@ template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint32_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
 ;
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

@@ -3,8 +3,7 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder>
 
@@ -243,5 +242,4 @@ template class safe_uint_t<bb::StandardCircuitBuilder>;
 template class safe_uint_t<bb::UltraCircuitBuilder>;
 template class safe_uint_t<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

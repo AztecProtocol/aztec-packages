@@ -1,9 +1,7 @@
 #pragma once
 #include "../../primitives/field/field.hpp"
 
-namespace bb {
-namespace stdlib {
-namespace recursion {
+namespace bb::stdlib::recursion {
 
 /**
  * Aggregation state contains the following:
@@ -107,6 +105,4 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, aggregation_s
               << "has_data: " << as.has_data << "\n";
 }
 
-} // namespace recursion
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib::recursion

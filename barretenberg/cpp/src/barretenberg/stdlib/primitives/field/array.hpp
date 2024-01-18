@@ -3,8 +3,7 @@
 #include "../safe_uint/safe_uint.hpp"
 #include "field.hpp"
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * Gets the number of contiguous nonzero values of an array from the start.
@@ -175,5 +174,4 @@ void push_array_to_array(std::array<field_t<Builder>, size_1> const& source,
     }
 }
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

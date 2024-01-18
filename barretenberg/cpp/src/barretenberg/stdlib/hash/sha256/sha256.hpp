@@ -7,8 +7,7 @@
 #include <array>
 // namespace bb
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 template <typename Builder> class bit_array;
 
 template <typename Builder>
@@ -24,5 +23,4 @@ template <typename Builder> field_t<Builder> sha256_to_field(const packed_byte_a
     return slices[1] + (slices[0] * (uint256_t(1) << 128));
 }
 
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib

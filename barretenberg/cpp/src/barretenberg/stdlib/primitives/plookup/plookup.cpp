@@ -7,8 +7,7 @@ namespace bb {
 class UltraPlonkBuilder;
 } // namespace bb
 
-namespace bb {
-namespace stdlib {
+namespace bb::stdlib {
 
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
@@ -93,5 +92,4 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
 
 template class plookup_read<bb::UltraCircuitBuilder>;
 template class plookup_read<bb::GoblinUltraCircuitBuilder>;
-} // namespace stdlib
-} // namespace bb
+} // namespace bb::stdlib
