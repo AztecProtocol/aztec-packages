@@ -40,8 +40,25 @@ class HonkAcirComposer {
      */
     bool verify_accumulator(std::vector<uint8_t> const& proof);
 
+    /**
+     * @brief Accumulate a final circuit and construct a full Goblin proof
+     * @details Accumulation means constructing a GUH proof of a single (final) circuit. A full Goblin proof consists of
+     * a merge proof, an ECCVM proof and a Translator proof. The Goblin proof is only constructed at the end of the
+     * accumulation phase and establishes the correctness of the ECC operations written to the op queue throughout the
+     * accumulation phase.
+     *
+     */
+    std::vector<uint8_t> accumulate_and_prove();
+
+    /**
+     * @brief Verify the final GUH proof and the full Goblin proof
+     *
+     * @return bool verified
+     */
+    bool verify(std::vector<uint8_t> const& proof);
+
   private:
-    acir_format::GoblinBuilder goblin_builder_;
+    acir_format::GoblinBuilder builder_;
     Goblin goblin;
     bool verbose_ = true;
 

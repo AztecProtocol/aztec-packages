@@ -163,6 +163,9 @@ class Goblin {
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 
+    // The methods below this point are to be used only for ACIR. They exist while the interface is in flux. Eventually
+    // there will be agreement and no acir-specific methods should be needed.
+
     // ACIRHACK
     std::vector<uint8_t> accumulate_for_acir(GoblinUltraCircuitBuilder& circuit_builder)
     {
@@ -217,40 +220,42 @@ class Goblin {
     };
 
     // ACIRHACK
-    bool verify_for_acir(const Proof& proof) const
+    bool verify_for_acir() const
     {
         // ACIRHACK
         // MergeVerifier merge_verifier;
-        // bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+        // bool merge_verified = merge_verifier.verify_proof(proof_.merge_proof);
 
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
-        bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+        bool eccvm_verified = eccvm_verifier.verify_proof(proof_.eccvm_proof);
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
-        bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        bool translation_accumulator_construction_verified = translator_verifier.verify_proof(proof_.translator_proof);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
-        bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+        bool translation_verified = translator_verifier.verify_translation(proof_.translation_evaluations);
 
-        return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
+        return /* merge_verified && */ eccvm_verified && translation_accumulator_construction_verified &&
+               translation_verified;
     };
 
-    // ACIRHACK
-    bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
-    {
-        // ACIRHACK: to do this properly, extract the proof correctly or maybe share transcripts.
-        const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
+    // // ACIRHACK
+    // bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
+    // {
+    //     // ACIRHACK: to do this properly, extract the proof correctly or maybe share transcripts.
+    //     const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof;
+    //     };
 
-        GoblinUltraVerifier verifier{ accumulator.verification_key };
-        bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
+    //     GoblinUltraVerifier verifier{ accumulator.verification_key };
+    //     bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/819): Skip ECCVM/Translator verification for now
-        // const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
-        // auto goblin_proof = extract_goblin_proof(proof);
-        // verified = verified && verify_for_acir(goblin_proof);
+    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/819): Skip ECCVM/Translator verification for now
+    //     // const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
+    //     // auto goblin_proof = extract_goblin_proof(proof);
+    //     // verified = verified && verify_for_acir(goblin_proof);
 
-        return verified;
-    }
+    //     return verified;
+    // }
 
     // ACIRHACK
     bool verify_accumulator(const std::vector<uint8_t>& proof_buf) const

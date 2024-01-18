@@ -181,11 +181,11 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
-    // Call accumulate to generate a GoblinUltraHonk proof
-    auto proof = acir_composer.accumulate();
+    // Generate a GoblinUltraHonk proof and a full Goblin proof
+    auto proof = acir_composer.accumulate_and_prove();
 
-    // Verify the GoblinUltraHonk proof
-    auto verified = acir_composer.verify_accumulator(proof);
+    // Verify the GoblinUltraHonk proof and the full Goblin proof
+    auto verified = acir_composer.verify(proof);
 
     return verified;
 }
