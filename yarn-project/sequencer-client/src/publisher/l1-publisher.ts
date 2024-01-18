@@ -41,11 +41,11 @@ export type MinimalTransactionReceipt = {
  */
 export interface L1PublisherTxSender {
   /**
-   * Publishes block body to Data Availability Oracle.
+   * Publishes tx effects to Availability Oracle.
    * @param encodedBody - Encoded block body.
    * @returns The hash of the mined tx.
    */
-  sendPublishBodyTx(encodedBody: Buffer): Promise<string | undefined>;
+  sendPublishTx(encodedBody: Buffer): Promise<string | undefined>;
 
   /**
    * Sends a tx to the L1 rollup contract with a new L2 block. Returns once the tx has been mined.
@@ -90,11 +90,11 @@ export interface L1PublisherTxSender {
   getCurrentArchive(): Promise<Buffer>;
 
   /**
-   * Checks if the body of the given block has been is available.
-   * @param block - The block of which to check whether body has been published.
-   * @returns True if the body is available, false otherwise.
+   * Checks if the transaction effects of the given block is available.
+   * @param block - The block of which to check whether txs are available.
+   * @returns True if the txs are available, false otherwise.
    */
-  checkIfBodyIsAvailable(block: L2Block): Promise<boolean>;
+  checkIfTxsAreAvailable(block: L2Block): Promise<boolean>;
 }
 
 /**
@@ -156,14 +156,14 @@ export class L1Publisher implements L2BlockReceiver {
 
     const encodedBody = block.bodyToBuffer();
 
-    // Publish block body
+    // Publish block transaction effects
     while (!this.interrupted) {
-      if (await this.txSender.checkIfBodyIsAvailable(block)) {
-        this.log(`Body of a block ${block.number} already published.`);
+      if (await this.txSender.checkIfTxsAreAvailable(block)) {
+        this.log(`Transaction effects of a block ${block.number} already published.`);
         break;
       }
 
-      const txHash = await this.sendPublishBodyTx(encodedBody);
+      const txHash = await this.sendPublishTx(encodedBody);
       if (!txHash) {
         return false;
       }
@@ -176,13 +176,13 @@ export class L1Publisher implements L2BlockReceiver {
       if (receipt.status) {
         let txsHash;
         if (receipt.logs.length === 1) {
-          // txsHash from IAvailabilityOracle.BlockPublished event
+          // txsHash from IAvailabilityOracle.TxsPublished event
           txsHash = receipt.logs[0].data;
         } else {
           this.log(`Expected 1 log, got ${receipt.logs.length}`);
         }
 
-        this.log.info(`Block body published, txsHash: ${txsHash}`);
+        this.log.info(`Block txs effects published, txsHash: ${txsHash}`);
         break;
       }
 
@@ -311,12 +311,12 @@ export class L1Publisher implements L2BlockReceiver {
     return areSame;
   }
 
-  private async sendPublishBodyTx(encodedBody: Buffer): Promise<string | undefined> {
+  private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
-        return await this.txSender.sendPublishBodyTx(encodedBody);
+        return await this.txSender.sendPublishTx(encodedBody);
       } catch (err) {
-        this.log.error(`Block body publish failed`, err);
+        this.log.error(`TxEffects publish failed`, err);
         return undefined;
       }
     }

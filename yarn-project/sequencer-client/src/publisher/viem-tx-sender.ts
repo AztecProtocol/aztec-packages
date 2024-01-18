@@ -91,7 +91,7 @@ export class ViemTxSender implements L1PublisherTxSender {
     return Buffer.from(archive.replace('0x', ''), 'hex');
   }
 
-  checkIfBodyIsAvailable(block: L2Block): Promise<boolean> {
+  checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
     const args = [`0x${block.getCalldataHash().toString('hex')}`] as const;
     return this.availabilityOracleContract.read.isAvailable(args);
   }
@@ -134,11 +134,11 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   /**
-   * Publishes block body to Data Availability Oracle.
+   * Publishes tx effects to Availability Oracle.
    * @param encodedBody - Encoded block body.
    * @returns The hash of the mined tx.
    */
-  async sendPublishBodyTx(encodedBody: Buffer): Promise<string | undefined> {
+  async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
     const args = [`0x${encodedBody.toString('hex')}`] as const;
 
     const gas = await this.availabilityOracleContract.estimateGas.publish(args, {

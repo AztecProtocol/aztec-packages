@@ -64,7 +64,6 @@ contract Rollup is IRollup {
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
     if (!AVAILABILITY_ORACLE.isAvailable(_txsHash)) {
-      // @todo @LHerskind Impossible to hit with above hack.
       revert Errors.Rollup__UnavailableTxs(_txsHash);
     }
 
