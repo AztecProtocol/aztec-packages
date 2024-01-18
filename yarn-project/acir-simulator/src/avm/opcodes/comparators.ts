@@ -10,8 +10,8 @@ export class Eq extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
@@ -19,6 +19,8 @@ super();
 
     const dest = new Fr(a.toBigInt() == b.toBigInt());
     machineState.writeMemory(this.destOffset, dest);
+
+    this.incrementPc(machineState);
   }
 }
 /** -*/
@@ -27,8 +29,8 @@ export class Lt extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
@@ -47,8 +49,8 @@ export class Lte extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);

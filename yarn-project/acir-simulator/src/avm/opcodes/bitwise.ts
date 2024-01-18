@@ -10,8 +10,8 @@ export class And extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
@@ -30,8 +30,8 @@ export class Or extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
@@ -50,8 +50,8 @@ export class Xor extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
@@ -69,14 +69,16 @@ export class Not extends Instruction {
   static type: string = 'NOT';
   static numberOfOperands = 2;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+  constructor(private aOffset: number, private destOffset: number) {
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
 
-    const dest = new Fr(~a.toBigInt());
+    // TODO: hack -> until proper field arithmetic is implemented
+    const result = ~a.toBigInt();
+    const dest = new Fr(result < 0 ? Fr.MODULUS + /* using a + as result is -ve*/ result : result);
     machineState.writeMemory(this.destOffset, dest);
 
     this.incrementPc(machineState);
@@ -89,8 +91,8 @@ export class Shl extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);
@@ -109,8 +111,8 @@ export class Shr extends Instruction {
   static numberOfOperands = 3;
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const a: Fr = machineState.readMemory(this.aOffset);

@@ -1,4 +1,3 @@
-import { machine } from 'os';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
@@ -9,8 +8,8 @@ export class Return extends Instruction {
   static numberOfOperands = 2;
 
   constructor(private returnOffset: number, private copySize: number) {
-super();
-}
+    super();
+  }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const returnData = machineState.readMemoryChunk(this.returnOffset, this.returnOffset + this.copySize);
@@ -67,7 +66,6 @@ export class InternalReturn extends Instruction {
     machineState.pc = jumpOffset;
   }
 }
-
 
 /**
  * Thrown if the internal call stack is popped when it is empty

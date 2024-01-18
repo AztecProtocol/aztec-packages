@@ -16,7 +16,7 @@ export class AvmMachineState {
    * When an internal_call is invoked, the internal call stack is added to with the current pc + 1
    * When internal_return is invoked, the latest value is popped from the internal call stack and set to the pc.
    */
-  public internalCallStack: number[] = [];
+  public internalCallStack: number[];
 
   /** - */
   public pc: number;
@@ -31,6 +31,7 @@ export class AvmMachineState {
     this.calldata = calldata;
     this.returnData = [];
     this.memory = [];
+    this.internalCallStack = [];
 
     this.pc = 0;
     this.callStack = [];
@@ -82,5 +83,4 @@ export class AvmMachineState {
   public writeMemoryChunk(offset: number, values: Fr[]): void {
     this.memory.splice(offset, values.length, ...values);
   }
-
 }
