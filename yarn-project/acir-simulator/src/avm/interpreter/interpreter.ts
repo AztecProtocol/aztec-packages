@@ -32,6 +32,11 @@ export class AvmInterpreter {
     try {
       while (this.machineState.pc < this.instructions.length) {
         const instruction = this.instructions[this.machineState.pc];
+
+        if (!instruction) {
+          this.invalidProgramCounter();
+        }
+
         instruction.execute(this.machineState, this.stateManager);
       }
 
@@ -51,5 +56,20 @@ export class AvmInterpreter {
    */
   returnData(): Fr[] {
     return this.machineState.getReturnData();
+  }
+
+  private invalidProgramCounter(): void {
+    throw new InvalidProgramCounterError(this.machineState.pc, this.instructions.length);
+  }
+}
+
+
+/** 
+ * Error is thrown when the program counter goes to an invalid location.
+ * There is no instruction at the provided pc
+ */
+export class InvalidProgramCounterError extends Error {
+  constructor(pc: number, max: number) {
+    super(`Invalid program counter ${pc}, max is ${max}`);
   }
 }
