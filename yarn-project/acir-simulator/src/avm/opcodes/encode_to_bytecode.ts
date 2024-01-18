@@ -19,10 +19,7 @@ export function encodeToBytecode(opcode: Opcode, args: number[]): Buffer {
     throw new Error(`Opcode ${opcode} expects ${numberOfOperands} arguments, but ${args.length} were provided`);
   }
 
-  const bytecode = Buffer.alloc(
-    AVM_OPCODE_BYTE_LENGTH
-    + numberOfOperands * AVM_OPERAND_BYTE_LENGTH
-  );
+  const bytecode = Buffer.alloc(AVM_OPCODE_BYTE_LENGTH + numberOfOperands * AVM_OPERAND_BYTE_LENGTH);
 
   let bytePtr = 0;
   bytecode.writeUInt8(opcode as number, bytePtr);
