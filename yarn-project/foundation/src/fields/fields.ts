@@ -201,7 +201,7 @@ export class Fr extends BaseField {
 
   sub(rhs: Fr) {
     const result = this.toBigInt() - rhs.toBigInt();
-    return new Fr((result < 0) ? result + Fr.MODULUS : result);
+    return new Fr(result < 0 ? result + Fr.MODULUS : result);
   }
 
   mul(rhs: Fr) {
@@ -217,7 +217,6 @@ export class Fr extends BaseField {
     return this.mul(bInv);
   }
 }
-
 
 /**
  * Branding to ensure fields are not interchangeable types.
@@ -280,22 +279,21 @@ export class Fq extends BaseField {
 // Performance bottleneck
 // TODO: add documentation
 function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint] {
-    if (a == 0n){
-        return [modulus, 0n, 1n]
-    }
-    else{
-        const [gcd, x, y] = extendedEuclidean(modulus % a, a)
-        return [gcd, y - ((modulus / a) * x), x]
-    }
+  if (a == 0n) {
+    return [modulus, 0n, 1n];
+  } else {
+    const [gcd, x, y] = extendedEuclidean(modulus % a, a);
+    return [gcd, y - (modulus / a) * x, x];
+  }
 }
 
-function modInverse(b: bigint){
-    const [gcd, x, _] = extendedEuclidean(b, Fr.MODULUS);
-    if (gcd != 1n){
-        throw Error("Inverse does not exist");
-    }
-    // Add modulus to ensure positive
-    return new Fr(x + Fr.MODULUS);
+function modInverse(b: bigint) {
+  const [gcd, x, _] = extendedEuclidean(b, Fr.MODULUS);
+  if (gcd != 1n) {
+    throw Error('Inverse does not exist');
+  }
+  // Add modulus to ensure positive
+  return new Fr(x + Fr.MODULUS);
 }
 
 /**
@@ -305,4 +303,3 @@ function modInverse(b: bigint){
  */
 export type GrumpkinScalar = Fq;
 export const GrumpkinScalar = Fq;
-

@@ -1,5 +1,6 @@
 import {
   Add,
+  Div,
   /*Div,*/
   Mul,
   Sub,
@@ -29,7 +30,7 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     [Opcode.ADD, Add],
     [Opcode.SUB, Sub],
     [Opcode.MUL, Mul],
-    //[Opcode.DIV, Div],
+    [Opcode.DIV, Div],
     //// Compute - Comparators
     //[Opcode.EQ, Eq],
     //[Opcode.LT, Lt],

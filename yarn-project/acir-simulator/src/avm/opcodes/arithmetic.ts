@@ -77,7 +77,7 @@ export class Div extends Instruction {
     const a: Fr = machineState.readMemory(this.aOffset);
     const b: Fr = machineState.readMemory(this.bOffset);
 
-    const dest = a.div(b)
+    const dest = a.div(b);
     machineState.writeMemory(this.destOffset, dest);
 
     this.incrementPc(machineState);
