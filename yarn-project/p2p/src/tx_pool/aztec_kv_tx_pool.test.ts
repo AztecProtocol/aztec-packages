@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/circuits.js';
 import { AztecLmdbStore } from '@aztec/kv-store';
 
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';

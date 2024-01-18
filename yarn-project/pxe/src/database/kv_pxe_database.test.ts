@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/circuits.js';
 import { AztecLmdbStore } from '@aztec/kv-store';
 
 import { KVPxeDatabase } from './kv_pxe_database.js';

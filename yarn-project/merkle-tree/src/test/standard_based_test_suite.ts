@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/circuits.js';
 import { AztecKVStore, AztecLmdbStore } from '@aztec/kv-store';
 import { Hasher } from '@aztec/types/interfaces';
 import { SiblingPath } from '@aztec/types/membership';
