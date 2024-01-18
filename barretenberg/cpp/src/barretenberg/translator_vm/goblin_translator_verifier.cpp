@@ -67,8 +67,7 @@ void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const
  */
 bool GoblinTranslatorVerifier::verify_proof(const honk::proof& proof)
 {
-    // batching_challenge_v = transcript->get_challenge("Translation:batching_challenge");
-    batching_challenge_v = 0;
+    batching_challenge_v = transcript->get_challenge("Translation:batching_challenge");
     transcript->load_proof(proof);
 
     Flavor::VerifierCommitments commitments{ key };
