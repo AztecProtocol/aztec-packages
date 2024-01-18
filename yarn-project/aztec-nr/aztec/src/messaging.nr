@@ -32,7 +32,11 @@ pub fn process_l1_to_l2_message(
     assert(msg_hash == msg_key);
 
     // Check that the message is in the tree
-    let root = compute_merkle_root(msg_hash, l1_to_l2_message_data.leaf_index, l1_to_l2_message_data.sibling_path);
+    let root = compute_merkle_root(
+        msg_hash,
+        l1_to_l2_message_data.leaf_index,
+        l1_to_l2_message_data.sibling_path
+    );
     assert(root == l1_to_l2_root);
 
     // Check tree roots against the inputs 
