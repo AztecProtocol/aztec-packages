@@ -19,10 +19,10 @@
       "path": "../foundation"
     },
     {
-      "path": "../l1-artifacts"
+      "path": "../kv-store"
     },
     {
-      "path": "../kv-store"
+      "path": "../l1-artifacts"
     }
   ],
   "include": ["src"]
