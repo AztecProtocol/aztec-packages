@@ -199,35 +199,47 @@ std::array<FF, NUM_ALL_ENTITIES>, depends on num_all_entities
 */
 template <class...> constexpr std::false_type always_false{};
 
-// constexpr size_t calc_num_frs(barretenberg::fr&&)
-// {
-//     return 1;
-// }
+template <typename T> constexpr size_t calc_num_frs();
 
-// constexpr size_t calc_num_frs(grumpkin::fr&&)
-// {
-//     return 2;
-// }
+constexpr size_t calc_num_frs(barretenberg::fr* /*unused*/)
+{
+    return 1;
+}
 
-// template <std::integral T> constexpr size_t calc_num_frs(T&&)
-// {
-//     return 1;
-// }
+constexpr size_t calc_num_frs(grumpkin::fr* /*unused*/)
+{
+    return 2;
+}
 
-// constexpr size_t calc_num_frs(curve::BN254::AffineElement&&)
-// {
-//     return 2;
-// }
+template <std::integral T> constexpr size_t calc_num_frs(T* /*unused*/)
+{
+    return 1;
+}
 
-// constexpr size_t calc_num_frs(curve::Grumpkin::AffineElement&&)
-// {
-//     return 4;
-// }
+constexpr size_t calc_num_frs(curve::BN254::AffineElement* /*unused*/)
+{
+    return 4;
+}
 
-// template <typename T> constexpr size_t calc_num_frs()
-// {
-//     return calc_num_frs(std::declval<T>());
-// }
+constexpr size_t calc_num_frs(curve::Grumpkin::AffineElement* /*unused*/)
+{
+    return 2;
+}
+
+template <typename T, std::size_t N> constexpr size_t calc_num_frs(std::array<T, N>* /*unused*/)
+{
+    return N * calc_num_frs<T>();
+}
+
+template <typename T, std::size_t N> constexpr size_t calc_num_frs(barretenberg::Univariate<T, N>* /*unused*/)
+{
+    return N * calc_num_frs<T>();
+}
+
+template <typename T> constexpr size_t calc_num_frs()
+{
+    return calc_num_frs(static_cast<T*>(nullptr));
+}
 
 template <typename T>
 concept TranscriptTypeNonLength =
@@ -245,44 +257,44 @@ concept TranscriptTypeLength = std::is_same_v<T<U, TT>, std::array<barretenberg:
  * @tparam T
  * @return constexpr size_t
  */
-template <typename T> constexpr size_t calc_num_frs()
-{
-    if constexpr (std::is_same_v<T, grumpkin::fr>) {
-        return 2;
-    } else if constexpr (std::is_same_v<T, barretenberg::fr> || std::is_integral_v<T> || std::is_same_v<T, bool>) {
-        return 1;
-    } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
-        return 2 * calc_num_frs<grumpkin::fr>();
-    } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
-        return 2 * calc_num_frs<barretenberg::fr>();
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
-        return 43;
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
-        return 10;
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 184>>) {
-        return 184;
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 55>>) {
-        return 55;
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 17>>) {
-        return 17;
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 46>>) {
-        return 46;
-    } else if constexpr (std::is_same_v<T, std::array<grumpkin::fr, 105>>) {
-        return 210;
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 6>>) {
-        return 6;
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 7>>) {
-        return 7;
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 8>>) {
-        return 8;
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<grumpkin::fr, 20>>) {
-        return 40;
-    } else {
-        static_assert(always_false<T>);
-        return 0;
-    }
-    // TODO: address the else
-}
+// template <typename T> constexpr size_t calc_num_frs()
+// {
+//     if constexpr (std::is_same_v<T, grumpkin::fr>) {
+//         return 2;
+//     } else if constexpr (std::is_same_v<T, barretenberg::fr> || std::is_integral_v<T> || std::is_same_v<T, bool>) {
+//         return 1;
+//     } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
+//         return 2 * calc_num_frs<grumpkin::fr>();
+//     } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
+//         return 2 * calc_num_frs<barretenberg::fr>();
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
+//         return 43;
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
+//         return 10;
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 184>>) {
+//         return 184;
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 55>>) {
+//         return 55;
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 17>>) {
+//         return 17;
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 46>>) {
+//         return 46;
+//     } else if constexpr (std::is_same_v<T, std::array<grumpkin::fr, 105>>) {
+//         return 210;
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 6>>) {
+//         return 6;
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 7>>) {
+//         return 7;
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 8>>) {
+//         return 8;
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<grumpkin::fr, 20>>) {
+//         return 40;
+//     } else {
+//         static_assert(always_false<T>);
+//         return 0;
+//     }
+//     // TODO: address the else
+// }
 /**
  * @brief Calculates the size of a templated types in terms of barretenberg::frs
  * @details
