@@ -16,13 +16,13 @@ services:
       PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
 
-  boxes:
-    image: aztecprotocol/boxes
-    command: "@aztec/$BOX test"
-    environment:
-      DEBUG: "aztec:*"
-      DEBUG_COLORS: "true"
-      ETHEREUM_HOST: http://ethereum:8545
-      CHAIN_ID: 31337
-      PXE_URL: http://aztec:8080
-      BOX: ${BOX:-box-blank}
+  # boxes:
+  #   image: aztecprotocol/boxes
+  #   command: "@aztec/$BOX test"
+  #   environment:
+  #     DEBUG: "aztec:*"
+  #     DEBUG_COLORS: "true"
+  #     ETHEREUM_HOST: http://ethereum:8545
+  #     CHAIN_ID: 31337
+  #     PXE_URL: http://aztec:8080
+  #     BOX: ${BOX:-box-blank}

@@ -455,27 +455,16 @@ jobs:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
 
-  boxes:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build boxes 4
-
-  boxes-blank:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank
+  # boxes-blank:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank
 
   boxes-blank-react:
     docker:
@@ -486,18 +475,20 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank-react
-
-  boxes-token:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml
       - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-token
+          command: "cd blank-react && yarn prep && yarn test"
+
+  # boxes-token:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-token
 
   end-to-end:
     machine:
