@@ -7,6 +7,7 @@ import {IRegistry} from "../interfaces/messagebridge/IRegistry.sol";
 import {IRollup} from "../interfaces/IRollup.sol";
 import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+import {IAvailabilityOracle} from "../interfaces/IAvailabilityOracle.sol";
 
 // Libraries
 import {DataStructures} from "../libraries/DataStructures.sol";
@@ -29,7 +30,7 @@ contract Registry is IRegistry {
   constructor() {
     // Inserts a "dead" rollup and message boxes at version 0
     // This is simply done to make first version 1, which fits better with the rest of the system
-    upgrade(address(0xdead), address(0xdead), address(0xdead));
+    upgrade(address(0xdead), address(0xdead), address(0xdead), address(0xdead));
   }
 
   /**
@@ -68,6 +69,14 @@ contract Registry is IRegistry {
   }
 
   /**
+   * @notice Returns the availability oracle contract
+   * @return The availability oracle contract (of type IAvailabilityOracle)
+   */
+  function getAvailabilityOracle() external view override(IRegistry) returns (IAvailabilityOracle) {
+    return IAvailabilityOracle(currentSnapshot.availabilityOracle);
+  }
+
+  /**
    * @notice Fetches a snapshot of the registry indicated by `version`
    * @dev the version is 0 indexed, so the first snapshot is version 0.
    * @param _version - The version of the rollup to return (i.e. which snapshot)
@@ -102,9 +111,10 @@ contract Registry is IRegistry {
    * @param _rollup - The address of the rollup contract
    * @param _inbox - The address of the inbox contract
    * @param _outbox - The address of the outbox contract
+   * @param _availabilityOracle - The address of the availability oracle contract
    * @return The version of the new snapshot
    */
-  function upgrade(address _rollup, address _inbox, address _outbox)
+  function upgrade(address _rollup, address _inbox, address _outbox, address _availabilityOracle)
     public
     override(IRegistry)
     returns (uint256)
@@ -113,7 +123,7 @@ contract Registry is IRegistry {
     if (exists) revert Errors.Registry__RollupAlreadyRegistered(_rollup);
 
     DataStructures.RegistrySnapshot memory newSnapshot =
-      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
+      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, _availabilityOracle, block.number);
     currentSnapshot = newSnapshot;
     uint256 version = numberOfVersions++;
     snapshots[version] = newSnapshot;

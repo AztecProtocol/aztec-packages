@@ -7,6 +7,7 @@ import {Rollup} from "../../src/core/Rollup.sol";
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
+import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
@@ -27,6 +28,7 @@ contract UniswapPortalTest is Test {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
+  AvailabilityOracle internal availabilityOracle;
   bytes32 internal l2TokenAddress = bytes32(uint256(0x1));
   bytes32 internal l2UniswapAddress = bytes32(uint256(0x2));
 
@@ -52,7 +54,8 @@ contract UniswapPortalTest is Test {
     inbox = new Inbox(address(registry));
     outbox = new Outbox(address(registry));
     rollup = new Rollup(registry);
-    registry.upgrade(address(rollup), address(inbox), address(outbox));
+    availabilityOracle = new AvailabilityOracle();
+    registry.upgrade(address(rollup), address(inbox), address(outbox), address(availabilityOracle));
 
     daiTokenPortal = new TokenPortal();
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);

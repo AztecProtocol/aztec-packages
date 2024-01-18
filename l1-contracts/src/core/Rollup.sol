@@ -16,7 +16,6 @@ import {Errors} from "./libraries/Errors.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
-import {AvailabilityOracle} from "./availability_oracle/AvailabilityOracle.sol";
 
 /**
  * @title Rollup
@@ -28,7 +27,6 @@ contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
   uint256 public immutable VERSION;
-  AvailabilityOracle public immutable AVAILABILITY_ORACLE;
 
   bytes32 public archive; // Root of the archive tree
   uint256 public lastBlockTs;
@@ -38,7 +36,6 @@ contract Rollup is IRollup {
 
   constructor(IRegistry _registry) {
     VERIFIER = new MockVerifier();
-    AVAILABILITY_ORACLE = new AvailabilityOracle();
     REGISTRY = _registry;
     VERSION = 1;
   }
@@ -63,7 +60,7 @@ contract Rollup is IRollup {
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!AVAILABILITY_ORACLE.isAvailable(_txsHash)) {
+    if (!REGISTRY.getAvailabilityOracle().isAvailable(_txsHash)) {
       revert Errors.Rollup__UnavailableTxs(_txsHash);
     }
 

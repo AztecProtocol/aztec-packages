@@ -35,7 +35,7 @@ contract InboxTest is Test {
     address rollup = address(this);
     registry = new Registry();
     inbox = new Inbox(address(registry));
-    version = registry.upgrade(rollup, address(inbox), address(0x0));
+    version = registry.upgrade(rollup, address(inbox), address(0x0), address(0x0));
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -254,7 +254,7 @@ contract InboxTest is Test {
 
   function testRevertIfConsumingFromWrongRollup() public {
     address wrongRollup = address(0xbeeffeed);
-    uint256 wrongVersion = registry.upgrade(wrongRollup, address(inbox), address(0x0));
+    uint256 wrongVersion = registry.upgrade(wrongRollup, address(inbox), address(0x0), address(0x0));
 
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     address feeCollector = address(0x1);

@@ -5,10 +5,13 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 import {IRollup} from "../IRollup.sol";
 import {IInbox} from "./IInbox.sol";
 import {IOutbox} from "./IOutbox.sol";
+import {IAvailabilityOracle} from "../../interfaces/IAvailabilityOracle.sol";
 
 interface IRegistry {
   // docs:start:registry_upgrade
-  function upgrade(address _rollup, address _inbox, address _outbox) external returns (uint256);
+  function upgrade(address _rollup, address _inbox, address _outbox, address _availabilityOracle)
+    external
+    returns (uint256);
   // docs:end:registry_upgrade
 
   // docs:start:registry_get_rollup
@@ -26,6 +29,8 @@ interface IRegistry {
   // docs:start:registry_get_outbox
   function getOutbox() external view returns (IOutbox);
   // docs:end:registry_get_outbox
+
+  function getAvailabilityOracle() external view returns (IAvailabilityOracle);
 
   // docs:start:registry_get_snapshot
   function getSnapshot(uint256 _version)

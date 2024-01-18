@@ -161,7 +161,12 @@ export const deployL1Contracts = async (
     walletClient,
   });
   await registryContract.write.upgrade(
-    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
+    [
+      getAddress(rollupAddress.toString()),
+      getAddress(inboxAddress.toString()),
+      getAddress(outboxAddress.toString()),
+      getAddress(availabilityOracleAddress.toString()),
+    ],
     { account },
   );
 
