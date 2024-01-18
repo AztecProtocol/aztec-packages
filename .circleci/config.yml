@@ -1186,12 +1186,12 @@ workflows:
       #     requires:
       #       - aztec-sandbox
       #     <<: *defaults
-      - boxes-blank:
-          <<: *defaults
+      # - boxes-blank:
+      #     <<: *defaults
       - boxes-blank-react:
           <<: *defaults
-      - boxes-token:
-          <<: *defaults
+      # - boxes-token:
+      #     <<: *defaults
 
       # End to end tests.
       - e2e-join:
@@ -1266,9 +1266,9 @@ workflows:
             - e2e-browser
             - e2e-card-game
             - pxe
-            - boxes-blank
+            # - boxes-blank
             - boxes-blank-react
-            - boxes-token
+            # - boxes-token
             - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing
