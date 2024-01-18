@@ -26,11 +26,9 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
-    decoderHelperAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
-    compatibleNargoVersion: 'vx.x.x-aztec.x',
     chainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
@@ -43,6 +41,7 @@ describe('Contract Class', () => {
         name: 'bar',
         functionType: FunctionType.SECRET,
         isInternal: false,
+        debugSymbols: '',
         parameters: [
           {
             name: 'value',
@@ -69,6 +68,7 @@ describe('Contract Class', () => {
         parameters: [],
         returnTypes: [],
         bytecode: '0be',
+        debugSymbols: '',
       },
       {
         name: 'qux',
@@ -91,9 +91,11 @@ describe('Contract Class', () => {
           },
         ],
         bytecode: '0cd',
+        debugSymbols: '',
       },
     ],
     events: [],
+    fileMap: {},
   };
 
   beforeEach(() => {

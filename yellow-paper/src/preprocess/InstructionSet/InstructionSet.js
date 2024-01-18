@@ -675,22 +675,6 @@ context.machineState.pc = loc
         "Tag updates": "",
     },
     {
-        "id": "internalcalldepth",
-        "Name": "`INTERNALCALLDEPTH`",
-        "Category": "Machine State - Control Flow",
-        "Flags": [
-            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-        ],
-        "Args": [
-            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
-        ],
-        "Expression": "`M[dstOffset] = context.machineState.internalCallStack.length`",
-        "Summary": "Get the depth of the current context's internal call stack",
-        "Details": "",
-        "Tag checks": "",
-        "Tag updates": "`T[dstOffset] = u32`",
-    },
-    {
         "id": "set",
         "Name": "`SET`",
         "Category": "Machine State - Memory",
