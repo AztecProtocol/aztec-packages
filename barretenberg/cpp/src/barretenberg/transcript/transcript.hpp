@@ -122,7 +122,10 @@ class BaseTranscript {
             is_first_challenge = false;
         }
         if (!current_round_data.empty()) {
-            full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/832): investigate why
+            // full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end()); fails to
+            // compile with gcc
+            std::copy(current_round_data.begin(), current_round_data.end(), std::back_inserter(full_buffer));
             current_round_data.clear(); // clear the round data buffer since it has been used
         }
 
