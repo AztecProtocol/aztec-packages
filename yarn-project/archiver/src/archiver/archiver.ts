@@ -48,11 +48,6 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   private runningPromise?: RunningPromise;
 
   /**
-   * Use this to track logged block in order to avoid repeating the same message.
-   */
-  private lastLoggedL1BlockNumber = 0n;
-
-  /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
@@ -143,6 +138,23 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
      */
     const lastL1Blocks = await this.store.getL1BlockNumber();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
+
+    if (
+      currentL1BlockNumber < Math.max(
+        Number(lastL1Blocks.addedBlock), 
+        Number(lastL1Blocks.addedMessages), 
+        Number(lastL1Blocks.cancelledMessages))
+    ) {
+      // this.store.getBlocks
+      //get blocks, get associated l2 block for l1 blocknum which is current
+      // merkletrees l2 restore 
+
+      // rolled back
+      // or it's been rolled back
+
+      // TODO: Make sure to cancel the L1->L2 Messages that were sent after the revert point
+      return;
+    }
 
     if (
       currentL1BlockNumber <= lastL1Blocks.addedBlock &&

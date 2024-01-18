@@ -81,7 +81,7 @@ class PublicDataTree extends StandardIndexedTree {
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
-  private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
+  private trees: (AppendOnlyTree)[] = [];
   private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
 

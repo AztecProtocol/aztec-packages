@@ -97,6 +97,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     return this.openSnapshot(root, numLeaves);
   }
 
+  // This restore will invalidate BUT NOT THROW all the rest of the 
   async restore(block: number) {
     const snapshotMetadata = await this.#getSnapshotMeta(block);
 

@@ -112,7 +112,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     }
 
     const treeName = this.tree.getName();
-    const batch = this.db.batch();
+    const deleteBatch = this.db.batch();
     const { numLeaves, root: newRoot } = snapshotMetadata;
     const depth = this.tree.getDepth();
     const queue: [number, bigint][] = [[0, 0n]];
@@ -127,12 +127,12 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       }
 
       if (modifiedAtBlock > blockToRestore) {
-        batch.del(`${treeName}:${level}:${index}`);
-        batch.del(historicalNodeKey(treeName, level, index))
+        deleteBatch.del(`${treeName}:${level}:${index}`);
+        deleteBatch.del(historicalNodeKey(treeName, level, index))
         // this gets repeated for each item in the same block.
-        batch.del(nodeModifiedAtBlockKey(treeName, level, index));
-        batch.del(snapshotRootKey(treeName, modifiedAtBlock));
-        batch.del(snapshotNumLeavesKey(treeName, modifiedAtBlock));
+        deleteBatch.del(nodeModifiedAtBlockKey(treeName, level, index));
+        deleteBatch.del(snapshotRootKey(treeName, modifiedAtBlock));
+        deleteBatch.del(snapshotNumLeavesKey(treeName, modifiedAtBlock));
       }
 
       if (level + 1 > depth) {
@@ -153,7 +153,9 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       }
     }
 
-    // await batch.write();
+    await deleteBatch.write();
+
+    const writeBatch = this.db.batch();
 
     let index = numLeaves - 1n;
     let level = depth;
@@ -162,18 +164,25 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     while (level > 0) {
       const isRight = index & 0x01n;
       const sibling = (await this.tree.getNode(level, isRight ? index - 1n : index + 1n)) ?? this.tree.getZeroHash(level);
+
+      // This is super weird and only because the current appendLeaf functionality adds an extra index, 
+      // If removing that extra index, then removing this is safe. I think that if removing
+      // if (level === depth - 1) {
+      //   writeBatch.put(`${treeName}:${level}:${isRight ? index - 1n : index + 1n}`, sibling);
+      // }
+
       const lhs = isRight ? sibling : current;
       const rhs = isRight ? current : sibling;
       current = this.hasher.hash(lhs, rhs);
       level -= 1;
       index >>= 1n;
-      batch.put(`${treeName}:${level}:${index}`, current);
-      batch.put(historicalNodeKey(treeName, level, index), current)
-      batch.put(nodeModifiedAtBlockKey(treeName, level, index), blockToRestore);
+      writeBatch.put(`${treeName}:${level}:${index}`, current);
+      writeBatch.put(historicalNodeKey(treeName, level, index), current)
+      writeBatch.put(nodeModifiedAtBlockKey(treeName, level, index), blockToRestore);
     }
 
     await this.tree.snapshotRestoreUtil(numLeaves, newRoot);
-    await batch.write();
+    await writeBatch.write();
 
     return;
   }

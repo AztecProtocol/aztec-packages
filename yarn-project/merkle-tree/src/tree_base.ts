@@ -159,6 +159,7 @@ export abstract class TreeBase implements MerkleTree {
   public async snapshotRestoreUtil(newSize: bigint, newRoot: Buffer): Promise<void> {
     this.size = newSize;
     this.root = newRoot;
+    this.clearCache();
     await this.writeMeta();
   }
 
@@ -309,7 +310,11 @@ export abstract class TreeBase implements MerkleTree {
       this.cache[cacheKey] = leaves[i];
     }
 
-    let lastIndex = firstIndex + BigInt(leaves.length);
+    // changed here
+    let lastIndex = firstIndex + BigInt(leaves.length - 1);
+
+    // let lastIndex = firstIndex + BigInt(leaves.length);
+
     // 2. Iterate over all the levels from the bottom up
     while (level > 0) {
       firstIndex >>= 1n;
