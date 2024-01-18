@@ -1,9 +1,4 @@
-import {
-  Add,
-  Div,
-  Mul,
-  Sub,
-} from './arithmetic.js';
+import { Add, Div, Mul, Sub } from './arithmetic.js';
 //import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 //import { Eq, Lt, Lte } from './comparators.js';
 import { InternalCall, InternalReturn, Jump, JumpI, Return } from './control_flow.js';
