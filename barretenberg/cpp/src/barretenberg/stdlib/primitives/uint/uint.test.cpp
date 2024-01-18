@@ -1916,8 +1916,8 @@ TYPED_TEST(stdlib_uint, test_at)
 // There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
 TEST(stdlib_uint32, test_accumulators_plookup_uint32)
 {
-    using uint32_ct = bb::plonk::stdlib::uint32<bb::UltraCircuitBuilder>;
-    using witness_ct = bb::plonk::stdlib::witness_t<bb::UltraCircuitBuilder>;
+    using uint32_ct = bb::stdlib::uint32<bb::UltraCircuitBuilder>;
+    using witness_ct = bb::stdlib::witness_t<bb::UltraCircuitBuilder>;
 
     bb::UltraCircuitBuilder builder;
 

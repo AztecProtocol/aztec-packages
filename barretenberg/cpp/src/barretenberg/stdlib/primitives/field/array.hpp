@@ -116,7 +116,7 @@ template <typename Builder, typename T, size_t SIZE> inline void array_push(std:
  * something else.
  */
 template <typename Builder, size_t SIZE>
-typename plonk::stdlib::bool_t<Builder> is_array_empty(std::array<field_t<Builder>, SIZE> const& arr)
+typename stdlib::bool_t<Builder> is_array_empty(std::array<field_t<Builder>, SIZE> const& arr)
 {
     bool_t<Builder> nonzero_found = false;
     for (size_t i = arr.size() - 1; i != (size_t)-1; i--) {

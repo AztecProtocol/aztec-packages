@@ -12,7 +12,7 @@ template <typename Curve> class recursive_ultra_verifier_settings : public plonk
     typedef typename Curve::ScalarField fr_ct;
     typedef typename Curve::GroupNative::affine_element g1;
     typedef typename Curve::Builder Builder;
-    typedef bb::plonk::stdlib::recursion::Transcript<Builder> Transcript_pt;
+    typedef bb::stdlib::recursion::Transcript<Builder> Transcript_pt;
     typedef bb::plonk::VerifierPermutationWidget<fr_ct, g1, Transcript_pt> PermutationWidget;
     typedef bb::plonk::VerifierPlookupWidget<fr_ct, g1, Transcript_pt> PlookupWidget;
 
@@ -87,7 +87,7 @@ class recursive_ultra_to_standard_verifier_settings : public recursive_ultra_ver
     typedef typename Curve::ScalarField fr_ct;
     typedef typename Curve::GroupNative::affine_element g1;
     typedef typename Curve::Builder Builder;
-    typedef bb::plonk::stdlib::recursion::Transcript<Builder> Transcript_pt;
+    typedef bb::stdlib::recursion::Transcript<Builder> Transcript_pt;
     typedef bb::plonk::VerifierPermutationWidget<fr_ct, g1, Transcript_pt> PermutationWidget;
     typedef bb::plonk::VerifierPlookupWidget<fr_ct, g1, Transcript_pt> PlookupWidget;
 

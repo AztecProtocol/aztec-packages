@@ -121,11 +121,11 @@ FastRandom VarianceRNG(0);
  */
 template <typename Builder> class BigFieldBase {
   private:
-    typedef bb::plonk::stdlib::bool_t<Builder> bool_t;
-    typedef bb::plonk::stdlib::field_t<Builder> field_t;
-    typedef bb::plonk::stdlib::witness_t<Builder> witness_t;
-    typedef bb::plonk::stdlib::public_witness_t<Builder> public_witness_t;
-    typedef bb::plonk::stdlib::bigfield<Builder, bb::Bn254FqParams> bigfield_t;
+    typedef bb::stdlib::bool_t<Builder> bool_t;
+    typedef bb::stdlib::field_t<Builder> field_t;
+    typedef bb::stdlib::witness_t<Builder> witness_t;
+    typedef bb::stdlib::public_witness_t<Builder> public_witness_t;
+    typedef bb::stdlib::bigfield<Builder, bb::Bn254FqParams> bigfield_t;
 
   public:
     /**

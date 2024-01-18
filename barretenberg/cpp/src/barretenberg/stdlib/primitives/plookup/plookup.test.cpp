@@ -18,7 +18,7 @@ using namespace plookup;
 using Builder = bb::UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
-using plookup_read = bb::plonk::stdlib::plookup_read<Builder>;
+using plookup_read = bb::stdlib::plookup_read<Builder>;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }

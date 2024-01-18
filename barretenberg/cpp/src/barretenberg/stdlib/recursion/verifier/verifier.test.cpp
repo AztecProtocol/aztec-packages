@@ -12,7 +12,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::plonk::stdlib {
+namespace bb::stdlib {
 
 template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
@@ -212,7 +212,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         plonk::proof proof_to_recursively_verify_b = prover.construct_proof();
 
-        auto output = bb::plonk::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        auto output = bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
             &outer_circuit, verification_key_b, recursive_manifest, proof_to_recursively_verify_b, previous_output);
 
         verification_key_b->hash();
@@ -265,8 +265,8 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        bb::plonk::stdlib::recursion::aggregation_state<outer_curve> output =
-            bb::plonk::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        bb::stdlib::recursion::aggregation_state<outer_curve> output =
+            bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 
         return { output, verification_key };
@@ -617,4 +617,4 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_const_verif_key)
     TestFixture::test_recursive_proof_composition_with_constant_verification_key();
 }
 
-} // namespace bb::plonk::stdlib
+} // namespace bb::stdlib
