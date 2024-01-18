@@ -135,7 +135,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns The requested L1 to L2 message or throws if not found.
    */
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    return Promise.resolve(this.#messageStore.getConfirmedMessage(messageKey));
+    try {
+      return Promise.resolve(this.#messageStore.getConfirmedMessage(messageKey));
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
