@@ -7,8 +7,7 @@ namespace acir_proofs {
 /**
  * @brief A class responsible for marshalling construction of keys and prover and verifier instances used to prove
  * satisfiability of circuits written in ACIR.
- * @todo: This reflects the design of Plonk. Perhaps we should author new classes to better reflect the
- * structure of the newer code since there's much more of that code now?
+ *
  */
 class HonkAcirComposer {
 
@@ -17,9 +16,28 @@ class HonkAcirComposer {
   public:
     HonkAcirComposer();
 
-    // Goblin specific methods
+    /**
+     * @brief Create a GUH circuit from an acir constraint system and a witness
+     *
+     * @param constraint_system ACIR representation of the constraints defining the circuit
+     * @param witness The witness values known to ACIR during construction of the constraint system
+     */
     void create_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
+
+    /**
+     * @brief Accumulate a circuit via Goblin
+     * @details For the present circuit, construct a GUH proof and the vkey needed to verify it
+     *
+     * @return std::vector<uint8_t> The GUH proof bytes
+     */
     std::vector<uint8_t> accumulate();
+
+    /**
+     * @brief Verify the Goblin accumulator (the GUH proof) using the vkey internal to Goblin
+     *
+     * @param proof
+     * @return bool Whether or not the proof was verified
+     */
     bool verify_accumulator(std::vector<uint8_t> const& proof);
 
   private:

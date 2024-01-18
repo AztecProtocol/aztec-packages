@@ -58,10 +58,10 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
     *out = to_heap_buffer(proof_data);
 }
 
-WASM_EXPORT void acir_create_goblin_proof(in_ptr acir_composer_ptr,
-                                          uint8_t const* acir_vec,
-                                          uint8_t const* witness_vec,
-                                          uint8_t** out)
+WASM_EXPORT void acir_goblin_accumulate(in_ptr acir_composer_ptr,
+                                        uint8_t const* acir_vec,
+                                        uint8_t const* witness_vec,
+                                        uint8_t** out)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));

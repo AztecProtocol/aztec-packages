@@ -117,6 +117,41 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
 }
 
 /**
+ * @brief Constructs and verifies a Honk proof for an ACIR circuit via the Goblin accumulate mechanism
+ *
+ * Communication:
+ * - proc_exit: A boolean value is returned indicating whether the proof is valid.
+ *   an exit code of 0 will be returned for success and 1 for failure.
+ *
+ * @param bytecodePath Path to the file containing the serialized acir constraint system
+ * @param witnessPath Path to the file containing the serialized witness
+ * @return verified
+ */
+bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto witness = get_witness(witnessPath);
+
+    acir_proofs::HonkAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
+    // to max circuit size present in acir tests suite.
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
+    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
+    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+
+    // Call accumulate to generate a GoblinUltraHonk proof
+    auto proof = acir_composer.accumulate();
+
+    // Verify the GoblinUltraHonk proof
+    auto verified = acir_composer.verify_accumulator(proof);
+
+    return verified;
+}
+
+/**
  * @brief Proves and Verifies an ACIR circuit
  *
  * Communication:
@@ -460,6 +495,9 @@ int main(int argc, char* argv[])
         }
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
+        }
+        if (command == "accumulate_and_verify_goblin") {
+            return accumulateAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
             return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;

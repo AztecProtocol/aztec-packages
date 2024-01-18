@@ -540,7 +540,7 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_create_goblin_proof",
+    "functionName": "acir_goblin_accumulate",
     "inArgs": [
       {
         "name": "acir_composer_ptr",
