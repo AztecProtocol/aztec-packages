@@ -15,21 +15,17 @@ Aztec brings privacy to Ethereum.
 
 ## Get started
 
-### Build
+### Learn :book:
 
-Looking to get started developing on Aztec?
+Start on the [Foundational Concepts page](./concepts/foundation/main.md) to read about how Aztec works.
 
-Start [here](./dev_docs/getting_started/main.md).
+### Build :technologist:
 
-### Learn
-
-Looking to learn more about how Aztec works?
-
-Start on the [Foundational Concepts page](./concepts/foundation/main.md).
+Start [here](./dev_docs/getting_started/main.md) to get your hands dirty and start developing on Aztec by going through the Getting Started section of the developer documentation.
 
 ---
 
-## Build with confidence.
+## Build with confidence
 
 Design, build, and deploy private smart contracts with the following features:
 
