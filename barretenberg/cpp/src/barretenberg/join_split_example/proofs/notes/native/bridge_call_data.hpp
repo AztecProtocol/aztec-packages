@@ -5,8 +5,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace notes {
 namespace native {
 
@@ -181,5 +180,4 @@ inline std::ostream& operator<<(std::ostream& os, bridge_call_data const& bridge
 
 } // namespace native
 } // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

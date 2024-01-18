@@ -1,8 +1,7 @@
 #pragma once
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace notes {
 namespace native {
 
@@ -12,5 +11,4 @@ bb::fr compute_nullifier(grumpkin::fq const& note_commitment,
 
 } // namespace native
 } // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

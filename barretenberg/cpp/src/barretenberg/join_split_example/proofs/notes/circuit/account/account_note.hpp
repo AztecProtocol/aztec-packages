@@ -2,8 +2,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "commit.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace notes {
 namespace circuit {
 namespace account {
@@ -29,5 +28,4 @@ struct account_note {
 } // namespace account
 } // namespace circuit
 } // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

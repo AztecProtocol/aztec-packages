@@ -13,8 +13,7 @@
 #include <filesystem>
 #endif
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 
 struct circuit_data {
     circuit_data()
@@ -259,5 +258,4 @@ circuit_data get_circuit_data(std::string const& name,
     return data;
 }
 
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

@@ -4,9 +4,7 @@
 #include "compute_circuit_data.hpp"
 #include "join_split_circuit.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace join_split {
+namespace join_split_example::proofs::join_split {
 
 using namespace bb::plonk;
 using namespace bb::stdlib::merkle_tree;
@@ -97,6 +95,4 @@ std::shared_ptr<plonk::verification_key> get_verification_key()
     return verification_key;
 }
 
-} // namespace join_split
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs::join_split

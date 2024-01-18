@@ -3,8 +3,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <stddef.h>
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace notes {
 
 constexpr size_t ASSET_ID_BIT_LENGTH = 30;
@@ -41,5 +40,4 @@ constexpr uint32_t DEFI_BRIDGE_BITCONFIG_LEN = 32;
 constexpr uint32_t DEFI_BRIDGE_AUX_DATA = 64;
 
 } // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

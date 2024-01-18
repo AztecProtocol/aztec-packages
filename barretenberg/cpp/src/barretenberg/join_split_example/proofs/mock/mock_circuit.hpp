@@ -2,8 +2,7 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace mock {
 
 using namespace bb::plonk;
@@ -20,5 +19,4 @@ template <typename Builder> void mock_circuit(Builder& builder, std::vector<bb::
 }
 
 } // namespace mock
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

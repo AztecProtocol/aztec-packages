@@ -8,9 +8,7 @@
 #include "barretenberg/stdlib/merkle_tree/index.hpp"
 #include "index.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace join_split {
+namespace join_split_example::proofs::join_split {
 
 using namespace bb;
 // using namespace bb::stdlib::types;
@@ -161,6 +159,4 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     // }
 }
 
-} // namespace join_split
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs::join_split

@@ -3,8 +3,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace notes {
 namespace circuit {
 namespace account {
@@ -25,5 +24,4 @@ inline auto commit(field_ct const& account_alias_hash,
 } // namespace account
 } // namespace circuit
 } // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs

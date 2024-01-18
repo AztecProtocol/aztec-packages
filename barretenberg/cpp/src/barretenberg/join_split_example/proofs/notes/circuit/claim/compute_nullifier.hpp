@@ -4,8 +4,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace join_split_example::proofs {
 namespace notes {
 namespace circuit {
 namespace claim {
@@ -26,5 +25,4 @@ inline field_ct compute_nullifier(field_ct const& note_commitment)
 } // namespace claim
 } // namespace circuit
 } // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs
