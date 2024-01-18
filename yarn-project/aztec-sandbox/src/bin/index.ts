@@ -17,7 +17,7 @@ import { dirname, resolve } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { setupFileDebugLog } from '../logging.js';
-import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
+import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, waitThenDeployL1Contracts } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 
 /**
@@ -146,7 +146,7 @@ async function main() {
 
     // Deploy L1 Aztec Contracts if needed
     if (deployAztecContracts) {
-      await deployContractsToL1(nodeConfig, hdAccount);
+      await waitThenDeployL1Contracts(nodeConfig, hdAccount);
       if (nodeConfig.publisherPrivateKey === NULL_KEY) {
         const privKey = hdAccount.getHdKey().privateKey;
         nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;

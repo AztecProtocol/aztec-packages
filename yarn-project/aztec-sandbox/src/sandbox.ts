@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecNode } from '@aztec/circuit-types';
-import { DeployL1Contracts, NULL_KEY, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
+import { NULL_KEY, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -17,9 +17,11 @@ const logger = createDebugLogger('aztec:sandbox');
 const localAnvil = foundry;
 
 /**
- * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
+ * Waits then deploys L1 contracts.
+ * @param config - The Aztec Node Config.
+ * @param hdAccount - Account for publishing L1 contracts.
  */
-async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Promise<DeployL1Contracts>) {
+export async function waitThenDeployL1Contracts(config: AztecNodeConfig, hdAccount: HDAccount) {
   const chain = createEthereumChain(config.rpcUrl, config.apiKey);
   // wait for ETH RPC to respond to a request.
   const publicClient = createPublicClient({
@@ -46,22 +48,9 @@ async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Pro
   }
 
   // Deploy L1 contracts
-  return await deployFunction();
-}
+  config.l1Contracts = (await deployL1Contracts(config.rpcUrl, hdAccount, localAnvil, logger)).l1ContractAddresses;
 
-/**
- * Function to deploy our L1 contracts to the sandbox L1
- * @param aztecNodeConfig - The Aztec Node Config
- * @param hdAccount - Account for publishing L1 contracts
- */
-export async function deployContractsToL1(aztecNodeConfig: AztecNodeConfig, hdAccount: HDAccount) {
-  aztecNodeConfig.l1Contracts = (
-    await waitThenDeploy(aztecNodeConfig, () =>
-      deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger),
-    )
-  ).l1ContractAddresses;
-
-  return aztecNodeConfig.l1Contracts;
+  return config.l1Contracts;
 }
 
 /** Sandbox settings. */
@@ -84,7 +73,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   if (!aztecNodeConfig.p2pEnabled) {
-    await deployContractsToL1(aztecNodeConfig, hdAccount);
+    await waitThenDeployL1Contracts(aztecNodeConfig, hdAccount);
   }
 
   const node = await createAztecNode(aztecNodeConfig);

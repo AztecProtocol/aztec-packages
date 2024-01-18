@@ -1,7 +1,7 @@
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { LogFn } from '@aztec/foundation/log';
 import { NoirPackageConfig } from '@aztec/foundation/noir';
 
 import TOML from '@iarna/toml';
@@ -29,28 +29,6 @@ export function getFunctionArtifact(artifact: ContractArtifact, fnName: string):
     throw Error(`Function ${fnName} not found in contract ABI.`);
   }
   return fn;
-}
-
-/**
- * Function to execute the 'deployRollupContracts' command.
- * @param rpcUrl - The RPC URL of the ethereum node.
- * @param apiKey - The api key of the ethereum node endpoint.
- * @param privateKey - The private key to be used in contract deployment.
- * @param mnemonic - The mnemonic to be used in contract deployment.
- */
-export async function deployAztecContracts(
-  rpcUrl: string,
-  apiKey: string,
-  privateKey: string,
-  mnemonic: string,
-  debugLogger: DebugLogger,
-) {
-  const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
-  const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
-
-  const account = !privateKey ? mnemonicToAccount(mnemonic!) : privateKeyToAccount(`0x${privateKey}`);
-  const chain = createEthereumChain(rpcUrl, apiKey);
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger);
 }
 
 /**
