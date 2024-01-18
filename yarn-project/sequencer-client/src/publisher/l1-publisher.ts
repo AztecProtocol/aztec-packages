@@ -88,11 +88,11 @@ export interface L1PublisherTxSender {
   getCurrentArchive(): Promise<Buffer>;
 
   /**
-   * Checks if the body of the given block has been published to availability oracle..
+   * Checks if the body of the given block has been is available.
    * @param block - The block of which to check whether body has been published.
-   * @returns True if the body has been published, false otherwise.
+   * @returns True if the body is available, false otherwise.
    */
-  checkIfBodyPublished(block: L2Block): Promise<boolean>;
+  checkIfBodyIsAvailable(block: L2Block): Promise<boolean>;
 }
 
 /**
@@ -155,7 +155,7 @@ export class L1Publisher implements L2BlockReceiver {
     const encodedBody = block.bodyToBuffer();
 
     while (!this.interrupted) {
-      if (await this.txSender.checkIfBodyPublished(block)) {
+      if (await this.txSender.checkIfBodyIsAvailable(block)) {
         this.log(`Body of a block ${block.number} already published.`);
         break;
       }

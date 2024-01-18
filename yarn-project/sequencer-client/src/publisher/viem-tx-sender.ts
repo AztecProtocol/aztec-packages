@@ -1,4 +1,4 @@
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/circuit-types';
+import { BLOB_SIZE_IN_BYTES, ExtendedContractData, L2Block } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -89,6 +89,11 @@ export class ViemTxSender implements L1PublisherTxSender {
   async getCurrentArchive(): Promise<Buffer> {
     const archive = await this.rollupContract.read.archive();
     return Buffer.from(archive.replace('0x', ''), 'hex');
+  }
+
+  checkIfBodyIsAvailable(block: L2Block): Promise<boolean> {
+    const args = [`0x${block.getCalldataHash().toString('hex')}`] as const;
+    return this.availabilityOracleContract.read.isAvailable(args);
   }
 
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {

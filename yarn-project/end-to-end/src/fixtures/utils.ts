@@ -20,6 +20,8 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import {
+  AvailabilityOracleAbi,
+  AvailabilityOracleBytecode,
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
   InboxAbi,
@@ -86,6 +88,10 @@ export const setupL1Contracts = async (
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
+    },
+    availabilityOracle: {
+      contractAbi: AvailabilityOracleAbi,
+      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,
