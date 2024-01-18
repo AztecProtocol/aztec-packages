@@ -90,7 +90,7 @@ export interface L1PublisherTxSender {
   getCurrentArchive(): Promise<Buffer>;
 
   /**
-   * Checks if the transaction effects of the given block is available.
+   * Checks if the transaction effects of the given block are available.
    * @param block - The block of which to check whether txs are available.
    * @returns True if the txs are available, false otherwise.
    */

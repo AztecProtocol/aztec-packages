@@ -51,7 +51,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes32 _txsHash, // TODO(#3938) Update this to be actual txs hash and not the old diff root.
+    bytes32 _txsHash, // TODO(#3938) Update this to be actual txs hash and not the old block calldata hash.
     bytes calldata _body, // TODO(#3938) Update this to pass in only th messages and not the whole body.
     bytes memory _proof
   ) external override(IRollup) {
