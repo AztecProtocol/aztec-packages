@@ -45,19 +45,19 @@ export interface AztecMap<K extends Key, V> {
   delete(key: K): Promise<boolean>;
 
   /**
-   * Iterates over the map's key-value entries
+   * Iterates over the map's key-value entries in the key's natural order
    * @param range - The range of keys to iterate over
    */
   entries(range?: Range<K>): IterableIterator<[K, V]>;
 
   /**
-   * Iterates over the map's values
+   * Iterates over the map's values in the key's natural order
    * @param range - The range of keys to iterate over
    */
   values(range?: Range<K>): IterableIterator<V>;
 
   /**
-   * Iterates over the map's keys
+   * Iterates over the map's keys in the key's natural order
    * @param range - The range of keys to iterate over
    */
   keys(range?: Range<K>): IterableIterator<K>;
@@ -66,7 +66,7 @@ export interface AztecMap<K extends Key, V> {
 /**
  * A map backed by a persistent store that can have multiple values for a single key.
  */
-export interface AztecMultiMap<K extends string | number, V> extends AztecMap<K, V> {
+export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
   /**
    * Gets all the values at the given key.
    * @param key - The key to get the values from

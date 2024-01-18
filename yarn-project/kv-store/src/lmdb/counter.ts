@@ -2,36 +2,29 @@ import { Key as BaseKey, Database } from 'lmdb';
 
 import { Key, Range } from '../interfaces/common.js';
 import { AztecCounter } from '../interfaces/counter.js';
-
-/** The slot where a key-value entry would be stored */
-type CountMapKey<K> = ['count_map', string, 'slot', K];
+import { LmdbAztecMap } from './map.js';
 
 /**
  * A counter implementation backed by LMDB
  */
 export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
-  #db: Database<[K, number], CountMapKey<K>>;
+  #db: Database;
   #name: string;
-
-  #startSentinel: CountMapKey<Buffer>;
-  #endSentinel: CountMapKey<Buffer>;
+  #map: LmdbAztecMap<K, number>;
 
   constructor(db: Database<unknown, BaseKey>, name: string) {
+    this.#db = db;
     this.#name = name;
-    this.#db = db as Database<[K, number], CountMapKey<K>>;
-
-    this.#startSentinel = ['count_map', this.#name, 'slot', Buffer.from([])];
-    this.#endSentinel = ['count_map', this.#name, 'slot', Buffer.from([255])];
+    this.#map = new LmdbAztecMap(db, name);
   }
 
   set(key: K, value: number): Promise<boolean> {
-    return this.#db.put(this.#slot(key), [key, value]);
+    return this.#map.set(key, value);
   }
 
   update(key: K, delta = 1): Promise<boolean> {
     return this.#db.childTransaction(() => {
-      const slot = this.#slot(key);
-      const [_, current] = this.#db.get(slot) ?? [key, 0];
+      const current = this.#map.get(key) ?? 0;
       const next = current + delta;
 
       if (next < 0) {
@@ -39,11 +32,11 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
       }
 
       if (next === 0) {
-        void this.#db.remove(slot);
+        void this.#map.delete(key);
       } else {
         // store the key inside the entry because LMDB might return an internal representation
         // of the key when iterating over the database
-        void this.#db.put(slot, [key, next]);
+        void this.#map.set(key, next);
       }
 
       return true;
@@ -51,32 +44,14 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
   }
 
   get(key: K): number {
-    return (this.#db.get(this.#slot(key)) ?? [key, 0])[1];
+    return this.#map.get(key) ?? 0;
   }
 
-  *entries(range: Range<K> = {}): IterableIterator<[K, number]> {
-    const { start, end, reverse, limit } = range;
-    const cursor = this.#db.getRange({
-      start: start ? this.#slot(start) : reverse ? this.#endSentinel : this.#startSentinel,
-      end: end ? this.#slot(end) : reverse ? this.#startSentinel : this.#endSentinel,
-      reverse,
-      limit,
-    });
-
-    for (const {
-      value: [key, value],
-    } of cursor) {
-      yield [key, value];
-    }
+  entries(range: Range<K> = {}): IterableIterator<[K, number]> {
+    return this.#map.entries(range);
   }
 
-  *keys(range: Range<K> = {}): IterableIterator<K> {
-    for (const [key] of this.entries(range)) {
-      yield key;
-    }
-  }
-
-  #slot(key: K): CountMapKey<K> {
-    return ['count_map', this.#name, 'slot', key];
+  keys(range: Range<K> = {}): IterableIterator<K> {
+    return this.#map.keys(range);
   }
 }

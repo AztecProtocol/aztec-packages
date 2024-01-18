@@ -1,24 +1,24 @@
-import { Database, Key } from 'lmdb';
+import { Database, RangeOptions } from 'lmdb';
 
-import { Range } from '../interfaces/common.js';
+import { Key, Range } from '../interfaces/common.js';
 import { AztecMultiMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
-type MapKeyValueSlot<K extends string | number | Buffer> = ['map', string, 'slot', K];
+type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
 
 /**
  * A map backed by LMDB.
  */
-export class LmdbAztecMap<K extends string | number, V> implements AztecMultiMap<K, V> {
-  protected db: Database<V, MapKeyValueSlot<K>>;
+export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
+  protected db: Database<[K, V], MapValueSlot<K>>;
   protected name: string;
 
-  #startSentinel: MapKeyValueSlot<Buffer>;
-  #endSentinel: MapKeyValueSlot<Buffer>;
+  #startSentinel: MapValueSlot<Buffer>;
+  #endSentinel: MapValueSlot<Buffer>;
 
-  constructor(rootDb: Database<unknown, Key>, mapName: string) {
+  constructor(rootDb: Database, mapName: string) {
     this.name = mapName;
-    this.db = rootDb as Database<V, MapKeyValueSlot<K>>;
+    this.db = rootDb as Database<[K, V], MapValueSlot<K>>;
 
     // sentinels are used to define the start and end of the map
     // with LMDB's key encoding, no _primitive value_ can be "less than" an empty buffer or greater than Byte 255
@@ -32,13 +32,13 @@ export class LmdbAztecMap<K extends string | number, V> implements AztecMultiMap
   }
 
   get(key: K): V | undefined {
-    return this.db.get(this.#slot(key)) as V | undefined;
+    return this.db.get(this.#slot(key))?.[1];
   }
 
   *getValues(key: K): IterableIterator<V> {
     const values = this.db.getValues(this.#slot(key));
     for (const value of values) {
-      yield value;
+      yield value?.[1];
     }
   }
 
@@ -47,14 +47,14 @@ export class LmdbAztecMap<K extends string | number, V> implements AztecMultiMap
   }
 
   set(key: K, val: V): Promise<boolean> {
-    return this.db.put(this.#slot(key), val);
+    return this.db.put(this.#slot(key), [key, val]);
   }
 
   swap(key: K, fn: (val: V | undefined) => V): Promise<boolean> {
     return this.db.childTransaction(() => {
       const slot = this.#slot(key);
-      const val = this.db.get(slot);
-      void this.db.put(slot, fn(val));
+      const entry = this.db.get(slot);
+      void this.db.put(slot, [key, fn(entry?.[1])]);
 
       return true;
     });
@@ -63,7 +63,7 @@ export class LmdbAztecMap<K extends string | number, V> implements AztecMultiMap
   setIfNotExists(key: K, val: V): Promise<boolean> {
     const slot = this.#slot(key);
     return this.db.ifNoExists(slot, () => {
-      void this.db.put(slot, val);
+      void this.db.put(slot, [key, val]);
     });
   }
 
@@ -72,27 +72,42 @@ export class LmdbAztecMap<K extends string | number, V> implements AztecMultiMap
   }
 
   async deleteValue(key: K, val: V): Promise<void> {
-    await this.db.remove(this.#slot(key), val);
+    await this.db.remove(this.#slot(key), [key, val]);
   }
 
   *entries(range: Range<K> = {}): IterableIterator<[K, V]> {
-    const { start, end, reverse = false, limit } = range;
+    const { reverse = false, limit } = range;
     // LMDB has a quirk where it expects start > end when reverse=true
     // in that case, we need to swap the start and end sentinels
-    const iterator = this.db.getRange({
-      start: start ? this.#slot(start) : reverse ? this.#endSentinel : this.#startSentinel,
-      end: end ? this.#slot(end) : reverse ? this.#startSentinel : this.#endSentinel,
+    const start = reverse
+      ? range.end
+        ? this.#slot(range.end)
+        : this.#endSentinel
+      : range.start
+      ? this.#slot(range.start)
+      : this.#startSentinel;
+
+    const end = reverse
+      ? range.start
+        ? this.#slot(range.start)
+        : this.#startSentinel
+      : range.end
+      ? this.#slot(range.end)
+      : this.#endSentinel;
+
+    const lmdbRange: RangeOptions = {
+      start,
+      end,
       reverse,
       limit,
-    });
+    };
 
-    for (const { key, value } of iterator) {
-      if (key[0] !== 'map' || key[1] !== this.name) {
-        break;
-      }
+    const iterator = this.db.getRange(lmdbRange);
 
-      const originalKey = key[3];
-      yield [originalKey, value];
+    for (const {
+      value: [key, value],
+    } of iterator) {
+      yield [key, value];
     }
   }
 
@@ -108,7 +123,7 @@ export class LmdbAztecMap<K extends string | number, V> implements AztecMultiMap
     }
   }
 
-  #slot(key: K): MapKeyValueSlot<K> {
+  #slot(key: K): MapValueSlot<K> {
     return ['map', this.name, 'slot', key];
   }
 }

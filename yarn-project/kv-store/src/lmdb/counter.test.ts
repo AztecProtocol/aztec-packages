@@ -40,6 +40,13 @@ describe('LmdbAztecCounter', () => {
       expect(counter.get(key)).toEqual(0);
     });
 
+    it('throws when decrementing below zero', async () => {
+      const key = genKey();
+      await counter.update(key, 1);
+
+      await expect(counter.update(key, -2)).rejects.toThrow();
+    });
+
     it('increments values by a delta', async () => {
       const key = genKey();
       await counter.update(key, 1);
