@@ -64,20 +64,10 @@ std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
 void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
                                          acir_format::WitnessVector& witness)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The public inputs in constraint_system do not
-    // index into "witness" but rather into the future "variables" which it assumes will be equal to witness but with a
-    // prepended zero. We want to remove this +1 so that public_inputs properly indexes into witness because we're about
-    // to make calls like add_variable(witness[public_inputs[idx]]). Once the +1 is removed from noir, this correction
-    // can be removed entirely and we can use constraint_system.public_inputs directly.
-    const uint32_t pre_applied_noir_offset = 1;
-    std::vector<uint32_t> corrected_public_inputs;
-    for (const auto& index : constraint_system.public_inputs) {
-        corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
-    }
-
     // Construct a builder using the witness and public input data from acir
-    goblin_builder_ =
-        acir_format::GoblinBuilder{ goblin.op_queue, witness, corrected_public_inputs, constraint_system.varnum };
+    goblin_builder_ = acir_format::GoblinBuilder{
+        goblin.op_queue, witness, constraint_system.public_inputs, constraint_system.varnum
+    };
 
     // Populate constraints in the builder via the data in constraint_system
     acir_format::build_constraints(goblin_builder_, constraint_system, true);
@@ -164,8 +154,8 @@ std::string AcirComposer::get_solidity_verifier()
  * @param proof
  * @param num_inner_public_inputs - number of public inputs on the proof being serialized
  */
-std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& proof,
-                                                                        size_t num_inner_public_inputs)
+std::vector<bb::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& proof,
+                                                              size_t num_inner_public_inputs)
 {
     transcript::StandardTranscript transcript(proof,
                                               acir_format::Composer::create_manifest(num_inner_public_inputs),
@@ -181,7 +171,7 @@ std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vec
  *        Use this method to get the witness values!
  *        The composer should already have a verification key initialized.
  */
-std::vector<barretenberg::fr> AcirComposer::serialize_verification_key_into_fields()
+std::vector<bb::fr> AcirComposer::serialize_verification_key_into_fields()
 {
     return acir_format::export_key_in_recursion_format(verification_key_);
 }
