@@ -54,9 +54,6 @@ export class Fr {
   isZero() {
     return this.value.every(v => v === 0);
   }
-
-  
-
 }
 
 export class Fq {
