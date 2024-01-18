@@ -276,8 +276,24 @@ export class Fq extends BaseField {
   }
 }
 
-// Performance bottleneck
-// TODO: add documentation
+// Beware: Performance bottleneck below
+
+/** 
+ * Find the modular inverse of a given element, for BN254 Fr.
+ */
+function modInverse(b: bigint) {
+  const [gcd, x, _] = extendedEuclidean(b, Fr.MODULUS);
+  if (gcd != 1n) {
+    throw Error('Inverse does not exist');
+  }
+  // Add modulus to ensure positive
+  return new Fr(x + Fr.MODULUS);
+}
+
+/**
+ * The extended Euclidean algorithm can be used to find the multiplicative inverse of a field element
+ * This is used to perform field division.
+ */
 function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint] {
   if (a == 0n) {
     return [modulus, 0n, 1n];
@@ -287,14 +303,6 @@ function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint]
   }
 }
 
-function modInverse(b: bigint) {
-  const [gcd, x, _] = extendedEuclidean(b, Fr.MODULUS);
-  if (gcd != 1n) {
-    throw Error('Inverse does not exist');
-  }
-  // Add modulus to ensure positive
-  return new Fr(x + Fr.MODULUS);
-}
 
 /**
  * GrumpkinScalar is an Fq.
