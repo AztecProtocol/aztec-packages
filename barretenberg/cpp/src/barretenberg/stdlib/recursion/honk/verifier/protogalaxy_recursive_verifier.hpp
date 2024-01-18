@@ -86,16 +86,28 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
      * accumulator, received from the prover is the same as that produced by the verifier.
      *
+     * @details In the recursive setting this function doesn't return anything because the equality checks performed by
+     * the recursive verifier, ensuring the folded ϕ*, e* and β* on the verifier side correspond to what has been sent
+     * by the prover, are expressed as constraints.
      */
-    bool verify_folding_proof(std::vector<uint8_t> proof);
+    void verify_folding_proof(std::vector<uint8_t> proof);
 
-    static FF evaluate_perturbator(std::vector<FF> coeffs, FF z)
+    /**
+     * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
+     *
+     * @details This method is equivalent to the ones in the Polynomial class that evaluate a polynomial in coefficient
+     * form, class used in the native verifier for constructing and computing the perturbator. We implement this
+     * functionality here in the recursive folding verifier to avoid instantiating the entire Polynomial class on
+     * stdlib::bn254. The evaluation needs to be done sequentially asw e don't support a parallel_for in circuits.
+     *
+     */
+    static FF evaluate_perturbator(std::vector<FF> coeffs, FF point)
     {
-        FF z_acc = FF(1);
+        FF point_acc = FF(1);
         FF result = FF(0);
         for (size_t i = 0; i < coeffs.size(); i++) {
-            result += coeffs[i] * z_acc;
-            z_acc *= z;
+            result += coeffs[i] * point_acc;
+            point_acc *= point;
         }
         return result;
     };

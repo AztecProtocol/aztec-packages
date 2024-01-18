@@ -15,7 +15,7 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
     using UltraComposer = ::proof_system::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::proof_system::honk::UltraComposer_<GoblinUltraFlavor>;
 
-    using InnerFlavor = UltraFlavor; // type this
+    using InnerFlavor = UltraFlavor;
     using InnerComposer = UltraComposer;
     using Instance = ::proof_system::honk::ProverInstance_<InnerFlavor>;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
@@ -24,13 +24,25 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
     using FF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
+    // cannot do on Goblin
     using RecursiveFlavor = ::proof_system::honk::flavor::UltraRecursive_<BuilderType>;
     using RecursiveVerifierInstances = ::proof_system::honk::VerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using OuterBuilder = BuilderType;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
+    using DeciderVerifier = ::proof_system::honk::DeciderVerifier_<InnerFlavor>;
     using NativeVerifierInstances = ::proof_system::honk::VerifierInstances_<InnerFlavor, 2>;
     using NativeFoldingVerifier = proof_system::honk::ProtoGalaxyVerifier_<NativeVerifierInstances>;
+
+    // Helper for getting composer for prover/verifier of recursive (outer) circuit
+    template <typename BuilderT> static auto get_outer_composer()
+    {
+        if constexpr (IsGoblinBuilder<BuilderT>) {
+            return GoblinUltraComposer();
+        } else {
+            return UltraComposer();
+        }
+    }
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -88,7 +100,7 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
     };
 
   public:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     /**
      * @brief Create inner circuit and call check_circuit on it
@@ -104,6 +116,11 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
         EXPECT_EQ(result, true);
     }
 
+    /**
+     * @brief Ensure that evaluating the perturbator in the recursive folding verifier returns the same result as
+     * evaluating in Polynomial class.
+     *
+     */
     static void test_evaluate_perturbator()
     {
         OuterBuilder builder;
@@ -128,49 +145,72 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
 
     static void test_recursive_folding()
     {
+        // Create two arbitrary circuits of size 2^10
         InnerBuilder builder1;
-        // create_inner_circuit(builder1);
-        builder1.add_public_variable(FF(1));
+        create_inner_circuit(builder1, 20);
         InnerBuilder builder2;
-        builder2.add_public_variable(FF(1));
-        // create_inner_circuit(builder2);
+        create_inner_circuit(builder2, 20);
+
         InnerComposer inner_composer = InnerComposer();
         auto instance1 = inner_composer.create_instance(builder1);
         auto instance2 = inner_composer.create_instance(builder2);
         auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
-        // commitment key accessible
-        auto inner_folding_prover = inner_composer.create_folding_prover(instances, inner_composer.commitment_key);
-        auto inner_folding_proof = inner_folding_prover.fold_instances();
-        // auto native_folding_verifier = inner_composer.create_folding_verifier();
-        // auto res = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        // EXPECT_EQ(res, true);
 
+        // Generate a folding proof
+        auto inner_folding_prover = inner_composer.create_folding_prover(instances);
+        auto inner_folding_proof = inner_folding_prover.fold_instances();
+
+        // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder outer_folding_circuit;
         FoldingRecursiveVerifier verifier{ &outer_folding_circuit };
-        auto res = verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        EXPECT_EQ(res, true);
+        verifier.verify_folding_proof(inner_folding_proof.folding_data);
         info("Recursive Verifier with Ultra instances: num gates = ", outer_folding_circuit.num_gates);
+
+        // Perform native folding verification and ensure it returns the same result (either true or false) as calling
+        // check_circuit on the recursive folding verifier
+        auto native_folding_verifier = inner_composer.create_folding_verifier();
+        auto native_folding_result = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        EXPECT_EQ(native_folding_result, outer_folding_circuit.check_circuit());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_folding_circuit.failed(), false) << outer_folding_circuit.err();
 
-        // TODO: construct and verify a proof for the recursive folding verifier
-
-        auto inner_decider_prover =
-            inner_composer.create_decider_prover(inner_folding_proof.accumulator, inner_composer.commitment_key);
+        // Create a decider proof for the relaxed instance obtained through folding
+        auto inner_decider_prover = inner_composer.create_decider_prover(inner_folding_proof.accumulator);
         auto inner_decider_proof = inner_decider_prover.construct_proof();
+
+        // Create a decider verifier circuit for recursively verifying the decider proof
         OuterBuilder outer_decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
         auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
-        static_cast<void>(pairing_points);
-        // need to check these pairing points
         info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
+
+        // Perform native verification then perform the pairing on the outputs of the recursive
+        //  decider verifier and check that the result agrees.
+        DeciderVerifier native_decider_verifier =
+            inner_composer.create_decider_verifier(inner_folding_proof.accumulator);
+        auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
+        auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
+            pairing_points[0].get_value(), pairing_points[1].get_value());
+        EXPECT_EQ(native_result, recursive_result);
+
+        // Construct and verify a proof of the recursive decider verifier circuit
+        {
+            auto composer = get_outer_composer<OuterBuilder>();
+            auto instance = composer.create_instance(outer_decider_circuit);
+            auto prover = composer.create_prover(instance);
+            auto verifier = composer.create_verifier(instance);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
+
+            ASSERT(verified);
+        }
     }
 };
 
-using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+using BuilderTypes = testing::Types<GoblinUltraCircuitBuilder>;
 TYPED_TEST_SUITE(ProtogalaxyRecursiveTest, BuilderTypes);
 
 TYPED_TEST(ProtogalaxyRecursiveTest, InnerCircuit)

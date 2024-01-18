@@ -149,7 +149,7 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
 }
 
 template <class VerifierInstances>
-bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std::vector<uint8_t> proof)
+void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std::vector<uint8_t> proof)
 {
     using Transcript = typename Flavor::Transcript;
     using ElementNative = typename Flavor::Curve::ElementNative;
@@ -168,9 +168,8 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     }
 
     perturbator_coeffs[0].assert_equal(accumulator->target_sum, "F(0) != e");
-
-    // auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
+
     auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
@@ -190,12 +189,12 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     auto expected_next_target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     auto next_target_sum = transcript->template receive_from_prover<FF>("next_target_sum");
-    expected_next_target_sum.assert_equal(next_target_sum, "next_target_sum mismatch");
+    expected_next_target_sum.assert_equal(next_target_sum, "next target sum mismatch");
 
     auto expected_betas_star = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     for (size_t idx = 0; idx < accumulator->log_instance_size; idx++) {
         auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
-        expected_betas_star[idx].assert_equal(beta_star, "beta mismatch at: " + std::to_string(idx));
+        expected_betas_star[idx].assert_equal(beta_star, " next gate challenge mismatch at: " + std::to_string(idx));
     }
 
     // Compute ϕ and verify against the data received from the prover
@@ -227,19 +226,19 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             inst++;
         }
         auto next_el = transcript->template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
-        next_el.assert_equal(expected_el);
+        next_el.assert_equal(expected_el, "folded public input mismatch at: " + std::to_string(el_idx));
         el_idx++;
     }
 
     for (size_t alpha_idx = 0; alpha_idx < NUM_SUBRELATIONS - 1; alpha_idx++) {
-        FF alpha(0);
+        FF expected_alpha(0);
         size_t instance_idx = 0;
         for (auto& instance : instances) {
-            alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
+            expected_alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
             instance_idx++;
         }
         auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));
-        next_alpha.assert_equal(alpha);
+        next_alpha.assert_equal(expected_alpha, "folded relation separator mismatch at: " + std::to_string(alpha_idx));
     }
 
     auto expected_parameters = proof_system::RelationParameters<FF>{};
@@ -255,20 +254,22 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     }
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
-    next_eta.assert_equal(expected_parameters.eta);
+    next_eta.assert_equal(expected_parameters.eta, "relation parameter eta mismatch");
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
-    next_beta.assert_equal(expected_parameters.beta);
+    next_beta.assert_equal(expected_parameters.beta, "relation parameter beta mismatch");
 
     auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
-    next_gamma.assert_equal(expected_parameters.gamma);
+    next_gamma.assert_equal(expected_parameters.gamma, "relation parameter gamma mismatch");
 
     auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
-    next_public_input_delta.assert_equal(expected_parameters.public_input_delta);
+    next_public_input_delta.assert_equal(expected_parameters.public_input_delta,
+                                         "relation parameter public input delta mismatch");
 
     auto next_lookup_grand_product_delta =
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
-    next_lookup_grand_product_delta.assert_equal(expected_parameters.lookup_grand_product_delta);
+    next_lookup_grand_product_delta.assert_equal(expected_parameters.lookup_grand_product_delta,
+                                                 "relation parameter lookup grand product delta mismatch");
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
@@ -286,8 +287,6 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
         vk.y.assert_equal(expected_vk.y);
         vk_idx++;
     }
-
-    return true;
 }
 
 template class ProtoGalaxyRecursiveVerifier_<
