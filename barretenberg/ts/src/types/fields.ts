@@ -55,6 +55,8 @@ export class Fr {
     return this.value.every(v => v === 0);
   }
 
+  
+
 }
 
 export class Fq {

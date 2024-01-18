@@ -193,6 +193,8 @@ export class Fr extends BaseField {
     return fromString(buf, Fr);
   }
 
+  /** Arithmetic */
+
   add(rhs: Fr) {
     return new Fr((this.toBigInt() + rhs.toBigInt()) % Fr.MODULUS);
   }
@@ -212,7 +214,7 @@ export class Fr extends BaseField {
     }
 
     const bInv = modInverse(rhs.toBigInt());
-    return new Fr((this.toBigInt() * bInv) % Fr.MODULUS);
+    return this.mul(bInv);
   }
 }
 
@@ -282,8 +284,8 @@ function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint]
         return [modulus, 0n, 1n]
     }
     else{
-        const [gcd, x, y]: [bigint, bigint, bigint] = extendedEuclidean(modulus % a, a)
-        return [gcd, y - (modulus / a) * x, x]
+        const [gcd, x, y] = extendedEuclidean(modulus % a, a)
+        return [gcd, y - ((modulus / a) * x), x]
     }
 }
 
@@ -292,7 +294,8 @@ function modInverse(b: bigint){
     if (gcd != 1n){
         throw Error("Inverse does not exist");
     }
-    return x % Fr.MODULUS;
+    // Add modulus to ensure positive
+    return new Fr(x + Fr.MODULUS);
 }
 
 /**
