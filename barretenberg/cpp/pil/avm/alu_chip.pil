@@ -45,8 +45,10 @@ namespace aluChip(256);
     pol commit alu_cf;
 
     // ========= Type Constraints =============================================
-    // TODO: Range constraints for slice registers
-    //       intermediate registers ia and ib (inputs) depending on flag
+    // TODO: Range constraints
+    //       - for slice registers
+    //       - intermediate registers ia and ib (inputs) depending on flag (or inherited from previous ops?)
+    //       - intermediate register ic (in some operations it might be inherited based on ia and ib ranges. To be checked.)
     //       Carry flag: We will have to constraint to ensure that the 
     //                   arithmetic expressions are not overflowing finite field size
     // Remark: Operation selectors are constrained in the main trace.
@@ -111,13 +113,6 @@ namespace aluChip(256);
     pol sum_64  = sum_32     + alu_u16_r1 * 2**32 + alu_u16_r2 * 2**48;
     pol sum_96  = sum_64     + alu_u16_r3 * 2**64 + alu_u16_r4 * 2**80;
     pol sum_128 = sum_96     + alu_u16_r5 * 2**96 + alu_u16_r6 * 2**112;
-    
-    // TODO(clean): 16-bit slice partial sums for legacy multiplication
-    pol mul_sum_16 =  alu_u16_r0;
-    pol mul_sum_32 =  mul_sum_16     + alu_u16_r1 * 2**16;
-    pol mul_sum_64 =  mul_sum_32     + alu_u16_r2 * 2**32 + alu_u16_r3 * 2**48; 
-    pol mul_sum_96 =  mul_sum_64     + alu_u16_r4 * 2**64 + alu_u16_r5 * 2**80;
-    pol mul_sum_128 = mul_sum_96     + alu_u16_r6 * 2**96 + alu_u16_r7 * 2**112;
 
     // ========= ADDITION/SUBTRACTION Operation Constraints ===============================
     //
@@ -153,28 +148,20 @@ namespace aluChip(256);
     #[ALU_MULTIPLICATION_FF]
     alu_ff_tag * alu_op_mul * (alu_ia * alu_ib - alu_ic) = 0;
 
+
     // We need 2k bits to express the product (a*b) over the integer, i.e., for type uk
     // we express the product as sum_k (u8 is an exception as we need 8-bit registers)
 
-    // u8 multiplication
-    alu_u8_tag * alu_op_mul * (alu_u8_r0 + alu_u8_r1 * 2**8 - alu_ia * alu_ib) = 0;
-    #[ALU_MULTIPLICATION_OUT_U8]
-    alu_u8_tag * alu_op_mul * (alu_u8_r0 - alu_ic) = 0;
+    // We group relations for u8, u16, u32, u64 together.
 
-    // u16 multiplication
-    alu_u16_tag * alu_op_mul * (mul_sum_32 - alu_ia * alu_ib) = 0;
-    #[ALU_MULTIPLICATION_OUT_U16]
-    alu_u16_tag * alu_op_mul * (mul_sum_16 - alu_ic) = 0;
+    // Helper polynomial
+    pol sum_tag_no_128 = alu_u8_tag * sum_8 + alu_u16_tag * sum_16 + alu_u32_tag * sum_32 + alu_u64_tag * sum_64;
 
-    // u32 multiplication
-    alu_u32_tag * alu_op_mul * (mul_sum_64 - alu_ia * alu_ib) = 0;
-    #[ALU_MULTIPLICATION_OUT_U32]
-    alu_u32_tag * alu_op_mul * (mul_sum_32 - alu_ic) = 0;
+    #[ALU_MUL_COMMON_1]
+    (1 - alu_ff_tag - alu_u128_tag) * alu_op_mul * (sum_128 - alu_ia * alu_ib) = 0;
 
-    // u64 multiplication
-    alu_u64_tag * alu_op_mul * (mul_sum_128 - alu_ia * alu_ib) = 0;
-    #[ALU_MULTIPLICATION_OUT_U64]
-    alu_u64_tag * alu_op_mul * (mul_sum_64 - alu_ic) = 0;
+    #[ALU_MUL_COMMON_2]
+    alu_op_mul * (sum_tag_no_128 - (1 - alu_ff_tag - alu_u128_tag) * alu_ic) = 0;
 
     // ========= u128 MULTIPLICATION Operation Constraints ===============================
     //
@@ -190,22 +177,25 @@ namespace aluChip(256);
     // shifted polynomials.
     // R' is stored in alu_u64_r0
 
+    // 64-bit lower limb
+    pol sum_low_64 = alu_u16_r0 + alu_u16_r1 * 2**16 + alu_u16_r2 * 2**32 + alu_u16_r3 * 2**48;
+
     // 64-bit higher limb
     pol sum_high_64 = alu_u16_r4 + alu_u16_r5 * 2**16 + alu_u16_r6 * 2**32 + alu_u16_r7 * 2**48;
 
     // 64-bit lower limb for next row
-    pol sum_shifted_64 = alu_u16_r0' + alu_u16_r1' * 2**16 + alu_u16_r2' * 2**32 + alu_u16_r3' * 2**48;
+    pol sum_low_shifted_64 = alu_u16_r0' + alu_u16_r1' * 2**16 + alu_u16_r2' * 2**32 + alu_u16_r3' * 2**48;
 
     // 64-bit higher limb for next row
     pol sum_high_shifted_64 = alu_u16_r4' + alu_u16_r5' * 2**16 + alu_u16_r6' * 2**32 + alu_u16_r7' * 2**48;
 
     // Arithmetic relations
-    alu_u128_tag * alu_op_mul * (mul_sum_64 + sum_high_64 * 2**64 - alu_ia) = 0;
-    alu_u128_tag * alu_op_mul * (sum_shifted_64 + sum_high_shifted_64 * 2**64 - alu_ib) = 0;
+    alu_u128_tag * alu_op_mul * (sum_low_64 + sum_high_64 * 2**64 - alu_ia) = 0;
+    alu_u128_tag * alu_op_mul * (sum_low_shifted_64 + sum_high_shifted_64 * 2**64 - alu_ib) = 0;
     #[ALU_MULTIPLICATION_OUT_U128]
     alu_u128_tag * alu_op_mul * (
-            alu_ia * sum_shifted_64
-          + mul_sum_64 * sum_high_shifted_64 * 2**64
+            alu_ia * sum_low_shifted_64
+          + sum_low_64 * sum_high_shifted_64 * 2**64
           - (alu_cf * 2**64 + alu_u64_r0) * 2**128
           - alu_ic
         ) = 0;

@@ -701,9 +701,10 @@ TEST_F(AvmMiniArithmeticTestsU16, multiplication)
 
     EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
 
-    // Decomposition of integer multiplication in 16-bit registers
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(49000));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
+    // Decomposition of integer multiplication in 8-bit and 16-bit registers
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0x68)); // 49000 = 0xBF68
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0xBF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -724,10 +725,12 @@ TEST_F(AvmMiniArithmeticTestsU16, multiplicationOverflow)
 
     EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
 
-    // Decomposition of integer multiplication in 16-bit registers
+    // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 512 * 1024 = 0 + 8 * 2^16
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(8));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(8));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -856,10 +859,12 @@ TEST_F(AvmMiniArithmeticTestsU32, multiplication)
 
     EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
 
-    // Decomposition of integer multiplication in 16-bit registers
-    // 123454321 = 50033 + 1883 * 2^16
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(50033));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(1883));
+    // Decomposition of integer multiplication in 8-bit and 16-bit registers
+    // 123454321 = 0x75BC371
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0x71));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0xC3));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0x75B));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0));
 
@@ -883,12 +888,14 @@ TEST_F(AvmMiniArithmeticTestsU32, multiplicationOverflow)
 
     EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
 
-    // Decomposition of integer multiplication in 16-bit registers
+    // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 143 * 2^47 = 0 + 0 * 2^16 + 2^15 * 2^32 + 71 * 2^48
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(32768)); // 2^15
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(71));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(32768)); // 2^15
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(71));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -1036,12 +1043,14 @@ TEST_F(AvmMiniArithmeticTestsU64, multiplication)
 
     EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
 
-    // Decomposition of integer multiplication in 16-bit registers
-    // 555,382,554,814,950,741 = 44,373 + 46,641 * 2^16 + 7,549 * 2^32 + 1,973 * 2^48
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(44373));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(46641));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(7549));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(1973));
+    // Decomposition of integer multiplication in 8-bit and 16-bit registers
+    // 555,382,554,814,950,741 = 0x 7B5 1D7D B631 AD55
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0x55));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0xAD));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xB631));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0x1D7D));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0x7B5));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -1066,16 +1075,17 @@ TEST_F(AvmMiniArithmeticTestsU64, multiplicationOverflow)
 
     EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
 
-    // Decomposition of integer multiplication in 16-bit registers
+    // Decomposition of integer multiplication in 8-bit and 16-bit registers
     // 2^128 - 2^65 + 1
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(UINT16_MAX - 1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(UINT16_MAX - 1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(UINT16_MAX));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(UINT16_MAX));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(UINT16_MAX));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(UINT16_MAX));
 
     validate_trace_proof(std::move(trace));
 }
@@ -1541,7 +1551,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU8, subtraction)
 TEST_F(AvmMiniArithmeticNegativeTestsU8, multiplication)
 {
     auto trace = gen_mutated_trace_mul(FF(9), FF(100), FF(55), AvmMemoryTag::u8);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U8");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MUL_COMMON_2");
 }
 
 /******************************************************************************
@@ -1566,7 +1576,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU16, subtraction)
 TEST_F(AvmMiniArithmeticNegativeTestsU16, multiplication)
 {
     auto trace = gen_mutated_trace_mul(FF(8096), FF(1024), FF(1), AvmMemoryTag::u16);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U16");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MUL_COMMON_2");
 }
 
 /******************************************************************************
@@ -1591,7 +1601,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU32, subtraction)
 TEST_F(AvmMiniArithmeticNegativeTestsU32, multiplication)
 {
     auto trace = gen_mutated_trace_mul(FF(UINT32_MAX), FF(UINT32_MAX), FF(0), AvmMemoryTag::u32);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U32");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MUL_COMMON_2");
 }
 
 /******************************************************************************
@@ -1619,7 +1629,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU64, multiplication)
 {
     auto trace =
         gen_mutated_trace_mul(FF(399988877723434LLU), FF(9998887772343LLU), FF(9283674827534LLU), AvmMemoryTag::u64);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U64");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MUL_COMMON_2");
 }
 
 /******************************************************************************

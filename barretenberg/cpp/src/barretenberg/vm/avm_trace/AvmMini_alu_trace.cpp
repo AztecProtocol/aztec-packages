@@ -227,66 +227,26 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
 
     std::array<uint16_t, 8> alu_u16_reg{};
 
+    uint128_t a_u128{ a };
+    uint128_t b_u128{ b };
+    uint128_t c_u128 = a_u128 * b_u128; // Multiplication over the integers (not mod. 2^64)
+
     switch (in_tag) {
     case AvmMemoryTag::ff:
         c = a * b;
         break;
-    case AvmMemoryTag::u8: {
-        auto a_u16 = static_cast<uint16_t>(uint32_t{ a });
-        auto b_u16 = static_cast<uint16_t>(uint32_t{ b });
-        uint16_t c_u16 = a_u16 * b_u16; // Multiplication over the integers (not mod. 2^8)
-
-        // Decompose c_u16 = r0 + 2^8 * r1 with r0, r1 8-bit registers
-        alu_u8_r0 = static_cast<uint8_t>(c_u16);
-        alu_u8_r1 = static_cast<uint8_t>(c_u16 >> 8);
-
-        c = FF{ uint256_t{ alu_u8_r0 } };
+    case AvmMemoryTag::u8:
+        c = FF{ static_cast<uint8_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u16: {
-        uint32_t a_u32{ a };
-        uint32_t b_u32{ b };
-        uint32_t c_u32 = a_u32 * b_u32; // Multiplication over the integers (not mod. 2^16)
-
-        // Decompose c_u32 = r0 + 2^16 * r1 with r0, r1 16-bit registers
-        alu_u16_reg.at(0) = static_cast<uint16_t>(c_u32);
-        alu_u16_reg.at(1) = static_cast<uint16_t>(c_u32 >> 16);
-
-        c = FF{ uint256_t{ alu_u16_reg.at(0) } };
+    case AvmMemoryTag::u16:
+        c = FF{ static_cast<uint16_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u32: {
-        uint64_t a_u64{ a };
-        uint64_t b_u64{ b };
-        uint64_t c_u64 = a_u64 * b_u64; // Multiplication over the integers (not mod. 2^32)
-
-        // Decompose c_u64 = r0 + 2^16 * r1 + 2^32 * r2 + 2^48 * r3 with r0, r1, r2, r3 16-bit registers
-        uint64_t c_trunc_64 = c_u64;
-        for (size_t i = 0; i < 4; i++) {
-            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_64);
-            c_trunc_64 >>= 16;
-        }
-
-        c = FF{ uint256_t{ static_cast<uint32_t>(c_u64) } };
-
+    case AvmMemoryTag::u32:
+        c = FF{ static_cast<uint32_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u64: {
-        uint128_t a_u128{ a };
-        uint128_t b_u128{ b };
-        uint128_t c_u128 = a_u128 * b_u128; // Multiplication over the integers (not mod. 2^64)
-
-        // Decompose c_u128 = r0 + 2^16 * r1 + .. + 2^112 r7 with r0, r1 ... r7 16-bit registers
-        uint128_t c_trunc_128 = c_u128;
-        for (size_t i = 0; i < 8; i++) {
-            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_128);
-            c_trunc_128 >>= 16;
-        }
-
-        c = FF{ uint256_t{ static_cast<uint64_t>(c_u128) } };
-
+    case AvmMemoryTag::u64:
+        c = FF{ static_cast<uint64_t>(c_u128) };
         break;
-    }
     case AvmMemoryTag::u128: {
         uint256_t a_u256{ a };
         uint256_t b_u256{ b };
@@ -345,6 +305,22 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     }
     case AvmMemoryTag::u0: // Unsupported as instruction tag
         return FF{ 0 };
+    }
+
+    // Following code executed for: u8, u16, u32, u64 (u128 returned handled specifically)
+    if (in_tag != AvmMemoryTag::ff) {
+        // Decomposition of c_u128 into 8-bit and 16-bit registers as follows:
+        // alu_u8_r0 + alu_u8_r1 * 2^8 + alu_u16_r0 * 2^16 ... +  alu_u16_r6 * 2^112
+        uint128_t c_trunc_128 = c_u128;
+        alu_u8_r0 = static_cast<uint8_t>(c_trunc_128);
+        c_trunc_128 >>= 8;
+        alu_u8_r1 = static_cast<uint8_t>(c_trunc_128);
+        c_trunc_128 >>= 8;
+
+        for (size_t i = 0; i < 7; i++) {
+            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_128);
+            c_trunc_128 >>= 16;
+        }
     }
 
     // Following code executed for: ff, u8, u16, u32, u64 (u128 returned handled specifically)
