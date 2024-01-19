@@ -20,6 +20,7 @@ pub fn create_note<Note, N>(
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
+    // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
     let inner_note_hash = compute_inner_note_hash(*note);
 
@@ -38,6 +39,7 @@ pub fn create_note_hash_from_public<Note, N>(context: &mut PublicContext, storag
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
+    // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
     let inner_note_hash = compute_inner_note_hash(*note);
 

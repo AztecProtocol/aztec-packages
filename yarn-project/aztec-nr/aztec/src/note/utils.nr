@@ -66,7 +66,7 @@ pub fn compute_note_hash_and_nullifier<T, N, S>(
     serialized_note: [Field; S]
 ) -> [Field; 4] where T: NoteInterface {
     let mut note = deserialize(arr_copy_slice(serialized_note, [0; N], 0));
-    // TODO: traits with &mut self are not supported 
+    // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     T::set_header((&mut note), note_header);
 
     let note_hash = note.compute_note_hash();
