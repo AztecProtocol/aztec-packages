@@ -17,7 +17,7 @@ struct user_context {
 inline bb::fr generate_alias_hash(std::string const& alias)
 {
     std::vector<uint8_t> inputv(alias.begin(), alias.end());
-    auto output = blake2::blake2s(inputv);
+    auto output = bb::crypto::blake2s(inputv);
     return bb::fr(uint256_t(from_buffer<bb::fr>(output.data())) >> 32);
 }
 
