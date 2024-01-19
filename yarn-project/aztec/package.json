@@ -47,7 +47,6 @@
     "koa-router": "^12.0.0",
     "leveldown": "^6.1.1",
     "lmdb": "^2.9.2",
-    "lodash.pick": "^4.4.0",
     "memdown": "^6.1.1",
     "viem": "^1.2.5",
     "winston": "^3.10.0",
