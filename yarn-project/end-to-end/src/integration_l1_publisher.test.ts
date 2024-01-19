@@ -104,12 +104,12 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    const { walletClient, publicClient, l1ContractAddresses } = await deployL1Contracts(
-      config.rpcUrl,
-      deployerAccount,
-      localAnvil,
-      logger,
-    );
+    const {
+      walletClient,
+      publicClient: publicClient_,
+      l1ContractAddresses,
+    } = await deployL1Contracts(config.rpcUrl, deployerAccount, localAnvil, logger);
+    publicClient = publicClient_;
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
