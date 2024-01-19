@@ -93,17 +93,17 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
     std::string message_string = "Instructions unclear, ask again later.";
 
-    crypto::ecdsa::ecdsa_key_pair<fr, g1> account;
+    crypto::ecdsa_key_pair<fr, g1> account;
     for (size_t i = 0; i < num_iterations; i++) {
         // Generate unique signature for each iteration
         account.private_key = curve::fr::random_element();
         account.public_key = curve::g1::one * account.private_key;
 
-        crypto::ecdsa::ecdsa_signature signature =
-            crypto::ecdsa::ecdsa_construct_signature<Sha256Hasher, fq, fr, g1>(message_string, account);
+        crypto::ecdsa_signature signature =
+            crypto::ecdsa_construct_signature<Sha256Hasher, fq, fr, g1>(message_string, account);
 
-        bool first_result = crypto::ecdsa::ecdsa_verify_signature<Sha256Hasher, fq, fr, g1>(
-            message_string, account.public_key, signature);
+        bool first_result =
+            crypto::ecdsa_verify_signature<Sha256Hasher, fq, fr, g1>(message_string, account.public_key, signature);
         static_cast<void>(first_result); // TODO(Cody): This is not used anywhere.
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
@@ -112,18 +112,18 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
         typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
 
-        stdlib::ecdsa::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                                     typename curve::byte_array_ct(&builder, ss),
-                                                     stdlib::uint8<Builder>(&builder, vv) };
+        stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
+                                              typename curve::byte_array_ct(&builder, ss),
+                                              stdlib::uint8<Builder>(&builder, vv) };
 
         typename curve::byte_array_ct message(&builder, message_string);
 
         // Verify ecdsa signature
-        stdlib::ecdsa::ecdsa_verify_signature<Builder,
-                                              curve,
-                                              typename curve::fq_ct,
-                                              typename curve::bigfr_ct,
-                                              typename curve::g1_bigfr_ct>(message, public_key, sig);
+        stdlib::ecdsa_verify_signature<Builder,
+                                       curve,
+                                       typename curve::fq_ct,
+                                       typename curve::bigfr_ct,
+                                       typename curve::g1_bigfr_ct>(message, public_key, sig);
     }
 }
 

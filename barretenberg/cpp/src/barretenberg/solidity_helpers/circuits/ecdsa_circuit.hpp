@@ -43,18 +43,18 @@ template <typename Builder> class EcdsaCircuit {
         }
 
         // UNCONSTRAINED: create a random keypair to sign with
-        crypto::ecdsa::ecdsa_key_pair<typename curve::fr, typename curve::g1> account;
+        crypto::ecdsa_key_pair<typename curve::fr, typename curve::g1> account;
         account.private_key = curve::fr::random_element();
         account.public_key = curve::g1::one * account.private_key;
 
         // UNCONSTRAINED: create a sig
-        crypto::ecdsa::ecdsa_signature signature = crypto::ecdsa::
-            ecdsa_construct_signature<Sha256Hasher, typename curve::fq, typename curve::fr, typename curve::g1>(
+        crypto::ecdsa_signature signature =
+            crypto::ecdsa_construct_signature<Sha256Hasher, typename curve::fq, typename curve::fr, typename curve::g1>(
                 message_string, account);
 
         // UNCONSTRAINED: verify the created signature
-        bool dry_run = crypto::ecdsa::
-            ecdsa_verify_signature<Sha256Hasher, typename curve::fq, typename curve::fr, typename curve::g1>(
+        bool dry_run =
+            crypto::ecdsa_verify_signature<Sha256Hasher, typename curve::fq, typename curve::fr, typename curve::g1>(
                 message_string, account.public_key, signature);
         if (!dry_run) {
             throw_or_abort("[non circuit]: Sig verification failed");
@@ -68,16 +68,16 @@ template <typename Builder> class EcdsaCircuit {
         uint8_t vv = signature.v;
 
         // IN CIRCUIT: create a witness with the sig in our circuit
-        stdlib::ecdsa::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                                     typename curve::byte_array_ct(&builder, ss),
-                                                     stdlib::uint8<Builder>(&builder, vv) };
+        stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
+                                              typename curve::byte_array_ct(&builder, ss),
+                                              stdlib::uint8<Builder>(&builder, vv) };
 
         // IN CIRCUIT: verify the signature
-        typename curve::bool_ct signature_result = stdlib::ecdsa::ecdsa_verify_signature<Builder,
-                                                                                         curve,
-                                                                                         typename curve::fq_ct,
-                                                                                         typename curve::bigfr_ct,
-                                                                                         typename curve::g1_bigfr_ct>(
+        typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,
+                                                                                  curve,
+                                                                                  typename curve::fq_ct,
+                                                                                  typename curve::bigfr_ct,
+                                                                                  typename curve::g1_bigfr_ct>(
             // input_buffer, public_key, sig);
             input_buffer,
             public_key,

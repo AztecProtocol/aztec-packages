@@ -27,7 +27,7 @@ bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::
                                                                   const ecdsa_signature<Builder>& sig);
 
 template <typename Builder>
-static ecdsa_signature<Builder> ecdsa_from_witness(Builder* ctx, const crypto::ecdsa::ecdsa_signature& input)
+static ecdsa_signature<Builder> ecdsa_from_witness(Builder* ctx, const crypto::ecdsa_signature& input)
 {
     std::vector<uint8_t> r_vec(std::begin(input.r), std::end(input.r));
     std::vector<uint8_t> s_vec(std::begin(input.s), std::end(input.s));
