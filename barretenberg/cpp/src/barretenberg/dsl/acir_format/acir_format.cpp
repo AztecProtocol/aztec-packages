@@ -198,9 +198,9 @@ Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint, Wi
     return builder;
 }
 
-template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
+template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const AcirFormat& constraint_system,
                                                                  size_t size_hint,
                                                                  WitnessVector const& witness);
-template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, acir_format const&, bool);
+template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool);
 
 } // namespace acir_format
