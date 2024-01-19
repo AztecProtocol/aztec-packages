@@ -158,6 +158,8 @@ aztec-sandbox:
   dependencies:
     - yarn-project-prod
   multiarch: buildx
+  rebuildPatterns:
+    - ^yarn-project/aztec-sandbox/Dockerfile
 
 aztec-faucet:
   buildDir: yarn-project
