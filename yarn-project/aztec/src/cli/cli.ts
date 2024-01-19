@@ -13,7 +13,6 @@ import { PXEService, PXEServiceConfig, createPXERpcServer, createPXEService, get
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import http from 'http';
-import pick from 'lodash.pick';
 import { dirname, resolve } from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -237,7 +236,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         // get config from options
         const archiverCliOptions = parseModuleOptions(options.pxe);
         // merge env vars and cli options
-        const archiverConfig = pick({ ...archiverConfigEnvVars, ...archiverCliOptions });
+        const archiverConfig = { ...archiverConfigEnvVars, ...archiverCliOptions };
 
         const store = await AztecLmdbStore.create(
           archiverConfig.l1Contracts.rollupAddress,
