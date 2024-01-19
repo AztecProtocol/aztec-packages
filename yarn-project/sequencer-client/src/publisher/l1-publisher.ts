@@ -147,7 +147,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processL2Block(block: L2Block): Promise<boolean> {
-    // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
+    // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
     if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
       this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
