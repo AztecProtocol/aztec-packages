@@ -173,7 +173,11 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
 3. For each non-empty call request in both _private_call_requests_ and _public_call_requests_:
 
    - The _caller_contract_address_ equals the _contract_address_ in _[private_call](#privatecall).[call_stack_item](#privatecallstackitem)_.
-   - The _caller_context_ is either empty or aligns with the values in the _call_context_ within _private_function_public_inputs_.
+   - The following values in _caller_context_ are either empty or align with the values in the _call_context_ within _private_function_public_inputs_:
+     - _`(caller_context.msg_sender == 0) & (caller_context.storage_contract_address == 0)`_
+     - Or _`(caller_context.msg_sender == call_context.msg_sender) & (caller_context.storage_contract_address == call_context.storage_contract_address)`_
+   - The _is_static_call_ flag must be propagated:
+     - _`caller_context.is_static_call == call_context.is_static_call`_
 
    > The caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ of this private function when calling a public function could pose security risks.
 
@@ -316,10 +320,11 @@ Data that remains the same throughout the entire transaction.
 
 #### _CallerContext_
 
-| Field              | Type           | Description                                      |
-| ------------------ | -------------- | ------------------------------------------------ |
-| _msg_sender_       | _AztecAddress_ | Address of the caller contract.                  |
-| _storage_contract_ | _AztecAddress_ | Storage contract address of the caller contract. |
+| Field              | Type           | Description                                          |
+| ------------------ | -------------- | ---------------------------------------------------- |
+| _msg_sender_       | _AztecAddress_ | Address of the caller contract.                      |
+| _storage_contract_ | _AztecAddress_ | Storage contract address of the caller contract.     |
+| _is_static_call_   | _bool_         | A flag indicating whether the call is a static call. |
 
 #### _NoteHashContext_
 
