@@ -4,7 +4,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 namespace bb {
 

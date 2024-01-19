@@ -9,7 +9,7 @@ using namespace bb;
 using namespace bb::stdlib::merkle_tree;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 auto& random_engine = numeric::get_randomness();
 } // namespace
 

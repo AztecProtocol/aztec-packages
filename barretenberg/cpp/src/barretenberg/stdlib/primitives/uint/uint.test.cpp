@@ -6,7 +6,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 // NOTE: We only test width 32, but widths 8, 16, 32 and 64 can all be tested.

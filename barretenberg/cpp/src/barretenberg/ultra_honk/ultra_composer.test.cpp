@@ -20,7 +20,7 @@ using namespace bb;
 using namespace bb::honk;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)

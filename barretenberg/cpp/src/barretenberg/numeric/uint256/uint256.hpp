@@ -248,4 +248,4 @@ template <typename B> inline void write(B& it, uint256_t const& value)
 
 // disable linter errors; we want to expose a global uint256_t type to mimic uint64_t, uint32_t etc
 // NOLINTNEXTLINE(tidymisc-unused-using-decls, google-global-names-in-headers, misc-unused-using-decls)
-using numeric::uint256_t;
+using bb::numeric::uint256_t;

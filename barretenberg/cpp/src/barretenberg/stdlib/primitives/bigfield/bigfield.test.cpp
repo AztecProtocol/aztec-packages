@@ -29,7 +29,7 @@ using namespace bb;
 */
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 template <typename Builder> class stdlib_bigfield : public testing::Test {

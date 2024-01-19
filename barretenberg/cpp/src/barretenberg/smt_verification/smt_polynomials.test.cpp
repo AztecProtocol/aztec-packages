@@ -22,7 +22,7 @@ using pub_witness_t = bb::stdlib::public_witness_t<StandardCircuitBuilder>;
 
 // TODO(alex): z1 = z2, s1=s2, but coefficients are not public
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 msgpack::sbuffer create_circuit(size_t n, bool pub_coeffs)

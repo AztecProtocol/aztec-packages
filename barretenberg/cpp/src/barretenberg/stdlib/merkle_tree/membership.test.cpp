@@ -8,7 +8,7 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using namespace bb;

@@ -31,7 +31,7 @@ using FlavorTypes = ::testing::Types<flavor::ECCVM>;
 TYPED_TEST_SUITE(ECCVMComposerTests, FlavorTypes);
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 template <typename Flavor> bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
 {

@@ -12,7 +12,7 @@ using witness_ct = stdlib::witness_t<Builder>;
 using ram_table_ct = stdlib::ram_table<Builder>;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 TEST(ram_table, ram_table_init_read_consistency)

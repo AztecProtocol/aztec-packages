@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 
 constexpr uint256_t test_fq_mod(secp256r1::Secp256r1FqParams::modulus_0,
                                 secp256r1::Secp256r1FqParams::modulus_1,

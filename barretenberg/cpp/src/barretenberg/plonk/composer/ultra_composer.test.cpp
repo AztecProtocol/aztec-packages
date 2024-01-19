@@ -13,7 +13,7 @@ using namespace bb;
 using namespace bb::plonk;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using plookup::ColumnIdx;

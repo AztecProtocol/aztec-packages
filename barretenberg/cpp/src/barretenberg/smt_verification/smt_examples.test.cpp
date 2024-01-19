@@ -11,7 +11,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using field_t = bb::stdlib::field_t<StandardCircuitBuilder>;

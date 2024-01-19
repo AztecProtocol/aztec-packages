@@ -14,7 +14,7 @@ using Transcript = flavor::GoblinTranslator::Transcript;
 using OpQueue = bb::ECCOpQueue;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)

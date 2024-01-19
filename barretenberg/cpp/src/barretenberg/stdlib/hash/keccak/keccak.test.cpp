@@ -14,7 +14,7 @@ typedef stdlib::witness_t<Builder> witness_ct;
 typedef stdlib::uint32<Builder> uint32_ct;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 TEST(stdlib_keccak, keccak_format_input_table)

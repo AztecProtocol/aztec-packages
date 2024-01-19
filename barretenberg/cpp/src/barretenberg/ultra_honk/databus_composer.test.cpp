@@ -13,7 +13,7 @@
 using namespace bb::honk;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 class DataBusComposerTests : public ::testing::Test {

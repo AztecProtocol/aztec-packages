@@ -13,7 +13,7 @@ using Builder = bb::UltraCircuitBuilder;
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 auto& random_engine = numeric::get_randomness();
 } // namespace
 
