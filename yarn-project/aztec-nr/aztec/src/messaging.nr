@@ -39,9 +39,6 @@ pub fn process_l1_to_l2_message(
     );
     assert(root == l1_to_l2_root, "Message not in state");
 
-    // Check tree roots against the inputs 
-    assert(l1_to_l2_message_data.root == l1_to_l2_root, "Root from oracle not matching state");
-
     // Validate this is the target contract
     assert(l1_to_l2_message_data.message.recipient.eq(storage_contract_address), "Invalid recipient");
 
