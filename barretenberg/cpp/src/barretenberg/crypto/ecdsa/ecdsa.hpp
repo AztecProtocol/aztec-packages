@@ -8,7 +8,7 @@
 #include <array>
 #include <string>
 
-namespace bb::crypto::ecdsa {
+namespace bb::crypto {
 template <typename Fr, typename G1> struct ecdsa_key_pair {
     Fr private_key;
     typename G1::affine_element public_key;
@@ -46,6 +46,6 @@ inline std::ostream& operator<<(std::ostream& os, ecdsa_signature const& sig)
     return os;
 }
 
-} // namespace bb::crypto::ecdsa
+} // namespace bb::crypto
 
 #include "./ecdsa_impl.hpp"

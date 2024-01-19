@@ -4,7 +4,7 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
 
-namespace bb::stdlib::ecdsa {
+namespace bb::stdlib {
 
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
@@ -221,4 +221,4 @@ bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder
         hashed_message, public_key, sig);
 }
 
-} // namespace bb::stdlib::ecdsa
+} // namespace bb::stdlib

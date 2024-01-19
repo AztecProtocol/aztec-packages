@@ -4,7 +4,7 @@
 #include "../../primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "../../primitives/uint/uint.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-namespace bb::stdlib::ecdsa {
+namespace bb::stdlib {
 
 template <typename Builder> struct ecdsa_signature {
     stdlib::byte_array<Builder> r;
@@ -41,6 +41,6 @@ static ecdsa_signature<Builder> ecdsa_from_witness(Builder* ctx, const crypto::e
     return out;
 }
 
-} // namespace bb::stdlib::ecdsa
+} // namespace bb::stdlib
 
 #include "./ecdsa_impl.hpp"
