@@ -294,7 +294,7 @@ impl Context {
         dfg: &DataFlowGraph,
     ) -> Result<Vec<Witness>, RuntimeError> {
         // The first witness (if any) is the next one
-        let start_witness = self.acir_context.current_witness_index().0 + 1;
+        let start_witness = self.acir_context.current_witness_index().0;
         for param_id in params {
             let typ = dfg.type_of_value(*param_id);
             let value = self.convert_ssa_block_param(&typ)?;
@@ -472,9 +472,9 @@ impl Context {
                     self.acir_context.assert_eq_var(lhs, rhs, assert_message.clone())?;
                 }
             }
-            Instruction::Cast(value_id, typ) => {
-                let result_acir_var = self.convert_ssa_cast(value_id, typ, dfg)?;
-                self.define_result_var(dfg, instruction_id, result_acir_var);
+            Instruction::Cast(value_id, _) => {
+                let acir_var = self.convert_numeric_value(*value_id, dfg)?;
+                self.define_result_var(dfg, instruction_id, acir_var);
             }
             Instruction::Call { func, arguments } => {
                 let result_ids = dfg.instruction_results(instruction_id);
@@ -1636,41 +1636,6 @@ impl Context {
         }
     }
 
-    /// Returns an `AcirVar` that is constrained to fit in the target type by truncating the input.
-    /// If the target cast is to a `NativeField`, no truncation is required so the cast becomes a
-    /// no-op.
-    fn convert_ssa_cast(
-        &mut self,
-        value_id: &ValueId,
-        typ: &Type,
-        dfg: &DataFlowGraph,
-    ) -> Result<AcirVar, RuntimeError> {
-        let (variable, incoming_type) = match self.convert_value(*value_id, dfg) {
-            AcirValue::Var(variable, typ) => (variable, typ),
-            AcirValue::DynamicArray(_) | AcirValue::Array(_) => {
-                unreachable!("Cast is only applied to numerics")
-            }
-        };
-        let target_numeric = match typ {
-            Type::Numeric(numeric) => numeric,
-            _ => unreachable!("Can only cast to a numeric"),
-        };
-        match target_numeric {
-            NumericType::NativeField => {
-                // Casting into a Field as a no-op
-                Ok(variable)
-            }
-            NumericType::Unsigned { bit_size } | NumericType::Signed { bit_size } => {
-                let max_bit_size = incoming_type.bit_size();
-                if max_bit_size <= *bit_size {
-                    // Incoming variable already fits into target bit size -  this is a no-op
-                    return Ok(variable);
-                }
-                self.acir_context.truncate_var(variable, *bit_size, max_bit_size)
-            }
-        }
-    }
-
     /// Returns an `AcirVar`that is constrained to be result of the truncation.
     fn convert_ssa_truncate(
         &mut self,
@@ -1746,6 +1711,9 @@ impl Context {
                 let vars = self.acir_context.black_box_function(black_box, inputs, output_count)?;
 
                 Ok(Self::convert_vars_to_values(vars, dfg, result_ids))
+            }
+            Intrinsic::ApplyRangeConstraint => {
+                unreachable!("ICE: `Intrinsic::ApplyRangeConstraint` calls should be transformed into an `Instruction::RangeCheck`");
             }
             Intrinsic::ToRadix(endian) => {
                 let field = self.convert_value(arguments[0], dfg).into_var()?;
@@ -2463,8 +2431,7 @@ impl Context {
     }
 }
 
-// We can omit the element size array for arrays which have elements of size 1 and do not contain slices.
-// TODO: remove restriction on size 1 elements.
+// We can omit the element size array for arrays which don't contain arrays or slices.
 fn can_omit_element_sizes_array(array_typ: &Type) -> bool {
     if array_typ.contains_slice_element() {
         return false;
@@ -2473,5 +2440,5 @@ fn can_omit_element_sizes_array(array_typ: &Type) -> bool {
         panic!("ICE: expected array type");
     };
 
-    types.len() == 1 && types[0].flattened_size() == 1
+    !types.iter().any(|typ| typ.contains_an_array())
 }

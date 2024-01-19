@@ -2,7 +2,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
@@ -40,8 +40,5 @@ template <typename Builder> class rom_table {
     mutable bool initialized = false;
     mutable Builder* context = nullptr;
 };
-
-EXTERN_STDLIB_ULTRA_TYPE(rom_table);
-
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

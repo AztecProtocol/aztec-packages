@@ -1,10 +1,10 @@
 #include "../../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
+using namespace bb;
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 
 template <typename Builder, typename Native>
@@ -256,9 +256,14 @@ std::pair<uint_plookup<Builder, Native>, uint_plookup<Builder, Native>> uint_plo
 
     return std::make_pair(quotient, remainder);
 }
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
+template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
+;
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

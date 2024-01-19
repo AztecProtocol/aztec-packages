@@ -17,9 +17,9 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "relation_definitions_fwd.hpp"
+#include "relation_definitions.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 class GoblinUltra {
   public:
@@ -30,7 +30,7 @@ class GoblinUltra {
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
     using PCS = pcs::kzg::KZG<Curve>;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
@@ -46,29 +46,27 @@ class GoblinUltra {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
-    using GrandProductRelations =
-        std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
+    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in GoblinUltraRecursive.
     template <typename FF>
-    using Relations_ = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-                                  proof_system::UltraPermutationRelation<FF>,
-                                  proof_system::LookupRelation<FF>,
-                                  proof_system::GenPermSortRelation<FF>,
-                                  proof_system::EllipticRelation<FF>,
-                                  proof_system::AuxiliaryRelation<FF>,
-                                  proof_system::EccOpQueueRelation<FF>,
-                                  proof_system::DatabusLookupRelation<FF>,
-                                  proof_system::Poseidon2ExternalRelation<FF>,
-                                  proof_system::Poseidon2InternalRelation<FF>>;
+    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+                                  bb::UltraPermutationRelation<FF>,
+                                  bb::LookupRelation<FF>,
+                                  bb::GenPermSortRelation<FF>,
+                                  bb::EllipticRelation<FF>,
+                                  bb::AuxiliaryRelation<FF>,
+                                  bb::EccOpQueueRelation<FF>,
+                                  bb::DatabusLookupRelation<FF>,
+                                  bb::Poseidon2ExternalRelation<FF>,
+                                  bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;
+    using LogDerivLookupRelation = bb::DatabusLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static constexpr size_t NUMBER_OF_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -76,6 +74,12 @@ class GoblinUltra {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+
+    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
+    // subrelation. This
+    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) to much.
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
@@ -85,7 +89,6 @@ class GoblinUltra {
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
-
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -306,7 +309,7 @@ class GoblinUltra {
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -448,14 +451,58 @@ class GoblinUltra {
             this->lagrange_ecc_op = verification_key->lagrange_ecc_op;
             this->databus_id = verification_key->databus_id;
         }
+
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
+                             const WitnessCommitments& witness_commitments)
+        {
+            this->q_m = verification_key->q_m;
+            this->q_l = verification_key->q_l;
+            this->q_r = verification_key->q_r;
+            this->q_o = verification_key->q_o;
+            this->q_4 = verification_key->q_4;
+            this->q_c = verification_key->q_c;
+            this->q_arith = verification_key->q_arith;
+            this->q_sort = verification_key->q_sort;
+            this->q_elliptic = verification_key->q_elliptic;
+            this->q_aux = verification_key->q_aux;
+            this->q_lookup = verification_key->q_lookup;
+            this->q_busread = verification_key->q_busread;
+            this->q_poseidon2_external = verification_key->q_poseidon2_external;
+            this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
+            this->sigma_1 = verification_key->sigma_1;
+            this->sigma_2 = verification_key->sigma_2;
+            this->sigma_3 = verification_key->sigma_3;
+            this->sigma_4 = verification_key->sigma_4;
+            this->id_1 = verification_key->id_1;
+            this->id_2 = verification_key->id_2;
+            this->id_3 = verification_key->id_3;
+            this->id_4 = verification_key->id_4;
+            this->table_1 = verification_key->table_1;
+            this->table_2 = verification_key->table_2;
+            this->table_3 = verification_key->table_3;
+            this->table_4 = verification_key->table_4;
+            this->lagrange_first = verification_key->lagrange_first;
+            this->lagrange_last = verification_key->lagrange_last;
+            this->lagrange_ecc_op = verification_key->lagrange_ecc_op;
+            this->databus_id = verification_key->databus_id;
+
+            this->w_l = witness_commitments.w_l;
+            this->w_r = witness_commitments.w_r;
+            this->w_o = witness_commitments.w_o;
+            this->sorted_accum = witness_commitments.sorted_accum;
+            this->w_4 = witness_commitments.w_4;
+            this->z_perm = witness_commitments.z_perm;
+            this->z_lookup = witness_commitments.z_lookup;
+            this->ecc_op_wire_1 = witness_commitments.ecc_op_wire_1;
+            this->ecc_op_wire_2 = witness_commitments.ecc_op_wire_2;
+            this->ecc_op_wire_3 = witness_commitments.ecc_op_wire_3;
+            this->calldata = witness_commitments.calldata;
+            this->calldata = witness_commitments.calldata_read_counts;
+            this->lookup_inverses = witness_commitments.lookup_inverses;
+        }
     };
     // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-    class FoldingParameters {
-      public:
-        std::vector<FF> gate_challenges;
-        FF target_sum;
-    };
 
     /**
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
@@ -481,7 +528,7 @@ class GoblinUltra {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
@@ -521,8 +568,8 @@ class GoblinUltra {
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        proof_data, num_bytes_read));
+                    deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+                                                                                                 num_bytes_read));
             }
             sumcheck_evaluations =
                 deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
@@ -575,4 +622,4 @@ class GoblinUltra {
     using Transcript = Transcript_<Commitment>;
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

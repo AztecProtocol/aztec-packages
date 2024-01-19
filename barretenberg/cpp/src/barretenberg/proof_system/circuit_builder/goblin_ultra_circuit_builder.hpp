@@ -3,9 +3,9 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "ultra_circuit_builder.hpp"
 
-namespace proof_system {
+namespace bb {
 
-using namespace barretenberg;
+using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<arithmetization::UltraHonk<FF>> {
   public:
@@ -95,20 +95,9 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
                                auto& witness_values,
                                std::vector<uint32_t>& public_inputs,
                                size_t varnum)
-        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
+        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(op_queue_in)
     {
-        // Add the witness variables known directly from acir
-        for (size_t idx = 0; idx < varnum; ++idx) {
-            // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
-            // be "set" later on via the assert_equal mechanism.
-            auto value = idx < witness_values.size() ? witness_values[idx] : 0;
-            this->add_variable(value);
-        }
-
-        // Add the public_inputs from acir
-        this->public_inputs = public_inputs;
-
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
@@ -155,24 +144,24 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     }
 
     /**
-     * Make a witness variable a member of the public calldata.
+     * @brief Add a witness variable to the public calldata.
      *
-     * @param witness_index The index of the witness.
+     * @param in Value to be added to calldata.
      * */
-    void set_public_calldata(const uint32_t witness_index)
+    uint32_t add_public_calldata(const FF& in)
     {
-        for (const uint32_t calldata : public_calldata) {
-            if (calldata == witness_index) {
-                if (!this->failed()) {
-                    this->failure("Attempted to redundantly set a public calldata!");
-                }
-                return;
-            }
-        }
-        public_calldata.emplace_back(witness_index);
+        const uint32_t index = this->add_variable(in);
+        public_calldata.emplace_back(index);
+        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
+        calldata_read_counts.resize(public_calldata.size());
+        return index;
     }
+
+    void create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in);
+
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in);
 
     FF compute_poseidon2_external_identity(FF q_poseidon2_external_value,
                                            FF q_1_value,
@@ -205,6 +194,5 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     bool check_circuit();
 };
-extern template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
-using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;
-} // namespace proof_system
+using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<bb::fr>;
+} // namespace bb

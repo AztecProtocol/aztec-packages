@@ -5,7 +5,6 @@ use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::abis::new_contract_data::NewContractData as ContractLeafPreimage;
 use crate::abis::function_data::FunctionData;
 use crate::abis::side_effect::{SideEffect};
-use crate::utils::uint128::U128;
 use crate::utils::uint256::U256;
 use crate::utils::bounded_vec::BoundedVec;
 use crate::constants::{
@@ -14,6 +13,7 @@ use crate::constants::{
         CONTRACT_TREE_HEIGHT, 
         FUNCTION_TREE_HEIGHT, 
         NOTE_HASH_TREE_HEIGHT,
+        NUM_FIELDS_PER_SHA256,
         GENERATOR_INDEX__SILOED_COMMITMENT,
         GENERATOR_INDEX__OUTER_NULLIFIER,
         GENERATOR_INDEX__VK,
@@ -231,9 +231,6 @@ pub fn compute_constructor_hash(
     )
 }
 
-// sha256 hash is stored in two fields to accommodate all 256-bits of the hash
-global NUM_FIELDS_PER_SHA256 : Field = 2;
-
 // Computes sha256 hash of 2 input hashes stored in 4 fields.
 // 
 // This method is bn254 specific. Two fields is needed in order to 
@@ -275,10 +272,10 @@ pub fn compute_logs_hash(
 ) -> [Field; NUM_FIELDS_PER_SHA256] {
     accumulate_sha256(
         [
-        U128::from_field(previous_log_hash[0]),
-        U128::from_field(previous_log_hash[1]),
-        U128::from_field(current_log_hash[0]),
-        U128::from_field(current_log_hash[1])
+        U128::from_integer(previous_log_hash[0]),
+        U128::from_integer(previous_log_hash[1]),
+        U128::from_integer(current_log_hash[0]),
+        U128::from_integer(current_log_hash[1])
     ]
     )
 }

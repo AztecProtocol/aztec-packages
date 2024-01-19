@@ -2,15 +2,15 @@ use fm::FileManager;
 use gloo_utils::format::JsValueSerdeExt;
 use js_sys::{JsString, Object};
 use nargo::artifacts::{
-    contract::{PreprocessedContract, PreprocessedContractFunction},
-    debug::DebugArtifact,
-    program::PreprocessedProgram,
+    contract::{ContractArtifact, ContractFunctionArtifact},
+    program::ProgramArtifact,
 };
 use noirc_driver::{
     add_dep, compile_contract, compile_main, file_manager_with_stdlib, prepare_crate,
     prepare_dependency, CompileOptions, CompiledContract, CompiledProgram,
     NOIR_ARTIFACT_VERSION_STRING,
 };
+use noirc_evaluator::errors::SsaReport;
 use noirc_frontend::{
     graph::{CrateId, CrateName},
     hir::Context,
@@ -28,35 +28,30 @@ export type DependencyGraph = {
     library_dependencies: Readonly<Record<string, readonly string[]>>;
 }
 
-export type CompiledContract = {
+export type ContractArtifact = {
     noir_version: string;
     name: string;
     functions: Array<any>;
     events: Array<any>;
+    file_map: Record<number, any>;
 };
 
-export type CompiledProgram = {
+export type ProgramArtifact = {
     noir_version: string;
+    hash: number;
     abi: any;
     bytecode: string;
+    debug_symbols: any;
+    file_map: Record<number, any>;
 }
 
-export type DebugArtifact = {
-    debug_symbols: Array<any>;
-    file_map: Record<number, any>;
-    warnings: Array<any>;
-};
+type WarningsCompileResult = { warnings: Array<any>; };
 
-export type CompileResult = (
-    | {
-        contract: CompiledContract;
-        debug: DebugArtifact;
-    }
-    | {
-        program: CompiledProgram;
-        debug: DebugArtifact;
-    }
-);
+export type ContractCompileResult = { contract: CompiledContract; } & WarningsCompileResult;
+
+export type ProgramCompileResult = { program: CompiledProgram; } & WarningsCompileResult;
+
+export type CompileResult = ContractCompileResult | ProgramCompileResult;
 "#;
 
 #[wasm_bindgen]
@@ -76,38 +71,36 @@ extern "C" {
 impl JsCompileResult {
     const CONTRACT_PROP: &'static str = "contract";
     const PROGRAM_PROP: &'static str = "program";
-    const DEBUG_PROP: &'static str = "debug";
+    const WARNINGS_PROP: &'static str = "warnings";
 
     pub fn new(resp: CompileResult) -> JsCompileResult {
         let obj = JsCompileResult::constructor();
         match resp {
-            CompileResult::Contract { contract, debug } => {
+            CompileResult::Contract { contract, warnings } => {
                 js_sys::Reflect::set(
                     &obj,
                     &JsString::from(JsCompileResult::CONTRACT_PROP),
                     &<JsValue as JsValueSerdeExt>::from_serde(&contract).unwrap(),
                 )
                 .unwrap();
-
                 js_sys::Reflect::set(
                     &obj,
-                    &JsString::from(JsCompileResult::DEBUG_PROP),
-                    &<JsValue as JsValueSerdeExt>::from_serde(&debug).unwrap(),
+                    &JsString::from(JsCompileResult::WARNINGS_PROP),
+                    &<JsValue as JsValueSerdeExt>::from_serde(&warnings).unwrap(),
                 )
                 .unwrap();
             }
-            CompileResult::Program { program, debug } => {
+            CompileResult::Program { program, warnings } => {
                 js_sys::Reflect::set(
                     &obj,
                     &JsString::from(JsCompileResult::PROGRAM_PROP),
                     &<JsValue as JsValueSerdeExt>::from_serde(&program).unwrap(),
                 )
                 .unwrap();
-
                 js_sys::Reflect::set(
                     &obj,
-                    &JsString::from(JsCompileResult::DEBUG_PROP),
-                    &<JsValue as JsValueSerdeExt>::from_serde(&debug).unwrap(),
+                    &JsString::from(JsCompileResult::WARNINGS_PROP),
+                    &<JsValue as JsValueSerdeExt>::from_serde(&warnings).unwrap(),
                 )
                 .unwrap();
             }
@@ -148,8 +141,8 @@ impl PathToFileSourceMap {
 }
 
 pub enum CompileResult {
-    Contract { contract: PreprocessedContract, debug: DebugArtifact },
-    Program { program: PreprocessedProgram, debug: DebugArtifact },
+    Contract { contract: ContractArtifact, warnings: Vec<SsaReport> },
+    Program { program: ProgramArtifact, warnings: Vec<SsaReport> },
 }
 
 #[wasm_bindgen]
@@ -195,10 +188,10 @@ pub fn compile(
 
         let optimized_contract = nargo::ops::optimize_contract(compiled_contract, expression_width);
 
-        let compile_output = preprocess_contract(optimized_contract);
+        let compile_output = generate_contract_artifact(optimized_contract);
         Ok(JsCompileResult::new(compile_output))
     } else {
-        let compiled_program = compile_main(&mut context, crate_id, &compile_options, None, true)
+        let compiled_program = compile_main(&mut context, crate_id, &compile_options, None)
             .map_err(|errs| {
                 CompileError::with_file_diagnostics(
                     "Failed to compile program",
@@ -210,7 +203,7 @@ pub fn compile(
 
         let optimized_program = nargo::ops::optimize_program(compiled_program, expression_width);
 
-        let compile_output = preprocess_program(optimized_program);
+        let compile_output = generate_program_artifact(optimized_program);
         Ok(JsCompileResult::new(compile_output))
     }
 }
@@ -272,50 +265,23 @@ fn add_noir_lib(context: &mut Context, library_name: &CrateName) -> CrateId {
     prepare_dependency(context, &path_to_lib)
 }
 
-pub(crate) fn preprocess_program(program: CompiledProgram) -> CompileResult {
-    let debug_artifact = DebugArtifact {
-        debug_symbols: vec![program.debug],
-        file_map: program.file_map,
-        warnings: program.warnings,
-    };
-
-    let preprocessed_program = PreprocessedProgram {
-        hash: program.hash,
-        abi: program.abi,
-        noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
-        bytecode: program.circuit,
-    };
-
-    CompileResult::Program { program: preprocessed_program, debug: debug_artifact }
+pub(crate) fn generate_program_artifact(program: CompiledProgram) -> CompileResult {
+    let warnings = program.warnings.clone();
+    CompileResult::Program { program: program.into(), warnings }
 }
 
-// TODO: This method should not be doing so much, most of this should be done in nargo or the driver
-pub(crate) fn preprocess_contract(contract: CompiledContract) -> CompileResult {
-    let debug_artifact = DebugArtifact {
-        debug_symbols: contract.functions.iter().map(|function| function.debug.clone()).collect(),
-        file_map: contract.file_map,
-        warnings: contract.warnings,
-    };
-    let preprocessed_functions = contract
-        .functions
-        .into_iter()
-        .map(|func| PreprocessedContractFunction {
-            name: func.name,
-            function_type: func.function_type,
-            is_internal: func.is_internal,
-            abi: func.abi,
-            bytecode: func.bytecode,
-        })
-        .collect();
+pub(crate) fn generate_contract_artifact(contract: CompiledContract) -> CompileResult {
+    let functions = contract.functions.into_iter().map(ContractFunctionArtifact::from).collect();
 
-    let preprocessed_contract = PreprocessedContract {
+    let contract_artifact = ContractArtifact {
         noir_version: String::from(NOIR_ARTIFACT_VERSION_STRING),
         name: contract.name,
-        functions: preprocessed_functions,
+        functions,
         events: contract.events,
+        file_map: contract.file_map,
     };
 
-    CompileResult::Contract { contract: preprocessed_contract, debug: debug_artifact }
+    CompileResult::Contract { contract: contract_artifact, warnings: contract.warnings }
 }
 
 #[cfg(test)]

@@ -14,9 +14,9 @@
 #include "barretenberg/relations/translator_vm/translator_gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
-#include "relation_definitions_fwd.hpp"
+#include "relation_definitions.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 class GoblinTranslator {
 
@@ -32,8 +32,9 @@ class GoblinTranslator {
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
+    using RelationSeparator = FF;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and GenPermSort) can be evaluated just on the first chunk
@@ -1006,7 +1007,7 @@ class GoblinTranslator {
     /**
      * @brief A container for univariates used during sumcheck.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -1137,22 +1138,4 @@ class GoblinTranslator {
 
     using Transcript = BaseTranscript;
 };
-} // namespace proof_system::honk::flavor
-
-namespace proof_system {
-
-extern template class GoblinTranslatorPermutationRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorGenPermSortRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorOpcodeConstraintRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorAccumulatorTransferRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorDecompositionRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorNonNativeFieldRelationImpl<barretenberg::fr>;
-
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorGenPermSortRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorAccumulatorTransferRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorDecompositionRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorNonNativeFieldRelationImpl, honk::flavor::GoblinTranslator);
-
-} // namespace proof_system
+} // namespace bb::honk::flavor

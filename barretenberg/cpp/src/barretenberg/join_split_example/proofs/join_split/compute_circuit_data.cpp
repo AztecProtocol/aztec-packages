@@ -10,9 +10,9 @@ namespace proofs {
 namespace join_split {
 
 using namespace join_split_example::proofs::join_split;
-using namespace proof_system::plonk::stdlib;
+using namespace bb::plonk::stdlib;
 using namespace join_split_example::proofs::notes::native;
-using namespace proof_system::plonk::stdlib::merkle_tree;
+using namespace bb::plonk::stdlib::merkle_tree;
 
 join_split_tx noop_tx()
 {
@@ -59,8 +59,7 @@ join_split_tx noop_tx()
     return tx;
 }
 
-circuit_data get_circuit_data(std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& srs,
-                              bool mock)
+circuit_data get_circuit_data(std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> const& srs, bool mock)
 {
     std::cerr << "Getting join-split circuit data..." << std::endl;
 

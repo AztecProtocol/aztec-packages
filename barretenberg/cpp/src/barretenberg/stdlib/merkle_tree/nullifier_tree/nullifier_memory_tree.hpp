@@ -3,11 +3,11 @@
 #include "../memory_tree.hpp"
 #include "nullifier_leaf.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 namespace merkle_tree {
 
-using namespace barretenberg;
+using namespace bb;
 
 /**
  * An NullifierMemoryTree is structured just like a usual merkle tree:
@@ -78,7 +78,7 @@ class NullifierMemoryTree : public MemoryTree {
 
     fr update_element(fr const& value);
 
-    const std::vector<barretenberg::fr>& get_hashes() { return hashes_; }
+    const std::vector<bb::fr>& get_hashes() { return hashes_; }
     const WrappedNullifierLeaf get_leaf(size_t index)
     {
         return (index < leaves_.size()) ? leaves_[index] : WrappedNullifierLeaf::zero();
@@ -95,4 +95,4 @@ class NullifierMemoryTree : public MemoryTree {
 
 } // namespace merkle_tree
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

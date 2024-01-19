@@ -1,7 +1,7 @@
+import { ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { L1PublishStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
-import { ExtendedContractData, L2Block } from '@aztec/types';
-import { L1PublishStats } from '@aztec/types/stats';
 
 import pick from 'lodash.pick';
 
@@ -73,20 +73,26 @@ export interface L1PublisherTxSender {
    * @param txHash - Hash of the tx to look for.
    */
   getTransactionStats(txHash: string): Promise<TransactionStats | undefined>;
+
+  /**
+   * Returns the current archive root.
+   * @returns The current archive root of the rollup contract.
+   */
+  getCurrentArchive(): Promise<Buffer>;
 }
 
 /**
- * Encoded block data and proof ready to be pushed to the L1 contract.
+ * Encoded block and proof ready to be pushed to the L1 contract.
  */
 export type L1ProcessArgs = {
-  /**
-   * Root rollup proof for an L1 block.
-   */
+  /** The L2 block header. */
+  header: Buffer;
+  /** A root of the archive tree after the L2 block is applied. */
+  archive: Buffer;
+  /** L2 block body. */
+  body: Buffer;
+  /** Root rollup proof of the L2 block. */
   proof: Buffer;
-  /**
-   * Serialized L2Block data.
-   */
-  inputs: Buffer;
 };
 
 /**
@@ -118,19 +124,24 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   /**
-   * Processes incoming L2 block data by publishing it to the L1 rollup contract.
-   * @param l2BlockData - L2 block data to publish.
+   * Publishes L2 block on L1.
+   * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
-    const proof = Buffer.alloc(0);
-    const txData = { proof, inputs: l2BlockData.toBufferWithLogs() };
+  public async processL2Block(block: L2Block): Promise<boolean> {
+    const txData = {
+      header: block.header.toBuffer(),
+      archive: block.archive.root.toBuffer(),
+      body: block.bodyToBuffer(),
+      proof: Buffer.alloc(0),
+    };
+    const lastArchive = block.header.lastArchive.root.toBuffer();
 
     while (!this.interrupted) {
-      if (!(await this.checkFeeDistributorBalance())) {
-        this.log(`Fee distributor ETH balance too low, awaiting top up...`);
-        await this.sleepOrInterrupted();
-        continue;
+      // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
+      if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
+        this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
+        break;
       }
 
       const txHash = await this.sendProcessTx(txData);
@@ -149,7 +160,7 @@ export class L1Publisher implements L2BlockReceiver {
         const stats: L1PublishStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
-          ...l2BlockData.getStats(),
+          ...block.getStats(),
           eventName: 'rollup-published-to-l1',
         };
         this.log.info(`Published L2 block to L1 rollup contract`, stats);
@@ -157,8 +168,8 @@ export class L1Publisher implements L2BlockReceiver {
       }
 
       // Check if someone else incremented the block number
-      if (!(await this.checkNextL2BlockNum(l2BlockData.number))) {
-        this.log('Publish failed. Contract changed underfoot.');
+      if (!(await this.checkLastArchiveHash(lastArchive))) {
+        this.log('Publish failed. Detected different state hash.');
         break;
       }
 
@@ -180,12 +191,6 @@ export class L1Publisher implements L2BlockReceiver {
   public async processNewContractData(l2BlockNum: number, l2BlockHash: Buffer, contractData: ExtendedContractData[]) {
     let _contractData: ExtendedContractData[] = [];
     while (!this.interrupted) {
-      if (!(await this.checkFeeDistributorBalance())) {
-        this.log(`Fee distributor ETH balance too low, awaiting top up...`);
-        await this.sleepOrInterrupted();
-        continue;
-      }
-
       const arr = _contractData.length ? _contractData : contractData;
       const txHashes = await this.sendEmitNewContractDataTx(l2BlockNum, l2BlockHash, arr);
       if (!txHashes) {
@@ -235,17 +240,19 @@ export class L1Publisher implements L2BlockReceiver {
     this.interrupted = false;
   }
 
-  // TODO: Check fee distributor has at least 0.5 ETH.
-  // Related to https://github.com/AztecProtocol/aztec-packages/issues/1588
-  // eslint-disable-next-line require-await
-  private async checkFeeDistributorBalance(): Promise<boolean> {
-    return true;
-  }
-
-  // TODO: Fail if blockchainStatus.nextBlockNum > thisBlockNum.
-  // Related to https://github.com/AztecProtocol/aztec-packages/issues/1588
-  private checkNextL2BlockNum(_thisBlockNum: number): Promise<boolean> {
-    return Promise.resolve(true);
+  /**
+   * Verifies that the given value of last archive in a block header equals current archive of the rollup contract
+   * @param lastArchive - The last archive of the block we wish to publish.
+   * @returns Boolean indicating if the hashes are equal.
+   */
+  private async checkLastArchiveHash(lastArchive: Buffer): Promise<boolean> {
+    const fromChain = await this.txSender.getCurrentArchive();
+    const areSame = lastArchive.equals(fromChain);
+    if (!areSame) {
+      this.log(`CONTRACT ARCHIVE: ${fromChain.toString('hex')}`);
+      this.log(`NEW BLOCK LAST ARCHIVE: ${lastArchive.toString('hex')}`);
+    }
+    return areSame;
   }
 
   private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {

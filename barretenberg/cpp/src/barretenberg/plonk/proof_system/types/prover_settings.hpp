@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-namespace proof_system::plonk {
+namespace bb::plonk {
 class settings_base {
   public:
     static constexpr bool requires_shifted_wire(const uint64_t wire_shift_settings, const uint64_t wire_index)
@@ -12,7 +12,7 @@ class settings_base {
 
 class standard_settings : public settings_base {
   public:
-    using Arithmetization = arithmetization::Standard<barretenberg::fr>;
+    using Arithmetization = arithmetization::Standard<bb::fr>;
     static constexpr size_t num_challenge_bytes = 16;
     static constexpr transcript::HashType hash_type = transcript::HashType::PedersenBlake3s;
     static constexpr size_t program_width = 3;
@@ -52,4 +52,4 @@ class ultra_with_keccak_settings : public ultra_settings {
     static constexpr transcript::HashType hash_type = transcript::HashType::Keccak256;
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

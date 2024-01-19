@@ -3,7 +3,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "sha256_plookup.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 namespace internal {
 constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -179,7 +179,13 @@ template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_
     return packed_byte_array<Builder>(output, 4);
 }
 
-INSTANTIATE_STDLIB_METHOD(SHA256_BLOCK)
-INSTANTIATE_STDLIB_METHOD(SHA256)
+template byte_array<bb::StandardCircuitBuilder> sha256_block(const byte_array<bb::StandardCircuitBuilder>& input);
+template byte_array<bb::UltraCircuitBuilder> sha256_block(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::GoblinUltraCircuitBuilder> sha256_block(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
+template packed_byte_array<bb::StandardCircuitBuilder> sha256(
+    const packed_byte_array<bb::StandardCircuitBuilder>& input);
+template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
+template packed_byte_array<bb::GoblinUltraCircuitBuilder> sha256(
+    const packed_byte_array<bb::GoblinUltraCircuitBuilder>& input);
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

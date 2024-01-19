@@ -12,18 +12,19 @@
 
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
-using namespace proof_system::honk::sumcheck;
-using Flavor = proof_system::honk::flavor::Ultra;
+using namespace bb::honk;
+using namespace bb::honk::sumcheck;
+using Flavor = bb::honk::flavor::Ultra;
 using FF = typename Flavor::FF;
 using ProverPolynomials = typename Flavor::ProverPolynomials;
+using RelationSeparator = Flavor::RelationSeparator;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace test_sumcheck_round {
 
-barretenberg::Polynomial<FF> random_poly(size_t size)
+bb::Polynomial<FF> random_poly(size_t size)
 {
-    auto poly = barretenberg::Polynomial<FF>(size);
+    auto poly = bb::Polynomial<FF>(size);
     for (auto& coeff : poly) {
         coeff = FF::random_element();
     }
@@ -41,7 +42,7 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
 
 class SumcheckTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 TEST_F(SumcheckTests, PolynomialNormalization)
@@ -52,7 +53,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
 
     // Randomly construct the prover polynomials that are input to Sumcheck.
     // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-    std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = random_poly(multivariate_n);
     }
@@ -66,8 +67,16 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     auto transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
-    FF alpha = transcript->get_challenge("alpha");
-    auto output = sumcheck.prove(full_polynomials, {}, alpha);
+    RelationSeparator alpha;
+    for (size_t idx = 0; idx < alpha.size(); idx++) {
+        alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
+    std::vector<FF> gate_challenges(multivariate_d);
+    for (size_t idx = 0; idx < multivariate_d; idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
 
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
@@ -107,7 +116,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     // full polynomials at challenge u via the evaluate_mle() function
     std::vector<FF> u_challenge = { u_0, u_1, u_2 };
     for (auto [full_poly, claimed_eval] : zip_view(full_polynomials.get_all(), output.claimed_evaluations.get_all())) {
-        barretenberg::Polynomial<FF> poly(full_poly);
+        bb::Polynomial<FF> poly(full_poly);
         auto v_expected = poly.evaluate_mle(u_challenge);
         EXPECT_EQ(v_expected, claimed_eval);
     }
@@ -120,7 +129,7 @@ TEST_F(SumcheckTests, Prover)
 
     // Randomly construct the prover polynomials that are input to Sumcheck.
     // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-    std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = random_poly(multivariate_n);
     }
@@ -130,8 +139,16 @@ TEST_F(SumcheckTests, Prover)
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
-    FF alpha = transcript->get_challenge("alpha");
-    auto output = sumcheck.prove(full_polynomials, {}, alpha);
+    RelationSeparator alpha;
+    for (size_t idx = 0; idx < alpha.size(); idx++) {
+        alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
+    std::vector<FF> gate_challenges(multivariate_d);
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
     std::vector<FF> expected_values;
@@ -159,9 +176,9 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
 
         // Construct prover polynomials where each is the zero polynomial.
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-        std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> zero_polynomials;
+        std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> zero_polynomials;
         for (auto& poly : zero_polynomials) {
-            poly = barretenberg::Polynomial<FF>(multivariate_n);
+            poly = bb::Polynomial<FF>(multivariate_n);
         }
         auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
@@ -196,7 +213,7 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         full_polynomials.q_arith = q_arith;
 
         // Set aribitrary random relation parameters
-        proof_system::RelationParameters<FF> relation_parameters{
+        bb::RelationParameters<FF> relation_parameters{
             .beta = FF::random_element(),
             .gamma = FF::random_element(),
             .public_input_delta = FF::one(),
@@ -205,14 +222,30 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        FF prover_alpha = prover_transcript->get_challenge("alpha");
-        auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha);
+        RelationSeparator prover_alpha;
+        for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
+            prover_alpha[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+        }
+        std::vector<FF> prover_gate_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            prover_gate_challenges[idx] =
+                prover_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+        auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha, prover_gate_challenges);
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
-        FF verifier_alpha = verifier_transcript->get_challenge("alpha");
-        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_transcript);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_d, verifier_transcript);
+        RelationSeparator verifier_alpha;
+        for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
+            verifier_alpha[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+        }
+        std::vector<FF> verifier_gate_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            verifier_gate_challenges[idx] =
+                verifier_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
         auto verified = verifier_output.verified.value();
 

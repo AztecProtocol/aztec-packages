@@ -104,7 +104,8 @@ pub(super) fn transform_internal(
                     | acir::circuit::opcodes::BlackBoxFuncCall::XOR { output, .. } => {
                         transformer.mark_solvable(*output);
                     }
-                    acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. } | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. } => (),
+                    acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. } => (),
                     acir::circuit::opcodes::BlackBoxFuncCall::SHA256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256VariableLength {
@@ -119,6 +120,13 @@ pub(super) fn transform_internal(
                         }
                     }
                     acir::circuit::opcodes::BlackBoxFuncCall::FixedBaseScalarMul {
+                        outputs,
+                        ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveAdd {
+                        outputs, ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveDouble {
                         outputs,
                         ..
                     }
@@ -142,10 +150,6 @@ pub(super) fn transform_internal(
             }
             Opcode::Directive(ref directive) => {
                 match directive {
-                    Directive::Quotient(quotient_directive) => {
-                        transformer.mark_solvable(quotient_directive.q);
-                        transformer.mark_solvable(quotient_directive.r);
-                    }
                     Directive::ToLeRadix { b, .. } => {
                         for witness in b {
                             transformer.mark_solvable(*witness);

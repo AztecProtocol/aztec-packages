@@ -6,16 +6,16 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
+using namespace bb::honk;
 
 template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
   public:
     void SetUp() override
     {
         if constexpr (std::is_same<Flavor, flavor::ECCVM>::value) {
-            barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         } else {
-            barretenberg::srs::init_crs_factory("../srs_db/ignition");
+            bb::srs::init_crs_factory("../srs_db/ignition");
         }
     };
     using FF = typename Flavor::FF;
@@ -126,10 +126,13 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", size_G);
         manifest_expected.add_entry(round, "Z_PERM", size_G);
-        manifest_expected.add_challenge(round, "alpha");
+        manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
-        round++;
-        manifest_expected.add_challenge(round, "Sumcheck:zeta");
+        for (size_t i = 0; i < log_n; i++) {
+            round++;
+            std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
+            manifest_expected.add_challenge(round, label);
+        }
 
         for (size_t i = 0; i < log_n; ++i) {
             round++;
@@ -180,9 +183,9 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
 
         return manifest_expected;
     }
-    proof_system::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
+    bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
     {
-        proof_system::ECCVMCircuitBuilder<Flavor> result;
+        bb::ECCVMCircuitBuilder<Flavor> result;
         using G1 = typename Flavor::CycleGroup;
         using Fr = typename G1::Fr;
 

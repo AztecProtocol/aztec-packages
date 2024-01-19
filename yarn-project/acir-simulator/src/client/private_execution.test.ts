@@ -1,9 +1,9 @@
+import { Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
-  FieldsOf,
   FunctionData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -21,13 +21,20 @@ import {
   siloCommitment,
 } from '@aztec/circuits.js/abis';
 import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
-import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import {
+  FunctionArtifact,
+  FunctionSelector,
+  encodeArguments,
+  getFunctionArtifact,
+  getFunctionArtifactWithSelector,
+} from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { FieldsOf } from '@aztec/foundation/types';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
@@ -38,7 +45,6 @@ import {
   TestContractArtifact,
   TokenContractArtifact,
 } from '@aztec/noir-contracts';
-import { Note, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -46,7 +52,7 @@ import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
 import { getFunctionSelector } from 'viem';
 
-import { buildL1ToL2Message, getFunctionArtifact, getFunctionArtifactWithSelector } from '../test/utils.js';
+import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
@@ -229,7 +235,6 @@ describe('Private Execution test suite', () => {
 
     it('should have a constructor with arguments that inserts notes', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
-
       const result = await runSimulator({ args: [owner, 140], artifact });
 
       expect(result.newNotes).toHaveLength(1);
@@ -581,9 +586,8 @@ describe('Private Execution test suite', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: Fr.ZERO,
+          startSideEffectCounter: 2,
         }),
-        sideEffectCounter: 0,
       });
 
       const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();

@@ -10,18 +10,18 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-contracts/Benchmarking';
 import { PXEService, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
-import times from 'lodash.times';
 import { join } from 'path';
 
 import { EndToEndContext, setup } from '../fixtures/utils.js';
 
 /**
- * Setup for benchmarks. Initializes a sandbox node with a single account and deploys a benchmark contract.
+ * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
  */
 export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
   const context = await setup(1, { ...opts });

@@ -9,8 +9,7 @@ export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log:
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const info = await client.getNodeInfo();
   log(`\nNode Info:\n`);
-  log(`Sandbox Version: ${info.sandboxVersion}\n`);
-  log(`Compatible Nargo Version: ${info.compatibleNargoVersion}\n`);
+  log(`Node Version: ${info.nodeVersion}\n`);
   log(`Chain Id: ${info.chainId}\n`);
   log(`Protocol Version: ${info.protocolVersion}\n`);
   log(`Rollup Address: ${info.l1ContractAddresses.rollupAddress.toString()}`);

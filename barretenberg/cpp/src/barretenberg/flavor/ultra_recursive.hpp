@@ -30,7 +30,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 /**
  * @brief The recursive counterpart to the "native" Ultra flavor.
@@ -71,12 +71,12 @@ template <typename BuilderType> class UltraRecursive_ {
     static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-                                 proof_system::UltraPermutationRelation<FF>,
-                                 proof_system::LookupRelation<FF>,
-                                 proof_system::GenPermSortRelation<FF>,
-                                 proof_system::EllipticRelation<FF>,
-                                 proof_system::AuxiliaryRelation<FF>>;
+    using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
+                                 bb::UltraPermutationRelation<FF>,
+                                 bb::LookupRelation<FF>,
+                                 bb::GenPermSortRelation<FF>,
+                                 bb::EllipticRelation<FF>,
+                                 bb::AuxiliaryRelation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -85,6 +85,12 @@ template <typename BuilderType> class UltraRecursive_ {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+
+    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
+    // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
+    // combiner) too much.
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
@@ -372,7 +378,7 @@ template <typename BuilderType> class UltraRecursive_ {
         }
     };
 
-    using Transcript = proof_system::plonk::stdlib::recursion::honk::Transcript<CircuitBuilder>;
+    using Transcript = bb::plonk::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

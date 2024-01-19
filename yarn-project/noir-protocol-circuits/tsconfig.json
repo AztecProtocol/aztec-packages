@@ -16,10 +16,13 @@
       "path": "../noir-compiler"
     },
     {
-      "path": "../merkle-tree"
+      "path": "../types"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../merkle-tree"
     }
   ],
   "include": ["src", "src/**/*.json"],

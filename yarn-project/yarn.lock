@@ -62,6 +62,7 @@ __metadata:
   resolution: "@aztec/accounts@workspace:accounts"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -83,11 +84,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/acir-simulator@workspace:acir-simulator"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
     "@types/jest": ^29.5.0
@@ -110,11 +111,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/debug": ^4.1.7
     "@types/jest": ^29.5.0
@@ -127,7 +128,6 @@ __metadata:
     jest-mock-extended: ^3.0.4
     lmdb: ^2.9.1
     lodash.omit: ^4.5.0
-    lodash.times: ^4.3.2
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tsc-watch: ^6.0.0
@@ -165,6 +165,7 @@ __metadata:
   resolution: "@aztec/aztec-node@workspace:aztec-node"
   dependencies:
     "@aztec/archiver": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -196,13 +197,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec-sandbox@workspace:^, @aztec/aztec-sandbox@workspace:aztec-sandbox":
+"@aztec/aztec-sandbox@workspace:aztec-sandbox":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec-sandbox@workspace:aztec-sandbox"
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -211,7 +213,6 @@ __metadata:
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/pxe": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/koa": ^2.13.6
@@ -234,6 +235,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -289,6 +291,33 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/circuit-types@workspace:^, @aztec/circuit-types@workspace:circuit-types":
+  version: 0.0.0-use.local
+  resolution: "@aztec/circuit-types@workspace:circuit-types"
+  dependencies:
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/lodash.clonedeep": ^4.5.7
+    "@types/lodash.isequal": ^4.5.6
+    "@types/lodash.times": ^4.3.7
+    "@types/node": ^18.7.23
+    browserify-cipher: ^1.0.1
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.3
+    lodash.clonedeep: ^4.5.0
+    lodash.isequal: ^4.5.0
+    lodash.times: ^4.3.2
+    ts-jest: ^29.1.0
+    ts-node: ^10.9.1
+    tslib: ^2.5.0
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
 "@aztec/circuits.js@workspace:^, @aztec/circuits.js@workspace:circuits.js":
   version: 0.0.0-use.local
   resolution: "@aztec/circuits.js@workspace:circuits.js"
@@ -298,12 +327,10 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/lodash.chunk": ^4.2.7
-    "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     eslint: ^8.35.0
     jest: ^29.5.0
     lodash.chunk: ^4.2.0
-    lodash.times: ^4.3.2
     prettier: ^2.8.4
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -318,6 +345,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
@@ -327,7 +355,6 @@ __metadata:
     "@iarna/toml": ^2.2.5
     "@jest/globals": ^29.5.0
     "@libp2p/peer-id-factory": ^3.0.4
-    "@ltd/j-toml": ^1.38.0
     "@types/jest": ^29.5.0
     "@types/lodash.startcase": ^4.4.7
     "@types/node": ^18.7.23
@@ -366,8 +393,8 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
-    "@aztec/aztec-sandbox": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -388,7 +415,6 @@ __metadata:
     "@types/koa-static": ^4.0.2
     "@types/levelup": ^5.1.2
     "@types/lodash.every": ^4.6.7
-    "@types/lodash.times": ^4.3.7
     "@types/memdown": ^3.0.3
     "@types/node": ^18.7.23
     buffer: ^6.0.3
@@ -402,7 +428,6 @@ __metadata:
     lmdb: ^2.9.1
     lodash.compact: ^3.0.1
     lodash.every: ^4.6.0
-    lodash.times: ^4.3.2
     memdown: ^6.1.1
     process: ^0.11.10
     puppeteer: ^21.3.4
@@ -504,10 +529,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/key-store@workspace:key-store"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -551,6 +576,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -577,14 +603,13 @@ __metadata:
   dependencies:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@iarna/toml": ^2.2.5
     "@jest/globals": ^29.5.0
-    "@ltd/j-toml": ^1.38.0
-    "@noir-lang/noir_wasm": "portal:../../noir/packages/noir_wasm"
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
     "@types/lodash.camelcase": ^4.3.7
     "@types/lodash.capitalize": ^4.2.7
-    "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     "@types/pako": ^2.0.0
     "@types/semver": ^7.5.4
@@ -594,7 +619,6 @@ __metadata:
     jest: ^29.5.0
     lodash.camelcase: ^4.3.0
     lodash.capitalize: ^4.2.1
-    lodash.times: ^4.3.2
     memfs: ^4.6.0
     pako: ^2.1.0
     semver: ^7.5.4
@@ -627,6 +651,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-protocol-circuits@workspace:noir-protocol-circuits"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
@@ -671,10 +696,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@chainsafe/libp2p-noise": ^13.0.0
     "@chainsafe/libp2p-yamux": ^5.0.0
     "@jest/globals": ^29.5.0
@@ -688,13 +713,11 @@ __metadata:
     "@libp2p/peer-id-factory": ^3.0.3
     "@libp2p/tcp": ^8.0.4
     "@types/jest": ^29.5.0
-    "@types/lodash.times": ^4.3.7
     "@types/node": ^18.14.6
     it-pipe: ^3.0.1
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
     libp2p: ^0.46.6
-    lodash.times: ^4.3.2
     sha3: ^2.1.4
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -724,6 +747,7 @@ __metadata:
   resolution: "@aztec/pxe@workspace:pxe"
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -735,14 +759,12 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/lodash.omit": ^4.5.7
-    "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
     koa: ^2.14.2
     koa-router: ^12.0.0
     lodash.omit: ^4.5.0
-    lodash.times: ^4.3.2
     sha3: ^2.1.4
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -758,8 +780,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/scripts@workspace:scripts"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/lodash.pick": ^4.4.7
@@ -783,6 +805,7 @@ __metadata:
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -797,7 +820,6 @@ __metadata:
     "@types/levelup": ^5.1.2
     "@types/lodash.chunk": ^4.2.7
     "@types/lodash.pick": ^4.4.7
-    "@types/lodash.times": ^4.3.7
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     concurrently: ^7.6.0
@@ -807,7 +829,6 @@ __metadata:
     levelup: ^5.1.1
     lodash.chunk: ^4.2.0
     lodash.pick: ^4.4.0
-    lodash.times: ^4.3.2
     memdown: ^6.1.1
     prettier: ^2.8.7
     ts-jest: ^29.1.0
@@ -822,24 +843,26 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/types@workspace:types"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@types/debug": ^4.1.7
+    "@types/detect-node": ^2.0.0
     "@types/jest": ^29.5.0
-    "@types/lodash.clonedeep": ^4.5.7
-    "@types/lodash.isequal": ^4.5.6
-    "@types/lodash.times": ^4.3.7
-    "@types/node": ^18.7.23
-    browserify-cipher: ^1.0.1
+    "@types/supertest": ^2.0.12
+    "@typescript-eslint/eslint-plugin": ^6.2.1
+    "@typescript-eslint/parser": ^6.2.1
+    comlink: ^4.4.1
+    eslint: ^8.21.0
+    eslint-config-prettier: ^8.5.0
+    eslint-plugin-jsdoc: ^40.1.0
+    eslint-plugin-no-only-tests: ^3.1.0
+    eslint-plugin-tsdoc: ^0.2.17
     jest: ^29.5.0
-    jest-mock-extended: ^3.0.3
-    lodash.clonedeep: ^4.5.0
-    lodash.isequal: ^4.5.0
-    lodash.times: ^4.3.2
+    prettier: ^2.7.1
+    supertest: ^6.3.3
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
-    tslib: ^2.5.0
     typescript: ^5.0.4
   languageName: unknown
   linkType: soft
@@ -848,6 +871,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/world-state@workspace:world-state"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
@@ -855,13 +879,11 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.2
-    "@types/lodash.times": ^4.3.7
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.5
     levelup: ^5.1.1
-    lodash.times: ^4.3.2
     memdown: ^6.1.1
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -2530,13 +2552,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ltd/j-toml@npm:^1.38.0":
-  version: 1.38.0
-  resolution: "@ltd/j-toml@npm:1.38.0"
-  checksum: 34f5d0ec652e790a7a733f0d3a8d9957d63997bd0efc13a61beb9d772bae75519453884fbc3fd6a2d5fe15674834bdd57ca1824bb1de8f829e5ce195fc5fa3ea
-  languageName: node
-  linkType: hard
-
 "@microsoft/tsdoc-config@npm:0.16.2":
   version: 0.16.2
   resolution: "@microsoft/tsdoc-config@npm:0.16.2"
@@ -2767,7 +2782,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/backend_barretenberg@portal:../noir/packages/backend_barretenberg::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/bb.js": 0.16.0
+    "@aztec/bb.js": 0.19.0
     "@noir-lang/types": 0.22.0
     fflate: ^0.8.0
   languageName: node
@@ -2780,12 +2795,6 @@ __metadata:
     "@noir-lang/acvm_js": 0.38.0
     "@noir-lang/noirc_abi": 0.22.0
     "@noir-lang/types": 0.22.0
-  languageName: node
-  linkType: soft
-
-"@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -3579,11 +3588,11 @@ __metadata:
   linkType: hard
 
 "@types/lodash.times@npm:^4.3.7":
-  version: 4.3.7
-  resolution: "@types/lodash.times@npm:4.3.7"
+  version: 4.3.9
+  resolution: "@types/lodash.times@npm:4.3.9"
   dependencies:
     "@types/lodash": "*"
-  checksum: f31e67c17124614afd392b10e26a5af38f0975edbe4e128c60affa0890a1f2fea502daa4839aee4b1f66b690f925254eff3e9dfcea5d7d3ace7315dba430335f
+  checksum: 452374b3db98bb805e77b3a53955aa76c1e78a7d48c400b08d48b6424ed9328ad826d98364b82506ea2756089320503d3a5797a1456bcdac11451763be536e62
   languageName: node
   linkType: hard
 

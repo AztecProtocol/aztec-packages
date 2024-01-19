@@ -3,7 +3,7 @@
 #include "../uint/uint.hpp"
 #include <algorithm>
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 
 template <typename Builder> class bit_array {
@@ -84,7 +84,7 @@ template <typename Builder> class bit_array {
             for (size_t j = 0; j < end; ++j) {
                 const auto bit = rbits[i * 8 + j];
                 const uint256_t scaling_factor = uint256_t(1) << (end - j - 1);
-                accumulator += field_t<Builder>(bit) * barretenberg::fr(scaling_factor);
+                accumulator += field_t<Builder>(bit) * bb::fr(scaling_factor);
             }
             values[i] = accumulator;
         }
@@ -179,7 +179,5 @@ template <typename Builder> class bit_array {
     std::vector<bool_t<Builder>> values;
 };
 
-EXTERN_STDLIB_TYPE(bit_array);
-
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

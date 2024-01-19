@@ -44,6 +44,8 @@ export {
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
+  waitForPXE,
+  waitForAccountSynch,
 } from './utils/index.js';
 
 export { createPXEClient } from './pxe_client.js';
@@ -52,8 +54,6 @@ export { AuthWitnessProvider } from './account/index.js';
 
 export { AccountContract } from './account/index.js';
 export { AccountManager } from './account_manager/index.js';
-
-export { waitForSandbox } from './sandbox/index.js';
 
 export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';
 
@@ -64,7 +64,6 @@ export {
   EthAddress,
   Fr,
   Fq,
-  FunctionSelector,
   GlobalVariables,
   GrumpkinScalar,
   Point,
@@ -91,7 +90,6 @@ export {
   LogId,
   LogType,
   MerkleTreeId,
-  NodeInfo,
   Note,
   PXE,
   PackedArguments,
@@ -108,12 +106,14 @@ export {
   emptyFunctionCall,
   merkleTreeIds,
   mockTx,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+
+export { NodeInfo } from '@aztec/types/interfaces';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
+export { encodeArguments } from '@aztec/foundation/abi';
 export { sha256 } from '@aztec/foundation/crypto';
 export { DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
 export { retry, retryUntil } from '@aztec/foundation/retry';
@@ -136,3 +136,4 @@ export {
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/init.js';
+export * from './api/abi.js';

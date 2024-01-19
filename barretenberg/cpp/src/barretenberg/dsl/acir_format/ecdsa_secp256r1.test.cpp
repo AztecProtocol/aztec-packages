@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace acir_format::tests {
-using curve_ct = proof_system::plonk::stdlib::secp256r1<Builder>;
+using curve_ct = bb::plonk::stdlib::secp256r1<Builder>;
 
 // Generate r1 constraints given pre generated pubkey, sig and message values
 size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,
@@ -23,7 +23,7 @@ size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,
     std::vector<uint32_t> pub_x_indices_in;
     std::vector<uint32_t> pub_y_indices_in;
     std::vector<uint32_t> signature_in;
-    size_t offset = 1;
+    size_t offset = 0;
     for (size_t i = 0; i < hashed_message.size(); ++i) {
         message_in.emplace_back(i + offset);
         const auto byte = static_cast<uint8_t>(hashed_message[i]);
@@ -138,6 +138,8 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
@@ -148,7 +150,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
         message, pub_key, signature);
     EXPECT_EQ(we_ballin, true);
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
     auto composer = Composer();
@@ -181,12 +183,14 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
     auto composer = Composer();
@@ -222,6 +226,8 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
@@ -258,12 +264,14 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 0);
     auto composer = Composer();

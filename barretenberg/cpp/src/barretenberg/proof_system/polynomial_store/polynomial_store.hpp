@@ -7,11 +7,11 @@
 #include <string>
 #include <unordered_map>
 
-namespace proof_system {
+namespace bb {
 
 template <typename Fr> class PolynomialStore {
   private:
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
     std::unordered_map<std::string, Polynomial> polynomial_map;
 
   public:
@@ -44,6 +44,4 @@ template <typename Fr> class PolynomialStore {
     typename std::unordered_map<std::string, Polynomial>::const_iterator end() const { return polynomial_map.end(); }
 };
 
-extern template class PolynomialStore<barretenberg::fr>;
-
-} // namespace proof_system
+} // namespace bb

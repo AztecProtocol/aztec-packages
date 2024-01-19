@@ -1,9 +1,9 @@
+import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Tx, PXE, mockTx } from '@aztec/circuit-types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Tx, PXE, mockTx } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -30,7 +30,6 @@ async function createPXEService(): Promise<PXE> {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
-    decoderHelperAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
@@ -59,7 +58,7 @@ describe('PXEService', () => {
 
     node.getTx.mockResolvedValue(settledTx);
 
-    const rpc = new PXEService(keyStore, node, db, config);
-    await expect(rpc.sendTx(duplicateTx)).rejects.toThrowError(/A settled tx with equal hash/);
+    const pxe = new PXEService(keyStore, node, db, config);
+    await expect(pxe.sendTx(duplicateTx)).rejects.toThrowError(/A settled tx with equal hash/);
   });
 });

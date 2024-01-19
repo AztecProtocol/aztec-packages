@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/protogalaxy/decider_prover.hpp"
+#include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -10,7 +12,7 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <UltraFlavor Flavor> class UltraComposer_ {
   public:
     using CircuitBuilder = typename Flavor::CircuitBuilder;
@@ -39,7 +41,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    UltraComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
+    UltraComposer_() { crs_factory_ = bb::srs::get_crs_factory(); }
 
     explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
         : crs_factory_(std::move(crs_factory))
@@ -66,6 +68,17 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         const std::shared_ptr<Instance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
+    DeciderProver_<Flavor> create_decider_prover(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    DeciderProver_<Flavor> create_decider_prover(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<CommitmentKey>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    DeciderVerifier_<Flavor> create_decider_verifier(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     UltraVerifier_<Flavor> create_verifier(CircuitBuilder& circuit);
 
     UltraVerifier_<Flavor> create_ultra_with_keccak_verifier(CircuitBuilder& circuit);
@@ -121,9 +134,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     void compute_verification_key(const std::shared_ptr<Instance>&);
 };
 
-extern template class UltraComposer_<honk::flavor::Ultra>;
-extern template class UltraComposer_<honk::flavor::GoblinUltra>;
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
 using UltraComposer = UltraComposer_<honk::flavor::Ultra>;
 using GoblinUltraComposer = UltraComposer_<honk::flavor::GoblinUltra>;
-} // namespace proof_system::honk
+} // namespace bb::honk

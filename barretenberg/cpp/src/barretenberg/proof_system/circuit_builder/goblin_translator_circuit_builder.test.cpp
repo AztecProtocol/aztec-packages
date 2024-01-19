@@ -5,11 +5,11 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
+using namespace bb;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief Check that a single accumulation gate is created correctly
@@ -78,9 +78,9 @@ TEST(GoblinTranslatorCircuitBuilder, CircuitBuilderBaseCase)
  */
 TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
 {
-    using point = barretenberg::g1::affine_element;
-    using scalar = barretenberg::fr;
-    using Fq = barretenberg::fq;
+    using point = bb::g1::affine_element;
+    using scalar = bb::fr;
+    using Fq = bb::fq;
 
     auto P1 = point::random_element();
     auto P2 = point::random_element();
@@ -129,4 +129,4 @@ TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Check the computation result is in line with what we've computed
     EXPECT_EQ(result, circuit_builder.get_computation_result());
 }
-} // namespace proof_system
+} // namespace bb

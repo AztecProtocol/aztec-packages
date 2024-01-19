@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 
 namespace blake3s_plookup {
@@ -260,8 +260,9 @@ template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder
     return result;
 }
 
-INSTANTIATE_STDLIB_ULTRA_METHOD(BLAKE3S_PLOOKUP);
+template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::GoblinUltraCircuitBuilder> blake3s(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
 } // namespace blake3s_plookup
 
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

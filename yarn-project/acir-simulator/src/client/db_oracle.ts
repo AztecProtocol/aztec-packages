@@ -1,21 +1,20 @@
+import { L2Block, MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
 import { BlockHeader, CompleteAddress, GrumpkinPrivateKey, PublicKey } from '@aztec/circuits.js';
-import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionArtifactWithDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { L2Block, MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
-import { CommitmentsDB } from '../public/index.js';
+import { CommitmentsDB } from '../public/db.js';
 
 /**
- * A function artifact with optional debug metadata
+ * Error thrown when a contract is not found in the database.
  */
-export interface FunctionArtifactWithDebugMetadata extends FunctionArtifact {
-  /**
-   * Debug metadata for the function.
-   */
-  debug?: FunctionDebugMetadata;
+export class ContractNotFoundError extends Error {
+  constructor(contractAddress: string) {
+    super(`DB has no contract with address ${contractAddress}`);
+  }
 }
 
 /**

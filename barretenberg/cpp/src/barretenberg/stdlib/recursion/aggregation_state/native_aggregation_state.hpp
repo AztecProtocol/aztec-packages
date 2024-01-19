@@ -3,7 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/groups/affine_element.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 namespace recursion {
 
@@ -15,9 +15,9 @@ namespace recursion {
  *   has_data: indicates if this aggregation state contain past (P0, P1)
  */
 struct native_aggregation_state {
-    typename barretenberg::g1::affine_element P0 = barretenberg::g1::affine_one;
-    typename barretenberg::g1::affine_element P1 = barretenberg::g1::affine_one;
-    std::vector<barretenberg::fr> public_inputs;
+    typename bb::g1::affine_element P0 = bb::g1::affine_one;
+    typename bb::g1::affine_element P1 = bb::g1::affine_one;
+    std::vector<bb::fr> public_inputs;
     std::vector<uint32_t> proof_witness_indices;
     bool has_data = false;
 
@@ -41,4 +41,4 @@ inline std::ostream& operator<<(std::ostream& os, native_aggregation_state const
 
 } // namespace recursion
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

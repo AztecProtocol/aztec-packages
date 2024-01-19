@@ -1,10 +1,11 @@
 use crate::abis::public_data_tree_leaf::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage};
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE};
+use crate::base::state_diff_hints::StateDiffHints;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 use crate::components;
 use dep::types::utils::uint256::U256;
+use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::abis::public_data_update_request::PublicDataUpdateRequest;
 use dep::types::abis::public_data_read::PublicDataRead;
 use dep::types::mocked::{AggregationObject, Proof};
@@ -34,32 +35,20 @@ use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDat
 use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
 use dep::types::abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash};
 use dep::types::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
+use dep::types::partial_state_reference::PartialStateReference;
 
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
-    start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_contract_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_public_data_tree_snapshot: AppendOnlyTreeSnapshot,
-    archive_snapshot: AppendOnlyTreeSnapshot,
+    start: PartialStateReference,
 
-    sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
-    low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX],
-    low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX],
+    state_diff_hints: StateDiffHints,
 
-    // For inserting the new subtrees into their respective trees:
-    // Note: the insertion leaf index can be derived from the above snapshots' `next_available_leaf_index` values.
-    new_commitments_subtree_sibling_path: [Field; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH],
-    new_nullifiers_subtree_sibling_path: [Field; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH],
-    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
-    new_contracts_subtree_sibling_path: [Field; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH],
-
+    // TODO: The following 6 values are eventually going to be nuked from here. See discussion:
+    // https://aztecprotocol.slack.com/archives/C060PU5R327/p1701965354071269
     sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    
     public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
     public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
 
@@ -88,8 +77,8 @@ impl BaseRollupInputs {
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
         let end_note_hash_tree_snapshot = components::insert_subtree_to_snapshot_tree(
-            self.start_note_hash_tree_snapshot,
-            self.new_commitments_subtree_sibling_path,
+            self.start.note_hash_tree,
+            self.state_diff_hints.note_hash_subtree_sibling_path,
             empty_commitments_subtree_root,
             commitments_tree_subroot,
             NOTE_HASH_SUBTREE_HEIGHT as u8,
@@ -98,8 +87,8 @@ impl BaseRollupInputs {
         // Insert contract subtrees:
         let empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
         let end_contract_tree_snapshot = components::insert_subtree_to_snapshot_tree(
-            self.start_contract_tree_snapshot,
-            self.new_contracts_subtree_sibling_path,
+            self.start.contract_tree,
+            self.state_diff_hints.contract_subtree_sibling_path,
             empty_contracts_subtree_root,
             contracts_tree_subroot,
             CONTRACT_SUBTREE_HEIGHT as u8,
@@ -122,16 +111,16 @@ impl BaseRollupInputs {
         BaseOrMergeRollupPublicInputs {
             rollup_type : BASE_ROLLUP_TYPE,
             rollup_subtree_height : 0,
-            end_aggregation_object : aggregation_object,
+            aggregation_object : aggregation_object,
             constants : self.constants,
-            start_note_hash_tree_snapshot : self.start_note_hash_tree_snapshot,
-            end_note_hash_tree_snapshot : end_note_hash_tree_snapshot,
-            start_nullifier_tree_snapshot : self.start_nullifier_tree_snapshot,
-            end_nullifier_tree_snapshot : end_nullifier_tree_snapshot,
-            start_contract_tree_snapshot : self.start_contract_tree_snapshot,
-            end_contract_tree_snapshot : end_contract_tree_snapshot,
-            start_public_data_tree_snapshot : self.start_public_data_tree_snapshot,
-            end_public_data_tree_snapshot: end_public_data_tree_snapshot,
+            start: self.start,
+            end: PartialStateReference {
+                note_hash_tree : end_note_hash_tree_snapshot,
+                nullifier_tree : end_nullifier_tree_snapshot,
+                contract_tree : end_contract_tree_snapshot,
+                public_data_tree : end_public_data_tree_snapshot,
+            },
+
             calldata_hash : calldata_hash,
         }
     }
@@ -172,13 +161,13 @@ impl BaseRollupInputs {
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         crate::indexed_tree::batch_insert(
-            self.start_nullifier_tree_snapshot,
+            self.start.nullifier_tree,
             self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
-            self.sorted_new_nullifiers,
-            self.sorted_new_nullifiers_indexes,
-            self.new_nullifiers_subtree_sibling_path,
-            self.low_nullifier_leaf_preimages,
-            self.low_nullifier_membership_witness.map(|witness: NullifierMembershipWitness| {
+            self.state_diff_hints.sorted_nullifiers,
+            self.state_diff_hints.sorted_nullifier_indexes,
+            self.state_diff_hints.nullifier_subtree_sibling_path,
+            self.state_diff_hints.nullifier_predecessor_preimages,
+            self.state_diff_hints.nullifier_predecessor_membership_witnesses.map(|witness: NullifierMembershipWitness| {
                 MembershipWitness {
                     leaf_index: witness.leaf_index,
                     sibling_path: witness.sibling_path,
@@ -215,7 +204,7 @@ impl BaseRollupInputs {
         )
     }
 
-    fn create_nullifier_subtree<N>(self, leaves: [NullifierLeafPreimage; N]) -> Field {
+    fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
         calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
@@ -233,7 +222,7 @@ impl BaseRollupInputs {
         //                            self.new_public_data_reads_sibling_paths);
 
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
-            self.start_public_data_tree_snapshot,
+            self.start.public_data_tree,
             self.kernel_data.public_inputs.end.public_data_update_requests.map(|request: PublicDataUpdateRequest| {
                 PublicDataTreeLeaf {
                     slot: request.leaf_slot,
@@ -244,7 +233,7 @@ impl BaseRollupInputs {
             self.sorted_public_data_writes_indexes,
             self.low_public_data_writes_preimages,
             self.low_public_data_writes_witnesses,
-            self.public_data_writes_subtree_sibling_path,
+            self.state_diff_hints.public_data_sibling_path,
         );
 
         end_public_data_tree_snapshot
@@ -346,7 +335,7 @@ impl BaseRollupInputs {
     fn perform_archive_membership_checks(self) {
         // For each of the block header (their block hashes), we need to do an inclusion proof
         // against the blocks tree root from the beginning of a rollup provided in the rollup constants
-        let archive_root = self.constants.archive_snapshot.root;
+        let archive_root = self.constants.last_archive.root;
 
         // Rebuild the block hash
         let block_header = self.kernel_data.public_inputs.constants.block_header;
@@ -370,7 +359,7 @@ impl BaseRollupInputs {
     }
 }
 
-fn verify_kernel_proof(proof: Proof) -> bool {
+fn verify_kernel_proof(_proof: Proof) -> bool {
     // TODO: Just return true as we are mocking out the proof verification
     // and aggregation.
     // TODO(Kev): It may make sense to move all of these methods into a 
@@ -532,11 +521,11 @@ fn consistent_call_data_hash_full_fields() {
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(lhs, rhs)
+    lhs.lt(rhs)
 }
 
 pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(rhs, lhs)
+    rhs.lt(lhs)
 }
 
 #[test]
@@ -559,14 +548,16 @@ fn test_u256_greater_than() {
 
 mod tests {
     use crate::{
-        base::base_rollup_inputs::{
-            CALL_DATA_HASH_FULL_FIELDS,
-            CALL_DATA_HASH_LOG_FIELDS,
-            BaseRollupInputs,
-            full_field_less_than,
+        base::{
+            base_rollup_inputs::{
+                CALL_DATA_HASH_FULL_FIELDS,
+                CALL_DATA_HASH_LOG_FIELDS,
+                BaseRollupInputs,
+                full_field_less_than,
+            },
+            state_diff_hints::StateDiffHints,
         },
         merkle_tree::{calculate_subtree, calculate_empty_tree_root},
-        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         abis::public_data_tree_leaf::{PublicDataTreeLeafPreimage, PublicDataTreeLeaf},
         abis::constant_rollup_data::ConstantRollupData,
@@ -595,6 +586,7 @@ mod tests {
         NUM_FIELDS_PER_SHA256,
     };
     use dep::types::{
+        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         abis::membership_witness::ArchiveRootMembershipWitness,
         abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness},
         abis::new_contract_data::NewContractData,
@@ -607,6 +599,7 @@ mod tests {
         address::{AztecAddress, EthAddress},
         utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
+        partial_state_reference::PartialStateReference,
     };
     use dep::std::option::Option;
 
@@ -769,21 +762,21 @@ mod tests {
             [Field; MAX_NEW_NULLIFIERS_PER_TX],
             [u32; MAX_NEW_NULLIFIERS_PER_TX],
         ) {
-            let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
+            let mut nullifier_predecessor_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
             let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
 
             let sorted_new_nullifier_tuples = sort_high_to_low(self.new_nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value), full_field_less_than);
 
-            let mut sorted_new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_TX];
-            let mut sorted_new_nullifiers_indexes = [0; MAX_NEW_NULLIFIERS_PER_TX];
+            let mut sorted_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_TX];
+            let mut sorted_nullifiers_indexes = [0; MAX_NEW_NULLIFIERS_PER_TX];
 
             for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
                 if (i as u32) < (MAX_NEW_NULLIFIERS_PER_TEST as u32) {
-                    sorted_new_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
-                    sorted_new_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
+                    sorted_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
+                    sorted_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
                 } else {
-                    sorted_new_nullifiers[i] = 0;
-                    sorted_new_nullifiers_indexes[i] = i as u32;
+                    sorted_nullifiers[i] = 0;
+                    sorted_nullifiers_indexes[i] = i as u32;
                 }
             }
 
@@ -800,7 +793,7 @@ mod tests {
                     kernel_data.public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
-                    low_nullifier_leaf_preimages[i] = low_preimage;
+                    nullifier_predecessor_preimages[i] = low_preimage;
                     low_nullifier_membership_witness[i] = NullifierMembershipWitness {
                         leaf_index: low_index as Field,
                         sibling_path: nullifier_tree.get_sibling_path(low_index as Field)
@@ -814,7 +807,7 @@ mod tests {
                 }
             }
 
-            (low_nullifier_leaf_preimages, low_nullifier_membership_witness, sorted_new_nullifiers, sorted_new_nullifiers_indexes)
+            (nullifier_predecessor_preimages, low_nullifier_membership_witness, sorted_nullifiers, sorted_nullifiers_indexes)
         }
 
         fn build_inputs(mut self) -> BaseRollupInputs {
@@ -825,7 +818,7 @@ mod tests {
                 root: start_note_hash_tree.get_root(),
                 next_available_leaf_index: start_note_hash_tree.get_next_available_index() as u32,
             };
-            let new_commitments_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
+            let note_hash_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
 
             let mut start_nullifier_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
@@ -844,7 +837,7 @@ mod tests {
                 root: start_contract_tree.get_root(),
                 next_available_leaf_index: start_contract_tree.get_next_available_index() as u32,
             };
-            let new_contracts_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_contract_tree.get_sibling_path(self.pre_existing_contracts.len()), [0; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH]);
+            let contract_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_contract_tree.get_sibling_path(self.pre_existing_contracts.len()), [0; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH]);
 
             let mut start_public_data_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_public_data.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
@@ -858,24 +851,22 @@ mod tests {
             };
 
             let start_archive = NonEmptyMerkleTree::new(self.pre_existing_blocks, [0; ARCHIVE_HEIGHT], [0; ARCHIVE_HEIGHT - 1], [0; 1]);
-            let archive_snapshot = AppendOnlyTreeSnapshot {
+            self.constants.last_archive = AppendOnlyTreeSnapshot {
                 root: start_archive.get_root(),
                 next_available_leaf_index: start_archive.get_next_available_index() as u32,
             };
 
-            self.constants.archive_snapshot = archive_snapshot;
-
             let (
-                low_nullifier_leaf_preimages, 
-                low_nullifier_membership_witness,
-                sorted_new_nullifiers,
-                sorted_new_nullifiers_indexes
+                nullifier_predecessor_preimages, 
+                nullifier_predecessor_membership_witnesses,
+                sorted_nullifiers,
+                sorted_nullifier_indexes
             ) = self.update_nullifier_tree_with_new_leaves(&mut start_nullifier_tree, &mut kernel_data, start_nullifier_tree_snapshot);
 
-            let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
+            let nullifier_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
 
             let (
-                public_data_writes_subtree_sibling_path,
+                public_data_sibling_path,
                 sorted_public_data_writes,
                 sorted_public_data_writes_indexes,
                 low_public_data_writes_preimages,
@@ -891,24 +882,28 @@ mod tests {
                 self.pre_existing_public_data
             );
 
+            let start = PartialStateReference {
+                note_hash_tree: start_note_hash_tree_snapshot,
+                nullifier_tree: start_nullifier_tree_snapshot,
+                contract_tree: start_contract_tree_snapshot,
+                public_data_tree: start_public_data_tree_snapshot
+            };
+
+            let state_diff_hints = StateDiffHints {
+                nullifier_predecessor_preimages,
+                nullifier_predecessor_membership_witnesses,
+                sorted_nullifiers,
+                sorted_nullifier_indexes,
+                note_hash_subtree_sibling_path,
+                nullifier_subtree_sibling_path,
+                contract_subtree_sibling_path,
+                public_data_sibling_path,
+            };
+
             BaseRollupInputs {
-                kernel_data: kernel_data,
-                start_note_hash_tree_snapshot,
-                start_nullifier_tree_snapshot,
-                start_contract_tree_snapshot,
-                start_public_data_tree_snapshot,
-                archive_snapshot,
-
-                sorted_new_nullifiers,
-                sorted_new_nullifiers_indexes,
-
-                low_nullifier_leaf_preimages,
-                low_nullifier_membership_witness,
-
-                new_commitments_subtree_sibling_path, 
-                new_nullifiers_subtree_sibling_path, 
-                public_data_writes_subtree_sibling_path,
-                new_contracts_subtree_sibling_path, 
+                kernel_data,
+                start,
+                state_diff_hints,
 
                 sorted_public_data_writes,
                 sorted_public_data_writes_indexes,
@@ -945,8 +940,8 @@ mod tests {
         let outputs = BaseRollupInputsBuilder::new().execute();
         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 2 };
         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 3 };
-        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
-        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -971,11 +966,11 @@ mod tests {
         let outputs = builder.execute();
 
         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
 
         expected_contracts_tree.update_leaf(2, new_contract.hash());
         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 3 };
-        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -1002,11 +997,11 @@ mod tests {
         let outputs = builder.execute();
 
         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
 
         expected_contracts_tree.update_leaf(2, new_contract.hash());
         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 3 };
-        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -1031,7 +1026,7 @@ mod tests {
             root: expected_commitments_tree.get_root(),
             next_available_leaf_index: MAX_NEW_COMMITMENTS_PER_TX as u32
         };
-        assert(outputs.start_note_hash_tree_snapshot.eq(expected_start_note_hash_tree_snapshot));
+        assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
         for i in 0..new_commitments.len() {
             expected_commitments_tree.update_leaf(
@@ -1043,7 +1038,7 @@ mod tests {
             root: expected_commitments_tree.get_root(),
             next_available_leaf_index: (MAX_NEW_COMMITMENTS_PER_TX * 2) as u32
         };
-        assert(outputs.end_note_hash_tree_snapshot.eq(expected_end_note_hash_tree_snapshot));
+        assert(outputs.end.note_hash_tree.eq(expected_end_note_hash_tree_snapshot));
     }
 
     #[test]
@@ -1112,7 +1107,7 @@ mod tests {
         let output = builder.execute();
 
         assert(
-            output.end_nullifier_tree_snapshot.eq(
+            output.end.nullifier_tree.eq(
                 AppendOnlyTreeSnapshot { root: end_nullifier_tree.get_root(), next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_TX as u32 }
             )
         );
@@ -1170,7 +1165,7 @@ mod tests {
         );
 
         assert(
-            output.end_nullifier_tree_snapshot.eq(
+            output.end.nullifier_tree.eq(
                 AppendOnlyTreeSnapshot { root: end_nullifier_tree.get_root(), next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_TX as u32 }
             )
         );
@@ -1303,7 +1298,7 @@ mod tests {
             [0; 1]
         );
 
-        assert_eq(outputs.end_public_data_tree_snapshot.root, expected_public_data_tree.get_root());
+        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 
     #[test]
@@ -1380,6 +1375,6 @@ mod tests {
             [0; PUBLIC_DATA_SUBTREE_HEIGHT + 1]
         );
 
-        assert_eq(outputs.end_public_data_tree_snapshot.root, expected_public_data_tree.get_root());
+        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 }

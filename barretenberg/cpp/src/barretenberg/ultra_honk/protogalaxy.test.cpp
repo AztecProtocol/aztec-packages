@@ -1,9 +1,9 @@
+#include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::honk;
+using namespace bb::honk;
 
 using Flavor = flavor::Ultra;
 using VerificationKey = Flavor::VerificationKey;
@@ -16,19 +16,22 @@ using Projective = Flavor::GroupElement;
 using Builder = Flavor::CircuitBuilder;
 using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
-using RelationParameters = proof_system::RelationParameters<FF>;
+using RelationParameters = bb::RelationParameters<FF>;
 using WitnessCommitments = typename Flavor::WitnessCommitments;
+using CommitmentKey = Flavor::CommitmentKey;
+using PowPolynomial = bb::PowPolynomial<FF>;
+
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-namespace protogalaxy_tests {
+namespace bb::protogalaxy_tests {
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
 // amongst test files in the proof system
-barretenberg::Polynomial<FF> get_random_polynomial(size_t size)
+bb::Polynomial<FF> get_random_polynomial(size_t size)
 {
-    auto poly = barretenberg::Polynomial<FF>(size);
+    auto poly = bb::Polynomial<FF>(size);
     for (auto& coeff : poly) {
         coeff = FF::random_element();
     }
@@ -44,29 +47,49 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
     return full_polynomials;
 }
 
-std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instance_size, size_t num_public_inputs)
+std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Instance>>& instances,
+                                          UltraComposer& composer,
+                                          bool expected_result)
 {
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, num_public_inputs);
-    auto vk_view = verification_key->get_all();
-    for (auto& view : vk_view) {
-        view = Affine(Projective::random_element());
-    }
-    return verification_key;
+    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
+    auto folding_verifier = composer.create_folding_verifier();
+
+    auto proof = folding_prover.fold_instances();
+    auto next_accumulator = proof.accumulator;
+    auto res = folding_verifier.verify_folding_proof(proof.folding_data);
+    EXPECT_EQ(res, expected_result);
+    return next_accumulator;
 }
 
-WitnessCommitments construct_witness_commitments()
+void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator, bool expected_result)
 {
-    WitnessCommitments wc;
-    auto w_view = wc.get_all();
-    for (auto& view : w_view) {
-        view = Affine(Projective::random_element());
+    auto instance_size = accumulator->instance_size;
+    auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
+        accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
+    // Construct pow(\vec{betas*}) as in the paper
+    auto expected_pows = PowPolynomial(accumulator->gate_challenges);
+    expected_pows.compute_values();
+
+    // Compute the corresponding target sum and create a dummy accumulator
+    auto expected_target_sum = FF(0);
+    for (size_t i = 0; i < instance_size; i++) {
+        expected_target_sum += expected_honk_evals[i] * expected_pows[i];
     }
-    return wc;
+
+    EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
+}
+void decide_and_verify(std::shared_ptr<Instance>& accumulator, UltraComposer& composer, bool expected_result)
+{
+    auto decider_prover = composer.create_decider_prover(accumulator, composer.commitment_key);
+    auto decider_verifier = composer.create_decider_verifier(accumulator);
+    auto decision = decider_prover.construct_proof();
+    auto verified = decider_verifier.verify_proof(decision);
+    EXPECT_EQ(verified, expected_result);
 }
 
 class ProtoGalaxyTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 TEST_F(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
@@ -91,9 +114,11 @@ TEST_F(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
     instance->compute_sorted_accumulator_polynomials(eta);
     instance->compute_grand_product_polynomials(beta, gamma);
 
-    auto alpha = FF::random_element();
+    for (auto& alpha : instance->alphas) {
+        alpha = FF::random_element();
+    }
     auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-        instance->prover_polynomials, alpha, instance->relation_parameters);
+        instance->prover_polynomials, instance->alphas, instance->relation_parameters);
 
     // Evaluations should be 0 for valid circuit
     for (const auto& eval : full_honk_evals) {
@@ -115,26 +140,31 @@ TEST_F(ProtoGalaxyTests, PerturbatorCoefficients)
 
 TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 {
+    using RelationSeparator = Flavor::RelationSeparator;
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
 
-    std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = get_random_polynomial(instance_size);
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-    auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    auto alpha = FF::random_element();
+    auto relation_parameters = bb::RelationParameters<FF>::get_random();
+    RelationSeparator alphas;
+    for (auto& alpha : alphas) {
+        alpha = FF::random_element();
+    }
 
     auto full_honk_evals =
-        ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
+        ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alphas, relation_parameters);
     std::vector<FF> betas(log_instance_size);
     for (size_t idx = 0; idx < log_instance_size; idx++) {
         betas[idx] = FF::random_element();
     }
 
     // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
+    auto pow_beta = PowPolynomial(betas);
+    pow_beta.compute_values();
 
     // Compute the corresponding target sum and create a dummy accumulator
     auto target_sum = FF(0);
@@ -144,9 +174,10 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 
     auto accumulator = std::make_shared<Instance>();
     accumulator->prover_polynomials = std::move(full_polynomials);
-    accumulator->folding_parameters = { betas, target_sum };
+    accumulator->gate_challenges = betas;
+    accumulator->target_sum = target_sum;
     accumulator->relation_parameters = relation_parameters;
-    accumulator->alpha = alpha;
+    accumulator->alphas = alphas;
 
     auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, FF::random_element());
     auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas);
@@ -155,24 +186,15 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     EXPECT_EQ(perturbator[0], target_sum);
 }
 
-TEST_F(ProtoGalaxyTests, PowPolynomialsOnPowers)
-{
-    auto betas = std::vector<FF>{ 2, 4, 16 };
-    auto pow_betas = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, 8);
-    auto expected_values = std::vector<FF>{ 1, 2, 4, 8, 16, 32, 64, 128 };
-    EXPECT_EQ(expected_values, pow_betas);
-}
-
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
 {
     auto compressed_perturbator = FF(2); // F(\alpha) in the paper
-    auto combiner =
-        barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
+    auto combiner = bb::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
     auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
     // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
     // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
-    auto expected_evals = barretenberg::Univariate<FF, 13, 2>(std::array<FF, 11>{
+    auto expected_evals = bb::Univariate<FF, 13, 2>(std::array<FF, 11>{
         (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
         (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
         (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
@@ -191,7 +213,7 @@ TEST_F(ProtoGalaxyTests, CombinerQuotient)
     }
 }
 
-TEST_F(ProtoGalaxyTests, FoldChallenges)
+TEST_F(ProtoGalaxyTests, CombineRelationParameters)
 {
     using Instances = ProverInstances_<Flavor, 2>;
     using Instance = typename Instances::Instance;
@@ -212,82 +234,118 @@ TEST_F(ProtoGalaxyTests, FoldChallenges)
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
 }
 
-TEST_F(ProtoGalaxyTests, FoldAlpha)
+TEST_F(ProtoGalaxyTests, CombineAlpha)
 {
     using Instances = ProverInstances_<Flavor, 2>;
     using Instance = typename Instances::Instance;
 
     Builder builder1;
     auto instance1 = std::make_shared<Instance>(builder1);
-    instance1->alpha = 2;
+    instance1->alphas.fill(2);
 
     Builder builder2;
     builder2.add_variable(3);
     auto instance2 = std::make_shared<Instance>(builder2);
-    instance2->alpha = 4;
+    instance2->alphas.fill(4);
 
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_alpha(instances);
 
     Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
-    EXPECT_EQ(instances.alpha, expected_alpha);
+    for (const auto& alpha : instances.alphas) {
+        EXPECT_EQ(alpha, expected_alpha);
+    }
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/807): Have proper full folding testing (both failing and
-// passing) and move creating a test accumulator in a separate function.
-TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
+// Check both manually and using the protocol two rounds of folding
+TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
 {
-    const size_t log_instance_size(4);
-    const size_t instance_size(1 << log_instance_size);
-
-    std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
-    for (auto& poly : random_polynomials) {
-        poly = get_random_polynomial(instance_size);
-    }
-    auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-    auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    auto alpha = FF::random_element();
-
-    auto full_honk_evals =
-        ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
-    std::vector<FF> betas(log_instance_size);
-    for (size_t idx = 0; idx < log_instance_size; idx++) {
-        betas[idx] = FF::random_element();
-    }
-
-    // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
-
-    // Compute the corresponding target sum and create a dummy accumulator
-    auto target_sum = FF(0);
-    for (size_t i = 0; i < instance_size; i++) {
-        target_sum += full_honk_evals[i] * pow_beta[i];
-    }
-
-    auto accumulator = std::make_shared<Instance>();
-    accumulator->witness_commitments = construct_witness_commitments();
-    accumulator->instance_size = instance_size;
-    accumulator->log_instance_size = log_instance_size;
-    accumulator->prover_polynomials = std::move(full_polynomials);
-    accumulator->folding_parameters = { betas, target_sum };
-    accumulator->relation_parameters = relation_parameters;
-    accumulator->alpha = alpha;
-    accumulator->is_accumulator = true;
-    accumulator->public_inputs = std::vector<FF>{ FF::random_element() };
-    accumulator->verification_key = construct_ultra_verification_key(instance_size, 1);
-
-    auto builder = typename Flavor::CircuitBuilder();
     auto composer = UltraComposer();
-    builder.add_public_variable(FF(1));
 
-    auto instance = composer.create_instance(builder);
-    auto instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance };
-    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
-    auto folding_verifier = composer.create_folding_verifier();
+    auto builder_1 = typename Flavor::CircuitBuilder();
+    builder_1.add_public_variable(FF(1));
 
-    auto proof = folding_prover.fold_instances();
-    auto res = folding_verifier.verify_folding_proof(proof.folding_data);
-    EXPECT_EQ(res, true);
+    auto instance_1 = composer.create_instance(builder_1);
+
+    auto builder_2 = typename Flavor::CircuitBuilder();
+    builder_2.add_public_variable(FF(1));
+
+    auto instance_2 = composer.create_instance(builder_2);
+
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto first_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(first_accumulator, true);
+
+    auto builder_3 = typename Flavor::CircuitBuilder();
+    builder_3.add_public_variable(FF(1));
+    auto instance_3 = composer.create_instance(builder_3);
+
+    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    auto second_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(second_accumulator, true);
+
+    decide_and_verify(second_accumulator, composer, true);
 }
 
-} // namespace protogalaxy_tests
+TEST_F(ProtoGalaxyTests, TamperedCommitment)
+{
+    auto composer = UltraComposer();
+
+    auto builder_1 = typename Flavor::CircuitBuilder();
+    builder_1.add_public_variable(FF(1));
+
+    auto instance_1 = composer.create_instance(builder_1);
+
+    auto builder_2 = typename Flavor::CircuitBuilder();
+    builder_2.add_public_variable(FF(1));
+
+    auto instance_2 = composer.create_instance(builder_2);
+
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto first_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(first_accumulator, true);
+
+    auto builder_3 = typename Flavor::CircuitBuilder();
+    builder_3.add_public_variable(FF(1));
+    auto instance_3 = composer.create_instance(builder_3);
+
+    // tampering with the commitment should cause the decider to fail
+    first_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
+    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+
+    auto second_accumulator = fold_and_verify(instances, composer, true);
+
+    decide_and_verify(second_accumulator, composer, false);
+}
+
+TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
+{
+    auto composer = UltraComposer();
+
+    auto builder_1 = typename Flavor::CircuitBuilder();
+    builder_1.add_public_variable(FF(1));
+
+    auto instance_1 = composer.create_instance(builder_1);
+
+    auto builder_2 = typename Flavor::CircuitBuilder();
+    builder_2.add_public_variable(FF(1));
+
+    auto instance_2 = composer.create_instance(builder_2);
+
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto first_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(first_accumulator, true);
+
+    auto builder_3 = typename Flavor::CircuitBuilder();
+    builder_3.add_public_variable(FF(1));
+    auto instance_3 = composer.create_instance(builder_3);
+
+    // tampering with accumulator's polynomial should cause both folding and deciding to fail
+    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    first_accumulator->prover_polynomials.w_l[1] = FF::random_element();
+    auto second_accumulator = fold_and_verify(instances, composer, false);
+
+    decide_and_verify(second_accumulator, composer, false);
+}
+
+} // namespace bb::protogalaxy_tests

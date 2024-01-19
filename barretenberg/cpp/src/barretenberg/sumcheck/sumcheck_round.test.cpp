@@ -4,16 +4,15 @@
 
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
-using namespace proof_system::honk::sumcheck;
+using namespace bb::honk;
+using namespace bb::honk::sumcheck;
 
-using barretenberg::BarycentricData;
-using barretenberg::PowUnivariate;
-using barretenberg::Univariate;
+using bb::BarycentricData;
+using bb::Univariate;
 
 using Flavor = flavor::Ultra;
 using FF = typename Flavor::FF;
-using Utils = barretenberg::RelationUtils<Flavor>;
+using Utils = bb::RelationUtils<Flavor>;
 
 namespace test_sumcheck_round {
 
@@ -23,8 +22,9 @@ namespace test_sumcheck_round {
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Define three linear univariates of different sizes
     Univariate<FF, 3> univariate_1({ 1, 2, 3 });
@@ -36,19 +36,21 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     auto tuple_of_tuples = std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
-    FF challenge = 5;
+    RelationSeparator challenge = {};
+    challenge[0] = 5;
+    challenge[1] = challenge[0].sqr();
     FF running_challenge = 1;
     Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
-    PowUnivariate<FF> pow_univariate(1);
+    bb::PowPolynomial<FF> pow_polynomial({ 1 });
     auto result = Univariate<FF, MAX_LENGTH>();
-    SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_univariate);
+    SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_polynomial);
 
     // Repeat the batching process manually
     auto result_expected = univariate_1.template extend_to<MAX_LENGTH>() * 1 +
-                           univariate_2.template extend_to<MAX_LENGTH>() * challenge +
-                           univariate_3.template extend_to<MAX_LENGTH>() * challenge * challenge;
+                           univariate_2.template extend_to<MAX_LENGTH>() * challenge[0] +
+                           univariate_3.template extend_to<MAX_LENGTH>() * challenge[1];
 
     // Compare final batched univarites
     EXPECT_EQ(result, result_expected);
@@ -71,9 +73,10 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
-    using Utils = barretenberg::RelationUtils<Flavor>;
+    using Flavor = bb::honk::flavor::Ultra;
+    using Utils = bb::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Define two arrays of arbitrary elements
     std::array<FF, 1> evaluations_1 = { 4 };
@@ -83,14 +86,15 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     auto tuple_of_arrays = std::make_tuple(evaluations_1, evaluations_2);
 
     // Use scale_and_batch_elements to scale by challenge powers
-    FF challenge = 5;
     FF running_challenge = 1;
+    RelationSeparator challenge = {};
+    challenge[0] = 5;
+    challenge[1] = challenge[0].sqr();
     FF result = 0;
     Utils::scale_and_batch_elements(tuple_of_arrays, challenge, running_challenge, result);
 
     // Repeat the batching process manually
-    auto result_expected =
-        evaluations_1[0] * 1 + evaluations_2[0] * challenge + evaluations_2[1] * challenge * challenge;
+    auto result_expected = evaluations_1[0] * 1 + evaluations_2[0] * challenge[0] + evaluations_2[1] * challenge[1];
 
     // Compare batched result
     EXPECT_EQ(result, result_expected);
@@ -109,7 +113,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates

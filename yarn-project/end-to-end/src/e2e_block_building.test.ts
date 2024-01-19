@@ -12,11 +12,10 @@ import {
   Wallet,
   isContractDeployed,
 } from '@aztec/aztec.js';
+import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { TokenContract } from '@aztec/noir-contracts/Token';
-
-import times from 'lodash.times';
 
 import { setup } from './fixtures/utils.js';
 
@@ -80,7 +79,7 @@ describe('e2e_block_building', () => {
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
-      const deployer = TokenContract.deploy(owner, owner.getCompleteAddress());
+      const deployer = TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18);
       await deployer.create();
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed

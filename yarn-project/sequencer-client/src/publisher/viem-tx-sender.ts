@@ -1,7 +1,7 @@
+import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -75,6 +75,11 @@ export class ViemTxSender implements L1PublisherTxSender {
     });
   }
 
+  async getCurrentArchive(): Promise<Buffer> {
+    const archive = await this.rollupContract.read.archive();
+    return Buffer.from(archive.replace('0x', ''), 'hex');
+  }
+
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
     const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
     if (!tx) {
@@ -117,7 +122,12 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [`0x${encodedData.proof.toString('hex')}`, `0x${encodedData.inputs.toString('hex')}`] as const;
+    const args = [
+      `0x${encodedData.header.toString('hex')}`,
+      `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.body.toString('hex')}`,
+      `0x${encodedData.proof.toString('hex')}`,
+    ] as const;
 
     const gas = await this.rollupContract.estimateGas.process(args, {
       account: this.account,

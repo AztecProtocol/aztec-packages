@@ -1,7 +1,8 @@
+import { ExtendedContractData, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { ExtendedContractData, NodeInfo, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/types';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -25,11 +26,9 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
-    decoderHelperAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
-    sandboxVersion: 'vx.x.x',
-    compatibleNargoVersion: 'vx.x.x-aztec.x',
+    nodeVersion: 'vx.x.x',
     chainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
@@ -42,6 +41,7 @@ describe('Contract Class', () => {
         name: 'bar',
         functionType: FunctionType.SECRET,
         isInternal: false,
+        debugSymbols: '',
         parameters: [
           {
             name: 'value',
@@ -68,6 +68,7 @@ describe('Contract Class', () => {
         parameters: [],
         returnTypes: [],
         bytecode: '0be',
+        debugSymbols: '',
       },
       {
         name: 'qux',
@@ -90,9 +91,11 @@ describe('Contract Class', () => {
           },
         ],
         bytecode: '0cd',
+        debugSymbols: '',
       },
     ],
     events: [],
+    fileMap: {},
   };
 
   beforeEach(() => {

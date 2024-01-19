@@ -11,20 +11,20 @@
 
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
+using namespace bb::honk;
 namespace goblin_recursion_tests {
 
 class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        barretenberg::srs::init_crs_factory("../srs_db/ignition");
-        barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
+    using GoblinUltraBuilder = bb::GoblinUltraCircuitBuilder;
     using KernelInput = Goblin::AccumulationOutput;
 };
 

@@ -7,6 +7,34 @@ import {
   resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
+  AuthWitness,
+  AztecNode,
+  ContractDao,
+  ContractData,
+  DeployedContract,
+  ExtendedContractData,
+  ExtendedNote,
+  FunctionCall,
+  GetUnencryptedLogsResponse,
+  KeyStore,
+  L2Block,
+  L2Tx,
+  LogFilter,
+  MerkleTreeId,
+  NoteFilter,
+  PXE,
+  SimulationError,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxL2Logs,
+  TxReceipt,
+  TxStatus,
+  getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
+} from '@aztec/circuit-types';
+import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
+import {
   AztecAddress,
   CallRequest,
   CompleteAddress,
@@ -24,36 +52,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
-import {
-  AuthWitness,
-  AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  KeyStore,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  MerkleTreeId,
-  NodeInfo,
-  NoteFilter,
-  PXE,
-  SimulationError,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxL2Logs,
-  TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
-  isNoirCallStackUnresolved,
-} from '@aztec/types';
-import { TxPXEProcessingStats } from '@aztec/types/stats';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -72,7 +71,7 @@ export class PXEService implements PXE {
   private contractDataOracle: ContractDataOracle;
   private simulator: AcirSimulator;
   private log: DebugLogger;
-  private sandboxVersion: string;
+  private nodeVersion: string;
   // serialize synchronizer and calls to simulateTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
@@ -88,8 +87,9 @@ export class PXEService implements PXE {
     this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db, node);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
+    this.nodeVersion = getPackageInfo().version;
 
-    this.sandboxVersion = getPackageInfo().version;
+    this.jobQueue.start();
   }
 
   /**
@@ -99,11 +99,7 @@ export class PXEService implements PXE {
    */
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
-    this.synchronizer.start(1, l2BlockPollingIntervalMS);
-    this.jobQueue.start();
-    this.log.info('Started Job Queue');
-    await this.jobQueue.syncPoint();
-    this.log.info('Synced Job Queue');
+    await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
@@ -115,11 +111,18 @@ export class PXEService implements PXE {
 
     const registeredAddresses = await this.db.getCompleteAddresses();
 
+    let count = 0;
     for (const address of registeredAddresses) {
       if (!publicKeysSet.has(address.publicKey.toString())) {
         continue;
       }
+
+      count++;
       this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+    }
+
+    if (count > 0) {
+      this.log(`Restored ${count} accounts`);
     }
   }
 
@@ -207,9 +210,11 @@ export class PXEService implements PXE {
     const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
+      const contractAztecAddress = contract.completeAddress.address;
       const portalInfo =
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contract.completeAddress.address}${portalInfo}`);
+      this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
+      await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
     }
   }
 
@@ -457,7 +462,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -481,8 +486,7 @@ export class PXEService implements PXE {
     ]);
 
     const nodeInfo: NodeInfo = {
-      sandboxVersion: this.sandboxVersion,
-      compatibleNargoVersion: NoirWasmVersion,
+      nodeVersion: this.nodeVersion,
       chainId,
       protocolVersion: version,
       l1ContractAddresses: contractAddresses,

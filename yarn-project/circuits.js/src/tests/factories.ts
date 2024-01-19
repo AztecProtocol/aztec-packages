@@ -1,6 +1,9 @@
+import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
+
+import { randomBytes } from 'crypto';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
@@ -63,6 +66,7 @@ import {
   OptionallyRevealedData,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
+  PartialStateReference,
   Point,
   PreviousKernelData,
   PreviousRollupData,
@@ -90,16 +94,16 @@ import {
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
+  StateDiffHints,
+  StateReference,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   WitnessedPublicCallData,
-  makeHalfFullTuple,
-  makeTuple,
-  range,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
+import { Header, NUM_BYTES_PER_SHA256 } from '../structs/header.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -326,7 +330,7 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
     false,
     false,
     false,
-    Fr.ZERO,
+    0,
   );
 }
 
@@ -393,7 +397,6 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     new FunctionData(makeSelector(seed + 0x1), false, false, false),
     makeCallContext(seed + 0x2, makeAztecAddress(seed)),
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
-    0,
   );
 }
 
@@ -682,7 +685,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       true,
       true,
       true,
-      Fr.ZERO,
+      0,
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
@@ -744,7 +747,7 @@ export function makeConstantBaseRollupData(
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantRollupData {
   return ConstantRollupData.from({
-    archiveSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
+    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
     privateKernelVkTreeRoot: fr(seed + 0x401),
     publicKernelVkTreeRoot: fr(seed + 0x402),
     baseRollupVkHash: fr(seed + 0x403),
@@ -814,14 +817,8 @@ export function makeBaseOrMergeRollupPublicInputs(
     new Fr(0n),
     makeAggregationObject(seed + 0x100),
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
-    makeAppendOnlyTreeSnapshot(seed + 0x300),
-    makeAppendOnlyTreeSnapshot(seed + 0x400),
-    makeAppendOnlyTreeSnapshot(seed + 0x500),
-    makeAppendOnlyTreeSnapshot(seed + 0x600),
-    makeAppendOnlyTreeSnapshot(seed + 0x700),
-    makeAppendOnlyTreeSnapshot(seed + 0x800),
-    makeAppendOnlyTreeSnapshot(seed + 0x900),
-    makeAppendOnlyTreeSnapshot(seed + 0x1000),
+    makePartialStateReference(seed + 0x300),
+    makePartialStateReference(seed + 0x400),
     [fr(seed + 0x901), fr(seed + 0x902)],
   );
 }
@@ -874,23 +871,46 @@ export function makeRootRollupPublicInputs(
   globalVariables: GlobalVariables | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
-    endAggregationObject: makeAggregationObject(seed),
-    globalVariables: globalVariables ?? makeGlobalVariables((seed += 0x100)),
-    startNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startArchiveSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endArchiveSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    calldataHash: [new Fr(1n), new Fr(2n)],
+    aggregationObject: makeAggregationObject(seed),
+    archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
+    header: makeHeader(seed + 0x200, globalVariables),
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
+}
+
+/**
+ * Makes header.
+ */
+export function makeHeader(seed = 0, globalVariables: GlobalVariables | undefined): Header {
+  return new Header(
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
+    randomBytes(NUM_BYTES_PER_SHA256),
+    makeStateReference(seed + 0x200),
+    globalVariables ?? makeGlobalVariables((seed += 0x100)),
+  );
+}
+
+/**
+ * Makes arbitrary state reference.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns A state reference.
+ */
+export function makeStateReference(seed = 0): StateReference {
+  return new StateReference(makeAppendOnlyTreeSnapshot(seed), makePartialStateReference(seed + 1));
+}
+
+/**
+ * Makes arbitrary partial state reference.
+ * @param seed - The seed to use for generating the partial state reference.
+ * @returns A partial state reference.
+ */
+export function makePartialStateReference(seed = 0): PartialStateReference {
+  return new PartialStateReference(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    makeAppendOnlyTreeSnapshot(seed + 2),
+    makeAppendOnlyTreeSnapshot(seed + 3),
+  );
 }
 
 /**
@@ -921,6 +941,48 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 }
 
 /**
+ * Creates an instance of StateDiffHints with arbitrary values based on the provided seed.
+ * @param seed - The seed to use for generating the hints.
+ * @returns A StateDiffHints object.
+ */
+export function makeStateDiffHints(seed = 1): StateDiffHints {
+  const nullifierPredecessorPreimages = makeTuple(
+    MAX_NEW_NULLIFIERS_PER_TX,
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+    seed + 0x1000,
+  );
+
+  const nullifierPredecessorMembershipWitnesses = makeTuple(
+    MAX_NEW_NULLIFIERS_PER_TX,
+    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
+    seed + 0x2000,
+  );
+
+  const sortedNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x3000);
+
+  const sortedNullifierIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
+
+  const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
+
+  const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
+
+  const contractSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x7000);
+
+  const publicDataSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8000);
+
+  return new StateDiffHints(
+    nullifierPredecessorPreimages,
+    nullifierPredecessorMembershipWitnesses,
+    sortedNullifiers,
+    sortedNullifierIndexes,
+    noteHashSubtreeSiblingPath,
+    nullifierSubtreeSiblingPath,
+    contractSubtreeSiblingPath,
+    publicDataSiblingPath,
+  );
+}
+
+/**
  * Makes arbitrary base rollup inputs.
  * @param seed - The seed to use for generating the base rollup inputs.
  * @returns A base rollup inputs.
@@ -928,30 +990,9 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const kernelData = makePreviousKernelData(seed);
 
-  const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
-  const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
-  const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
-  const startPublicDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x400);
-  const startArchiveSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
+  const start = makePartialStateReference(seed + 0x100);
 
-  const lowNullifierLeafPreimages = makeTuple(
-    MAX_NEW_NULLIFIERS_PER_TX,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
-    seed + 0x1000,
-  );
-
-  const lowNullifierMembershipWitness = makeTuple(
-    MAX_NEW_NULLIFIERS_PER_TX,
-    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
-    seed + 0x2000,
-  );
-
-  const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
-  const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
-  const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
-
-  const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x6000);
-  const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => i, seed + 0x7000);
+  const stateDiffHints = makeStateDiffHints(seed + 0x600);
 
   const sortedPublicDataWrites = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -973,8 +1014,6 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x8400,
   );
 
-  const publicDataWritesSubtreeSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8600);
-
   const publicDataReadsPreimages = makeTuple(
     MAX_PUBLIC_DATA_READS_PER_TX,
     makePublicDataTreeLeafPreimage,
@@ -993,23 +1032,12 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   return BaseRollupInputs.from({
     kernelData,
-    lowNullifierMembershipWitness,
-    startNoteHashTreeSnapshot,
-    startNullifierTreeSnapshot,
-    startContractTreeSnapshot,
-    startPublicDataTreeSnapshot,
-    archiveSnapshot: startArchiveSnapshot,
-    sortedNewNullifiers,
-    sortednewNullifiersIndexes,
-    lowNullifierLeafPreimages,
-    newCommitmentsSubtreeSiblingPath,
-    newNullifiersSubtreeSiblingPath,
-    newContractsSubtreeSiblingPath,
+    start,
+    stateDiffHints,
     sortedPublicDataWrites,
     sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses,
-    publicDataWritesSubtreeSiblingPath,
     publicDataReadsPreimages,
     publicDataReadsMembershipWitnesses,
     archiveRootMembershipWitness,

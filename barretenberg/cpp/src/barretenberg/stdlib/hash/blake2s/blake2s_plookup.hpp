@@ -9,17 +9,14 @@
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 
 namespace blake2s_plookup {
 
 template <typename Builder> byte_array<Builder> blake2s(const byte_array<Builder>& input);
 
-#define BLAKE2S_ULTRA(ULTRA_TYPE) byte_array<ULTRA_TYPE> blake2s(const byte_array<ULTRA_TYPE>& input)
-
-EXTERN_STDLIB_ULTRA_METHOD(BLAKE2S_ULTRA)
 } // namespace blake2s_plookup
 
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

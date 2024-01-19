@@ -33,8 +33,8 @@ use notifications::{
     on_did_open_text_document, on_did_save_text_document, on_exit, on_initialized,
 };
 use requests::{
-    on_code_lens_request, on_formatting, on_goto_definition_request, on_initialize,
-    on_profile_run_request, on_shutdown, on_test_run_request, on_tests_request,
+    on_code_lens_request, on_formatting, on_goto_declaration_request, on_goto_definition_request,
+    on_initialize, on_profile_run_request, on_shutdown, on_test_run_request, on_tests_request,
 };
 use serde_json::Value as JsonValue;
 use thiserror::Error;
@@ -97,6 +97,7 @@ impl NargoLspService {
             .request::<request::NargoTestRun, _>(on_test_run_request)
             .request::<request::NargoProfileRun, _>(on_profile_run_request)
             .request::<request::GotoDefinition, _>(on_goto_definition_request)
+            .request::<request::GotoDeclaration, _>(on_goto_declaration_request)
             .notification::<notification::Initialized>(on_initialized)
             .notification::<notification::DidChangeConfiguration>(on_did_change_configuration)
             .notification::<notification::DidOpenTextDocument>(on_did_open_text_document)
@@ -151,10 +152,10 @@ fn get_package_tests_in_crate(
         .map(|(func_name, test_function)| {
             let location = context.function_meta(&test_function.get_id()).name.location;
             let file_id = location.file;
-
+            let file_path = fm.path(file_id).expect("file must exist to contain tests");
             let range =
                 byte_span_to_range(files, file_id, location.span.into()).unwrap_or_default();
-            let file_uri = Url::from_file_path(fm.path(file_id))
+            let file_uri = Url::from_file_path(file_path)
                 .expect("Expected a valid file path that can be converted into a URI");
 
             NargoTest {

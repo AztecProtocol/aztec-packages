@@ -9,7 +9,7 @@
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 namespace sha256_plookup {
 
@@ -55,9 +55,8 @@ template <typename Builder> struct sparse_value {
     {
         normal = in;
         if (normal.witness_index == IS_CONSTANT) {
-            sparse = field_t<Builder>(
-                in.get_context(),
-                barretenberg::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
+            sparse = field_t<Builder>(in.get_context(),
+                                      bb::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
         }
     }
 
@@ -88,4 +87,4 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
 template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_array<Builder>& input);
 } // namespace sha256_plookup
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

@@ -1,4 +1,4 @@
-import { L2Block } from '@aztec/types';
+import { L2Block } from '@aztec/circuit-types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -10,20 +10,28 @@ describe('L1Publisher', () => {
   let txHash: string;
   let txReceipt: MinimalTransactionReceipt;
   let l2Block: L2Block;
-  let l2Inputs: Buffer;
-  let l2Proof: Buffer;
+
+  let header: Buffer;
+  let archive: Buffer;
+  let body: Buffer;
+  let proof: Buffer;
+
   let publisher: L1Publisher;
 
   beforeEach(() => {
     l2Block = L2Block.random(42);
-    l2Inputs = l2Block.toBufferWithLogs();
-    l2Proof = Buffer.alloc(0);
+
+    header = l2Block.header.toBuffer();
+    archive = l2Block.archive.root.toBuffer();
+    body = l2Block.bodyToBuffer();
+    proof = Buffer.alloc(0);
 
     txSender = mock<L1PublisherTxSender>();
     txHash = `0x${Buffer.from('txHash').toString('hex')}`; // random tx hash
     txReceipt = { transactionHash: txHash, status: true } as MinimalTransactionReceipt;
     txSender.sendProcessTx.mockResolvedValueOnce(txHash);
     txSender.getTransactionReceipt.mockResolvedValueOnce(txReceipt);
+    txSender.getCurrentArchive.mockResolvedValue(l2Block.header.lastArchive.root.toBuffer());
 
     publisher = new L1Publisher(txSender, { l1BlockPublishRetryIntervalMS: 1 });
   });
@@ -32,8 +40,15 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ proof: l2Proof, inputs: l2Inputs });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body, proof });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(txHash);
+  });
+
+  it('does not publish if last archive root is different to expected', async () => {
+    txSender.getCurrentArchive.mockResolvedValueOnce(L2Block.random(43).archive.root.toBuffer());
+    const result = await publisher.processL2Block(l2Block);
+    expect(result).toBe(false);
+    expect(txSender.sendProcessTx).not.toHaveBeenCalled();
   });
 
   it('does not retry if sending a tx fails', async () => {
@@ -72,8 +87,4 @@ describe('L1Publisher', () => {
     expect(result).toEqual(false);
     expect(txSender.getTransactionReceipt).not.toHaveBeenCalled();
   });
-
-  it.skip('waits for fee distributor balance', () => {});
-
-  it.skip('fails if contract is changed underfoot', () => {});
 });

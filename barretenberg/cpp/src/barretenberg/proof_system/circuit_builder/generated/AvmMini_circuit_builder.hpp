@@ -8,15 +8,16 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
+#include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF> struct AvmMiniFullRow {
     FF avmMini_clk{};
@@ -59,17 +60,17 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
-    FF memTrace_m_val_shift{};
-    FF memTrace_m_addr_shift{};
-    FF memTrace_m_tag_shift{};
     FF memTrace_m_rw_shift{};
+    FF memTrace_m_tag_shift{};
+    FF memTrace_m_addr_shift{};
+    FF memTrace_m_val_shift{};
     FF avmMini_internal_return_ptr_shift{};
     FF avmMini_pc_shift{};
 };
 
 class AvmMiniCircuitBuilder {
   public:
-    using Flavor = proof_system::honk::flavor::AvmMiniFlavor;
+    using Flavor = bb::honk::flavor::AvmMiniFlavor;
     using FF = Flavor::FF;
     using Row = AvmMiniFullRow<FF>;
 
@@ -136,10 +137,10 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
-        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
-        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
         polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
+        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
+        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
+        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
         polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
         polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
 
@@ -201,4 +202,4 @@ class AvmMiniCircuitBuilder {
         return num_rows_pow2;
     }
 };
-} // namespace proof_system
+} // namespace bb

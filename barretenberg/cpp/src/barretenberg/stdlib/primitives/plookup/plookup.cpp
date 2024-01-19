@@ -3,16 +3,16 @@
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 class UltraPlonkBuilder;
-} // namespace proof_system::plonk
+} // namespace bb::plonk
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
-using namespace barretenberg;
+using namespace bb;
 
 template <typename Builder>
 plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulators(const MultiTableId id,
@@ -23,7 +23,7 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
     auto key_a = key_a_in.normalize();
     auto key_b = key_b_in.normalize();
     Builder* ctx = key_a.get_context() ? key_a.get_context() : key_b.get_context();
-    const plookup::ReadData<barretenberg::fr> lookup_data =
+    const plookup::ReadData<bb::fr> lookup_data =
         plookup::get_lookup_accumulators(id, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);
 
     const bool is_key_a_constant = key_a.is_constant();
@@ -91,6 +91,7 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
     return lookup[ColumnIdx::C2][0];
 }
 
-INSTANTIATE_STDLIB_ULTRA_TYPE(plookup_read)
+template class plookup_read<bb::UltraCircuitBuilder>;
+template class plookup_read<bb::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

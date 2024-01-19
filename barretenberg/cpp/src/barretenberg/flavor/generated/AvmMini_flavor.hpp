@@ -1,7 +1,7 @@
 
 
 #pragma once
-#include "../relation_definitions_fwd.hpp"
+#include "../relation_definitions.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -17,8 +17,7 @@
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
-namespace flavor {
+namespace bb::honk::flavor {
 
 class AvmMiniFlavor {
   public:
@@ -27,13 +26,14 @@ class AvmMiniFlavor {
     using PCS = pcs::kzg::KZG<Curve>;
 
     using FF = G1::subgroup_field;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using GroupElement = G1::element;
     using Commitment = G1::affine_element;
     using CommitmentHandle = G1::affine_element;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 38;
@@ -202,10 +202,10 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_val_shift,
-                              memTrace_m_addr_shift,
-                              memTrace_m_tag_shift,
                               memTrace_m_rw_shift,
+                              memTrace_m_tag_shift,
+                              memTrace_m_addr_shift,
+                              memTrace_m_val_shift,
                               avmMini_internal_return_ptr_shift,
                               avmMini_pc_shift)
 
@@ -251,10 +251,10 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_b,
                      avmMini_mem_idx_c,
                      avmMini_last,
-                     memTrace_m_val_shift,
-                     memTrace_m_addr_shift,
-                     memTrace_m_tag_shift,
                      memTrace_m_rw_shift,
+                     memTrace_m_tag_shift,
+                     memTrace_m_addr_shift,
+                     memTrace_m_val_shift,
                      avmMini_internal_return_ptr_shift,
                      avmMini_pc_shift };
         };
@@ -303,15 +303,15 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_addr, memTrace_m_tag, memTrace_m_rw, avmMini_internal_return_ptr,
+            return { memTrace_m_rw, memTrace_m_tag, memTrace_m_addr, memTrace_m_val, avmMini_internal_return_ptr,
                      avmMini_pc };
         };
         RefVector<DataType> get_shifted()
         {
-            return { memTrace_m_val_shift,
-                     memTrace_m_addr_shift,
+            return { memTrace_m_rw_shift,
                      memTrace_m_tag_shift,
-                     memTrace_m_rw_shift,
+                     memTrace_m_addr_shift,
+                     memTrace_m_val_shift,
                      avmMini_internal_return_ptr_shift,
                      avmMini_pc_shift };
         };
@@ -326,7 +326,7 @@ class AvmMiniFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_addr, memTrace_m_tag, memTrace_m_rw, avmMini_internal_return_ptr,
+            return { memTrace_m_rw, memTrace_m_tag, memTrace_m_addr, memTrace_m_val, avmMini_internal_return_ptr,
                      avmMini_pc };
         };
 
@@ -389,7 +389,7 @@ class AvmMiniFlavor {
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -502,7 +502,7 @@ class AvmMiniFlavor {
         Commitment avmMini_mem_idx_c;
         Commitment avmMini_last;
 
-        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
@@ -561,8 +561,8 @@ class AvmMiniFlavor {
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        Transcript::proof_data, num_bytes_read));
+                    deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(Transcript::proof_data,
+                                                                                                 num_bytes_read));
             }
             sumcheck_evaluations =
                 deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(Transcript::proof_data, num_bytes_read);
@@ -636,7 +636,4 @@ class AvmMiniFlavor {
     };
 };
 
-} // namespace flavor
-
-namespace sumcheck {}
-} // namespace proof_system::honk
+} // namespace bb::honk::flavor

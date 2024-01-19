@@ -3,11 +3,11 @@
 #include "../merkle_tree.hpp"
 #include "nullifier_leaf.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace stdlib {
 namespace merkle_tree {
 
-using namespace barretenberg;
+using namespace bb;
 
 template <typename Store> class NullifierTree : public MerkleTree<Store> {
   public:
@@ -38,8 +38,6 @@ template <typename Store> class NullifierTree : public MerkleTree<Store> {
     std::vector<WrappedNullifierLeaf> leaves;
 };
 
-extern template class NullifierTree<MemoryStore>;
-
 } // namespace merkle_tree
 } // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::plonk

@@ -1,5 +1,14 @@
 import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
 import {
+  ExtendedContractData,
+  FunctionCall,
+  FunctionL2Logs,
+  SimulationError,
+  Tx,
+  TxL2Logs,
+  mockTx,
+} from '@aztec/circuit-types';
+import {
   ARGS_LENGTH,
   AztecAddress,
   BlockHeader,
@@ -17,7 +26,6 @@ import {
   PublicCallRequest,
   PublicKernelPublicInputs,
   makeEmptyProof,
-  makeTuple,
 } from '@aztec/circuits.js';
 import {
   makeAztecAddress,
@@ -25,21 +33,12 @@ import {
   makePublicCallRequest,
   makeSelector,
 } from '@aztec/circuits.js/factories';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import {
-  ExtendedContractData,
-  FunctionCall,
-  FunctionL2Logs,
-  SiblingPath,
-  SimulationError,
-  Tx,
-  TxL2Logs,
-  mockTx,
-} from '@aztec/types';
+import { makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { SiblingPath } from '@aztec/types/membership';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import times from 'lodash.times';
 
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
@@ -289,16 +288,7 @@ function makePublicExecutionResult(
   tx: FunctionCall,
   nestedExecutions: PublicExecutionResult[] = [],
 ): PublicExecutionResult {
-  const callContext = new CallContext(
-    from,
-    tx.to,
-    EthAddress.ZERO,
-    tx.functionData.selector,
-    false,
-    false,
-    false,
-    Fr.ZERO,
-  );
+  const callContext = new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, false, 0);
   const execution: PublicExecution = {
     callContext,
     contractAddress: tx.to,

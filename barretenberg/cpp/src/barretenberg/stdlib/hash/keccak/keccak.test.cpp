@@ -4,10 +4,10 @@
 #include "keccak.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
+using namespace bb::plonk;
 
-typedef proof_system::UltraCircuitBuilder Builder;
+typedef bb::UltraCircuitBuilder Builder;
 typedef stdlib::byte_array<Builder> byte_array;
 typedef stdlib::public_witness_t<Builder> public_witness_t;
 typedef stdlib::field_t<Builder> field_ct;
@@ -68,7 +68,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
 {
     Builder builder = Builder();
 
-    barretenberg::constexpr_for<0, 25, 1>([&]<size_t i> {
+    bb::constexpr_for<0, 25, 1>([&]<size_t i> {
         uint256_t extended_native = 0;
         uint256_t binary_native = 0;
         for (size_t j = 0; j < 64; ++j) {

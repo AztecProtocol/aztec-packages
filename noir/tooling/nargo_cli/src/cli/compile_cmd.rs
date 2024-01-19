@@ -1,12 +1,9 @@
 use std::path::Path;
 
 use acvm::ExpressionWidth;
+
 use fm::FileManager;
-use iter_extended::vecmap;
-use nargo::artifacts::contract::PreprocessedContract;
-use nargo::artifacts::contract::PreprocessedContractFunction;
-use nargo::artifacts::debug::DebugArtifact;
-use nargo::artifacts::program::PreprocessedProgram;
+use nargo::artifacts::program::ProgramArtifact;
 use nargo::errors::CompileError;
 use nargo::insert_all_files_for_workspace_into_file_manager;
 use nargo::package::Package;
@@ -16,6 +13,7 @@ use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelec
 use noirc_driver::file_manager_with_stdlib;
 use noirc_driver::NOIR_ARTIFACT_VERSION_STRING;
 use noirc_driver::{CompilationResult, CompileOptions, CompiledContract, CompiledProgram};
+
 use noirc_frontend::graph::CrateName;
 
 use clap::Args;
@@ -24,10 +22,7 @@ use crate::backends::Backend;
 use crate::errors::CliError;
 
 use super::fs::program::only_acir;
-use super::fs::program::{
-    read_debug_artifact_from_file, read_program_from_file, save_contract_to_file,
-    save_debug_artifact_to_file, save_program_to_file,
-};
+use super::fs::program::{read_program_from_file, save_contract_to_file, save_program_to_file};
 use super::NargoConfig;
 use rayon::prelude::*;
 
@@ -171,39 +166,14 @@ fn compile_program(
     let (mut context, crate_id) = prepare_package(file_manager, package);
 
     let program_artifact_path = workspace.package_build_path(package);
-    let mut debug_artifact_path = program_artifact_path.clone();
-    debug_artifact_path.set_file_name(format!("debug_{}.json", package.name));
-    let cached_program = if let (Ok(preprocessed_program), Ok(mut debug_artifact)) = (
-        read_program_from_file(program_artifact_path),
-        read_debug_artifact_from_file(debug_artifact_path),
-    ) {
-        Some(CompiledProgram {
-            hash: preprocessed_program.hash,
-            circuit: preprocessed_program.bytecode,
-            abi: preprocessed_program.abi,
-            noir_version: preprocessed_program.noir_version,
-            debug: debug_artifact.debug_symbols.remove(0),
-            file_map: debug_artifact.file_map,
-            warnings: debug_artifact.warnings,
-        })
-    } else {
-        None
-    };
+    let cached_program: Option<CompiledProgram> =
+        read_program_from_file(program_artifact_path)
+        .ok()
+        .filter(|p| p.noir_version == NOIR_ARTIFACT_VERSION_STRING)
+        .map(|p| p.into());
 
-    let force_recompile =
-        cached_program.as_ref().map_or(false, |p| p.noir_version != NOIR_ARTIFACT_VERSION_STRING);
-    let (program, warnings) = match noirc_driver::compile_main(
-        &mut context,
-        crate_id,
-        compile_options,
-        cached_program,
-        force_recompile,
-    ) {
-        Ok(program_and_warnings) => program_and_warnings,
-        Err(errors) => {
-            return Err(errors);
-        }
-    };
+    let (program, warnings) =
+        noirc_driver::compile_main(&mut context, crate_id, compile_options, cached_program)?;
 
     // Apply backend specific optimizations.
     let optimized_program = nargo::ops::optimize_program(program, expression_width);
@@ -233,68 +203,25 @@ fn compile_contract(
     Ok((optimized_contract, warnings))
 }
 
-fn save_program(
+pub(super) fn save_program(
     program: CompiledProgram,
     package: &Package,
     circuit_dir: &Path,
     only_acir_opt: bool,
 ) {
-    let preprocessed_program = PreprocessedProgram {
-        hash: program.hash,
-        abi: program.abi,
-        noir_version: program.noir_version,
-        bytecode: program.circuit,
-    };
+    let program_artifact = ProgramArtifact::from(program.clone());
     if only_acir_opt {
-        only_acir(&preprocessed_program, circuit_dir);
+        only_acir(&program_artifact, circuit_dir);
     } else {
-        save_program_to_file(&preprocessed_program, &package.name, circuit_dir);
+        save_program_to_file(&program_artifact, &package.name, circuit_dir);
     }
-
-    let debug_artifact = DebugArtifact {
-        debug_symbols: vec![program.debug],
-        file_map: program.file_map,
-        warnings: program.warnings,
-    };
-    let circuit_name: String = (&package.name).into();
-    save_debug_artifact_to_file(&debug_artifact, &circuit_name, circuit_dir);
 }
 
 fn save_contract(contract: CompiledContract, package: &Package, circuit_dir: &Path) {
-    // TODO(#1389): I wonder if it is incorrect for nargo-core to know anything about contracts.
-    // As can be seen here, It seems like a leaky abstraction where ContractFunctions (essentially CompiledPrograms)
-    // are compiled via nargo-core and then the PreprocessedContract is constructed here.
-    // This is due to EACH function needing it's own CRS, PKey, and VKey from the backend.
-    let debug_artifact = DebugArtifact {
-        debug_symbols: contract.functions.iter().map(|function| function.debug.clone()).collect(),
-        file_map: contract.file_map,
-        warnings: contract.warnings,
-    };
-
-    let preprocessed_functions = vecmap(contract.functions, |func| PreprocessedContractFunction {
-        name: func.name,
-        function_type: func.function_type,
-        is_internal: func.is_internal,
-        abi: func.abi,
-        bytecode: func.bytecode,
-    });
-
-    let preprocessed_contract = PreprocessedContract {
-        noir_version: contract.noir_version,
-        name: contract.name,
-        functions: preprocessed_functions,
-        events: contract.events,
-    };
-
+    let contract_name = contract.name.clone();
     save_contract_to_file(
-        &preprocessed_contract,
-        &format!("{}-{}", package.name, preprocessed_contract.name),
-        circuit_dir,
-    );
-
-    save_debug_artifact_to_file(
-        &debug_artifact,
-        &format!("{}-{}", package.name, preprocessed_contract.name),
+        &contract.into(),
+        &format!("{}-{}", package.name, contract_name),
         circuit_dir,
     );
 }

@@ -44,7 +44,6 @@ dependencies = [
  "brillig_vm",
  "indexmap 1.9.3",
  "num-bigint",
- "num-traits",
  "paste",
  "proptest",
  "rand 0.8.5",
@@ -60,6 +59,7 @@ dependencies = [
  "blake2",
  "blake3",
  "k256",
+ "keccak",
  "p256",
  "sha2",
  "sha3",
@@ -1663,9 +1663,9 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.26"
+version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b9429470923de8e8cbd4d2dc513535400b4b3fef0319fb5c4e1f520a7bef743"
+checksum = "46303f565772937ffe1d394a4fac6f411c6013172fadde9dcdb1e147a086940e"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -2682,7 +2682,6 @@ dependencies = [
  "assert_fs",
  "async-lsp",
  "backend-interface",
- "bb_abstraction_leaks",
  "bn254_blackbox_solver",
  "build-data",
  "clap",
@@ -2827,7 +2826,6 @@ dependencies = [
  "noirc_printable_type",
  "owo-colors",
  "rexpect",
- "rustc_version",
  "serde_json",
  "tempfile",
  "test-binary",
@@ -2872,7 +2870,9 @@ dependencies = [
  "nargo",
  "noirc_driver",
  "noirc_errors",
+ "noirc_evaluator",
  "noirc_frontend",
+ "rust-embed",
  "serde",
  "tracing-subscriber",
  "tracing-web",
@@ -2938,11 +2938,14 @@ name = "noirc_errors"
 version = "0.22.0"
 dependencies = [
  "acvm",
+ "base64 0.21.2",
  "chumsky",
  "codespan",
  "codespan-reporting",
+ "flate2",
  "fm",
  "serde",
+ "serde_json",
  "serde_with",
  "tracing",
 ]
