@@ -39,6 +39,11 @@ WASM_EXPORT void acir_goblin_accumulate(in_ptr acir_composer_ptr,
                                         uint8_t const* witness_buf,
                                         uint8_t** out);
 
+WASM_EXPORT void acir_goblin_prove(in_ptr acir_composer_ptr,
+                                   uint8_t const* constraint_system_buf,
+                                   uint8_t const* witness_buf,
+                                   uint8_t** out);
+
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf);
 
 WASM_EXPORT void acir_init_verification_key(in_ptr acir_composer_ptr);
@@ -52,7 +57,9 @@ WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
                                    bool const* is_recursive,
                                    bool* result);
 
-WASM_EXPORT void acir_verify_goblin_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
+WASM_EXPORT void acir_goblin_verify_accumulator(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
+
+WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
 

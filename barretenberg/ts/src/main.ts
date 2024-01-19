@@ -136,9 +136,7 @@ export async function accumulateAndVerifyGoblin(bytecodePath: string, witnessPat
   const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
   try {
     debug(`In accumulateAndVerifyGoblin:`);
-    debug(`getBytecode()`);
     const bytecode = getBytecode(bytecodePath);
-    debug(`getWitness()`);
     const witness = getWitness(witnessPath);
 
     writeBenchmark('gate_count', circuitSize, { acir_test, threads });
@@ -150,7 +148,7 @@ export async function accumulateAndVerifyGoblin(bytecodePath: string, witnessPat
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
     debug(`acirVerifyGoblinProof()`);
-    const verified = await api.acirVerifyGoblinProof(acirComposer, proof);
+    const verified = await api.acirGoblinVerifyAccumulator(acirComposer, proof);
     debug(`verified: ${verified}`);
     console.log({ verified });
     return verified;
@@ -174,11 +172,11 @@ export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: st
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
     const proofTimer = new Timer();
-    const proof = await api.acirGoblinAccumulate(acirComposer, bytecode, witness);
+    const proof = await api.acirGoblinProve(acirComposer, bytecode, witness);
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
     debug(`verifying...`);
-    const verified = await api.acirVerifyGoblinProof(acirComposer, proof);
+    const verified = await api.acirGoblinVerify(acirComposer, proof);
     debug(`verified: ${verified}`);
     console.log({ verified });
     return verified;
