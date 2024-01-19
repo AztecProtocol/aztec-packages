@@ -183,7 +183,7 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
 
         return manifest_expected;
     }
-    bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
+    bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
     {
         bb::ECCVMCircuitBuilder<Flavor> result;
         using G1 = typename Flavor::CycleGroup;
@@ -219,7 +219,7 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
     }
 };
 
-numeric::random::Engine& engine = numeric::random::get_debug_engine();
+numeric::RNG& engine = numeric::get_debug_randomness();
 
 using FlavorTypes = testing::Types<flavor::ECCVM>;
 

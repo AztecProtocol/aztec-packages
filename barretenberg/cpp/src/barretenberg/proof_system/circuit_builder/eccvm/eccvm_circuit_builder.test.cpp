@@ -6,7 +6,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Flavor> class ECCVMCircuitBuilderTests : public ::testing::Test {};

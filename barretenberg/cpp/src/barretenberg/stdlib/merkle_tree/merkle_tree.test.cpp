@@ -13,8 +13,8 @@ using Builder = bb::UltraCircuitBuilder;
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 namespace {
-auto& engine = numeric::random::get_debug_engine();
-auto& random_engine = numeric::random::get_engine();
+auto& engine = numeric::get_debug_randomness();
+auto& random_engine = numeric::get_randomness();
 } // namespace
 
 static std::vector<fr> VALUES = []() {

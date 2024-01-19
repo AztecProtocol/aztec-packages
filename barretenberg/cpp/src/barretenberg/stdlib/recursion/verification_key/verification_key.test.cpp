@@ -7,7 +7,7 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 } // namespace
 
 using namespace bb::plonk;

@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 } // namespace
 
 TEST(uintx, GetBit)

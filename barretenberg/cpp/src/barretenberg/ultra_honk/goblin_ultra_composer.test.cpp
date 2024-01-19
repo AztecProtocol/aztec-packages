@@ -11,7 +11,7 @@
 using namespace bb::honk;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 class GoblinUltraHonkComposerTests : public ::testing::Test {

@@ -31,9 +31,9 @@ using FlavorTypes = ::testing::Types<flavor::ECCVM>;
 TYPED_TEST_SUITE(ECCVMComposerTests, FlavorTypes);
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
-template <typename Flavor> bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
+template <typename Flavor> bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
 {
     bb::ECCVMCircuitBuilder<Flavor> result;
     using G1 = typename Flavor::CycleGroup;

@@ -9,7 +9,7 @@
 
 using namespace bb;
 using namespace bb::srs::factories;
-using namespace curve;
+using namespace bb::curve;
 
 TEST(reference_string, mem_bn254_file_consistency)
 {

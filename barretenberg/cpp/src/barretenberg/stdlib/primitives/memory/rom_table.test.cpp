@@ -14,7 +14,7 @@ using witness_ct = stdlib::witness_t<Builder>;
 using rom_table_ct = stdlib::rom_table<Builder>;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 TEST(rom_table, rom_table_read_write_consistency)

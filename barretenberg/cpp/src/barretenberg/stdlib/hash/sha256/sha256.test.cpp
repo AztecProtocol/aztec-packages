@@ -10,7 +10,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using namespace bb;

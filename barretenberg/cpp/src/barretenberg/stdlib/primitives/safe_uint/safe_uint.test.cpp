@@ -19,7 +19,7 @@
     using public_witness_ct = stdlib::public_witness_t<Builder>;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using namespace bb;

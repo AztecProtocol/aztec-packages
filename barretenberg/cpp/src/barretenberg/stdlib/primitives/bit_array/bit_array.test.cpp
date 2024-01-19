@@ -20,7 +20,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class Builder> class BitArrayTest : public ::testing::Test {};

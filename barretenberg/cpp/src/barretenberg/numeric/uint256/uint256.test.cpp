@@ -3,10 +3,10 @@
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-using namespace numeric;
+using namespace bb::numeric;
 
 TEST(uint256, TestStringConstructors)
 {

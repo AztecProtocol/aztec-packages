@@ -378,7 +378,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = bb::Polynomial<FF>;
     using namespace bb::honk::permutation_library;
-    auto& engine = numeric::random::get_debug_engine();
+    auto& engine = numeric::get_debug_randomness();
     auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
 
     // We only need gamma, because permutationr elation only uses gamma
@@ -495,7 +495,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = bb::Polynomial<FF>;
-    auto& engine = numeric::random::get_debug_engine();
+    auto& engine = numeric::get_debug_randomness();
 
     const auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     const auto sort_step = Flavor::SORT_STEP;
@@ -577,7 +577,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     using Polynomial = bb::Polynomial<FF>;
 
-    auto& engine = numeric::random::get_debug_engine();
+    auto& engine = numeric::get_debug_randomness();
 
     auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
@@ -679,7 +679,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     using Polynomial = bb::Polynomial<FF>;
-    auto& engine = numeric::random::get_debug_engine();
+    auto& engine = numeric::get_debug_randomness();
 
     auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
 
@@ -1058,7 +1058,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     constexpr auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     constexpr auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
 
-    auto& engine = numeric::random::get_debug_engine();
+    auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 

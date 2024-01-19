@@ -3,10 +3,10 @@
 #include <gtest/gtest.h>
 #ifdef __i386__
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-using namespace numeric;
+using namespace bb::numeric;
 
 TEST(uint128, GetBit)
 {
