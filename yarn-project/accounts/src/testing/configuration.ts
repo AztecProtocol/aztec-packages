@@ -35,14 +35,20 @@ export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWi
  */
 export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
-  return Promise.all(
-    INITIAL_TEST_ENCRYPTION_KEYS.filter(initialKey => {
-      const publicKey = generatePublicKey(initialKey);
-      return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
-    }).map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
-    ),
-  );
+  const accounts = INITIAL_TEST_ENCRYPTION_KEYS.flatMap((privateKey, i) => {
+    const publicKey = generatePublicKey(privateKey);
+    const signingKey = INITIAL_TEST_SIGNING_KEYS[i];
+    const completeAddress = registeredAccounts.find(registered => registered.publicKey.equals(publicKey));
+
+    if (completeAddress) {
+      // if this account is registered, return a wallet for it
+      return [getSchnorrAccount(pxe, privateKey, signingKey, completeAddress)];
+    } else {
+      return [];
+    }
+  });
+
+  return Promise.all(accounts.map(account => account.getWallet()));
 }
 
 /**
