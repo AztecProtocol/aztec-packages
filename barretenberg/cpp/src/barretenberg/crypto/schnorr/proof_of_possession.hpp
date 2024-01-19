@@ -5,7 +5,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "schnorr.hpp"
 
-namespace bb::crypto::schnorr {
+namespace bb::crypto {
 
 /**
  * @brief A proof of possession is a Schnorr proof of knowledge of a secret key corresponding to a given public key.
@@ -20,7 +20,7 @@ template <typename G1, typename Hash> struct SchnorrProofOfPossession {
     using Fr = typename G1::subgroup_field;
     using affine_element = typename G1::affine_element;
     using element = typename G1::element;
-    using key_pair = crypto::schnorr::schnorr_key_pair<Fr, G1>;
+    using key_pair = crypto::schnorr_key_pair<Fr, G1>;
 
     // challenge = e = H_reg(pk,pk,R)
     std::array<uint8_t, 32> challenge;
@@ -134,4 +134,4 @@ inline void write(B& buf, SchnorrProofOfPossession<G1, Hash> const& proof_of_pos
     write(buf, proof_of_possession.response);
 }
 
-} // namespace bb::crypto::schnorr
+} // namespace bb::crypto

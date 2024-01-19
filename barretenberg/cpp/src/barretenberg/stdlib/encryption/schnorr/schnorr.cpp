@@ -14,7 +14,7 @@ namespace bb::stdlib::schnorr {
  * field_t elements (s_lo, s_hi, e_lo, e_hi).
  */
 template <typename C>
-schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::schnorr::schnorr_signature& signature)
+schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::schnorr_signature& signature)
 {
     using cycle_scalar = typename cycle_group<C>::cycle_scalar;
 
@@ -116,7 +116,7 @@ SIGNATURE_VERIFICATION_RESULT(bb::UltraCircuitBuilder);
 SIGNATURE_VERIFICATION_RESULT(bb::GoblinUltraCircuitBuilder);
 #define CONVERT_SIGNATURE(circuit_type)                                                                                \
     template schnorr_signature_bits<circuit_type> schnorr_convert_signature<circuit_type>(                             \
-        circuit_type*, const crypto::schnorr::schnorr_signature&)
+        circuit_type*, const crypto::schnorr_signature&)
 CONVERT_SIGNATURE(bb::StandardCircuitBuilder);
 CONVERT_SIGNATURE(bb::UltraCircuitBuilder);
 CONVERT_SIGNATURE(bb::GoblinUltraCircuitBuilder);

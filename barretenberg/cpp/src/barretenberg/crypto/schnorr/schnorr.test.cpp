@@ -3,11 +3,12 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::crypto::schnorr;
+using namespace bb::crypto
 
-crypto::schnorr::schnorr_key_pair<grumpkin::fr, grumpkin::g1> generate_signature()
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1>
+    generate_signature()
 {
-    crypto::schnorr::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     account.private_key = grumpkin::fr::random_element();
     account.public_key = grumpkin::g1::one * account.private_key;
     return account;
@@ -17,15 +18,14 @@ TEST(schnorr, verify_signature_keccak256)
 {
     std::string message = "The quick brown fox jumped over the lazy dog.";
 
-    crypto::schnorr::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     account.private_key = grumpkin::fr::random_element();
     account.public_key = grumpkin::g1::one * account.private_key;
 
-    crypto::schnorr::schnorr_signature signature =
-        crypto::schnorr::schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message,
-                                                                                                             account);
+    crypto::schnorr_signature signature =
+        crypto::schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
 
-    bool result = crypto::schnorr::schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+    bool result = crypto::schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
         message, account.public_key, signature);
 
     EXPECT_EQ(result, true);
@@ -35,15 +35,14 @@ TEST(schnorr, verify_signature_sha256)
 {
     std::string message = "The quick brown dog jumped over the lazy fox.";
 
-    crypto::schnorr::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     account.private_key = grumpkin::fr::random_element();
     account.public_key = grumpkin::g1::one * account.private_key;
 
-    crypto::schnorr::schnorr_signature signature =
-        crypto::schnorr::schnorr_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message,
-                                                                                                             account);
+    crypto::schnorr_signature signature =
+        crypto::schnorr_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
 
-    bool result = crypto::schnorr::schnorr_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+    bool result = crypto::schnorr_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
         message, account.public_key, signature);
 
     EXPECT_EQ(result, true);
@@ -53,16 +52,15 @@ TEST(schnorr, verify_signature_blake2s)
 {
     std::string message = "The quick brown dog jumped over the lazy fox.";
 
-    crypto::schnorr::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     // account.private_key = grumpkin::fr::random_element();
     account.private_key = { 0x55555555, 0x55555555, 0x55555555, 0x55555555 };
     account.public_key = grumpkin::g1::one * account.private_key;
 
-    crypto::schnorr::schnorr_signature signature =
-        crypto::schnorr::schnorr_construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message,
-                                                                                                              account);
+    crypto::schnorr_signature signature =
+        crypto::schnorr_construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
 
-    bool result = crypto::schnorr::schnorr_verify_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+    bool result = crypto::schnorr_verify_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
         message, account.public_key, signature);
 
     EXPECT_EQ(result, true);

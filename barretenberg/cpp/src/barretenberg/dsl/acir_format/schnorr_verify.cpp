@@ -7,10 +7,10 @@ namespace acir_format {
 using namespace bb::stdlib;
 
 template <typename Builder>
-crypto::schnorr::schnorr_signature schnorr_convert_signature(Builder& builder, std::vector<uint32_t> signature)
+crypto::schnorr_signature schnorr_convert_signature(Builder& builder, std::vector<uint32_t> signature)
 {
 
-    crypto::schnorr::schnorr_signature signature_cr;
+    crypto::schnorr_signature signature_cr;
 
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte_array
@@ -75,7 +75,7 @@ template <typename Builder> void create_schnorr_verify_constraints(Builder& buil
 {
     using witness_ct = bb::stdlib::witness_t<Builder>;
     using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
-    using schnorr_signature_bits_ct = bb::stdlib::schnorr::schnorr_signature_bits<Builder>;
+    using schnorr_signature_bits_ct = bb::stdlib::schnorr_signature_bits<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
 
     auto new_sig = schnorr_convert_signature(builder, input.signature);
@@ -93,9 +93,9 @@ template <typename Builder> void create_schnorr_verify_constraints(Builder& buil
 
     cycle_group_ct pub_key{ witness_ct(&builder, pubkey_value_x), witness_ct(&builder, pubkey_value_y), false };
 
-    schnorr_signature_bits_ct sig = schnorr::schnorr_convert_signature(&builder, new_sig);
+    schnorr_signature_bits_ct sig = schnorr_convert_signature(&builder, new_sig);
 
-    bool_ct signature_result = schnorr::schnorr_signature_verification_result(message, pub_key, sig);
+    bool_ct signature_result = schnorr_signature_verification_result(message, pub_key, sig);
 
     bool_ct signature_result_normalized = signature_result.normalize();
 

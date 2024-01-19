@@ -5,7 +5,7 @@
 
 #include "schnorr.hpp"
 
-namespace bb::crypto::schnorr {
+namespace bb::crypto {
 
 /**
  * @brief Generate the schnorr signature challenge parameter `e` given a message, signer pubkey and nonce
@@ -153,4 +153,4 @@ bool schnorr_verify_signature(const std::string& message,
     auto target_e = schnorr_generate_challenge<Hash, G1>(message, public_key, R);
     return std::equal(sig.e.begin(), sig.e.end(), target_e.begin(), target_e.end());
 }
-} // namespace bb::crypto::schnorr
+} // namespace bb::crypto

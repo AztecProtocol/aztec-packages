@@ -14,7 +14,7 @@ template <typename C> struct schnorr_signature_bits {
 };
 
 template <typename C>
-schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::schnorr::schnorr_signature& sig);
+schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::schnorr_signature& sig);
 
 template <typename C>
 std::array<field_t<C>, 2> schnorr_verify_signature_internal(const byte_array<C>& message,
