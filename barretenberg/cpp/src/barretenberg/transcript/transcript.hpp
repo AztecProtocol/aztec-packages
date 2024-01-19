@@ -4,7 +4,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/fields/field_conversion_utils.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 
 // #define LOG_CHALLENGES
@@ -168,7 +168,7 @@ class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = bb::field_conversion_utils::convert_to_bn254_frs(element);
+        auto element_frs = bb::field_conversion::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -182,13 +182,13 @@ class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = bb::field_conversion_utils::calc_num_frs<T>();
+        constexpr size_t element_fr_size = bb::field_conversion::calc_num_frs<T>();
         ASSERT(offset + element_fr_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
 
-        auto element = bb::field_conversion_utils::convert_from_bn254_frs<T>(element_frs);
+        auto element = bb::field_conversion::convert_from_bn254_frs<T>(element_frs);
 
         return element;
     }
@@ -248,7 +248,7 @@ class BaseTranscript {
             // std::copy_n(next_challenge_buffer.begin(),
             //             HASH_OUTPUT_SIZE / 2,
             //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
-            challenges[i] = uint256_t(field_element_buffer);
+            challenges[i] = static_cast<uint256_t>(field_element_buffer);
         }
 
         // Prepare for next round.
@@ -278,7 +278,7 @@ class BaseTranscript {
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
         // convert element to field elements
-        auto element_frs = bb::field_conversion_utils::convert_to_bn254_frs(element);
+        auto element_frs = bb::field_conversion::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
 
 #ifdef LOG_INTERACTIONS
@@ -297,8 +297,7 @@ class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        constexpr size_t element_size =
-            bb::field_conversion_utils::calc_num_frs<T>(); // TODO: need to change calculation
+        constexpr size_t element_size = bb::field_conversion::calc_num_frs<T>(); // TODO: need to change calculation
         ASSERT(num_frs_read + element_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
@@ -307,7 +306,7 @@ class BaseTranscript {
         BaseTranscript::consume_prover_element_frs(label, element_frs);
 
         // T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
-        auto element = bb::field_conversion_utils::convert_from_bn254_frs<T>(element_frs);
+        auto element = bb::field_conversion::convert_from_bn254_frs<T>(element_frs);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {

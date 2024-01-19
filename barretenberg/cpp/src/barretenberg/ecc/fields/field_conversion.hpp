@@ -3,10 +3,9 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-namespace bb::field_conversion_utils {
+namespace bb::field_conversion {
 
 /**
  * @brief Decomposes a bb::fr into two 64-bit limbs. Helper function for
@@ -38,7 +37,7 @@ std::array<bb::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input
 
 /**
  * @brief Calculates the size of a types in terms of bb::frs
- * @details We want to suppor the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
+ * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
  * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
  * FF = bb::fr/grumpkin::fr, and N is arbitrary
  * @tparam T
@@ -90,7 +89,9 @@ template <typename T> constexpr size_t calc_num_frs()
 
 /**
  * @brief Conversions from vector of bb::fr elements to transcript types.
- *
+ * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
+ * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = bb::fr/grumpkin::fr, and N is arbitrary
  * @tparam T
  * @param fr_vec
  * @return T
@@ -193,7 +194,9 @@ template <typename T> T inline convert_from_bn254_frs(std::span<const bb::fr> fr
 
 /**
  * @brief Conversion from transcript values to bb::frs
- *
+ * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
+ * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = bb::fr/grumpkin::fr, and N is arbitrary.
  * @tparam T
  * @param val
  * @return std::vector<bb::fr>
@@ -235,42 +238,43 @@ std::vector<bb::fr> inline convert_to_bn254_frs(const curve::Grumpkin::AffineEle
     return fr_vec;
 }
 
-template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<bb::fr, T>& val)
+template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<bb::fr, N>& val)
 {
     std::vector<bb::fr> fr_vec(val.begin(), val.end());
     return fr_vec;
 }
 
-template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<grumpkin::fr, T>& val)
+template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<grumpkin::fr, N>& val)
 {
     std::vector<bb::fr> fr_vec;
-    for (size_t i = 0; i < T; ++i) {
+    for (size_t i = 0; i < N; ++i) {
         auto tmp_vec = convert_to_bn254_frs(val[i]);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
     }
     return fr_vec;
 }
 
-template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<bb::fr, T>& val)
+template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<bb::fr, N>& val)
 {
     std::vector<bb::fr> fr_vec;
-    for (size_t i = 0; i < T; ++i) {
+    for (size_t i = 0; i < N; ++i) {
         auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
     }
     return fr_vec;
 }
 
-template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<grumpkin::fr, T>& val)
+template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<grumpkin::fr, N>& val)
 {
     std::vector<bb::fr> fr_vec;
-    for (size_t i = 0; i < T; ++i) {
+    for (size_t i = 0; i < N; ++i) {
         auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
     }
     return fr_vec;
 }
 
+// TODO: why is this needed here but not for the other 3 functions?
 template <typename AllValues> std::vector<bb::fr> inline convert_to_bn254_frs(const AllValues& val)
 {
     auto data = val.get_all();
@@ -282,6 +286,4 @@ template <typename AllValues> std::vector<bb::fr> inline convert_to_bn254_frs(co
     return fr_vec;
 }
 
-// now convert_from_bn254_frs
-
-} // namespace bb::field_conversion_utils
+} // namespace bb::field_conversion

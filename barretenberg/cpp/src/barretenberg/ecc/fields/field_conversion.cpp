@@ -1,7 +1,7 @@
 
-#include "barretenberg/ecc/fields/field_conversion_utils.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 
-namespace bb::field_conversion_utils {
+namespace bb::field_conversion {
 
 static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
 
@@ -65,4 +65,4 @@ std::array<bb::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input
     return result;
 }
 
-} // namespace bb::field_conversion_utils
+} // namespace bb::field_conversion
