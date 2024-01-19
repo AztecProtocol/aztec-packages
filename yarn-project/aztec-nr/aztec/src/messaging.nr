@@ -28,8 +28,8 @@ pub fn process_l1_to_l2_message(
     let l1_to_l2_message_data = make_l1_to_l2_message_getter_data(returned_message, 0, secret);
 
     // Check that the returned message is actually the message we looked up
-    let msg_hash = l1_to_l2_message_data.message.message_hash();
-    assert(msg_hash == msg_key);
+    let msg_hash = l1_to_l2_message_data.message.hash();
+    assert(msg_hash == msg_key, "Message not matching requested key");
 
     // Check that the message is in the tree
     let root = compute_merkle_root(
@@ -37,25 +37,25 @@ pub fn process_l1_to_l2_message(
         l1_to_l2_message_data.leaf_index,
         l1_to_l2_message_data.sibling_path
     );
-    assert(root == l1_to_l2_root);
+    assert(root == l1_to_l2_root, "Message not in state");
 
     // Check tree roots against the inputs 
-    assert(l1_to_l2_message_data.root == l1_to_l2_root);
+    assert(l1_to_l2_message_data.root == l1_to_l2_root, "Root from oracle not matching state");
 
     // Validate this is the target contract
-    assert(l1_to_l2_message_data.message.recipient.eq(storage_contract_address));
+    assert(l1_to_l2_message_data.message.recipient.eq(storage_contract_address), "Invalid recipient");
 
     // Validate the sender is the portal contract
-    assert(l1_to_l2_message_data.message.sender.eq(portal_contract_address));
+    assert(l1_to_l2_message_data.message.sender.eq(portal_contract_address), "Invalid sender");
 
     // Validate the chain id is correct
-    assert(l1_to_l2_message_data.message.chainId == chain_id);
+    assert(l1_to_l2_message_data.message.chainId == chain_id, "Invalid Chainid");
 
     // Validate the version is correct
-    assert(l1_to_l2_message_data.message.version == version);
+    assert(l1_to_l2_message_data.message.version == version, "Invalid Version");
 
     // Validate the message hash is correct
-    assert(l1_to_l2_message_data.message.content == content);
+    assert(l1_to_l2_message_data.message.content == content, "Invalid Content");
 
     // Validate the message secret is correct
     l1_to_l2_message_data.message.validate_message_secret();
