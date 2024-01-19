@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
 import { LogFn } from '@aztec/foundation/log';
 import { NoirPackageConfig } from '@aztec/foundation/noir';
+import { AvailabilityOracleAbi, AvailabilityOracleBytecode } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
