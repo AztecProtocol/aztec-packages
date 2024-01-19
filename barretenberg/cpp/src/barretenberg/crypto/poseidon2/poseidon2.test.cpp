@@ -9,7 +9,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace poseidon2_tests {
 TEST(Poseidon2, HashBasicTests)
 {
 
@@ -62,4 +61,3 @@ TEST(Poseidon2, HashBufferConsistencyCheck)
 
     EXPECT_EQ(result, expected);
 }
-} // namespace poseidon2_tests

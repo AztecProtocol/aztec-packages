@@ -7,8 +7,6 @@
 #include "barretenberg/serialize/test_helper.hpp"
 #include "ecdsa_secp256k1.hpp"
 
-namespace acir_format::tests {
-
 class AcirFormatTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
@@ -481,5 +479,3 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
 
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-
-} // namespace acir_format::tests

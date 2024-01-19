@@ -5,8 +5,6 @@
 
 using namespace bb;
 
-namespace bb::nested_contianers_tests {
-
 using FF = bb::fr;
 
 class NestedContainers : public testing::Test {};
@@ -22,5 +20,3 @@ TEST_F(NestedContainers, Univariate)
     EXPECT_EQ(std::get<1>(tuple), result1);
     EXPECT_EQ(std::get<2>(tuple), result2);
 }
-
-} // namespace bb::nested_contianers_tests

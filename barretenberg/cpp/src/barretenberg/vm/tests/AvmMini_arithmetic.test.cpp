@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-namespace tests_avm {
 using namespace avm_trace;
 
 class AvmMiniArithmeticTests : public ::testing::Test {
@@ -459,5 +458,3 @@ TEST_F(AvmMiniArithmeticNegativeTests, operationWithErrorFlagFF)
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 }
-
-} // namespace tests_avm

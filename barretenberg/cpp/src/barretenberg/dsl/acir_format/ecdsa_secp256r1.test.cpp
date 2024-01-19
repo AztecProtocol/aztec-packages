@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace acir_format::tests {
 using curve_ct = bb::stdlib::secp256r1<Builder>;
 
 // Generate r1 constraints given pre generated pubkey, sig and message values
@@ -281,4 +280,3 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-} // namespace acir_format::tests

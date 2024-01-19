@@ -8,7 +8,6 @@
 #include <gtest/gtest.h>
 
 using namespace bb::honk;
-namespace grand_product_library_tests {
 
 template <class FF> class GrandProductTests : public testing::Test {
 
@@ -351,5 +350,3 @@ TYPED_TEST(GrandProductTests, GrandProductLookup)
 {
     TestFixture::test_lookup_grand_product_construction();
 }
-
-} // namespace grand_product_library_tests

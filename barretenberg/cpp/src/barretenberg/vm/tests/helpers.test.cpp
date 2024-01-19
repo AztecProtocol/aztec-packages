@@ -5,7 +5,6 @@
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
 #include <gtest/gtest.h>
 
-namespace tests_avm {
 using namespace avm_trace;
 
 /**
@@ -63,5 +62,3 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     EXPECT_TRUE(mem_row != trace.end());
     mem_row->memTrace_m_val = newValue;
 };
-
-} // namespace tests_avm

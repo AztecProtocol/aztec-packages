@@ -11,8 +11,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace toy_avm_circuit_builder_tests {
-
 /**
  * @brief A test explaining the work of the permutations in Toy AVM
  *
@@ -118,4 +116,3 @@ TEST(ToyAVMCircuitBuilder, BaseCase)
     circuit_builder.rows[2].toy_xor_a = tmp;
     EXPECT_EQ(circuit_builder.check_circuit(), true);
 }
-} // namespace toy_avm_circuit_builder_tests

@@ -1,8 +1,6 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
-namespace bb::honk_transcript_tests {
-
 using FF = bb::fr;
 using Fr = bb::fr;
 using Fq = bb::fq;
@@ -47,5 +45,3 @@ TEST(BaseTranscript, TwoProversTwoFields)
     EXPECT_STATE(verifier_transcript, 0, 64, 64);
     EXPECT_EQ(received_b, elt_b);
 }
-
-} // namespace bb::honk_transcript_tests

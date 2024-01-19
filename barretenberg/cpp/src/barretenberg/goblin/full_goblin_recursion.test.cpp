@@ -12,7 +12,6 @@
 #include <gtest/gtest.h>
 
 using namespace bb::honk;
-namespace goblin_recursion_tests {
 
 class GoblinRecursionTests : public ::testing::Test {
   protected:
@@ -61,4 +60,3 @@ TEST_F(GoblinRecursionTests, Pseudo)
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
-} // namespace goblin_recursion_tests

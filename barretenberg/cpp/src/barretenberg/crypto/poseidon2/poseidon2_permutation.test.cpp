@@ -9,8 +9,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace poseidon2_tests {
-
 TEST(Poseidon2Permutation, TestVectors)
 {
 
@@ -61,5 +59,3 @@ TEST(Poseidon2Permutation, ConsistencyCheck)
     };
     EXPECT_EQ(result, expected);
 }
-
-} // namespace poseidon2_tests

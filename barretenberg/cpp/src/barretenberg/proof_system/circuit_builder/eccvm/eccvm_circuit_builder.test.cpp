@@ -9,8 +9,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace eccvm_circuit_builder_tests {
-
 template <typename Flavor> class ECCVMCircuitBuilderTests : public ::testing::Test {};
 
 using FlavorTypes = ::testing::Types<bb::honk::flavor::ECCVM>;
@@ -270,4 +268,3 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
     bool result = circuit.check_circuit();
     EXPECT_EQ(result, true);
 }
-} // namespace eccvm_circuit_builder_tests

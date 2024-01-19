@@ -4,8 +4,6 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
 
-namespace bb::relation_manual_tests {
-
 using FF = bb::fr;
 
 class RelationManual : public testing::Test {};
@@ -13,7 +11,7 @@ class RelationManual : public testing::Test {};
 TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2ExternalRelation<FF>;
+    using Relation = bb::Poseidon2ExternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -33,7 +31,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
     };
     AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    const auto parameters = RelationParameters<FF>::get_random();
+    const auto parameters = bb::RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
@@ -44,7 +42,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2ExternalRelation<FF>;
+    using Relation = bb::Poseidon2ExternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -79,7 +77,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
      */
     AllPoseidonValues all_poseidon_values{ 1, 5, 4, 1, 7, 6, 9, 8, 3, 3763355, 3031011, 2270175, 1368540 };
 
-    const auto parameters = RelationParameters<FF>::get_random();
+    const auto parameters = bb::RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
@@ -90,7 +88,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
 TEST_F(RelationManual, Poseidon2InternalRelationZeros)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2InternalRelation<FF>;
+    using Relation = bb::Poseidon2InternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -110,7 +108,7 @@ TEST_F(RelationManual, Poseidon2InternalRelationZeros)
     };
     AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    const auto parameters = RelationParameters<FF>::get_random();
+    const auto parameters = bb::RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
@@ -121,7 +119,7 @@ TEST_F(RelationManual, Poseidon2InternalRelationZeros)
 TEST_F(RelationManual, Poseidon2InternalRelationRandom)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2InternalRelation<FF>;
+    using Relation = bb::Poseidon2InternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -158,11 +156,12 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
         FF(std::string("0x00fce289a96b3f4a18562d0ef0ab76ca165e613222aa0c24501377003c5622a8")),
         FF(std::string("0x27e7677799fda1694819803f459b76d2fb1c45fdf0773375c72d61e8efb92893"))
     };
-    const auto parameters = RelationParameters<FF>::get_random();
+    const auto parameters = bb::RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
     EXPECT_EQ(acc[2], 0);
     EXPECT_EQ(acc[3], 0);
 }
-}; // namespace bb::relation_manual_tests
+}
+; //

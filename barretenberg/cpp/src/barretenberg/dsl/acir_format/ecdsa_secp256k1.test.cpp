@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace acir_format::tests {
 using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class ECDSASecp256k1 : public ::testing::Test {
@@ -203,4 +202,3 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-} // namespace acir_format::tests

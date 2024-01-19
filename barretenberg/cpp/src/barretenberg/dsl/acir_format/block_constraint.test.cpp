@@ -6,8 +6,6 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace acir_format::tests {
-
 class UltraPlonkRAM : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
@@ -134,11 +132,10 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
-    auto composer = Composer();
+    auto composer = acir_format::Composer();
     auto prover = composer.create_prover(builder);
 
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-} // namespace acir_format::tests

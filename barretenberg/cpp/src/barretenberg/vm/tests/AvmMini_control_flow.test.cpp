@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-namespace tests_avm {
 using namespace avm_trace;
 
 class AvmMiniControlFlowTests : public ::testing::Test {
@@ -295,4 +294,3 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
 
     validate_trace_proof(std::move(trace));
 }
-} // namespace tests_avm
