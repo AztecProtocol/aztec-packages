@@ -1,0 +1,1 @@
+barretenberg_module(ecc_fields)

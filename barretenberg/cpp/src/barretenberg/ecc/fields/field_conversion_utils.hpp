@@ -7,198 +7,44 @@
 #include "barretenberg/polynomials/univariate.hpp"
 
 namespace barretenberg::field_conversion_utils {
-// convert bn254::frs to grumpkin::fr
 
-static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
+/**
+ * @brief Decomposes a barretenberg::fr into two 64-bit limbs. Helper function for
+ * convert_barretenberg_frs_to_grumpkin_fr.
+ *
+ * @param field_val
+ * @return std::array<uint64_t, 2>
+ */
+std::array<uint64_t, 2> decompose_bn254_fr_to_two_limbs(const barretenberg::fr& field_val);
 
-std::array<uint64_t, 2> inline decompose_bn254_fr_to_two_limbs(const barretenberg::fr& field_val)
-{
-    ASSERT(uint256_t(field_val) <
-           (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits, technically 127 or less
-    // split bn254_fr into two 64 bit limbs
-    constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_CONVERSION_LIMB_BITS) - 1;
-    const uint256_t value = field_val;
-    const uint64_t low = static_cast<uint64_t>(value & LIMB_MASK);
-    const uint64_t hi = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
-    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) == value);
+/**
+ * @brief Converts 2 barretenberg::fr elements to grumpkin::fr
+ * @details Checks that each barretenberg::fr must be at most 128 bits (to ensure no overflow), and decomposes each
+ * barretenberg::fr into two 64-bit limbs, and the 4 64-bit limbs form the grumpkin::fr
+ * @param low_bits_in
+ * @param high_bits_in
+ * @return grumpkin::fr
+ */
+grumpkin::fr convert_bn254_frs_to_grumpkin_fr(const barretenberg::fr& low_bits_in,
+                                              const barretenberg::fr& high_bits_in);
 
-    // const size_t lo_bits = NUM_CONVERSION_LIMB_BITS;
-    // const size_t hi_bits = num_limb_bits - NUM_CONVERSION_LIMB_BITS;
-    // range_constrain_two_ limbs(low_idx, hi_idx, lo_bits, hi_bits); needed in stdlib version of this
+/**
+ * @brief Converts grumpkin::fr to 2 barretenberg::fr elements
+ * @details Does the reverse of convert_bn254_frs_to_grumpkin_fr, by merging the two pairs of limbs back into the
+ * 2 barretenberg::fr elements.
+ * @param input
+ * @return std::array<barretenberg::fr, 2>
+ */
+std::array<barretenberg::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input);
 
-    return std::array<uint64_t, 2>{ low, hi };
-}
-
-// circuit form
-// template <typename Arithmetization>
-// std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_bn254_fr_to_two_limbs(
-//     const uint32_t limb_idx, const size_t num_limb_bits)
-// {
-//     ASSERT(uint256_t(this->get_variable_reference(limb_idx)) < (uint256_t(1) << num_limb_bits));
-//     constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
-//     const uint256_t value = this->get_variable(limb_idx);
-//     const uint256_t low = value & LIMB_MASK;
-//     const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-//     ASSERT(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) == value);
-
-//     const uint32_t low_idx = this->add_variable(low);
-//     const uint32_t hi_idx = this->add_variable(hi);
-
-//     ASSERT(num_limb_bits > DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
-//     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-//     const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-//     range_constrain_two_limbs(low_idx, hi_idx, lo_bits, hi_bits);
-
-//     return std::array<uint32_t, 2>{ low_idx, hi_idx };
-// }
-
-// convert barretenberg::frs to grumpkin::fr
-grumpkin::fr inline convert_barretenberg_fr_to_grumpkin_fr(const barretenberg::fr& low_bits_in,
-                                                           const barretenberg::fr& high_bits_in)
-{
-    // TODO: figure out can_overflow, maximum_bitlength
-    ASSERT(uint256_t(low_bits_in) < (uint256_t(1) << (NUM_CONVERSION_LIMB_BITS * 2)));
-    ASSERT(uint256_t(high_bits_in) < (uint256_t(1) << (NUM_CONVERSION_LIMB_BITS * 2)));
-    auto low_bit_decomp = decompose_bn254_fr_to_two_limbs(low_bits_in);
-    uint256_t tmp;
-    tmp.data[0] = low_bit_decomp[0];
-    tmp.data[1] = low_bit_decomp[1];
-    auto high_bit_decomp = decompose_bn254_fr_to_two_limbs(high_bits_in);
-    tmp.data[2] = high_bit_decomp[0];
-    tmp.data[3] = high_bit_decomp[1];
-    grumpkin::fr result(tmp);
-    return result;
-}
-
-// convert grumpkin::fr to barretenberg::frs
-std::array<barretenberg::fr, 2> inline convert_grumpkin_fr_to_barretenberg_frs(const grumpkin::fr& input)
-{
-    auto tmp = static_cast<uint256_t>(input);
-    std::array<barretenberg::fr, 2> result;
-    result[0] = static_cast<uint256_t>(tmp.data[0]) + (static_cast<uint256_t>(tmp.data[1]) << NUM_CONVERSION_LIMB_BITS);
-    result[1] = static_cast<uint256_t>(tmp.data[2]) + (static_cast<uint256_t>(tmp.data[3]) << NUM_CONVERSION_LIMB_BITS);
-    return result;
-}
-
-// template <typename Builder, typename T>
-// bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
-//                                const field_t<Builder>& high_bits_in,
-//                                const bool can_overflow,
-//                                const size_t maximum_bitlength)
-// {
-//     ASSERT((can_overflow == true && maximum_bitlength == 0) ||
-//            (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
-
-//     // Check that the values of two parts are within specified bounds
-//     ASSERT(uint256_t(low_bits_in.get_value()) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));
-//     ASSERT(uint256_t(high_bits_in.get_value()) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));
-
-//     context = low_bits_in.context == nullptr ? high_bits_in.context : low_bits_in.context;
-//     field_t<Builder> limb_0(context);
-//     field_t<Builder> limb_1(context);
-//     field_t<Builder> limb_2(context);
-//     field_t<Builder> limb_3(context);
-//     if (low_bits_in.witness_index != IS_CONSTANT) {
-//         std::vector<uint32_t> low_accumulator;
-//         if constexpr (HasPlookup<Builder>) {
-//             // MERGE NOTE: this was the if constexpr block introduced in ecebe7643
-//             const auto limb_witnesses =
-//                 context->decompose_non_native_field_double_width_limb(low_bits_in.normalize().witness_index);
-//             limb_0.witness_index = limb_witnesses[0];
-//             limb_1.witness_index = limb_witnesses[1];
-//             field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
-
-//             // // Enforce that low_bits_in indeed only contains 2*NUM_LIMB_BITS bits
-//             // low_accumulator = context->decompose_into_default_range(low_bits_in.witness_index,
-//             //                                                         static_cast<size_t>(NUM_LIMB_BITS * 2));
-//             // // If this doesn't hold we're using a default plookup range size that doesn't work well with the limb
-//             // size
-//             // // here
-//             // ASSERT(low_accumulator.size() % 2 == 0);
-//             // size_t mid_index = low_accumulator.size() / 2 - 1;
-//             // limb_0.witness_index = low_accumulator[mid_index]; // Q:safer to just slice this from low_bits_in?
-//             // limb_1 = (low_bits_in - limb_0) * shift_right_1;
-//         } else {
-//             size_t mid_index;
-//             low_accumulator = context->decompose_into_base4_accumulators(
-//                 low_bits_in.witness_index, static_cast<size_t>(NUM_LIMB_BITS * 2), "bigfield: low_bits_in too
-//                 large.");
-//             mid_index = static_cast<size_t>((NUM_LIMB_BITS / 2) - 1);
-//             // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb value
-//             limb_1.witness_index = low_accumulator[mid_index];
-//             // We can get the first half bits of low_bits_in from the variables we already created
-//             limb_0 = (low_bits_in - (limb_1 * shift_1));
-//         }
-//     } else {
-//         uint256_t slice_0 = uint256_t(low_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
-//         uint256_t slice_1 = uint256_t(low_bits_in.additive_constant).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS);
-//         limb_0 = field_t(context, barretenberg::fr(slice_0));
-//         limb_1 = field_t(context, barretenberg::fr(slice_1));
-//     }
-
-//     // If we wish to continue working with this element with lazy reductions - i.e. not moding out again after each
-//     // addition we apply a more limited range - 2^s for smallest s such that p<2^s (this is the case can_overflow ==
-//     // false)
-//     uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
-
-//     // if maximum_bitlength is set, this supercedes can_overflow
-//     if (maximum_bitlength > 0) {
-//         ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
-//         num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
-//     }
-//     // We create the high limb values similar to the low limb ones above
-//     const uint64_t num_high_limb_bits = NUM_LIMB_BITS + num_last_limb_bits;
-//     if (high_bits_in.witness_index != IS_CONSTANT) {
-
-//         std::vector<uint32_t> high_accumulator;
-//         if constexpr (HasPlookup<Builder>) {
-//             const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-//                 high_bits_in.normalize().witness_index, (size_t)num_high_limb_bits);
-//             limb_2.witness_index = limb_witnesses[0];
-//             limb_3.witness_index = limb_witnesses[1];
-//             field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1,
-//             field_t<Builder>(0));
-
-//         } else {
-//             high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.witness_index,
-//                                                                           static_cast<size_t>(num_high_limb_bits),
-//                                                                           "bigfield: high_bits_in too large.");
-//             limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
-//             limb_2 = (high_bits_in - (limb_3 * shift_1));
-//         }
-//     } else {
-//         uint256_t slice_2 = uint256_t(high_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
-//         uint256_t slice_3 = uint256_t(high_bits_in.additive_constant).slice(NUM_LIMB_BITS, num_high_limb_bits);
-//         limb_2 = field_t(context, barretenberg::fr(slice_2));
-//         limb_3 = field_t(context, barretenberg::fr(slice_3));
-//     }
-//     binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
-//     binary_basis_limbs[1] = Limb(limb_1, DEFAULT_MAXIMUM_LIMB);
-//     binary_basis_limbs[2] = Limb(limb_2, DEFAULT_MAXIMUM_LIMB);
-//     if (maximum_bitlength > 0) {
-//         uint256_t max_limb_value = (uint256_t(1) << (maximum_bitlength - (3 * NUM_LIMB_BITS))) - 1;
-//         binary_basis_limbs[3] = Limb(limb_3, max_limb_value);
-//     } else {
-//         binary_basis_limbs[3] =
-//             Limb(limb_3, can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
-//     }
-//     prime_basis_limb = low_bits_in + (high_bits_in * shift_2);
-// }
-
-/* types are
-
-uint32_t
-uint64_t
-barretenberg::fr
-grumpkin::fr
-curve::BN254::AffineElement
-curve::Grumpkin::AffineElement
-barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>
-std::array<FF, NUM_ALL_ENTITIES>, depends on num_all_entities
-
-*/
-template <class...> constexpr std::false_type always_false{};
-
+/**
+ * @brief Calculates the size of a types in terms of barretenberg::frs
+ * @details We want to suppor the following types: bool, size_t, uint32_t, uint64_t, barretenberg::fr, grumpkin::fr,
+ * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, barretenberg::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = barretenberg::fr/grumpkin::fr, and N is arbitrary
+ * @tparam T
+ * @return constexpr size_t
+ */
 template <typename T> constexpr size_t calc_num_frs();
 
 constexpr size_t calc_num_frs(barretenberg::fr* /*unused*/)
@@ -211,19 +57,21 @@ constexpr size_t calc_num_frs(grumpkin::fr* /*unused*/)
     return 2;
 }
 
-template <std::integral T> constexpr size_t calc_num_frs(T* /*unused*/)
+template <std::integral T>
+constexpr size_t calc_num_frs(T* /*unused*/) // TODO: check if std integral includes uint256 and uint512, those are too
+                                             // big, and I guess bool works here
 {
     return 1;
 }
 
 constexpr size_t calc_num_frs(curve::BN254::AffineElement* /*unused*/)
 {
-    return 4;
+    return 2 * calc_num_frs<curve::BN254::BaseField>();
 }
 
 constexpr size_t calc_num_frs(curve::Grumpkin::AffineElement* /*unused*/)
 {
-    return 2;
+    return 2 * calc_num_frs<curve::Grumpkin::BaseField>();
 }
 
 template <typename T, std::size_t N> constexpr size_t calc_num_frs(std::array<T, N>* /*unused*/)
@@ -241,192 +89,211 @@ template <typename T> constexpr size_t calc_num_frs()
     return calc_num_frs(static_cast<T*>(nullptr));
 }
 
-template <typename T>
-concept TranscriptTypeNonLength =
-    std::is_same_v<T, barretenberg::fr> || std::is_same_v<T, grumpkin::fr> || std::is_integral_v<T> ||
-    std::is_same_v<T, curve::BN254::AffineElement> || std::is_same_v<T, curve::Grumpkin::AffineElement>;
+template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec);
 
-template <template <class U, size_t TT> class T, class U, size_t TT>
-concept TranscriptTypeLength = std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>> ||
-                               std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>> ||
-                               std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>> ||
-                               std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>;
-/**
- * @brief Calculates the size of a types in terms of barretenberg::frs
- *
- * @tparam T
- * @return constexpr size_t
- */
-// template <typename T> constexpr size_t calc_num_frs()
-// {
-//     if constexpr (std::is_same_v<T, grumpkin::fr>) {
-//         return 2;
-//     } else if constexpr (std::is_same_v<T, barretenberg::fr> || std::is_integral_v<T> || std::is_same_v<T, bool>) {
-//         return 1;
-//     } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
-//         return 2 * calc_num_frs<grumpkin::fr>();
-//     } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
-//         return 2 * calc_num_frs<barretenberg::fr>();
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
-//         return 43;
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
-//         return 10;
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 184>>) {
-//         return 184;
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 55>>) {
-//         return 55;
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 17>>) {
-//         return 17;
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 46>>) {
-//         return 46;
-//     } else if constexpr (std::is_same_v<T, std::array<grumpkin::fr, 105>>) {
-//         return 210;
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 6>>) {
-//         return 6;
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 7>>) {
-//         return 7;
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 8>>) {
-//         return 8;
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<grumpkin::fr, 20>>) {
-//         return 40;
-//     } else {
-//         static_assert(always_false<T>);
-//         return 0;
-//     }
-//     // TODO: address the else
-// }
-/**
- * @brief Calculates the size of a templated types in terms of barretenberg::frs
- * @details
+bool convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, bool* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 1);
+    return fr_vec[0] != 0;
+}
 
- * @tparam T
- * @return constexpr size_t
- */
-// template <template <class U, size_t TT> class T, class U, size_t TT> constexpr size_t calc_num_frs()
+template <std::integral T> T convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, T* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 1);
+    return static_cast<T>(fr_vec[0]);
+}
+
+barretenberg::fr convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, barretenberg::fr* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 1);
+    return fr_vec[0];
+}
+
+grumpkin::fr convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, grumpkin::fr* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 2);
+    return convert_bn254_frs_to_grumpkin_fr(fr_vec[0], fr_vec[1]);
+}
+
+curve::BN254::AffineElement convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+                                                   curve::BN254::AffineElement* /*unused*/)
+{
+    curve::BN254::AffineElement val;
+    val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(0, 2));
+    val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(2, 2));
+    return val;
+}
+
+curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+                                                      curve::Grumpkin::AffineElement* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 2);
+    curve::Grumpkin::AffineElement val;
+    val.x = fr_vec[0];
+    val.y = fr_vec[1];
+    return val;
+}
+
+template <size_t N>
+std::array<barretenberg::fr, N> convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+                                                       std::array<barretenberg::fr, N>* /*unused*/)
+{
+    std::array<barretenberg::fr, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        val[i] = fr_vec[i];
+    }
+    return val;
+}
+
+template <size_t N>
+std::array<grumpkin::fr, N> convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+                                                   std::array<grumpkin::fr, N>* /*unused*/)
+{
+    std::array<grumpkin::fr, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        std::vector<barretenberg::fr> fr_vec_tmp{
+            fr_vec[2 * i], fr_vec[2 * i + 1]
+        }; // each pair of consecutive elements is a grumpkin::fr
+        val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
+    }
+    return val;
+}
+
+template <size_t N>
+barretenberg::Univariate<barretenberg::fr, N> convert_from_bn254_frs(
+    std::span<const barretenberg::fr> fr_vec, barretenberg::Univariate<barretenberg::fr, N>* /*unused*/)
+{
+    barretenberg::Univariate<barretenberg::fr, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        val.evaluations[i] = fr_vec[i];
+    }
+    return val;
+}
+
+template <size_t N>
+barretenberg::Univariate<grumpkin::fr, N> convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+                                                                 barretenberg::Univariate<grumpkin::fr, N>* /*unused*/)
+{
+    barretenberg::Univariate<grumpkin::fr, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+        val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
+    }
+    return val;
+}
+
+template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
+{
+    return convert_from_bn254_frs(fr_vec, static_cast<T*>(nullptr));
+}
+
+// template <template <class U, size_t TT> class T, class U, size_t TT>
+// T<U, TT> inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
 // {
-//     if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
-//         return TT * calc_num_frs<barretenberg::fr>();
-//     } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
-//         return TT * calc_num_frs<grumpkin::fr>();
-//     } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
-//         return TT * calc_num_frs<barretenberg::fr>();
+//     if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
+//         barretenberg::Univariate<barretenberg::fr, TT> val;
+//         for (size_t i = 0; i < TT; ++i) {
+//             val.evaluations[i] = fr_vec[i];
+//         }
+//         return val;
 //     } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
-//         return TT * calc_num_frs<grumpkin::fr>();
+//         barretenberg::Univariate<grumpkin::fr, TT> val;
+//         for (size_t i = 0; i < TT; ++i) {
+//             std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+//             val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
+//         }
+//         return val;
+//     } else if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
+//         std::array<barretenberg::fr, TT> val;
+//         for (size_t i = 0; i < TT; ++i) {
+//             val[i] = fr_vec[i];
+//         }
+//         return val;
+//     } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
+//         std::array<grumpkin::fr, TT> val;
+//         for (size_t i = 0; i < TT; ++i) {
+//             std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+//             val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
+//         }
+//         return val;
 //     } else {
 //         static_assert(always_false<T<U, TT>>);
-//         return 0;
+//         return T<U, TT>{}; // TODO: address this case somehow, should never happen
 //     }
 // }
 
-template <typename T> T inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec);
-
-template <template <class U, size_t TT> class T, class U, size_t TT>
-T<U, TT> inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
-{
-    if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
-        barretenberg::Univariate<barretenberg::fr, TT> val;
-        for (size_t i = 0; i < TT; ++i) {
-            val.evaluations[i] = fr_vec[i];
-        }
-        return val;
-    } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
-        barretenberg::Univariate<grumpkin::fr, TT> val;
-        for (size_t i = 0; i < TT; ++i) {
-            std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
-            val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
-        }
-        return val;
-    } else if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
-        std::array<barretenberg::fr, TT> val;
-        for (size_t i = 0; i < TT; ++i) {
-            val[i] = fr_vec[i];
-        }
-        return val;
-    } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
-        std::array<grumpkin::fr, TT> val;
-        for (size_t i = 0; i < TT; ++i) {
-            std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
-            val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
-        }
-        return val;
-    } else {
-        static_assert(always_false<T<U, TT>>);
-        return T<U, TT>{}; // TODO: address this case somehow, should never happen
-    }
-}
-
-template <typename T> T inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
-{
-    // TODO: possibly merge this with calc_num_frs()
-    if constexpr (std::is_same_v<T, bool>) { // TODO: add asserts for correct lengths
-        ASSERT(fr_vec.size() == 1);
-        T val{ fr_vec[0] != 0 };
-        return val;
-    } else if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
-        ASSERT(fr_vec.size() == 1);
-        T val{ fr_vec[0] };
-        return val;
-    } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
-        ASSERT(fr_vec.size() == 2);
-        return convert_barretenberg_fr_to_grumpkin_fr(fr_vec[0], fr_vec[1]);
-    } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
-        ASSERT(fr_vec.size() == 4);
-        curve::BN254::AffineElement val;
-        val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(0, 2));
-        val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(2, 2));
-        return val;
-    } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
-        ASSERT(fr_vec.size() == 2);
-        curve::Grumpkin::AffineElement val;
-        val.x = fr_vec[0];
-        val.y = fr_vec[1];
-        return val;
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
-        return convert_from_bn254_frs<std::array, barretenberg::fr, 43>(fr_vec);
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
-        return convert_from_bn254_frs<std::array, barretenberg::fr, 10>(fr_vec);
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 184>>) {
-        return convert_from_bn254_frs<std::array, barretenberg::fr, 184>(fr_vec);
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 55>>) {
-        return convert_from_bn254_frs<std::array, barretenberg::fr, 55>(fr_vec);
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 17>>) {
-        return convert_from_bn254_frs<std::array, barretenberg::fr, 17>(fr_vec);
-    } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 46>>) {
-        return convert_from_bn254_frs<std::array, barretenberg::fr, 46>(fr_vec);
-    } else if constexpr (std::is_same_v<T, std::array<grumpkin::fr, 105>>) {
-        return convert_from_bn254_frs<std::array, grumpkin::fr, 105>(fr_vec);
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 6>>) {
-        barretenberg::Univariate<barretenberg::fr, 6> val;
-        for (size_t i = 0; i < 6; ++i) {
-            val.evaluations[i] = fr_vec[i];
-        }
-        return val;
-        // return convert_from_bn254_frs<barretenberg::Univariate, barretenberg::fr, 7>(fr_vec);
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 7>>) {
-        barretenberg::Univariate<barretenberg::fr, 7> val;
-        for (size_t i = 0; i < 7; ++i) {
-            val.evaluations[i] = fr_vec[i];
-        }
-        return val;
-        // return convert_from_bn254_frs<barretenberg::Univariate, barretenberg::fr, 7>(fr_vec);
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 8>>) {
-        barretenberg::Univariate<barretenberg::fr, 8> val;
-        for (size_t i = 0; i < 8; ++i) {
-            val.evaluations[i] = fr_vec[i];
-        }
-        return val;
-    } else if constexpr (std::is_same_v<T, barretenberg::Univariate<grumpkin::fr, 20>>) {
-        barretenberg::Univariate<grumpkin::fr, 20> val;
-        for (size_t i = 0; i < 20; ++i) {
-            std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
-            val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
-        }
-        return val;
-    } else {
-        static_assert(always_false<T>);
-        return T{};
-    }
-}
+// template <typename T> T inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
+// {
+//     // TODO: possibly merge this with calc_num_frs()
+//     if constexpr (std::is_same_v<T, bool>) { // TODO: add asserts for correct lengths
+//         ASSERT(fr_vec.size() == 1);
+//         T val{ fr_vec[0] != 0 };
+//         return val;
+//     } else if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
+//         ASSERT(fr_vec.size() == 1);
+//         T val{ fr_vec[0] };
+//         return val;
+//     } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
+//         ASSERT(fr_vec.size() == 2);
+//         return convert_bn254_frs_to_grumpkin_fr(fr_vec[0], fr_vec[1]);
+//     } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
+//         ASSERT(fr_vec.size() == 4);
+//         curve::BN254::AffineElement val;
+//         val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(0, 2));
+//         val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(2, 2));
+//         return val;
+//     } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
+//         ASSERT(fr_vec.size() == 2);
+//         curve::Grumpkin::AffineElement val;
+//         val.x = fr_vec[0];
+//         val.y = fr_vec[1];
+//         return val;
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
+//         return convert_from_bn254_frs<std::array, barretenberg::fr, 43>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
+//         return convert_from_bn254_frs<std::array, barretenberg::fr, 10>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 184>>) {
+//         return convert_from_bn254_frs<std::array, barretenberg::fr, 184>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 55>>) {
+//         return convert_from_bn254_frs<std::array, barretenberg::fr, 55>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 17>>) {
+//         return convert_from_bn254_frs<std::array, barretenberg::fr, 17>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 46>>) {
+//         return convert_from_bn254_frs<std::array, barretenberg::fr, 46>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<grumpkin::fr, 105>>) {
+//         return convert_from_bn254_frs<std::array, grumpkin::fr, 105>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 6>>) {
+//         barretenberg::Univariate<barretenberg::fr, 6> val;
+//         for (size_t i = 0; i < 6; ++i) {
+//             val.evaluations[i] = fr_vec[i];
+//         }
+//         return val;
+//         // return convert_from_bn254_frs<barretenberg::Univariate, barretenberg::fr, 7>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 7>>) {
+//         barretenberg::Univariate<barretenberg::fr, 7> val;
+//         for (size_t i = 0; i < 7; ++i) {
+//             val.evaluations[i] = fr_vec[i];
+//         }
+//         return val;
+//         // return convert_from_bn254_frs<barretenberg::Univariate, barretenberg::fr, 7>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 8>>) {
+//         barretenberg::Univariate<barretenberg::fr, 8> val;
+//         for (size_t i = 0; i < 8; ++i) {
+//             val.evaluations[i] = fr_vec[i];
+//         }
+//         return val;
+//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<grumpkin::fr, 20>>) {
+//         barretenberg::Univariate<grumpkin::fr, 20> val;
+//         for (size_t i = 0; i < 20; ++i) {
+//             std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+//             val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
+//         }
+//         return val;
+//     } else {
+//         static_assert(always_false<T>);
+//         return T{};
+//     }
+// }
 
 template <std::integral T> std::vector<barretenberg::fr> inline convert_to_bn254_frs(const T& val)
 {
@@ -436,7 +303,7 @@ template <std::integral T> std::vector<barretenberg::fr> inline convert_to_bn254
 
 std::vector<barretenberg::fr> inline convert_to_bn254_frs(const grumpkin::fr& val)
 {
-    auto fr_arr = convert_grumpkin_fr_to_barretenberg_frs(val);
+    auto fr_arr = convert_grumpkin_fr_to_bn254_frs(val);
     std::vector<barretenberg::fr> fr_vec(fr_arr.begin(), fr_arr.end());
     return fr_vec;
 }

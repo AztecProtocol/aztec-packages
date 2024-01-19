@@ -1,4 +1,4 @@
-barretenberg_module(ecc numeric crypto_keccak crypto_sha256)
+barretenberg_module(ecc numeric crypto_keccak crypto_sha256 ecc_fields)
 
 if(DISABLE_ADX)
     message(STATUS "Disabling ADX assembly variant.")
@@ -19,3 +19,5 @@ target_precompile_headers(
     $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_SOURCE_DIR}/fields/field_impl_x64.hpp">
     $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_SOURCE_DIR}/fields/field.hpp">
 )
+
+add_subdirectory(fields)
