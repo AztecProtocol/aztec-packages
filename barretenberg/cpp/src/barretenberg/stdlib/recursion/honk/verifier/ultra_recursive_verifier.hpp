@@ -9,7 +9,6 @@ namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:
     using FF = typename Flavor::FF;
-    using NativeFF = typename Flavor::NativeFF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -40,9 +39,5 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
 // Instance declarations for Ultra and Goblin-Ultra verifier circuits with both conventional Ultra and Goblin-Ultra
 // arithmetization.
-extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
 using UltraRecursiveVerifier = UltraRecursiveVerifier_<UltraCircuitBuilder>;
-extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
-using GoblinRecursiveVerifier = UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
 } // namespace proof_system::plonk::stdlib::recursion::honk

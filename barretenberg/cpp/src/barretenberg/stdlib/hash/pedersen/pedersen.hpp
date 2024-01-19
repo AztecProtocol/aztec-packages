@@ -8,7 +8,7 @@
 
 namespace proof_system::plonk::stdlib {
 
-using namespace barretenberg;
+using namespace bb;
 /**
  * @brief stdlib class that evaluates in-circuit pedersen hashes, consistent with behavior in
  * crypto::pedersen_hash
@@ -30,7 +30,5 @@ template <typename Builder> class pedersen_hash {
     static field_ct hash_skip_field_validation(const std::vector<field_ct>& in, GeneratorContext context = {});
     static field_ct hash_buffer(const stdlib::byte_array<Builder>& input, GeneratorContext context = {});
 };
-
-EXTERN_STDLIB_TYPE(pedersen_hash);
 
 } // namespace proof_system::plonk::stdlib

@@ -1,5 +1,5 @@
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { SiblingPath } from '@aztec/types';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { AppendOnlyTree } from './append_only_tree.js';
 

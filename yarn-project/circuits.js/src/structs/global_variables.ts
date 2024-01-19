@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
-
-import { serializeToBuffer } from '../utils/index.js';
 
 /**
  * Global variables of the L2 block.
@@ -55,6 +53,7 @@ export class GlobalVariables {
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
+    // Note: The order here must match the order in the HeaderDecoder solidity library.
     return [fields.chainId, fields.version, fields.blockNumber, fields.timestamp] as const;
   }
 

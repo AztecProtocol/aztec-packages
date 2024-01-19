@@ -9,7 +9,6 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
   public:
     using Curve = bn254<CircuitBuilder>;
     using FF = typename Curve::ScalarField;
-    using NativeFF = typename curve::BN254::ScalarField;
     using Commitment = typename Curve::Element;
     using GroupElement = typename Curve::Element;
     using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve>;
@@ -26,8 +25,5 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     PairingPoints verify_proof(const proof_system::honk::proof& proof);
 };
-
-extern template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-extern template class MergeRecursiveVerifier_<UltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib::recursion::goblin

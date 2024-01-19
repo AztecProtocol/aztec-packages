@@ -2,7 +2,7 @@
 
 #include "../circuit_builders/circuit_builders.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
 namespace proof_system::plonk {
 namespace stdlib {
@@ -122,6 +122,7 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
     return field_pt::from_witness_index(context, output_idx);
 }
 
-INSTANTIATE_STDLIB_ULTRA_TYPE(rom_table);
+template class rom_table<proof_system::UltraCircuitBuilder>;
+template class rom_table<proof_system::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
 } // namespace proof_system::plonk

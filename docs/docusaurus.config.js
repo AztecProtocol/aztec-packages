@@ -82,13 +82,6 @@ const config = {
         name: "load-versions",
         async loadContent() {
           try {
-            const noirVersionPath = path.resolve(
-              __dirname,
-              "../yarn-project/noir-compiler/src/noir-version.json"
-            );
-            const noirVersion = JSON.parse(
-              fs.readFileSync(noirVersionPath).toString()
-            ).tag;
             const aztecVersionPath = path.resolve(
               __dirname,
               "../.release-please-manifest.json"
@@ -97,12 +90,11 @@ const config = {
               fs.readFileSync(aztecVersionPath).toString()
             )["."];
             return {
-              noir: noirVersion,
               "aztec-packages": `aztec-packages-v${aztecVersion}`,
             };
           } catch (err) {
             throw new Error(
-              `Error loading Noir version from noir-compiler in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
+              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
             );
           }
         },
@@ -127,8 +119,8 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "apis/pxe",
-        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/types/tsconfig.json",
+        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
         out: "apis/pxe",
         disableSources: true,

@@ -31,10 +31,15 @@ impl MacroProcessor for AztecMacro {
     }
 }
 
+const FUNCTION_TREE_HEIGHT: u32 = 5;
+const MAX_CONTRACT_FUNCTIONS: usize = 2_usize.pow(FUNCTION_TREE_HEIGHT);
+
 #[derive(Debug, Clone)]
 pub enum AztecMacroError {
     AztecNotFound,
     AztecComputeNoteHashAndNullifierNotFound { span: Span },
+    AztecContractHasTooManyFunctions { span: Span },
+    AztecContractConstructorMissing { span: Span },
 }
 
 impl From<AztecMacroError> for MacroError {
@@ -47,6 +52,16 @@ impl From<AztecMacroError> for MacroError {
             },
             AztecMacroError::AztecComputeNoteHashAndNullifierNotFound { span } => MacroError {
                 primary_message: "compute_note_hash_and_nullifier function not found. Define it in your contract. For more information go to https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#compute_note_hash_and_nullifier-function-not-found-define-it-in-your-contract".to_owned(),
+                secondary_message: None,
+                span: Some(span),
+            },
+            AztecMacroError::AztecContractHasTooManyFunctions { span } => MacroError {
+                primary_message: format!("Contract can only have a maximum of {} functions", MAX_CONTRACT_FUNCTIONS),
+                secondary_message: None,
+                span: Some(span),
+            },
+            AztecMacroError::AztecContractConstructorMissing { span } => MacroError {
+                primary_message: "Contract must have a constructor function".to_owned(),
                 secondary_message: None,
                 span: Some(span),
             },
@@ -340,6 +355,28 @@ fn transform_module(
             has_transformed_module = true;
         }
     }
+
+    if has_transformed_module {
+        // We only want to run these checks if the macro processor has found the module to be an Aztec contract.
+
+        if module.functions.len() > MAX_CONTRACT_FUNCTIONS {
+            let crate_graph = &context.crate_graph[crate_id];
+            return Err((
+                AztecMacroError::AztecContractHasTooManyFunctions { span: Span::default() }.into(),
+                crate_graph.root_file_id,
+            ));
+        }
+
+        let constructor_defined = module.functions.iter().any(|func| func.name() == "constructor");
+        if !constructor_defined {
+            let crate_graph = &context.crate_graph[crate_id];
+            return Err((
+                AztecMacroError::AztecContractConstructorMissing { span: Span::default() }.into(),
+                crate_graph.root_file_id,
+            ));
+        }
+    }
+
     Ok(has_transformed_module)
 }
 
@@ -483,12 +520,11 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 
 /// Generates the impl for an event selector
 ///
-/// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
 /// Inserts the following code:
 /// ```noir
 /// impl SomeStruct {
 ///    fn selector() -> FunctionSelector {
-///       protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
+///       aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
 ///    }
 /// }
 /// ```
@@ -499,9 +535,8 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     let struct_type = make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![]));
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
     let selector_path =
-        chained_path!("protocol_types", "abis", "function_selector", "FunctionSelector");
+        chained_path!("aztec", "protocol_types", "abis", "function_selector", "FunctionSelector");
     let mut from_signature_path = selector_path.clone();
     from_signature_path.segments.push(ident("from_signature"));
 

@@ -74,7 +74,7 @@ class table : public FixedBaseParams {
     template <size_t multitable_index, size_t num_bits> static MultiTable get_fixed_base_table(MultiTableId id);
 
     template <size_t multitable_index, size_t table_index>
-    static std::array<barretenberg::fr, 2> get_basic_fixed_base_table_values(const std::array<uint64_t, 2> key)
+    static std::array<bb::fr, 2> get_basic_fixed_base_table_values(const std::array<uint64_t, 2> key)
     {
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
         static_assert(table_index < get_num_bits_of_multi_table(multitable_index));
@@ -83,23 +83,5 @@ class table : public FixedBaseParams {
         return { basic_table[index].x, basic_table[index].y };
     }
 };
-
-extern template table::affine_element table::generate_generator_offset<table::BITS_PER_LO_SCALAR>(
-    const table::affine_element&);
-extern template table::affine_element table::generate_generator_offset<table::BITS_PER_HI_SCALAR>(
-    const table::affine_element&);
-extern template table::fixed_base_scalar_mul_tables table::generate_tables<table::BITS_PER_LO_SCALAR>(
-    const table::affine_element&);
-extern template table::fixed_base_scalar_mul_tables table::generate_tables<table::BITS_PER_HI_SCALAR>(
-    const table::affine_element&);
-
-extern template BasicTable table::generate_basic_fixed_base_table<0>(BasicTableId, size_t, size_t);
-extern template BasicTable table::generate_basic_fixed_base_table<1>(BasicTableId, size_t, size_t);
-extern template BasicTable table::generate_basic_fixed_base_table<2>(BasicTableId, size_t, size_t);
-extern template BasicTable table::generate_basic_fixed_base_table<3>(BasicTableId, size_t, size_t);
-extern template MultiTable table::get_fixed_base_table<0, table::BITS_PER_LO_SCALAR>(MultiTableId);
-extern template MultiTable table::get_fixed_base_table<1, table::BITS_PER_HI_SCALAR>(MultiTableId);
-extern template MultiTable table::get_fixed_base_table<2, table::BITS_PER_LO_SCALAR>(MultiTableId);
-extern template MultiTable table::get_fixed_base_table<3, table::BITS_PER_HI_SCALAR>(MultiTableId);
 
 } // namespace plookup::fixed_base

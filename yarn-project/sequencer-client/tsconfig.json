@@ -10,6 +10,9 @@
       "path": "../acir-simulator"
     },
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {

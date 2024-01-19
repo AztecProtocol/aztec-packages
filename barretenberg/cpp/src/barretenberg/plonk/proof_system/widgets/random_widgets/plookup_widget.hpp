@@ -21,10 +21,6 @@ class VerifierPlookupWidget {
                                                      std::map<std::string, Field>& scalars);
 };
 
-extern template class VerifierPlookupWidget<barretenberg::fr,
-                                            barretenberg::g1::affine_element,
-                                            transcript::StandardTranscript>;
-
 template <const size_t num_roots_cut_out_of_vanishing_polynomial = 4>
 class ProverPlookupWidget : public ProverRandomWidget {
   public:
@@ -42,8 +38,8 @@ class ProverPlookupWidget : public ProverRandomWidget {
                                           const size_t round_number,
                                           work_queue& queue) override;
 
-    inline barretenberg::fr compute_quotient_contribution(const barretenberg::fr& alpha_base,
-                                                          const transcript::StandardTranscript& transcript) override;
+    inline bb::fr compute_quotient_contribution(const bb::fr& alpha_base,
+                                                const transcript::StandardTranscript& transcript) override;
 };
 
 } // namespace proof_system::plonk

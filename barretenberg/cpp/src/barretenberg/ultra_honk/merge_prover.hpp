@@ -39,7 +39,4 @@ template <typename Flavor> class MergeProver_ {
     honk::proof proof;
 };
 
-extern template class MergeProver_<honk::flavor::Ultra>;
-extern template class MergeProver_<honk::flavor::GoblinUltra>;
-
 } // namespace proof_system::honk

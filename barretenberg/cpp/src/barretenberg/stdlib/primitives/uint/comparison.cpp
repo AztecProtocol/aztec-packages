@@ -1,7 +1,7 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
 namespace proof_system::plonk {
 namespace stdlib {
@@ -97,9 +97,9 @@ template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Nativ
     return (field_t<Builder>(*this).is_zero()).normalize();
 }
 
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint8_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint16_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint32_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint64_t);
+template class uint<proof_system::StandardCircuitBuilder, uint8_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint16_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint32_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint64_t>;
 } // namespace stdlib
 } // namespace proof_system::plonk

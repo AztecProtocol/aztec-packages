@@ -1,9 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { createDebugLogger } from '@aztec/foundation/log';
 import {
-  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
@@ -16,14 +11,16 @@ import {
   LogFilter,
   LogId,
   LogType,
-  PendingL1ToL2Message,
   TxHash,
   UnencryptedL2Log,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Database, RangeOptions, RootDatabase } from 'lmdb';
 
-import { ArchiverDataStore } from './archiver_store.js';
+import { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 
 /* eslint-disable */
 type L1ToL2MessageAndCount = {
@@ -32,25 +29,19 @@ type L1ToL2MessageAndCount = {
   confirmedCount: number;
 };
 
-type L1ToL2MessageBlockKey = `${string}:${'newMessage' | 'cancelledMessage'}:${number}`;
-
-function l1ToL2MessageBlockKey(
-  l1BlockNumber: bigint,
-  key: 'newMessage' | 'cancelledMessage',
-  indexInBlock: number,
-): L1ToL2MessageBlockKey {
-  return `${toBufferBE(l1BlockNumber, 32).toString('hex')}:${key}:${indexInBlock}`;
-}
-
 type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockContext = {
   block?: Uint8Array;
-  l1BlockNumber?: Uint8Array;
+  blockHash?: Uint8Array;
+  l1BlockNumber?: bigint;
   encryptedLogs?: Uint8Array;
   unencryptedLogs?: Uint8Array;
   extendedContractData?: Array<Uint8Array>;
 };
+
+const L1_BLOCK_ADDED_PENDING_MESSAGE = 'l1BlockAddedPendingMessage';
+const L1_BLOCK_CANCELLED_MESSAGE = 'l1BlockCancelledMessage';
 /* eslint-enable */
 
 /**
@@ -67,7 +58,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     /** L1 to L2 messages */
     l1ToL2Messages: Database<L1ToL2MessageAndCount, Buffer>;
     /** Which blocks emitted which messages */
-    l1ToL2MessagesByBlock: Database<Buffer, L1ToL2MessageBlockKey>;
+    l1ToL2MessagesByBlock: Database<bigint, typeof L1_BLOCK_CANCELLED_MESSAGE | typeof L1_BLOCK_ADDED_PENDING_MESSAGE>;
     /** Pending L1 to L2 messages sorted by their fee, in buckets (dupSort=true)  */
     pendingMessagesByFee: Database<Buffer, number>;
   };
@@ -96,7 +87,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       }),
       l1ToL2MessagesByBlock: db.openDB('l1_to_l2_message_nonces', {
         keyEncoding: 'ordered-binary',
-        encoding: 'binary',
+        encoding: 'msgpack',
       }),
       pendingMessagesByFee: db.openDB('pending_messages_by_fee', {
         keyEncoding: 'ordered-binary',
@@ -124,7 +115,8 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       for (const block of blocks) {
         const blockCtx = this.#tables.blocks.get(block.number) ?? {};
         blockCtx.block = block.toBuffer();
-        blockCtx.l1BlockNumber = toBufferBE(block.getL1BlockNumber(), 32);
+        blockCtx.l1BlockNumber = block.getL1BlockNumber();
+        blockCtx.blockHash = block.getBlockHash();
 
         // no need to await, all writes are enqueued in the transaction
         // awaiting would interrupt the execution flow of this callback and "leak" the transaction to some other part
@@ -163,15 +155,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
         .getRange(this.#computeBlockRange(start, limit))
         .filter(({ value }) => value.block)
         .map(({ value }) => {
-          const block = L2Block.fromBuffer(asBuffer(value.block!));
-          if (value.encryptedLogs) {
-            block.attachLogs(L2BlockL2Logs.fromBuffer(asBuffer(value.encryptedLogs)), LogType.ENCRYPTED);
-          }
-
-          if (value.unencryptedLogs) {
-            block.attachLogs(L2BlockL2Logs.fromBuffer(asBuffer(value.unencryptedLogs)), LogType.UNENCRYPTED);
-          }
-
+          const block = L2Block.fromBuffer(
+            asBuffer(value.block!),
+            value.blockHash ? asBuffer(value.blockHash) : undefined,
+          );
           return block;
         }).asArray;
 
@@ -193,7 +180,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       return Promise.resolve(undefined);
     }
 
-    const block = this.#getBlock(blockNumber, true);
+    const block = this.#getBlock(blockNumber);
     return Promise.resolve(block?.getTx(txIndex));
   }
 
@@ -228,76 +215,61 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The L1 block number for which to add the messages.
    * @returns True if the operation is successful.
    */
-  addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean> {
+  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
-      for (const { message, blockNumber, indexInBlock } of messages) {
+      if ((this.#tables.l1ToL2MessagesByBlock.get(L1_BLOCK_ADDED_PENDING_MESSAGE) ?? 0n) >= l1BlockNumber) {
+        return false;
+      }
+      // ensure we don't add the same messages twice
+      void this.#tables.l1ToL2MessagesByBlock.put(L1_BLOCK_ADDED_PENDING_MESSAGE, l1BlockNumber);
+
+      for (const message of messages) {
         const messageKey = message.entryKey?.toBuffer();
         if (!messageKey) {
           throw new Error('Message does not have an entry key');
         }
 
-        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'newMessage', indexInBlock);
-        const messageInBlock = this.#tables.l1ToL2MessagesByBlock.get(dupeKey);
-
-        if (messageInBlock?.equals(messageKey)) {
-          continue;
-        } else {
-          if (messageInBlock) {
-            this.#log(
-              `Previously add pending message ${messageInBlock.toString(
-                'hex',
-              )} at ${dupeKey.toString()}, now got ${messageKey.toString('hex')}`,
-            );
-          }
-
-          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, messageKey);
-        }
-
-        let messageWithCount = this.#tables.l1ToL2Messages.get(messageKey);
-        if (!messageWithCount) {
-          messageWithCount = {
+        let messageCtx = this.#tables.l1ToL2Messages.get(messageKey);
+        if (!messageCtx) {
+          messageCtx = {
             message: message.toBuffer(),
             pendingCount: 0,
             confirmedCount: 0,
           };
-          void this.#tables.l1ToL2Messages.put(messageKey, messageWithCount);
+          void this.#tables.l1ToL2Messages.put(messageKey, messageCtx);
         }
 
         this.#updateMessageCountInTx(messageKey, message, 1, 0);
       }
+
       return true;
     });
   }
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messages - The message keys to be removed from the store.
+   * @param cancelledMessages - The message keys to be removed from the store.
+   * @param l1BlockNumber - The L1 block number for which to remove the messages.
    * @returns True if the operation is successful.
    */
-  cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
+  cancelPendingL1ToL2Messages(cancelledMessages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
-      for (const { blockNumber, indexInBlock, entryKey } of messages) {
-        const messageKey = entryKey.toBuffer();
-        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'cancelledMessage', indexInBlock);
-        const messageInBlock = this.#tables.l1ToL2MessagesByBlock.get(dupeKey);
-        if (messageInBlock?.equals(messageKey)) {
-          continue;
-        } else {
-          if (messageInBlock) {
-            this.#log(
-              `Previously add pending message ${messageInBlock.toString(
-                'hex',
-              )} at ${dupeKey.toString()}, now got ${messageKey.toString('hex')}`,
-            );
-          }
-          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, messageKey);
-        }
-
-        const message = this.#getL1ToL2Message(messageKey);
-        this.#updateMessageCountInTx(messageKey, message, -1, 0);
+      if ((this.#tables.l1ToL2MessagesByBlock.get(L1_BLOCK_CANCELLED_MESSAGE) ?? 0n) >= l1BlockNumber) {
+        return false;
       }
+      void this.#tables.l1ToL2MessagesByBlock.put(L1_BLOCK_CANCELLED_MESSAGE, l1BlockNumber);
+
+      for (const messageKey of cancelledMessages) {
+        const message = this.#getL1ToL2Message(messageKey.toBuffer());
+        if (!message) {
+          continue;
+        }
+        this.#updateMessageCountInTx(messageKey.toBuffer(), message, -1, 0);
+      }
+
       return true;
     });
   }
@@ -415,18 +387,18 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     try {
       if (filter.afterLog) {
-        return Promise.resolve(this.#filterLogsBetweenBlocks(filter));
+        return Promise.resolve(this.#filterUnencryptedLogsBetweenBlocks(filter));
       } else if (filter.txHash) {
-        return Promise.resolve(this.#filterLogsOfTx(filter));
+        return Promise.resolve(this.#filterUnencryptedLogsOfTx(filter));
       } else {
-        return Promise.resolve(this.#filterLogsBetweenBlocks(filter));
+        return Promise.resolve(this.#filterUnencryptedLogsBetweenBlocks(filter));
       }
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
-  #filterLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+  #filterUnencryptedLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
@@ -436,19 +408,16 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       return { logs: [], maxLogsHit: false };
     }
 
-    const block = this.#getBlock(blockNumber, true);
-    if (!block || !block.newUnencryptedLogs) {
-      return { logs: [], maxLogsHit: false };
-    }
+    const unencryptedLogsInBlock = this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
+    const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
 
-    const txLogs = block.newUnencryptedLogs.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
     const logs: ExtendedUnencryptedL2Log[] = [];
     const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
 
     return { logs, maxLogsHit };
   }
 
-  #filterLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+  #filterUnencryptedLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;
@@ -466,12 +435,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     let maxLogsHit = false;
 
     loopOverBlocks: for (const blockNumber of blockNumbers) {
-      const block = this.#getBlock(blockNumber, true);
-      if (!block || !block.newUnencryptedLogs) {
-        continue;
-      }
-
-      const unencryptedLogsInBlock = block.newUnencryptedLogs;
+      const unencryptedLogsInBlock = this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
@@ -611,19 +575,21 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     return Promise.resolve(typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1);
   }
 
-  getL1BlockNumber(): Promise<bigint> {
+  /**
+   * Gets the last L1 block number processed by the archiver
+   */
+  getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
     // inverse range with no start/end will return the last value
-    const [lastBlock] = this.#tables.blocks.getRange({ reverse: true, limit: 1 }).asArray;
-    if (!lastBlock) {
-      return Promise.resolve(0n);
-    } else {
-      const blockCtx = lastBlock.value;
-      if (!blockCtx.l1BlockNumber) {
-        return Promise.reject(new Error('L1 block number not found'));
-      } else {
-        return Promise.resolve(toBigIntBE(asBuffer(blockCtx.l1BlockNumber)));
-      }
-    }
+    const [lastL2Block] = this.#tables.blocks.getRange({ reverse: true, limit: 1 }).asArray;
+    const addedBlock = lastL2Block?.value?.l1BlockNumber ?? 0n;
+    const addedMessages = this.#tables.l1ToL2MessagesByBlock.get(L1_BLOCK_ADDED_PENDING_MESSAGE) ?? 0n;
+    const cancelledMessages = this.#tables.l1ToL2MessagesByBlock.get(L1_BLOCK_CANCELLED_MESSAGE) ?? 0n;
+
+    return Promise.resolve({
+      addedBlock,
+      addedMessages,
+      cancelledMessages,
+    });
   }
 
   #getBlock(blockNumber: number, withLogs = false): L2Block | undefined {
@@ -632,7 +598,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       return undefined;
     }
 
-    const block = L2Block.fromBuffer(asBuffer(blockCtx.block));
+    const block = L2Block.fromBuffer(
+      asBuffer(blockCtx.block),
+      blockCtx.blockHash ? asBuffer(blockCtx.blockHash) : undefined,
+    );
 
     if (withLogs) {
       if (blockCtx.encryptedLogs) {
@@ -645,6 +614,17 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     }
 
     return block;
+  }
+
+  #getBlockLogs(blockNumber: number, logType: LogType): L2BlockL2Logs {
+    const blockCtx = this.#tables.blocks.get(blockNumber);
+    const logs = blockCtx?.[logType === LogType.ENCRYPTED ? 'encryptedLogs' : 'unencryptedLogs'];
+
+    if (!logs) {
+      return new L2BlockL2Logs([]);
+    }
+
+    return L2BlockL2Logs.fromBuffer(asBuffer(logs));
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<RangeOptions, 'start' | 'end'>> {

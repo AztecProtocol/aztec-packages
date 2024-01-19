@@ -41,7 +41,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    UltraComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
+    UltraComposer_() { crs_factory_ = bb::srs::get_crs_factory(); }
 
     explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
         : crs_factory_(std::move(crs_factory))
@@ -134,8 +134,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     void compute_verification_key(const std::shared_ptr<Instance>&);
 };
 
-extern template class UltraComposer_<honk::flavor::Ultra>;
-extern template class UltraComposer_<honk::flavor::GoblinUltra>;
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
 using UltraComposer = UltraComposer_<honk::flavor::Ultra>;
 using GoblinUltraComposer = UltraComposer_<honk::flavor::GoblinUltra>;
