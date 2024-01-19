@@ -20,8 +20,6 @@ using ProverPolynomials = typename Flavor::ProverPolynomials;
 using RelationSeparator = Flavor::RelationSeparator;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-namespace test_sumcheck_round {
-
 bb::Polynomial<FF> random_poly(size_t size)
 {
     auto poly = bb::Polynomial<FF>(size);
@@ -255,5 +253,3 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
     run_test(/* expect_verified=*/true);
     run_test(/* expect_verified=*/false);
 }
-
-} // namespace test_sumcheck_round

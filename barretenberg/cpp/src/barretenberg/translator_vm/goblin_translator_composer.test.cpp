@@ -13,8 +13,6 @@ using CircuitBuilder = flavor::GoblinTranslator::CircuitBuilder;
 using Transcript = flavor::GoblinTranslator::Transcript;
 using OpQueue = bb::ECCOpQueue;
 
-namespace test_goblin_translator_composer {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -81,5 +79,3 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
 }
-
-} // namespace test_goblin_translator_composer

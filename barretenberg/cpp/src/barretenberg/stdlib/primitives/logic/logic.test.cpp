@@ -16,8 +16,6 @@
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using public_witness_ct = stdlib::public_witness_t<Builder>;
 
-namespace test_stdlib_logic {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -147,5 +145,3 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
         EXPECT_EQ(result, false);
     }
 }
-
-} // namespace test_stdlib_logic

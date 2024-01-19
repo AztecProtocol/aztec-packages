@@ -18,7 +18,6 @@
 #include <memory>
 #include <utility>
 
-namespace test_stdlib_bigfield {
 using namespace bb;
 
 /* A note regarding Plookup:
@@ -1062,4 +1061,3 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //     bool result = verifier.verify_proof(proof);
 //     EXPECT_EQ(result, true);
 // }
-} // namespace test_stdlib_bigfield

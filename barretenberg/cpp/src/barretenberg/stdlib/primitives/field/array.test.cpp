@@ -6,8 +6,6 @@
 #include <gtest/gtest.h>
 #include <utility>
 
-namespace test_stdlib_array {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -695,4 +693,3 @@ TYPED_TEST(stdlib_array, test_pata_nonzero_after_zero_target_fails_2)
 {
     TestFixture::test_pata_nonzero_after_zero_target_fails_2();
 }
-} // namespace test_stdlib_array

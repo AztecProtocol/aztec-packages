@@ -14,8 +14,6 @@ using Flavor = flavor::Ultra;
 using FF = typename Flavor::FF;
 using Utils = bb::RelationUtils<Flavor>;
 
-namespace test_sumcheck_round {
-
 /**
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
  *
@@ -141,5 +139,3 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_1)), expected_sum_2);
     EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples_1)), expected_sum_3);
 }
-
-} // namespace test_sumcheck_round

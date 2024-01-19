@@ -5,7 +5,6 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "pedersen.hpp"
 
-namespace test_StdlibPedersen {
 using namespace bb;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
@@ -309,5 +308,3 @@ TYPED_TEST(StdlibPedersen, HashConstants)
 {
     TestFixture::test_hash_constants();
 };
-
-} // namespace test_StdlibPedersen

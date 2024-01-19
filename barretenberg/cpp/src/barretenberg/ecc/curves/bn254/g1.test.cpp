@@ -3,7 +3,6 @@
 
 using namespace bb;
 
-namespace test_g1 {
 TEST(g1, RandomElement)
 {
     g1::element result = g1::element::random_element();
@@ -419,4 +418,3 @@ TEST(g1, InitializationCheck)
     EXPECT_NO_THROW(write<bb::g1::affine_element>({}));
 }
 #endif
-} // namespace test_g1

@@ -14,8 +14,6 @@
 
 using namespace bb::honk;
 
-namespace test_eccvm_composer {
-
 template <typename Flavor> class ECCVMComposerTests : public ::testing::Test {
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialized for every test.
@@ -102,4 +100,3 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
     bool verified = verifier.verify_proof(proof);
     ASSERT_FALSE(verified);
 }
-} // namespace test_eccvm_composer

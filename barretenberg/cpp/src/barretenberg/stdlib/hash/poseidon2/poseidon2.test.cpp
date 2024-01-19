@@ -4,7 +4,6 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
-namespace test_StdlibPoseidon2 {
 using namespace bb;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
@@ -185,5 +184,3 @@ TYPED_TEST(StdlibPoseidon2, TestHashConstants)
 {
     TestFixture::test_hash_constants();
 };
-
-} // namespace test_StdlibPoseidon2

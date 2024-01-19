@@ -10,8 +10,6 @@
 
 using namespace bb::honk;
 
-namespace test_ultra_honk_composer {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -212,5 +210,3 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
         EXPECT_EQ(result, expected);
     }
 }
-
-} // namespace test_ultra_honk_composer

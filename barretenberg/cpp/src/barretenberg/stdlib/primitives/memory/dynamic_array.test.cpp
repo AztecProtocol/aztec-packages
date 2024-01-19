@@ -7,7 +7,6 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 
-namespace test_stdlib_dynamic_array {
 using namespace bb;
 
 namespace {
@@ -63,5 +62,3 @@ TEST(DynamicArray, DynamicArrayReadWriteConsistency)
     bool verified = builder.check_circuit();
     EXPECT_EQ(verified, true);
 }
-
-} // namespace test_stdlib_dynamic_array

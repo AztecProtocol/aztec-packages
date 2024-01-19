@@ -10,8 +10,6 @@
 
 using namespace bb;
 
-namespace test_stdlib_field {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -1035,5 +1033,3 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 {
     TestFixture::test_ranged_less_than();
 }
-
-} // namespace test_stdlib_field

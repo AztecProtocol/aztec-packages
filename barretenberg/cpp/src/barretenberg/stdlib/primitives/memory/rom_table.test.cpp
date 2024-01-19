@@ -5,7 +5,6 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "rom_table.hpp"
 
-namespace test_stdlib_rom_array {
 using namespace bb;
 
 // Defining ultra-specific types for local testing.
@@ -62,5 +61,3 @@ TEST(rom_table, rom_table_read_write_consistency)
     bool verified = builder.check_circuit();
     EXPECT_EQ(verified, true);
 }
-
-} // namespace test_stdlib_rom_array

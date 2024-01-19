@@ -12,8 +12,6 @@
 
 using namespace bb::honk;
 
-namespace test_ultra_honk_composer {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -95,5 +93,3 @@ TEST_F(DataBusComposerTests, CallDataRead)
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
 }
-
-} // namespace test_ultra_honk_composer

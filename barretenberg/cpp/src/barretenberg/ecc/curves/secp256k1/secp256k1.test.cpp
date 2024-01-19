@@ -2,11 +2,8 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
-namespace test_secp256k1 {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
-}
 
 constexpr uint256_t test_fq_mod(secp256k1::Secp256k1FqParams::modulus_0,
                                 secp256k1::Secp256k1FqParams::modulus_1,
@@ -21,6 +18,7 @@ uint256_t get_fq_element()
     }
     return res;
 }
+} // namespace
 
 TEST(secp256k1, TestAdd)
 {
@@ -504,5 +502,3 @@ TEST(secp256k1, MontgomeryMulBigBug)
     secp256k1::fq expected(uint256_t{ 0x60381e557e100000, 0x0, 0x0, 0x0 });
     EXPECT_EQ((a_sqr == expected), true);
 }
-
-} // namespace test_secp256k1

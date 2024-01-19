@@ -8,7 +8,6 @@
     using witness_ct = stdlib::witness_t<Builder>;                                                                     \
     using bool_ct = stdlib::bool_t<Builder>;
 
-namespace test_stdlib_bool {
 using namespace bb;
 
 namespace {
@@ -528,4 +527,3 @@ TYPED_TEST(BoolTest, Normalize)
     bool result = builder.check_circuit();
     EXPECT_EQ(result, true);
 }
-} // namespace test_stdlib_bool

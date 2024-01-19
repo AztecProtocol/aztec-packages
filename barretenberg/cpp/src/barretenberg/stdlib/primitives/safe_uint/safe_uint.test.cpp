@@ -22,7 +22,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace test_stdlib_safe_uint {
 using namespace bb;
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
@@ -706,4 +705,3 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
     arr.write(static_cast<byte_array_ct>(safe));
     EXPECT_EQ(arr.get_string(), expected);
 }
-} // namespace test_stdlib_safe_uint

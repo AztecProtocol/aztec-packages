@@ -4,8 +4,6 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "ram_table.hpp"
 
-namespace test_stdlib_ram_table {
-
 using namespace bb;
 // Defining ultra-specific types for local testing.
 using Builder = bb::UltraCircuitBuilder;
@@ -100,4 +98,3 @@ TEST(ram_table, ram_table_read_write_consistency)
     bool verified = builder.check_circuit();
     EXPECT_EQ(verified, true);
 }
-} // namespace test_stdlib_ram_table
