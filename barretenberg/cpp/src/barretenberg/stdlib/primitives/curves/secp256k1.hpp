@@ -6,11 +6,10 @@
 
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename CircuitType> struct secp256k1 {
-    static constexpr proof_system::CurveType type = proof_system::CurveType::SECP256K1;
+    static constexpr bb::CurveType type = bb::CurveType::SECP256K1;
 
     typedef ::secp256k1::fq fq;
     typedef ::secp256k1::fr fr;
@@ -29,5 +28,4 @@ template <typename CircuitType> struct secp256k1 {
     typedef element<Builder, fq_ct, fr_ct, g1> g1_ct;
     typedef element<Builder, fq_ct, bigfr_ct, g1> g1_bigfr_ct;
 };
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib
