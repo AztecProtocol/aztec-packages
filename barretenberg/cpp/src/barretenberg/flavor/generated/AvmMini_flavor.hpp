@@ -18,7 +18,7 @@
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 class AvmMiniFlavor {
   public:
@@ -898,4 +898,4 @@ class AvmMiniFlavor {
     };
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor
