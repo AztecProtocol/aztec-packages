@@ -172,11 +172,11 @@ export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: st
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
     const proofTimer = new Timer();
-    const proof = await api.acirGoblinAccumulate(acirComposer, bytecode, witness);
+    const proof = await api.acirGoblinProve(acirComposer, bytecode, witness);
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
     debug(`verifying...`);
-    const verified = await api.acirGoblinVerifyAccumulator(acirComposer, proof);
+    const verified = await api.acirGoblinVerify(acirComposer, proof);
     debug(`verified: ${verified}`);
     console.log({ verified });
     return verified;
