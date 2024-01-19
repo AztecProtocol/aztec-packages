@@ -12,8 +12,6 @@
 using namespace bb;
 using namespace bb::plonk;
 
-namespace bb::plonk::test_ultra_plonk_composer {
-
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -822,5 +820,3 @@ TEST(ultra_plonk_composer, range_constraint_small_variable)
     bool result = verifier.verify_proof(proof);
     EXPECT_EQ(result, true);
 }
-
-} // namespace bb::plonk::test_ultra_plonk_composer

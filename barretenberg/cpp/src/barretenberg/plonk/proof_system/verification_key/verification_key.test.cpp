@@ -10,8 +10,6 @@ auto& engine = numeric::random::get_debug_engine();
 using namespace bb;
 using namespace bb::plonk;
 
-namespace bb::plonk::test_verification_key {
-
 /**
  * @brief generate a random vk data for use in tests
  *
@@ -154,4 +152,3 @@ TEST(VerificationKey, HashEqualityDifferentRecursiveProofPublicInputIndices)
     vk1_data.recursive_proof_public_input_indices.push_back(42);
     expect_hashes_eq(vk0_data, vk1_data);
 }
-} // namespace bb::plonk::test_verification_key

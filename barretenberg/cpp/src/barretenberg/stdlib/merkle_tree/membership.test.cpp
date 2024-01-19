@@ -11,8 +11,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace bb::stdlib_merkle_test {
-
 using namespace bb;
 using namespace bb::stdlib::merkle_tree;
 using namespace bb::stdlib;
@@ -247,4 +245,3 @@ TEST(stdlib_merkle_tree, test_update_memberships)
     bool result = builder.check_circuit();
     EXPECT_EQ(result, true);
 }
-} // namespace bb::stdlib_merkle_test
