@@ -11,7 +11,9 @@
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::utility {
+namespace bb::stdlib::recursion::utility {
+
+using namespace bb::stdlib;
 
 /**
  * @brief Utility class for converting native types to corresponding stdlib types
@@ -25,12 +27,12 @@ namespace proof_system::plonk::stdlib::recursion::utility {
  */
 template <typename Builder> class StdlibTypesUtility {
     using field_ct = field_t<Builder>;
-    using fq_ct = bigfield<Builder, barretenberg::Bn254FqParams>;
-    using element_ct = element<Builder, fq_ct, field_ct, barretenberg::g1>;
-    using FF = barretenberg::fr;
-    using Commitment = barretenberg::g1::affine_element;
-    template <size_t LENGTH> using Univariate = barretenberg::Univariate<FF, LENGTH>;
-    template <size_t LENGTH> using Univariate_ct = barretenberg::Univariate<field_ct, LENGTH>;
+    using fq_ct = bigfield<Builder, bb::Bn254FqParams>;
+    using element_ct = element<Builder, fq_ct, field_ct, bb::g1>;
+    using FF = bb::fr;
+    using Commitment = bb::g1::affine_element;
+    template <size_t LENGTH> using Univariate = bb::Univariate<FF, LENGTH>;
+    template <size_t LENGTH> using Univariate_ct = bb::Univariate<field_ct, LENGTH>;
 
   public:
     /**
@@ -131,4 +133,4 @@ template <typename Builder> class StdlibTypesUtility {
         using type = Univariate<LENGTH>;
     };
 };
-} // namespace proof_system::plonk::stdlib::recursion::utility
+} // namespace bb::stdlib::recursion::utility

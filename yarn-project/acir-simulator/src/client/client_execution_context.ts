@@ -1,3 +1,4 @@
+import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
@@ -15,7 +16,6 @@ import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/founda
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/types';
 
 import {
   NoteData,
@@ -106,7 +106,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       ...args,
     ];
 
-    return toACVMWitness(1, fields);
+    return toACVMWitness(0, fields);
   }
 
   /**

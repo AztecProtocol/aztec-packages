@@ -7,6 +7,34 @@ import {
   resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
+  AuthWitness,
+  AztecNode,
+  ContractDao,
+  ContractData,
+  DeployedContract,
+  ExtendedContractData,
+  ExtendedNote,
+  FunctionCall,
+  GetUnencryptedLogsResponse,
+  KeyStore,
+  L2Block,
+  L2Tx,
+  LogFilter,
+  MerkleTreeId,
+  NoteFilter,
+  PXE,
+  SimulationError,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxL2Logs,
+  TxReceipt,
+  TxStatus,
+  getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
+} from '@aztec/circuit-types';
+import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
+import {
   AztecAddress,
   CallRequest,
   CompleteAddress,
@@ -24,36 +52,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
-import {
-  AuthWitness,
-  AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  KeyStore,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  MerkleTreeId,
-  NodeInfo,
-  NoteFilter,
-  PXE,
-  SimulationError,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxL2Logs,
-  TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
-  isNoirCallStackUnresolved,
-} from '@aztec/types';
-import { TxPXEProcessingStats } from '@aztec/types/stats';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -463,7 +462,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -488,7 +487,6 @@ export class PXEService implements PXE {
 
     const nodeInfo: NodeInfo = {
       nodeVersion: this.nodeVersion,
-      compatibleNargoVersion: NoirWasmVersion,
       chainId,
       protocolVersion: version,
       l1ContractAddresses: contractAddresses,

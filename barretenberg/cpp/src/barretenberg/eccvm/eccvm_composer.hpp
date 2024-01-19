@@ -7,7 +7,7 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <ECCVMFlavor Flavor> class ECCVMComposer_ {
   public:
     using FF = typename Flavor::FF;
@@ -26,7 +26,7 @@ template <ECCVMFlavor Flavor> class ECCVMComposer_ {
     std::shared_ptr<VerificationKey> verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
+    std::shared_ptr<bb::srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
 
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -37,11 +37,10 @@ template <ECCVMFlavor Flavor> class ECCVMComposer_ {
     ECCVMComposer_()
         requires(std::same_as<Flavor, honk::flavor::ECCVM>)
     {
-        crs_factory_ = barretenberg::srs::get_grumpkin_crs_factory();
+        crs_factory_ = bb::srs::get_grumpkin_crs_factory();
     };
 
-    explicit ECCVMComposer_(
-        std::shared_ptr<barretenberg::srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
+    explicit ECCVMComposer_(std::shared_ptr<bb::srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
         : crs_factory_(std::move(crs_factory))
     {}
 
@@ -67,16 +66,15 @@ template <ECCVMFlavor Flavor> class ECCVMComposer_ {
         CircuitConstructor& circuit_constructor,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
+    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 
     void compute_commitment_key(size_t circuit_size)
     {
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
     };
 };
-extern template class ECCVMComposer_<honk::flavor::ECCVM>;
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
 using ECCVMComposer = ECCVMComposer_<honk::flavor::ECCVM>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

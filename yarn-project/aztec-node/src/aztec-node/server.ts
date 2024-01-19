@@ -1,4 +1,27 @@
-import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
+import { Archiver, KVArchiverDataStore } from '@aztec/archiver';
+import {
+  AztecNode,
+  ContractData,
+  ContractDataSource,
+  ExtendedContractData,
+  GetUnencryptedLogsResponse,
+  INITIAL_L2_BLOCK_NUM,
+  L1ToL2MessageAndIndex,
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockL2Logs,
+  L2BlockSource,
+  L2LogsSource,
+  L2Tx,
+  LogFilter,
+  LogType,
+  MerkleTreeId,
+  NullifierMembershipWitness,
+  PublicDataWitness,
+  SequencerConfig,
+  Tx,
+  TxHash,
+} from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   BlockHeader,
@@ -24,30 +47,7 @@ import {
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
-import {
-  AztecNode,
-  ContractData,
-  ContractDataSource,
-  ExtendedContractData,
-  GetUnencryptedLogsResponse,
-  INITIAL_L2_BLOCK_NUM,
-  L1ToL2MessageAndIndex,
-  L1ToL2MessageSource,
-  L2Block,
-  L2BlockL2Logs,
-  L2BlockSource,
-  L2LogsSource,
-  L2Tx,
-  LogFilter,
-  LogType,
-  MerkleTreeId,
-  NullifierMembershipWitness,
-  PublicDataWitness,
-  SequencerConfig,
-  SiblingPath,
-  Tx,
-  TxHash,
-} from '@aztec/types';
+import { SiblingPath } from '@aztec/types/membership';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -107,10 +107,10 @@ export class AztecNodeService implements AztecNode {
 
     const log = createDebugLogger('aztec:node');
     const store = await AztecLmdbStore.create(config.l1Contracts.rollupAddress, config.dataDirectory);
-    const [nodeDb, worldStateDb] = await openDb(config, log);
+    const [_, worldStateDb] = await openDb(config, log);
 
     // first create and sync the archiver
-    const archiverStore = new LMDBArchiverStore(nodeDb, config.maxLogs);
+    const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
     const archiver = await Archiver.createAndSync(config, archiverStore, true);
 
     // we identify the P2P transaction protocol by using the rollup contract address.

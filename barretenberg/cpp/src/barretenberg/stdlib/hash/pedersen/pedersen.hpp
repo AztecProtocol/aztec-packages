@@ -6,9 +6,9 @@
 
 #include "../../primitives/circuit_builders/circuit_builders.hpp"
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
-using namespace barretenberg;
+using namespace bb;
 /**
  * @brief stdlib class that evaluates in-circuit pedersen hashes, consistent with behavior in
  * crypto::pedersen_hash
@@ -31,6 +31,4 @@ template <typename Builder> class pedersen_hash {
     static field_ct hash_buffer(const stdlib::byte_array<Builder>& input, GeneratorContext context = {});
 };
 
-EXTERN_STDLIB_TYPE(pedersen_hash);
-
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
@@ -7,8 +8,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
@@ -94,23 +93,6 @@ export class RootRollupPublicInputs {
 
   static from(fields: FieldsOf<RootRollupPublicInputs>): RootRollupPublicInputs {
     return new RootRollupPublicInputs(...RootRollupPublicInputs.getFields(fields));
-  }
-
-  /**
-   * Returns the sha256 hash of the calldata.
-   * @returns The sha256 hash of the calldata.
-   */
-  public sha256CalldataHash(): Buffer {
-    const high = this.header.bodyHash[0].toBuffer();
-    const low = this.header.bodyHash[1].toBuffer();
-
-    const hash = Buffer.alloc(32);
-    for (let i = 0; i < 16; i++) {
-      hash[i] = high[i + 16];
-      hash[i + 16] = low[i + 16];
-    }
-
-    return hash;
   }
 
   /**

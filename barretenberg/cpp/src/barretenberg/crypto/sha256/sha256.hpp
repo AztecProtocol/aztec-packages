@@ -15,14 +15,10 @@ hash sha256_block(const std::vector<uint8_t>& input);
 
 template <typename T> hash sha256(const T& input);
 
-extern template hash sha256<std::vector<uint8_t>>(const std::vector<uint8_t>& input);
-extern template hash sha256<std::array<uint8_t, 32>>(const std::array<uint8_t, 32>& input);
-extern template hash sha256<std::string>(const std::string& input);
-
-inline barretenberg::fr sha256_to_field(std::vector<uint8_t> const& input)
+inline bb::fr sha256_to_field(std::vector<uint8_t> const& input)
 {
     auto result = sha256::sha256(input);
-    return from_buffer<barretenberg::fr>(&result[0]);
+    return from_buffer<bb::fr>(&result[0]);
 }
 
 inline bool operator==(hash const& lhs, std::vector<uint8_t> const& rhs)

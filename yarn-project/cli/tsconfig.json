@@ -13,6 +13,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../ethereum"
     },
     {

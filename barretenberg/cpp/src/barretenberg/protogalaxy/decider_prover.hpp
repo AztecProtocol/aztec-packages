@@ -8,7 +8,7 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <UltraFlavor Flavor> class DeciderProver_ {
     using FF = typename Flavor::FF;
@@ -39,7 +39,7 @@ template <UltraFlavor Flavor> class DeciderProver_ {
 
     std::shared_ptr<Transcript> transcript;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     CommitmentLabels commitment_labels;
 
@@ -55,9 +55,6 @@ template <UltraFlavor Flavor> class DeciderProver_ {
     plonk::proof proof;
 };
 
-extern template class DeciderProver_<honk::flavor::Ultra>;
-extern template class DeciderProver_<honk::flavor::GoblinUltra>;
-
 using DeciderProver = DeciderProver_<honk::flavor::Ultra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

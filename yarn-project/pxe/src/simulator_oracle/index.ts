@@ -1,4 +1,12 @@
-import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import {
+  KeyStore,
+  L2Block,
+  MerkleTreeId,
+  NullifierMembershipWitness,
+  PublicDataWitness,
+  StateInfoProvider,
+} from '@aztec/circuit-types';
 import {
   AztecAddress,
   BlockHeader,
@@ -9,15 +17,8 @@ import {
   GrumpkinPrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
+import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import {
-  KeyStore,
-  L2Block,
-  MerkleTreeId,
-  NullifierMembershipWitness,
-  PublicDataWitness,
-  StateInfoProvider,
-} from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';
@@ -42,7 +43,7 @@ export class SimulatorOracle implements DBOracle {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#no-public-key-registered-error`,
+        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;

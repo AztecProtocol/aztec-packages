@@ -8,7 +8,7 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 // We won't compile this class with honk::flavor::Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
@@ -23,7 +23,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = barretenberg::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations;
 
   public:
     explicit ECCVMProver_(const std::shared_ptr<ProvingKey>& input_key,
@@ -51,7 +51,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     std::vector<FF> public_inputs;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
 
@@ -83,6 +83,4 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     plonk::proof proof;
 };
 
-extern template class ECCVMProver_<honk::flavor::ECCVM>;
-
-} // namespace proof_system::honk
+} // namespace bb::honk

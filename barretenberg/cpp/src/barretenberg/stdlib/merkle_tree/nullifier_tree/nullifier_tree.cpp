@@ -9,11 +9,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace merkle_tree {
-
-using namespace barretenberg;
+namespace bb::stdlib::merkle_tree {
 
 template <typename T> inline bool bit_set(T const& index, size_t i)
 {
@@ -85,6 +81,4 @@ template <typename Store> fr NullifierTree<Store>::update_element(fr const& valu
 
 template class NullifierTree<MemoryStore>;
 
-} // namespace merkle_tree
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::merkle_tree

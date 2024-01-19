@@ -80,19 +80,17 @@ fn on_goto_definition_inner(
 #[cfg(test)]
 mod goto_definition_tests {
 
+    use acvm::blackbox_solver::StubbedBlackBoxSolver;
     use async_lsp::ClientSocket;
     use lsp_types::{Position, Url};
     use tokio::test;
-
-    use crate::solver::MockBackend;
 
     use super::*;
 
     #[test]
     async fn test_on_goto_definition() {
         let client = ClientSocket::new_closed();
-        let solver = MockBackend;
-        let mut state = LspState::new(&client, solver);
+        let mut state = LspState::new(&client, StubbedBlackBoxSolver);
 
         let root_path = std::env::current_dir()
             .unwrap()
@@ -135,27 +133,5 @@ mod goto_definition_tests {
             .expect("Could execute on_goto_definition_request");
 
         assert!(&response.is_some());
-    }
-}
-
-#[cfg(test)]
-mod character_to_line_offset_tests {
-    use super::*;
-
-    #[test]
-    fn test_character_to_line_offset() {
-        let line = "Hello, dark!";
-        let character = 8;
-
-        let result = character_to_line_offset(line, character).unwrap();
-        assert_eq!(result, 8);
-
-        // In the case of a multi-byte character, the offset should be the byte index of the character
-        // byte offset for 8 character (黑) is expected to be 10
-        let line = "Hello, 黑!";
-        let character = 8;
-
-        let result = character_to_line_offset(line, character).unwrap();
-        assert_eq!(result, 10);
     }
 }

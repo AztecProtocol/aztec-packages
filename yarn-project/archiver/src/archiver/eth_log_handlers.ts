@@ -1,10 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
-  BufferReader,
-  CancelledL1ToL2Message,
   ContractData,
   EncodedContractFunction,
   ExtendedContractData,
@@ -12,8 +6,12 @@ import {
   L1ToL2Message,
   L2Actor,
   L2Block,
-  PendingL1ToL2Message,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
+import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 
@@ -24,26 +22,23 @@ import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hex
  */
 export function processPendingL1ToL2MessageAddedLogs(
   logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
-): PendingL1ToL2Message[] {
-  const l1ToL2Messages: PendingL1ToL2Message[] = [];
-  for (const [index, log] of logs.entries()) {
+): [L1ToL2Message, bigint][] {
+  const l1ToL2Messages: [L1ToL2Message, bigint][] = [];
+  for (const log of logs) {
     const { sender, senderChainId, recipient, recipientVersion, content, secretHash, deadline, fee, entryKey } =
       log.args;
-    l1ToL2Messages.push(
-      new PendingL1ToL2Message(
-        new L1ToL2Message(
-          new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
-          new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
-          Fr.fromString(content),
-          Fr.fromString(secretHash),
-          deadline,
-          Number(fee),
-          Fr.fromString(entryKey),
-        ),
-        log.blockNumber!,
-        index,
+    l1ToL2Messages.push([
+      new L1ToL2Message(
+        new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
+        new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
+        Fr.fromString(content),
+        Fr.fromString(secretHash),
+        deadline,
+        Number(fee),
+        Fr.fromString(entryKey),
       ),
-    );
+      log.blockNumber!,
+    ]);
   }
   return l1ToL2Messages;
 }
@@ -55,10 +50,10 @@ export function processPendingL1ToL2MessageAddedLogs(
  */
 export function processCancelledL1ToL2MessagesLogs(
   logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
-): CancelledL1ToL2Message[] {
-  const cancelledL1ToL2Messages: CancelledL1ToL2Message[] = [];
-  for (const [index, log] of logs.entries()) {
-    cancelledL1ToL2Messages.push(new CancelledL1ToL2Message(Fr.fromString(log.args.entryKey), log.blockNumber!, index));
+): [Fr, bigint][] {
+  const cancelledL1ToL2Messages: [Fr, bigint][] = [];
+  for (const log of logs) {
+    cancelledL1ToL2Messages.push([Fr.fromString(log.args.entryKey), log.blockNumber!]);
   }
   return cancelledL1ToL2Messages;
 }
@@ -76,12 +71,12 @@ export async function processBlockLogs(
 ): Promise<L2Block[]> {
   const retrievedBlocks: L2Block[] = [];
   for (const log of logs) {
-    const blockNum = log.args.blockNum;
+    const blockNum = log.args.blockNumber;
     if (blockNum !== expectedL2BlockNumber) {
       throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
     }
     // TODO: Fetch blocks from calldata in parallel
-    const newBlock = await getBlockFromCallData(publicClient, log.transactionHash!, log.args.blockNum);
+    const newBlock = await getBlockFromCallData(publicClient, log.transactionHash!, log.args.blockNumber);
     newBlock.setL1BlockNumber(log.blockNumber!);
     retrievedBlocks.push(newBlock);
     expectedL2BlockNumber++;
@@ -112,8 +107,14 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [, l2BlockHex] = args! as [Hex, Hex];
-  const block = L2Block.fromBufferWithLogs(Buffer.from(hexToBytes(l2BlockHex)));
+  const [headerHex, archiveRootHex, , bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
+  const blockBuffer = Buffer.concat([
+    Buffer.from(hexToBytes(headerHex)),
+    Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+    numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
+    Buffer.from(hexToBytes(bodyHex)),
+  ]);
+  const block = L2Block.fromBufferWithLogs(blockBuffer);
   if (BigInt(block.number) !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
   }

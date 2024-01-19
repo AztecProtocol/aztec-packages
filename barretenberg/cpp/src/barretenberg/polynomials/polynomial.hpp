@@ -6,7 +6,7 @@
 #include "polynomial_arithmetic.hpp"
 #include <fstream>
 
-namespace barretenberg {
+namespace bb {
 enum class DontZeroMemory { FLAG };
 
 template <typename Fr> class Polynomial {
@@ -273,13 +273,9 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynom
               << "]";
 }
 
-extern template class Polynomial<barretenberg::fr>;
-// N.B. grumpkin polynomials don't support fast fourier transforms using roots of unity!
-extern template class Polynomial<grumpkin::fr>;
+using polynomial = Polynomial<bb::fr>;
 
-using polynomial = Polynomial<barretenberg::fr>;
-
-} // namespace barretenberg
+} // namespace bb
 
 /**
  * The static_assert below ensure that that our Polynomial class correctly models an `std::ranges::contiguous_range`,
@@ -288,11 +284,11 @@ using polynomial = Polynomial<barretenberg::fr>;
  * This also means we can now iterate over the elements in the vector using a `for(auto ...)` loop, and use various std
  * algorithms.
  *
- * static_assert(std::ranges::contiguous_range<barretenberg::polynomial>);
- * static_assert(std::ranges::sized_range<barretenberg::polynomial>);
- * static_assert(std::convertible_to<barretenberg::polynomial, std::span<const barretenberg::fr>>);
- * static_assert(std::convertible_to<barretenberg::polynomial&, std::span<barretenberg::fr>>);
+ * static_assert(std::ranges::contiguous_range<bb::polynomial>);
+ * static_assert(std::ranges::sized_range<bb::polynomial>);
+ * static_assert(std::convertible_to<bb::polynomial, std::span<const bb::fr>>);
+ * static_assert(std::convertible_to<bb::polynomial&, std::span<bb::fr>>);
  * // cannot convert a const polynomial to a non-const span
- * static_assert(!std::convertible_to<const barretenberg::polynomial&, std::span<barretenberg::fr>>);
- * static_assert(std::convertible_to<const barretenberg::polynomial&, std::span<const barretenberg::fr>>);
+ * static_assert(!std::convertible_to<const bb::polynomial&, std::span<bb::fr>>);
+ * static_assert(std::convertible_to<const bb::polynomial&, std::span<const bb::fr>>);
  */

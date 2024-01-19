@@ -8,11 +8,8 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
 using namespace crypto::aes128;
-using namespace barretenberg;
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace aes128 {
+namespace bb::stdlib::aes128 {
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;
 using namespace plookup;
 
@@ -298,11 +295,10 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
     }
     return output;
 }
-#define ENCRYPT_BUFFER_CBC(circuit_type)                                                                               \
-    std::vector<field_t<circuit_type>> encrypt_buffer_cbc<circuit_type>(                                               \
-        const std::vector<field_t<circuit_type>>&, const field_t<circuit_type>&, const field_t<circuit_type>&)
+#define INSTANTIATE_ENCRYPT_BUFFER_CBC(Builder)                                                                        \
+    template std::vector<field_t<Builder>> encrypt_buffer_cbc<Builder>(                                                \
+        const std::vector<field_t<Builder>>&, const field_t<Builder>&, const field_t<Builder>&)
 
-INSTANTIATE_STDLIB_ULTRA_METHOD(ENCRYPT_BUFFER_CBC)
-} // namespace aes128
-} // namespace stdlib
-} // namespace proof_system::plonk
+INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::UltraCircuitBuilder);
+INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::GoblinUltraCircuitBuilder);
+} // namespace bb::stdlib::aes128

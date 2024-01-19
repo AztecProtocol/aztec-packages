@@ -6,7 +6,7 @@
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <class VerifierInstances> class ProtoGalaxyVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
@@ -86,6 +86,4 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     bool verify_folding_proof(std::vector<uint8_t>);
 };
 
-extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
-} // namespace proof_system::honk
+} // namespace bb::honk

@@ -245,7 +245,7 @@ jobs:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
       image: ubuntu-2204:2023.07.2
-    resource_class: medium 
+    resource_class: medium
     steps:
       - *checkout
       - *setup_env
@@ -997,6 +997,11 @@ jobs:
             should_release || exit 0
             yarn-project/deploy_npm.sh canary
       - run:
+          name: "Release latest to NPM: bb.js"
+          command: |
+            should_release || exit 0
+            deploy_npm bb.js latest
+      - run:
           name: "Release latest to NPM: yarn-project"
           command: |
             should_release || exit 0
@@ -1059,6 +1064,15 @@ defaults: &defaults
   filters:
     tags:
       only: /^aztec-packages-v.*/
+    # We would like to ignore release-please branches,
+    # but doing so breaks github status checks:
+    # the PR spins as it waits for the status check to complete,
+    # which never happens because the branch is ignored.
+    # Long term solution would require disabling the status checks on `master`
+    # when the *source branch* on the PR release-please.
+    # branches:
+    #   ignore:
+    #     - /^release-please--.*/
   context:
     - build
     - slack
@@ -1272,6 +1286,9 @@ workflows:
             - e2e-browser
             - e2e-card-game
             - pxe
+            - boxes-blank
+            - boxes-blank-react
+            - boxes-token
             - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing

@@ -14,17 +14,17 @@
 
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
-using namespace proof_system::honk::sumcheck;
+using namespace bb::honk;
+using namespace bb::honk::sumcheck;
 
-using Flavor = proof_system::honk::flavor::Ultra;
+using Flavor = bb::honk::flavor::Ultra;
 using FF = typename Flavor::FF;
 
 namespace test_sumcheck_round {
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 /**
@@ -39,7 +39,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = proof_system::UltraCircuitBuilder();
+    auto builder = bb::UltraCircuitBuilder();
     FF a = FF::one();
 
     // Add some basic add gates, with a public input for good measure

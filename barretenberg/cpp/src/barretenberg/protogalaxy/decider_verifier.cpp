@@ -4,10 +4,10 @@
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
@@ -17,7 +17,7 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& tr
 {}
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_()
-    : pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, barretenberg::srs::get_crs_factory()))
+    : pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory()))
     , transcript(std::make_shared<Transcript>())
 {}
 
@@ -110,4 +110,4 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 template class DeciderVerifier_<honk::flavor::Ultra>;
 template class DeciderVerifier_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

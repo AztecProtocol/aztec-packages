@@ -5,20 +5,20 @@
 
 namespace acir_format {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 secp256r1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256r1::g1::affine_element& input)
 {
     uint256_t x_u256(input.x);
     uint256_t y_u256(input.y);
-    secp256r1_ct::fq_ct x(witness_ct(ctx, barretenberg::fr(x_u256.slice(0, secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2))),
-                          witness_ct(ctx,
-                                     barretenberg::fr(x_u256.slice(secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2,
-                                                                   secp256r1_ct::fq_ct::NUM_LIMB_BITS * 4))));
-    secp256r1_ct::fq_ct y(witness_ct(ctx, barretenberg::fr(y_u256.slice(0, secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2))),
-                          witness_ct(ctx,
-                                     barretenberg::fr(y_u256.slice(secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2,
-                                                                   secp256r1_ct::fq_ct::NUM_LIMB_BITS * 4))));
+    secp256r1_ct::fq_ct x(
+        witness_ct(ctx, bb::fr(x_u256.slice(0, secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(
+            ctx, bb::fr(x_u256.slice(secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2, secp256r1_ct::fq_ct::NUM_LIMB_BITS * 4))));
+    secp256r1_ct::fq_ct y(
+        witness_ct(ctx, bb::fr(y_u256.slice(0, secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(
+            ctx, bb::fr(y_u256.slice(secp256r1_ct::fq_ct::NUM_LIMB_BITS * 2, secp256r1_ct::fq_ct::NUM_LIMB_BITS * 4))));
 
     return { x, y };
 }
@@ -28,9 +28,9 @@ void create_ecdsa_r1_verify_constraints(Builder& builder,
                                         const EcdsaSecp256r1Constraint& input,
                                         bool has_valid_witness_assignments)
 {
-    using secp256r1_ct = proof_system::plonk::stdlib::secp256r1<Builder>;
-    using bool_ct = proof_system::plonk::stdlib::bool_t<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+    using secp256r1_ct = bb::stdlib::secp256r1<Builder>;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     if (has_valid_witness_assignments == false) {
         dummy_ecdsa_constraint(builder, input);

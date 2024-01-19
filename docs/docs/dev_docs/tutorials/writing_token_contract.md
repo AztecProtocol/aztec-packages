@@ -61,7 +61,6 @@ type = "contract"
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
 authwit={ git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/authwit"}
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
 ```
 
 ## Contract Interface
@@ -468,7 +467,7 @@ Run the following command in the directory where your `Nargo.toml` file is locat
 aztec-nargo compile
 ```
 
-Once your contract is compiled, generate the Aztec contract ABI with typescript interface with the following command:
+Once your contract is compiled, optionally generate a typescript interface with the following command:
 
 ```bash
 aztec-cli codegen target -o src/artifacts --ts

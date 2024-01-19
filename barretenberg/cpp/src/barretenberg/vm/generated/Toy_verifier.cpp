@@ -5,10 +5,10 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 ToyVerifier::ToyVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
 {}
@@ -113,4 +113,4 @@ bool ToyVerifier::verify_proof(const plonk::proof& proof)
     return sumcheck_verified.value();
 }
 
-} // namespace proof_system::honk
+} // namespace bb::honk

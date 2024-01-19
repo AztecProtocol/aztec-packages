@@ -5,7 +5,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor> class UltraVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -32,10 +32,7 @@ template <typename Flavor> class UltraVerifier_ {
     std::shared_ptr<Transcript> transcript;
 };
 
-extern template class UltraVerifier_<honk::flavor::Ultra>;
-extern template class UltraVerifier_<honk::flavor::GoblinUltra>;
-
 using UltraVerifier = UltraVerifier_<honk::flavor::Ultra>;
 using GoblinUltraVerifier = UltraVerifier_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

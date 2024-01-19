@@ -1,5 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Hasher, SiblingPath } from '@aztec/types';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { randomBytes } from 'crypto';
 import { default as levelup } from 'levelup';

@@ -6,11 +6,10 @@
 #include "barretenberg/common/test.hpp"
 #include "ecdsa.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace test_stdlib_ecdsa {
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 using curve = stdlib::secp256k1<Builder>;
 using curveR1 = stdlib::secp256r1<Builder>;
 

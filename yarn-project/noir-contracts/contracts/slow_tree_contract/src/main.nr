@@ -6,7 +6,7 @@ mod types;
 // https://github.com/AztecProtocol/aztec-packages/issues/1291
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
 contract SlowTree {
-    use dep::protocol_types::{
+    use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::AztecAddress,
     };
@@ -42,7 +42,7 @@ contract SlowTree {
     global EMPTY_ROOT: Field = 5785871043333994658400733180052743689641713274194136017445890613179954325976;
 
     struct Storage {
-        trees: Map<SlowMap<TREE_HEIGHT, UPDATE_SIZE>>,
+        trees: Map<Field, SlowMap<TREE_HEIGHT, UPDATE_SIZE>>,
     }
     // docs:end:constants_and_storage
 

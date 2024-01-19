@@ -4,7 +4,7 @@
 
 #include <memory>
 
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief Construct selector polynomials from circuit selector information and put into polynomial cache
@@ -31,7 +31,7 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
         gate_offset += num_ecc_op_gates;
         const size_t op_gate_offset = zero_row_offset;
         // The op gate selector is simply the indicator on the domain [offset, num_ecc_op_gates + offset - 1]
-        barretenberg::polynomial ecc_op_selector(proving_key->circuit_size);
+        bb::polynomial ecc_op_selector(proving_key->circuit_size);
         for (size_t i = 0; i < num_ecc_op_gates; ++i) {
             ecc_op_selector[i + op_gate_offset] = 1;
         }
@@ -145,4 +145,4 @@ std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base(
     }
     return wire_polynomials;
 }
-} // namespace proof_system
+} // namespace bb

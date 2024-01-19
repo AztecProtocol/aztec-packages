@@ -5,7 +5,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor> class DeciderVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -26,9 +26,6 @@ template <typename Flavor> class DeciderVerifier_ {
     std::shared_ptr<Transcript> transcript;
 };
 
-extern template class DeciderVerifier_<honk::flavor::Ultra>;
-extern template class DeciderVerifier_<honk::flavor::GoblinUltra>;
-
 using DeciderVerifier = DeciderVerifier_<honk::flavor::Ultra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

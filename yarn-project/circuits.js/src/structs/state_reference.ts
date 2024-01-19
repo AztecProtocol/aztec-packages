@@ -1,6 +1,5 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../utils/serialize.js';
 import { PartialStateReference } from './partial_state_reference.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 
@@ -16,6 +15,7 @@ export class StateReference {
   ) {}
 
   toBuffer() {
+    // Note: The order here must match the order in the HeaderDecoder solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
   }
 

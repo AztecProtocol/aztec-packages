@@ -53,7 +53,6 @@ compiler_version = ">=0.18.0"
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
 easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/easy-private-state"}
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
 ```
 
 ## Define the functions
@@ -157,7 +156,7 @@ aztec-nargo compile
 
 This will compile the smart contract and create a `target` folder with a `.json` artifact inside.
 
-After compiling, you need to generate the ABI and typescript class. In the same directory, run this:
+After compiling, you can generate a typescript class. In the same directory, run this:
 
 ```bash
 aztec-cli codegen target -o src/artifacts --ts
@@ -206,15 +205,17 @@ You can also test the functions by applying what you learned in the [quickstart]
 
 Congratulations, you have now written, compiled, and deployed your first Aztec.nr smart contract!
 
-## Install `nargo` (recommended)
+## Install Noir LSP (recommended)
 
-The CLI comes with the Noir compiler, so installing `nargo` is not required, however it is recommended as it provides a better developer experience for writing contracts. You will need nargo installed to take advantage of the [Noir Language Server](https://noir-lang.org/docs/nargo/language_server), which provides syntax highlighting and formatting for your Aztec contracts.
+Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
 
-You will also need `nargo` if you want to run unit tests in Noir.
+Once the extension is installed, go to your VSCode settings, search for "noir" and update the `Noir: Nargo Path` field to point to your `aztec-nargo` executable.
 
-You can install `nargo` with the following commands:
+You can print the path of your `aztec-nargo` executable by running:
 
-<InstallNargoInstructions />
+```bash
+which aztec-nargo
+```
 
 ## What's next?
 
