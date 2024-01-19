@@ -12,7 +12,6 @@ mod new_contract_data;
 mod nullifier_leaf_preimage;
 mod contract_leaf_preimage;
 
-mod block_header;
 mod combined_constant_data;
 mod public_data_read;
 mod public_data_update_request;

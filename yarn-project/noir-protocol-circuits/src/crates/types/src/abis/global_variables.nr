@@ -11,6 +11,28 @@ struct GlobalVariables {
     timestamp : Field,
 }
 
+global GLOBAL_VARIABLES_LENGTH: Field = 4;
+
+impl GlobalVariables {
+    fn serialize(self) -> [Field; GLOBAL_VARIABLES_LENGTH] {
+        [
+            self.chain_id,
+            self.version,
+            self.block_number,
+            self.timestamp
+        ]
+    }
+
+    fn deserialize(serialized: [Field; GLOBAL_VARIABLES_LENGTH]) -> GlobalVariables {
+        GlobalVariables {
+            chain_id: serialized[0],
+            version: serialized[1],
+            block_number: serialized[2],
+            timestamp: serialized[3],
+        }
+    }
+}
+
 impl Eq for GlobalVariables {
     fn eq(self, other : GlobalVariables) -> bool {
         (self.chain_id == other.chain_id) &

@@ -1,7 +1,7 @@
 use dep::std::merkle::compute_merkle_root;
 use dep::protocol_types::{
     abis::block_header::BlockHeader,
-    constants::BLOCK_HEADER_LENGTH,
+    constants::HEADER_LENGTH,
 };
 
 use crate::{
@@ -18,7 +18,7 @@ unconstrained pub fn get_nullifier_root_block_number(nullifier_tree_root: Field)
 }
 
 #[oracle(getBlockHeader)]
-fn get_block_header_oracle(_block_number: u32) -> [Field; BLOCK_HEADER_LENGTH] {}
+fn get_block_header_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
 unconstrained pub fn get_block_header_internal(block_number: u32) -> BlockHeader {
     let block_header = get_block_header_oracle(block_number);
