@@ -172,11 +172,11 @@ export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: st
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
     const proofTimer = new Timer();
-    const proof = await api.acirGoblinProve(acirComposer, bytecode, witness);
+    const proof = await api.acirGoblinAccumulate(acirComposer, bytecode, witness);
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
     debug(`verifying...`);
-    const verified = await api.acirGoblinVerify(acirComposer, proof);
+    const verified = await api.acirGoblinVerifyAccumulator(acirComposer, proof);
     debug(`verified: ${verified}`);
     console.log({ verified });
     return verified;
@@ -388,7 +388,7 @@ program
 
 program
   .command('accumulate_and_verify_goblin')
-  .description('Generate a proof and verify it. Process exits with success or failure code.')
+  .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
@@ -399,7 +399,7 @@ program
 
 program
   .command('prove_and_verify_goblin')
-  .description('Generate a proof and verify it. Process exits with success or failure code.')
+  .description('Generate a Goblin proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
