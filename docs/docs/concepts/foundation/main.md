@@ -2,9 +2,7 @@
 title: Foundational Concepts
 ---
 
-As a layer 2 rollup on Ethereum, the Aztec network includes components that look similar to other layer 2 networks, but since it handles private state it also includes many new components.
-
-Aztec offers developers the ability to create applications that give users:
+Aztec Labs is building a layer 2 rollup on Ethereum focused on 3 things:
 
 - Data privacy
 - Confidentiality
