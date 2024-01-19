@@ -91,15 +91,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ owner: owners[0].address }), () => notes.filter(note => note.publicKey.equals(owners[0].publicKey))],
 
         [
-          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0], status: 'active' }),
+          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
           () =>
             notes.filter(
               note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
             ),
-        ],
-        [
-          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0], status: 'deleted' }),
-          () => [],
         ],
         [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
       ];
@@ -136,36 +132,47 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
-      it('skips nullified notes by default', async () => {
-        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-
+      it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
         await database.addNotes(notes);
 
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
-          notesToNullify,
-        );
-        await expect(
-          database.getNotes({
-            owner: owners[0].address,
-          }),
-        ).resolves.toEqual([]);
-        await expect(database.getNotes({})).resolves.toEqual(notes.filter(note => !notesToNullify.includes(note)));
+        // Nullify all notes and use the same filter as other test cases
+        for (const owner of owners) {
+          const notesToNullify = notes.filter(note => note.publicKey.equals(owner.publicKey));
+          const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+          await expect(database.removeNullifiedNotes(nullifiers, owner.publicKey)).resolves.toEqual(notesToNullify);
+        }
+
+        await expect(database.getNotes({ ...getFilter(), status: 'nullified' })).resolves.toEqual(getExpected());
       });
 
-      it('retrieves nullified notes', async () => {
-        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-
+      it('skips nullified notes by default or when requesting active', async () => {
         await database.addNotes(notes);
 
+        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
         await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
           notesToNullify,
         );
+
+        const actualNotesWithDefault = await database.getNotes({});
+        const actualNotesWithActive = await database.getNotes({ status: 'active' });
+
+        expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
+        expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
+      });
+
+      it('skips active notes when requesting nullified', async () => {
+        await database.addNotes(notes);
+
+        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
+          notesToNullify,
+        );
+
         await expect(
           database.getNotes({
-            owner: owners[0].address,
-            status: 'deleted'
+            status: 'nullified',
           }),
         ).resolves.toEqual(notesToNullify);
       });
