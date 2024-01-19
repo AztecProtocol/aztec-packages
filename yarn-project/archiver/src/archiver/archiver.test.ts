@@ -1,13 +1,13 @@
 import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import times from 'lodash.times';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
@@ -351,8 +351,13 @@ function makeL1ToL2MessageCancelledEvents(l1BlockNum: bigint, entryKeys: string[
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const archive = toHex(l2Block.archive.root.toBuffer());
+  const txsHash = toHex(l2Block.getCalldataHash());
   const body = toHex(l2Block.bodyToBuffer());
   const proof = `0x`;
-  const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [header, archive, body, proof] });
+  const input = encodeFunctionData({
+    abi: RollupAbi,
+    functionName: 'process',
+    args: [header, archive, txsHash, body, proof],
+  });
   return { input } as Transaction<bigint, number>;
 }
