@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::plonk::stdlib::recursion::honk {
 template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
@@ -114,10 +114,4 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     };
 };
 
-extern template class ProtoGalaxyRecursiveVerifier_<
-    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 2>>;
-extern template class ProtoGalaxyRecursiveVerifier_<
-    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
-extern template class ProtoGalaxyRecursiveVerifier_<
-    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::GoblinUltraRecursive, 2>>;
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace bb::plonk::stdlib::recursion::honk

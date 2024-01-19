@@ -22,7 +22,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 /**
  * @brief The recursive counterpart to the "native" Goblin Ultra flavor.
@@ -38,14 +38,14 @@ namespace proof_system::honk::flavor {
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-class GoblinUltraRecursive {
+template <typename BuilderType> class GoblinUltraRecursive_ {
   public:
-    using CircuitBuilder = GoblinUltraCircuitBuilder;
+    using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = plonk::stdlib::bn254<CircuitBuilder>;
-    using GroupElement = Curve::Element;
-    using FF = Curve::ScalarField;
-    using Commitment = Curve::Element;
-    using CommitmentHandle = Curve::Element;
+    using GroupElement = typename Curve::Element;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::Element;
+    using CommitmentHandle = typename Curve::Element;
     using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
@@ -166,7 +166,7 @@ class GoblinUltraRecursive {
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltra::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = proof_system::plonk::stdlib::recursion::honk::Transcript<CircuitBuilder>;
+    using Transcript = bb::plonk::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

@@ -1,7 +1,7 @@
 #include "protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::plonk::stdlib::recursion::honk {
 
 template <class VerifierInstances>
 void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
@@ -95,10 +95,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     witness_commitments.z_lookup =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
-    const FF public_input_delta = proof_system::honk::compute_public_input_delta<Flavor>(
+    const FF public_input_delta = bb::honk::compute_public_input_delta<Flavor>(
         inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
     const FF lookup_grand_product_delta =
-        proof_system::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
+        bb::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
@@ -168,9 +168,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
-    // TODO(): As currently the stdlib transcript is not creating proper constraints linked to Fiat-Shamir we add an
-    // additonal gate to ensure assert_equal is correct. This comparison to 0 can be removed here and below once we have
-    // merged the transcript.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/833): As currently the stdlib transcript is not
+    // creating proper constraints linked to Fiat-Shamir we add an additonal gate to ensure assert_equal is correct.
+    // This comparison to 0 can be removed here and below once we have merged the transcript.
     auto zero = FF::from_witness(builder, ScalarNative(0));
     zero.assert_equal(accumulator->target_sum - perturbator_coeffs[0], "F(0) != e");
 
@@ -248,7 +248,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
                           "folded relation separator mismatch at: " + std::to_string(alpha_idx));
     }
 
-    auto expected_parameters = proof_system::RelationParameters<FF>{};
+    auto expected_parameters = bb::RelationParameters<FF>{};
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
@@ -297,9 +297,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
 }
 
 template class ProtoGalaxyRecursiveVerifier_<
-    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 2>>;
+    bb::honk::VerifierInstances_<bb::honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
-    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
+    bb::honk::VerifierInstances_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
-    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::GoblinUltraRecursive, 2>>;
-} // namespace proof_system::plonk::stdlib::recursion::honk
+    bb::honk::VerifierInstances_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
+} // namespace bb::plonk::stdlib::recursion::honk

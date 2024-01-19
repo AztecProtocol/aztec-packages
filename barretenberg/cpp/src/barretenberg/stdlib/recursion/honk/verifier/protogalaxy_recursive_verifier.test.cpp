@@ -7,18 +7,18 @@
 #include "barretenberg/stdlib/recursion/honk/verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::plonk::stdlib::recursion::honk {
 class ProtogalaxyRecursiveTest : public testing::Test {
   public:
     // Define types relevant for testing
-    using UltraFlavor = ::proof_system::honk::flavor::Ultra;
-    using GoblinUltraFlavor = ::proof_system::honk::flavor::GoblinUltra;
-    using UltraComposer = ::proof_system::honk::UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = ::proof_system::honk::UltraComposer_<GoblinUltraFlavor>;
+    using UltraFlavor = ::bb::honk::flavor::Ultra;
+    using GoblinUltraFlavor = ::bb::honk::flavor::GoblinUltra;
+    using UltraComposer = ::bb::honk::UltraComposer_<UltraFlavor>;
+    using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
 
     using InnerFlavor = UltraFlavor;
     using InnerComposer = UltraComposer;
-    using Instance = ::proof_system::honk::ProverInstance_<InnerFlavor>;
+    using Instance = ::bb::honk::ProverInstance_<InnerFlavor>;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
@@ -27,13 +27,13 @@ class ProtogalaxyRecursiveTest : public testing::Test {
     // Types for recursive verifier circuit
     // cannot do on Goblin
     using OuterBuilder = GoblinUltraCircuitBuilder;
-    using RecursiveFlavor = ::proof_system::honk::flavor::UltraRecursive_<OuterBuilder>;
-    using RecursiveVerifierInstances = ::proof_system::honk::VerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveFlavor = ::bb::honk::flavor::UltraRecursive_<OuterBuilder>;
+    using RecursiveVerifierInstances = ::bb::honk::VerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
-    using DeciderVerifier = ::proof_system::honk::DeciderVerifier_<InnerFlavor>;
-    using NativeVerifierInstances = ::proof_system::honk::VerifierInstances_<InnerFlavor, 2>;
-    using NativeFoldingVerifier = proof_system::honk::ProtoGalaxyVerifier_<NativeVerifierInstances>;
+    using DeciderVerifier = ::bb::honk::DeciderVerifier_<InnerFlavor>;
+    using NativeVerifierInstances = ::bb::honk::VerifierInstances_<InnerFlavor, 2>;
+    using NativeFoldingVerifier = bb::honk::ProtoGalaxyVerifier_<NativeVerifierInstances>;
 
     // Helper for getting composer for prover/verifier of recursive (outer) circuit
     template <typename BuilderT> static auto get_outer_composer()
@@ -316,4 +316,4 @@ TEST_F(ProtogalaxyRecursiveTest, TamperedAccumulator)
     EXPECT_EQ(outer_folding_circuit.check_circuit(), false);
 }
 
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace bb::plonk::stdlib::recursion::honk
