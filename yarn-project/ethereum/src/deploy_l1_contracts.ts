@@ -149,7 +149,7 @@ export const deployL1Contracts = async (
     publicClient,
     contractsToDeploy.rollup.contractAbi,
     contractsToDeploy.rollup.contractBytecode,
-    [getAddress(registryAddress.toString())],
+    [getAddress(registryAddress.toString()), getAddress(availabilityOracleAddress.toString())],
   );
   logger(`Deployed Rollup at ${rollupAddress}`);
 
@@ -161,12 +161,7 @@ export const deployL1Contracts = async (
     walletClient,
   });
   await registryContract.write.upgrade(
-    [
-      getAddress(rollupAddress.toString()),
-      getAddress(inboxAddress.toString()),
-      getAddress(outboxAddress.toString()),
-      getAddress(availabilityOracleAddress.toString()),
-    ],
+    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
     { account },
   );
 

@@ -88,14 +88,12 @@ library DataStructures {
    * @param rollup - The address of the rollup contract
    * @param inbox - The address of the inbox contract
    * @param outbox - The address of the outbox contract
-   * @param availabilityOracle - The address of the availability oracle contract
    * @param blockNumber - The block number of the snapshot
    */
   struct RegistrySnapshot {
     address rollup;
     address inbox;
     address outbox;
-    address availabilityOracle;
     uint256 blockNumber;
   }
   // docs:end:registry_snapshot

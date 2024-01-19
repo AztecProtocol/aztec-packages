@@ -4,6 +4,7 @@ pragma solidity >=0.8.18;
 
 // Interfaces
 import {IRollup} from "./interfaces/IRollup.sol";
+import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
@@ -26,6 +27,7 @@ import {MockVerifier} from "../mock/MockVerifier.sol";
 contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
+  IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   uint256 public immutable VERSION;
 
   bytes32 public archive; // Root of the archive tree
@@ -34,9 +36,10 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
-  constructor(IRegistry _registry) {
+  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle) {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
+    AVAILABILITY_ORACLE = _availabilityOracle;
     VERSION = 1;
   }
 
@@ -60,7 +63,7 @@ contract Rollup is IRollup {
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!REGISTRY.getAvailabilityOracle().isAvailable(_txsHash)) {
+    if (!AVAILABILITY_ORACLE.isAvailable(_txsHash)) {
       revert Errors.Rollup__UnavailableTxs(_txsHash);
     }
 

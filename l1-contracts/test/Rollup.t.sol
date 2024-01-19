@@ -36,10 +36,10 @@ contract RollupTest is DecoderBase {
     registry = new Registry();
     inbox = new Inbox(address(registry));
     outbox = new Outbox(address(registry));
-    rollup = new Rollup(registry);
     availabilityOracle = new AvailabilityOracle();
+    rollup = new Rollup(registry, availabilityOracle);
 
-    registry.upgrade(address(rollup), address(inbox), address(outbox), address(availabilityOracle));
+    registry.upgrade(address(rollup), address(inbox), address(outbox));
   }
 
   function testMixedBlock() public {

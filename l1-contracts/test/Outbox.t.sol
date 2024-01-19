@@ -22,7 +22,7 @@ contract OutboxTest is Test {
     address rollup = address(this);
     registry = new Registry();
     outbox = new Outbox(address(registry));
-    version = registry.upgrade(rollup, address(0x0), address(outbox), address(0x0));
+    version = registry.upgrade(rollup, address(0x0), address(outbox));
   }
 
   function _fakeMessage() internal view returns (DataStructures.L2ToL1Msg memory) {
@@ -89,8 +89,7 @@ contract OutboxTest is Test {
 
   function testRevertIfInsertingFromWrongRollup() public {
     address wrongRollup = address(0xbeeffeed);
-    uint256 wrongVersion =
-      registry.upgrade(wrongRollup, address(0x0), address(outbox), address(0x0));
+    uint256 wrongVersion = registry.upgrade(wrongRollup, address(0x0), address(outbox));
 
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     // correctly set message.recipient to this address

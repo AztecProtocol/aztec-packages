@@ -38,8 +38,7 @@ contract RegistryTest is Test {
     address newRollup = address(0xbeef1);
     address newInbox = address(0xbeef2);
     address newOutbox = address(0xbeef3);
-    address newAvailabilityOracle = address(0xbeef4);
-    uint256 newVersion = registry.upgrade(newRollup, newInbox, newOutbox, newAvailabilityOracle);
+    uint256 newVersion = registry.upgrade(newRollup, newInbox, newOutbox);
 
     assertEq(registry.numberOfVersions(), 2, "should have 2 versions");
     DataStructures.RegistrySnapshot memory snapshot = registry.getCurrentSnapshot();
@@ -56,9 +55,9 @@ contract RegistryTest is Test {
   }
 
   function testRevertUpgradeToSame() public {
-    registry.upgrade(DEAD, DEAD, DEAD, DEAD);
+    registry.upgrade(DEAD, DEAD, DEAD);
     vm.expectRevert(abi.encodeWithSelector(Errors.Registry__RollupAlreadyRegistered.selector, DEAD));
-    registry.upgrade(DEAD, DEAD, DEAD, DEAD);
+    registry.upgrade(DEAD, DEAD, DEAD);
   }
 
   function testRevertGetVersionForNonExistent() public {
