@@ -1,10 +1,9 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
-namespace bb::test_flavor {
 TEST(ECCOpQueueTest, Basic)
 {
-    ECCOpQueue op_queue;
+    bb::ECCOpQueue op_queue;
     op_queue.add_accumulate(bb::g1::affine_one);
     EXPECT_EQ(op_queue.raw_ops[0].base_point, bb::g1::affine_one);
     op_queue.empty_row();
@@ -23,7 +22,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     auto P_expected = P1 + P2 * z;
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    ECCOpQueue op_queue;
+    bb::ECCOpQueue op_queue;
     op_queue.add_accumulate(P1);
     op_queue.mul_accumulate(P2, z);
 
@@ -36,5 +35,3 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     // Adding an equality op should reset the accumulator to zero (the point at infinity)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
-
-} // namespace bb::test_flavor

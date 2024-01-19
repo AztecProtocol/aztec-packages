@@ -13,8 +13,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace bb::test_stdlib_sha256 {
-
 using namespace bb;
 using namespace bb::stdlib;
 
@@ -427,5 +425,3 @@ TEST(stdlib_sha256, test_input_str_len_multiple)
         EXPECT_EQ(circuit_output, expected);
     }
 }
-
-} // namespace bb::test_stdlib_sha256

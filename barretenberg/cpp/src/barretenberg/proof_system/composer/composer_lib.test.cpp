@@ -6,11 +6,9 @@
 #include <array>
 #include <gtest/gtest.h>
 
-namespace bb::test_composer_lib {
-
 class ComposerLibTests : public ::testing::Test {
   protected:
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     Flavor::CircuitBuilder circuit_constructor;
     Flavor::ProvingKey proving_key = []() {
@@ -59,5 +57,3 @@ TEST_F(ComposerLibTests, ConstructSelectors)
     EXPECT_EQ(proving_key.q_c[2 + offset], 19);
     EXPECT_EQ(proving_key.q_c[3 + offset], 20);
 }
-
-} // namespace bb::test_composer_lib

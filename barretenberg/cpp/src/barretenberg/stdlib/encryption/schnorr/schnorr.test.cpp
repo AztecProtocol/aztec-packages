@@ -5,8 +5,6 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "schnorr.hpp"
 
-namespace bb::test_stdlib_schnorr {
-
 using namespace bb;
 using namespace bb::stdlib;
 using namespace bb::stdlib::schnorr;
@@ -178,5 +176,3 @@ TEST(stdlib_schnorr, signature_verification_result_failure)
     bool verification_result = builder.check_circuit();
     EXPECT_EQ(verification_result, true);
 }
-
-} // namespace bb::test_stdlib_schnorr

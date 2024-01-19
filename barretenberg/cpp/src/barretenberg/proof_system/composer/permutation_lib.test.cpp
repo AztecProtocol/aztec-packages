@@ -6,11 +6,9 @@
 #include <array>
 #include <gtest/gtest.h>
 
-namespace bb::test_composer_lib {
-
 class PermutationHelperTests : public ::testing::Test {
   protected:
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     using ProvingKey = Flavor::ProvingKey;
     Flavor::CircuitBuilder circuit_constructor;
@@ -67,27 +65,26 @@ class PermutationHelperTests : public ::testing::Test {
 TEST_F(PermutationHelperTests, ComputeWireCopyCycles)
 {
     // TODO(#425) Flesh out these tests
-    compute_wire_copy_cycles<Flavor>(circuit_constructor);
+    bb::compute_wire_copy_cycles<Flavor>(circuit_constructor);
 }
 
 TEST_F(PermutationHelperTests, ComputePermutationMapping)
 {
     // TODO(#425) Flesh out these tests
-    compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
+    bb::compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
 }
 
 TEST_F(PermutationHelperTests, ComputeHonkStyleSigmaLagrangePolynomialsFromMapping)
 {
     // TODO(#425) Flesh out these tests
-    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
-    compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
+    auto mapping =
+        bb::compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
+    bb::compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
         proving_key->get_sigma_polynomials(), mapping.sigmas, proving_key.get());
 }
 
 TEST_F(PermutationHelperTests, ComputeStandardAuxPolynomials)
 {
     // TODO(#425) Flesh out these tests
-    compute_first_and_last_lagrange_polynomials<Flavor>(proving_key);
+    bb::compute_first_and_last_lagrange_polynomials<Flavor>(proving_key);
 }
-
-} // namespace bb::test_composer_lib

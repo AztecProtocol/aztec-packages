@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 
-namespace bb::test_flavor {
 TEST(Flavor, Getters)
 {
     using Flavor = bb::honk::flavor::Ultra;
@@ -83,4 +82,3 @@ TEST(Flavor, GetRow)
     EXPECT_EQ(row0.q_elliptic, prover_polynomials.q_elliptic[0]);
     EXPECT_EQ(row1.w_4_shift, prover_polynomials.w_4_shift[1]);
 }
-} // namespace bb::test_flavor

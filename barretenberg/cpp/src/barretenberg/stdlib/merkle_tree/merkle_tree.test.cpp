@@ -5,8 +5,6 @@
 #include "memory_store.hpp"
 #include "memory_tree.hpp"
 
-namespace bb::test_stdlib_merkle_tree {
-
 using namespace bb::stdlib;
 using namespace bb::stdlib::merkle_tree;
 
@@ -184,4 +182,3 @@ TEST(stdlib_merkle_tree, test_get_sibling_path_layers)
         EXPECT_NE(before[2], after[2]);
     }
 }
-} // namespace bb::test_stdlib_merkle_tree
