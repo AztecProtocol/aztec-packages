@@ -12,32 +12,30 @@
 namespace bb {
 
 class Goblin {
-
-    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
-    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
+    using HonkProof = bb::honk::proof;
+    using GUHFlavor = bb::honk::flavor::GoblinUltra;
+    using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
 
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
     using FF = GUHFlavor::FF;
 
   public:
-    using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
-    using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
-    using HonkProof = proof_system::honk::proof;
-    using Transcript = proof_system::honk::BaseTranscript;
-    using OpQueue = proof_system::ECCOpQueue;
-    using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
-    using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = proof_system::honk::ECCVMComposer;
-    using ECCVMProver = proof_system::honk::ECCVMProver_<ECCVMFlavor>;
-    using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
-    using RecursiveMergeVerifier =
-        proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = proof_system::honk::MergeVerifier_<GUHFlavor>;
+    using Transcript = bb::honk::BaseTranscript;
 
+    using GoblinUltraComposer = bb::honk::UltraComposer_<GUHFlavor>;
+    using GoblinUltraVerifier = bb::honk::UltraVerifier_<GUHFlavor>;
+    using OpQueue = bb::ECCOpQueue;
+    using ECCVMFlavor = bb::honk::flavor::ECCVM;
+    using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
+    using ECCVMComposer = bb::honk::ECCVMComposer;
+    using ECCVMProver = bb::honk::ECCVMProver_<ECCVMFlavor>;
+    using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
+    using TranslatorComposer = bb::honk::GoblinTranslatorComposer;
+    using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
+    using MergeVerifier = bb::honk::MergeVerifier_<GUHFlavor>;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
@@ -258,7 +256,7 @@ class Goblin {
     }
 
     // ACIRHACK
-    bool verify_proof([[maybe_unused]] const proof_system::honk::proof& proof) const
+    bool verify_proof([[maybe_unused]] const bb::honk::proof& proof) const
     {
         // ACIRHACK: to do this properly, extract the proof correctly or maybe share transcripts.
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };

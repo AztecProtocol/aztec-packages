@@ -5,9 +5,8 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace proof_system::plonk;
 
-typedef proof_system::UltraCircuitBuilder Builder;
+typedef bb::UltraCircuitBuilder Builder;
 typedef stdlib::byte_array<Builder> byte_array;
 typedef stdlib::public_witness_t<Builder> public_witness_t;
 typedef stdlib::field_t<Builder> field_ct;

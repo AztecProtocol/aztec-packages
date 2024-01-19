@@ -13,13 +13,12 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/utility/utility.hpp"
 
-// Note: this namespace will be sensible once stdlib is moved out of the plonk namespace
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
   public:
     using field_ct = field_t<Builder>;
     using FF = bb::fr;
-    using NativeTranscript = proof_system::honk::BaseTranscript;
+    using NativeTranscript = bb::honk::BaseTranscript;
     using StdlibTypes = utility::StdlibTypesUtility<Builder>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = NativeTranscript::HASH_OUTPUT_SIZE;
@@ -29,7 +28,7 @@ template <typename Builder> class Transcript {
 
     Transcript() = default;
 
-    Transcript(Builder* builder, const proof_system::honk::proof& proof_data)
+    Transcript(Builder* builder, const bb::honk::proof& proof_data)
         : native_transcript(proof_data)
         , builder(builder){};
 
@@ -102,4 +101,4 @@ template <typename Builder> class Transcript {
         return StdlibTypes::from_witness(builder, element);
     }
 };
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

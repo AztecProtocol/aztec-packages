@@ -7,10 +7,9 @@
 #include "ecdsa.hpp"
 
 using namespace bb;
-using namespace proof_system::plonk;
 
 namespace test_stdlib_ecdsa {
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 using curve = stdlib::secp256k1<Builder>;
 using curveR1 = stdlib::secp256r1<Builder>;
 

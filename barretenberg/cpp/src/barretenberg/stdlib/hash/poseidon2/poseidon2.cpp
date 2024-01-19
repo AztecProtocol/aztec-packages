@@ -1,9 +1,8 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 using namespace bb;
-using namespace proof_system;
 
 /**
  * @brief Hash a vector of field_ct.
@@ -41,6 +40,6 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
     }
     return hash(builder, elements);
 }
-template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;
+template class poseidon2<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib
