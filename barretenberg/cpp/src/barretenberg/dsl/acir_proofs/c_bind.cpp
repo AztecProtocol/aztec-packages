@@ -105,7 +105,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 WASM_EXPORT void acir_verify_goblin_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
-    auto proof = from_buffer<std::vector<barretenberg::fr>>(proof_buf);
+    auto proof = from_buffer<std::vector<bb::fr>>(proof_buf);
     *result = acir_composer->verify_goblin_proof(proof);
 }
 

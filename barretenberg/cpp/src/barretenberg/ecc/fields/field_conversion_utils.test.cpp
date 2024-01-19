@@ -1,16 +1,16 @@
 #include "barretenberg/ecc/fields/field_conversion_utils.hpp"
 #include <gtest/gtest.h>
 
-namespace barretenberg::field_conversion_utils_tests {
+namespace bb::field_conversion_utils_tests {
 
 class FieldConversionUtilsTest : public ::testing::Test {
   public:
     template <typename T> void check_conversion(T x)
     {
-        size_t len = barretenberg::field_conversion_utils::calc_num_frs<T>();
-        auto frs = barretenberg::field_conversion_utils::convert_to_bn254_frs(x);
+        size_t len = bb::field_conversion_utils::calc_num_frs<T>();
+        auto frs = bb::field_conversion_utils::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
-        auto y = barretenberg::field_conversion_utils::convert_from_bn254_frs<T>(frs);
+        auto y = bb::field_conversion_utils::convert_from_bn254_frs<T>(frs);
         EXPECT_EQ(x, y);
     }
 };
@@ -34,14 +34,14 @@ TEST_F(FieldConversionUtilsTest, FieldConversionUint32)
 }
 
 /**
- * @brief Field conversion test for barretenberg::fr
+ * @brief Field conversion test for bb::fr
  */
 TEST_F(FieldConversionUtilsTest, FieldConversionFr)
 {
-    barretenberg::fr x1(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
+    bb::fr x1(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
     check_conversion(x1);
 
-    barretenberg::fr x2(barretenberg::fr::modulus_minus_two); // modulus - 2
+    bb::fr x2(bb::fr::modulus_minus_two); // modulus - 2
     check_conversion(x2);
 }
 
@@ -76,7 +76,7 @@ TEST_F(FieldConversionUtilsTest, FieldConversionGrumpkinAffineElement)
     curve::Grumpkin::AffineElement x1(1, 2);
     check_conversion(x1);
 
-    curve::Grumpkin::AffineElement x2(barretenberg::fr::modulus_minus_two, barretenberg::fr::modulus_minus_two);
+    curve::Grumpkin::AffineElement x2(bb::fr::modulus_minus_two, bb::fr::modulus_minus_two);
     check_conversion(x2);
 }
 
@@ -85,4 +85,4 @@ TEST_F(FieldConversionUtilsTest, FieldConversionGrumpkinAffineElement)
  *
  */
 
-} // namespace barretenberg::field_conversion_utils_tests
+} // namespace bb::field_conversion_utils_tests

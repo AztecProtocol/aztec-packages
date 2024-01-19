@@ -4,6 +4,6 @@
 
 namespace proof_system::honk {
 
-using proof = std::vector<barretenberg::fr>;
+using proof = std::vector<bb::fr>;
 
 } // namespace proof_system::honk

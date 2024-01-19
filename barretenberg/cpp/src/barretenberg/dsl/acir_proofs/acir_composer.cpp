@@ -77,7 +77,7 @@ void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_sy
     GoblinMockCircuits::construct_goblin_ecc_op_circuit(goblin_builder_);
 }
 
-std::vector<barretenberg::fr> AcirComposer::create_goblin_proof()
+std::vector<bb::fr> AcirComposer::create_goblin_proof()
 {
     return goblin.construct_proof(goblin_builder_);
 }
@@ -132,7 +132,7 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     }
 }
 
-bool AcirComposer::verify_goblin_proof(std::vector<barretenberg::fr> const& proof)
+bool AcirComposer::verify_goblin_proof(std::vector<bb::fr> const& proof)
 {
     return goblin.verify_proof({ proof });
 }

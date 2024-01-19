@@ -24,7 +24,7 @@ class Goblin {
     using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
-    using Fr = barretenberg::fr;
+    using Fr = bb::fr;
     using HonkProof = proof_system::honk::proof;
     using Transcript = proof_system::honk::BaseTranscript;
     using OpQueue = proof_system::ECCOpQueue;

@@ -6,48 +6,47 @@
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-namespace barretenberg::field_conversion_utils {
+namespace bb::field_conversion_utils {
 
 /**
- * @brief Decomposes a barretenberg::fr into two 64-bit limbs. Helper function for
+ * @brief Decomposes a bb::fr into two 64-bit limbs. Helper function for
  * convert_barretenberg_frs_to_grumpkin_fr.
  *
  * @param field_val
  * @return std::array<uint64_t, 2>
  */
-std::array<uint64_t, 2> decompose_bn254_fr_to_two_limbs(const barretenberg::fr& field_val);
+std::array<uint64_t, 2> decompose_bn254_fr_to_two_limbs(const bb::fr& field_val);
 
 /**
- * @brief Converts 2 barretenberg::fr elements to grumpkin::fr
- * @details Checks that each barretenberg::fr must be at most 128 bits (to ensure no overflow), and decomposes each
- * barretenberg::fr into two 64-bit limbs, and the 4 64-bit limbs form the grumpkin::fr
+ * @brief Converts 2 bb::fr elements to grumpkin::fr
+ * @details Checks that each bb::fr must be at most 128 bits (to ensure no overflow), and decomposes each
+ * bb::fr into two 64-bit limbs, and the 4 64-bit limbs form the grumpkin::fr
  * @param low_bits_in
  * @param high_bits_in
  * @return grumpkin::fr
  */
-grumpkin::fr convert_bn254_frs_to_grumpkin_fr(const barretenberg::fr& low_bits_in,
-                                              const barretenberg::fr& high_bits_in);
+grumpkin::fr convert_bn254_frs_to_grumpkin_fr(const bb::fr& low_bits_in, const bb::fr& high_bits_in);
 
 /**
- * @brief Converts grumpkin::fr to 2 barretenberg::fr elements
+ * @brief Converts grumpkin::fr to 2 bb::fr elements
  * @details Does the reverse of convert_bn254_frs_to_grumpkin_fr, by merging the two pairs of limbs back into the
- * 2 barretenberg::fr elements.
+ * 2 bb::fr elements.
  * @param input
- * @return std::array<barretenberg::fr, 2>
+ * @return std::array<bb::fr, 2>
  */
-std::array<barretenberg::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input);
+std::array<bb::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input);
 
 /**
- * @brief Calculates the size of a types in terms of barretenberg::frs
- * @details We want to suppor the following types: bool, size_t, uint32_t, uint64_t, barretenberg::fr, grumpkin::fr,
- * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, barretenberg::Univariate<FF, N>, std::array<FF, N>, for
- * FF = barretenberg::fr/grumpkin::fr, and N is arbitrary
+ * @brief Calculates the size of a types in terms of bb::frs
+ * @details We want to suppor the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
+ * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = bb::fr/grumpkin::fr, and N is arbitrary
  * @tparam T
  * @return constexpr size_t
  */
 template <typename T> constexpr size_t calc_num_frs();
 
-constexpr size_t calc_num_frs(barretenberg::fr* /*unused*/)
+constexpr size_t calc_num_frs(bb::fr* /*unused*/)
 {
     return 1;
 }
@@ -79,7 +78,7 @@ template <typename T, std::size_t N> constexpr size_t calc_num_frs(std::array<T,
     return N * calc_num_frs<T>();
 }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_frs(barretenberg::Univariate<T, N>* /*unused*/)
+template <typename T, std::size_t N> constexpr size_t calc_num_frs(bb::Univariate<T, N>* /*unused*/)
 {
     return N * calc_num_frs<T>();
 }
@@ -89,33 +88,33 @@ template <typename T> constexpr size_t calc_num_frs()
     return calc_num_frs(static_cast<T*>(nullptr));
 }
 
-template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec);
+template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec);
 
-bool convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, bool* /*unused*/)
+bool convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bool* /*unused*/)
 {
     ASSERT(fr_vec.size() == 1);
     return fr_vec[0] != 0;
 }
 
-template <std::integral T> T convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, T* /*unused*/)
+template <std::integral T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec, T* /*unused*/)
 {
     ASSERT(fr_vec.size() == 1);
     return static_cast<T>(fr_vec[0]);
 }
 
-barretenberg::fr convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, barretenberg::fr* /*unused*/)
+bb::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bb::fr* /*unused*/)
 {
     ASSERT(fr_vec.size() == 1);
     return fr_vec[0];
 }
 
-grumpkin::fr convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec, grumpkin::fr* /*unused*/)
+grumpkin::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, grumpkin::fr* /*unused*/)
 {
     ASSERT(fr_vec.size() == 2);
     return convert_bn254_frs_to_grumpkin_fr(fr_vec[0], fr_vec[1]);
 }
 
-curve::BN254::AffineElement convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+curve::BN254::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
                                                    curve::BN254::AffineElement* /*unused*/)
 {
     curve::BN254::AffineElement val;
@@ -124,7 +123,7 @@ curve::BN254::AffineElement convert_from_bn254_frs(std::span<const barretenberg:
     return val;
 }
 
-curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
                                                       curve::Grumpkin::AffineElement* /*unused*/)
 {
     ASSERT(fr_vec.size() == 2);
@@ -135,10 +134,9 @@ curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const barretenbe
 }
 
 template <size_t N>
-std::array<barretenberg::fr, N> convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
-                                                       std::array<barretenberg::fr, N>* /*unused*/)
+std::array<bb::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec, std::array<bb::fr, N>* /*unused*/)
 {
-    std::array<barretenberg::fr, N> val;
+    std::array<bb::fr, N> val;
     for (size_t i = 0; i < N; ++i) {
         val[i] = fr_vec[i];
     }
@@ -146,24 +144,22 @@ std::array<barretenberg::fr, N> convert_from_bn254_frs(std::span<const barretenb
 }
 
 template <size_t N>
-std::array<grumpkin::fr, N> convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
+std::array<grumpkin::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
                                                    std::array<grumpkin::fr, N>* /*unused*/)
 {
     std::array<grumpkin::fr, N> val;
     for (size_t i = 0; i < N; ++i) {
-        std::vector<barretenberg::fr> fr_vec_tmp{
-            fr_vec[2 * i], fr_vec[2 * i + 1]
-        }; // each pair of consecutive elements is a grumpkin::fr
+        std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i],
+                                        fr_vec[2 * i + 1] }; // each pair of consecutive elements is a grumpkin::fr
         val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
     }
     return val;
 }
 
 template <size_t N>
-barretenberg::Univariate<barretenberg::fr, N> convert_from_bn254_frs(
-    std::span<const barretenberg::fr> fr_vec, barretenberg::Univariate<barretenberg::fr, N>* /*unused*/)
+bb::Univariate<bb::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bb::Univariate<bb::fr, N>* /*unused*/)
 {
-    barretenberg::Univariate<barretenberg::fr, N> val;
+    bb::Univariate<bb::fr, N> val;
     for (size_t i = 0; i < N; ++i) {
         val.evaluations[i] = fr_vec[i];
     }
@@ -171,40 +167,40 @@ barretenberg::Univariate<barretenberg::fr, N> convert_from_bn254_frs(
 }
 
 template <size_t N>
-barretenberg::Univariate<grumpkin::fr, N> convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec,
-                                                                 barretenberg::Univariate<grumpkin::fr, N>* /*unused*/)
+bb::Univariate<grumpkin::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
+                                                       bb::Univariate<grumpkin::fr, N>* /*unused*/)
 {
-    barretenberg::Univariate<grumpkin::fr, N> val;
+    bb::Univariate<grumpkin::fr, N> val;
     for (size_t i = 0; i < N; ++i) {
-        std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+        std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
         val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
     }
     return val;
 }
 
-template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
+template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     return convert_from_bn254_frs(fr_vec, static_cast<T*>(nullptr));
 }
 
 // template <template <class U, size_t TT> class T, class U, size_t TT>
-// T<U, TT> inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
+// T<U, TT> inline convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 // {
-//     if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
-//         barretenberg::Univariate<barretenberg::fr, TT> val;
+//     if constexpr (std::is_same_v<T<U, TT>, bb::Univariate<bb::fr, TT>>) {
+//         bb::Univariate<bb::fr, TT> val;
 //         for (size_t i = 0; i < TT; ++i) {
 //             val.evaluations[i] = fr_vec[i];
 //         }
 //         return val;
-//     } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
-//         barretenberg::Univariate<grumpkin::fr, TT> val;
+//     } else if constexpr (std::is_same_v<T<U, TT>, bb::Univariate<grumpkin::fr, TT>>) {
+//         bb::Univariate<grumpkin::fr, TT> val;
 //         for (size_t i = 0; i < TT; ++i) {
-//             std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+//             std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
 //             val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
 //         }
 //         return val;
-//     } else if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
-//         std::array<barretenberg::fr, TT> val;
+//     } else if constexpr (std::is_same_v<T<U, TT>, std::array<bb::fr, TT>>) {
+//         std::array<bb::fr, TT> val;
 //         for (size_t i = 0; i < TT; ++i) {
 //             val[i] = fr_vec[i];
 //         }
@@ -212,7 +208,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr>
 //     } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
 //         std::array<grumpkin::fr, TT> val;
 //         for (size_t i = 0; i < TT; ++i) {
-//             std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+//             std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
 //             val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
 //         }
 //         return val;
@@ -222,14 +218,14 @@ template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr>
 //     }
 // }
 
-// template <typename T> T inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
+// template <typename T> T inline convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 // {
 //     // TODO: possibly merge this with calc_num_frs()
 //     if constexpr (std::is_same_v<T, bool>) { // TODO: add asserts for correct lengths
 //         ASSERT(fr_vec.size() == 1);
 //         T val{ fr_vec[0] != 0 };
 //         return val;
-//     } else if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
+//     } else if constexpr (std::is_integral_v<T> || std::is_same_v<T, bb::fr>) {
 //         ASSERT(fr_vec.size() == 1);
 //         T val{ fr_vec[0] };
 //         return val;
@@ -248,44 +244,44 @@ template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr>
 //         val.x = fr_vec[0];
 //         val.y = fr_vec[1];
 //         return val;
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 43>>) {
-//         return convert_from_bn254_frs<std::array, barretenberg::fr, 43>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 10>>) {
-//         return convert_from_bn254_frs<std::array, barretenberg::fr, 10>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 184>>) {
-//         return convert_from_bn254_frs<std::array, barretenberg::fr, 184>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 55>>) {
-//         return convert_from_bn254_frs<std::array, barretenberg::fr, 55>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 17>>) {
-//         return convert_from_bn254_frs<std::array, barretenberg::fr, 17>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, std::array<barretenberg::fr, 46>>) {
-//         return convert_from_bn254_frs<std::array, barretenberg::fr, 46>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<bb::fr, 43>>) {
+//         return convert_from_bn254_frs<std::array, bb::fr, 43>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<bb::fr, 10>>) {
+//         return convert_from_bn254_frs<std::array, bb::fr, 10>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<bb::fr, 184>>) {
+//         return convert_from_bn254_frs<std::array, bb::fr, 184>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<bb::fr, 55>>) {
+//         return convert_from_bn254_frs<std::array, bb::fr, 55>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<bb::fr, 17>>) {
+//         return convert_from_bn254_frs<std::array, bb::fr, 17>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, std::array<bb::fr, 46>>) {
+//         return convert_from_bn254_frs<std::array, bb::fr, 46>(fr_vec);
 //     } else if constexpr (std::is_same_v<T, std::array<grumpkin::fr, 105>>) {
 //         return convert_from_bn254_frs<std::array, grumpkin::fr, 105>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 6>>) {
-//         barretenberg::Univariate<barretenberg::fr, 6> val;
+//     } else if constexpr (std::is_same_v<T, bb::Univariate<bb::fr, 6>>) {
+//         bb::Univariate<bb::fr, 6> val;
 //         for (size_t i = 0; i < 6; ++i) {
 //             val.evaluations[i] = fr_vec[i];
 //         }
 //         return val;
-//         // return convert_from_bn254_frs<barretenberg::Univariate, barretenberg::fr, 7>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 7>>) {
-//         barretenberg::Univariate<barretenberg::fr, 7> val;
+//         // return convert_from_bn254_frs<bb::Univariate, bb::fr, 7>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, bb::Univariate<bb::fr, 7>>) {
+//         bb::Univariate<bb::fr, 7> val;
 //         for (size_t i = 0; i < 7; ++i) {
 //             val.evaluations[i] = fr_vec[i];
 //         }
 //         return val;
-//         // return convert_from_bn254_frs<barretenberg::Univariate, barretenberg::fr, 7>(fr_vec);
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<barretenberg::fr, 8>>) {
-//         barretenberg::Univariate<barretenberg::fr, 8> val;
+//         // return convert_from_bn254_frs<bb::Univariate, bb::fr, 7>(fr_vec);
+//     } else if constexpr (std::is_same_v<T, bb::Univariate<bb::fr, 8>>) {
+//         bb::Univariate<bb::fr, 8> val;
 //         for (size_t i = 0; i < 8; ++i) {
 //             val.evaluations[i] = fr_vec[i];
 //         }
 //         return val;
-//     } else if constexpr (std::is_same_v<T, barretenberg::Univariate<grumpkin::fr, 20>>) {
-//         barretenberg::Univariate<grumpkin::fr, 20> val;
+//     } else if constexpr (std::is_same_v<T, bb::Univariate<grumpkin::fr, 20>>) {
+//         bb::Univariate<grumpkin::fr, 20> val;
 //         for (size_t i = 0; i < 20; ++i) {
-//             std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+//             std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
 //             val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
 //         }
 //         return val;
@@ -295,53 +291,52 @@ template <typename T> T convert_from_bn254_frs(std::span<const barretenberg::fr>
 //     }
 // }
 
-template <std::integral T> std::vector<barretenberg::fr> inline convert_to_bn254_frs(const T& val)
+template <std::integral T> std::vector<bb::fr> inline convert_to_bn254_frs(const T& val)
 {
-    std::vector<barretenberg::fr> fr_vec{ val };
+    std::vector<bb::fr> fr_vec{ val };
     return fr_vec;
 }
 
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const grumpkin::fr& val)
+std::vector<bb::fr> inline convert_to_bn254_frs(const grumpkin::fr& val)
 {
     auto fr_arr = convert_grumpkin_fr_to_bn254_frs(val);
-    std::vector<barretenberg::fr> fr_vec(fr_arr.begin(), fr_arr.end());
+    std::vector<bb::fr> fr_vec(fr_arr.begin(), fr_arr.end());
     return fr_vec;
 }
 
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const barretenberg::fr& val)
+std::vector<bb::fr> inline convert_to_bn254_frs(const bb::fr& val)
 {
-    std::vector<barretenberg::fr> fr_vec{ val };
+    std::vector<bb::fr> fr_vec{ val };
     return fr_vec;
 }
 
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const curve::BN254::AffineElement& val)
+std::vector<bb::fr> inline convert_to_bn254_frs(const curve::BN254::AffineElement& val)
 {
     auto fr_vec_x = convert_to_bn254_frs(val.x);
     auto fr_vec_y = convert_to_bn254_frs(val.y);
-    std::vector<barretenberg::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+    std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
     fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
     return fr_vec;
 }
 
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const curve::Grumpkin::AffineElement& val)
+std::vector<bb::fr> inline convert_to_bn254_frs(const curve::Grumpkin::AffineElement& val)
 {
     auto fr_vec_x = convert_to_bn254_frs(val.x);
     auto fr_vec_y = convert_to_bn254_frs(val.y);
-    std::vector<barretenberg::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+    std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
     fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
     return fr_vec;
 }
 
-template <size_t T>
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const std::array<barretenberg::fr, T>& val)
+template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<bb::fr, T>& val)
 {
-    std::vector<barretenberg::fr> fr_vec(val.begin(), val.end());
+    std::vector<bb::fr> fr_vec(val.begin(), val.end());
     return fr_vec;
 }
 
-template <size_t T> std::vector<barretenberg::fr> inline convert_to_bn254_frs(const std::array<grumpkin::fr, T>& val)
+template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<grumpkin::fr, T>& val)
 {
-    std::vector<barretenberg::fr> fr_vec;
+    std::vector<bb::fr> fr_vec;
     for (size_t i = 0; i < T; ++i) {
         auto tmp_vec = convert_to_bn254_frs(val[i]);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
@@ -349,10 +344,9 @@ template <size_t T> std::vector<barretenberg::fr> inline convert_to_bn254_frs(co
     return fr_vec;
 }
 
-template <size_t T>
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const barretenberg::Univariate<barretenberg::fr, T>& val)
+template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<bb::fr, T>& val)
 {
-    std::vector<barretenberg::fr> fr_vec;
+    std::vector<bb::fr> fr_vec;
     for (size_t i = 0; i < T; ++i) {
         auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
@@ -360,10 +354,9 @@ std::vector<barretenberg::fr> inline convert_to_bn254_frs(const barretenberg::Un
     return fr_vec;
 }
 
-template <size_t T>
-std::vector<barretenberg::fr> inline convert_to_bn254_frs(const barretenberg::Univariate<grumpkin::fr, T>& val)
+template <size_t T> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<grumpkin::fr, T>& val)
 {
-    std::vector<barretenberg::fr> fr_vec;
+    std::vector<bb::fr> fr_vec;
     for (size_t i = 0; i < T; ++i) {
         auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
@@ -371,10 +364,10 @@ std::vector<barretenberg::fr> inline convert_to_bn254_frs(const barretenberg::Un
     return fr_vec;
 }
 
-template <typename AllValues> std::vector<barretenberg::fr> inline convert_to_bn254_frs(const AllValues& val)
+template <typename AllValues> std::vector<bb::fr> inline convert_to_bn254_frs(const AllValues& val)
 {
     auto data = val.get_all();
-    std::vector<barretenberg::fr> fr_vec;
+    std::vector<bb::fr> fr_vec;
     for (auto& item : data) {
         auto tmp_vec = convert_to_bn254_frs(item);
         fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
@@ -384,4 +377,4 @@ template <typename AllValues> std::vector<barretenberg::fr> inline convert_to_bn
 
 // now convert_from_bn254_frs
 
-} // namespace barretenberg::field_conversion_utils
+} // namespace bb::field_conversion_utils
