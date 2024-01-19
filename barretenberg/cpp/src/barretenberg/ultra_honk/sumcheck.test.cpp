@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+using namespace bb;
 using namespace bb::honk;
 using namespace bb::honk::sumcheck;
 

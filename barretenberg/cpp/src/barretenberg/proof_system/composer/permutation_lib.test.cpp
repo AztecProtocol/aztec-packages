@@ -6,6 +6,8 @@
 #include <array>
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 class PermutationHelperTests : public ::testing::Test {
   protected:
     using Flavor = bb::honk::flavor::Ultra;
