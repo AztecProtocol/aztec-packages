@@ -44,7 +44,7 @@ describe('L1Publisher', () => {
       status: true,
       logs: [{ data: '' }],
     } as MinimalTransactionReceipt;
-    txSender.sendPublishTx.mockResolvedValueOnce(processTxHash);
+    txSender.sendPublishTx.mockResolvedValueOnce(publishTxHash);
     txSender.sendProcessTx.mockResolvedValueOnce(processTxHash);
     txSender.getTransactionReceipt.mockResolvedValueOnce(publishTxReceipt).mockResolvedValueOnce(processTxReceipt);
     txSender.getCurrentArchive.mockResolvedValue(l2Block.header.lastArchive.root.toBuffer());
@@ -69,7 +69,7 @@ describe('L1Publisher', () => {
   });
 
   it('does not retry if sending a publish tx fails', async () => {
-    txSender.sendPublishTx.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(processTxHash);
+    txSender.sendPublishTx.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(publishTxHash);
 
     const result = await publisher.processL2Block(l2Block);
 
