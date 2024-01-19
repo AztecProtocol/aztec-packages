@@ -1,11 +1,12 @@
 import { deployInitialTestAccounts } from '@aztec/accounts/testing';
-import { Archiver, LMDBArchiverStore, createArchiverRpcServer, getConfigEnvVars } from '@aztec/archiver';
+import { Archiver, KVArchiverDataStore, createArchiverRpcServer, getConfigEnvVars } from '@aztec/archiver';
 import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
 import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { ServerList, createMultiJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { AztecLmdbStore } from '@aztec/kv-store';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
 import { PXEService, PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
@@ -19,7 +20,6 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
-import { openDb } from './util.js';
 
 const { AZTEC_PORT = '8080', AZTEC_NODE_URL, DEPLOY_AZTEC_CONTRACTS } = process.env;
 
@@ -239,8 +239,11 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         // merge env vars and cli options
         const archiverConfig = pick({ ...archiverConfigEnvVars, ...archiverCliOptions });
 
-        const nodeDb = await openDb(archiverConfig, debugLogger);
-        const archiverStore = new LMDBArchiverStore(nodeDb, archiverConfig.maxLogs);
+        const store = await AztecLmdbStore.create(
+          archiverConfig.l1Contracts.rollupAddress,
+          archiverConfig.dataDirectory,
+        );
+        const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
         const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);
         const archiverServer = createArchiverRpcServer(archiver);

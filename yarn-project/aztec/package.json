@@ -35,6 +35,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
