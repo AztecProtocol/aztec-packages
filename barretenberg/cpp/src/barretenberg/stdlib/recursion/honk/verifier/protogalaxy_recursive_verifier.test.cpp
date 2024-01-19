@@ -299,4 +299,41 @@ TEST_F(ProtogalaxyRecursiveTest, TamperedDeciderProof)
     test_failing_recursive_deciding();
 }
 
+TEST_F(ProtogalaxyRecursiveTest, TamperedAccumulator)
+{
+    // Create two arbitrary circuits for the first round of folding
+    InnerBuilder builder1;
+
+    create_inner_circuit(builder1);
+    InnerBuilder builder2;
+    builder2.add_public_variable(FF(1));
+    create_inner_circuit(builder2);
+
+    InnerComposer inner_composer = InnerComposer();
+    auto instance1 = inner_composer.create_instance(builder1);
+    auto instance2 = inner_composer.create_instance(builder2);
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
+
+    auto accumulator = fold_and_verify(instances, inner_composer);
+
+    // Create another circuit to do a second round of folding
+    InnerBuilder builder3;
+    create_inner_circuit(builder3);
+    auto instance3 = inner_composer.create_instance(builder3);
+
+    // Tamper with the accumulator
+    instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance3 };
+    accumulator->prover_polynomials.w_l[1] = FF::random_element();
+
+    // Generate a folding proof
+    auto inner_folding_prover = inner_composer.create_folding_prover(instances);
+    auto inner_folding_proof = inner_folding_prover.fold_instances();
+
+    // Create a recursive folding verifier circuit for the folding proof of the two instances
+    OuterBuilder outer_folding_circuit;
+    FoldingRecursiveVerifier verifier{ &outer_folding_circuit };
+    verifier.verify_folding_proof(inner_folding_proof.folding_data);
+    EXPECT_EQ(outer_folding_circuit.check_circuit(), false);
+}
+
 } // namespace proof_system::plonk::stdlib::recursion::honk
