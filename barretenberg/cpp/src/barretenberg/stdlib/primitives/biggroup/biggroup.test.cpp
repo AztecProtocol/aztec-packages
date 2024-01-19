@@ -9,12 +9,11 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 
-namespace test_stdlib_biggroup {
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-using namespace bb::plonk;
+using namespace bb;
 
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
@@ -1028,4 +1027,3 @@ HEAVY_TYPED_TEST(stdlib_biggroup, ecdsa_mul_secp256k1)
         GTEST_SKIP();
     }
 }
-} // namespace test_stdlib_biggroup
