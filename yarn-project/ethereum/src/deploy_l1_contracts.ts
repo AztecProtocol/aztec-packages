@@ -113,9 +113,9 @@ export const deployL1Contracts = async (
   );
   logger(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
 
-
   const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode, [
-    getAddress(registryAddress.toString()), getAddress(availabilityOracleAddress.toString()),
+    getAddress(registryAddress.toString()),
+    getAddress(availabilityOracleAddress.toString()),
   ]);
   logger(`Deployed Rollup at ${rollupAddress}`);
 
