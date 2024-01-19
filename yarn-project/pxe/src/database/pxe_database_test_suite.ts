@@ -91,11 +91,15 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ owner: owners[0].address }), () => notes.filter(note => note.publicKey.equals(owners[0].publicKey))],
 
         [
-          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
+          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0], status: 'active' }),
           () =>
             notes.filter(
               note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
             ),
+        ],
+        [
+          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0], status: 'deleted' }),
+          () => [],
         ],
         [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
       ];
@@ -132,7 +136,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
-      it('removes nullified notes', async () => {
+      it('skips nullified notes by default', async () => {
         const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
 
@@ -147,6 +151,23 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           }),
         ).resolves.toEqual([]);
         await expect(database.getNotes({})).resolves.toEqual(notes.filter(note => !notesToNullify.includes(note)));
+      });
+
+      it('retrieves nullified notes', async () => {
+        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
+
+        await database.addNotes(notes);
+
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
+          notesToNullify,
+        );
+        await expect(
+          database.getNotes({
+            owner: owners[0].address,
+            status: 'deleted'
+          }),
+        ).resolves.toEqual(notesToNullify);
       });
     });
 

@@ -170,18 +170,28 @@ export class KVPxeDatabase implements PxeDatabase {
       ? (await this.getCompleteAddress(filter.owner))?.publicKey
       : undefined;
 
-    const initialNoteIds = publicKey
-      ? this.#notesByOwner.getValues(publicKey.toString())
-      : filter.txHash
-      ? this.#notesByTxHash.getValues(filter.txHash.toString())
-      : filter.contractAddress
-      ? this.#notesByContract.getValues(filter.contractAddress.toString())
-      : filter.storageSlot
-      ? this.#notesByStorageSlot.getValues(filter.storageSlot.toString())
-      : undefined;
+    let initialNoteIds: IterableIterator<number> | undefined;
 
-    if (!initialNoteIds) {
-      return Array.from(this.#getAllNonNullifiedNotes());
+    if ((filter.status ?? 'active') == 'active') {
+      // The #notesByX stores only track active notes.
+      initialNoteIds = publicKey
+        ? this.#notesByOwner.getValues(publicKey.toString())
+        : filter.txHash
+        ? this.#notesByTxHash.getValues(filter.txHash.toString())
+        : filter.contractAddress
+        ? this.#notesByContract.getValues(filter.contractAddress.toString())
+        : filter.storageSlot
+        ? this.#notesByStorageSlot.getValues(filter.storageSlot.toString())
+        : undefined;
+
+      if (!initialNoteIds) {
+        return Array.from(this.#getAllNonNullifiedNotes());
+      }
+    } else {
+      // TODO: this will cause a scan of all nullified notes in order to apply the filters manually. We could improve
+      // performance at the cost of storage by duplicating the #notesBy stores so that we also track nullified notes
+      // that way.
+      initialNoteIds = this.#nullifiedNotes.keys();
     }
 
     const result: NoteDao[] = [];

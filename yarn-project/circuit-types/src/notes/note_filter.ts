@@ -15,4 +15,6 @@ export type NoteFilter = {
   storageSlot?: Fr;
   /** The owner of the note (whose public key was used to encrypt the note). */
   owner?: AztecAddress;
+  /** The status of the note. Defaults to 'active'. */
+  status?: 'active' | 'deleted';
 };
