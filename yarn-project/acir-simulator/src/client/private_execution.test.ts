@@ -161,7 +161,7 @@ describe('Private Execution test suite', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
-    oracle.getSecretKey.mockImplementation((contractAddress: AztecAddress, pubKey: PublicKey) => {
+    oracle.getNullifierSecretKey.mockImplementation((contractAddress: AztecAddress, pubKey: PublicKey) => {
       if (pubKey.equals(ownerCompleteAddress.publicKey)) {
         return Promise.resolve(ownerPk);
       }

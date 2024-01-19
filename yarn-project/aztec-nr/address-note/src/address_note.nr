@@ -10,7 +10,7 @@ use dep::aztec::{
     },
     oracle::{
         rand::rand,
-        get_secret_key::get_secret_key,
+        nullifier_key::get_nullifier_secret_key,
         get_public_key::get_public_key,
     },
     hash::pedersen_hash,
@@ -61,7 +61,7 @@ impl AddressNote {
 
     pub fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(AddressNoteMethods, self);
-        let secret = get_secret_key(self.owner);
+        let secret = get_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
             note_hash_for_nullify,

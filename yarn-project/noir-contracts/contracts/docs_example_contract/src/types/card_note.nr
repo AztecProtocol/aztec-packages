@@ -6,7 +6,7 @@ use dep::aztec::{
         utils::compute_note_hash_for_read_or_nullify,
     },
     oracle::{
-        get_secret_key::get_secret_key,
+        nullifier_key::get_nullifier_secret_key,
         get_public_key::get_public_key,
     },
     log::emit_encrypted_log,
@@ -58,7 +58,7 @@ impl CardNote {
 
     pub fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(CardNoteMethods, self);
-        let secret = get_secret_key(self.owner);
+        let secret = get_nullifier_secret_key(self.owner);
         pedersen_hash([
             note_hash_for_nullify,
             secret.high,

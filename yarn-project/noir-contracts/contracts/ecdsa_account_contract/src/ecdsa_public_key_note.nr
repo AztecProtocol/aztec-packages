@@ -6,7 +6,7 @@ use dep::aztec::{
         utils::compute_unique_siloed_note_hash,
     },
     oracle::{
-        get_secret_key::get_secret_key,
+        nullifier_key::get_nullifier_secret_key,
         get_public_key::get_public_key,
     },
     log::emit_encrypted_log,
@@ -62,7 +62,7 @@ impl EcdsaPublicKeyNote {
 
     pub fn compute_nullifier(self) -> Field {
         let unique_siloed_note_hash = compute_unique_siloed_note_hash(EcdsaPublicKeyNoteInterface, self);
-        let secret = get_secret_key(self.owner);
+        let secret = get_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
             unique_siloed_note_hash,

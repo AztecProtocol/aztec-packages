@@ -35,7 +35,7 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
+  getNullifierSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 

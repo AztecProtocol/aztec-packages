@@ -28,7 +28,7 @@ describe('Simulator', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
-    oracle.getSecretKey.mockResolvedValue(ownerPk);
+    oracle.getNullifierSecretKey.mockResolvedValue(ownerPk);
     oracle.getCompleteAddress.mockResolvedValue(ownerCompleteAddress);
 
     simulator = new AcirSimulator(oracle);

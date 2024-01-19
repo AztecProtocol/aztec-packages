@@ -33,9 +33,9 @@ export class Oracle {
     return toACVMField(packed);
   }
 
-  async getSecretKey([publicKeyX]: ACVMField[], [publicKeyY]: ACVMField[]): Promise<ACVMField[]> {
+  async getNullifierSecretKey([publicKeyX]: ACVMField[], [publicKeyY]: ACVMField[]): Promise<ACVMField[]> {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
-    const secretKey = await this.typedOracle.getSecretKey(publicKey);
+    const secretKey = await this.typedOracle.getNullifierSecretKey(publicKey);
     return [toACVMField(secretKey.low), toACVMField(secretKey.high)];
   }
 

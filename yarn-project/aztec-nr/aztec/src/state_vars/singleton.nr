@@ -16,13 +16,13 @@ use crate::note::{
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::{
-    get_secret_key::get_secret_key,
+    nullifier_key::get_nullifier_secret_key,
     notes::check_nullifier_exists,
 };
 
 pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<AztecAddress>) -> Field {
     if owner.is_some() {
-        let secret = get_secret_key(owner.unwrap_unchecked());
+        let secret = get_nullifier_secret_key(owner.unwrap_unchecked());
         pedersen_hash(
             [storage_slot, secret.low, secret.high],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER

@@ -76,7 +76,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getSecretKey(_owner: PublicKey): Promise<GrumpkinScalar> {
+  getNullifierSecretKey(_owner: PublicKey): Promise<GrumpkinScalar> {
     throw new Error('Not available.');
   }
 

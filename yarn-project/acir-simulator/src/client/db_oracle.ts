@@ -43,16 +43,16 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve the secret key associated with a specific public key.
+   * Retrieve the nullifier secret key associated with a specific public key.
    * The function only allows access to the secret keys of the transaction creator,
    * and throws an error if the address does not match the public key address of the key pair.
    *
    * @param contractAddress - The contract address. Ignored here. But we might want to return different keys for different contracts.
    * @param pubKey - The public key of an account.
-   * @returns A Promise that resolves to the secret key.
+   * @returns A Promise that resolves to the nullifier secret key.
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
-  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey>;
+  getNullifierSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

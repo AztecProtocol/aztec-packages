@@ -39,8 +39,8 @@ export class ViewDataOracle extends TypedOracle {
    * Return the secret key of a owner to use in a specific contract.
    * @param owner - The owner of the secret key.
    */
-  public getSecretKey(owner: PublicKey) {
-    return this.db.getSecretKey(this.contractAddress, owner);
+  public getNullifierSecretKey(owner: PublicKey) {
+    return this.db.getNullifierSecretKey(this.contractAddress, owner);
   }
 
   /**
