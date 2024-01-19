@@ -278,7 +278,7 @@ export class Fq extends BaseField {
 
 // Beware: Performance bottleneck below
 
-/** 
+/**
  * Find the modular inverse of a given element, for BN254 Fr.
  */
 function modInverse(b: bigint) {
@@ -302,7 +302,6 @@ function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint]
     return [gcd, y - (modulus / a) * x, x];
   }
 }
-
 
 /**
  * GrumpkinScalar is an Fq.
