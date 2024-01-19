@@ -8,12 +8,12 @@
 #include "barretenberg/stdlib/merkle_tree/membership.hpp"
 #include "verify_signature.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
 using namespace bb::plonk;
 using namespace notes::circuit;
 using namespace bb::stdlib::merkle_tree;
-using namespace crypto::schnorr;
+using namespace bb::crypto::schnorr;
 
 /**
  * Check that the input note data, follows the given hash paths, to the publically given merkle root.
@@ -325,4 +325,4 @@ void join_split_circuit(Builder& builder, join_split_tx const& tx)
     inputs.allow_chain.set_public();
 } // namespace join_split
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

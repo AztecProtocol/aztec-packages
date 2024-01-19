@@ -11,7 +11,7 @@
 #include "index.hpp"
 #include "join_split_circuit.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
 using namespace bb::stdlib::merkle_tree;
 
@@ -28,8 +28,8 @@ constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
 using namespace bb;
 using namespace bb::stdlib;
 using namespace bb::stdlib::merkle_tree;
-using namespace join_split_example::proofs::notes::native;
-using key_pair = join_split_example::fixtures::grumpkin_key_pair;
+using namespace bb::join_split_example::proofs::notes::native;
+using key_pair = bb::join_split_example::fixtures::grumpkin_key_pair;
 
 auto create_account_leaf_data(fr const& account_alias_hash,
                               grumpkin::g1::affine_element const& owner_key,
@@ -54,7 +54,7 @@ class join_split_tests : public ::testing::Test {
     {
         store = std::make_unique<MemoryStore>();
         tree = std::make_unique<MerkleTree<MemoryStore>>(*store, 32);
-        user = join_split_example::fixtures::create_user_context();
+        user = bb::join_split_example::fixtures::create_user_context();
 
         default_value_note = { .value = 100,
                                .asset_id = asset_id,
@@ -73,7 +73,7 @@ class join_split_tests : public ::testing::Test {
         value_notes[0].creator_pubkey = user.owner.public_key.x;
 
         value_notes[1].value = 50;
-        value_notes[1].creator_pubkey = join_split_example::fixtures::create_key_pair(nullptr).public_key.x;
+        value_notes[1].creator_pubkey = bb::join_split_example::fixtures::create_key_pair(nullptr).public_key.x;
 
         value_notes[2].value = 90;
         value_notes[2].account_required = true,
@@ -195,7 +195,7 @@ class join_split_tests : public ::testing::Test {
         tx.account_private_key = user.owner.private_key;
         tx.partial_claim_note.input_nullifier = 0;
         tx.alias_hash =
-            !account_required ? join_split_example::fixtures::generate_alias_hash("penguin") : user.alias_hash;
+            !account_required ? bb::join_split_example::fixtures::generate_alias_hash("penguin") : user.alias_hash;
         tx.account_required = account_required;
         // default to no chaining:
         tx.backward_link = 0;
@@ -254,7 +254,7 @@ class join_split_tests : public ::testing::Test {
         tx.output_note = { output_note1, output_note2 };
         tx.partial_claim_note.input_nullifier = 0;
         tx.account_private_key = user.owner.private_key;
-        tx.alias_hash = join_split_example::fixtures::generate_alias_hash("penguin");
+        tx.alias_hash = bb::join_split_example::fixtures::generate_alias_hash("penguin");
         tx.account_required = false;
         tx.account_note_index = 0;
         tx.account_note_path = tree->get_hash_path(0);
@@ -300,7 +300,7 @@ class join_split_tests : public ::testing::Test {
         return verify_logic(tx);
     }
 
-    join_split_example::fixtures::user_context user;
+    bb::join_split_example::fixtures::user_context user;
     std::unique_ptr<MemoryStore> store;
     std::unique_ptr<MerkleTree<MemoryStore>> tree;
     bridge_call_data empty_bridge_call_data = { .bridge_address_id = 0,
@@ -999,7 +999,7 @@ TEST_F(join_split_tests, test_non_zero_tx_fee_zero_public_values)
 TEST_F(join_split_tests, test_max_tx_fee)
 {
     join_split_tx tx = zero_input_setup();
-    auto tx_fee = (uint256_t(1) << join_split_example::TX_FEE_BIT_LENGTH) - 1;
+    auto tx_fee = (uint256_t(1) << bb::join_split_example::TX_FEE_BIT_LENGTH) - 1;
     tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value += tx_fee;
     tx.public_owner = fr::random_element();
@@ -1012,7 +1012,7 @@ TEST_F(join_split_tests, test_max_tx_fee)
 TEST_F(join_split_tests, test_overflow_tx_fee_fails)
 {
     join_split_tx tx = simple_setup();
-    auto tx_fee = uint256_t(1) << join_split_example::TX_FEE_BIT_LENGTH;
+    auto tx_fee = uint256_t(1) << bb::join_split_example::TX_FEE_BIT_LENGTH;
     tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value += tx_fee;
     tx.public_owner = fr::random_element();
@@ -1176,7 +1176,7 @@ TEST_F(join_split_tests, test_spend_registered_notes_with_owner_key_fails)
 TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("derive_generators");
+    tx.alias_hash = bb::join_split_example::fixtures::generate_alias_hash("derive_generators");
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -1186,7 +1186,7 @@ TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 TEST_F(join_split_tests, test_nonregistered_signing_key_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    auto keys = join_split_example::fixtures::create_key_pair(nullptr);
+    auto keys = bb::join_split_example::fixtures::create_key_pair(nullptr);
     tx.signing_pub_key = keys.public_key;
 
     auto result = sign_and_verify_logic(tx, user.owner);
@@ -2197,7 +2197,7 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
     {
         join_split_tx tx = simple_setup();
         tx.output_note[0].creator_pubkey =
-            join_split_example::fixtures::create_key_pair(nullptr)
+            bb::join_split_example::fixtures::create_key_pair(nullptr)
                 .public_key.x; // setting creator to be different from sender (the owner of the input notes).
         auto result = sign_and_verify_logic(tx, user.owner);
         EXPECT_FALSE(result.valid);
@@ -2206,7 +2206,7 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
     {
         join_split_tx tx = simple_setup();
         tx.output_note[1].creator_pubkey =
-            join_split_example::fixtures::create_key_pair(nullptr)
+            bb::join_split_example::fixtures::create_key_pair(nullptr)
                 .public_key.x; // setting creator to be different from sender (the owner of the input notes).
         auto result = sign_and_verify_logic(tx, user.owner);
         EXPECT_FALSE(result.valid);
@@ -2514,4 +2514,4 @@ TEST_F(join_split_tests, test_send_two_virtual_notes_full_proof)
     EXPECT_TRUE(verify_proof(proof));
 }
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

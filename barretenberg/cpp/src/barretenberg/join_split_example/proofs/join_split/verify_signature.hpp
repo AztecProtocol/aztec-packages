@@ -1,7 +1,7 @@
 #include "barretenberg/stdlib/encryption/schnorr/schnorr.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
 using namespace notes;
 
@@ -25,4 +25,4 @@ inline void verify_signature(field_ct const& public_value,
     verify_signature(message, owner_pub_key, signature);
 }
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

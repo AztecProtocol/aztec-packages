@@ -8,13 +8,13 @@
 #include "barretenberg/stdlib/merkle_tree/index.hpp"
 #include "index.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
 using namespace bb;
 // using namespace bb::stdlib::types;
 using namespace bb::stdlib::merkle_tree;
-using namespace join_split_example::proofs::notes::native;
-using key_pair = join_split_example::fixtures::grumpkin_key_pair;
+using namespace bb::join_split_example::proofs::notes::native;
+using key_pair = bb::join_split_example::fixtures::grumpkin_key_pair;
 
 /**
  * This test mirrors the test in join_split_prover.test.ts
@@ -117,7 +117,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     tx.partial_claim_note.note_secret = 0;
     tx.partial_claim_note.input_nullifier = 0;
     tx.account_private_key = private_key;
-    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("penguin");
+    tx.alias_hash = bb::join_split_example::fixtures::generate_alias_hash("penguin");
     tx.account_required = false;
     tx.account_note_index = 0;
     tx.account_note_path = tree->get_hash_path(0);
@@ -159,4 +159,4 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     // }
 }
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

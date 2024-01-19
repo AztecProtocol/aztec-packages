@@ -3,7 +3,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace join_split_example::proofs::notes::native::account {
+namespace bb::join_split_example::proofs::notes::native::account {
 
 grumpkin::fq generate_account_commitment(const bb::fr& alias_hash, const bb::fr& owner_x, const bb::fr& signing_x);
 
@@ -15,4 +15,4 @@ struct account_note {
     grumpkin::fq commit() const;
 };
 
-} // namespace join_split_example::proofs::notes::native::account
+} // namespace bb::join_split_example::proofs::notes::native::account

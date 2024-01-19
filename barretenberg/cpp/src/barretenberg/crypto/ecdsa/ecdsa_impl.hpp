@@ -4,7 +4,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
-namespace crypto::ecdsa {
+namespace bb::crypto::ecdsa {
 
 template <typename Hash, typename Fq, typename Fr, typename G1>
 signature construct_signature(const std::string& message, const key_pair<Fr, G1>& account)
@@ -168,4 +168,4 @@ bool verify_signature(const std::string& message, const typename G1::affine_elem
     Fr result(Rx);
     return result == r;
 }
-} // namespace crypto::ecdsa
+} // namespace bb::crypto::ecdsa

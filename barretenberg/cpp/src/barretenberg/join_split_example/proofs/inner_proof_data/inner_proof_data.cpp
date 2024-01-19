@@ -1,6 +1,6 @@
 #include "inner_proof_data.hpp"
 
-namespace join_split_example::proofs {
+namespace bb::join_split_example::proofs {
 
 using namespace bb;
 
@@ -24,4 +24,4 @@ inner_proof_data::inner_proof_data(std::vector<uint8_t> const& proof_data)
     allow_chain = from_buffer<fr>(proof_data, inner_proof_offsets::ALLOW_CHAIN);
 }
 
-} // namespace join_split_example::proofs
+} // namespace bb::join_split_example::proofs

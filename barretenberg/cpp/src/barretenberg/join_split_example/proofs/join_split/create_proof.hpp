@@ -4,7 +4,7 @@
 #include "join_split_circuit.hpp"
 #include "sign_join_split_tx.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
 inline std::vector<uint8_t> create_proof(join_split_tx const& tx, circuit_data const& cd)
 {
@@ -22,4 +22,4 @@ inline std::vector<uint8_t> create_proof(join_split_tx const& tx, circuit_data c
     return proof.proof_data;
 }
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

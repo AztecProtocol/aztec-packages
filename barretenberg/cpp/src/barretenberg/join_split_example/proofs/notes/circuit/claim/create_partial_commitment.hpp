@@ -3,7 +3,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace join_split_example::proofs::notes::circuit::claim {
+namespace bb::join_split_example::proofs::notes::circuit::claim {
 
 inline auto create_partial_commitment(field_ct const& deposit_value,
                                       field_ct const& bridge_call_data,
@@ -14,4 +14,4 @@ inline auto create_partial_commitment(field_ct const& deposit_value,
                                GeneratorIndex::CLAIM_NOTE_PARTIAL_COMMITMENT);
 }
 
-} // namespace join_split_example::proofs::notes::circuit::claim
+} // namespace bb::join_split_example::proofs::notes::circuit::claim

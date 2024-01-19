@@ -3,9 +3,9 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace join_split_example::fixtures {
+namespace bb::join_split_example::fixtures {
 
-using grumpkin_key_pair = crypto::schnorr::key_pair<grumpkin::fr, grumpkin::g1>;
+using grumpkin_key_pair = bb::crypto::schnorr::key_pair<grumpkin::fr, grumpkin::g1>;
 
 struct user_context {
     bb::fr note_secret;
@@ -37,4 +37,4 @@ inline user_context create_user_context(numeric::random::Engine* engine = nullpt
     return { note_secret, create_key_pair(engine), { create_key_pair(engine), create_key_pair(engine) }, alias_hash };
 }
 
-} // namespace join_split_example::fixtures
+} // namespace bb::join_split_example::fixtures

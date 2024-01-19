@@ -5,11 +5,11 @@
 #include "join_split_circuit.hpp"
 #include "sign_join_split_tx.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
-using namespace join_split_example::proofs::join_split;
+using namespace bb::join_split_example::proofs::join_split;
 using namespace bb::stdlib;
-using namespace join_split_example::proofs::notes::native;
+using namespace bb::join_split_example::proofs::notes::native;
 using namespace bb::stdlib::merkle_tree;
 
 join_split_tx noop_tx()
@@ -70,4 +70,4 @@ circuit_data get_circuit_data(std::shared_ptr<bb::srs::factories::CrsFactory<cur
         "join split", "", srs, "", true, false, false, true, true, true, mock, build_circuit);
 }
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

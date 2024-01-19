@@ -3,7 +3,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace join_split_example::proofs::notes::circuit::account {
+namespace bb::join_split_example::proofs::notes::circuit::account {
 
 inline auto commit(field_ct const& account_alias_hash,
                    group_ct const& account_public_key,
@@ -18,4 +18,4 @@ inline auto commit(field_ct const& account_alias_hash,
         GeneratorIndex::ACCOUNT_NOTE_COMMITMENT);
 }
 
-} // namespace join_split_example::proofs::notes::circuit::account
+} // namespace bb::join_split_example::proofs::notes::circuit::account

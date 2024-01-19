@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
-using namespace crypto::aes128;
+using namespace bb::crypto;
 
 namespace bb::stdlib::aes128 {
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;

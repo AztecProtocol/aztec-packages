@@ -2,7 +2,7 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-namespace join_split_example::proofs::mock {
+namespace bb::join_split_example::proofs::mock {
 
 using namespace bb::plonk;
 
@@ -17,4 +17,4 @@ template <typename Builder> void mock_circuit(Builder& builder, std::vector<bb::
         { stdlib::field_t(stdlib::witness_t(&builder, 1)), stdlib::field_t(stdlib::witness_t(&builder, 1)) });
 }
 
-} // namespace join_split_example::proofs::mock
+} // namespace bb::join_split_example::proofs::mock
