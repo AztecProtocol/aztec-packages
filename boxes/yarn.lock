@@ -255,7 +255,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     eslint: "npm:^8.35.0"
     lodash.chunk: "npm:^4.2.0"
-    lodash.times: "npm:^4.3.2"
     tslib: "npm:^2.4.0"
   languageName: node
   linkType: soft
@@ -265,6 +264,7 @@ __metadata:
   resolution: "@aztec/ethereum@portal:../yarn-project/ethereum::locator=%40aztec%2Fboxes%40workspace%3A."
   dependencies:
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     dotenv: "npm:^16.0.3"
     tslib: "npm:^2.4.0"
     viem: "npm:^1.2.5"
@@ -297,11 +297,20 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/l1-artifacts@portal:../yarn-project/l1-artifacts::locator=%40aztec%2Fboxes%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../yarn-project/l1-artifacts::locator=%40aztec%2Fboxes%40workspace%3A."
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
 "@aztec/types@portal:../yarn-project/types::locator=%40aztec%2Fboxes%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/types@portal:../yarn-project/types::locator=%40aztec%2Fboxes%40workspace%3A."
   dependencies:
     "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
   languageName: node
   linkType: soft
 
