@@ -18,7 +18,7 @@ class AcirComposer {
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
     template <typename Builder = UltraCircuitBuilder>
-    void create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness = {});
+    void create_circuit(acir_format::AcirFormat& constraint_system, WitnessVector const& witness = {});
 
     std::shared_ptr<bb::plonk::proving_key> init_proving_key();
 
@@ -39,7 +39,7 @@ class AcirComposer {
     std::vector<bb::fr> serialize_verification_key_into_fields();
 
     // Goblin specific methods
-    void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
+    void create_goblin_circuit(acir_format::AcirFormat& constraint_system, acir_format::WitnessVector& witness);
     std::vector<uint8_t> create_goblin_proof();
     bool verify_goblin_proof(std::vector<uint8_t> const& proof);
 

@@ -7,6 +7,8 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+using namespace acir_format;
+
 using curve_ct = bb::stdlib::secp256r1<Builder>;
 
 // Generate r1 constraints given pre generated pubkey, sig and message values
@@ -120,7 +122,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
     size_t num_variables =
         generate_r1_constraints(ecdsa_r1_constraint, witness_values, pub_key_x, pub_key_y, hashed_message, signature);
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},
@@ -165,7 +167,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},
@@ -208,7 +210,7 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},
@@ -246,7 +248,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     // tamper with signature
     witness_values[witness_values.size() - 20] += 1;
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},

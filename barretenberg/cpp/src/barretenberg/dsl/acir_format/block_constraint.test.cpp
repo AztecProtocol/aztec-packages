@@ -6,11 +6,13 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+using namespace acir_format;
+
 class UltraPlonkRAM : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
-size_t generate_block_constraint(acir_format::BlockConstraint& constraint, acir_format::WitnessVector& witness_values)
+size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {
     size_t witness_len = 0;
     witness_values.emplace_back(1);
@@ -82,20 +84,20 @@ size_t generate_block_constraint(acir_format::BlockConstraint& constraint, acir_
     };
     witness_values.emplace_back(3);
     witness_len++;
-    acir_format::MemOp op1{
+    MemOp op1{
         .access_type = 0,
         .index = r1,
         .value = y,
     };
-    acir_format::MemOp op2{
+    MemOp op2{
         .access_type = 0,
         .index = r2,
         .value = z,
     };
-    constraint = acir_format::BlockConstraint{
+    constraint = BlockConstraint{
         .init = { a0, a1 },
         .trace = { op1, op2 },
-        .type = acir_format::BlockType::ROM,
+        .type = BlockType::ROM,
     };
 
     return witness_len;
@@ -103,10 +105,10 @@ size_t generate_block_constraint(acir_format::BlockConstraint& constraint, acir_
 
 TEST_F(UltraPlonkRAM, TestBlockConstraint)
 {
-    acir_format::BlockConstraint block;
-    acir_format::WitnessVector witness_values;
+    BlockConstraint block;
+    WitnessVector witness_values;
     size_t num_variables = generate_block_constraint(block, witness_values);
-    acir_format::acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},
@@ -132,7 +134,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
-    auto composer = acir_format::Composer();
+    auto composer = Composer();
     auto prover = composer.create_prover(builder);
 
     auto proof = prover.construct_proof();

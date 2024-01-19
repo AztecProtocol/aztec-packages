@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+using namespace acir_format;
 using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class ECDSASecp256k1 : public ::testing::Test {
@@ -86,7 +87,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     EcdsaSecp256k1Constraint ecdsa_k1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},
@@ -130,7 +131,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     EcdsaSecp256k1Constraint ecdsa_k1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},
@@ -169,7 +170,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     // tamper with signature
     witness_values[witness_values.size() - 20] += 1;
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .public_inputs = {},
         .logic_constraints = {},

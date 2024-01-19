@@ -163,5 +163,3 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
     EXPECT_EQ(acc[2], 0);
     EXPECT_EQ(acc[3], 0);
 }
-}
-; //

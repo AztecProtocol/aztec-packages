@@ -25,7 +25,7 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
  * @param witness
  */
 template <typename Builder>
-void AcirComposer::create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness)
+void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system, WitnessVector const& witness)
 {
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
@@ -61,7 +61,7 @@ std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
     return proof;
 }
 
-void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
+void AcirComposer::create_goblin_circuit(acir_format::AcirFormat& constraint_system,
                                          acir_format::WitnessVector& witness)
 {
     // Construct a builder using the witness and public input data from acir
@@ -176,7 +176,7 @@ std::vector<bb::fr> AcirComposer::serialize_verification_key_into_fields()
     return acir_format::export_key_in_recursion_format(verification_key_);
 }
 
-template void AcirComposer::create_circuit<UltraCircuitBuilder>(acir_format::acir_format& constraint_system,
+template void AcirComposer::create_circuit<UltraCircuitBuilder>(acir_format::AcirFormat& constraint_system,
                                                                 WitnessVector const& witness);
 
 } // namespace acir_proofs
