@@ -29,7 +29,8 @@ impl<T, T_SERIALIZED_LEN> PublicState<T, T_SERIALIZED_LEN> {
     // docs:start:public_state_struct_read
     pub fn read(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
         assert(self.context.private.is_none(), "Public state writes only supported in public functions");
-        let fields = storage_read(self.storage_slot);
+        // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
+        let fields: [Field; T_SERIALIZED_LEN] = storage_read(self.storage_slot);
         T::deserialize(fields)
     }
     // docs:end:public_state_struct_read
@@ -37,7 +38,8 @@ impl<T, T_SERIALIZED_LEN> PublicState<T, T_SERIALIZED_LEN> {
     // docs:start:public_state_struct_write
     pub fn write(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
         assert(self.context.private.is_none(), "Public state writes only supported in public functions");
-        let fields = T::serialize(value);
+        // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
+        let fields: [Field; T_SERIALIZED_LEN] = T::serialize(value);
         storage_write(self.storage_slot, fields);
     }
     // docs:end:public_state_struct_write

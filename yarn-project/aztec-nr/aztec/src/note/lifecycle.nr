@@ -16,14 +16,15 @@ pub fn create_note<Note, N>(
     storage_slot: Field,
     note: &mut Note,
     broadcast: bool
-) -> [Field; N] where Note: NoteInterface + Serialize<N> + Deserialize<N> {
+) where Note: NoteInterface + Serialize<N> + Deserialize<N> {
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
     Note::set_header(note, header);
     let inner_note_hash = compute_inner_note_hash(*note);
 
-    let serialized_note = Note::serialize(*note);
+    // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
+    let serialized_note: [Field; N] = Note::serialize(*note);
     assert(notify_created_note(storage_slot, serialized_note, inner_note_hash) == 0);
 
     context.push_new_note_hash(inner_note_hash);
@@ -31,8 +32,6 @@ pub fn create_note<Note, N>(
     if broadcast {
         Note::broadcast(*note, context, storage_slot);
     }
-    // TODO: Not returning the serialized not makes the compiler crash
-    serialized_note
 }
 
 pub fn create_note_hash_from_public<Note, N>(context: &mut PublicContext, storage_slot: Field, note: &mut Note) where Note: NoteInterface {

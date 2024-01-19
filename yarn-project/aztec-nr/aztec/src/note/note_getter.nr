@@ -80,7 +80,8 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
         let opt_note = opt_notes[i];
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
-            let fields = note.serialize();
+            // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
+            let fields: [Field; N] = note.serialize();
             check_note_header(*context, storage_slot, note);
             check_note_fields(fields, options.selects);
             if i != 0 {
