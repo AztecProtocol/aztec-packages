@@ -1,4 +1,4 @@
-import { ArchiveSource, Archiver, LMDBArchiverStore, createArchiverClient } from '@aztec/archiver';
+import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
   AztecNode,
   ContractData,
@@ -107,12 +107,12 @@ export class AztecNodeService implements AztecNode {
 
     const log = createDebugLogger('aztec:node');
     const store = await AztecLmdbStore.create(config.l1Contracts.rollupAddress, config.dataDirectory);
-    const [nodeDb, worldStateDb] = await openDb(config, log);
+    const [_, worldStateDb] = await openDb(config, log);
 
     let archiver: ArchiveSource;
     if (!config.archiverUrl) {
       // first create and sync the archiver
-      const archiverStore = new LMDBArchiverStore(nodeDb, config.maxLogs);
+      const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
       archiver = await Archiver.createAndSync(config, archiverStore, true);
     } else {
       archiver = createArchiverClient(config.archiverUrl);

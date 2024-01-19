@@ -11,6 +11,8 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
+  AvailabilityOracleAbi,
+  AvailabilityOracleBytecode,
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
   InboxAbi,
@@ -93,6 +95,10 @@ export async function deployContractsToL1(
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
+    },
+    availabilityOracle: {
+      contractAbi: AvailabilityOracleAbi,
+      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,
