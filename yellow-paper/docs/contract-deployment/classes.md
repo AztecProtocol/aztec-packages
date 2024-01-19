@@ -16,114 +16,160 @@ Read the following discussions for additional context:
 
 ## Structure
 
-<!-- [Mike review, for @spalladino][cspell:disable-line]
-We're missing some important details (that would enable me to unambiguously build this from this document alone):
-- How exactly is this data hashed together into a `contract_class_id`? We're missing details of the 'topology' of how each struct (and each member of each struct) is hashed. It's briefly described in the '### class identifier' section below, but could be made more precise. E.g. these (slightly outdated) illustrations: https://forum.aztec.network/t/proposal-abstracting-contract-deployment/2576.
-- Details of the hash to use, and a domain separator for the hash. We might not know the final hash that we'll use, but we should propose one, and we should probably also give each hash a name.
-    - E.g. `contract_class_id = contract_class_id_hash("contract_class_id".to_field(), version.to_field(), registerer_address.to_field(), etc...)` where `contract_class_id_hash = pedersen_hash` (for now).
-- We're missing details of how a function tree is computed. E.g. what is the preimage of a function leaf, and how deep is this tree?
-- If private bytecode isn't broadcast to L1, what information (about the function tree leaves/nodes) do we still need to broadcast, to enable sibling paths to be derived for public functions?
- -->
-
 The structure of a contract class is defined as:
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
 |----------|----------|----------|
 | `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract class struct. |
-| `registerer_address` | `AztecAddress` | Address of the canonical contract used for registering this class. <!-- TODO: explain why is this included? --> |
-| `artifact_hash` | `Field` | Hash of the entire contract artifact, including compiler information, proving backend, and all generated ACIR and Brillig. The specification of this hash is left to the compiler and not enforced by the protocol. |
-| `constructor_function` | [`PrivateFunction`](#private-function) | PublicFunction | Constructor for instances of this class. |
-| `private_functions` | `PrivateFunction[]` | List of private functions. |
-| `public_functions` | [`PublicFunction[]`](#public-function) | List of public functions. |
-| `unconstrained_functions` | [`UnconstrainedFunction[]`](#unconstrained-function) | List of unconstrained functions. |
+| `artifact_hash` | `Field` | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to unconstrained code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. |
+| `private_functions` | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included. |
+| `packed_bytecode` | `Field[]` | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract. |
 
-<!--
-TODO(palla): Do we need the artifact hash, if we're including the artifact hash of each individual function?
-A(mike): An artifact will include 'global' contract data which isn't contained within a function's artifact hash. E.g. state variable declarations; the number of functions in the contract; the compiler version used; etc.
-Q from mike: do we need the artifact hash in each individual function, if we have a 'global' artifact hash within the contract class struct? Does it make validation of code (before executing that code, for safety) faster? Hmm I suppose a per-function artifact hash is important, e.g. to link a function's combined acir & brillig bytecode to a vkhash (since the vkhash actually only represents the acir code).
+Note that individual public functions are not first-class citizens in the protocol, so the contract entire bytecode is stored in the class, unlike private or unconstrained functions which are differentiated individual circuits recognized by the protocol.
 
-Q(mike): What should `constructor_function` be if there is no constructor? A bunch of `0` fields?
--->
-<!-- NOTE(palla): I'm deliberately omitting the portal bytecode hash here. -->
-
-### Private Function
-
-<!-- prettier-ignore -->
-| Field | Type | Description |
-|----------|----------|----------|
-| `function_selector` | `u32` | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is left to the compiler and not enforced by the protocol. |
-| `vk_hash` | `Field` | Hash of the verification key associated to this private function. |
-| `salt` | `Field` | Optional value for salting the bytecode of a function. |
-| `artifact_hash` | `Field` | Hash of the compiled function artifact, including all generated ACIR and Brillig. The specification of this hash is left to the compiler and not enforced by the protocol. |
-| `optional_bytecode` | `Buffer` | Optional bytecode (both ACIR & Brillig) for the function. Private function bytecode can be kept private if desired and only broadcasted to participants of the contract. |
-
-<!-- [Mike review, for @spalladino][cspell:disable-line]
-I've renamed `bytecode_hash` to `artifact_hash`, as I've interpreted this to mean a hash of some (out of protocol) artifact data that the compiler has spat-out. Or have I misunderstood, and this is literally the hash of the bytecode, as defined by the protocol?
-Does Noir already create a space-efficient encoding of bytecode? What encoding does Noir output if a function is a combination of a ACIR & Brillig (e.g. a private function which makes an oracle call)?
--->
-
-### Public Function
-
-<!-- prettier-ignore -->
-| Field | Type | Description |
-|----------|----------|----------|
-| `function_selector` | `u32` | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is left to the compiler and not enforced by the protocol. |
-| `artifact_hash` | `Field` | Hash of the compiled function artifact, including all generated AVM and Brillig code. The specification of this hash is left to the compiler and not enforced by the protocol. |
-| `bytecode` | `Buffer` | An encoding of the bytecode (both avm bytecode & brillig bytecode) for the function. Must hash into the contract class's `artifact_hash`. |
-
-### Unconstrained Function
-
-<!-- prettier-ignore -->
-| Field | Type | Description |
-|----------|----------|----------|
-| `function_selector` | `u32` | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is left to the compiler and not enforced by the protocol. |
-| `artifact_hash` | `Field` | Hash of the compiled function artifact, including all generated Brillig code. The specification of this hash is left to the compiler and not enforced by the protocol. |
-| `brillig_bytecode` | `Buffer` | An encoding of the Brillig bytecode for the function. Must hash into the contract class's `artifact_hash`. |
-
-<!-- TODO(palla): Expand on the bytecode commitment scheme and bytecode_hash, both here and for private fns. -->
+As for unconstrained functions, these are not used standalone within the protocol. They are either inlined within private functions, or called from a PXE as _getters_ for a contract. Calling from a private function to an unconstrained one in a different contract is forbidden, since the caller would have no guarantee of the code run by the callee. Considering this, unconstrained functions are not part of a contract class at the protocol level.
 
 ### Class Identifier
 
-A.k.a. `contract_class_id`, the class identifier is computed by merkleizing the lists of private, public, and unconstrained functions separately, replacing the functions lists in the contract class struct with their respective tree roots, and then hashing the resulting struct.
+Also known as `contract_class_id`, the Class Identifier is both a unique identifier and a commitment to the struct contents. It is computed as:
 
-<!-- [Mike review, for @spalladino][cspell:disable-line] As touched on in the bigger comment above, please could we make the details of this computation more precise, to avoid ambiguities? -->
+```
+version = 1
+private_function_leaves = private_functions.map(fn => pedersen([fn.function_selector as Field, fn.vk_hash], GENERATOR__FUNCTION_LEAF))
+private_functions_root = merkleize(private_function_leaves)
+bytecode_commitment = calculate_commitment(packed_bytecode)
+contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
+```
 
-## Registration
+Private Functions are hashed into Function Leaves before being merkleized into a tree of height `FUNCTION_TREE_HEIGHT=5`. The AVM bytecode commitment is calculated as [defined in the Public VM section](../public-vm/bytecode-validation-circuit.md#committed-representation).
 
-A contract class is registered by calling a private `register` function in a canonical `ContractClassRegisterer` contract. The `register` function receives a `ContractClass` struct as defined above, except for the `registerer_address`, and performs the following checks:
+### Private Function
 
-- `version` is 1 for the initial release
-- `bytecode` for each function hashes to the `bytecode_hash`
+The structure of each private function within the protocol is the following:
 
-The `register` function then:
+<!-- prettier-ignore -->
+| Field | Type | Description |
+|----------|----------|----------|
+| `function_selector` | `u32` | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. |
+| `vk_hash` | `Field` | Hash of the verification key associated to this private function. |
 
-- Emits the `ContractClass` struct via a `NewContractClassRegistration` unencrypted event. <!-- Q: how are events named in Solidity? `NewContractClassRegistered` (stating what has happened)? `Register` (to match the function name)? `RegisterNewContractClass` (an imperative)? Are we "registering" or "declaring" or "defining"? -->
-<!-- TODO: Does the entire `ContractClass` struct actually need to be emitted, or can we emit less data? Can some data instead be gleaned from the smart contract's source code (using the same conventions as disseminating contract data for ethereum)? I remember considering this in my outdated diagrams from early 2023, but haven't considered it for our latest architecture. -->
-- Computes the `contract_class_id` as the hash of the `ContractClass` object. <!-- TODO: describe the exact hashing computation. -->
-- Emits the computed `contract_class_id` as a nullifier.
-  - Note: The [private kernel circuit](../circuits/private-kernel-initial.md) will 'silo' <!-- TODO: link to relevant section --> this so-called "inner nullifier" (the `contract_class_id` itself) with the contract address of the `ContractClassRegisterer` contract to produce a so-called "outer nullifier" (the `contract_class_id_nullifier`). So nodes will need to reconstruct the `contract_class_id` from the `NewContractClassRegistration` event, and then attempt to reconstruct the "outer nullifier", to validate both the `contract_class_id` and that the canonical `ContractClassRegisterer` was indeed the source of the event.
+<!-- @iamMichaelConnor: WDYT about using the vk_hash as selector, and remove yet another thingie from the protocol? -->
 
-<!-- Q: should we write some pseudocode, or do you think these bullet points suffice? -->
+Note the lack of visibility modifiers. Internal functions are specified as a macro, and the check is handled at the application circuit level by verifying that the `context.msg_sender` equals the contract current address.
 
-Upon seeing a `NewContractClassRegistration` event in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class.
+Also note the lack of commitment to the function compilation artifact. Even though a commitment to a function is required so that the PXE can verify the execution of correct unconstrained Brillig code embedded within private functions, this is handled entirely out of protocol. As such, PXEs are expected to verify it against the `artifact_hash` in the containing contract class.
 
-Note that emitting the `contract_class_id` as a nullifier (the `contract_class_id_nullifier`), instead of as an entry in the note hashes tree, allows public functions to prove non-existence of a class, which is required to support public contract instance deployments.
+### Artifact Hash
 
-<!-- [Mike review, for @spalladino][cspell:disable-line]
-TODO: Perhaps we should write the details of this Registration contract in a similar way to ERC interface specifications? E.g. specify all state variables, functions, event names of the Registration contract. (Or are there no other functions, other than `register`?).
--->
+Even though not enforced by the protocol, it is suggested for the `artifact_hash` to follow this general structure, in order to be compatible with the definition of the [`broadcast` function below](#broadcast).
 
-## Who registers the `ContractClassRegisterer`?
+```
+private_functions_artifact_leaves = artifact.private_functions.map fn => 
+  sha256(fn.selector, fn.metadata_hash, sha256(fn.bytecode))
+private_functions_artifact_tree_root = merkleize(private_functions_artifact_leaves)
 
-The `ContractClassRegisterer` will need to exist from the genesis of the Aztec Network, otherwise nothing will ever be deployable to the network! The `class_id` for the `ContractClassRegisterer` will be pre-inserted into the genesis nullifier tree at leaf index `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_REGISTERER_CLASS_ID_NULLIFIER = 1`.
+unconstrained_functions_artifact_leaves = artifact.unconstrained_functions.map fn => 
+  sha256(fn.selector, fn.metadata_hash, sha256(fn.bytecode))
+unconstrained_functions_artifact_tree_root = merkleize(unconstrained_functions_artifact_leaves)
 
-> Note: leaf index `0` of the nullifier tree is reserved for the leaf `{ 0, 0, 0 }`. See [here](../state/nullifier_tree.md).
+version = 1
+artifact_hash = sha256(
+  version, 
+  private_functions_artifact_tree_root,
+  unconstrained_functions_artifact_tree_root, 
+  artifact_metadata,
+)
+```
 
-<!-- Note: that name is a mouthful, but I figure there will be many genesis constants, so ordering the string from left-to-right with the 'most general' info to 'most specific' info feels right. -->
+For the artifact hash, merkleization is done using sha256 and constructing the smaller tree that can accommodate for all functions in the artifact. Leaves are sorted according to their selector before merkleized.
+
+The artifact metadata listed can be used to store compiler version, commitments to source code, and any other metadata emitted by the compiler.
+
+## Canonical Contract Class Registerer
+
+A contract class is registered by calling a private `register` function in a canonical `ContractClassRegisterer` contract, which will emit a Registration Nullifier. The Registration Nullifier is defined as the `contract_class_id` itself of the class being registered. Note that the Private Kernel circuit will [silo](../circuits/private-kernel-tail.md#siloing-values) this value with the contract address of the `ContractClassRegisterer`, effectively storing the hash of the `contract_class_id` and `ContractClassRegisterer` address in the nullifier tree. As such, proving that a given contract class has been registered requires checking existence of this siloed nullifier.
+
+### Register Function
+
+The `register` function receives a `ContractClass` struct as [defined above](#structure), and performs the following steps:
+
+- Assert that `packed_bytecode` is valid according to the definition in the [Public VM section](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation).
+- Computes the `contract_class_id` as [defined above](#class-identifier).
+- Emits the resulting `contract_class_id` as a nullifier to prevent the same class from being registered again.
+- Emits an unencrypted event `ContractClassRegistered` with the contents of the contract class.
+
+In pseudocode:
+
+```
+function register(
+  artifact_hash: Field,
+  private_functions: { selector: u32, vk_hash: Field }[],
+  packed_bytecode: Field[],
+) 
+  assert is_valid_packed_bytecode(packed_bytecode)
+
+  version = 1
+  private_function_leaves = private_functions.map(fn => pedersen([fn.function_selector as Field, fn.vk_hash], GENERATOR__FUNCTION_LEAF))
+  private_functions_root = merkleize(private_functions)
+  bytecode_commitment = calculate_commitment(packed_bytecode)
+  contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
+
+  emit_nullifier contract_class_id
+  emit_event ContractClassRegistered(contract_class_id, version, artifact_hash, private_functions, packed_bytecode)
+```
+
+Upon seeing a `ContractClassRegistered` event in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class. Note that a class may be used for deploying a contract within the same transaction in which it is registered.
+
+Note that emitting the `contract_class_id` as a nullifier (the `contract_class_id_nullifier`), instead of as an entry in the note hashes tree, allows nodes to prove non-existence of a class. This is needed so a sequencer can provably revert a transaction that includes a call to an unregistered class.
+
+### Genesis
+
+The `ContractClassRegisterer` will need to exist from the genesis of the Aztec Network, otherwise nothing will ever be publicly deployable to the network. The Class Nullifier for the `ContractClassRegisterer` contract will be pre-inserted into the genesis nullifier tree at leaf index `GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_CLASS_REGISTERER_CLASS_ID_NULLIFIER=1`. The canonical instance will be deployed at `CONTRACT_CLASS_REGISTERER_ADDRESS=0x10000`, and its Deployment Nullifier will be inserted at `GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_CLASS_REGISTERER_DEPLOYMENT_NULLIFIER=2`.
 
 <!-- TODO: perhaps we need a page of constants? -->
 
 <!-- TODO(cryptography): How do we convince the world that there's 'nothing up our sleeves'? What could be the consequences of a cunningly-chosen nullifier being pre-inserted into the nullifier tree? -->
 
-The initial canonical instance of the `ContractClassRegisterer` contract will have address `???` <!-- TODO -->. The corresponding contract address nullifier <!-- TODO: link to the relevant instances section --> will be `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_REGISTERER_CONTRACT_ADDRESS_NULLIFIER = 2`.
+### Broadcast
+
+The `ContractClassRegisterer` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private functions and unconstrained in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check. 
+
+Broadcasted contract artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
+
+```
+function broadcast_private(
+  contract_class_id: Field,
+  artifact_metadata,
+  unconstrained_functions_artifact_tree_root,
+  { selector: Field, metadata: Field, bytecode: Field[] }[],
+)
+  emit_event ClassPrivateFunctionsBroadcasted(
+    contract_class_id,
+    artifact_metadata,
+    unconstrained_functions_artifact_tree_root,
+    { selector: Field, metadata: Field, bytecode: Field[] }[],
+  )
+```
+
+```
+function broadcast_unconstrained(
+  contract_class_id: Field,
+  artifact_metadata,
+  unconstrained_functions_artifact_tree_root,
+  { selector: Field, metadata: Field, bytecode: Field[] }[],
+)
+  emit_event ClassUnconstrainedFunctionsBroadcasted(
+    contract_class_id,
+    artifact_metadata,
+    unconstrained_functions_artifact_tree_root,
+    { selector: Field, metadata: Field, bytecode: Field[] }[],
+  )
+```
+
+<!-- TODO: What representation of bytecode can we use here?  -->
+
+The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs.
+
+Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
+
