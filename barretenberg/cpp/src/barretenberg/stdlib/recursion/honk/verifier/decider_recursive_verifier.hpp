@@ -5,7 +5,7 @@
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace bb::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 template <typename Flavor> class DeciderRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -27,4 +27,4 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     std::shared_ptr<Transcript<Builder>> transcript;
 };
 
-} // namespace bb::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

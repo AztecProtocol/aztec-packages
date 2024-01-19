@@ -1,7 +1,7 @@
 #include "protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
-namespace bb::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 
 template <class VerifierInstances>
 void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
@@ -63,9 +63,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const auto instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-    inst->instance_size = static_cast<size_t>(uint256_t(instance_size.get_value()));
+    inst->instance_size = uint32_t(instance_size.get_value());
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size = static_cast<size_t>(uint256_t(public_input_size.get_value()));
+    inst->public_input_size = uint32_t(public_input_size.get_value());
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
@@ -76,7 +76,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const auto pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
 
-    inst->pub_inputs_offset = static_cast<size_t>(pub_inputs_offset.get_value());
+    inst->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
     auto labels = inst->commitment_labels;
     auto& witness_commitments = inst->witness_commitments;
@@ -302,4 +302,4 @@ template class ProtoGalaxyRecursiveVerifier_<
     bb::honk::VerifierInstances_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
     bb::honk::VerifierInstances_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
-} // namespace bb::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

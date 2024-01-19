@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/recursion/honk/verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
-namespace bb::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 class ProtogalaxyRecursiveTest : public testing::Test {
   public:
     // Define types relevant for testing
@@ -316,4 +316,4 @@ TEST_F(ProtogalaxyRecursiveTest, TamperedAccumulator)
     EXPECT_EQ(outer_folding_circuit.check_circuit(), false);
 }
 
-} // namespace bb::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

@@ -4,7 +4,7 @@
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
 DeciderRecursiveVerifier_<Flavor>::DeciderRecursiveVerifier_(Builder* builder)
@@ -33,10 +33,9 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 
     const auto instance_size = transcript->template receive_from_prover<uint32_t>("instance_size");
     const auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
-    const auto log_instance_size =
-        static_cast<size_t>(numeric::get_msb(static_cast<size_t>(instance_size.get_value())));
+    const auto log_instance_size = static_cast<size_t>(numeric::get_msb(uint32_t(instance_size.get_value())));
 
-    for (size_t i = 0; i < static_cast<size_t>(public_input_size.get_value()); ++i) {
+    for (size_t i = 0; i < uint32_t(public_input_size.get_value()); ++i) {
         auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
     }
@@ -95,4 +94,4 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 template class DeciderRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
-} // namespace bb::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk
