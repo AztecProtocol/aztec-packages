@@ -155,7 +155,11 @@ class Goblin {
     Proof prove()
     {
         goblin_proof.merge_proof = std::move(merge_proof);
-        prove_eccvm();
+        eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        eccvm_composer = std::make_unique<ECCVMComposer>();
+        eccvm_prover = std::make_unique<ECCVMProver>(eccvm_composer->create_prover(*eccvm_builder));
+        goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
+        // prove_eccvm();
         prove_translator();
         return goblin_proof;
     };

@@ -11,7 +11,9 @@ source ./bash_helpers/catch.sh
 trap handle_sigchild SIGCHLD
 
 BIN=${BIN:-../cpp/build/bin/bb}
-FLOW=${FLOW:-prove_and_verify}
+FLOW=${FLOW:-prove_and_verify_goblin}
+# FLOW=${FLOW:-accumulate_and_verify_goblin}
+# FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
@@ -29,6 +31,7 @@ fi
 
 export BIN CRS_PATH VERBOSE BRANCH
 
+# copy the gzipped acir test data from noir/test_programs to barretenberg/acir_tests
 ./clone_test_vectors.sh
 
 cd acir_tests
