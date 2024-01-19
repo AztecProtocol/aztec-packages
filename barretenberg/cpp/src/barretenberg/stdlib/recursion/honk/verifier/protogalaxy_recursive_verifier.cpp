@@ -10,9 +10,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_accumulator(const
     const auto instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-    inst->instance_size = static_cast<size_t>(instance_size.get_value());
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size = static_cast<size_t>(public_input_size.get_value());
+    inst->instance_size = uint32_t(instance_size.get_value());
+    inst->log_instance_size = uint32_t(numeric::get_msb(inst->instance_size));
+    inst->public_input_size = uint32_t(public_input_size.get_value());
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
@@ -63,9 +63,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const auto instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-    inst->instance_size = static_cast<size_t>(instance_size.get_value());
+    inst->instance_size = static_cast<size_t>(uint256_t(instance_size.get_value()));
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size = static_cast<size_t>(public_input_size.get_value());
+    inst->public_input_size = static_cast<size_t>(uint256_t(public_input_size.get_value()));
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
@@ -154,6 +154,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     using Transcript = typename Flavor::Transcript;
     using ElementNative = typename Flavor::Curve::ElementNative;
     using AffineElementNative = typename Flavor::Curve::AffineElementNative;
+    using ScalarNative = typename Flavor::Curve::ScalarFieldNative;
 
     transcript = std::make_shared<Transcript>(builder, proof);
     prepare_for_folding();
@@ -167,7 +168,12 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
-    accumulator->target_sum.assert_equal(perturbator_coeffs[0], "F(0) != e");
+    // TODO(): As currently the stdlib transcript is not creating proper constraints linked to Fiat-Shamir we add an
+    // additonal gate to ensure assert_equal is correct. This comparison to 0 can be removed here and below once we have
+    // merged the transcript.
+    auto zero = FF::from_witness(builder, ScalarNative(0));
+    zero.assert_equal(accumulator->target_sum - perturbator_coeffs[0], "F(0) != e");
+
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
 
     auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
@@ -189,12 +195,13 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     auto expected_next_target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     auto next_target_sum = transcript->template receive_from_prover<FF>("next_target_sum");
-    expected_next_target_sum.assert_equal(next_target_sum, "next target sum mismatch");
+    zero.assert_equal(expected_next_target_sum - next_target_sum, "next target sum mismatch");
 
     auto expected_betas_star = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     for (size_t idx = 0; idx < accumulator->log_instance_size; idx++) {
         auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
-        expected_betas_star[idx].assert_equal(beta_star, " next gate challenge mismatch at: " + std::to_string(idx));
+        zero.assert_equal(beta_star - expected_betas_star[idx],
+                          " next gate challenge mismatch at: " + std::to_string(idx));
     }
 
     // Compute ϕ and verify against the data received from the prover
@@ -209,10 +216,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             expected_comm = expected_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
             inst++;
         }
-        expected_comm -= random_generator;
         auto comm = transcript->template receive_from_prover<Commitment>("next_" + witness_labels[comm_idx]);
-        comm.x.assert_equal(expected_comm.x);
-        comm.y.assert_equal(expected_comm.y);
+        auto res = expected_comm - comm;
+        random_generator.x.assert_equal(res.x);
+        random_generator.y.assert_equal(res.y);
         comm_idx++;
     }
 
@@ -225,7 +232,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             inst++;
         }
         auto next_el = transcript->template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
-        next_el.assert_equal(expected_el, "folded public input mismatch at: " + std::to_string(el_idx));
+        zero.assert_equal(expected_el - next_el, "folded public input mismatch at: " + std::to_string(el_idx));
         el_idx++;
     }
 
@@ -237,7 +244,8 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             instance_idx++;
         }
         auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));
-        next_alpha.assert_equal(expected_alpha, "folded relation separator mismatch at: " + std::to_string(alpha_idx));
+        zero.assert_equal(expected_alpha - next_alpha,
+                          "folded relation separator mismatch at: " + std::to_string(alpha_idx));
     }
 
     auto expected_parameters = proof_system::RelationParameters<FF>{};
@@ -253,22 +261,22 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     }
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
-    next_eta.assert_equal(expected_parameters.eta, "relation parameter eta mismatch");
+    zero.assert_equal(expected_parameters.eta - next_eta, "relation parameter eta mismatch");
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
-    next_beta.assert_equal(expected_parameters.beta, "relation parameter beta mismatch");
+    zero.assert_equal(expected_parameters.beta - next_beta, "relation parameter beta mismatch");
 
     auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
-    next_gamma.assert_equal(expected_parameters.gamma, "relation parameter gamma mismatch");
+    zero.assert_equal(expected_parameters.gamma - next_gamma, "relation parameter gamma mismatch");
 
     auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
-    next_public_input_delta.assert_equal(expected_parameters.public_input_delta,
-                                         "relation parameter public input delta mismatch");
+    zero.assert_equal(expected_parameters.public_input_delta - next_public_input_delta,
+                      "relation parameter public input delta mismatch");
 
     auto next_lookup_grand_product_delta =
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
-    next_lookup_grand_product_delta.assert_equal(expected_parameters.lookup_grand_product_delta,
-                                                 "relation parameter lookup grand product delta mismatch");
+    zero.assert_equal(expected_parameters.lookup_grand_product_delta - next_lookup_grand_product_delta,
+                      "relation parameter lookup grand product delta mismatch");
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
@@ -281,9 +289,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             inst++;
         }
         auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
-        expected_vk -= random_generator;
-        vk.x.assert_equal(expected_vk.x);
-        vk.y.assert_equal(expected_vk.y);
+        auto res = expected_vk - vk;
+        random_generator.x.assert_equal(res.x);
+        random_generator.y.assert_equal(res.y);
         vk_idx++;
     }
 }

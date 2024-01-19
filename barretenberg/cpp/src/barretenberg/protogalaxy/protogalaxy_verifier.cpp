@@ -156,7 +156,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     }
 
     if (perturbator_coeffs[0] != accumulator->target_sum) {
-        info("here");
         return false;
     }
 

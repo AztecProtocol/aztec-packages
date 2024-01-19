@@ -103,47 +103,6 @@ class ProtogalaxyRecursiveTest : public testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    /**
-     * @brief Create inner circuit and call check_circuit on it
-     *
-     */
-    static void test_inner_circuit()
-    {
-        InnerBuilder builder;
-
-        create_inner_circuit(builder);
-
-        bool result = builder.check_circuit();
-        EXPECT_EQ(result, true);
-    }
-
-    /**
-     * @brief Ensure that evaluating the perturbator in the recursive folding verifier returns the same result as
-     * evaluating in Polynomial class.
-     *
-     */
-    static void test_evaluate_perturbator()
-    {
-        OuterBuilder builder;
-        using fr_ct = bn254<OuterBuilder>::ScalarField;
-        using fr = bn254<OuterBuilder>::ScalarFieldNative;
-
-        std::vector<fr> coeffs;
-        std::vector<fr_ct> coeffs_ct;
-        for (size_t idx = 0; idx < 8; idx++) {
-            auto el = fr::random_element();
-            coeffs.emplace_back(el);
-            coeffs_ct.emplace_back(fr_ct(&builder, el));
-        }
-        Polynomial<fr> poly(coeffs);
-        fr point = fr::random_element();
-        fr_ct point_ct(fr_ct(&builder, point));
-        auto res1 = poly.evaluate(point);
-
-        auto res2 = FoldingRecursiveVerifier::evaluate_perturbator(coeffs_ct, point_ct);
-        EXPECT_EQ(res1, res2.get_value());
-    }
-
     static std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Instance>>& instances,
                                                      InnerComposer& inner_composer)
     {
@@ -177,126 +136,147 @@ class ProtogalaxyRecursiveTest : public testing::Test {
 
         return inner_folding_proof.accumulator;
     }
-
-    static void test_recursive_folding()
-    {
-        // Create two arbitrary circuits for the first round of folding
-        InnerBuilder builder1;
-
-        create_inner_circuit(builder1);
-        InnerBuilder builder2;
-        builder2.add_public_variable(FF(1));
-        create_inner_circuit(builder2);
-
-        InnerComposer inner_composer = InnerComposer();
-        auto instance1 = inner_composer.create_instance(builder1);
-        auto instance2 = inner_composer.create_instance(builder2);
-        auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
-
-        auto accumulator = fold_and_verify(instances, inner_composer);
-
-        // Create another circuit to do a second round of folding
-        InnerBuilder builder3;
-        create_inner_circuit(builder3);
-        auto instance3 = inner_composer.create_instance(builder3);
-        instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance3 };
-
-        accumulator = fold_and_verify(instances, inner_composer);
-
-        // Create a decider proof for the relaxed instance obtained through folding
-        auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
-        auto inner_decider_proof = inner_decider_prover.construct_proof();
-
-        // Create a decider verifier circuit for recursively verifying the decider proof
-        OuterBuilder outer_decider_circuit;
-        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
-        auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
-        info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
-        // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
-
-        // Perform native verification then perform the pairing on the outputs of the recursive
-        //  decider verifier and check that the result agrees.
-        DeciderVerifier native_decider_verifier = inner_composer.create_decider_verifier(accumulator);
-        auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
-        auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
-            pairing_points[0].get_value(), pairing_points[1].get_value());
-        EXPECT_EQ(native_result, recursive_result);
-
-        // Ensure that the underlying native and recursive decider verification algorithms agree by ensuring
-        // the manifests produced are the same.
-        auto recursive_decider_manifest = decider_verifier.transcript->get_manifest();
-        auto native_decider_manifest = native_decider_verifier.transcript->get_manifest();
-        for (size_t i = 0; i < recursive_decider_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_decider_manifest[i], native_decider_manifest[i]);
-        }
-
-        // Construct and verify a proof of the recursive decider verifier circuit
-        {
-            auto composer = get_outer_composer<OuterBuilder>();
-            auto instance = composer.create_instance(outer_decider_circuit);
-            auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance);
-            auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
-
-            ASSERT(verified);
-        }
-    }
-
-    static void test_failing_recursive_deciding()
-    {
-        // Create two arbitrary circuits for the first round of folding
-        InnerBuilder builder1;
-
-        create_inner_circuit(builder1);
-        InnerBuilder builder2;
-        builder2.add_public_variable(FF(1));
-        create_inner_circuit(builder2);
-
-        InnerComposer inner_composer = InnerComposer();
-        auto instance1 = inner_composer.create_instance(builder1);
-        auto instance2 = inner_composer.create_instance(builder2);
-        auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
-
-        auto accumulator = fold_and_verify(instances, inner_composer);
-
-        // Tamper with the accumulator by changing the target sum
-        accumulator->target_sum = FF::random_element();
-
-        // Create a decider proof for the relaxed instance obtained through folding
-        auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
-        auto inner_decider_proof = inner_decider_prover.construct_proof();
-
-        // Create a decider verifier circuit for recursively verifying the decider proof
-        OuterBuilder outer_decider_circuit;
-        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
-        decider_verifier.verify_proof(inner_decider_proof);
-        info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
-
-        // We expect the decider circuit check to fail due to the bad proof
-        EXPECT_FALSE(outer_decider_circuit.check_circuit());
-    }
 };
-
+/**
+ * @brief Create inner circuit and call check_circuit on it
+ *
+ */
 TEST_F(ProtogalaxyRecursiveTest, InnerCircuit)
 {
-    test_inner_circuit();
+    InnerBuilder builder;
+
+    create_inner_circuit(builder);
+
+    bool result = builder.check_circuit();
+    EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief Ensure that evaluating the perturbator in the recursive folding verifier returns the same result as
+ * evaluating in Polynomial class.
+ *
+ */
 TEST_F(ProtogalaxyRecursiveTest, NewEvaluate)
 {
-    test_evaluate_perturbator();
+    OuterBuilder builder;
+    using fr_ct = bn254<OuterBuilder>::ScalarField;
+    using fr = bn254<OuterBuilder>::ScalarFieldNative;
+
+    std::vector<fr> coeffs;
+    std::vector<fr_ct> coeffs_ct;
+    for (size_t idx = 0; idx < 8; idx++) {
+        auto el = fr::random_element();
+        coeffs.emplace_back(el);
+        coeffs_ct.emplace_back(fr_ct(&builder, el));
+    }
+    Polynomial<fr> poly(coeffs);
+    fr point = fr::random_element();
+    fr_ct point_ct(fr_ct(&builder, point));
+    auto res1 = poly.evaluate(point);
+
+    auto res2 = FoldingRecursiveVerifier::evaluate_perturbator(coeffs_ct, point_ct);
+    EXPECT_EQ(res1, res2.get_value());
 }
 
 TEST_F(ProtogalaxyRecursiveTest, FullProtogalaxyRecursiveTest)
 {
-    test_recursive_folding();
+
+    // Create two arbitrary circuits for the first round of folding
+    InnerBuilder builder1;
+
+    create_inner_circuit(builder1);
+    InnerBuilder builder2;
+    builder2.add_public_variable(FF(1));
+    create_inner_circuit(builder2);
+
+    InnerComposer inner_composer = InnerComposer();
+    auto instance1 = inner_composer.create_instance(builder1);
+    auto instance2 = inner_composer.create_instance(builder2);
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
+
+    auto accumulator = fold_and_verify(instances, inner_composer);
+
+    // Create another circuit to do a second round of folding
+    InnerBuilder builder3;
+    create_inner_circuit(builder3);
+    auto instance3 = inner_composer.create_instance(builder3);
+    instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance3 };
+
+    accumulator = fold_and_verify(instances, inner_composer);
+
+    // Create a decider proof for the relaxed instance obtained through folding
+    auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
+    auto inner_decider_proof = inner_decider_prover.construct_proof();
+
+    // Create a decider verifier circuit for recursively verifying the decider proof
+    OuterBuilder outer_decider_circuit;
+    DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
+    auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
+    info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
+    // Check for a failure flag in the recursive verifier circuit
+    EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
+
+    // Perform native verification then perform the pairing on the outputs of the recursive
+    //  decider verifier and check that the result agrees.
+    DeciderVerifier native_decider_verifier = inner_composer.create_decider_verifier(accumulator);
+    auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
+    auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(pairing_points[0].get_value(),
+                                                                                        pairing_points[1].get_value());
+    EXPECT_EQ(native_result, recursive_result);
+
+    // Ensure that the underlying native and recursive decider verification algorithms agree by ensuring
+    // the manifests produced are the same.
+    auto recursive_decider_manifest = decider_verifier.transcript->get_manifest();
+    auto native_decider_manifest = native_decider_verifier.transcript->get_manifest();
+    for (size_t i = 0; i < recursive_decider_manifest.size(); ++i) {
+        EXPECT_EQ(recursive_decider_manifest[i], native_decider_manifest[i]);
+    }
+
+    // Construct and verify a proof of the recursive decider verifier circuit
+    {
+        auto composer = get_outer_composer<OuterBuilder>();
+        auto instance = composer.create_instance(outer_decider_circuit);
+        auto prover = composer.create_prover(instance);
+        auto verifier = composer.create_verifier(instance);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+
+        ASSERT(verified);
+    }
 }
 
 TEST_F(ProtogalaxyRecursiveTest, TamperedDeciderProof)
 {
-    test_failing_recursive_deciding();
+    // Create two arbitrary circuits for the first round of folding
+    InnerBuilder builder1;
+
+    create_inner_circuit(builder1);
+    InnerBuilder builder2;
+    builder2.add_public_variable(FF(1));
+    create_inner_circuit(builder2);
+
+    InnerComposer inner_composer = InnerComposer();
+    auto instance1 = inner_composer.create_instance(builder1);
+    auto instance2 = inner_composer.create_instance(builder2);
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
+
+    auto accumulator = fold_and_verify(instances, inner_composer);
+
+    // Tamper with the accumulator by changing the target sum
+    accumulator->target_sum = FF::random_element();
+
+    // Create a decider proof for the relaxed instance obtained through folding
+    auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
+    auto inner_decider_proof = inner_decider_prover.construct_proof();
+
+    // Create a decider verifier circuit for recursively verifying the decider proof
+    OuterBuilder outer_decider_circuit;
+    DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
+    decider_verifier.verify_proof(inner_decider_proof);
+    info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
+
+    // We expect the decider circuit check to fail due to the bad proof
+    EXPECT_FALSE(outer_decider_circuit.check_circuit());
 }
 
 TEST_F(ProtogalaxyRecursiveTest, TamperedAccumulator)

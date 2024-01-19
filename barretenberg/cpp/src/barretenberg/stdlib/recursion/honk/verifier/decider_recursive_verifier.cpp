@@ -30,13 +30,12 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     transcript = std::make_shared<Transcript>(builder, proof.proof_data);
     auto inst = std::make_unique<Instance>();
 
-    auto instance_size = transcript->template receive_from_prover<uint32_t>("instance_size");
-    auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
-    inst->instance_size = static_cast<size_t>(instance_size.get_value());
-    inst->public_input_size = static_cast<size_t>(public_input_size.get_value());
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
+    const auto instance_size = transcript->template receive_from_prover<uint32_t>("instance_size");
+    const auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
+    const auto log_instance_size =
+        static_cast<size_t>(numeric::get_msb(static_cast<size_t>(instance_size.get_value())));
 
-    for (size_t i = 0; i < inst->public_input_size; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(public_input_size.get_value()); ++i) {
         auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
     }
@@ -50,14 +49,13 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-
         inst->alphas[idx] = transcript->template receive_from_prover<FF>("alpha" + std::to_string(idx));
     }
 
     inst->target_sum = transcript->template receive_from_prover<FF>("target_sum");
 
-    inst->gate_challenges = std::vector<FF>(inst->log_instance_size);
-    for (size_t idx = 0; idx < inst->log_instance_size; idx++) {
+    inst->gate_challenges = std::vector<FF>(log_instance_size);
+    for (size_t idx = 0; idx < log_instance_size; idx++) {
         inst->gate_challenges[idx] =
             transcript->template receive_from_prover<FF>("gate_challenge_" + std::to_string(idx));
     }
@@ -76,7 +74,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 
     VerifierCommitments commitments{ inst->verification_key, inst->witness_commitments };
 
-    auto sumcheck = Sumcheck(inst->log_instance_size, transcript, inst->target_sum);
+    auto sumcheck = Sumcheck(log_instance_size, transcript, inst->target_sum);
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(inst->relation_parameters, inst->alphas, inst->gate_challenges);

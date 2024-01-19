@@ -89,6 +89,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * @details In the recursive setting this function doesn't return anything because the equality checks performed by
      * the recursive verifier, ensuring the folded ϕ*, e* and β* on the verifier side correspond to what has been sent
      * by the prover, are expressed as constraints.
+
      */
     void verify_folding_proof(std::vector<uint8_t> proof);
 
