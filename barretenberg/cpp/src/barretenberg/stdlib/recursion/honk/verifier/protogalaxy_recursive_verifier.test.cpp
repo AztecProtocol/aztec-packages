@@ -8,7 +8,8 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
-template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing::Test {
+class ProtogalaxyRecursiveTest : public testing::Test {
+  public:
     // Define types relevant for testing
     using UltraFlavor = ::proof_system::honk::flavor::Ultra;
     using GoblinUltraFlavor = ::proof_system::honk::flavor::GoblinUltra;
@@ -25,10 +26,10 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
 
     // Types for recursive verifier circuit
     // cannot do on Goblin
-    using RecursiveFlavor = ::proof_system::honk::flavor::UltraRecursive_<BuilderType>;
+    using OuterBuilder = GoblinUltraCircuitBuilder;
+    using RecursiveFlavor = ::proof_system::honk::flavor::UltraRecursive_<OuterBuilder>;
     using RecursiveVerifierInstances = ::proof_system::honk::VerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
-    using OuterBuilder = BuilderType;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using DeciderVerifier = ::proof_system::honk::DeciderVerifier_<InnerFlavor>;
     using NativeVerifierInstances = ::proof_system::honk::VerifierInstances_<InnerFlavor, 2>;
@@ -143,19 +144,9 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
         EXPECT_EQ(res1, res2.get_value());
     }
 
-    static void test_recursive_folding()
+    static std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Instance>>& instances,
+                                                     InnerComposer& inner_composer)
     {
-        // Create two arbitrary circuits of size 2^10
-        InnerBuilder builder1;
-        create_inner_circuit(builder1, 20);
-        InnerBuilder builder2;
-        create_inner_circuit(builder2, 20);
-
-        InnerComposer inner_composer = InnerComposer();
-        auto instance1 = inner_composer.create_instance(builder1);
-        auto instance2 = inner_composer.create_instance(builder2);
-        auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
-
         // Generate a folding proof
         auto inner_folding_prover = inner_composer.create_folding_prover(instances);
         auto inner_folding_proof = inner_folding_prover.fold_instances();
@@ -172,11 +163,48 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
         auto native_folding_result = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
         EXPECT_EQ(native_folding_result, outer_folding_circuit.check_circuit());
 
+        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring
+        // the manifests produced by each agree.
+        auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+
+        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
+        }
+
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_folding_circuit.failed(), false) << outer_folding_circuit.err();
 
+        return inner_folding_proof.accumulator;
+    }
+
+    static void test_recursive_folding()
+    {
+        // Create two arbitrary circuits for the first round of folding
+        InnerBuilder builder1;
+
+        create_inner_circuit(builder1);
+        InnerBuilder builder2;
+        builder2.add_public_variable(FF(1));
+        create_inner_circuit(builder2);
+
+        InnerComposer inner_composer = InnerComposer();
+        auto instance1 = inner_composer.create_instance(builder1);
+        auto instance2 = inner_composer.create_instance(builder2);
+        auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
+
+        auto accumulator = fold_and_verify(instances, inner_composer);
+
+        // Create another circuit to do a second round of folding
+        InnerBuilder builder3;
+        create_inner_circuit(builder3);
+        auto instance3 = inner_composer.create_instance(builder3);
+        instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance3 };
+
+        accumulator = fold_and_verify(instances, inner_composer);
+
         // Create a decider proof for the relaxed instance obtained through folding
-        auto inner_decider_prover = inner_composer.create_decider_prover(inner_folding_proof.accumulator);
+        auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
         auto inner_decider_proof = inner_decider_prover.construct_proof();
 
         // Create a decider verifier circuit for recursively verifying the decider proof
@@ -189,12 +217,19 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
 
         // Perform native verification then perform the pairing on the outputs of the recursive
         //  decider verifier and check that the result agrees.
-        DeciderVerifier native_decider_verifier =
-            inner_composer.create_decider_verifier(inner_folding_proof.accumulator);
+        DeciderVerifier native_decider_verifier = inner_composer.create_decider_verifier(accumulator);
         auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
         auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
             pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(native_result, recursive_result);
+
+        // Ensure that the underlying native and recursive decider verification algorithms agree by ensuring
+        // the manifests produced are the same.
+        auto recursive_decider_manifest = decider_verifier.transcript->get_manifest();
+        auto native_decider_manifest = native_decider_verifier.transcript->get_manifest();
+        for (size_t i = 0; i < recursive_decider_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_decider_manifest[i], native_decider_manifest[i]);
+        }
 
         // Construct and verify a proof of the recursive decider verifier circuit
         {
@@ -208,24 +243,60 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
             ASSERT(verified);
         }
     }
+
+    static void test_failing_recursive_deciding()
+    {
+        // Create two arbitrary circuits for the first round of folding
+        InnerBuilder builder1;
+
+        create_inner_circuit(builder1);
+        InnerBuilder builder2;
+        builder2.add_public_variable(FF(1));
+        create_inner_circuit(builder2);
+
+        InnerComposer inner_composer = InnerComposer();
+        auto instance1 = inner_composer.create_instance(builder1);
+        auto instance2 = inner_composer.create_instance(builder2);
+        auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
+
+        auto accumulator = fold_and_verify(instances, inner_composer);
+
+        // Tamper with the accumulator by changing the target sum
+        accumulator->target_sum = FF::random_element();
+
+        // Create a decider proof for the relaxed instance obtained through folding
+        auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
+        auto inner_decider_proof = inner_decider_prover.construct_proof();
+
+        // Create a decider verifier circuit for recursively verifying the decider proof
+        OuterBuilder outer_decider_circuit;
+        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
+        decider_verifier.verify_proof(inner_decider_proof);
+        info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
+
+        // We expect the decider circuit check to fail due to the bad proof
+        EXPECT_FALSE(outer_decider_circuit.check_circuit());
+    }
 };
 
-using BuilderTypes = testing::Types<GoblinUltraCircuitBuilder>;
-TYPED_TEST_SUITE(ProtogalaxyRecursiveTest, BuilderTypes);
-
-TYPED_TEST(ProtogalaxyRecursiveTest, InnerCircuit)
+TEST_F(ProtogalaxyRecursiveTest, InnerCircuit)
 {
-    TestFixture::test_inner_circuit();
+    test_inner_circuit();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTest, NewEvaluate)
+TEST_F(ProtogalaxyRecursiveTest, NewEvaluate)
 {
-    TestFixture::test_evaluate_perturbator();
+    test_evaluate_perturbator();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTest, FirstRound)
+TEST_F(ProtogalaxyRecursiveTest, FullProtogalaxyRecursiveTest)
 {
-    TestFixture::test_recursive_folding();
+    test_recursive_folding();
+}
+
+TEST_F(ProtogalaxyRecursiveTest, TamperedDeciderProof)
+{
+    test_failing_recursive_deciding();
 }
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

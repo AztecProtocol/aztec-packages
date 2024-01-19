@@ -167,7 +167,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
-    perturbator_coeffs[0].assert_equal(accumulator->target_sum, "F(0) != e");
+    accumulator->target_sum.assert_equal(perturbator_coeffs[0], "F(0) != e");
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
 
     auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
@@ -201,16 +201,15 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     WitnessCommitments acc_witness_commitments;
     auto witness_labels = commitment_labels.get_witness();
     size_t comm_idx = 0;
-    auto random_generator = AffineElementNative(ElementNative::random_element());
-    auto sth = Commitment::from_witness(builder, random_generator);
+    auto random_generator = Commitment::from_witness(builder, AffineElementNative(ElementNative::random_element()));
     for (auto& expected_comm : acc_witness_commitments.get_all()) {
-        expected_comm = sth;
+        expected_comm = random_generator;
         size_t inst = 0;
         for (auto& instance : instances) {
             expected_comm = expected_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
             inst++;
         }
-        expected_comm -= sth;
+        expected_comm -= random_generator;
         auto comm = transcript->template receive_from_prover<Commitment>("next_" + witness_labels[comm_idx]);
         comm.x.assert_equal(expected_comm.x);
         comm.y.assert_equal(expected_comm.y);
@@ -276,13 +275,13 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     size_t vk_idx = 0;
     for (auto& expected_vk : acc_vk->get_all()) {
         size_t inst = 0;
-        expected_vk = sth;
+        expected_vk = random_generator;
         for (auto& instance : instances) {
             expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
             inst++;
         }
         auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
-        expected_vk -= sth;
+        expected_vk -= random_generator;
         vk.x.assert_equal(expected_vk.x);
         vk.y.assert_equal(expected_vk.y);
         vk_idx++;
