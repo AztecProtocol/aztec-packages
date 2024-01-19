@@ -25,12 +25,12 @@ async function createPXEService(): Promise<PXE> {
   node.getVersion.mockResolvedValue(1);
   node.getChainId.mockResolvedValue(1);
   const mockedContracts: L1ContractAddresses = {
+    availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
-    decoderHelperAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
