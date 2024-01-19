@@ -15,13 +15,13 @@ use crate::{
     abis::{
         call_context::CallContext,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        block_header::BlockHeader,
     },
     address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
+    header::Header,
     utils::bounded_vec::BoundedVec,
 };
 
@@ -46,7 +46,7 @@ struct PublicCircuitPublicInputs{
     // variable-length data.
     unencrypted_log_preimages_length: Field,
 
-    block_header: BlockHeader,
+    block_header: Header,
 
     prover_address: AztecAddress,
 }
