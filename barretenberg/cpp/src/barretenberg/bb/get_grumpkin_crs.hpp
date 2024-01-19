@@ -8,4 +8,5 @@
 #include <fstream>
 #include <ios>
 
-std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path, size_t num_points);
+std::vector<bb::curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path,
+                                                                     size_t num_points);

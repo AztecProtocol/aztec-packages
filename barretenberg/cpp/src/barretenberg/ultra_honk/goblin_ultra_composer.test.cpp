@@ -18,7 +18,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    using Curve = curve::BN254;
+    using Curve = bb::curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
