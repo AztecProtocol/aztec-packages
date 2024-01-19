@@ -4,7 +4,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup::keccak_tables {
+namespace bb::plookup::keccak_tables {
 
 /**
  * @brief Generate the plookup tables used for the RHO round of the Keccak hash algorithm
@@ -291,4 +291,4 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
     }
 };
 
-} // namespace plookup::keccak_tables
+} // namespace bb::plookup::keccak_tables

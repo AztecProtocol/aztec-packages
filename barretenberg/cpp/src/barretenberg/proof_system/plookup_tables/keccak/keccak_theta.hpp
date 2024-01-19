@@ -4,7 +4,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup::keccak_tables {
+namespace bb::plookup::keccak_tables {
 
 /**
  * @brief Generates plookup tables required for THETA round of Keccak hash function
@@ -250,4 +250,4 @@ class Theta {
         return table;
     }
 };
-} // namespace plookup::keccak_tables
+} // namespace bb::plookup::keccak_tables

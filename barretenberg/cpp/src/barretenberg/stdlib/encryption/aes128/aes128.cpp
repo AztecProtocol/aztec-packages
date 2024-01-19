@@ -11,7 +11,7 @@ using namespace crypto::aes128;
 
 namespace bb::stdlib::aes128 {
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;
-using namespace plookup;
+using namespace bb::plookup;
 
 constexpr uint32_t AES128_BASE = 9;
 
