@@ -58,7 +58,7 @@ using hash_path = stdlib::merkle_tree::hash_path<Builder>;
 } // namespace merkle_tree
 
 namespace schnorr {
-using signature_bits = stdlib::schnorr::signature_bits<Builder>;
+using schnorr_signature_bits = stdlib::schnorr::schnorr_signature_bits<Builder>;
 } // namespace schnorr
 
 // Ultra-composer specific types
