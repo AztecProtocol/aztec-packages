@@ -2,8 +2,6 @@
 title: Getting Started
 ---
 
-Welcome!
-
 ## Build
 
 If this is your first time using Aztec, and you want to get started by learning by doing, head to the [Quickstart section](quickstart.md). This section is the entry point to:
@@ -15,6 +13,8 @@ If this is your first time using Aztec, and you want to get started by learning 
 ## Learn
 
 If you want to read more about the high level concepts of Aztec before writing some code, head to the [Foundational Concepts section](../../concepts/foundation/main.md).
+
+## In this section
 
 import DocCardList from '@theme/DocCardList';
 
