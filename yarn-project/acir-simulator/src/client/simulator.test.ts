@@ -4,7 +4,7 @@ import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis
 import { ABIParameterVisibility, FunctionArtifactWithDebugMetadata, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -28,7 +28,10 @@ describe('Simulator', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
-    oracle.getNullifierSecretKey.mockResolvedValue(ownerPk);
+    oracle.getNullifierKeyPair.mockResolvedValue({
+      secretKey: GrumpkinScalar.random(),
+      publicKey: Point.random(),
+    });
     oracle.getCompleteAddress.mockResolvedValue(ownerCompleteAddress);
 
     simulator = new AcirSimulator(oracle);

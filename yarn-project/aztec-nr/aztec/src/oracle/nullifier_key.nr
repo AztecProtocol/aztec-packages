@@ -1,25 +1,29 @@
-use crate::oracle::get_public_key::get_public_key;
 use dep::protocol_types::{
     address::AztecAddress,
     grumpkin_point::GrumpkinPoint,
 };
+use dep::std::grumpkin_scalar::GrumpkinScalar;
 
-#[oracle(getNullifierSecretKey)]
-fn get_nullifier_secret_key_oracle(_owner: GrumpkinPoint) -> [Field; dep::std::grumpkin_scalar::GRUMPKIN_SCALAR_SERIALIZED_LEN] {}
-
-unconstrained fn get_nullifier_secret_key_internal(owner_public_key: GrumpkinPoint) -> dep::std::grumpkin_scalar::GrumpkinScalar {
-    dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_nullifier_secret_key_oracle(owner_public_key))
+struct KeyPair {
+    public_key: GrumpkinPoint,
+    secret_key: GrumpkinScalar,
 }
 
-pub fn get_nullifier_secret_key(owner: AztecAddress) -> dep::std::grumpkin_scalar::GrumpkinScalar {
-    let owner_public_key = get_public_key(owner);
-    let secret = get_nullifier_secret_key_internal(owner_public_key);
+#[oracle(getNullifierKeyPair)]
+fn get_nullifier_key_pair_oracle(_account: AztecAddress) -> [Field; 4] {}
 
-    // Constrain the owner - Nullifier secret key is currently just the encryption private key so we can constrain
-    // the owner by deriving the public key from the secret key and checking the result.
-    let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
-    assert(owner_public_key.x == computed_public_key[0]);
-    assert(owner_public_key.y == computed_public_key[1]);
+unconstrained fn get_nullifier_key_pair_internal(account: AztecAddress) -> KeyPair {
+    let result = get_nullifier_key_pair_oracle(account);
+    KeyPair {
+        public_key: GrumpkinPoint { x: result[0], y: result[1] },
+        secret_key: GrumpkinScalar { high: result[2], low: result[3] }
+    }
+}
 
-    secret
+pub fn get_nullifier_key_pair(account: AztecAddress) -> KeyPair {
+    get_nullifier_key_pair_internal(account)
+}
+
+pub fn get_nullifier_secret_key(account: AztecAddress) -> GrumpkinScalar {
+    get_nullifier_key_pair_internal(account).secret_key
 }
