@@ -4,7 +4,6 @@ mod public_key_note;
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
 contract SchnorrAccount {
     use dep::std;
-    use dep::std::option::Option;
 
     use dep::aztec::protocol_types::address::AztecAddress;
 
@@ -12,8 +11,15 @@ contract SchnorrAccount {
         context::{PrivateContext, Context},
         note::{ note_header::NoteHeader, utils as note_utils },
         oracle::get_public_key::get_public_key,
-        state_vars::immutable_singleton::ImmutableSingleton,
+        state_vars::{immutable_singleton::ImmutableSingleton, singleton::Singleton}
     };
+
+    use dep::address_note::address_note::{
+        AddressNote,
+        AddressNoteMethods,
+        ADDRESS_NOTE_LEN,
+    };
+
     use dep::authwit:: {
         entrypoint::{ EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE },
         account::AccountActions,
@@ -26,6 +32,7 @@ contract SchnorrAccount {
         // docs:start:storage
         signing_public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
         // docs:end:storage
+        fee_contract_address: Singleton<AddressNote, ADDRESS_NOTE_LEN>,
     }
 
     impl Storage {
@@ -33,12 +40,13 @@ contract SchnorrAccount {
             Storage {
                 // docs:start:storage_init
                 signing_public_key: ImmutableSingleton::new(context, 1, PublicKeyNoteMethods),
+                fee_contract_address: Singleton::new(context, 2, AddressNoteMethods),
                 // docs:end:storage_init
             }
         }
     }
 
-    global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
+    global ACCOUNT_ACTIONS_STORAGE_SLOT = 3;
 
     // Constructs the contract
     #[aztec(private)]
@@ -47,12 +55,24 @@ contract SchnorrAccount {
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         storage.signing_public_key.initialize(&mut pub_key_note, Option::none(), true);
+        let mut address_note = AddressNote::new(AztecAddress::zero(), this);
+        storage.fee_contract_address.initialize(&mut address_note, Option::none(), true);
         // docs:end:initialize
+    }
+
+    // Sets the fee contract address
+    #[aztec(private)]
+    fn set_fee_contract_address(fee_contract_address: AztecAddress) {
+        let this = context.this_address();
+        let mut address_note = AddressNote::new(fee_contract_address, this);
+        storage.fee_contract_address.replace(&mut address_note, true);
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
     fn entrypoint(payload: pub EntrypointPayload) {
+        let note = storage.fee_contract_address.get_note(true);
+        context.fee_variables.fee_preparation_address = note.address;
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(payload);
     }
@@ -111,8 +131,12 @@ contract SchnorrAccount {
         storage_slot: Field,
         serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]
     ) -> pub [Field; 4] {
-        assert(storage_slot == 1);
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, serialized_note)
+        assert((storage_slot == 1) | (storage_slot == 2));
+        if (storage_slot == 1) {
+            note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, serialized_note)
+        } else {
+            note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, serialized_note)
+        }
     }
 }
