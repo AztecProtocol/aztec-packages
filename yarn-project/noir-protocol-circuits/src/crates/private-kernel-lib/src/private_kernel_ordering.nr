@@ -16,7 +16,9 @@ use dep::types::{
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     },
+    grumpkin_private_key::GrumpkinPrivateKey,
     hash::{
         compute_commitment_nonce,
         compute_unique_siloed_commitment,
@@ -36,6 +38,7 @@ struct PrivateKernelInputsOrdering {
     sorted_new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
     nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+    master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
 
 impl PrivateKernelInputsOrdering {
@@ -312,6 +315,7 @@ mod tests {
                 sorted_new_nullifiers,
                 sorted_new_nullifiers_indexes,
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
+                master_nullifier_secret_keys: dep::std::unsafe::zeroed(),
             };
             kernel.native_private_kernel_circuit_ordering()
         }
