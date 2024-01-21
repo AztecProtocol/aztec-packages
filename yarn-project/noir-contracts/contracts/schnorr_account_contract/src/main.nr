@@ -60,13 +60,6 @@ contract SchnorrAccount {
         // docs:end:initialize
     }
 
-    // Sets the fee contract address
-    #[aztec(private)]
-    fn set_fee_contract_address(fee_contract_address: AztecAddress) {
-        let this = context.this_address();
-        let mut address_note = AddressNote::new(fee_contract_address, this);
-        storage.fee_contract_address.replace(&mut address_note, true);
-    }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
@@ -93,6 +86,14 @@ contract SchnorrAccount {
     internal fn set_is_valid_storage(message_hash: Field, value: bool) {
         let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.internal_set_is_valid_storage(message_hash, value)
+    }
+
+    // Sets the fee contract address
+    #[aztec(private)]
+    internal fn set_fee_contract_address(fee_contract_address: AztecAddress) {
+        let this = context.this_address();
+        let mut address_note = AddressNote::new(fee_contract_address, this);
+        storage.fee_contract_address.replace(&mut address_note, true);
     }
 
     #[contract_library_method]

@@ -7,25 +7,14 @@ import {
   GrumpkinScalar,
   PXE,
   PublicKey,
-  TxHash,
   TxStatus,
   generatePublicKey,
   getContractDeploymentInfo,
-  retryUntil,
 } from '@aztec/aztec.js';
-import { FunctionData } from '@aztec/circuits.js';
 import { EscrowContract, EscrowContractArtifact } from '@aztec/noir-contracts/Escrow';
-import { SchnorrAccountContractArtifact } from '@aztec/noir-contracts/SchnorrAccount';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { setup } from './fixtures/utils.js';
-
-const awaitTxMined = async (wallet: AccountWallet, txHash: TxHash) => {
-  const isTxMined = async () => {
-    return await wallet.getTxReceipt(txHash).then(tx => tx.status === TxStatus.MINED);
-  };
-  await retryUntil(isTxMined, `mining tx ${txHash.toString()}`, 10, 0.5); //poll every 0.5 seconds, timeout after 10 seconds
-};
 
 describe('e2e_public_fees', () => {
   // AZT is the token being sent, and used to pay fees.
@@ -99,25 +88,8 @@ describe('e2e_public_fees', () => {
   });
 
   it('can set fee payment contract in account', async () => {
-    const setFeeContractAddressFunction = SchnorrAccountContractArtifact.functions.find(
-      f => f.name === 'set_fee_contract_address',
-    )!;
-    const txRequest = await sender.createTxExecutionRequest([
-      {
-        to: senderAddress.address,
-        functionData: FunctionData.fromAbi(setFeeContractAddressFunction),
-        args: [feePaymentContract.completeAddress.address],
-      },
-    ]);
+    const tx = await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
 
-    const tx = await sender.simulateTx(txRequest, false);
-    const hash = await sender.sendTx(tx);
-    await awaitTxMined(sender, hash);
-
-    // const messageHash = computeAuthWitMessageHash(senderAddress.address, action.request());
-
-    // const witness = await sender.createAuthWitness(messageHash);
-    // await sender.addAuthWitness(witness);
-    // await action.simulate();
+    expect(tx.status).toBe(TxStatus.MINED);
   });
 });
