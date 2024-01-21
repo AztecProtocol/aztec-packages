@@ -240,6 +240,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
 
+  barretenberg-formatting:
+      docker:
+        - image: aztecprotocol/alpine-build-image
+      resource_class: small
+      steps:
+        - *checkout
+        - *setup_env
+        - run:
+            name: "Format"
+            command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./format.sh check
+
   barretenberg-bench:
     machine:
       # NOTE: we usually use alpine build image when making spot images, but
@@ -1149,6 +1160,7 @@ workflows:
             - noir-compile-acir-tests
           <<: *defaults
       - barretenberg-docs: *defaults
+      - barretenberg-formatting: *bb_test
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
