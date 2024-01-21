@@ -59,9 +59,13 @@ use crate::oracle::{
     enqueue_public_function_call::enqueue_public_function_call_internal,
     context::get_portal_address,
     get_block_header::get_block_header,
+    nullifier_key::get_nullifier_key_pair,
 };
 
-use dep::std::option::Option;
+use dep::std::{
+    grumpkin_scalar::GrumpkinScalar,
+    option::Option,
+};
 
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateContext {
@@ -199,6 +203,14 @@ impl PrivateContext {
         };
         self.new_nullifiers.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    pub fn request_nullifier_secret_key(&mut self, account: AztecAddress) -> GrumpkinScalar {
+        let key_pair = get_nullifier_key_pair(account);
+        // TODO: Verify that the nullifier public key belongs to the account address.
+        // TODO: Add request to context.
+        // self.context.push_nullifier_key_validation_request(public_key, secret_key);
+        key_pair.secret_key
     }
 
     // docs:start:context_message_portal

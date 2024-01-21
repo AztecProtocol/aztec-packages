@@ -15,22 +15,19 @@ import { AcirSimulator } from './simulator.js';
 describe('Simulator', () => {
   let oracle: MockProxy<DBOracle>;
   let simulator: AcirSimulator;
-  let ownerCompleteAddress: CompleteAddress;
-  let owner: AztecAddress;
   const ownerPk = GrumpkinScalar.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+  const ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
+  const owner = ownerCompleteAddress.address;
+  const ownerNullifierSecretKey = GrumpkinScalar.random();
+  const ownerNullifierPublicKey = Point.random();
 
   const hashFields = (data: Fr[]) => Fr.fromBuffer(pedersenHash(data.map(f => f.toBuffer())));
-
-  beforeAll(() => {
-    ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
-    owner = ownerCompleteAddress.address;
-  });
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
     oracle.getNullifierKeyPair.mockResolvedValue({
-      secretKey: GrumpkinScalar.random(),
-      publicKey: Point.random(),
+      secretKey: ownerNullifierSecretKey,
+      publicKey: ownerNullifierPublicKey,
     });
     oracle.getCompleteAddress.mockResolvedValue(ownerCompleteAddress);
 
@@ -53,7 +50,11 @@ describe('Simulator', () => {
       const innerNoteHash = hashFields([storageSlot, valueNoteHash]);
       const siloedNoteHash = siloCommitment(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      const innerNullifier = hashFields([uniqueSiloedNoteHash, ownerPk.low, ownerPk.high]);
+      const innerNullifier = hashFields([
+        uniqueSiloedNoteHash,
+        ownerNullifierSecretKey.low,
+        ownerNullifierSecretKey.high,
+      ]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note);
 

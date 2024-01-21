@@ -20,8 +20,6 @@ use dep::aztec::note::{
 };
 use dep::aztec::oracle::{
     rand::rand,
-    get_secret_key::get_secret_key,
-    get_public_key::get_public_key,
 };
 
 use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};

@@ -682,7 +682,15 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
-      const expectedNullifier = hashFields([innerNoteHash, ownerPk.low, ownerPk.high]);
+      const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
+        ownerNullifierKeyPair.secretKey,
+        contractAddress,
+      );
+      const expectedNullifier = hashFields([
+        innerNoteHash,
+        siloedNullifierSecretKey.low,
+        siloedNullifierSecretKey.high,
+      ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 
@@ -755,7 +763,15 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
-      const expectedNullifier = hashFields([innerNoteHash, ownerPk.low, ownerPk.high]);
+      const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
+        ownerNullifierKeyPair.secretKey,
+        contractAddress,
+      );
+      const expectedNullifier = hashFields([
+        innerNoteHash,
+        siloedNullifierSecretKey.low,
+        siloedNullifierSecretKey.high,
+      ]);
       expect(nullifier.value).toEqual(expectedNullifier);
 
       // check that the last get_notes call return no note
