@@ -23,6 +23,7 @@ use dep::types::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
     },
+    grumpkin_private_key::GrumpkinPrivateKey,
     hash::{
         compute_constructor_hash,
         compute_l2_to_l1_hash,
@@ -421,4 +422,8 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
             call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address"
         );
     }
+}
+
+pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, _contract_address: AztecAddress) -> GrumpkinPrivateKey {
+    secret_key
 }

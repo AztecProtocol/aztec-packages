@@ -1,4 +1,9 @@
-use dep::std::cmp::Eq;
+use dep::std::{
+    cmp::Eq,
+    grumpkin_scalar::GrumpkinScalar,
+    grumpkin_scalar_mul::grumpkin_fixed_base,
+};
+use crate::grumpkin_point::GrumpkinPoint;
 
 global GRUMPKIN_PRIVATE_KEY_SERIALIZED_LEN: Field = 2;
 
@@ -29,12 +34,12 @@ impl GrumpkinPrivateKey {
         (self.high == 0) & (self.low == 0)
     }
 
-    fn serialize(self) -> [Field; GRUMPKIN_PRIVATE_KEY_SERIALIZED_LEN] {
+    pub fn serialize(self) -> [Field; GRUMPKIN_PRIVATE_KEY_SERIALIZED_LEN] {
         [self.high, self.low]
     }
 
-    fn assert_is_zero(self) {
-        assert(self.high == 0);
-        assert(self.low == 0);
+    pub fn derive_public_key(self) -> GrumpkinPoint {
+        let public_key = grumpkin_fixed_base(GrumpkinScalar { high: self.high, low: self.low });
+        GrumpkinPoint { x: public_key[0], y: public_key[1] }
     }
 }
