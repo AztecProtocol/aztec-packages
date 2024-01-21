@@ -7,6 +7,7 @@ use dep::types::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder,
         membership_witness::ReadRequestMembershipWitness,
         new_contract_data::NewContractData,
+        nullifier_key_validation_request::NullifierKeyValidationRequestContext,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         previous_kernel_data::PreviousKernelData,
@@ -20,6 +21,7 @@ use dep::types::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
     },
     hash::{
         compute_constructor_hash,
@@ -51,6 +53,7 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
 
     validate_array(app_public_inputs.return_values);
     validate_array(app_public_inputs.read_requests);
+    validate_array(app_public_inputs.nullifier_key_validation_requests);
     validate_array(app_public_inputs.new_commitments);
     validate_array(app_public_inputs.new_nullifiers);
     validate_array(app_public_inputs.private_call_stack_hashes);
@@ -106,6 +109,7 @@ pub fn initialize_end_values(
     let start = previous_kernel.public_inputs.end;
 
     public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
+    public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
 
     public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
@@ -173,6 +177,8 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     let read_requests = private_call_public_inputs.read_requests;
     let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
 
+    let nullifier_key_validation_requests = private_call_public_inputs.nullifier_key_validation_requests;
+
     let new_commitments = private_call_public_inputs.new_commitments;
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
 
@@ -191,6 +197,14 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         }
     }
     public_inputs.end.read_requests.push_vec(siloed_read_requests);
+
+    // Nullifier key validation requests.
+    for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
+        let request = nullifier_key_validation_requests[i];
+        if !request.is_empty() {
+            public_inputs.end.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
+        }
+    }
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
