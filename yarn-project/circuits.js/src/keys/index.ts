@@ -16,7 +16,7 @@ export function derivePublicKey(secretKey: GrumpkinPrivateKey) {
 /**
  * Derives a new secret key from a secret key and an index.
  */
-function deriveSecretKey(secretKey: GrumpkinPrivateKey, index: Fr): GrumpkinPrivateKey {
+function _deriveSecretKey(secretKey: GrumpkinPrivateKey, index: Fr): GrumpkinPrivateKey {
   // TODO: Temporary hack. Should replace it with a secure way to derive the secret key.
   const hash = pedersenHash([secretKey.high, secretKey.low, index].map(v => v.toBuffer()));
   return new GrumpkinScalar(hash);
@@ -26,7 +26,9 @@ function deriveSecretKey(secretKey: GrumpkinPrivateKey, index: Fr): GrumpkinPriv
  * Computes the nullifier secret key from seed secret key.
  */
 export function computeNullifierSecretKey(seedSecretKey: GrumpkinPrivateKey): GrumpkinPrivateKey {
-  return deriveSecretKey(seedSecretKey, new Fr(1));
+  // TODO
+  // return deriveSecretKey(seedSecretKey, new Fr(1));
+  return seedSecretKey;
 }
 
 /**
@@ -34,7 +36,9 @@ export function computeNullifierSecretKey(seedSecretKey: GrumpkinPrivateKey): Gr
  */
 export function computeSiloedNullifierSecretKey(
   nullifierSecretKey: GrumpkinPrivateKey,
-  contractAddress: AztecAddress,
+  _contractAddress: AztecAddress,
 ): GrumpkinPrivateKey {
-  return deriveSecretKey(nullifierSecretKey, contractAddress);
+  // TODO
+  // return deriveSecretKey(nullifierSecretKey, contractAddress);
+  return nullifierSecretKey;
 }
