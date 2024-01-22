@@ -10,7 +10,7 @@ import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeC
 import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
-import { ServerList, createMultiJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { ServerList, createNamespacedJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
@@ -69,7 +69,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
       // Start Node and PXE JSON-RPC server
       const nodeServer = createAztecNodeRpcServer(node);
       const pxeServer = createPXERpcServer(pxe);
-      const rpcServer = createMultiJsonRpcServer([{ node: nodeServer }, { pxe: pxeServer }], debugLogger);
+      const rpcServer = createNamespacedJsonRpcServer([{ node: nodeServer }, { pxe: pxeServer }], debugLogger);
 
       const app = rpcServer.getApp();
       const httpServer = http.createServer(app.callback());
@@ -220,7 +220,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         signalHandlers.push(bootstrapNode.stop);
       }
       if (services.length) {
-        const rpcServer = createMultiJsonRpcServer(services, debugLogger);
+        const rpcServer = createNamespacedJsonRpcServer(services, debugLogger);
 
         const app = rpcServer.getApp();
         const httpServer = http.createServer(app.callback());

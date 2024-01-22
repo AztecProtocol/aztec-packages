@@ -23,7 +23,6 @@ export class JsonRpcServer {
     private handler: object,
     private stringClassMap: StringClassConverterInput,
     private objectClassMap: JsonClassConverterInput,
-    private createApi: boolean,
     /** List of methods to disallow from calling remotely */
     public readonly disallowedMethods: string[] = [],
     private log = createDebugLogger('aztec:foundation:json-rpc:server'),
@@ -94,90 +93,45 @@ export class JsonRpcServer {
   private getRouter(prefix: string) {
     const router = new Router({ prefix });
     const proto = Object.getPrototypeOf(this.handler);
-    // Find all our endpoints from the handler methods
-
-    if (this.createApi) {
-      // "API mode" where an endpoint is created for each method
-      for (const method of Object.getOwnPropertyNames(proto)) {
-        // Ignore if not a function or function is not allowed
-        if (
-          method === 'constructor' ||
-          typeof proto[method] !== 'function' ||
-          this.disallowedMethods.includes(method)
-        ) {
-          continue;
-        }
-        router.post(`/${method}`, async (ctx: Koa.Context) => {
-          const { params = [], jsonrpc, id } = ctx.request.body as any;
-          try {
-            const result = await this.proxy.call(method, params);
-            ctx.body = {
-              jsonrpc,
-              id,
-              result: convertBigintsInObj(result),
-            };
-            ctx.status = 200;
-          } catch (err: any) {
-            // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
-            // a duplicate recipient) so this is necessary.
-            ctx.status = 400;
-            ctx.body = {
-              jsonrpc,
-              id,
-              error: {
-                // TODO assign error codes - https://github.com/AztecProtocol/aztec-packages/issues/2633
-                code: -32000,
-                message: err.message,
-              },
-            };
-          }
-        });
-      }
-    } else {
-      // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
-      router.post('/', async (ctx: Koa.Context) => {
-        const { params = [], jsonrpc, id, method } = ctx.request.body as any;
-        // Ignore if not a function
-        if (
-          method === 'constructor' ||
-          typeof proto[method] !== 'function' ||
-          this.disallowedMethods.includes(method)
-        ) {
+    // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
+    router.post('/', async (ctx: Koa.Context) => {
+      const { params = [], jsonrpc, id, method } = ctx.request.body as any;
+      // Ignore if not a function
+      if (method === 'constructor' || typeof proto[method] !== 'function' || this.disallowedMethods.includes(method)) {
+        ctx.status = 400;
+        ctx.body = {
+          jsonrpc,
+          id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${method}`,
+          },
+        };
+      } else {
+        try {
+          const result = await this.proxy.call(method, params);
+          ctx.body = {
+            jsonrpc,
+            id,
+            result: convertBigintsInObj(result),
+          };
+          ctx.status = 200;
+        } catch (err: any) {
+          // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
+          // a duplicate recipient) so this is necessary.
           ctx.status = 400;
           ctx.body = {
             jsonrpc,
             id,
             error: {
-              code: -32601,
-              message: `Method not found: ${method}`,
+              // TODO assign error codes - https://github.com/AztecProtocol/aztec-packages/issues/2633
+              code: -32000,
+              message: err.message,
             },
           };
-        } else {
-          try {
-            const result = await this.proxy.call(method, params);
-            ctx.body = {
-              jsonrpc,
-              id,
-              result: convertBigintsInObj(result),
-            };
-            ctx.status = 200;
-          } catch (err: any) {
-            // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
-            // a duplicate recipient) so this is necessary.
-            ctx.status = 400;
-            ctx.body = {
-              jsonrpc,
-              id,
-              error: {
-                // TODO assign error codes - https://github.com/AztecProtocol/aztec-packages/issues/2633
-                code: -32000,
-                message: err.message,
-              },
-            };
-          }
         }
-      });
-    }
+      }
+    });
 
     return router;
   }
@@ -241,13 +195,16 @@ export function createStatusRouter(apiPrefix = '') {
  * @returns A running http server.
  */
 export function startHttpRpcServer<T>(
+  name: string,
   instance: T,
   jsonRpcFactoryFunc: (instance: T) => JsonRpcServer,
   port: string | number,
 ): http.Server {
   const rpcServer = jsonRpcFactoryFunc(instance);
 
-  const app = rpcServer.getApp();
+  const namespacedServer = createNamespacedJsonRpcServer([{ [name]: rpcServer }]);
+
+  const app = namespacedServer.getApp();
 
   const httpServer = http.createServer(app.callback());
   httpServer.listen(port);
@@ -267,7 +224,7 @@ export type ServerList = {
  * @param servers - List of servers to be combined into a single server, passed as ServerList.
  * @returns A single JsonRpcServer with namespaced methods.
  */
-export function createMultiJsonRpcServer(
+export function createNamespacedJsonRpcServer(
   servers: ServerList,
   log = createDebugLogger('aztec:foundation:json-rpc:multi-server'),
 ): JsonRpcServer {
@@ -308,5 +265,5 @@ export function createMultiJsonRpcServer(
     { stringClassMap: {}, objectClassMap: {} } as ClassMaps,
   );
 
-  return new JsonRpcServer(Object.create(handler), classMaps.stringClassMap, classMaps.objectClassMap, false, [], log);
+  return new JsonRpcServer(Object.create(handler), classMaps.stringClassMap, classMaps.objectClassMap, [], log);
 }

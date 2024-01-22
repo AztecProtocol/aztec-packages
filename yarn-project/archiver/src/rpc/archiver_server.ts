@@ -32,7 +32,6 @@ export function createArchiverRpcServer(archiverService: Archiver): JsonRpcServe
       L2BlockL2Logs,
     },
     {},
-    false,
     ['start', 'stop'],
   );
 }
