@@ -98,13 +98,15 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     const numLeaves = this.tree.getNumLeaves(false);
     batch.put(snapshotNumLeavesKey(treeName, block), String(numLeaves));
     batch.put(snapshotRootKey(treeName, block), root);
+    batch.put(`${this.tree.getName()}:latestSnapshot`, block);
+
     await batch.write();
 
     return new AppendOnlySnapshot(this.db, block, numLeaves, root, this.tree, this.hasher);
   }
 
 
-  async restore(blockToRestore: number, currentBlock: number) {
+  async restore(blockToRestore: number) {
     const snapshotMetadata = await this.#getSnapshotMeta(blockToRestore);
 
     if (snapshotMetadata === undefined) {
@@ -182,10 +184,12 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     }
 
     await this.tree.snapshotRestoreUtil(numLeaves, newRoot);
+    const latestSnapshot = await this.db.get(`${this.tree.getName()}:latestSnapshot`);
+
 
     const pruneBatch = this.db.batch();
 
-    new Array(currentBlock - blockToRestore).fill(1).map((v, i) => v + i + blockToRestore).forEach((blockToDelete) => {
+    new Array(latestSnapshot - blockToRestore).fill(1).map((v, i) => v + i + blockToRestore).forEach((blockToDelete) => {
       pruneBatch.del(snapshotNumLeavesKey(treeName, blockToDelete));
       pruneBatch.del(snapshotRootKey(treeName, blockToDelete));
     });
