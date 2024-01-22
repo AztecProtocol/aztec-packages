@@ -15,14 +15,13 @@
     using field_ct = stdlib::field_t<Builder>;                                                                         \
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using public_witness_ct = stdlib::public_witness_t<Builder>;
+using namespace bb;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
-
-using namespace bb;
 
 template <class Builder> class LogicTest : public testing::Test {};
 

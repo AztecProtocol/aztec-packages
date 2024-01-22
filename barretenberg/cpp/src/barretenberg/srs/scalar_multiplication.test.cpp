@@ -20,11 +20,11 @@
 #include <cstddef>
 #include <vector>
 
+using namespace bb;
+
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-
-using namespace bb;
 
 template <typename Curve> class ScalarMultiplicationTests : public ::testing::Test {
   public:

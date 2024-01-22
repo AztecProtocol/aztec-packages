@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+using namespace bb;
+
 namespace {
 transcript::Manifest create_manifest(const size_t num_public_inputs)
 {

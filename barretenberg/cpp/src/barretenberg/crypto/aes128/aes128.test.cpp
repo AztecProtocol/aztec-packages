@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 TEST(aes128, verify_cipher)
 {
 

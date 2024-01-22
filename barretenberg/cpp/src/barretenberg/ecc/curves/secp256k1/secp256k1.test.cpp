@@ -2,6 +2,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 

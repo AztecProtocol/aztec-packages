@@ -2,11 +2,13 @@
 #include "../random/engine.hpp"
 #include <gtest/gtest.h>
 #ifdef __i386__
+
+using namespace bb;
+using namespace bb::numeric;
+
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-
-using namespace bb::numeric;
 
 TEST(uint128, GetBit)
 {

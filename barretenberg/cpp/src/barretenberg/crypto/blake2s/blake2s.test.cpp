@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+using namespace bb;
+
 struct test_vector {
     std::string input;
     std::array<uint8_t, 32> output;

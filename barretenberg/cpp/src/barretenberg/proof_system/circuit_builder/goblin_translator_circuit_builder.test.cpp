@@ -9,8 +9,6 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-namespace bb {
-
 /**
  * @brief Check that a single accumulation gate is created correctly
  *
@@ -129,4 +127,3 @@ TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Check the computation result is in line with what we've computed
     EXPECT_EQ(result, circuit_builder.get_computation_result());
 }
-} // namespace bb

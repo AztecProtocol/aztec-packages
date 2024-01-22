@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+using namespace bb;
+
 struct test_vector {
     std::string_view input;
     std::array<uint8_t, 32> output;

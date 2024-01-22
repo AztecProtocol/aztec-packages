@@ -3,6 +3,8 @@
 #include "barretenberg/common/streams.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 TEST(engine, GetRandomUint64)
 {
     auto& engine = numeric::get_randomness();

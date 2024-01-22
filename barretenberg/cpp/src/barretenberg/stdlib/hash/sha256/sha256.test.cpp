@@ -9,13 +9,12 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 
-namespace {
-auto& engine = numeric::get_debug_randomness();
-}
-
 using namespace bb;
 using namespace bb::stdlib;
 
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
 using Builder = UltraCircuitBuilder;
 
 using byte_array_ct = byte_array<Builder>;

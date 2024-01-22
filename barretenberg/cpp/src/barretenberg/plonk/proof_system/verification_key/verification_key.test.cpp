@@ -3,12 +3,11 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 
+using namespace bb;
+using namespace bb::plonk;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
-
-using namespace bb;
-using namespace bb::plonk;
 
 /**
  * @brief generate a random vk data for use in tests

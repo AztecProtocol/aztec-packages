@@ -1,6 +1,8 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 using FF = fr;
 using Fr = fr;
 using Fq = fq;

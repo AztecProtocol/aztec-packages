@@ -1,6 +1,8 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 TEST(ECCOpQueueTest, Basic)
 {
     ECCOpQueue op_queue;
