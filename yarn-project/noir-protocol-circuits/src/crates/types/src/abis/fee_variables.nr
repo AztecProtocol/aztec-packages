@@ -1,6 +1,9 @@
 use crate::traits::Empty;
 use crate::address::AztecAddress;
 use crate::abis::function_selector::FunctionSelector;
+use crate::hash::pedersen_hash;
+use crate::constants::GENERATOR_INDEX__FEE_VARIABLES;
+use crate::traits::Hash;
 
 struct FeeVariables {
     fee_preparation_address : AztecAddress,
@@ -17,6 +20,12 @@ impl FeeVariables {
             self.fee_distribution_address.to_field(),
             self.fee_distribution_selector.to_field()
         ]
+    }
+}
+
+impl Hash for FeeVariables {
+    fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__FEE_VARIABLES)
     }
 }
 

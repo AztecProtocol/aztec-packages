@@ -1,8 +1,11 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { PublicKey } from '../index.js';
-import { AztecAddress, EthAddress, Fr, Point } from './index.js';
+import { PublicKey } from '../types/public_key.js';
+import { FeeVariables } from './fee_variables.js';
 
 /**
  * Contract deployment data in a TxContext
@@ -114,6 +117,11 @@ export class TxContext {
      * Version of the transaction. Here for replay protection.
      */
     public version: Fr,
+
+    /**
+     * Fee variables for the transaction.
+     */
+    public feeVariables: FeeVariables,
   ) {}
 
   /**
@@ -145,11 +153,20 @@ export class TxContext {
       reader.readObject(ContractDeploymentData),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readObject(FeeVariables),
     );
   }
 
   static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
-    return new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(chainId), new Fr(version));
+    return new TxContext(
+      false,
+      false,
+      false,
+      ContractDeploymentData.empty(),
+      new Fr(chainId),
+      new Fr(version),
+      FeeVariables.empty(),
+    );
   }
 
   isEmpty(): boolean {
@@ -185,6 +202,7 @@ export class TxContext {
       fields.contractDeploymentData,
       fields.chainId,
       fields.version,
+      fields.feeVariables,
     ] as const;
   }
 }

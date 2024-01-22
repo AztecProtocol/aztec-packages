@@ -1,6 +1,7 @@
 use crate::constants::GENERATOR_INDEX__TX_CONTEXT;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::traits::Hash;
+use crate::abis::fee_variables::FeeVariables;
 
 struct TxContext {
     is_fee_payment_tx : bool,
@@ -11,6 +12,8 @@ struct TxContext {
 
     chain_id : Field,
     version : Field,
+
+    fee_variables : FeeVariables,
 }
 
 impl Hash for TxContext {
@@ -22,6 +25,7 @@ impl Hash for TxContext {
             self.contract_deployment_data.hash(),
             self.chain_id,
             self.version,
+            self.fee_variables.hash(),
         ], GENERATOR_INDEX__TX_CONTEXT)
     }
 }

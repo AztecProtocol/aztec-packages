@@ -102,6 +102,7 @@ import {
   VerificationKey,
   WitnessedPublicCallData,
 } from '../index.js';
+import { FeeVariables } from '../structs/fee_variables.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header, NUM_BYTES_PER_SHA256 } from '../structs/header.js';
 
@@ -131,7 +132,7 @@ export function makeNewSideEffectLinkedToNoteHash(seed: number): SideEffectLinke
 export function makeTxContext(seed: number): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
   // @todo @LHerskind should probably take value for version as it will be verified later.
-  return new TxContext(false, false, true, makeContractDeploymentData(seed), Fr.ZERO, Fr.ZERO);
+  return new TxContext(false, false, true, makeContractDeploymentData(seed), Fr.ZERO, Fr.ZERO, FeeVariables.empty());
 }
 
 /**
