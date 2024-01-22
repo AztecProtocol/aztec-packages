@@ -73,7 +73,7 @@ export class AvmInterpreter {
 export abstract class AvmInterpreterError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AvmError';
+    this.name = 'AvmInterpreterError';
   }
 }
 
