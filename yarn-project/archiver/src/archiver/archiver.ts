@@ -120,6 +120,17 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   }
 
   /**
+  * atds
+  * @param blockNum - asd
+  */
+  *#getBlocks(blockNum: number) {
+    for (let current = blockNum - 100; ; current -= 100) {
+      // 101 due to 1 = current block only, 
+      yield this.store.getBlocks(current, 101);
+    }
+  }
+  
+  /**
    * Fetches `L2BlockProcessed` and `ContractDeployment` logs from `nextL2BlockFromBlock` and processes them.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
@@ -138,13 +149,25 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
      */
     const lastL1Blocks = await this.store.getL1BlockNumber();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
-
+    
     if (
       currentL1BlockNumber < Math.max(
         Number(lastL1Blocks.addedBlock), 
         Number(lastL1Blocks.addedMessages), 
         Number(lastL1Blocks.cancelledMessages))
     ) {
+      const currentL2BlockNum = await this.store.getBlockNumber();
+      let l2BlockNumberToRestore;
+
+      for await (const blocks of this.#getBlocks(currentL2BlockNum)) {
+        const blocksInOrder = blocks.reverse();
+        l2BlockNumberToRestore = blocksInOrder.find((block: L2Block) => block.getL1BlockNumber() <= currentL1BlockNumber)?.header.globalVariables.blockNumber;
+
+        if (l2BlockNumberToRestore !== undefined) {
+          break;
+        }
+      }
+
       // this.store.getBlocks
       //get blocks, get associated l2 block for l1 blocknum which is current
       // merkletrees l2 restore 

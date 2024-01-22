@@ -38,8 +38,8 @@ export class SparseTree extends TreeBase implements UpdateOnlyTree {
     return this.#snapshotBuilder.snapshot(block);
   }
 
-  public restore(block: number): Promise<void> {
-    return this.#snapshotBuilder.restore(block);
+  public restore(block: number, blockToRestore: number): Promise<void> {
+    return this.#snapshotBuilder.restore(block, blockToRestore);
   }
 
   public getSnapshot(block: number): Promise<TreeSnapshot> {

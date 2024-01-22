@@ -81,7 +81,7 @@ class PublicDataTree extends StandardIndexedTree {
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
-  private trees: (AppendOnlyTree)[] = [];
+  private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
   private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
 
@@ -632,42 +632,42 @@ export class MerkleTrees implements MerkleTreeDb {
     return { isBlockOurs: ourBlock };
   }
 
-  public async restoreSnapshot(block: number) {
-    await this.synchronize(this.restoreContractTree.bind(this, block));
-    await this.synchronize(this.restoreNoteHashTree.bind(this, block));
-    await this.synchronize(this.restoreL1ToL2MessageTree.bind(this, block));
-    await this.synchronize(this.restoreArchive.bind(this, block));
-    await this.synchronize(this.restoreNullifierTree.bind(this, block));
-    await this.synchronize(this.restorePublicDataTree.bind(this, block));
+  public async restoreSnapshot(block: number, currentBlock: number) {
+    await this.synchronize(this.restoreContractTree.bind(this, block, currentBlock));
+    await this.synchronize(this.restoreNoteHashTree.bind(this, block, currentBlock));
+    await this.synchronize(this.restoreL1ToL2MessageTree.bind(this, block, currentBlock));
+    await this.synchronize(this.restoreArchive.bind(this, block, currentBlock));
+    await this.synchronize(this.restoreNullifierTree.bind(this, block, currentBlock));
+    await this.synchronize(this.restorePublicDataTree.bind(this, block, currentBlock));
   }
 
-  private async restoreNullifierTree (block: number) {
+  private async restoreNullifierTree (block: number, currentBlock: number) {
     const nullifierTree = this.trees[MerkleTreeId.NULLIFIER_TREE];
-    await nullifierTree.restore(block);
+    await nullifierTree.restore(block, currentBlock);
   }
 
-  private async restorePublicDataTree (block: number) {
+  private async restorePublicDataTree (block: number, currentBlock: number) {
     const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE];
-    await publicDataTree.restore(block);
+    await publicDataTree.restore(block, currentBlock);
   }
 
-  private async restoreContractTree (block: number) {
+  private async restoreContractTree (block: number, currentBlock: number) {
     const contractTree = this.trees[MerkleTreeId.CONTRACT_TREE];
-    await contractTree.restore(block);
+    await contractTree.restore(block, currentBlock);
   }
 
-  private async restoreNoteHashTree (block: number) {
+  private async restoreNoteHashTree (block: number, currentBlock: number) {
     const noteHashTree = this.trees[MerkleTreeId.NOTE_HASH_TREE];
-    await noteHashTree.restore(block);
+    await noteHashTree.restore(block, currentBlock);
   }
 
-  private async restoreL1ToL2MessageTree (block: number) {
+  private async restoreL1ToL2MessageTree (block: number, currentBlock: number) {
     const l1Tol2MessageTree = this.trees[MerkleTreeId.L1_TO_L2_MESSAGE_TREE];
-    await l1Tol2MessageTree.restore(block);
+    await l1Tol2MessageTree.restore(block, currentBlock);
   }
 
-  private async restoreArchive (block: number) {
+  private async restoreArchive (block: number, currentBlock: number) {
     const archiveTree = this.trees[MerkleTreeId.ARCHIVE];
-    await archiveTree.restore(block);
+    await archiveTree.restore(block, currentBlock);
   }
 }

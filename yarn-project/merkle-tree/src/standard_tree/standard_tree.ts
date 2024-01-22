@@ -35,8 +35,8 @@ export class StandardTree extends TreeBase implements AppendOnlyTree {
     return this.#snapshotBuilder.snapshot(block);
   }
 
-  public restore(block: number): Promise<void> {
-    return this.#snapshotBuilder.restore(block);
+  public restore(block: number, currentBlock: number): Promise<void> {
+    return this.#snapshotBuilder.restore(block, currentBlock);
   }
 
   public getSnapshot(block: number): Promise<TreeSnapshot> {

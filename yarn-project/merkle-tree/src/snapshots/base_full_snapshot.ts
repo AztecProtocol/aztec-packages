@@ -98,14 +98,16 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
   }
 
   // This restore will invalidate BUT NOT THROW all the rest of the 
-  async restore(block: number) {
-    const snapshotMetadata = await this.#getSnapshotMeta(block);
+  async restore(blockToRestore: number, currentBlock: number) {
+    const snapshotMetadata = await this.#getSnapshotMeta(blockToRestore);
 
     if (snapshotMetadata === undefined) {
       throw new Error('fucked')
     }
 
     const batch = this.db.batch();
+    const pruneBatch = this.db.batch();
+
     const treeName = this.tree.getName();
 
     const { root: snapshotRoot, numLeaves } = snapshotMetadata;
@@ -153,7 +155,14 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     }
 
     await this.tree.snapshotRestoreUtil(numLeaves, snapshotRoot);
+
+    new Array(currentBlock - blockToRestore).fill(1).map((v, i) => v + i + blockToRestore).forEach((blockToDelete) => {
+      pruneBatch.del(snapshotNumLeavesKey(treeName, blockToDelete));
+      pruneBatch.del(snapshotRootKey(treeName, blockToDelete));
+    });
+
     await batch.write();
+    await pruneBatch.write();
 
     return;
   }

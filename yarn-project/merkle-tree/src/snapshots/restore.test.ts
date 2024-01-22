@@ -1,4 +1,4 @@
-import { Fr, NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
+import { NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Hasher } from '@aztec/types/interfaces';
 
 import levelup, { LevelUp } from 'levelup';
@@ -9,7 +9,6 @@ import { Pedersen, StandardTree, newTree } from '../index.js';
 import { createMemDown } from '../test/utils/create_mem_down.js';
 import { AppendOnlySnapshotBuilder } from './append_only_snapshot.js';
 import { buildDbKeyForLeafIndex } from '../standard_indexed_tree/standard_indexed_tree.js';
-// import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
 describe('AppendOnlySnapshot', () => {
   let tree: StandardTree;
@@ -197,7 +196,7 @@ describe('AppendOnlySnapshot', () => {
 
       const snapshot4 = await snapshotBuilder.snapshot(4);
 
-      await tree.restore(2);
+      await tree.restore(2, 4);
 
       const rootRestoredAtBlock2 = tree.getRoot(false);
 
@@ -256,7 +255,7 @@ describe('AppendOnlySnapshot', () => {
 
       const snapshot4New = await snapshotBuilder.snapshot(4);
 
-      await tree.restore(3);
+      await tree.restore(3, 4);
 
       const indexZAtSnap3 = await tree.findLeafIndex(Buffer.from('z'), false);
 
@@ -411,7 +410,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
     expect(keysOfLeavesAtBlock1).not.toStrictEqual(keysOfLeavesAtBlock2);
 
     await snapshotBuilder.snapshot(2);
-    await snapshotBuilder.restore(1);
+    await snapshotBuilder.restore(1, 2);
 
     const treeRootRestoredAtBlock1 = tree.getRoot(false);
 

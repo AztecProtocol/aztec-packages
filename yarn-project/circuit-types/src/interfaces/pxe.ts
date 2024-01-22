@@ -232,9 +232,9 @@ export interface PXE {
   /**
    * Restores the snapshot
    * @param block - the block you want to restore to
-   * @returns Success
+   * @param currentBlock - current block
    */
-  restoreSnapshot(block: number): Promise<boolean>;
+  restoreSnapshot(block: number, currentBlock: number): Promise<void>;
 
   /**
    * Returns the information about the server's node. Includes current Sandbox version, compatible Noir version,

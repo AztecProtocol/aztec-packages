@@ -341,7 +341,7 @@ export class AztecCheatCodes {
       throw new Error('Failed')
     }
 
-    await this.pxe.restoreSnapshot(snapshotMetadata.aztecBlockNumber);
+    // await this.pxe.restoreSnapshot(snapshotMetadata.aztecBlockNumber);
     return true;
   }
 }

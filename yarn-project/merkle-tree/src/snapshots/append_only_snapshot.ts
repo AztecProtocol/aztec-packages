@@ -104,7 +104,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
   }
 
 
-  async restore(blockToRestore: number) {
+  async restore(blockToRestore: number, currentBlock: number) {
     const snapshotMetadata = await this.#getSnapshotMeta(blockToRestore);
 
     if (snapshotMetadata === undefined) {
@@ -166,7 +166,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       const sibling = (await this.tree.getNode(level, isRight ? index - 1n : index + 1n)) ?? this.tree.getZeroHash(level);
 
       // This is super weird and only because the current appendLeaf functionality adds an extra index, 
-      // If removing that extra index, then removing this is safe. I think that if removing
+      // If removing that extra index, then removing this is safe.
       // if (level === depth - 1) {
       //   writeBatch.put(`${treeName}:${level}:${isRight ? index - 1n : index + 1n}`, sibling);
       // }
@@ -182,7 +182,16 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     }
 
     await this.tree.snapshotRestoreUtil(numLeaves, newRoot);
+
+    const pruneBatch = this.db.batch();
+
+    new Array(currentBlock - blockToRestore).fill(1).map((v, i) => v + i + blockToRestore).forEach((blockToDelete) => {
+      pruneBatch.del(snapshotNumLeavesKey(treeName, blockToDelete));
+      pruneBatch.del(snapshotRootKey(treeName, blockToDelete));
+    });
+
     await writeBatch.write();
+    await pruneBatch.write();
 
     return;
   }

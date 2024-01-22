@@ -93,8 +93,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.db, this, this.leafPreimageFactory);
   protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
 
-  public restore(block: number): Promise<void> {
-    return this.#snapshotBuilder.restore(block);
+  public restore(block: number, currentBlock: number): Promise<void> {
+    return this.#snapshotBuilder.restore(block, currentBlock);
   }
 
   public constructor(
