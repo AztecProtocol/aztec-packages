@@ -599,16 +599,16 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_sandbox_example.test.ts
 
-    e2e-singleton:
-      docker:
-        - image: aztecprotocol/alpine-build-image
-      resource_class: small
-      steps:
-        - *checkout
-        - *setup_env
-        - run:
-            name: "Test"
-            command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_singleton.test.ts
+  e2e-singleton:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_singleton.test.ts
 
   e2e-block-building:
     docker:
