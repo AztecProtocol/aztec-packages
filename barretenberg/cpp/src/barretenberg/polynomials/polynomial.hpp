@@ -231,6 +231,15 @@ template <typename Fr> class Polynomial {
     std::size_t size() const { return size_; }
     std::size_t capacity() const { return size_ + MAXIMUM_COEFFICIENT_SHIFT; }
 
+    static Polynomial random(const size_t num_coeffs)
+    {
+        Polynomial p(num_coeffs);
+        for (size_t i = 0; i < num_coeffs; ++i) {
+            p[i] = Fr::random_element();
+        }
+        return p;
+    }
+
   private:
     // allocate a fresh memory pointer for backing memory
     // DOES NOT initialize memory
