@@ -23,7 +23,7 @@ contract Benchmarking {
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
+        notes: Map<AztecAddress, Set<ValueNote>>,
         balances: Map<AztecAddress, PublicState<Field>>,
     }
 

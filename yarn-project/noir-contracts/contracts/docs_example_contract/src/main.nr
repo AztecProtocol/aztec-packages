@@ -29,15 +29,15 @@ contract DocsExample {
 
     // docs:start:storage-struct-declaration
     struct Storage {
-        locked: PublicState<bool, BOOL_SERIALIZED_LEN>,
-        queen: PublicState<Queen, QUEEN_SERIALIZED_LEN>,
-        game_rules: ImmutableSingleton<RulesNote, RULES_NOTE_LEN>,
+        locked: PublicState<bool>,
+        queen: PublicState<Queen>,
+        game_rules: ImmutableSingleton<RulesNote>,
         // docs:start:storage-singleton-declaration
-        legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
+        legendary_card: Singleton<CardNote>,
         // docs:end:storage-singleton-declaration
-        cards: Set<CardNote, CARD_NOTE_LEN>,
+        cards: Set<CardNote>,
         // docs:start:storage-map-singleton-declaration
-        profiles: Map<AztecAddress, Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
+        profiles: Map<AztecAddress, Singleton<ProfileNote>>,
         // docs:end:storage-map-singleton-declaration
     }
     // docs:end:storage-struct-declaration

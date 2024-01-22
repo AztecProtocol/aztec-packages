@@ -34,14 +34,14 @@ pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Op
 }
 
 // docs:start:struct
-struct Singleton<Note, N> {
+struct Singleton<Note> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     compute_initialization_nullifier: fn (Field, Option<AztecAddress>) -> Field,
 }
 // docs:end:struct
 
-impl<Note, N> Singleton<Note, N> {
+impl<Note> Singleton<Note> {
     // docs:start:new
     pub fn new(
         context: Context,
@@ -65,7 +65,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize(
+    pub fn initialize<N>(
         self,
         note: &mut Note,
         owner: Option<AztecAddress>,
@@ -83,7 +83,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace(
+    pub fn replace<N>(
         self,
         new_note: &mut Note,
         broadcast: bool,
@@ -100,7 +100,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note(self, broadcast: bool) -> Note where Note: NoteInterface + Serialize<N> + Deserialize<N> {
+    pub fn get_note<N>(self, broadcast: bool) -> Note where Note: NoteInterface + Serialize<N> + Deserialize<N> {
         let context = self.context.unwrap();
         let mut note = get_note(context, self.storage_slot);
 
@@ -116,7 +116,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:get_note
 
     // docs:start:view_note
-    unconstrained pub fn view_note(self) -> Note where Note: NoteInterface + Deserialize<N> {
+    unconstrained pub fn view_note<N>(self) -> Note where Note: NoteInterface + Deserialize<N> {
         let options = NoteViewerOptions::new().set_limit(1);
         view_notes(self.storage_slot, options)[0].unwrap()
     }

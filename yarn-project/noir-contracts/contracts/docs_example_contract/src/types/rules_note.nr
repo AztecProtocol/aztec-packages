@@ -38,6 +38,10 @@ impl Deserialize<RULES_NOTE_LEN> for RulesNote {
             header: NoteHeader::empty(),
         }
     }
+
+    fn _sample() -> [Field; RULES_NOTE_LEN] {
+        [0; RULES_NOTE_LEN]
+    }
 }
 
 impl NoteInterface for RulesNote {

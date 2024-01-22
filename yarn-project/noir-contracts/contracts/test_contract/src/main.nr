@@ -42,7 +42,7 @@ contract Test {
     }
 
     struct Storage {
-        example_constant: ImmutableSingleton<FieldNote, FIELD_NOTE_LEN>,
+        example_constant: ImmutableSingleton<FieldNote>,
     }
 
     impl Storage {
@@ -199,6 +199,7 @@ contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
+        
     }
 
     // Purely exists for testing

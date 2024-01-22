@@ -89,7 +89,7 @@ impl CardNote {
 }
 
 struct Deck {
-    set: Set<ValueNote, VALUE_NOTE_LEN>,
+    set: Set<ValueNote>,
 }
 
 pub fn filter_cards<N>(

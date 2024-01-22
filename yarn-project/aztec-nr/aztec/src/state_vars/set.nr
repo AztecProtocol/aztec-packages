@@ -17,13 +17,13 @@ use crate::note::{
 };
 
 // docs:start:struct
-struct Set<Note, N> {
+struct Set<Note> {
     context: Context,
     storage_slot: Field,
 }
 // docs:end:struct
 
-impl<Note, N> Set<Note, N>  {
+impl<Note> Set<Note> {
     // docs:start:new
     pub fn new(
         context: Context,
@@ -38,7 +38,7 @@ impl<Note, N> Set<Note, N>  {
     // docs:end:new
 
     // docs:start:insert
-    pub fn insert(self,
+    pub fn insert<N>(self,
         note: &mut Note,
         broadcast: bool,
     ) where Note: NoteInterface + Deserialize<N> + Serialize<N> {
@@ -86,7 +86,7 @@ impl<Note, N> Set<Note, N>  {
     // docs:end:remove
 
     // docs:start:get_notes
-    pub fn get_notes<FILTER_ARGS>(
+    pub fn get_notes<N, FILTER_ARGS>(
         self,
         options: NoteGetterOptions<Note, N, FILTER_ARGS>,
     ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface + Serialize<N> + Deserialize<N> {
@@ -101,7 +101,7 @@ impl<Note, N> Set<Note, N>  {
     // docs:end:get_notes
 
     // docs:start:view_notes
-    unconstrained pub fn view_notes(
+    unconstrained pub fn view_notes<N>(
         self,
         options: NoteViewerOptions<Note, N>,
     ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface + Deserialize<N> {

@@ -15,14 +15,14 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::singleton::compute_singleton_initialization_nullifier;
 
 // docs:start:struct
-struct ImmutableSingleton<Note, N> {
+struct ImmutableSingleton<Note> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     compute_initialization_nullifier: fn (Field, Option<AztecAddress>) -> Field,
 }
 // docs:end:struct
 
-impl<Note, N> ImmutableSingleton<Note, N> {
+impl<Note> ImmutableSingleton<Note> {
     // docs:start:new
     pub fn new(
         context: Context,
@@ -46,7 +46,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize(
+    pub fn initialize<N>(
         self,
         note: &mut Note, 
         owner: Option<AztecAddress>,
@@ -69,7 +69,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
     // docs:end:initialize
 
     // docs:start:get_note
-    pub fn get_note(self) -> Note where Note: NoteInterface + Deserialize<N> {
+    pub fn get_note<N>(self) -> Note where Note: NoteInterface + Deserialize<N> {
         let context = self.context.unwrap();
         let storage_slot = self.storage_slot;
         get_note(context, storage_slot)
@@ -77,7 +77,8 @@ impl<Note, N> ImmutableSingleton<Note, N> {
     // docs:end:get_note
 
     // docs:start:view_note
-    unconstrained pub fn view_note(self) -> Note  where Note: NoteInterface + Deserialize<N> {
+    unconstrained pub fn view_note<N>(self) -> Note  where Note: NoteInterface + Deserialize<N> {
+        let _sample: [Field; N] = Note::_sample();
         let options = NoteViewerOptions::new().set_limit(1);
         view_notes(self.storage_slot, options)[0].unwrap()
     }

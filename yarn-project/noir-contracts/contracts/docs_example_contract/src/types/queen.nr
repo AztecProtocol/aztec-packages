@@ -23,5 +23,9 @@ impl Deserialize<QUEEN_SERIALIZED_LEN> for Queen {
     fn deserialize(fields: [Field; QUEEN_SERIALIZED_LEN]) -> Queen {
         Queen { account: AztecAddress::from_field(fields[0]), points: fields[1] as u8 }
     }
+
+    fn _sample() -> [Field; QUEEN_SERIALIZED_LEN] {
+        [0; QUEEN_SERIALIZED_LEN]
+    }
 }
 // docs:end:state_vars-PublicStateCustomStruct

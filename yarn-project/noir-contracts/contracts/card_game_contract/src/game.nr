@@ -83,6 +83,10 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
             current_round: fields[14] as u32
         }
     }
+
+    fn _sample() -> [Field; GAME_SERIALIZED_LEN] {
+        [0; GAME_SERIALIZED_LEN]
+    }
 }
 
 impl Game {

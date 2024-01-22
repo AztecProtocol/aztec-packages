@@ -38,6 +38,10 @@ impl Deserialize<PROFILE_NOTE_LEN> for ProfileNote {
             header: NoteHeader::empty(),
         }
     }
+
+    fn _sample() -> [Field; PROFILE_NOTE_LEN] {
+        [0; PROFILE_NOTE_LEN]
+    }
 }
 
 impl NoteInterface for ProfileNote {

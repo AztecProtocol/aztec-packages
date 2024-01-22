@@ -43,6 +43,10 @@ impl Deserialize<CARD_NOTE_LEN> for CardNote {
             header: NoteHeader::empty(),
         }
     }
+
+    fn _sample() -> [Field; CARD_NOTE_LEN] {
+        [0; CARD_NOTE_LEN]
+    }
 }
 
 impl NoteInterface for CardNote {
