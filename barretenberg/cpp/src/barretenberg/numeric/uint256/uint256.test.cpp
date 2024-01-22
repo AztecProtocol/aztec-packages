@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using namespace bb::numeric;

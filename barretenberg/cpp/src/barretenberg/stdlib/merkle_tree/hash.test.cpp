@@ -8,7 +8,7 @@
 using namespace bb;
 using namespace bb::stdlib;
 
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;

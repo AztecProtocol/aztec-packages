@@ -2,6 +2,8 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 TEST(grumpkin, CheckB)
 {
     auto b = grumpkin::g1::curve_b;

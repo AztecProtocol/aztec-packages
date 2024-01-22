@@ -257,7 +257,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         // Method 1: Compute z_lookup using the prover library method
         constexpr size_t LOOKUP_RELATION_INDEX = 1;
         using LHS = typename std::tuple_element<LOOKUP_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
-        using RHS = bb::LookupRelation<FF>;
+        using RHS = LookupRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
         grand_product_library::compute_grand_product<Flavor, RHS>(
             proving_key->circuit_size, prover_polynomials, params);

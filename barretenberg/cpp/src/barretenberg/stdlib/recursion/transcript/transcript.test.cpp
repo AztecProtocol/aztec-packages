@@ -69,8 +69,8 @@ TestData get_test_data()
         data.g1_elements.push_back(bb::g1::affine_element(bb::g1::element::random_element()));
         data.fr_elements.push_back(bb::fr::random_element());
     }
-    data.fr_elements[2] = bb::fr(0);
-    data.fr_elements[3] = bb::fr(0);
+    data.fr_elements[2] = fr(0);
+    data.fr_elements[3] = fr(0);
     data.num_public_inputs = 13;
     for (size_t i = 0; i < data.num_public_inputs; ++i) {
         data.public_input_elements.push_back(bb::fr::random_element());

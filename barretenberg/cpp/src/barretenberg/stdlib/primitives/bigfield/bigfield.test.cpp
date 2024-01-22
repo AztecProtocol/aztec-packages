@@ -29,7 +29,7 @@ using namespace bb;
 */
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class stdlib_bigfield : public testing::Test {
@@ -977,7 +977,7 @@ TYPED_TEST(stdlib_bigfield, division_context)
 // // PLOOKUP TESTS
 // TEST(stdlib_bigfield_plookup, test_mul)
 // {
-//     plonk::UltraPlonkBuilder builder = bb::plonk::UltraPlonkBuilder();
+//     plonk::UltraPlonkBuilder builder = plonk::UltraPlonkBuilder();
 //     size_t num_repetitions = 1;
 //     for (size_t i = 0; i < num_repetitions; ++i) {
 //         fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
@@ -1024,7 +1024,7 @@ TYPED_TEST(stdlib_bigfield, division_context)
 
 // TEST(stdlib_bigfield_plookup, test_sqr)
 // {
-//     plonk::UltraPlonkBuilder builder = bb::plonk::UltraPlonkBuilder();
+//     plonk::UltraPlonkBuilder builder = plonk::UltraPlonkBuilder();
 //     size_t num_repetitions = 10;
 //     for (size_t i = 0; i < num_repetitions; ++i) {
 //         fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };

@@ -258,7 +258,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
 
     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
-    auto builder = bb::UltraCircuitBuilder();
+    auto builder = UltraCircuitBuilder();
 
     // Create an assortment of representative gates
     create_some_add_gates<Flavor>(builder);
@@ -310,7 +310,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 
     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
-    auto builder = bb::GoblinUltraCircuitBuilder();
+    auto builder = GoblinUltraCircuitBuilder();
 
     // Create an assortment of representative gates
     create_some_add_gates<Flavor>(builder);
@@ -378,7 +378,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = bb::Polynomial<FF>;
     using namespace bb::honk::permutation_library;
-    auto& engine = bb::numeric::get_debug_randomness();
+    auto& engine = numeric::get_debug_randomness();
     auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
 
     // We only need gamma, because permutationr elation only uses gamma
@@ -495,7 +495,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = bb::Polynomial<FF>;
-    auto& engine = bb::numeric::get_debug_randomness();
+    auto& engine = numeric::get_debug_randomness();
 
     const auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     const auto sort_step = Flavor::SORT_STEP;
@@ -577,7 +577,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     using Polynomial = bb::Polynomial<FF>;
 
-    auto& engine = bb::numeric::get_debug_randomness();
+    auto& engine = numeric::get_debug_randomness();
 
     auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
@@ -679,7 +679,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     using Polynomial = bb::Polynomial<FF>;
-    auto& engine = bb::numeric::get_debug_randomness();
+    auto& engine = numeric::get_debug_randomness();
 
     auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
 
@@ -1058,7 +1058,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     constexpr auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     constexpr auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
 
-    auto& engine = bb::numeric::get_debug_randomness();
+    auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
@@ -1083,7 +1083,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     const auto evaluation_input_x = BF::random_element(&engine);
 
     // Generating all the values is pretty tedious, so just use CircuitBuilder
-    auto circuit_builder = bb::GoblinTranslatorCircuitBuilder(batching_challenge_v, evaluation_input_x, op_queue);
+    auto circuit_builder = GoblinTranslatorCircuitBuilder(batching_challenge_v, evaluation_input_x, op_queue);
 
     // The non-native field relation uses limbs of evaluation_input_x and powers of batching_challenge_v as inputs
     RelationParameters<FF> params;

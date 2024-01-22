@@ -12,8 +12,8 @@ TEST(ECCOpQueueTest, Basic)
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 {
-    using point = bb::g1::affine_element;
-    using scalar = bb::fr;
+    using point = g1::affine_element;
+    using scalar = fr;
 
     // Compute a simple point accumulation natively
     auto P1 = point::random_element();

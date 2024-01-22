@@ -6,13 +6,15 @@
 #include <array>
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 class ComposerLibTests : public ::testing::Test {
   protected:
-    using Flavor = bb::honk::flavor::Ultra;
+    using Flavor = honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     Flavor::CircuitBuilder circuit_constructor;
     Flavor::ProvingKey proving_key = []() {
-        auto crs_factory = bb::srs::factories::CrsFactory<bb::curve::BN254>();
+        auto crs_factory = srs::factories::CrsFactory<bb::curve::BN254>();
         auto crs = crs_factory.get_prover_crs(4);
         return Flavor::ProvingKey(/*circuit_size=*/8, /*num_public_inputs=*/0);
     }();

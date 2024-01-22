@@ -21,7 +21,7 @@
 #include <vector>
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using namespace bb;
@@ -238,7 +238,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
         &bucket_empty_status[0]
     };
 
-    AffineElement* output = bb::scalar_multiplication::reduce_buckets<Curve>(product_state, true);
+    AffineElement* output = scalar_multiplication::reduce_buckets<Curve>(product_state, true);
 
     for (size_t i = 0; i < product_state.num_buckets; ++i) {
         expected[i] = expected[i].normalize();
@@ -296,7 +296,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "organize bucket time: " << diff.count() << "ms" << std::endl;
-    const size_t max_num_buckets = bb::scalar_multiplication::get_num_buckets(num_points * 2);
+    const size_t max_num_buckets = scalar_multiplication::get_num_buckets(num_points * 2);
 
     uint32_t* bucket_counts = static_cast<uint32_t*>(aligned_alloc(64, max_num_buckets * 100 * sizeof(uint32_t)));
     memset((void*)bucket_counts, 0x00, max_num_buckets * sizeof(uint32_t));
@@ -345,7 +345,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
 
     size_t it = 0;
 
-    AffineElement* result_buckets = bb::scalar_multiplication::reduce_buckets<Curve>(product_state, true);
+    AffineElement* result_buckets = scalar_multiplication::reduce_buckets<Curve>(product_state, true);
 
     printf("num buckets = %zu \n", num_buckets);
     for (size_t i = 0; i < num_buckets; ++i) {
@@ -416,7 +416,7 @@ TYPED_TEST(ScalarMultiplicationTests, DISABLED_ReduceBucketsBasic)
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "organize bucket time: " << diff.count() << "ms" << std::endl;
-    const size_t max_num_buckets = bb::scalar_multiplication::get_num_buckets(num_points * 2);
+    const size_t max_num_buckets = scalar_multiplication::get_num_buckets(num_points * 2);
 
     uint32_t* bucket_counts = static_cast<uint32_t*>(aligned_alloc(64, max_num_buckets * sizeof(uint32_t)));
     memset((void*)bucket_counts, 0x00, max_num_buckets * sizeof(uint32_t));
@@ -524,7 +524,7 @@ TYPED_TEST(ScalarMultiplicationTests, ConstructAdditionChains)
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "organize bucket time: " << diff.count() << "ms" << std::endl;
-    const size_t max_num_buckets = bb::scalar_multiplication::get_num_buckets(num_points * 2);
+    const size_t max_num_buckets = scalar_multiplication::get_num_buckets(num_points * 2);
     bool* bucket_empty_status = static_cast<bool*>(aligned_alloc(64, num_points * sizeof(bool)));
     uint32_t* bucket_counts = static_cast<uint32_t*>(aligned_alloc(64, max_num_buckets * sizeof(uint32_t)));
     memset((void*)bucket_counts, 0x00, max_num_buckets * sizeof(uint32_t));
@@ -608,7 +608,7 @@ TYPED_TEST(ScalarMultiplicationTests, RadixSort)
 
     // check that our radix sort correctly sorts!
     constexpr size_t target_degree = 1 << 8;
-    constexpr size_t num_rounds = bb::scalar_multiplication::get_num_rounds(target_degree * 2);
+    constexpr size_t num_rounds = scalar_multiplication::get_num_rounds(target_degree * 2);
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * target_degree));
 
     Fr source_scalar = Fr::random_element();
@@ -680,7 +680,7 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     }
     scalar_multiplication::pippenger_runtime_state<Curve> state(target_degree);
 
-    Element first = bb::scalar_multiplication::pippenger<Curve>(scalars, monomials, target_degree, state);
+    Element first = scalar_multiplication::pippenger<Curve>(scalars, monomials, target_degree, state);
     first = first.normalize();
 
     for (size_t i = 0; i < target_degree; ++i) {
@@ -688,7 +688,7 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     }
     scalar_multiplication::pippenger_runtime_state<Curve> state_2(target_degree);
 
-    Element second = bb::scalar_multiplication::pippenger<Curve>(scalars, monomials, target_degree, state_2);
+    Element second = scalar_multiplication::pippenger<Curve>(scalars, monomials, target_degree, state_2);
     second = second.normalize();
 
     EXPECT_EQ((first.z == second.z), true);
@@ -731,7 +731,7 @@ TYPED_TEST(ScalarMultiplicationTests, UndersizedInputs)
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -768,7 +768,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerSmall)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -807,7 +807,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerEdgeCaseDbl)
     }
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -827,7 +827,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerShortInputs)
 
     Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * num_points);
 
-    auto points = bb::scalar_multiplication::point_table_alloc<AffineElement>(num_points);
+    auto points = scalar_multiplication::point_table_alloc<AffineElement>(num_points);
 
     for (std::ptrdiff_t i = 0; i < (std::ptrdiff_t)num_points; ++i) {
         points[i] = AffineElement(Element::random_element());
@@ -865,7 +865,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerShortInputs)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points.get(), points.get(), num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points.get(), num_points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points.get(), num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -884,7 +884,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafe)
 
     Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * num_points);
 
-    auto points = bb::scalar_multiplication::point_table_alloc<AffineElement>(num_points);
+    auto points = scalar_multiplication::point_table_alloc<AffineElement>(num_points);
 
     for (std::ptrdiff_t i = 0; i < (std::ptrdiff_t)num_points; ++i) {
         scalars[i] = Fr::random_element();
@@ -901,7 +901,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafe)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points.get(), points.get(), num_points);
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
-    Element result = bb::scalar_multiplication::pippenger_unsafe<Curve>(scalars, points.get(), num_points, state);
+    Element result = scalar_multiplication::pippenger_unsafe<Curve>(scalars, points.get(), num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -958,7 +958,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafeShortInputs)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = bb::scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, num_points, state);
+    Element result = scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -995,7 +995,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerOne)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -1016,7 +1016,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerZeroPoints)
     AffineElement* points = (AffineElement*)aligned_alloc(32, sizeof(AffineElement) * (2 + 1));
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(0);
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points, 0, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points, 0, state);
 
     aligned_free(scalars);
     aligned_free(points);
@@ -1041,7 +1041,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerMulByZero)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, 1);
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(1);
-    Element result = bb::scalar_multiplication::pippenger<Curve>(scalars, points, 1, state);
+    Element result = scalar_multiplication::pippenger<Curve>(scalars, points, 1, state);
 
     aligned_free(scalars);
     aligned_free(points);

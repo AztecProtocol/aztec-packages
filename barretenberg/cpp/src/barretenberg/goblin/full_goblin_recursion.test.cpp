@@ -23,7 +23,7 @@ class GoblinRecursionTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using GoblinUltraBuilder = bb::GoblinUltraCircuitBuilder;
+    using GoblinUltraBuilder = GoblinUltraCircuitBuilder;
     using KernelInput = Goblin::AccumulationOutput;
 };
 

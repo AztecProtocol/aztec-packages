@@ -4,7 +4,7 @@
 
 template <typename FF> class UnivariateTest : public testing::Test {
   public:
-    template <size_t view_length> using UnivariateView = bb::UnivariateView<FF, view_length>;
+    template <size_t view_length> using UnivariateView = UnivariateView<FF, view_length>;
 };
 
 using FieldTypes = testing::Types<bb::fr>;
@@ -36,8 +36,8 @@ TYPED_TEST(UnivariateTest, Addition)
 TYPED_TEST(UnivariateTest, Multiplication)
 {
 
-    Univariate<bb::fr, 3> f1 = bb::Univariate<bb::fr, 2>{ { 1, 2 } }.template extend_to<3>();
-    Univariate<bb::fr, 3> f2 = bb::Univariate<bb::fr, 2>{ { 3, 4 } }.template extend_to<3>();
+    Univariate<bb::fr, 3> f1 = Univariate<bb::fr, 2>{ { 1, 2 } }.template extend_to<3>();
+    Univariate<bb::fr, 3> f2 = Univariate<bb::fr, 2>{ { 3, 4 } }.template extend_to<3>();
     // output should be {3, 8, 15}
     Univariate<bb::fr, 3> expected_result{ { 3, 8, 15 } };
     Univariate<bb::fr, 3> f1f2 = f1 * f2;
@@ -119,17 +119,17 @@ TYPED_TEST(UnivariateTest, Serialization)
     std::array<fr, LENGTH> evaluations;
 
     for (size_t i = 0; i < LENGTH; ++i) {
-        evaluations[i] = bb::fr::random_element();
+        evaluations[i] = fr::random_element();
     }
 
     // Instantiate a Univariate from the evaluations
-    auto univariate = bb::Univariate<bb::fr, LENGTH>(evaluations);
+    auto univariate = Univariate<bb::fr, LENGTH>(evaluations);
 
     // Serialize univariate to buffer
     std::vector<uint8_t> buffer = univariate.to_buffer();
 
     // Deserialize
-    auto deserialized_univariate = bb::Univariate<bb::fr, LENGTH>::serialize_from_buffer(&buffer[0]);
+    auto deserialized_univariate = Univariate<bb::fr, LENGTH>::serialize_from_buffer(&buffer[0]);
 
     for (size_t i = 0; i < LENGTH; ++i) {
         EXPECT_EQ(univariate.value_at(i), deserialized_univariate.value_at(i));
@@ -139,12 +139,12 @@ TYPED_TEST(UnivariateTest, Serialization)
 TYPED_TEST(UnivariateTest, EvaluationCustomDomain)
 {
     []() {
-        auto poly = bb::Univariate<bb::fr, 3, 1>(std::array<bb::fr, 2>{ 1, 2 });
+        auto poly = Univariate<bb::fr, 3, 1>(std::array<bb::fr, 2>{ 1, 2 });
         EXPECT_EQ(poly.evaluate(bb::fr(5)), bb::fr(5));
     }();
 
     []() {
-        auto poly = bb::Univariate<bb::fr, 37, 32>(std::array<bb::fr, 5>{ 1, 11, 111, 1111, 11111 });
+        auto poly = Univariate<bb::fr, 37, 32>(std::array<bb::fr, 5>{ 1, 11, 111, 1111, 11111 });
         EXPECT_EQ(poly.evaluate(bb::fr(2)), bb::fr(294330751));
     }();
 }

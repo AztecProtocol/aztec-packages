@@ -4,7 +4,9 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
 
-using FF = bb::fr;
+using namespace bb;
+
+using FF = fr;
 
 class RelationManual : public testing::Test {};
 
@@ -31,7 +33,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
     };
     AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    const auto parameters = bb::RelationParameters<FF>::get_random();
+    const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
@@ -77,7 +79,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
      */
     AllPoseidonValues all_poseidon_values{ 1, 5, 4, 1, 7, 6, 9, 8, 3, 3763355, 3031011, 2270175, 1368540 };
 
-    const auto parameters = bb::RelationParameters<FF>::get_random();
+    const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
@@ -108,7 +110,7 @@ TEST_F(RelationManual, Poseidon2InternalRelationZeros)
     };
     AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    const auto parameters = bb::RelationParameters<FF>::get_random();
+    const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);
@@ -156,7 +158,7 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
         FF(std::string("0x00fce289a96b3f4a18562d0ef0ab76ca165e613222aa0c24501377003c5622a8")),
         FF(std::string("0x27e7677799fda1694819803f459b76d2fb1c45fdf0773375c72d61e8efb92893"))
     };
-    const auto parameters = bb::RelationParameters<FF>::get_random();
+    const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
     EXPECT_EQ(acc[0], 0);
     EXPECT_EQ(acc[1], 0);

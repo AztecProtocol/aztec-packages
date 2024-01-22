@@ -10,11 +10,11 @@
 using namespace bb;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 // Defining ultra-specific types for local testing.
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using bool_ct = stdlib::bool_t<Builder>;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;

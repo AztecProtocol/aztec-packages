@@ -29,7 +29,7 @@ using namespace bb;
 using namespace bb::stdlib;
 using namespace bb::stdlib::merkle_tree;
 using namespace bb::join_split_example::proofs::notes::native;
-using key_pair = bb::join_split_example::fixtures::grumpkin_key_pair;
+using key_pair = join_split_example::fixtures::grumpkin_key_pair;
 
 auto create_account_leaf_data(fr const& account_alias_hash,
                               grumpkin::g1::affine_element const& owner_key,
@@ -54,7 +54,7 @@ class join_split_tests : public ::testing::Test {
     {
         store = std::make_unique<MemoryStore>();
         tree = std::make_unique<MerkleTree<MemoryStore>>(*store, 32);
-        user = bb::join_split_example::fixtures::create_user_context();
+        user = join_split_example::fixtures::create_user_context();
 
         default_value_note = { .value = 100,
                                .asset_id = asset_id,
@@ -73,7 +73,7 @@ class join_split_tests : public ::testing::Test {
         value_notes[0].creator_pubkey = user.owner.public_key.x;
 
         value_notes[1].value = 50;
-        value_notes[1].creator_pubkey = bb::join_split_example::fixtures::create_key_pair(nullptr).public_key.x;
+        value_notes[1].creator_pubkey = join_split_example::fixtures::create_key_pair(nullptr).public_key.x;
 
         value_notes[2].value = 90;
         value_notes[2].account_required = true,
@@ -900,7 +900,7 @@ void assign_backward_link(join_split_tx& tx, size_t& indicator)
         tx.backward_link = tx.input_note[1].commit();
         break;
     default:
-        tx.backward_link = bb::fr::random_element();
+        tx.backward_link = fr::random_element();
     }
 }
 
@@ -1186,7 +1186,7 @@ TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 TEST_F(join_split_tests, test_nonregistered_signing_key_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    auto keys = bb::join_split_example::fixtures::create_key_pair(nullptr);
+    auto keys = join_split_example::fixtures::create_key_pair(nullptr);
     tx.signing_pub_key = keys.public_key;
 
     auto result = sign_and_verify_logic(tx, user.owner);

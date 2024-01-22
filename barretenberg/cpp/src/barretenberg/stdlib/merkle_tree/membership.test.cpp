@@ -7,15 +7,15 @@
 
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 
-namespace {
-auto& engine = bb::numeric::get_debug_randomness();
-}
-
 using namespace bb;
 using namespace bb::stdlib::merkle_tree;
 using namespace bb::stdlib;
 
-using Builder = bb::UltraCircuitBuilder;
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
+
+using Builder = UltraCircuitBuilder;
 
 using bool_ct = bool_t<Builder>;
 using field_ct = field_t<Builder>;

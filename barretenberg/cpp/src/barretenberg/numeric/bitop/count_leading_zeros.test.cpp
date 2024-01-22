@@ -22,13 +22,13 @@ TEST(bitop, ClzUint640)
 TEST(bitop, ClzUint256255)
 {
     uint256_t a = 0x1;
-    auto r = bb::numeric::count_leading_zeros(a);
+    auto r = numeric::count_leading_zeros(a);
     EXPECT_EQ(r, 255U);
 }
 
 TEST(bitop, ClzUint256248)
 {
     uint256_t a = 0x80;
-    auto r = bb::numeric::count_leading_zeros(a);
+    auto r = numeric::count_leading_zeros(a);
     EXPECT_EQ(r, 248U);
 }

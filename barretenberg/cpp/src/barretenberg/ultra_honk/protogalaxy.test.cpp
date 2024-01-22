@@ -14,17 +14,14 @@ using FF = Flavor::FF;
 using Affine = Flavor::Commitment;
 using Projective = Flavor::GroupElement;
 using Builder = Flavor::CircuitBuilder;
-using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
-using RelationParameters = bb::RelationParameters<FF>;
 using WitnessCommitments = typename Flavor::WitnessCommitments;
 using CommitmentKey = Flavor::CommitmentKey;
-using PowPolynomial = bb::PowPolynomial<FF>;
 
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
 // amongst test files in the proof system
@@ -148,7 +145,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
         poly = get_random_polynomial(instance_size);
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-    auto relation_parameters = bb::RelationParameters<FF>::get_random();
+    auto relation_parameters = RelationParameters<FF>::get_random();
     RelationSeparator alphas;
     for (auto& alpha : alphas) {
         alpha = FF::random_element();
@@ -188,12 +185,12 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
 {
     auto compressed_perturbator = FF(2); // F(\alpha) in the paper
-    auto combiner = bb::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
+    auto combiner = Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
     auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
     // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
     // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
-    auto expected_evals = bb::Univariate<FF, 13, 2>(std::array<FF, 11>{
+    auto expected_evals = Univariate<FF, 13, 2>(std::array<FF, 11>{
         (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
         (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
         (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),

@@ -28,6 +28,6 @@ TEST(bitop, GetMsbUint6463)
 TEST(bitop, GetMsbSizeT7)
 {
     size_t a = 0x80;
-    auto r = bb::numeric::get_msb(a);
+    auto r = numeric::get_msb(a);
     EXPECT_EQ(r, 7U);
 }

@@ -6,13 +6,13 @@
 
 using namespace bb;
 // Defining ultra-specific types for local testing.
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using ram_table_ct = stdlib::ram_table<Builder>;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 TEST(ram_table, ram_table_init_read_consistency)
@@ -66,8 +66,8 @@ TEST(ram_table, ram_table_read_write_consistency)
 
     const auto update = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
-            table_values[2 * i] = bb::fr::random_element();
-            table_values[2 * i + 1] = bb::fr::random_element();
+            table_values[2 * i] = fr::random_element();
+            table_values[2 * i + 1] = fr::random_element();
 
             // init with both constant and variable values
             table.write(2 * i, table_values[2 * i]);

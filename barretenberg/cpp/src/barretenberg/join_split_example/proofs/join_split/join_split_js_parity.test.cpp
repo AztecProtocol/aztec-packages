@@ -14,7 +14,7 @@ using namespace bb;
 // using namespace bb::stdlib::types;
 using namespace bb::stdlib::merkle_tree;
 using namespace bb::join_split_example::proofs::notes::native;
-using key_pair = bb::join_split_example::fixtures::grumpkin_key_pair;
+using key_pair = join_split_example::fixtures::grumpkin_key_pair;
 
 /**
  * This test mirrors the test in join_split_prover.test.ts

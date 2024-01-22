@@ -1,10 +1,10 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
-using FF = bb::fr;
-using Fr = bb::fr;
-using Fq = bb::fq;
-using Transcript = bb::honk::BaseTranscript;
+using FF = fr;
+using Fr = fr;
+using Fq = fq;
+using Transcript = honk::BaseTranscript;
 
 /**
  * @brief Test sending, receiving, and exporting proofs

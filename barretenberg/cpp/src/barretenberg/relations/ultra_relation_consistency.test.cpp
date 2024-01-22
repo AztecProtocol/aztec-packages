@@ -26,7 +26,7 @@
 
 using namespace bb;
 
-using FF = bb::fr;
+using FF = fr;
 struct InputElements {
     static constexpr size_t NUM_ELEMENTS = 45;
     std::array<FF, NUM_ELEMENTS> _data;

@@ -11,10 +11,10 @@ using namespace bb;
 using namespace bb::honk;
 using CircuitBuilder = flavor::GoblinTranslator::CircuitBuilder;
 using Transcript = flavor::GoblinTranslator::Transcript;
-using OpQueue = bb::ECCOpQueue;
+using OpQueue = ECCOpQueue;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)
@@ -46,9 +46,9 @@ class GoblinTranslatorComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinTranslatorComposerTests, Basic)
 {
-    using G1 = bb::g1::affine_element;
-    using Fr = bb::fr;
-    using Fq = bb::fq;
+    using G1 = g1::affine_element;
+    using Fr = fr;
+    using Fq = fq;
 
     auto P1 = G1::random_element();
     auto P2 = G1::random_element();

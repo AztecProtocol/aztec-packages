@@ -6,7 +6,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 TEST(standard_circuit_constructor, base_case)

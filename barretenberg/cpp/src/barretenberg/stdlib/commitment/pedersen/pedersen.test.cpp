@@ -8,7 +8,7 @@
 
 using namespace bb;
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class StdlibPedersen : public testing::Test {

@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
@@ -19,7 +21,7 @@
     using public_witness_ct = stdlib::public_witness_t<Builder>;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using namespace bb;

@@ -7,7 +7,7 @@
 
 using namespace bb;
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 namespace bb {
 
@@ -78,9 +78,9 @@ TEST(GoblinTranslatorCircuitBuilder, CircuitBuilderBaseCase)
  */
 TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
 {
-    using point = bb::g1::affine_element;
-    using scalar = bb::fr;
-    using Fq = bb::fq;
+    using point = g1::affine_element;
+    using scalar = fr;
+    using Fq = fq;
 
     auto P1 = point::random_element();
     auto P2 = point::random_element();

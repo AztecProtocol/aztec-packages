@@ -11,7 +11,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas

@@ -13,12 +13,12 @@ using namespace bb;
 using namespace bb::plookup;
 
 // Defining ultra-specific types for local testing.
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
-using plookup_read = bb::stdlib::plookup_read<Builder>;
+using plookup_read = stdlib::plookup_read<Builder>;
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 // TODO FIX FIX
@@ -279,7 +279,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_16)
      * while defining the table we had set the coefficient of s0 to 1, so to correct that, we need to multiply by a
      * constant.
      */
-    auto mul_constant = bb::fr(1 << 16);
+    auto mul_constant = fr(1 << 16);
     fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 16);
     EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
@@ -323,7 +323,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_8)
         right_expected[i] = right_slices[i];
     }
 
-    auto mul_constant = bb::fr(1 << 24);
+    auto mul_constant = fr(1 << 24);
     std::vector<fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 4), (1 << 6), (1 << 6), (1 << 6) };
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
@@ -381,7 +381,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_7)
         right_expected[i] = right_slices[i];
     }
 
-    auto mul_constant = bb::fr(1 << 25);
+    auto mul_constant = fr(1 << 25);
     std::vector<fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 5), (1 << 6), (1 << 6), (1 << 6) };
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
@@ -443,7 +443,7 @@ TEST(stdlib_plookup, blake2s_xor)
     // output = (t0 - 2^12 t2) * 2^{32 - 12} + t2
     fr lookup_output = lookup[ColumnIdx::C3][2].get_value();
     fr t2_term = fr(1 << 12) * lookup[ColumnIdx::C3][2].get_value();
-    lookup_output += bb::fr(1 << 20) * (lookup[ColumnIdx::C3][0].get_value() - t2_term);
+    lookup_output += fr(1 << 20) * (lookup[ColumnIdx::C3][0].get_value() - t2_term);
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
         out_expected[i] += out_expected[i + 1] * (1 << 6);

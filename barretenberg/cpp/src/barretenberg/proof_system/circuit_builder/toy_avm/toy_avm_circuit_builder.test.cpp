@@ -8,7 +8,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 /**
@@ -18,8 +18,8 @@ auto& engine = bb::numeric::get_debug_randomness();
 TEST(ToyAVMCircuitBuilder, BaseCase)
 {
 
-    using FF = bb::honk::flavor::ToyFlavor::FF;
-    using Builder = bb::ToyCircuitBuilder;
+    using FF = honk::flavor::ToyFlavor::FF;
+    using Builder = ToyCircuitBuilder;
     using Row = Builder::Row;
     Builder circuit_builder;
 

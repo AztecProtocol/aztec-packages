@@ -12,7 +12,7 @@ using bb::Univariate;
 
 using Flavor = flavor::Ultra;
 using FF = typename Flavor::FF;
-using Utils = bb::RelationUtils<Flavor>;
+using Utils = RelationUtils<Flavor>;
 
 /**
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
@@ -20,7 +20,7 @@ using Utils = bb::RelationUtils<Flavor>;
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = bb::honk::flavor::Ultra;
+    using Flavor = honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -71,8 +71,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = bb::honk::flavor::Ultra;
-    using Utils = bb::RelationUtils<Flavor>;
+    using Flavor = honk::flavor::Ultra;
+    using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -111,7 +111,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = bb::honk::flavor::Ultra;
+    using Flavor = honk::flavor::Ultra;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates

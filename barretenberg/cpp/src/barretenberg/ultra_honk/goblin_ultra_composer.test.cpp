@@ -11,14 +11,14 @@ using namespace bb;
 using namespace bb::honk;
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 class GoblinUltraHonkComposerTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    using Curve = bb::curve::BN254;
+    using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
@@ -97,7 +97,7 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
 
-    auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+    auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
     generate_test_circuit(builder);
 
@@ -128,7 +128,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsMergeOnly)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+        auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
 
@@ -156,7 +156,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkOnly)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+        auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
 
@@ -184,7 +184,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+        auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
 

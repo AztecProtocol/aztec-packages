@@ -9,7 +9,7 @@
 
 using namespace acir_format;
 
-using curve_ct = bb::stdlib::secp256r1<Builder>;
+using curve_ct = stdlib::secp256r1<Builder>;
 
 // Generate r1 constraints given pre generated pubkey, sig and message values
 size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,

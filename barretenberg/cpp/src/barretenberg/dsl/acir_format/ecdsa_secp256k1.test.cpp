@@ -8,7 +8,7 @@
 #include <vector>
 
 using namespace acir_format;
-using curve_ct = bb::stdlib::secp256k1<Builder>;
+using curve_ct = stdlib::secp256k1<Builder>;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:

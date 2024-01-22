@@ -3,8 +3,9 @@
 
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 // Sanity checking for msgpack
-// TODO eventually move to barretenberg
 
 struct GoodExample {
     fr a;

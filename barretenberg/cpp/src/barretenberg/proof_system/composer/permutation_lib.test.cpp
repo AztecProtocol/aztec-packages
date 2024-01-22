@@ -10,11 +10,11 @@ using namespace bb;
 
 class PermutationHelperTests : public ::testing::Test {
   protected:
-    using Flavor = bb::honk::flavor::Ultra;
+    using Flavor = honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     using ProvingKey = Flavor::ProvingKey;
     Flavor::CircuitBuilder circuit_constructor;
-    srs::factories::CrsFactory<curve::BN254> crs_factory = bb::srs::factories::CrsFactory<curve::BN254>();
+    srs::factories::CrsFactory<curve::BN254> crs_factory = srs::factories::CrsFactory<curve::BN254>();
     std::shared_ptr<Flavor::ProvingKey> proving_key;
 
     virtual void SetUp()

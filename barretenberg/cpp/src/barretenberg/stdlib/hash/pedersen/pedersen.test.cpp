@@ -7,7 +7,7 @@
 
 using namespace bb;
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class StdlibPedersen : public testing::Test {
@@ -161,27 +161,27 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
             inputs.push_back(bb::fr::random_element());
 
             if (i == 1) {
-                inputs[0] = bb::fr(0);
+                inputs[0] = fr(0);
             }
             if (i == 2) {
-                inputs[1] = bb::fr(0);
-                inputs[2] = bb::fr(0);
+                inputs[1] = fr(0);
+                inputs[2] = fr(0);
             }
             if (i == 3) {
-                inputs[3] = bb::fr(0);
+                inputs[3] = fr(0);
             }
             if (i == 4) {
-                inputs[0] = bb::fr(0);
-                inputs[3] = bb::fr(0);
+                inputs[0] = fr(0);
+                inputs[3] = fr(0);
             }
             if (i == 5) {
-                inputs[0] = bb::fr(0);
-                inputs[1] = bb::fr(0);
-                inputs[2] = bb::fr(0);
-                inputs[3] = bb::fr(0);
+                inputs[0] = fr(0);
+                inputs[1] = fr(0);
+                inputs[2] = fr(0);
+                inputs[3] = fr(0);
             }
             if (i == 6) {
-                inputs[1] = bb::fr(1);
+                inputs[1] = fr(1);
             }
             std::vector<fr_ct> witnesses;
             for (auto input : inputs) {

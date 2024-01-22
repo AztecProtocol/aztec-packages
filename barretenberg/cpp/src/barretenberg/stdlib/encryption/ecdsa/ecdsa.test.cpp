@@ -8,7 +8,7 @@
 
 using namespace bb;
 
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using curve_ = stdlib::secp256k1<Builder>;
 using curveR1 = stdlib::secp256r1<Builder>;
 

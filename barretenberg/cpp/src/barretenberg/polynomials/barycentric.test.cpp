@@ -2,6 +2,8 @@
 #include "univariate.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 template <class FF> class BarycentricDataTests : public testing::Test {};
 
 using FieldTypes = testing::Types<bb::fr>;
@@ -28,8 +30,8 @@ TYPED_TEST(BarycentricDataTests, Extend)
     BARYCENTIC_DATA_TESTS_TYPE_ALIASES
     const size_t domain_size(2);
     const size_t num_evals(10);
-    auto f = bb::Univariate<FF, domain_size>({ 1, 2 });
-    auto expected_result = bb::Univariate<FF, num_evals>({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+    auto f = Univariate<FF, domain_size>({ 1, 2 });
+    auto expected_result = Univariate<FF, num_evals>({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
     auto result = f.template extend_to<num_evals>();
     EXPECT_EQ(result, expected_result);
 }
@@ -38,7 +40,7 @@ TYPED_TEST(BarycentricDataTests, Evaluate)
 {
     BARYCENTIC_DATA_TESTS_TYPE_ALIASES
     const size_t domain_size(2);
-    auto f = bb::Univariate<FF, domain_size>({ 1, 2 });
+    auto f = Univariate<FF, domain_size>({ 1, 2 });
     FF u = 5;
     FF expected_result = 6;
     auto result = f.evaluate(u);
@@ -51,7 +53,7 @@ TYPED_TEST(BarycentricDataTests, BarycentricData2to3)
 
     const size_t domain_size = 2;
     const size_t num_evals = 3;
-    auto barycentric = bb::BarycentricData<FF, domain_size, num_evals>();
+    auto barycentric = BarycentricData<FF, domain_size, num_evals>();
     std::array<FF, 3> expected_big_domain{ { 0, 1, 2 } };
     std::array<FF, 2> expected_denominators{ { -1, 1 } };
     std::array<FF, 3> expected_full_numerator_values{ { 0, 0, 2 } };

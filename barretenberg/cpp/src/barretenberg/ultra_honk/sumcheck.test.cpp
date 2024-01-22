@@ -18,7 +18,7 @@ using namespace bb;
 using namespace bb::honk;
 using namespace bb::honk::sumcheck;
 
-using Flavor = bb::honk::flavor::Ultra;
+using Flavor = honk::flavor::Ultra;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
@@ -38,7 +38,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = bb::UltraCircuitBuilder();
+    auto builder = UltraCircuitBuilder();
     FF a = FF::one();
 
     // Add some basic add gates, with a public input for good measure

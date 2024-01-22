@@ -8,12 +8,12 @@
 using namespace bb::stdlib;
 using namespace bb::stdlib::merkle_tree;
 
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 auto& random_engine = numeric::get_randomness();
 } // namespace
 
