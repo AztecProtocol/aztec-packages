@@ -14,7 +14,7 @@ class GoblinAcirComposer {
     using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
   public:
-    GoblinAcirComposer();
+    GoblinAcirComposer() = default;
 
     /**
      * @brief Create a GUH circuit from an acir constraint system and a witness
