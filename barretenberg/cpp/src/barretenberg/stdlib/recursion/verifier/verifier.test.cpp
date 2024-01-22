@@ -12,11 +12,11 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
-    using InnerComposer = proof_system::plonk::UltraComposer;
+    using InnerComposer = bb::plonk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
 
     using OuterBuilder = typename OuterComposer::CircuitBuilder;
@@ -46,7 +46,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
     // select the relevant prover and verifier types (whose settings use the same hash for fiat-shamir),
     // depending on the Inner-Outer combo. It's a bit clunky, but the alternative is to have a template argument
     // for the hashtype, and that would pervade the entire UltraPlonkComposer, which would be horrendous.
-    static constexpr bool is_ultra_to_ultra = std::is_same_v<OuterComposer, proof_system::plonk::UltraComposer>;
+    static constexpr bool is_ultra_to_ultra = std::is_same_v<OuterComposer, bb::plonk::UltraComposer>;
     using ProverOfInnerCircuit =
         std::conditional_t<is_ultra_to_ultra, plonk::UltraProver, plonk::UltraToStandardProver>;
     using VerifierOfInnerProof =
@@ -212,7 +212,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         plonk::proof proof_to_recursively_verify_b = prover.construct_proof();
 
-        auto output = proof_system::plonk::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        auto output = bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
             &outer_circuit, verification_key_b, recursive_manifest, proof_to_recursively_verify_b, previous_output);
 
         verification_key_b->hash();
@@ -265,8 +265,8 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        proof_system::plonk::stdlib::recursion::aggregation_state<outer_curve> output =
-            proof_system::plonk::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        bb::stdlib::recursion::aggregation_state<outer_curve> output =
+            bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 
         return { output, verification_key };
@@ -293,9 +293,9 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
                     const uint256_t l2 = builder.get_variable(inputs[idx2]);
                     const uint256_t l3 = builder.get_variable(inputs[idx3]);
 
-                    const uint256_t limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                                           (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                                           (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                    const uint256_t limb = l0 + (l1 << plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                                           (l2 << (plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                                           (l3 << (plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
                     return outer_scalar_field(limb);
                 };
 
@@ -580,7 +580,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition)
 
 HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
 {
-    if constexpr (std::same_as<TypeParam, UltraComposer>) {
+    if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_recursive_proof_composition_ultra_no_tables();
     } else {
         GTEST_SKIP();
@@ -589,7 +589,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
 
 HEAVY_TYPED_TEST(stdlib_verifier, double_verification)
 {
-    if constexpr (std::same_as<TypeParam, UltraComposer>) {
+    if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_double_verification();
     } else {
         // Test doesn't compile-.
@@ -617,4 +617,4 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_const_verif_key)
     TestFixture::test_recursive_proof_composition_with_constant_verification_key();
 }
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

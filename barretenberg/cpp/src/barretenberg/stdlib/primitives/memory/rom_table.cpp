@@ -4,8 +4,7 @@
 
 using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder> rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
 {
@@ -122,7 +121,6 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
     return field_pt::from_witness_index(context, output_idx);
 }
 
-template class rom_table<proof_system::UltraCircuitBuilder>;
-template class rom_table<proof_system::GoblinUltraCircuitBuilder>;
-} // namespace stdlib
-} // namespace proof_system::plonk
+template class rom_table<bb::UltraCircuitBuilder>;
+template class rom_table<bb::GoblinUltraCircuitBuilder>;
+} // namespace bb::stdlib

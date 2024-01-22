@@ -8,14 +8,12 @@
 #include "barretenberg/stdlib/merkle_tree/membership.hpp"
 #include "verify_signature.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace join_split {
+namespace bb::join_split_example::proofs::join_split {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 using namespace notes::circuit;
-using namespace proof_system::plonk::stdlib::merkle_tree;
-using namespace crypto::schnorr;
+using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::schnorr;
 
 /**
  * Check that the input note data, follows the given hash paths, to the publically given merkle root.
@@ -33,7 +31,7 @@ field_ct process_input_note(field_ct const& account_private_key,
     const bool_ct valid_value = note.value == 0 || is_note_in_use;
     valid_value.assert_equal(true, "padding note non zero");
 
-    const bool_ct exists = proof_system::plonk::stdlib::merkle_tree::check_membership(
+    const bool_ct exists = bb::stdlib::merkle_tree::check_membership(
         merkle_root, hash_path, note.commitment, index.value.decompose_into_bits(DATA_TREE_DEPTH));
     const bool_ct valid = exists || is_propagated || !is_note_in_use;
     valid.assert_equal(true, "input note not a member");
@@ -43,10 +41,10 @@ field_ct process_input_note(field_ct const& account_private_key,
 
 join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
 {
-    const bool_ct is_deposit = inputs.proof_id == field_ct(ProofIds::DEPOSIT);
-    const bool_ct is_withdraw = inputs.proof_id == field_ct(ProofIds::WITHDRAW);
-    const bool_ct is_send = inputs.proof_id == field_ct(ProofIds::SEND);
-    const bool_ct is_defi_deposit = inputs.proof_id == field_ct(ProofIds::DEFI_DEPOSIT);
+    const bool_ct is_deposit = inputs.proof_id == field_ct(proof_ids::DEPOSIT);
+    const bool_ct is_withdraw = inputs.proof_id == field_ct(proof_ids::WITHDRAW);
+    const bool_ct is_send = inputs.proof_id == field_ct(proof_ids::SEND);
+    const bool_ct is_defi_deposit = inputs.proof_id == field_ct(proof_ids::DEFI_DEPOSIT);
     const bool_ct not_defi_deposit = !is_defi_deposit;
     const bool_ct is_public_tx = is_deposit || is_withdraw;
 
@@ -88,10 +86,10 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
     (is_public_tx == inputs.public_owner.is_zero()).assert_equal(false, "public owner invalid");
 
     // Constrain the proof id.
-    inputs.proof_id.assert_is_in_set({ field_ct(ProofIds::DEPOSIT),
-                                       field_ct(ProofIds::WITHDRAW),
-                                       field_ct(ProofIds::SEND),
-                                       field_ct(ProofIds::DEFI_DEPOSIT) },
+    inputs.proof_id.assert_is_in_set({ field_ct(proof_ids::DEPOSIT),
+                                       field_ct(proof_ids::WITHDRAW),
+                                       field_ct(proof_ids::SEND),
+                                       field_ct(proof_ids::DEFI_DEPOSIT) },
                                      "invalid proof id");
 
     // Check we're not joining the same input note.
@@ -327,6 +325,4 @@ void join_split_circuit(Builder& builder, join_split_tx const& tx)
     inputs.allow_chain.set_public();
 } // namespace join_split
 
-} // namespace join_split
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::join_split

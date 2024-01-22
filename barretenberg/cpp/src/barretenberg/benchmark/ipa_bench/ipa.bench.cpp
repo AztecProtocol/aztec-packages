@@ -3,8 +3,7 @@
 
 using namespace benchmark;
 using namespace bb;
-using namespace proof_system;
-using namespace proof_system::honk::pcs::ipa;
+using namespace bb::honk::pcs::ipa;
 namespace {
 using Curve = curve::Grumpkin;
 using Fr = Curve::ScalarField;

@@ -9,7 +9,6 @@
 
 using namespace benchmark;
 using namespace bb;
-using namespace proof_system;
 
 namespace {
 void goblin_full(State& state) noexcept

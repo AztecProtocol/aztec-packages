@@ -3,7 +3,7 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
+using namespace bb::honk;
 
 using Flavor = flavor::Ultra;
 using VerificationKey = Flavor::VerificationKey;
@@ -16,14 +16,13 @@ using Projective = Flavor::GroupElement;
 using Builder = Flavor::CircuitBuilder;
 using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
-using RelationParameters = proof_system::RelationParameters<FF>;
+using RelationParameters = bb::RelationParameters<FF>;
 using WitnessCommitments = typename Flavor::WitnessCommitments;
 using CommitmentKey = Flavor::CommitmentKey;
 using PowPolynomial = bb::PowPolynomial<FF>;
 
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-namespace bb::protogalaxy_tests {
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -149,7 +148,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
         poly = get_random_polynomial(instance_size);
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-    auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
+    auto relation_parameters = bb::RelationParameters<FF>::get_random();
     RelationSeparator alphas;
     for (auto& alpha : alphas) {
         alpha = FF::random_element();
@@ -163,7 +162,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
 
     // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = PowPolynomial(betas);
+    auto pow_beta = bb::PowPolynomial(betas);
     pow_beta.compute_values();
 
     // Compute the corresponding target sum and create a dummy accumulator
@@ -230,7 +229,7 @@ TEST_F(ProtoGalaxyTests, CombineRelationParameters)
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_relation_parameters(instances);
 
-    Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
+    bb::Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
 }
 
@@ -251,7 +250,7 @@ TEST_F(ProtoGalaxyTests, CombineAlpha)
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_alpha(instances);
 
-    Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
+    bb::Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
     for (const auto& alpha : instances.alphas) {
         EXPECT_EQ(alpha, expected_alpha);
     }
@@ -347,5 +346,3 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
 
     decide_and_verify(second_accumulator, composer, false);
 }
-
-} // namespace bb::protogalaxy_tests

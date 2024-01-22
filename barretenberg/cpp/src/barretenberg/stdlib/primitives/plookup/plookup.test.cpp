@@ -9,16 +9,14 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include <gtest/gtest.h>
 
-namespace test_stdlib_plookups {
 using namespace bb;
-using namespace proof_system::plonk;
-using namespace plookup;
+using namespace bb::plookup;
 
 // Defining ultra-specific types for local testing.
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
-using plookup_read = proof_system::plonk::stdlib::plookup_read<Builder>;
+using plookup_read = bb::stdlib::plookup_read<Builder>;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -606,5 +604,3 @@ TEST(stdlib_plookup, secp256k1_generator)
     bool proof_result = builder.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
-
-} // namespace test_stdlib_plookups

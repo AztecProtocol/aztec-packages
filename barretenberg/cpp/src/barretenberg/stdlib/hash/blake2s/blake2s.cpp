@@ -3,8 +3,7 @@
 #include "blake2s_plookup.hpp"
 #include "blake_util.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 namespace {
 constexpr uint32_t blake2s_IV[8] = { 0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53AUL,
@@ -136,12 +135,8 @@ template <typename Builder> byte_array<Builder> blake2s(const byte_array<Builder
     return result;
 }
 
-template byte_array<proof_system::StandardCircuitBuilder> blake2s(
-    const byte_array<proof_system::StandardCircuitBuilder>& input);
-template byte_array<proof_system::UltraCircuitBuilder> blake2s(
-    const byte_array<proof_system::UltraCircuitBuilder>& input);
-template byte_array<proof_system::GoblinUltraCircuitBuilder> blake2s(
-    const byte_array<proof_system::GoblinUltraCircuitBuilder>& input);
+template byte_array<bb::StandardCircuitBuilder> blake2s(const byte_array<bb::StandardCircuitBuilder>& input);
+template byte_array<bb::UltraCircuitBuilder> blake2s(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::GoblinUltraCircuitBuilder> blake2s(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

@@ -4,12 +4,9 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib::blake_util {
 
-namespace blake_util {
-
-using namespace plookup;
+using namespace bb::plookup;
 
 // constants
 enum blake_constant { BLAKE3_STATE_SIZE = 16 };
@@ -252,7 +249,4 @@ void round_fn_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
     g_lookup<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
 }
 
-} // namespace blake_util
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::blake_util
