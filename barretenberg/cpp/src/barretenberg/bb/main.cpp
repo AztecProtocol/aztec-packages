@@ -44,6 +44,12 @@ void init_bn254_crs(size_t dyadic_circuit_size)
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 }
 
+/**
+ * @brief Initialize the global crs_factory for grumpkin based on a known dyadic circuit size
+ * @details Grumpkin crs is required only for the ECCVM
+ *
+ * @param dyadic_circuit_size power-of-2 circuit size
+ */
 void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
     auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
@@ -129,9 +135,11 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
  */
 bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
 {
+    // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
     acir_proofs::GoblinAcirComposer acir_composer;
     acir_composer.create_circuit(constraint_system, witness);
 
@@ -139,7 +147,7 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10;
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     // Call accumulate to generate a GoblinUltraHonk proof
@@ -168,9 +176,11 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
                           const std::string& witnessPath,
                           [[maybe_unused]] bool recursive)
 {
+    // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
     acir_proofs::GoblinAcirComposer acir_composer;
     acir_composer.create_circuit(constraint_system, witness);
 
@@ -178,7 +188,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10;
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     // Generate a GoblinUltraHonk proof and a full Goblin proof

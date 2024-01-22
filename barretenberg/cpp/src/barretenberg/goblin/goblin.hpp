@@ -84,7 +84,7 @@ class Goblin {
     std::unique_ptr<ECCVMProver> eccvm_prover;
     std::unique_ptr<TranslatorComposer> translator_composer;
 
-    AccumulationOutput accumulator; // Used only for ACIR methods
+    AccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
     /**

@@ -34,11 +34,21 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
                                    bool const* is_recursive,
                                    uint8_t** out);
 
+/**
+ * @brief Perform the goblin accumulate operation
+ * @details Constructs a GUH proof and possibly handles transcript merge logic
+ *
+ */
 WASM_EXPORT void acir_goblin_accumulate(in_ptr acir_composer_ptr,
                                         uint8_t const* constraint_system_buf,
                                         uint8_t const* witness_buf,
                                         uint8_t** out);
 
+/**
+ * @brief Construct a full goblin proof
+ * @details Makes a call to accumulate to a final circuit before constructing a Goblin proof
+ *
+ */
 WASM_EXPORT void acir_goblin_prove(in_ptr acir_composer_ptr,
                                    uint8_t const* constraint_system_buf,
                                    uint8_t const* witness_buf,
@@ -57,8 +67,16 @@ WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
                                    bool const* is_recursive,
                                    bool* result);
 
+/**
+ * @brief Verifies a GUH proof produced during goblin accumulation
+ *
+ */
 WASM_EXPORT void acir_goblin_verify_accumulator(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
+/**
+ * @brief Verifies a full goblin proof (and the GUH proof produced by accumulation)
+ *
+ */
 WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
