@@ -21,8 +21,6 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(executions: FunctionCall[], feeVariables?: FeeVariables): Promise<TxExecutionRequest> {
-    this.logger.debug('creating tx request with fees:\n' + JSON.stringify(feeVariables, null, 2));
-
     const { payload, packedArguments: callsPackedArguments } = buildPayload(executions);
     const abi = this.getEntrypointAbi();
     const packedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload]));
@@ -36,11 +34,6 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       packedArguments: [...callsPackedArguments, packedArgs],
       authWitnesses: [authWitness],
     });
-
-    this.logger.debug(
-      'Created tx request with fees:\n' + JSON.stringify(txRequest.txContext.feeVariables.toJSON(), null, 2),
-    );
-
     return txRequest;
   }
 
