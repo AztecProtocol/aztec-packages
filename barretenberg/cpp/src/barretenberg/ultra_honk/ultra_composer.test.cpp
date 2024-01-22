@@ -52,9 +52,6 @@ void ensure_non_zero(auto& polynomial)
 }
 
 class UltraHonkComposerTests : public ::testing::Test {
-  public:
-    using fr = fr;
-
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
