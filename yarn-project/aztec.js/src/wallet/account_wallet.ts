@@ -1,5 +1,5 @@
 import { AuthWitness, FunctionCall, PXE, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { ABIParameterVisibility, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { AccountInterface } from '../account/interface.js';
@@ -37,16 +37,6 @@ export class AccountWallet extends BaseWallet {
     return new ContractFunctionInteraction(this, this.getAddress(), this.getSetIsValidStorageAbi(), args);
   }
 
-  /**
-   * Returns a function interaction to set the fee contract address for this account.
-   * @param feeContractAddress - Address of the fee contract.
-   * @returns - A function interaction.
-   */
-  public setFeeContractAddress(feeContractAddress: AztecAddress): ContractFunctionInteraction {
-    const args = [feeContractAddress];
-    return new ContractFunctionInteraction(this, this.getAddress(), this.getSetFeeContractAddressAbi(), args);
-  }
-
   /** Returns the complete address of the account that implements this wallet. */
   public getCompleteAddress() {
     return this.account.getCompleteAddress();
@@ -71,26 +61,6 @@ export class AccountWallet extends BaseWallet {
         {
           name: 'value',
           type: { kind: 'boolean' },
-          visibility: 'private' as ABIParameterVisibility,
-        },
-      ],
-      returnTypes: [],
-    };
-  }
-
-  private getSetFeeContractAddressAbi(): FunctionAbi {
-    return {
-      name: 'set_fee_contract_address',
-      functionType: FunctionType.SECRET,
-      isInternal: true,
-      parameters: [
-        {
-          name: 'fee_contract_address',
-          type: {
-            kind: 'struct',
-            path: 'address_note::aztec::protocol_types::address::AztecAddress',
-            fields: [{ name: 'inner', type: { kind: 'field' } }],
-          },
           visibility: 'private' as ABIParameterVisibility,
         },
       ],

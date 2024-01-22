@@ -1,6 +1,7 @@
+import { createDebugLogger } from '@aztec/aztec.js';
 import { AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, FeeVariables, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
@@ -11,6 +12,7 @@ import { buildPayload, hashPayload } from './entrypoint_payload.js';
  * for an account, which accepts an EntrypointPayload as defined in noir-libs/aztec-noir/src/entrypoint.nr.
  */
 export class DefaultAccountEntrypoint implements EntrypointInterface {
+  private logger = createDebugLogger('aztec:account:entrypoint');
   constructor(
     private address: AztecAddress,
     private auth: AuthWitnessProvider,
@@ -18,7 +20,9 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(executions: FunctionCall[], feeVariables?: FeeVariables): Promise<TxExecutionRequest> {
+    this.logger.debug('creating tx request with fees:\n' + JSON.stringify(feeVariables, null, 2));
+
     const { payload, packedArguments: callsPackedArguments } = buildPayload(executions);
     const abi = this.getEntrypointAbi();
     const packedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload]));
@@ -28,10 +32,14 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       argsHash: packedArgs.hash,
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
-      txContext: TxContext.empty(this.chainId, this.version),
+      txContext: TxContext.empty(this.chainId, this.version, feeVariables),
       packedArguments: [...callsPackedArguments, packedArgs],
       authWitnesses: [authWitness],
     });
+
+    this.logger.debug(
+      'Created tx request with fees:\n' + JSON.stringify(txRequest.txContext.feeVariables.toJSON(), null, 2),
+    );
 
     return txRequest;
   }

@@ -10,6 +10,7 @@ import {
   TxContext,
 } from '@aztec/circuits.js';
 
+import { FeeVariables } from '../../circuits.js/src/structs/fee_variables.js';
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
@@ -62,6 +63,8 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       AztecAddress.random(),
     );
 
+    const feeVariables = FeeVariables.empty();
+
     it('should map contract deployment data', () => {
       expect(mapContractDeploymentDataFromNoir(mapContractDeploymentDataToNoir(contractDeploymentData))).toEqual(
         contractDeploymentData,
@@ -69,7 +72,15 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
     });
 
     it('should map tx context', () => {
-      const txContext = new TxContext(false, true, false, contractDeploymentData, new Fr(32n), new Fr(33n));
+      const txContext = new TxContext(
+        false,
+        true,
+        false,
+        contractDeploymentData,
+        new Fr(32n),
+        new Fr(33n),
+        feeVariables,
+      );
       expect(mapTxContextFromNoir(mapTxContextToNoir(txContext))).toEqual(txContext);
     });
 

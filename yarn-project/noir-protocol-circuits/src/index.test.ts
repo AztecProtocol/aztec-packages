@@ -62,6 +62,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
+import { FeeVariables } from '../../circuits.js/src/structs/fee_variables.js';
 import { executeInit, executeInner, executeOrdering } from './index.js';
 
 function _makeEmptyReadRequest() {
@@ -93,7 +94,7 @@ describe('Private kernel', () => {
     );
     const selector = FunctionSelector.fromString('0xaf9f8c44');
     const functionData = new FunctionData(selector, false, true, true);
-    const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO);
+    const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO, FeeVariables.empty());
     const txRequest = new TxRequest(txOrigin, functionData, argsHash, txContext);
 
     const contractAddress = AztecAddress.fromString(
@@ -186,7 +187,7 @@ describe('Private kernel', () => {
       Fr.fromString('0x1ec59b0313fa504302c3336fc911d688edae67c4fbf229d68c7f36ed8797045c'),
       EthAddress.ZERO,
     );
-    const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO);
+    const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO, FeeVariables.empty());
 
     const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => SideEffect.empty());
     newCommitments[0] = new SideEffect(
@@ -337,7 +338,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       origin: AztecAddress.fromBigInt(1n),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
-      txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
+      txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO, FeeVariables.empty()),
     });
     const hash = computeTxHash(txRequest);
 
@@ -356,7 +357,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       origin: AztecAddress.fromBigInt(1n),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
-      txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
+      txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO, FeeVariables.empty()),
     });
     const hash = computeTxHash(txRequest);
 

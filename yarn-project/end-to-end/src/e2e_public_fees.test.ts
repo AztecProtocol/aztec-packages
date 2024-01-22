@@ -4,6 +4,7 @@ import {
   CompleteAddress,
   DebugLogger,
   Fr,
+  FunctionSelector,
   GrumpkinPrivateKey,
   GrumpkinScalar,
   PXE,
@@ -12,6 +13,7 @@ import {
   generatePublicKey,
   getContractDeploymentInfo,
 } from '@aztec/aztec.js';
+import { FeeVariables } from '@aztec/circuits.js';
 import { EscrowContract, EscrowContractArtifact } from '@aztec/noir-contracts/Escrow';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
@@ -33,9 +35,9 @@ describe('e2e_public_fees', () => {
   let senderAddress: CompleteAddress;
   let escrowPrivateKey: GrumpkinPrivateKey;
   let escrowPublicKey: PublicKey;
-  let recipient: AccountWallet;
+  // let recipient: AccountWallet;
   let recipientAddress: CompleteAddress;
-  let _sequencer: AccountWallet;
+  // let _sequencer: AccountWallet;
   let sequencerAddress: CompleteAddress;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
@@ -44,8 +46,8 @@ describe('e2e_public_fees', () => {
     ({
       aztecNode,
       pxe,
-      accounts: [sequencerAddress, recipientAddress, sequencerAddress],
-      wallets: [sender, recipient, _sequencer],
+      accounts: [senderAddress, recipientAddress, sequencerAddress],
+      wallets: [sender], // recipient, _sequencer],
       logger,
       teardown: teardown,
     } = await setup(3, {
@@ -89,20 +91,13 @@ describe('e2e_public_fees', () => {
     await teardown();
   });
 
-  it('can set fee payment contract in account', async () => {
-    const tx = await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
-
-    expect(tx.status).toBe(TxStatus.MINED);
-  });
-
   describe('sequencer charges fees', () => {
     beforeEach(async () => {
       // give each one 1000 tokens
       await asset.methods.mint_public(senderAddress, 1000n).send().wait();
-      await asset.methods.mint_public(recipientAddress, 1000n).send().wait();
 
       // enable fee payments only for the sender account
-      await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
+      // await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
 
       await aztecNode.setConfig({
         chargeFees: true,
@@ -111,19 +106,25 @@ describe('e2e_public_fees', () => {
 
     it('rejects transactions if fee payment information is not set', async () => {
       // the recipient's account does not have fee payment information set up
-      const assetForRecipient = asset.withWallet(recipient);
       await expect(
-        assetForRecipient.methods.transfer_public(recipientAddress, senderAddress, 100n, Fr.random()).send().wait(),
-      ).resolves.toEqual({
-        status: TxStatus.DROPPED,
-      });
+        asset.methods.transfer_public(senderAddress, recipientAddress, 100n, Fr.ZERO).send().wait(),
+      ).rejects.toMatch('Error: Transaction .* was dropped');
     });
 
     it('executes the transaction and pays the appropriate fee', async () => {
-      await asset.methods
-        .transfer_public(sender.getAddress(), recipientAddress.address, 100n, Fr.random())
-        .send()
+      const tx = await asset.methods
+        .transfer_public(sender.getAddress(), recipientAddress.address, 100n, Fr.ZERO)
+        .send({
+          feeVariables: new FeeVariables(
+            feePaymentContract.address,
+            FunctionSelector.empty(),
+            feePaymentContract.address,
+            FunctionSelector.empty(),
+          ),
+        })
         .wait();
+
+      expect(tx.status).toBe(TxStatus.MINED);
 
       expect(await asset.methods.balance_of_public(recipientAddress).view()).toBe(1100n);
       expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(1n);

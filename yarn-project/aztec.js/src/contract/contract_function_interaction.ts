@@ -5,8 +5,6 @@ import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/ab
 import { Wallet } from '../account/wallet.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 
-export { SendMethodOptions };
-
 /**
  * Represents the options for a view method in a contract function interaction.
  * Allows specifying the address from which the view method should be called.
@@ -38,14 +36,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
+   * @param opts - Options
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(): Promise<TxExecutionRequest> {
+  public async create(opts: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()]);
+      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], opts.feeVariables);
     }
     return this.txRequest;
   }

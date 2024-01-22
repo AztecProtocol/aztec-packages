@@ -11,6 +11,7 @@ import { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foun
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { FeeVariables } from '../../../circuits.js/src/structs/fee_variables.js';
 import { Wallet } from '../account/index.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 import { type Contract } from './contract.js';
@@ -95,6 +96,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       contractDeploymentData,
       new Fr(chainId),
       new Fr(protocolVersion),
+      // TODO(fees) add fee paying information
+      FeeVariables.empty(),
     );
     const args = encodeArguments(this.constructorArtifact, this.args);
     const functionData = FunctionData.fromAbi(this.constructorArtifact);

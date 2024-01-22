@@ -136,6 +136,7 @@ export class TxContext {
       this.contractDeploymentData,
       this.chainId,
       this.version,
+      this.feeVariables,
     );
   }
 
@@ -157,7 +158,7 @@ export class TxContext {
     );
   }
 
-  static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
+  static empty(chainId: Fr | number = 0, version: Fr | number = 0, feeVariables = FeeVariables.empty()) {
     return new TxContext(
       false,
       false,
@@ -165,7 +166,7 @@ export class TxContext {
       ContractDeploymentData.empty(),
       new Fr(chainId),
       new Fr(version),
-      FeeVariables.empty(),
+      feeVariables,
     );
   }
 
@@ -176,7 +177,8 @@ export class TxContext {
       !this.isContractDeploymentTx &&
       this.contractDeploymentData.isEmpty() &&
       this.chainId.isZero() &&
-      this.version.isZero()
+      this.version.isZero() &&
+      this.feeVariables.isEmpty()
     );
   }
 

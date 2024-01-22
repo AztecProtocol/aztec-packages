@@ -1,4 +1,5 @@
 import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import { FeeVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 // docs:start:account-interface
@@ -16,10 +17,10 @@ export interface EntrypointInterface {
   /**
    * Generates an authenticated request out of set of function calls.
    * @param executions - The execution intents to be run.
-   * @param opts - Options.
+   * @param feeVariables - Fee payment information
    * @returns The authenticated transaction execution request.
    */
-  createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest>;
+  createTxExecutionRequest(executions: FunctionCall[], feeVariables?: FeeVariables): Promise<TxExecutionRequest>;
 }
 
 /**
