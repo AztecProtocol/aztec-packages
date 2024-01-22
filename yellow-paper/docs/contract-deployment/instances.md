@@ -29,7 +29,7 @@ Note the absence of a deployer field. This is because the deployer address is op
 
 ## Address
 
-The address of the contract instance is computed as the hash of all elements in the structure above, as defined in [the addresses and keys section](../addresses-and-keys/specification.md#address). This computation is deterministic, which allows any user to precompute the expected deployment address of their contract, including account contracts.
+The address of the contract instance is computed as the hash of the elements in the structure above, as defined in [the addresses and keys section](../addresses-and-keys/specification.md#address). This computation is deterministic, which allows any user to precompute the expected deployment address of their contract, including account contracts.
 
 ## Statuses
 

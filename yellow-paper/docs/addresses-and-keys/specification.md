@@ -331,24 +331,28 @@ $\Ovpkm$ | $\ovskm \cdot G$ | outgoing viewing public key | | Only included so t
 
 An address is computed as the hash of the following fields:
 
-<!-- [Mike review, for @spalladino][cspell:disable-line]
-We should specify exactly how this hash is computed. Pasting some boilerplate review commentary from the classes.md doc:
-- Details of the hash to use, and a domain separator for the hash. We might not know the final hash that we'll use, but we should propose one, and we should probably also give each hash a name.
-    - E.g. `contract_address = contract_address_hash("contract_address".to_field(), version.to_field(), registerer_address.to_field(), etc...)` where `contract_address_hash = pedersen_hash` (for now).
--->
-
 <!-- prettier-ignore -->
 | Field | Type | Description |
 |----------|----------|----------|
-| `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract instance struct. |
-| `deployer_address` | `AztecAddress` | Address of the deployer for this instance. |
 | `salt` | `Field` | User-generated pseudorandom value for uniqueness. |
 | `contract_class_id` | `Field` | Identifier of the contract class for this instance. |
-| `contract_args_hash` | `Field` | Hash of the arguments to the constructor. |
+| `initialization_hash` | `Field` | Hash of the selector and arguments to the constructor. |
 | `portal_contract_address` | `EthereumAddress` | Optional address of the L1 portal contract. |
-| `public_keys` | `Field[]` | Optional flat array of public keys used for encryption and nullifying by this contract. |
+| `public_keys_hash` | `Field` | Optional hash of the struct of public keys used for encryption and nullifying by this contract. |
 
-The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined above: $\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$.
+The hash is computed as follows:
+
+```
+salted_initialization_hash = pedersen([salt, initialization_hash], GENERATOR__SALTED_INITIALIZATION_HASH)
+address = pedersen([contract_class_id, portal_contract_address as Field, salted_initialization_hash, public_keys_hash], GENERATOR__CONTRACT_ADDRESS_V1)
+```
+
+The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined above: $\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$. A suggested hashing is:
+```
+public_keys_hash = pedersen([nullifier_pubkey, tagging_pubkey, incoming_view_pubkey, outgoing_view_pubkey], GENERATOR__PUBLIC_KEYS)
+```
+
+<!-- TODO(@iamMichaelConnor): Can we just hash the `x` coordinate for each pubkey and be done with it, for the sake of the hashing? Or should we also include the `y` coordinate? Or at least the sign bit? If we include the sign bit, does it make sense to "compress" all the sign bits in a single field, or is it better to expand it? -->
 
 ## Derive siloed keys
 
