@@ -24,6 +24,8 @@ describe('e2e_public_fees', () => {
   const TOKEN_NAME = 'Aztec Token';
   const TOKEN_SYMBOL = 'AZT';
   const TOKEN_DECIMALS = 18n;
+  const MINTED_TOKENS = 1000n;
+
   let asset: TokenContract;
 
   let feePaymentContract: EscrowContract;
@@ -93,8 +95,8 @@ describe('e2e_public_fees', () => {
 
   describe('sequencer charges fees', () => {
     beforeEach(async () => {
-      // give each one 1000 tokens
-      await asset.methods.mint_public(senderAddress, 1000n).send().wait();
+      // give each one tokens
+      await asset.methods.mint_public(senderAddress, MINTED_TOKENS).send().wait();
 
       // enable fee payments only for the sender account
       // await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
@@ -108,12 +110,14 @@ describe('e2e_public_fees', () => {
       // the recipient's account does not have fee payment information set up
       await expect(
         asset.methods.transfer_public(senderAddress, recipientAddress, 100n, Fr.ZERO).send().wait(),
-      ).rejects.toMatch('Error: Transaction .* was dropped');
+      ).rejects.toThrow(/Transaction .* was dropped/);
     });
 
     it('executes the transaction and pays the appropriate fee', async () => {
+      const transferAmount = 100n;
+      const feeAmount = 1n;
       const tx = await asset.methods
-        .transfer_public(sender.getAddress(), recipientAddress.address, 100n, Fr.ZERO)
+        .transfer_public(sender.getAddress(), recipientAddress.address, transferAmount, Fr.ZERO)
         .send({
           feeVariables: new FeeVariables(
             feePaymentContract.address,
@@ -126,9 +130,11 @@ describe('e2e_public_fees', () => {
 
       expect(tx.status).toBe(TxStatus.MINED);
 
-      expect(await asset.methods.balance_of_public(recipientAddress).view()).toBe(1100n);
-      expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(1n);
-      expect(await asset.methods.balance_of_public(senderAddress.address).view()).toBe(899n);
+      expect(await asset.methods.balance_of_public(recipientAddress).view()).toBe(transferAmount);
+      expect(await asset.methods.balance_of_public(senderAddress).view()).toBe(
+        MINTED_TOKENS - transferAmount - feeAmount,
+      );
+      expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(feeAmount);
     });
   });
 });
