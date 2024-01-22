@@ -18,7 +18,7 @@ template <typename Builder> class Transcript {
   public:
     using field_ct = field_t<Builder>;
     using FF = bb::fr;
-    using NativeTranscript = bb::honk::BaseTranscript;
+    using NativeTranscript = bb::honk::NativeTranscript;
     using StdlibTypes = utility::StdlibTypesUtility<Builder>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = NativeTranscript::HASH_OUTPUT_SIZE;
@@ -58,6 +58,7 @@ template <typename Builder> class Transcript {
          * since it's a pain and we'll be revamping our hashing anyway. For now, simply convert the native hashes to
          * stdlib types without adding any hashing constraints.
          */
+        // we need to call a corresponding stdlib get_next_challenge_buffer in this loop
         std::array<field_ct, num_challenges> challenges;
         for (size_t i = 0; i < num_challenges; ++i) {
             challenges[i] = field_ct::from_witness(builder, native_challenges[i]);

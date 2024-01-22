@@ -459,7 +459,7 @@ class AvmMiniFlavor {
         }
     };
 
-    class Transcript : public BaseTranscript {
+    class Transcript : public NativeTranscript {
       public:
         uint32_t circuit_size;
 
@@ -511,7 +511,7 @@ class AvmMiniFlavor {
         Transcript() = default;
 
         Transcript(const std::vector<FF>& proof)
-            : BaseTranscript(proof)
+            : NativeTranscript(proof)
         {}
 
         void deserialize_full_transcript()

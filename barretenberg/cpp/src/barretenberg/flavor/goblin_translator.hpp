@@ -1136,6 +1136,6 @@ class GoblinTranslator {
         }
     };
 
-    using Transcript = BaseTranscript;
+    using Transcript = NativeTranscript;
 };
 } // namespace bb::honk::flavor

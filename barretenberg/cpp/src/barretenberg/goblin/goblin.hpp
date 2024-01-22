@@ -23,7 +23,7 @@ class Goblin {
   public:
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
-    using Transcript = bb::honk::BaseTranscript;
+    using Transcript = bb::honk::NativeTranscript;
 
     using GoblinUltraComposer = bb::honk::UltraComposer_<GUHFlavor>;
     using GoblinUltraVerifier = bb::honk::UltraVerifier_<GUHFlavor>;

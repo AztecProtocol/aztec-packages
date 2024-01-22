@@ -322,7 +322,7 @@ template <typename Curve> class ZeroMorphProver_ {
                       const std::vector<FF>& g_shift_evaluations,
                       const std::vector<FF>& multilinear_challenge,
                       const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                      const std::shared_ptr<BaseTranscript>& transcript,
+                      const std::shared_ptr<NativeTranscript>& transcript,
                       const std::vector<Polynomial>& concatenated_polynomials = {},
                       const std::vector<FF>& concatenated_evaluations = {},
                       const std::vector<RefVector<Polynomial>>& concatenation_groups = {})

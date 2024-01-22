@@ -23,8 +23,8 @@ std::shared_ptr<bb::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
 auto ck = std::make_shared<CommitmentKey>(1 << MAX_POLYNOMIAL_DEGREE_LOG2, crs_factory);
 auto vk = std::make_shared<VerifierCommitmentKey>(1 << MAX_POLYNOMIAL_DEGREE_LOG2, crs_factory);
 
-std::vector<std::shared_ptr<honk::BaseTranscript>> prover_transcripts(MAX_POLYNOMIAL_DEGREE_LOG2 -
-                                                                      MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
+std::vector<std::shared_ptr<honk::NativeTranscript>> prover_transcripts(MAX_POLYNOMIAL_DEGREE_LOG2 -
+                                                                        MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
 std::vector<OpeningClaim> opening_claims(MAX_POLYNOMIAL_DEGREE_LOG2 - MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
 
 void ipa_open(State& state) noexcept
@@ -43,7 +43,7 @@ void ipa_open(State& state) noexcept
         const OpeningPair opening_pair = { x, eval };
         const OpeningClaim opening_claim{ opening_pair, ck->commit(poly) };
         // initialize empty prover transcript
-        auto prover_transcript = std::make_shared<honk::BaseTranscript>();
+        auto prover_transcript = std::make_shared<honk::NativeTranscript>();
         state.ResumeTiming();
         // Compute proof
         IPA::compute_opening_proof(ck, opening_pair, poly, prover_transcript);
@@ -60,7 +60,7 @@ void ipa_verify(State& state) noexcept
         auto prover_transcript = prover_transcripts[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2];
         auto opening_claim = opening_claims[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2];
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<honk::BaseTranscript>(prover_transcript->proof_data);
+        auto verifier_transcript = std::make_shared<honk::NativeTranscript>(prover_transcript->proof_data);
 
         state.ResumeTiming();
         auto result = IPA::verify(vk, opening_claim, verifier_transcript);

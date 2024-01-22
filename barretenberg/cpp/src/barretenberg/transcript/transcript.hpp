@@ -6,6 +6,8 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
@@ -58,14 +60,36 @@ class TranscriptManifest {
     bool operator==(const TranscriptManifest& other) const = default;
 };
 
+struct NativeTranscriptParams {
+    using Fr = bb::fr;
+    static inline Fr hash(const std::vector<Fr>& data)
+    {
+        return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
+    }
+    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    {
+        return bb::field_conversion::convert_to_bn254_frs(element);
+    }
+    template <typename T> static constexpr size_t calc_num_frs() { return bb::field_conversion::calc_num_frs<T>(); }
+    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    {
+        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
+    }
+};
+
+// struct UltraStdlibTranscriptParams {
+//     using Builder = UltraCircuitBuilder;
+//     using Fr = stdlib::field_t<Builder>;
+//     static inline Fr hash(const std::vector<Fr>& data) { return stdlib::poseidon2<Builder>::hash(data); }
+// };
+
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-class BaseTranscript {
+template <typename TranscriptParams> class BaseTranscript {
   public:
-    using Fr = bb::fr;
-    using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    using Fr = TranscriptParams::Fr;
     using Proof = honk::proof;
 
     BaseTranscript() = default;
@@ -132,7 +156,7 @@ class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a random
         // oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we previously did
         // with Pedersen and Blake3s.
-        Fr base_hash = crypto::Poseidon2<Poseidon2Params>::hash(full_buffer);
+        Fr base_hash = TranscriptParams::hash(full_buffer);
 
         Fr new_challenge = base_hash;
         // std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
@@ -168,7 +192,7 @@ class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = bb::field_conversion::convert_to_bn254_frs(element);
+        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -182,13 +206,13 @@ class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = bb::field_conversion::calc_num_frs<T>();
+        constexpr size_t element_fr_size = TranscriptParams::template calc_num_frs<T>();
         ASSERT(offset + element_fr_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
 
-        auto element = bb::field_conversion::convert_from_bn254_frs<T>(element_frs);
+        auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
 
         return element;
     }
@@ -370,4 +394,6 @@ template <typename Fr, typename T, size_t N> std::array<Fr, N> challenges_to_fie
     std::move(arr.begin(), arr.end(), result.begin());
     return result;
 }
+
+using NativeTranscript = honk::BaseTranscript<NativeTranscriptParams>;
 } // namespace bb::honk
