@@ -31,7 +31,7 @@ export class AvmInterpreter {
    */
   run(): AvmMessageCallResult {
     assert(this.instructions.length > 0);
-  
+
     try {
       while (!this.machineState.halted) {
         const instruction = this.instructions[this.machineState.pc];
