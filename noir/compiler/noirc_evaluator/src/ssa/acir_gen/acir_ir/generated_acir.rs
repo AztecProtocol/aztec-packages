@@ -252,32 +252,32 @@ impl GeneratedAcir {
                 key_hash: inputs[3][0],
             },
             BlackBoxFunc::BigIntAdd => BlackBoxFuncCall::BigIntAdd {
-                lhs: inputs[0][0],
-                rhs: inputs[1][0],
-                output: outputs[0],
+                lhs: constants[0].to_u128() as u32,
+                rhs: constants[1].to_u128() as u32,
+                output: constants[2].to_u128() as u32,
             },
             BlackBoxFunc::BigIntNeg => BlackBoxFuncCall::BigIntNeg {
-                lhs: inputs[0][0],
-                rhs: inputs[1][0],
-                output: outputs[0],
+                lhs: constants[0].to_u128() as u32,
+                rhs: constants[1].to_u128() as u32,
+                output: constants[2].to_u128() as u32,
             },
             BlackBoxFunc::BigIntMul => BlackBoxFuncCall::BigIntMul {
-                lhs: inputs[0][0],
-                rhs: inputs[1][0],
-                output: outputs[0],
+                lhs: constants[0].to_u128() as u32,
+                rhs: constants[1].to_u128() as u32,
+                output: constants[2].to_u128() as u32,
             },
             BlackBoxFunc::BigIntDiv => BlackBoxFuncCall::BigIntDiv {
-                lhs: inputs[0][0],
-                rhs: inputs[1][0],
-                output: outputs[0],
+                lhs: constants[0].to_u128() as u32,
+                rhs: constants[1].to_u128() as u32,
+                output: constants[2].to_u128() as u32,
             },
             BlackBoxFunc::BigIntFromLeBytes => BlackBoxFuncCall::BigIntFromLeBytes {
                 inputs: inputs[0].clone(),
-                modulus: inputs[1].clone(),
-                output: outputs[0],
+                modulus: vecmap(constants, |c| c.to_u128() as u8),
+                output: todo!(),
             },
             BlackBoxFunc::BigIntToLeBytes => {
-                BlackBoxFuncCall::BigIntToLeBytes { input: inputs[0][0], outputs }
+                BlackBoxFuncCall::BigIntToLeBytes { input: constants[0].to_u128() as u32, outputs }
             }
         };
 
