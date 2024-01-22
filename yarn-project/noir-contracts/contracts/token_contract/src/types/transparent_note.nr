@@ -53,6 +53,7 @@ impl Empty for TransparentNote {
 }
 
 impl NoteInterface for TransparentNote {
+
     fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -61,12 +62,17 @@ impl NoteInterface for TransparentNote {
         ],0)
     }
 
-    fn compute_nullifier(self) -> Field {
+    fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
+        self.compute_nullifier_without_context()
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
         // TODO(#1386): should use `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(self);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([self.secret, siloed_note_hash],0)
     }
+
 
     fn set_header(&mut self, header: NoteHeader) {
         self.header = header;

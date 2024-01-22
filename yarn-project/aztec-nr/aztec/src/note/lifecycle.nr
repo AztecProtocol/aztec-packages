@@ -49,7 +49,7 @@ pub fn create_note_hash_from_public<Note, N>(context: &mut PublicContext, storag
 pub fn destroy_note<Note, N>(context: &mut PrivateContext, note: Note) where Note: NoteInterface {
     let mut nullifier = 0;
     let mut nullified_commitment: Field = 0;
-    nullifier = note.compute_nullifier();
+    nullifier = note.compute_nullifier(context);
 
     // We also need the note commitment corresponding to the "nullifier"
     let header = note.get_header();

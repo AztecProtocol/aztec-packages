@@ -4,6 +4,7 @@ use dep::protocol_types::{
     traits::{Deserialize, Serialize},
 };
 use crate::{
+    context::PrivateContext,
     note::{
         note_hash::{compute_inner_hash, compute_siloed_hash, compute_unique_hash},
         note_header::NoteHeader,
@@ -33,9 +34,12 @@ pub fn compute_unique_siloed_note_hash<Note, N>(note: Note) -> Field where Note:
     compute_unique_hash(header.nonce, siloed_note_hash)
 }
 
-pub fn compute_siloed_nullifier<Note, N>(note: Note) -> Field where Note: NoteInterface {
-    let header = note.get_header();
-    let inner_nullifier = note.compute_nullifier();
+pub fn compute_siloed_nullifier<Note, N>(
+    note_with_header: Note,
+    context: &mut PrivateContext
+) -> Field where Note: NoteInterface {
+    let header = note_with_header.get_header();
+    let inner_nullifier = note_with_header.compute_nullifier(context);
 
     let input = [header.contract_address.to_field(), inner_nullifier];
     pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
@@ -76,7 +80,7 @@ pub fn compute_note_hash_and_nullifier<T, N, S>(
 
     let unique_siloed_note_hash = compute_unique_hash(note_header.nonce, siloed_note_hash);
 
-    let inner_nullifier = note.compute_nullifier();
+    let inner_nullifier = note.compute_nullifier_without_context();
 
     [inner_note_hash, siloed_note_hash, unique_siloed_note_hash, inner_nullifier]
 }

@@ -131,7 +131,7 @@ contract InclusionProofs {
 
         // 3) Compute the nullifier from the note
         if maybe_note.is_some() {
-            prove_note_not_nullified(maybe_note.unwrap_unchecked(), block_number, context);
+            prove_note_not_nullified(maybe_note.unwrap_unchecked(), block_number, &mut context);
         } else {
             // Note was not found so we will use the spare nullifier
             prove_nullifier_non_inclusion(spare_nullifier, block_number, context);
@@ -150,7 +150,7 @@ contract InclusionProofs {
         let note = notes[0].unwrap();
 
         // 2) Prove the note validity
-        prove_note_validity(note, block_number, context);
+        prove_note_validity(note, block_number, &mut context);
     }
 
     #[aztec(private)]

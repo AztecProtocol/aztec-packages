@@ -13,16 +13,6 @@ use dep::aztec::note::{
     note_getter_options::{NoteGetterOptions, SortOrder},
     note_viewer_options::NoteViewerOptions
 };
-use dep::aztec::note::{
-    note_header::NoteHeader,
-    note_interface::NoteInterface,
-    utils::compute_note_hash_for_read_or_nullify,
-};
-use dep::aztec::oracle::{
-    rand::rand,
-    get_secret_key::get_secret_key,
-    get_public_key::get_public_key,
-};
 
 use crate::types::token_note::TokenNote;
 
