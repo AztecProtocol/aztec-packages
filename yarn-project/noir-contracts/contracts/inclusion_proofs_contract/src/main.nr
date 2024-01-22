@@ -47,8 +47,8 @@ contract InclusionProofs {
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
-        private_values: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
-        public_value: PublicState<Field, 1>,
+        private_values: Map<AztecAddress, Set<ValueNote>>,
+        public_value: PublicState<Field>,
     }
 
     impl Storage {

@@ -18,8 +18,6 @@ struct NoteViewerOptions<Note, N> {
 
 impl<Note, N> NoteViewerOptions<Note, N> {
     pub fn new() -> NoteViewerOptions<Note, N> where Note: NoteInterface + Deserialize<N> {
-        let _sample: [Field; N] = Note::_sample();
-
         NoteViewerOptions {
             selects: BoundedVec::new(Option::none()),
             sorts: BoundedVec::new(Option::none()),

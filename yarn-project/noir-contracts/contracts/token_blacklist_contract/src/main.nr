@@ -16,7 +16,7 @@ contract TokenBlacklist {
     // Libs
     use dep::std::option::Option;
 
-    use dep::safe_math::{SafeU120,SAFE_U120_SERIALIZED_LEN};
+    use dep::safe_math::SafeU120;
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::AztecAddress,
@@ -30,7 +30,6 @@ contract TokenBlacklist {
         context::{PrivateContext, PublicContext, Context},
         hash::{compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton},
-        protocol_types::type_serialization::{FIELD_SERIALIZED_LEN, BOOL_SERIALIZED_LEN, AZTEC_ADDRESS_SERIALIZED_LEN},
     };
 
     use dep::field_note::field_note::{FieldNote, FIELD_NOTE_LEN};
@@ -43,7 +42,7 @@ contract TokenBlacklist {
     };
 
     use crate::types::{
-        transparent_note::{TransparentNote, TRANSPARENT_NOTE_LEN},
+        transparent_note::TransparentNote,
         token_note::{TokenNote, TOKEN_NOTE_LEN},
         balances_map::{BalancesMap},
         roles::UserFlags,
@@ -53,13 +52,13 @@ contract TokenBlacklist {
     // docs:end:interface
 
     struct Storage {
-        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
+        admin: PublicState<AztecAddress>,
         balances: BalancesMap,
-        total_supply: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
-        pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
-        public_balances: Map<AztecAddress, PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
-        slow_update: ImmutableSingleton<FieldNote, FIELD_NOTE_LEN>,
-        public_slow_update: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
+        total_supply: PublicState<SafeU120>,
+        pending_shields: Set<TransparentNote>,
+        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
+        slow_update: ImmutableSingleton<FieldNote>,
+        public_slow_update: PublicState<AztecAddress>,
     }
 
     impl Storage {

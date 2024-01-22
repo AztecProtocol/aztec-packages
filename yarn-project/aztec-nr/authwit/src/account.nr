@@ -1,6 +1,5 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::{map::Map, public_state::PublicState};
-use dep::aztec::protocol_types::type_serialization::BOOL_SERIALIZED_LEN;
 
 use crate::entrypoint::EntrypointPayload;
 use crate::auth::IS_VALID_SELECTOR;
@@ -8,7 +7,7 @@ use crate::auth::IS_VALID_SELECTOR;
 struct AccountActions {
   context: Context,
   is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
-  approved_action: Map<Field, PublicState<bool, BOOL_SERIALIZED_LEN>>,
+  approved_action: Map<Field, PublicState<bool>>,
 }
 
 impl AccountActions {

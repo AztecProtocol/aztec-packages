@@ -24,7 +24,7 @@ contract SchnorrAccount {
 
     struct Storage {
         // docs:start:storage
-        signing_public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
+        signing_public_key: ImmutableSingleton<PublicKeyNote>,
         // docs:end:storage
     }
 

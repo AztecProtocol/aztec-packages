@@ -54,7 +54,8 @@ impl Deserialize<2> for SideEffect {
         }
     }
 
-    fn _sample() -> [Field; 2] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 2] {
         [0; 2]
     }
 }
@@ -119,7 +120,8 @@ impl Deserialize<3> for SideEffectLinkedToNoteHash {
         }
     }
 
-    fn _sample() -> [Field; 3] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 3] {
         [0; 3]
     }
 }

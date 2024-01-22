@@ -26,7 +26,7 @@ contract PendingCommitments {
     };
 
     struct Storage {
-        balances: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
+        balances: Map<AztecAddress, Set<ValueNote>>,
     }
 
     impl Storage {

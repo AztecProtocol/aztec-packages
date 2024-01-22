@@ -28,7 +28,8 @@ impl Deserialize<1> for FunctionSelector {
         }
     }
 
-    fn _sample() -> [Field; 1] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 1] {
         [0; 1]
     }
 }

@@ -56,7 +56,8 @@ impl Deserialize<BLOCK_HEADER_LENGTH> for BlockHeader  {
         }
     }
 
-    fn _sample() -> [Field; BLOCK_HEADER_LENGTH] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; BLOCK_HEADER_LENGTH] {
         [0; BLOCK_HEADER_LENGTH]
     }
 }

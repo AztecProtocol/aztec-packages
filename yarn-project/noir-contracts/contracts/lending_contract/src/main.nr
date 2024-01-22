@@ -22,21 +22,20 @@ contract Lending {
         state_vars::{
             map::Map,
             public_state::PublicState,
-        },
-        protocol_types::type_serialization::FIELD_SERIALIZED_LEN
+        }
     };
-    use crate::asset::{ASSET_SERIALIZED_LEN, Asset};
+    use crate::asset::Asset;
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        collateral_asset: PublicState<AztecAddress, 1>,
-        stable_coin: PublicState<AztecAddress, 1>,
-        assets: Map<Field, PublicState<Asset, ASSET_SERIALIZED_LEN>>,
-        collateral: Map<AztecAddress, PublicState<Field, FIELD_SERIALIZED_LEN>>,
-        static_debt: Map<AztecAddress, PublicState<Field, FIELD_SERIALIZED_LEN>>, // abusing keys very heavily
+        collateral_asset: PublicState<AztecAddress>,
+        stable_coin: PublicState<AztecAddress>,
+        assets: Map<Field, PublicState<Asset>>,
+        collateral: Map<AztecAddress, PublicState<Field>>,
+        static_debt: Map<AztecAddress, PublicState<Field>>, // abusing keys very heavily
     }
 
     impl Storage {

@@ -38,6 +38,11 @@ impl Deserialize<TRANSPARENT_NOTE_LEN> for TransparentNote {
             header: NoteHeader::empty(),
         }
     }
+
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; TRANSPARENT_NOTE_LEN] {
+        [0; TRANSPARENT_NOTE_LEN]
+    }
 }
 
 impl Empty for TransparentNote {

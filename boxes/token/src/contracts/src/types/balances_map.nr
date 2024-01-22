@@ -4,11 +4,11 @@ use crate::types::balance_set::BalanceSet;
 use dep::aztec::hash::pedersen_hash;
 use dep::aztec::protocol_types::address::AztecAddress;
 
-use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN};
+use crate::types::token_note::TokenNote;
 use dep::aztec::state_vars::{map::Map, set::Set};
 
 struct BalancesMap {
-    store: Map<AztecAddress, Set<TokenNote, TOKEN_NOTE_LEN>>,
+    store: Map<AztecAddress, Set<TokenNote>>,
 }
 
 impl BalancesMap {

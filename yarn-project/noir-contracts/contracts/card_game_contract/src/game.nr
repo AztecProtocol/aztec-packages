@@ -84,7 +84,8 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
         }
     }
 
-    fn _sample() -> [Field; GAME_SERIALIZED_LEN] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; GAME_SERIALIZED_LEN] {
         [0; GAME_SERIALIZED_LEN]
     }
 }

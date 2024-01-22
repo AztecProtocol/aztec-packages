@@ -13,7 +13,7 @@ contract Token {
     // Libs
     use dep::std::option::Option;
 
-    use dep::safe_math::{SafeU120,SAFE_U120_SERIALIZED_LEN};
+    use dep::safe_math::SafeU120;
 
     use dep::aztec::{
         note::{
@@ -27,7 +27,6 @@ contract Token {
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
-            type_serialization::{FIELD_SERIALIZED_LEN,BOOL_SERIALIZED_LEN, AZTEC_ADDRESS_SERIALIZED_LEN},
         }
     };
 
@@ -41,7 +40,7 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::{TransparentNote, TRANSPARENT_NOTE_LEN},
+        transparent_note::TransparentNote,
         token_note::{TokenNote, TOKEN_NOTE_LEN},
         balances_map::{BalancesMap},
     };
@@ -50,19 +49,19 @@ contract Token {
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
+        admin: PublicState<AztecAddress>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicState<bool, BOOL_SERIALIZED_LEN>>,
+        minters: Map<AztecAddress, PublicState<bool>>,
         // docs:end:storage_minters
         // docs:start:storage_balances
         balances: BalancesMap,
         // docs:end:storage_balances
-        total_supply: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
+        total_supply: PublicState<SafeU120>,
         // docs:start:storage_pending_shields
-        pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
+        pending_shields: Set<TransparentNote>,
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
+        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
     }
     // docs:end:storage_struct
 

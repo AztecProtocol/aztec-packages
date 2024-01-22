@@ -39,7 +39,8 @@ impl Deserialize<PROFILE_NOTE_LEN> for ProfileNote {
         }
     }
 
-    fn _sample() -> [Field; PROFILE_NOTE_LEN] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; PROFILE_NOTE_LEN] {
         [0; PROFILE_NOTE_LEN]
     }
 }

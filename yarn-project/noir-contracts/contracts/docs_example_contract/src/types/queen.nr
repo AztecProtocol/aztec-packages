@@ -24,7 +24,8 @@ impl Deserialize<QUEEN_SERIALIZED_LEN> for Queen {
         Queen { account: AztecAddress::from_field(fields[0]), points: fields[1] as u8 }
     }
 
-    fn _sample() -> [Field; QUEEN_SERIALIZED_LEN] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; QUEEN_SERIALIZED_LEN] {
         [0; QUEEN_SERIALIZED_LEN]
     }
 }

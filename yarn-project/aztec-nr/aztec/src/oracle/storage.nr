@@ -5,13 +5,13 @@ fn storage_read_oracle<N>(_storage_slot: Field, _number_of_elements: Field) -> [
 
 unconstrained fn storage_read_oracle_wrapper<N>(
     _storage_slot: Field,
-    _sample: [Field; N]
+    _deserialized_length_hint: [Field; N] // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
 ) -> [Field; N] {
     storage_read_oracle(_storage_slot, N)
 }
 
-pub fn storage_read<N>(storage_slot: Field, _sample: [Field; N]) -> [Field; N] {
-    storage_read_oracle_wrapper(storage_slot, _sample)
+pub fn storage_read<N>(storage_slot: Field, _deserialized_length_hint: [Field; N]) -> [Field; N] {
+    storage_read_oracle_wrapper(storage_slot, _deserialized_length_hint)
 }
 
 #[oracle(storageWrite)]

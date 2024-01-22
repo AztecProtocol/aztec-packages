@@ -47,7 +47,8 @@ impl Deserialize<ADDRESS_NOTE_LEN> for AddressNote {
         }
     }
 
-    fn _sample() -> [Field; ADDRESS_NOTE_LEN] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; ADDRESS_NOTE_LEN] {
         [0; ADDRESS_NOTE_LEN]
     }
 }

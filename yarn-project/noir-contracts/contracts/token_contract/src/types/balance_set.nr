@@ -24,7 +24,7 @@ use dep::aztec::oracle::{
     get_public_key::get_public_key,
 };
 
-use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN};
+use crate::types::token_note::TokenNote;
 
 // A set implementing standard manipulation of balances.
 // Does not require spending key, but only knowledge.
@@ -32,7 +32,7 @@ use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN};
 struct BalanceSet {
   context: Context,
   owner: AztecAddress,
-  set: Set<TokenNote, TOKEN_NOTE_LEN>
+  set: Set<TokenNote>
 }
 
 impl BalanceSet {

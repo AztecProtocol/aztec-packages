@@ -39,7 +39,8 @@ impl Deserialize<RULES_NOTE_LEN> for RulesNote {
         }
     }
 
-    fn _sample() -> [Field; RULES_NOTE_LEN] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; RULES_NOTE_LEN] {
         [0; RULES_NOTE_LEN]
     }
 }

@@ -6,12 +6,12 @@ use dep::aztec::{
 };
 use dep::value_note::{
     filter::filter_notes_min_sum,
-    value_note::{ValueNote, VALUE_NOTE_LEN},
+    value_note::ValueNote,
 };
 
 struct EasyPrivateUint {
     context: Context,
-    set: Set<ValueNote, VALUE_NOTE_LEN>,
+    set: Set<ValueNote>,
     storage_slot: Field,
 }
 

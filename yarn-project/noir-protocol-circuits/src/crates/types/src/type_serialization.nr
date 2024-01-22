@@ -18,7 +18,8 @@ impl Deserialize<U32_SERIALIZED_LEN> for u32 {
         fields[0] as u32
     }
 
-    fn _sample() -> [Field; 1] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 1] {
         [0]
     }
 }
@@ -34,7 +35,8 @@ impl Deserialize<U8_SERIALIZED_LEN> for u8 {
         fields[0] as u8
     }
 
-    fn _sample() -> [Field; 1] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 1] {
         [0]
     }
 }
@@ -50,7 +52,8 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
         fields[0]
     }
 
-    fn _sample() -> [Field; 1] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 1] {
         [0]
     }
 }
@@ -66,7 +69,8 @@ impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
         fields[0] as bool
     }
 
-    fn _sample() -> [Field; 1] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 1] {
         [0]
     }
 }

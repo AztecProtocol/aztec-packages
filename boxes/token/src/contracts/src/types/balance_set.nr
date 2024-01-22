@@ -24,18 +24,18 @@ use dep::aztec::oracle::{
     get_public_key::get_public_key,
 };
 
-use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN};
+use crate::types::token_note::TokenNote;
 
 // A set implementing standard manipulation of balances.
 // Does not require spending key, but only knowledge.
 // Spending key requirement should be enforced by the contract using this.
 struct BalanceSet {
     owner: AztecAddress,
-    set: Set<TokenNote, TOKEN_NOTE_LEN>
+    set: Set<TokenNote>
 }
 
 impl BalanceSet {
-  pub fn new(set: Set<TokenNote, TOKEN_NOTE_LEN>, owner: AztecAddress) -> Self {
+  pub fn new(set: Set<TokenNote>, owner: AztecAddress) -> Self {
     Self {
         owner,
         set,

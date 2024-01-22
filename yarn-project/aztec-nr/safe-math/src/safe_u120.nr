@@ -28,7 +28,8 @@ impl Deserialize<SAFE_U120_SERIALIZED_LEN> for SafeU120 {
         SafeU120 { value: fields[0] as u120 }
     }
 
-    fn _sample() -> [Field; 1] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; 1] {
         [0; 1]
     }
 }

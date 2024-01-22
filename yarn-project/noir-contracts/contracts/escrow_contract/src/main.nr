@@ -24,7 +24,7 @@ contract Escrow {
     };
 
     struct Storage {
-        owners: Set<AddressNote, ADDRESS_NOTE_LEN>,
+        owners: Set<AddressNote>,
     }
 
     impl Storage {

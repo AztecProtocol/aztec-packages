@@ -29,7 +29,7 @@ contract TokenBridge {
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        token: PublicState<AztecAddress, 1>,
+        token: PublicState<AztecAddress>,
     }
 
     impl Storage {

@@ -44,7 +44,8 @@ impl Deserialize<CARD_NOTE_LEN> for CardNote {
         }
     }
 
-    fn _sample() -> [Field; CARD_NOTE_LEN] {
+    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
+    fn _deserialized_length_hint() -> [Field; CARD_NOTE_LEN] {
         [0; CARD_NOTE_LEN]
     }
 }

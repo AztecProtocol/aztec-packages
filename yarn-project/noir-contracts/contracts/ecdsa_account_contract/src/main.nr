@@ -27,7 +27,7 @@ contract EcdsaAccount {
     };
 
     struct Storage {
-        public_key: ImmutableSingleton<EcdsaPublicKeyNote, ECDSA_PUBLIC_KEY_NOTE_LEN>,
+        public_key: ImmutableSingleton<EcdsaPublicKeyNote>,
     }
 
     impl Storage {

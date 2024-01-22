@@ -14,12 +14,11 @@ contract StatefulTest {
             utils as note_utils,
         },
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        protocol_types::type_serialization::FIELD_SERIALIZED_LEN,
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
-        public_values: Map<AztecAddress, PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        notes: Map<AztecAddress, Set<ValueNote>>,
+        public_values: Map<AztecAddress, PublicState<Field>>,
     }
 
     impl Storage {

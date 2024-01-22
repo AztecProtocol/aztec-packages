@@ -199,7 +199,6 @@ contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
-        
     }
 
     // Purely exists for testing
