@@ -39,8 +39,6 @@ using bn254 = bb::stdlib::bn254<Builder>;
 
 using hash_path_ct = bb::stdlib::merkle_tree::hash_path<Builder>;
 
-namespace schnorr {
 using schnorr_signature_bits = bb::stdlib::schnorr_signature_bits<Builder>;
-} // namespace schnorr
 
 } // namespace bb::join_split_example
