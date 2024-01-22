@@ -92,6 +92,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
 
     batch.put(snapshotRootKey(this.tree.getName(), block), root);
     batch.put(snapshotNumLeavesKey(this.tree.getName(), block), String(numLeaves));
+    batch.put(`${this.tree.getName()}:latestSnapshot`, block);
     await batch.write();
 
     return this.openSnapshot(root, numLeaves);
