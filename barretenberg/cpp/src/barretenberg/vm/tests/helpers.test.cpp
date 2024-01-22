@@ -5,8 +5,7 @@
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
 #include <gtest/gtest.h>
 
-using namespace avm_trace;
-
+namespace avm_trace {
 /**
  * @brief Helper routine proving and verifying a proof based on the supplied trace
  *
@@ -62,3 +61,4 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     EXPECT_TRUE(mem_row != trace.end());
     mem_row->memTrace_m_val = newValue;
 };
+} // namespace avm_trace
