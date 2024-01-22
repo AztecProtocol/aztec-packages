@@ -17,6 +17,10 @@ impl Deserialize<U32_SERIALIZED_LEN> for u32 {
     fn deserialize(fields: [Field; U32_SERIALIZED_LEN]) -> Self {
         fields[0] as u32
     }
+
+    fn _sample() -> [Field; 1] {
+        [0]
+    }
 }
 
 impl Serialize<U8_SERIALIZED_LEN> for u8 {
@@ -28,6 +32,10 @@ impl Serialize<U8_SERIALIZED_LEN> for u8 {
 impl Deserialize<U8_SERIALIZED_LEN> for u8 {
     fn deserialize(fields: [Field; U8_SERIALIZED_LEN]) -> Self {
         fields[0] as u8
+    }
+
+    fn _sample() -> [Field; 1] {
+        [0]
     }
 }
 
@@ -41,6 +49,10 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
     fn deserialize(fields: [Field; FIELD_SERIALIZED_LEN]) -> Self {
         fields[0]
     }
+
+    fn _sample() -> [Field; 1] {
+        [0]
+    }
 }
 
 impl Serialize<BOOL_SERIALIZED_LEN> for bool {
@@ -52,5 +64,9 @@ impl Serialize<BOOL_SERIALIZED_LEN> for bool {
 impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
     fn deserialize(fields: [Field; BOOL_SERIALIZED_LEN]) -> bool {
         fields[0] as bool
+    }
+
+    fn _sample() -> [Field; 1] {
+        [0]
     }
 }

@@ -53,6 +53,10 @@ impl Deserialize<2> for SideEffect {
             counter: values[1] as u32,
         }
     }
+
+    fn _sample() -> [Field; 2] {
+        [0; 2]
+    }
 }
 
 impl SideEffect {
@@ -113,6 +117,10 @@ impl Deserialize<3> for SideEffectLinkedToNoteHash {
             note_hash: values[1],
             counter: values[2] as u32,
         }
+    }
+
+    fn _sample() -> [Field; 3] {
+        [0; 3]
     }
 }
 

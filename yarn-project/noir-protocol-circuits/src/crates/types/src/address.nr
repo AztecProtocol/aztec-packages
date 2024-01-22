@@ -46,6 +46,10 @@ impl Deserialize<AZTEC_ADDRESS_SERIALIZED_LEN> for AztecAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_SERIALIZED_LEN]) -> Self {
         AztecAddress::from_field(fields[0])
     }
+
+    fn _sample() -> [Field; AZTEC_ADDRESS_SERIALIZED_LEN] {
+        [0; AZTEC_ADDRESS_SERIALIZED_LEN]
+    }
 }
 
 impl AztecAddress {
@@ -121,6 +125,10 @@ impl Deserialize<ETH_ADDRESS_SERIALIZED_LEN> for EthAddress {
         Self {
             inner: fields[0]
         }
+    }
+
+    fn _sample() -> [Field; ETH_ADDRESS_SERIALIZED_LEN] {
+        [0; ETH_ADDRESS_SERIALIZED_LEN]
     }
 }
 

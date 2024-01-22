@@ -17,8 +17,12 @@ impl Serialize<1> for FieldCompressedString {
 }
 
 impl Deserialize<1> for FieldCompressedString {
-fn deserialize(input: [Field; 1]) -> Self {
+  fn deserialize(input: [Field; 1]) -> Self {
     Self { value: input[0] }
+  }
+
+  fn _sample() -> [Field; 1] {
+    [0; 1]
   }
 }
 

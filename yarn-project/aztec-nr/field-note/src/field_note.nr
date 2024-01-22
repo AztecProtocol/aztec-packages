@@ -31,6 +31,10 @@ impl Deserialize<FIELD_NOTE_LEN> for FieldNote {
             header: NoteHeader::empty(),
         }
     }
+
+    fn _sample() -> [Field; 1] {
+        [0; 1]
+    }
 }
 
 impl NoteInterface for FieldNote {

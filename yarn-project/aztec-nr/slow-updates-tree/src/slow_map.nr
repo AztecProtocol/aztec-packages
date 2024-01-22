@@ -29,6 +29,9 @@ impl Deserialize<3> for Leaf {
   fn deserialize(serialized: [Field; 3]) -> Leaf {
       Leaf { next_change: serialized[0], before: serialized[1], after: serialized[2] }
   }
+  fn _sample() -> [Field; 3] {
+    [0; 3]
+  }
 }
 
 // Subset of the MembershipProof that is needed for the slow update.

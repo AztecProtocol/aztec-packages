@@ -44,6 +44,9 @@ impl Deserialize<VALUE_NOTE_LEN> for ValueNote {
             header: NoteHeader::empty(),
         }
     }
+    fn _sample() -> [Field; 3] {
+        [0; 3]
+    }
 }
 
 impl NoteInterface for ValueNote {

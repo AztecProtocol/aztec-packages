@@ -51,4 +51,6 @@ trait Serialize<N> {
 
 trait Deserialize<N> {
     fn deserialize(fields: [Field; N]) -> Self;
+
+    fn _sample() -> [Field; N];
 }

@@ -46,6 +46,10 @@ impl Deserialize<ADDRESS_NOTE_LEN> for AddressNote {
             header: NoteHeader::empty(),
         }
     }
+
+    fn _sample() -> [Field; ADDRESS_NOTE_LEN] {
+        [0; ADDRESS_NOTE_LEN]
+    }
 }
 
 impl NoteInterface for AddressNote {

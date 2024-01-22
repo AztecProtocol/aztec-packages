@@ -55,6 +55,10 @@ impl Deserialize<BLOCK_HEADER_LENGTH> for BlockHeader  {
             global_variables_hash: deserialized[6],
         }
     }
+
+    fn _sample() -> [Field; BLOCK_HEADER_LENGTH] {
+        [0; BLOCK_HEADER_LENGTH]
+    }
 }
 
 impl BlockHeader {
