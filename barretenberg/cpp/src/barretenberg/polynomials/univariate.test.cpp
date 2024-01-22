@@ -4,7 +4,7 @@
 
 template <typename FF> class UnivariateTest : public testing::Test {
   public:
-    template <size_t view_length> using UnivariateView = bb::UnivariateView<bb::fr, view_length>;
+    template <size_t view_length> using UnivariateView = bb::UnivariateView<FF, view_length>;
 };
 
 using FieldTypes = testing::Types<bb::fr>;
