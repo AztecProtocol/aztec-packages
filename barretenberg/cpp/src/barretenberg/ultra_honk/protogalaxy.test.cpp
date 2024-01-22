@@ -2,7 +2,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 
 using Flavor = flavor::Ultra;
@@ -28,7 +28,7 @@ auto& engine = bb::numeric::get_debug_randomness();
 }
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
 // amongst test files in the proof system
-bb::Polynomial<FF> get_random_polynomial(size_t size)
+Polynomial<FF> get_random_polynomial(size_t size)
 {
     auto poly = bb::Polynomial<FF>(size);
     for (auto& coeff : poly) {
@@ -143,7 +143,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
 
-    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = get_random_polynomial(instance_size);
     }
@@ -229,7 +229,7 @@ TEST_F(ProtoGalaxyTests, CombineRelationParameters)
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_relation_parameters(instances);
 
-    bb::Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
+    Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
 }
 
@@ -250,7 +250,7 @@ TEST_F(ProtoGalaxyTests, CombineAlpha)
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_alpha(instances);
 
-    bb::Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
+    Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
     for (const auto& alpha : instances.alphas) {
         EXPECT_EQ(alpha, expected_alpha);
     }

@@ -3,7 +3,7 @@
 #include "barretenberg/relations/utils.hpp"
 
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 using namespace bb::honk::sumcheck;
 
@@ -41,7 +41,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
-    bb::PowPolynomial<FF> pow_polynomial({ 1 });
+    PowPolynomial<FF> pow_polynomial({ 1 });
     auto result = Univariate<FF, MAX_LENGTH>();
     SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_polynomial);
 

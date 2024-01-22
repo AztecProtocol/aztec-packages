@@ -154,7 +154,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         Builder builder;
 
         for (size_t i = 0; i < 7; ++i) {
-            std::vector<bb::fr> inputs;
+            std::vector<fr> inputs;
             inputs.push_back(bb::fr::random_element());
             inputs.push_back(bb::fr::random_element());
             inputs.push_back(bb::fr::random_element());
@@ -188,7 +188,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
                 witnesses.push_back(witness_ct(&builder, input));
             }
 
-            bb::fr expected = crypto::pedersen_hash::hash(inputs);
+            fr expected = crypto::pedersen_hash::hash(inputs);
 
             fr_ct result = pedersen_hash::hash(witnesses);
             EXPECT_EQ(result.get_value(), expected);
@@ -224,7 +224,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     {
         Builder builder;
 
-        std::vector<bb::fr> inputs;
+        std::vector<fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
@@ -236,7 +236,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
             }
         }
 
-        bb::fr expected = crypto::pedersen_hash::hash(inputs);
+        fr expected = crypto::pedersen_hash::hash(inputs);
         auto result = pedersen_hash::hash(witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);

@@ -149,7 +149,7 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
 {
     auto circuit_builder = bb::UltraCircuitBuilder();
 
-    bb::fr input_value = fr::random_element();
+    fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -715,7 +715,7 @@ TEST_F(UltraHonkComposerTests, non_native_field_multiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    bb::non_native_field_witnesses<fr> inputs{
+    non_native_field_witnesses<fr> inputs{
         a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
     };
     const auto [lo_1_idx, hi_1_idx] = circuit_builder.evaluate_non_native_field_multiplication(inputs);

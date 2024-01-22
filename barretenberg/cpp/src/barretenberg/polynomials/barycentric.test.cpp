@@ -20,7 +20,7 @@ TYPED_TEST(BarycentricDataTests, CompileTimeComputation)
     const size_t domain_size(2);
     const size_t num_evals(10);
 
-    static_assert(bb::BarycentricData<FF, domain_size, num_evals>::big_domain[5] == 5);
+    static_assert(BarycentricData<FF, domain_size, num_evals>::big_domain[5] == 5);
 }
 
 TYPED_TEST(BarycentricDataTests, Extend)
@@ -60,13 +60,13 @@ TYPED_TEST(BarycentricDataTests, BarycentricData2to3)
     EXPECT_EQ(barycentric.full_numerator_values, expected_full_numerator_values);
 
     // e1(X) = 1*(1-X) + 2*X = 1 + X
-    bb::Univariate<FF, 2> e1{ { 1, 2 } };
+    Univariate<FF, 2> e1{ { 1, 2 } };
     FF u = FF::random_element();
     FF calculated_val_at_u = e1.evaluate(u);
     EXPECT_EQ(u + 1, calculated_val_at_u);
 
-    bb::Univariate<FF, 3> ext1 = e1.template extend_to<num_evals>();
-    bb::Univariate<FF, 3> expected{ { 1, 2, 3 } };
+    Univariate<FF, 3> ext1 = e1.template extend_to<num_evals>();
+    Univariate<FF, 3> expected{ { 1, 2, 3 } };
     EXPECT_EQ(ext1, expected);
 }
 
@@ -79,8 +79,8 @@ TYPED_TEST(BarycentricDataTests, BarycentricData5to6)
 
     // Note: we are able to represent a degree 4 polynomial with 5 points thus this
     // extension will succeed. It would fail for values on a polynomial of degree > 4.
-    bb::Univariate<FF, domain_size> e1{ { 1, 3, 25, 109, 321 } }; // X^4 + X^3 + 1
-    bb::Univariate<FF, num_evals> ext1 = e1.template extend_to<num_evals>();
-    bb::Univariate<FF, num_evals> expected{ { 1, 3, 25, 109, 321, 751 } };
+    Univariate<FF, domain_size> e1{ { 1, 3, 25, 109, 321 } }; // X^4 + X^3 + 1
+    Univariate<FF, num_evals> ext1 = e1.template extend_to<num_evals>();
+    Univariate<FF, num_evals> expected{ { 1, 3, 25, 109, 321, 751 } };
     EXPECT_EQ(ext1, expected);
 }

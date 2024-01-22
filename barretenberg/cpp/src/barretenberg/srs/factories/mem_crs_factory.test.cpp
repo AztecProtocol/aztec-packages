@@ -41,7 +41,7 @@ TEST(reference_string, mem_bn254_file_consistency)
 
     EXPECT_EQ(memcmp(mem_verifier_crs->get_precomputed_g2_lines(),
                      file_verifier_crs->get_precomputed_g2_lines(),
-                     sizeof(bb::pairing::miller_lines) * 2),
+                     sizeof(pairing::miller_lines) * 2),
               0);
 }
 

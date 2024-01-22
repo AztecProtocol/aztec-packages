@@ -4,19 +4,19 @@
 TEST(bitop, ClzUint3231)
 {
     uint32_t a = 0b00000000000000000000000000000001;
-    EXPECT_EQ(bb::numeric::count_leading_zeros(a), 31U);
+    EXPECT_EQ(numeric::count_leading_zeros(a), 31U);
 }
 
 TEST(bitop, ClzUint320)
 {
     uint32_t a = 0b10000000000000000000000000000001;
-    EXPECT_EQ(bb::numeric::count_leading_zeros(a), 0U);
+    EXPECT_EQ(numeric::count_leading_zeros(a), 0U);
 }
 
 TEST(bitop, ClzUint640)
 {
     uint64_t a = 0b1000000000000000000000000000000100000000000000000000000000000000;
-    EXPECT_EQ(bb::numeric::count_leading_zeros(a), 0U);
+    EXPECT_EQ(numeric::count_leading_zeros(a), 0U);
 }
 
 TEST(bitop, ClzUint256255)

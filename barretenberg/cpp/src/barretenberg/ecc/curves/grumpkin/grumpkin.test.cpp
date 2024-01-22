@@ -5,7 +5,7 @@
 TEST(grumpkin, CheckB)
 {
     auto b = grumpkin::g1::curve_b;
-    bb::fr seventeen = 17;
+    fr seventeen = 17;
     EXPECT_EQ(seventeen, -b);
 }
 

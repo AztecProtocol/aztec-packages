@@ -11,7 +11,7 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 using namespace bb::honk::sumcheck;
 using Flavor = bb::honk::flavor::Ultra;
@@ -20,7 +20,7 @@ using ProverPolynomials = typename Flavor::ProverPolynomials;
 using RelationSeparator = Flavor::RelationSeparator;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-bb::Polynomial<FF> random_poly(size_t size)
+Polynomial<FF> random_poly(size_t size)
 {
     auto poly = bb::Polynomial<FF>(size);
     for (auto& coeff : poly) {
@@ -51,7 +51,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
 
     // Randomly construct the prover polynomials that are input to Sumcheck.
     // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = random_poly(multivariate_n);
     }
@@ -114,7 +114,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     // full polynomials at challenge u via the evaluate_mle() function
     std::vector<FF> u_challenge = { u_0, u_1, u_2 };
     for (auto [full_poly, claimed_eval] : zip_view(full_polynomials.get_all(), output.claimed_evaluations.get_all())) {
-        bb::Polynomial<FF> poly(full_poly);
+        Polynomial<FF> poly(full_poly);
         auto v_expected = poly.evaluate_mle(u_challenge);
         EXPECT_EQ(v_expected, claimed_eval);
     }
@@ -127,7 +127,7 @@ TEST_F(SumcheckTests, Prover)
 
     // Randomly construct the prover polynomials that are input to Sumcheck.
     // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = random_poly(multivariate_n);
     }
@@ -174,9 +174,9 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
 
         // Construct prover polynomials where each is the zero polynomial.
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-        std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> zero_polynomials;
+        std::array<Polynomial<FF>, NUM_POLYNOMIALS> zero_polynomials;
         for (auto& poly : zero_polynomials) {
-            poly = bb::Polynomial<FF>(multivariate_n);
+            poly = Polynomial<FF>(multivariate_n);
         }
         auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
@@ -211,7 +211,7 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         full_polynomials.q_arith = q_arith;
 
         // Set aribitrary random relation parameters
-        bb::RelationParameters<FF> relation_parameters{
+        RelationParameters<FF> relation_parameters{
             .beta = FF::random_element(),
             .gamma = FF::random_element(),
             .public_input_delta = FF::one(),

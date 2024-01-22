@@ -117,7 +117,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     tx.partial_claim_note.note_secret = 0;
     tx.partial_claim_note.input_nullifier = 0;
     tx.account_private_key = private_key;
-    tx.alias_hash = bb::join_split_example::fixtures::generate_alias_hash("penguin");
+    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("penguin");
     tx.account_required = false;
     tx.account_note_index = 0;
     tx.account_note_path = tree->get_hash_path(0);

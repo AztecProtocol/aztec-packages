@@ -118,18 +118,18 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 //     auto builder = UltraPlonkBuilder();
 
 //     std::array<uint64_t, 64> w_inputs;
-//     std::array<bb::stdlib::field_t<bb::UltraCircuitBuilder>, 64> w_elements;
+//     std::array<stdlib::field_t<UltraCircuitBuilder>, 64> w_elements;
 
 //     for (size_t i = 0; i < 64; ++i) {
 //         w_inputs[i] = engine.get_random_uint32();
 //         w_elements[i] = bb::stdlib::witness_t<bb::UltraCircuitBuilder>(&builder,
-//         bb::fr(w_inputs[i]));
+//         fr(w_inputs[i]));
 //     }
 
 //     const auto expected = inner_block(w_inputs);
 
 //     const std::array<bb::stdlib::field_t<bb::UltraCircuitBuilder>, 8> result =
-//         bb::stdlib::sha256_inner_block(w_elements);
+//         stdlib::sha256_inner_block(w_elements);
 //     for (size_t i = 0; i < 8; ++i) {
 //         EXPECT_EQ(uint256_t(result[i].get_value()).data[0] & 0xffffffffUL,
 //                   uint256_t(expected[i]).data[0] & 0xffffffffUL);
@@ -139,15 +139,15 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 //     auto prover = composer.create_prover();
 
 //     auto verifier = composer.create_verifier();
-//     bb::plonk::proof proof = prover.construct_proof();
+//     plonk::proof proof = prover.construct_proof();
 //     bool proof_result = builder.check_circuit();
 //     EXPECT_EQ(proof_result, true);
 // }
 
 TEST(stdlib_sha256, test_plookup_55_bytes)
 {
-    typedef bb::stdlib::field_t<bb::UltraCircuitBuilder> field_pt;
-    typedef bb::stdlib::packed_byte_array<bb::UltraCircuitBuilder> packed_byte_array_pt;
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
@@ -199,8 +199,8 @@ TEST(stdlib_sha256, test_55_bytes)
 
 TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
 {
-    typedef bb::stdlib::field_t<bb::UltraCircuitBuilder> field_pt;
-    typedef bb::stdlib::packed_byte_array<bb::UltraCircuitBuilder> packed_byte_array_pt;
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     auto builder = bb::UltraCircuitBuilder();
 
@@ -223,8 +223,8 @@ TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
 
 TEST(stdlib_sha256, test_NIST_vector_one)
 {
-    typedef bb::stdlib::field_t<bb::UltraCircuitBuilder> field_pt;
-    typedef bb::stdlib::packed_byte_array<bb::UltraCircuitBuilder> packed_byte_array_pt;
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     auto builder = bb::UltraCircuitBuilder();
 
@@ -325,8 +325,8 @@ TEST(stdlib_sha256, test_NIST_vector_four)
 
 HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
 {
-    typedef bb::stdlib::field_t<bb::UltraCircuitBuilder> field_pt;
-    typedef bb::stdlib::packed_byte_array<bb::UltraCircuitBuilder> packed_byte_array_pt;
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     auto builder = bb::UltraCircuitBuilder();
 

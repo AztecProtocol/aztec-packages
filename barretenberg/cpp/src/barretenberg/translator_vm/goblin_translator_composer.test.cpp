@@ -7,7 +7,7 @@
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 using CircuitBuilder = flavor::GoblinTranslator::CircuitBuilder;
 using Transcript = flavor::GoblinTranslator::Transcript;

@@ -60,7 +60,7 @@ TEST(wnaf, WnafTwoBitWindow)
     constexpr uint32_t num_quads = (num_bits >> 1) + 1;
     uint64_t wnaf[num_quads] = { 0 };
     bool skew = false;
-    bb::wnaf::fixed_wnaf<256, 1, window>(&input.data[0], wnaf, skew, 0);
+    wnaf::fixed_wnaf<256, 1, window>(&input.data[0], wnaf, skew, 0);
 
     /**
      * For representing even numbers, we define a skew:

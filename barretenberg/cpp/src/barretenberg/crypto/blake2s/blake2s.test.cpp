@@ -382,6 +382,6 @@ TEST(misc_blake2s, test_vectors)
 {
     for (auto v : test_vectors) {
         std::vector<uint8_t> input(v.input.begin(), v.input.end());
-        EXPECT_EQ(bb::crypto::blake2s(input), v.output);
+        EXPECT_EQ(crypto::blake2s(input), v.output);
     }
 }

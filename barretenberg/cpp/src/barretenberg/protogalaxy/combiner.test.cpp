@@ -6,6 +6,7 @@
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
 using namespace bb::honk;
 
 using Flavor = bb::honk::flavor::Ultra;
@@ -133,7 +134,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
             auto result = prover.compute_combiner(instances, pow_polynomial);
             auto expected_result =
-                bb::Univariate<FF, 13>(std::array<FF, 13>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660, 792 });
+                Univariate<FF, 13>(std::array<FF, 13>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660, 792 });
 
             EXPECT_EQ(result, expected_result);
         }

@@ -127,7 +127,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
     {
         Builder builder;
 
-        std::vector<bb::fr> inputs;
+        std::vector<fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
@@ -139,7 +139,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             }
         }
 
-        bb::fr expected = native_poseidon2::hash(inputs);
+        fr expected = native_poseidon2::hash(inputs);
         auto result = poseidon2::hash(builder, witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);

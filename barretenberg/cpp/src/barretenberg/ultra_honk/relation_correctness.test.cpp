@@ -11,7 +11,7 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 
 void ensure_non_zero(auto& polynomial)
@@ -125,23 +125,23 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
     using FF = typename Flavor::FF;
     // Add some lookup gates (related to pedersen hashing)
     auto pedersen_input_value = FF::random_element();
-    const auto input_hi = uint256_t(pedersen_input_value)
-                              .slice(bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR,
-                                     bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR +
-                                         bb::plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+    const auto input_hi =
+        uint256_t(pedersen_input_value)
+            .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                   plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
     const auto input_lo = uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_hi_index = circuit_builder.add_variable(input_hi);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
     const auto sequence_data_hi =
-        bb::plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
     const auto sequence_data_lo =
-        bb::plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     circuit_builder.create_gates_from_plookup_accumulators(
-        bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
     circuit_builder.create_gates_from_plookup_accumulators(
-        bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 }
 
 template <typename Flavor> void create_some_genperm_sort_gates(auto& circuit_builder)
@@ -226,7 +226,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 {
     using G1 = typename Flavor::Curve::Group;
     using FF = typename Flavor::FF;
-    static_assert(bb::IsGoblinFlavor<Flavor>);
+    static_assert(IsGoblinFlavor<Flavor>);
     const size_t num_ecc_operations = 10; // arbitrary
     for (size_t i = 0; i < num_ecc_operations; ++i) {
         auto point = G1::affine_one * FF::random_element();
@@ -385,7 +385,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     FF gamma = FF::random_element();
 
     // Fill relation parameters
-    bb::RelationParameters<FF> params;
+    RelationParameters<FF> params;
     params.gamma = gamma;
 
     // Create storage for polynomials
@@ -502,7 +502,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     // No relation parameters are used in this relation
-    bb::RelationParameters<FF> params;
+    RelationParameters<FF> params;
 
     ProverPolynomials prover_polynomials;
     // Allocate polynomials
@@ -583,7 +583,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
 
     // We only use accumulated_result from relation parameters in this relation
-    bb::RelationParameters<FF> params;
+    RelationParameters<FF> params;
     params.accumulated_result = {
         FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
     };
@@ -684,7 +684,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
 
     // Decomposition relation doesn't use any relation parameters
-    bb::RelationParameters<FF> params;
+    RelationParameters<FF> params;
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
@@ -1086,7 +1086,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     auto circuit_builder = bb::GoblinTranslatorCircuitBuilder(batching_challenge_v, evaluation_input_x, op_queue);
 
     // The non-native field relation uses limbs of evaluation_input_x and powers of batching_challenge_v as inputs
-    bb::RelationParameters<FF> params;
+    RelationParameters<FF> params;
     auto v_power = BF::one();
     for (size_t i = 0; i < 4 /*Number of powers of v that we need {1,2,3,4}*/; i++) {
         v_power *= batching_challenge_v;

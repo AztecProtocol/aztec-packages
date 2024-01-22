@@ -20,7 +20,7 @@ class AvmMiniControlFlowTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory("../srs_db/ignition");
         trace_builder = AvmMiniTraceBuilder(); // Clean instance for every run.
     };
 };

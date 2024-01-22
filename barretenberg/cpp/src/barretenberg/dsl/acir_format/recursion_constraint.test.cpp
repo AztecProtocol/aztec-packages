@@ -143,10 +143,10 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                                   transcript::HashType::PedersenBlake3s,
                                                   16);
 
-        std::vector<bb::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
+        std::vector<fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
         // - Save the public inputs so that we can set their values.
         // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
-        std::vector<bb::fr> inner_public_input_values(
+        std::vector<fr> inner_public_input_values(
             proof_witnesses.begin(), proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
 
         // We want to make sure that we do not remove the nested aggregation object in the case of the proof we want to

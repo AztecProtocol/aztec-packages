@@ -10,15 +10,15 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 
 class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
     using Curve = curve::BN254;

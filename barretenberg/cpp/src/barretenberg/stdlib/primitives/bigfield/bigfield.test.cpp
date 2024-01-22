@@ -826,18 +826,18 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     static void test_conditional_select_regression()
     {
         auto builder = Builder();
-        bb::fq a(0);
-        bb::fq b(1);
+        fq a(0);
+        fq b(1);
         fq_ct a_ct(&builder, a);
         fq_ct b_ct(&builder, b);
         fq_ct selected = a_ct.conditional_select(b_ct, typename bn254::bool_ct(&builder, true));
-        EXPECT_EQ(bb::fq((selected.get_value() % uint512_t(bb::fq::modulus)).lo), b);
+        EXPECT_EQ(fq((selected.get_value() % uint512_t(bb::fq::modulus)).lo), b);
     }
 
     static void test_division_context()
     {
         auto builder = Builder();
-        bb::fq a(1);
+        fq a(1);
         fq_ct a_ct(&builder, a);
         fq_ct ret = fq_ct::div_check_denominator_nonzero({}, a_ct);
         EXPECT_NE(ret.get_context(), nullptr);
@@ -942,15 +942,15 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //         fq_ct::NUM_LIMB_BITS * 2))),
 //                 witness_ct(
 //                     &builder,
-//                     bb::fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2,
+//                     fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2,
 //                     fq_ct::NUM_LIMB_BITS * 4))));
 //         fq_ct b1(&builder, uint256_t(inputs[1]));
 //         fq_ct b2(&builder, uint256_t(inputs[2]));
 //         fq_ct c = a / (b1 - b2);
 //         // uint256_t modulus{ bb::Bn254FqParams::modulus_0,
-//         //                    bb::Bn254FqParams::modulus_1,
-//         //                    bb::Bn254FqParams::modulus_2,
-//         //                    bb::Bn254FqParams::modulus_3 };
+//         //                    Bn254FqParams::modulus_1,
+//         //                    Bn254FqParams::modulus_2,
+//         //                    Bn254FqParams::modulus_3 };
 
 //         fq expected = (inputs[0] / (inputs[1] - inputs[2]));
 //         std::cerr << "denominator = " << inputs[1] - inputs[2] << std::endl;
@@ -984,13 +984,13 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //         fq_ct a(
 //             witness_ct(&builder, bb::fr(uint256_t(inputs[0]).slice(0,
 //             fq_ct::NUM_LIMB_BITS * 2))), witness_ct(&builder,
-//                        bb::fr(
+//                        fr(
 //                            uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS *
 //                            4))));
 //         fq_ct b(
 //             witness_ct(&builder, bb::fr(uint256_t(inputs[1]).slice(0,
 //             fq_ct::NUM_LIMB_BITS * 2))), witness_ct(&builder,
-//                        bb::fr(
+//                        fr(
 //                            uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS *
 //                            4))));
 //         std::cerr << "starting mul" << std::endl;
@@ -1031,7 +1031,7 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //         fq_ct a(
 //             witness_ct(&builder, bb::fr(uint256_t(inputs[0]).slice(0,
 //             fq_ct::NUM_LIMB_BITS * 2))), witness_ct(&builder,
-//                        bb::fr(
+//                        fr(
 //                            uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS *
 //                            4))));
 //         uint64_t before = builder.get_num_gates();

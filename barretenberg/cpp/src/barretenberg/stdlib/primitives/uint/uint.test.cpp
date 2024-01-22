@@ -1917,7 +1917,7 @@ TEST(stdlib_uint32, test_accumulators_plookup_uint32)
     using uint32_ct = bb::stdlib::uint32<bb::UltraCircuitBuilder>;
     using witness_ct = bb::stdlib::witness_t<bb::UltraCircuitBuilder>;
 
-    bb::UltraCircuitBuilder builder;
+    UltraCircuitBuilder builder;
 
     uint32_t a_val = engine.get_random_uint32();
     uint32_t b_val = engine.get_random_uint32();

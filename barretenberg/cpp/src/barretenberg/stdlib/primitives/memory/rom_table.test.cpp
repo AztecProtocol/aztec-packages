@@ -30,7 +30,7 @@ TEST(rom_table, rom_table_read_write_consistency)
     rom_table_ct table(table_values);
 
     field_ct result(0);
-    bb::fr expected(0);
+    fr expected(0);
 
     for (size_t i = 0; i < 10; ++i) {
         field_ct index(witness_ct(&builder, (uint64_t)i));

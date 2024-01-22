@@ -14,9 +14,9 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
     void SetUp() override
     {
         if constexpr (std::is_same<Flavor, flavor::ECCVM>::value) {
-            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+            srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         } else {
-            bb::srs::init_crs_factory("../srs_db/ignition");
+            srs::init_crs_factory("../srs_db/ignition");
         }
     };
     using FF = typename Flavor::FF;
@@ -184,9 +184,9 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
 
         return manifest_expected;
     }
-    bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
+    ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
     {
-        bb::ECCVMCircuitBuilder<Flavor> result;
+        ECCVMCircuitBuilder<Flavor> result;
         using G1 = typename Flavor::CycleGroup;
         using Fr = typename G1::Fr;
 

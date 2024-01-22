@@ -60,7 +60,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     {
         Builder builder;
 
-        std::vector<bb::fr> inputs;
+        std::vector<fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {

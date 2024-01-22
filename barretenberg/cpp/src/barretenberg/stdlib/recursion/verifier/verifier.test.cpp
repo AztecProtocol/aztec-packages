@@ -265,8 +265,8 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        bb::stdlib::recursion::aggregation_state<outer_curve> output =
-            bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        stdlib::recursion::aggregation_state<outer_curve> output =
+            stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 
         return { output, verification_key };

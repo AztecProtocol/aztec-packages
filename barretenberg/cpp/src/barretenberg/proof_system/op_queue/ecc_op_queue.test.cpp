@@ -3,7 +3,7 @@
 
 TEST(ECCOpQueueTest, Basic)
 {
-    bb::ECCOpQueue op_queue;
+    ECCOpQueue op_queue;
     op_queue.add_accumulate(bb::g1::affine_one);
     EXPECT_EQ(op_queue.raw_ops[0].base_point, bb::g1::affine_one);
     op_queue.empty_row();
@@ -22,7 +22,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     auto P_expected = P1 + P2 * z;
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    bb::ECCOpQueue op_queue;
+    ECCOpQueue op_queue;
     op_queue.add_accumulate(P1);
     op_queue.mul_accumulate(P2, z);
 

@@ -14,7 +14,7 @@ class PermutationHelperTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using ProvingKey = Flavor::ProvingKey;
     Flavor::CircuitBuilder circuit_constructor;
-    bb::srs::factories::CrsFactory<curve::BN254> crs_factory = bb::srs::factories::CrsFactory<curve::BN254>();
+    srs::factories::CrsFactory<curve::BN254> crs_factory = bb::srs::factories::CrsFactory<curve::BN254>();
     std::shared_ptr<Flavor::ProvingKey> proving_key;
 
     virtual void SetUp()
@@ -67,26 +67,25 @@ class PermutationHelperTests : public ::testing::Test {
 TEST_F(PermutationHelperTests, ComputeWireCopyCycles)
 {
     // TODO(#425) Flesh out these tests
-    bb::compute_wire_copy_cycles<Flavor>(circuit_constructor);
+    compute_wire_copy_cycles<Flavor>(circuit_constructor);
 }
 
 TEST_F(PermutationHelperTests, ComputePermutationMapping)
 {
     // TODO(#425) Flesh out these tests
-    bb::compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
+    compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
 }
 
 TEST_F(PermutationHelperTests, ComputeHonkStyleSigmaLagrangePolynomialsFromMapping)
 {
     // TODO(#425) Flesh out these tests
-    auto mapping =
-        bb::compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
-    bb::compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
+    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
+    compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
         proving_key->get_sigma_polynomials(), mapping.sigmas, proving_key.get());
 }
 
 TEST_F(PermutationHelperTests, ComputeStandardAuxPolynomials)
 {
     // TODO(#425) Flesh out these tests
-    bb::compute_first_and_last_lagrange_polynomials<Flavor>(proving_key);
+    compute_first_and_last_lagrange_polynomials<Flavor>(proving_key);
 }
