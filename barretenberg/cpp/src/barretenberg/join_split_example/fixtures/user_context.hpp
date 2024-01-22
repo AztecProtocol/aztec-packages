@@ -5,7 +5,7 @@
 
 namespace bb::join_split_example::fixtures {
 
-using grumpkin_key_pair = bb::crypto_key_pair<grumpkin::fr, grumpkin::g1>;
+using grumpkin_key_pair = bb::crypto::key_pair<grumpkin::fr, grumpkin::g1>;
 
 struct user_context {
     bb::fr note_secret;

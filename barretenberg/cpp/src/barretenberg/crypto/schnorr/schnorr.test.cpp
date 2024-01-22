@@ -3,10 +3,9 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::crypto
+using namespace bb::crypto;
 
-    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1>
-    generate_signature()
+crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> generate_signature()
 {
     crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     account.private_key = grumpkin::fr::random_element();

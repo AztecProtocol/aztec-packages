@@ -15,7 +15,7 @@ inline void verify_signature(field_ct const& public_value,
                              group_ct const& owner_pub_key,
                              field_ct const& backward_link,
                              field_ct const& allow_chain,
-                             schnorr_signature_bits const& signature)
+                             crypto::schnorr_signature const& signature)
 {
     std::vector<field_ct> to_compress = {
         public_value, public_owner,  public_asset_id, output_note1_commitment, output_note2_commitment, nullifier1,

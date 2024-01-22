@@ -7,7 +7,7 @@ namespace acir_format {
 using namespace bb::stdlib;
 
 template <typename Builder>
-crypto::schnorr_signature schnorr_convert_signature(Builder& builder, std::vector<uint32_t> signature)
+crypto::schnorr_signature convert_signature(Builder& builder, std::vector<uint32_t> signature)
 {
 
     crypto::schnorr_signature signature_cr;
@@ -78,7 +78,7 @@ template <typename Builder> void create_schnorr_verify_constraints(Builder& buil
     using schnorr_signature_bits_ct = bb::stdlib::schnorr_signature_bits<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
 
-    auto new_sig = schnorr_convert_signature(builder, input.signature);
+    auto new_sig = convert_signature(builder, input.signature);
     // From ignorance, you will see me convert a bunch of witnesses from ByteArray -> BitArray
     // This may not be the most efficient way to do it. It is being used as it is known to work,
     // optimizations are welcome!
