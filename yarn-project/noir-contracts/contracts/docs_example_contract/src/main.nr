@@ -76,7 +76,7 @@ contract DocsExample {
     fn initialize_private(randomness: Field, points: u8) {
         let mut legendary_card = CardNote::new(points, randomness, context.msg_sender());
         // create and broadcast note
-        storage.legendary_card.initialize(&mut legendary_card, Option::some(legendary_card.owner), true);
+        storage.legendary_card.initialize(&mut legendary_card, Option::none(), true);
     }
 
     #[aztec(private)]
