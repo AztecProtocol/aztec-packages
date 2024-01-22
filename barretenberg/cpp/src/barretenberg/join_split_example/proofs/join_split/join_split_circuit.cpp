@@ -13,21 +13,20 @@ namespace bb::join_split_example::proofs::join_split {
 using namespace bb::plonk;
 using namespace notes::circuit;
 using namespace bb::stdlib::merkle_tree;
-using namespace bb::crypto
+using namespace bb::crypto;
 
-    /**
-     * Check that the input note data, follows the given hash paths, to the publically given merkle root.
-     * The note does not need to exist in the tree if it's not real, or if it's consumed (i.e. propagated = input).
-     * Return the nullifier for the input note. If the input note is consumed, the nullifier becomes 0.
-     */
-    field_ct
-    process_input_note(field_ct const& account_private_key,
-                       field_ct const& merkle_root,
-                       hash_path_ct const& hash_path,
-                       suint_ct const& index,
-                       value::value_note const& note,
-                       bool_ct is_propagated,
-                       bool_ct is_note_in_use)
+/**
+ * Check that the input note data, follows the given hash paths, to the publically given merkle root.
+ * The note does not need to exist in the tree if it's not real, or if it's consumed (i.e. propagated = input).
+ * Return the nullifier for the input note. If the input note is consumed, the nullifier becomes 0.
+ */
+field_ct process_input_note(field_ct const& account_private_key,
+                            field_ct const& merkle_root,
+                            hash_path_ct const& hash_path,
+                            suint_ct const& index,
+                            value::value_note const& note,
+                            bool_ct is_propagated,
+                            bool_ct is_note_in_use)
 {
     const bool_ct valid_value = note.value == 0 || is_note_in_use;
     valid_value.assert_equal(true, "padding note non zero");

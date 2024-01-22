@@ -4,10 +4,9 @@
 
 namespace bb::join_split_example::proofs::join_split {
 
-using namespace bb::crypto
+using namespace bb::crypto;
 
-    schnorr_signature
-    sign_join_split_tx(join_split_tx const& tx, schnorr_key_pair<grumpkin::fr, grumpkin::g1> const& keys)
+schnorr_signature sign_join_split_tx(join_split_tx const& tx, schnorr_key_pair<grumpkin::fr, grumpkin::g1> const& keys)
 {
     fr hashed = compute_signing_data(tx);
 
