@@ -207,9 +207,9 @@ struct BlackBoxFuncCall {
     };
 
     struct BigIntAdd {
-        Circuit::FunctionInput lhs;
-        Circuit::FunctionInput rhs;
-        Circuit::Witness output;
+        uint32_t lhs;
+        uint32_t rhs;
+        uint32_t output;
 
         friend bool operator==(const BigIntAdd&, const BigIntAdd&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -217,9 +217,9 @@ struct BlackBoxFuncCall {
     };
 
     struct BigIntNeg {
-        Circuit::FunctionInput lhs;
-        Circuit::FunctionInput rhs;
-        Circuit::Witness output;
+        uint32_t lhs;
+        uint32_t rhs;
+        uint32_t output;
 
         friend bool operator==(const BigIntNeg&, const BigIntNeg&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -227,9 +227,9 @@ struct BlackBoxFuncCall {
     };
 
     struct BigIntMul {
-        Circuit::FunctionInput lhs;
-        Circuit::FunctionInput rhs;
-        Circuit::Witness output;
+        uint32_t lhs;
+        uint32_t rhs;
+        uint32_t output;
 
         friend bool operator==(const BigIntMul&, const BigIntMul&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -237,9 +237,9 @@ struct BlackBoxFuncCall {
     };
 
     struct BigIntDiv {
-        Circuit::FunctionInput lhs;
-        Circuit::FunctionInput rhs;
-        Circuit::Witness output;
+        uint32_t lhs;
+        uint32_t rhs;
+        uint32_t output;
 
         friend bool operator==(const BigIntDiv&, const BigIntDiv&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -248,8 +248,8 @@ struct BlackBoxFuncCall {
 
     struct BigIntFromLeBytes {
         std::vector<Circuit::FunctionInput> inputs;
-        std::vector<Circuit::FunctionInput> modulus;
-        Circuit::Witness output;
+        std::vector<uint8_t> modulus;
+        uint32_t output;
 
         friend bool operator==(const BigIntFromLeBytes&, const BigIntFromLeBytes&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -257,7 +257,7 @@ struct BlackBoxFuncCall {
     };
 
     struct BigIntToLeBytes {
-        Circuit::FunctionInput input;
+        uint32_t input;
         std::vector<Circuit::Witness> outputs;
 
         friend bool operator==(const BigIntToLeBytes&, const BigIntToLeBytes&);

@@ -101,18 +101,16 @@ pub(super) fn transform_internal(
             Opcode::BlackBoxFuncCall(ref func) => {
                 match func {
                     acir::circuit::opcodes::BlackBoxFuncCall::AND { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::XOR { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntAdd { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntNeg { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntMul { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntDiv { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntFromLeBytes {
-                        output, ..
-                    } => {
+                    | acir::circuit::opcodes::BlackBoxFuncCall::XOR { output, .. } => {
                         transformer.mark_solvable(*output);
                     }
                     acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. } => (),
+                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntFromLeBytes { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntAdd { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntNeg { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntMul { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntDiv { .. } => (),
                     acir::circuit::opcodes::BlackBoxFuncCall::SHA256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256VariableLength {
