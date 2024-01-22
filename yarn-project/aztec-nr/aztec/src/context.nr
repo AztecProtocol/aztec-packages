@@ -3,7 +3,7 @@ use crate::{
         PrivateContextInputs,
         PublicContextInputs,
     },
-    key::nullifier_key::validate_nullifier_key_aginst_address,
+    key::nullifier_key::validate_nullifier_key_against_address,
     messaging::process_l1_to_l2_message,
     oracle::{
         arguments,
@@ -201,7 +201,7 @@ impl PrivateContext {
 
     pub fn request_nullifier_secret_key(&mut self, account: AztecAddress) -> GrumpkinScalar {
         let key_pair = get_nullifier_key_pair(account);
-        validate_nullifier_key_aginst_address(account, key_pair.public_key, key_pair.secret_key);
+        validate_nullifier_key_against_address(account, key_pair.public_key, key_pair.secret_key);
         // TODO: Add request to context.
         // self.context.push_nullifier_key_validation_request(public_key, secret_key);
         key_pair.secret_key

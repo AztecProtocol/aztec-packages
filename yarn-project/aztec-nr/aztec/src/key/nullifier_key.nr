@@ -8,7 +8,7 @@ use dep::std::{
     grumpkin_scalar_mul::grumpkin_fixed_base,
 };
 
-pub fn validate_nullifier_key_aginst_address(
+pub fn validate_nullifier_key_against_address(
     address: AztecAddress,
     nullifier_public_key: GrumpkinPoint,
     nullifier_secret_key: GrumpkinScalar
