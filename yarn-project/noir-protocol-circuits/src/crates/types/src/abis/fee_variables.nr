@@ -9,6 +9,17 @@ struct FeeVariables {
     fee_distribution_selector : FunctionSelector,
 }
 
+impl FeeVariables {
+    fn serialize(self) -> [Field; 4] {
+        [
+            self.fee_preparation_address.to_field(),
+            self.fee_preparation_selector.to_field(),
+            self.fee_distribution_address.to_field(),
+            self.fee_distribution_selector.to_field()
+        ]
+    }
+}
+
 impl Empty for FeeVariables {
     fn empty() -> Self {
         FeeVariables {

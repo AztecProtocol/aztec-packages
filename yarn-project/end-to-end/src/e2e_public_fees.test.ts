@@ -1,5 +1,6 @@
 import {
   AccountWallet,
+  AztecNode,
   CompleteAddress,
   DebugLogger,
   Fr,
@@ -32,19 +33,19 @@ describe('e2e_public_fees', () => {
   let senderAddress: CompleteAddress;
   let escrowPrivateKey: GrumpkinPrivateKey;
   let escrowPublicKey: PublicKey;
-  // let recipient: Wallet;
-  // let recipientAddress: CompleteAddress;
-  // let sequencer: Wallet;
-  // let sequencerAddress: CompleteAddress;
-  // let aztecNode: AztecNode;
+  let recipient: AccountWallet;
+  let recipientAddress: CompleteAddress;
+  let _sequencer: AccountWallet;
+  let sequencerAddress: CompleteAddress;
+  let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
     ({
-      // aztecNode,
+      aztecNode,
       pxe,
-      accounts: [senderAddress], // recipientAddress, sequencerAddress],
-      wallets: [sender], // recipient, sequencer],
+      accounts: [sequencerAddress, recipientAddress, sequencerAddress],
+      wallets: [sender, recipient, _sequencer],
       logger,
       teardown: teardown,
     } = await setup(3, {
@@ -52,6 +53,7 @@ describe('e2e_public_fees', () => {
     }));
 
     logger.info('senderAddress: ' + senderAddress.toReadableString());
+    logger.info('recipientAddress: ' + senderAddress.toReadableString());
 
     const registeredAccounts = await pxe.getRegisteredAccounts();
     logger.info(
@@ -91,5 +93,41 @@ describe('e2e_public_fees', () => {
     const tx = await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
 
     expect(tx.status).toBe(TxStatus.MINED);
+  });
+
+  describe('sequencer charges fees', () => {
+    beforeEach(async () => {
+      // give each one 1000 tokens
+      await asset.methods.mint_public(senderAddress, 1000n).send().wait();
+      await asset.methods.mint_public(recipientAddress, 1000n).send().wait();
+
+      // enable fee payments only for the sender account
+      await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
+
+      await aztecNode.setConfig({
+        chargeFees: true,
+      });
+    });
+
+    it('rejects transactions if fee payment information is not set', async () => {
+      // the recipient's account does not have fee payment information set up
+      const assetForRecipient = asset.withWallet(recipient);
+      await expect(
+        assetForRecipient.methods.transfer_public(recipientAddress, senderAddress, 100n, Fr.random()).send().wait(),
+      ).resolves.toEqual({
+        status: TxStatus.DROPPED,
+      });
+    });
+
+    it('executes the transaction and pays the appropriate fee', async () => {
+      await asset.methods
+        .transfer_public(sender.getAddress(), recipientAddress.address, 100n, Fr.random())
+        .send()
+        .wait();
+
+      expect(await asset.methods.balance_of_public(recipientAddress).view()).toBe(1100n);
+      expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(1n);
+      expect(await asset.methods.balance_of_public(senderAddress.address).view()).toBe(899n);
+    });
   });
 });

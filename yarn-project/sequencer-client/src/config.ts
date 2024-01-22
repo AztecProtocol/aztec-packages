@@ -44,6 +44,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     INBOX_CONTRACT_ADDRESS,
     CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
     OUTBOX_CONTRACT_ADDRESS,
+    SEQ_CHARGE_FEES,
   } = process.env;
 
   const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
@@ -72,5 +73,6 @@ export function getConfigEnvVars(): SequencerClientConfig {
     publisherPrivateKey,
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
     minTxsPerBlock: SEQ_MIN_TX_PER_BLOCK ? +SEQ_MIN_TX_PER_BLOCK : 1,
+    chargeFees: ['yes', 'true', '1'].includes(SEQ_CHARGE_FEES!),
   };
 }

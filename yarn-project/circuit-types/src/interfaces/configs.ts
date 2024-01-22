@@ -14,4 +14,9 @@ export interface SequencerConfig {
    * The minimum number of txs to include in a block.
    */
   minTxsPerBlock?: number;
+
+  /**
+   * Charge fees for transactions.
+   */
+  chargeFees?: boolean;
 }

@@ -33,6 +33,7 @@ export class Sequencer {
   private minTxsPerBLock = 1;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
+  private chargeFees = false;
 
   constructor(
     private publisher: L1Publisher,
@@ -63,6 +64,9 @@ export class Sequencer {
     }
     if (config.minTxsPerBlock) {
       this.minTxsPerBLock = config.minTxsPerBlock;
+    }
+    if (config.chargeFees) {
+      this.chargeFees = config.chargeFees;
     }
   }
 
@@ -299,6 +303,12 @@ export class Sequencer {
         this.log(`Skipping tx with double-spend for this same block ${await Tx.getHash(tx)}`);
         continue;
       }
+
+      // TODO
+      // if (this.chargeFees && !tx.data.end.feeData) {
+      //   txsToDelete.push(tx);
+      //   continue;
+      // }
 
       tx.data.end.newNullifiers.forEach(n => thisBlockNullifiers.add(n.value.toBigInt()));
       validTxs.push(tx);
