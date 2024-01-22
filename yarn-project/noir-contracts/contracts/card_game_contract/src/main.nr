@@ -242,8 +242,7 @@ contract CardGame {
         storage_slot: Field,
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
-        // let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        // note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
-        dep::std::unsafe::zeroed()
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
     }
 }
