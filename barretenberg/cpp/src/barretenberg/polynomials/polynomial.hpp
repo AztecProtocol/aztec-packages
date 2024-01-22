@@ -234,9 +234,7 @@ template <typename Fr> class Polynomial {
     static Polynomial random(const size_t num_coeffs)
     {
         Polynomial p(num_coeffs);
-        for (size_t i = 0; i < num_coeffs; ++i) {
-            p[i] = Fr::random_element();
-        }
+        std::generate_n(p.begin(), num_coeffs, [&]() { return Fr::random_element(); });
         return p;
     }
 
