@@ -1,5 +1,11 @@
 import { deployInitialTestAccounts } from '@aztec/accounts/testing';
-import { Archiver, KVArchiverDataStore, createArchiverRpcServer, getConfigEnvVars } from '@aztec/archiver';
+import {
+  Archiver,
+  ArchiverConfig,
+  KVArchiverDataStore,
+  createArchiverRpcServer,
+  getConfigEnvVars,
+} from '@aztec/archiver';
 import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
 import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
@@ -19,57 +25,9 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
+import { installSignalHandlers, mergeEnvVarsAndCliOptions, parseModuleOptions } from './util.js';
 
 const { AZTEC_PORT = '8080', AZTEC_NODE_URL, DEPLOY_AZTEC_CONTRACTS } = process.env;
-
-const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
-  const shutdown = async () => {
-    logFn('Shutting down...');
-    if (cb) {
-      await Promise.all(cb);
-    }
-    process.exit(0);
-  };
-  process.removeAllListeners('SIGINT');
-  process.removeAllListeners('SIGTERM');
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
-};
-
-/**
- * Parses a string of options into a key-value map.
- * @param options - String of options in the format "option1=value1,option2=value2".
- * @returns Key-value map of options.
- */
-const parseModuleOptions = (options: string): Record<string, string> => {
-  if (!options?.length) {
-    return {};
-  }
-  const optionsArray = options.split(',');
-  return optionsArray.reduce((acc, option) => {
-    const [key, value] = option.split('=');
-    return { ...acc, [key]: value };
-  }, {});
-};
-
-const mergeEnvVarsAndCliOptions = <T>(envVars: Record<string, any>, cliOptions: Record<string, string>) => {
-  const cliOptionsContracts = {
-    rollupAddress: cliOptions.rollupAddress,
-    registryAddress: cliOptions.registryAddress,
-    inboxAddress: cliOptions.inboxAddress,
-    outboxAddress: cliOptions.outboxAddress,
-    contractDeploymentEmitterAddress: cliOptions.contractDeploymentEmitterAddress,
-  };
-  const merged = {
-    ...envVars,
-    ...cliOptions,
-    l1Contracts: {
-      ...envVars.l1Contracts,
-      ...cliOptionsContracts,
-    },
-  } as T;
-  return merged;
-};
 
 /**
  * Returns commander program that defines the 'aztec' command line interface.
@@ -234,9 +192,13 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         // get env vars first
         const archiverConfigEnvVars = getConfigEnvVars();
         // get config from options
-        const archiverCliOptions = parseModuleOptions(options.pxe);
+        const archiverCliOptions = parseModuleOptions(options.archiver);
         // merge env vars and cli options
-        const archiverConfig = { ...archiverConfigEnvVars, ...archiverCliOptions };
+        const archiverConfig = mergeEnvVarsAndCliOptions<ArchiverConfig>(
+          archiverConfigEnvVars,
+          archiverCliOptions,
+          true,
+        );
 
         const store = await AztecLmdbStore.create(
           archiverConfig.l1Contracts.rollupAddress,

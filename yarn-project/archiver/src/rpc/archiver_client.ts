@@ -28,6 +28,6 @@ export const createArchiverClient = (url: string, fetch = makeFetch([1, 2, 3], t
     },
     {},
     false,
-    false,
+    'archiver',
     fetch,
   );
