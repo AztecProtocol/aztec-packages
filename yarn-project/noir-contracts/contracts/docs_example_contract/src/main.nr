@@ -14,6 +14,7 @@ mod types;
 contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::AztecAddress,
     };
     use dep::aztec::{
