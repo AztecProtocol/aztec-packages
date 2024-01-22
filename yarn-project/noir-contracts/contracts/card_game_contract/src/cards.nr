@@ -12,7 +12,6 @@ use dep::aztec::{
         note_viewer_options::NoteViewerOptions,
         note_getter::view_notes,
     },
-    oracle::nullifier_key::get_nullifier_secret_key,
     state_vars::set::Set,
 };
 use dep::std;

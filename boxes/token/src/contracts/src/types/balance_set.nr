@@ -18,10 +18,6 @@ use dep::aztec::note::{
     note_interface::NoteInterface,
     utils::compute_note_hash_for_read_or_nullify,
 };
-use dep::aztec::oracle::{
-    rand::rand,
-};
-
 use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
 
 // A set implementing standard manipulation of balances.
