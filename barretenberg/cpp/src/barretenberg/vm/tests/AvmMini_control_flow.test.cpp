@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-using namespace bb;
+using namespace avm_trace;
 
 class AvmMiniControlFlowTests : public ::testing::Test {
   public:

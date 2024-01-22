@@ -11,7 +11,6 @@
 #include <vector>
 
 using namespace avm_trace;
-
 class AvmMiniMemoryTests : public ::testing::Test {
   public:
     AvmMiniTraceBuilder trace_builder;

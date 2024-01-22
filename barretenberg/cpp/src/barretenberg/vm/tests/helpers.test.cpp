@@ -5,6 +5,8 @@
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 namespace avm_trace {
 /**
  * @brief Helper routine proving and verifying a proof based on the supplied trace
