@@ -139,6 +139,8 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10;
+    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     // Call accumulate to generate a GoblinUltraHonk proof
     auto proof = acir_composer.accumulate();
@@ -176,7 +178,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10;
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     // Generate a GoblinUltraHonk proof and a full Goblin proof

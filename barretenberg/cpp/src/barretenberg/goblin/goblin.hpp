@@ -147,12 +147,13 @@ class Goblin {
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
      * @details The merge proof is assumed to already have been constucted in the last accumulate step. It is simply
-     * copied into the final proof here.
+     * moved into the final proof here.
      *
      * @return Proof
      */
     Proof prove()
     {
+        goblin_proof.merge_proof = std::move(merge_proof);
         prove_eccvm();
         prove_translator();
         return goblin_proof;
