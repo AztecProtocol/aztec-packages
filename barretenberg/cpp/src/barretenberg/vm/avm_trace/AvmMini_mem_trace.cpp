@@ -112,19 +112,19 @@ bool AvmMiniMemTraceBuilder::load_in_mem_trace(
 {
     uint32_t sub_clk = 0;
     switch (interm_reg) {
-    case IntermRegister::ia:
+    case IntermRegister::IA:
         sub_clk = SUB_CLK_LOAD_A;
         break;
-    case IntermRegister::ib:
+    case IntermRegister::IB:
         sub_clk = SUB_CLK_LOAD_B;
         break;
-    case IntermRegister::ic:
+    case IntermRegister::IC:
         sub_clk = SUB_CLK_LOAD_C;
         break;
     }
 
     auto m_tag = memory_tag.at(addr);
-    if (m_tag == AvmMemoryTag::u0 || m_tag == m_in_tag) {
+    if (m_tag == AvmMemoryTag::U0 || m_tag == m_in_tag) {
         insert_in_mem_trace(clk, sub_clk, addr, val, m_in_tag, false);
         return true;
     }
@@ -149,13 +149,13 @@ void AvmMiniMemTraceBuilder::store_in_mem_trace(
 {
     uint32_t sub_clk = 0;
     switch (interm_reg) {
-    case IntermRegister::ia:
+    case IntermRegister::IA:
         sub_clk = SUB_CLK_STORE_A;
         break;
-    case IntermRegister::ib:
+    case IntermRegister::IB:
         sub_clk = SUB_CLK_STORE_B;
         break;
-    case IntermRegister::ic:
+    case IntermRegister::IC:
         sub_clk = SUB_CLK_STORE_C;
         break;
     }

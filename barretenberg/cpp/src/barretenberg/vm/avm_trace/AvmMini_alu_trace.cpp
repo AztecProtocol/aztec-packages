@@ -58,29 +58,29 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     uint128_t c_u128 = a_u128 + b_u128;
 
     switch (in_tag) {
-    case AvmMemoryTag::ff:
+    case AvmMemoryTag::FF:
         c = a + b;
         break;
-    case AvmMemoryTag::u8:
+    case AvmMemoryTag::U8:
         c = FF{ static_cast<uint8_t>(c_u128) };
         break;
-    case AvmMemoryTag::u16:
+    case AvmMemoryTag::U16:
         c = FF{ static_cast<uint16_t>(c_u128) };
         break;
-    case AvmMemoryTag::u32:
+    case AvmMemoryTag::U32:
         c = FF{ static_cast<uint32_t>(c_u128) };
         break;
-    case AvmMemoryTag::u64:
+    case AvmMemoryTag::U64:
         c = FF{ static_cast<uint64_t>(c_u128) };
         break;
-    case AvmMemoryTag::u128:
+    case AvmMemoryTag::U128:
         c = FF{ uint256_t::from_uint128(c_u128) };
         break;
-    case AvmMemoryTag::u0: // Unsupported as instruction tag
+    case AvmMemoryTag::U0: // Unsupported as instruction tag
         return FF{ 0 };
     }
 
-    if (in_tag != AvmMemoryTag::ff) {
+    if (in_tag != AvmMemoryTag::FF) {
         // a_u128 + b_u128 >= 2^128  <==> c_u128 < a_u128
         if (c_u128 < a_u128) {
             carry = true;
@@ -101,12 +101,12 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_add = true,
-        .alu_ff_tag = in_tag == AvmMemoryTag::ff,
-        .alu_u8_tag = in_tag == AvmMemoryTag::u8,
-        .alu_u16_tag = in_tag == AvmMemoryTag::u16,
-        .alu_u32_tag = in_tag == AvmMemoryTag::u32,
-        .alu_u64_tag = in_tag == AvmMemoryTag::u64,
-        .alu_u128_tag = in_tag == AvmMemoryTag::u128,
+        .alu_ff_tag = in_tag == AvmMemoryTag::FF,
+        .alu_u8_tag = in_tag == AvmMemoryTag::U8,
+        .alu_u16_tag = in_tag == AvmMemoryTag::U16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::U32,
+        .alu_u64_tag = in_tag == AvmMemoryTag::U64,
+        .alu_u128_tag = in_tag == AvmMemoryTag::U128,
         .alu_ia = a,
         .alu_ib = b,
         .alu_ic = c,
@@ -146,29 +146,29 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     uint128_t c_u128 = a_u128 - b_u128;
 
     switch (in_tag) {
-    case AvmMemoryTag::ff:
+    case AvmMemoryTag::FF:
         c = a - b;
         break;
-    case AvmMemoryTag::u8:
+    case AvmMemoryTag::U8:
         c = FF{ static_cast<uint8_t>(c_u128) };
         break;
-    case AvmMemoryTag::u16:
+    case AvmMemoryTag::U16:
         c = FF{ static_cast<uint16_t>(c_u128) };
         break;
-    case AvmMemoryTag::u32:
+    case AvmMemoryTag::U32:
         c = FF{ static_cast<uint32_t>(c_u128) };
         break;
-    case AvmMemoryTag::u64:
+    case AvmMemoryTag::U64:
         c = FF{ static_cast<uint64_t>(c_u128) };
         break;
-    case AvmMemoryTag::u128:
+    case AvmMemoryTag::U128:
         c = FF{ uint256_t::from_uint128(c_u128) };
         break;
-    case AvmMemoryTag::u0: // Unsupported as instruction tag
+    case AvmMemoryTag::U0: // Unsupported as instruction tag
         return FF{ 0 };
     }
 
-    if (in_tag != AvmMemoryTag::ff) {
+    if (in_tag != AvmMemoryTag::FF) {
         // Underflow when a_u128 < b_u128
         if (a_u128 < b_u128) {
             carry = true;
@@ -189,12 +189,12 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_sub = true,
-        .alu_ff_tag = in_tag == AvmMemoryTag::ff,
-        .alu_u8_tag = in_tag == AvmMemoryTag::u8,
-        .alu_u16_tag = in_tag == AvmMemoryTag::u16,
-        .alu_u32_tag = in_tag == AvmMemoryTag::u32,
-        .alu_u64_tag = in_tag == AvmMemoryTag::u64,
-        .alu_u128_tag = in_tag == AvmMemoryTag::u128,
+        .alu_ff_tag = in_tag == AvmMemoryTag::FF,
+        .alu_u8_tag = in_tag == AvmMemoryTag::U8,
+        .alu_u16_tag = in_tag == AvmMemoryTag::U16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::U32,
+        .alu_u64_tag = in_tag == AvmMemoryTag::U64,
+        .alu_u128_tag = in_tag == AvmMemoryTag::U128,
         .alu_ia = a,
         .alu_ib = b,
         .alu_ic = c,
@@ -232,22 +232,22 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     uint128_t c_u128 = a_u128 * b_u128; // Multiplication over the integers (not mod. 2^64)
 
     switch (in_tag) {
-    case AvmMemoryTag::ff:
+    case AvmMemoryTag::FF:
         c = a * b;
         break;
-    case AvmMemoryTag::u8:
+    case AvmMemoryTag::U8:
         c = FF{ static_cast<uint8_t>(c_u128) };
         break;
-    case AvmMemoryTag::u16:
+    case AvmMemoryTag::U16:
         c = FF{ static_cast<uint16_t>(c_u128) };
         break;
-    case AvmMemoryTag::u32:
+    case AvmMemoryTag::U32:
         c = FF{ static_cast<uint32_t>(c_u128) };
         break;
-    case AvmMemoryTag::u64:
+    case AvmMemoryTag::U64:
         c = FF{ static_cast<uint64_t>(c_u128) };
         break;
-    case AvmMemoryTag::u128: {
+    case AvmMemoryTag::U128: {
         uint256_t a_u256{ a };
         uint256_t b_u256{ b };
         uint256_t c_u256 = a_u256 * b_u256; // Multiplication over the integers (not mod. 2^128)
@@ -288,7 +288,7 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
             .alu_clk = clk,
             .alu_op_mul = true,
-            .alu_u128_tag = in_tag == AvmMemoryTag::u128,
+            .alu_u128_tag = in_tag == AvmMemoryTag::U128,
             .alu_ia = a,
             .alu_ib = b,
             .alu_ic = c,
@@ -303,12 +303,12 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
 
         return c;
     }
-    case AvmMemoryTag::u0: // Unsupported as instruction tag
+    case AvmMemoryTag::U0: // Unsupported as instruction tag
         return FF{ 0 };
     }
 
     // Following code executed for: u8, u16, u32, u64 (u128 returned handled specifically)
-    if (in_tag != AvmMemoryTag::ff) {
+    if (in_tag != AvmMemoryTag::FF) {
         // Decomposition of c_u128 into 8-bit and 16-bit registers as follows:
         // alu_u8_r0 + alu_u8_r1 * 2^8 + alu_u16_r0 * 2^16 ... +  alu_u16_r6 * 2^112
         uint128_t c_trunc_128 = c_u128;
@@ -327,11 +327,11 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_mul = true,
-        .alu_ff_tag = in_tag == AvmMemoryTag::ff,
-        .alu_u8_tag = in_tag == AvmMemoryTag::u8,
-        .alu_u16_tag = in_tag == AvmMemoryTag::u16,
-        .alu_u32_tag = in_tag == AvmMemoryTag::u32,
-        .alu_u64_tag = in_tag == AvmMemoryTag::u64,
+        .alu_ff_tag = in_tag == AvmMemoryTag::FF,
+        .alu_u8_tag = in_tag == AvmMemoryTag::U8,
+        .alu_u16_tag = in_tag == AvmMemoryTag::U16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::U32,
+        .alu_u64_tag = in_tag == AvmMemoryTag::U64,
         .alu_ia = a,
         .alu_ib = b,
         .alu_ic = c,
