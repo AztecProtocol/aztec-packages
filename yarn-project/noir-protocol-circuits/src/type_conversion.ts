@@ -5,7 +5,6 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  BlockHeader,
   CONTRACT_TREE_HEIGHT,
   CallContext,
   CallRequest,
@@ -75,12 +74,11 @@ import {
   StateDiffHints,
   StateReference,
   TxContext,
-  TxRequest,
+  TxRequest
 } from '@aztec/circuits.js';
 import { Tuple, from2Fields, mapTuple } from '@aztec/foundation/serialize';
 
 import {
-  BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
@@ -595,42 +593,6 @@ export function mapNullifierKeyValidationRequestContextFromNoir(
 }
 
 /**
- * Maps a block header to a noir block header.
- * @param blockHeader - The block header.
- * @returns The noir block header.
- */
-export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir {
-  return {
-    note_hash_tree_root: mapFieldToNoir(blockHeader.noteHashTreeRoot),
-    nullifier_tree_root: mapFieldToNoir(blockHeader.nullifierTreeRoot),
-    contract_tree_root: mapFieldToNoir(blockHeader.contractTreeRoot),
-    l1_to_l2_message_tree_root: mapFieldToNoir(blockHeader.l1ToL2MessageTreeRoot),
-    archive_root: mapFieldToNoir(blockHeader.archiveRoot),
-    public_data_tree_root: mapFieldToNoir(blockHeader.publicDataTreeRoot),
-    global_variables_hash: mapFieldToNoir(blockHeader.globalVariablesHash),
-    // TODO(#3441)
-  };
-}
-
-/**
- * Maps a noir block header to a block header.
- * @param blockHeader - The noir block header.
- * @returns The block header.
- */
-export function mapBlockHeaderFromNoir(blockHeader: BlockHeaderNoir): BlockHeader {
-  return new BlockHeader(
-    mapFieldFromNoir(blockHeader.note_hash_tree_root),
-    mapFieldFromNoir(blockHeader.nullifier_tree_root),
-    mapFieldFromNoir(blockHeader.contract_tree_root),
-    mapFieldFromNoir(blockHeader.l1_to_l2_message_tree_root),
-    mapFieldFromNoir(blockHeader.archive_root),
-    Fr.zero(), // TODO(#3441)
-    mapFieldFromNoir(blockHeader.public_data_tree_root),
-    mapFieldFromNoir(blockHeader.global_variables_hash),
-  );
-}
-
-/**
  * Maps private circuit public inputs to noir private circuit public inputs.
  * @param privateCircuitPublicInputs - The private circuit public inputs.
  * @returns The noir private circuit public inputs.
@@ -657,7 +619,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     unencrypted_logs_hash: mapTuple(privateCircuitPublicInputs.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
-    block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.blockHeader),
+    block_header: mapHeaderFromNoir(privateCircuitPublicInputs.blockHeader),
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),

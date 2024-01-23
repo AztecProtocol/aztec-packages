@@ -38,4 +38,27 @@ export class Header {
       reader.readObject(GlobalVariables),
     );
   }
+
+  static empty(): Header {
+    return new Header(
+      AppendOnlyTreeSnapshot.empty(),
+      Buffer.alloc(NUM_BYTES_PER_SHA256),
+      StateReference.empty(),
+      GlobalVariables.empty(),
+    );
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.lastArchive.isEmpty() &&
+      this.bodyHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
+      this.state.isEmpty() &&
+      this.globalVariables.isEmpty()
+    );
+  }
+
+  static fromString(str: string): Header {
+    const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
+    return Header.fromBuffer(buffer);
+  }
 }

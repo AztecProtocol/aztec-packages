@@ -1,9 +1,10 @@
 import {
-  BlockHeader,
   CallContext,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  FunctionSelector,
+  Header,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -100,7 +101,7 @@ export function extractPrivateCircuitPublicInputs(
   const encryptedLogPreimagesLength = witnessReader.readField();
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  const blockHeader = new BlockHeader(
+  const blockHeader = new Header(
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),

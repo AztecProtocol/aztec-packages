@@ -27,7 +27,25 @@ export class PartialStateReference {
     );
   }
 
+  static empty(): PartialStateReference {
+    return new PartialStateReference(
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+    );
+  }
+
   toBuffer() {
     return serializeToBuffer(this.noteHashTree, this.nullifierTree, this.contractTree, this.publicDataTree);
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.noteHashTree.isEmpty() &&
+      this.nullifierTree.isEmpty() &&
+      this.contractTree.isEmpty() &&
+      this.publicDataTree.isEmpty()
+    );
   }
 }

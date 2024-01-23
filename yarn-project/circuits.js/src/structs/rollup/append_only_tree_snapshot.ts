@@ -46,4 +46,8 @@ export class AppendOnlyTreeSnapshot {
   static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
+
+  isEmpty(): boolean {
+    return this.root.isZero() && this.nextAvailableLeafIndex === 0;
+  }
 }

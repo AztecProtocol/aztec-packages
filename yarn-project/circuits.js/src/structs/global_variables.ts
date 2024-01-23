@@ -69,4 +69,8 @@ export class GlobalVariables {
       timestamp: this.timestamp.toString(),
     };
   }
+
+  isEmpty(): boolean {
+    return this.chainId.isZero() && this.version.isZero() && this.blockNumber.isZero() && this.timestamp.isZero();
+  }
 }

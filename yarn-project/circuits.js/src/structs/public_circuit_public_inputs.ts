@@ -15,7 +15,7 @@ import {
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
-import { BlockHeader, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
+import { Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 
 /**
  * Contract storage read operation on a specific contract.
@@ -198,9 +198,9 @@ export class PublicCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Root of the commitment trees when the call started.
+     * L2 block header of the block used when executing the call.
      */
-    public blockHeader: BlockHeader,
+    public blockHeader: Header,
     /**
      * Address of the prover.
      */
@@ -233,7 +233,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.ZERO,
-      BlockHeader.empty(),
+      Header.empty(),
       AztecAddress.ZERO,
     );
   }

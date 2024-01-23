@@ -23,4 +23,12 @@ export class StateReference {
     const reader = BufferReader.asReader(buffer);
     return new StateReference(reader.readObject(AppendOnlyTreeSnapshot), reader.readObject(PartialStateReference));
   }
+
+  static empty(): StateReference {
+    return new StateReference(AppendOnlyTreeSnapshot.empty(), PartialStateReference.empty());
+  }
+
+  isEmpty(): boolean {
+    return this.l1ToL2MessageTree.isEmpty() && this.partial.isEmpty();
+  }
 }
