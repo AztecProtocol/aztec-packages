@@ -54,8 +54,6 @@ The structure of each private function within the protocol is the following:
 | `function_selector` | `u32` | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. |
 | `vk_hash` | `Field` | Hash of the verification key associated to this private function. |
 
-<!-- @iamMichaelConnor: WDYT about using the vk_hash as selector, and remove yet another thingie from the protocol? -->
-
 Note the lack of visibility modifiers. Internal functions are specified as a macro, and the check is handled at the application circuit level by verifying that the `context.msg_sender` equals the contract current address.
 
 Also note the lack of commitment to the function compilation artifact. Even though a commitment to a function is required so that the PXE can verify the execution of correct unconstrained Brillig code embedded within private functions, this is handled entirely out of protocol. As such, PXEs are expected to verify it against the `artifact_hash` in the containing contract class.
