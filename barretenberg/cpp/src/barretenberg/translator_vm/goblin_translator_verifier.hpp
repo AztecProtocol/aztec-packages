@@ -3,7 +3,7 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 class GoblinTranslatorVerifier {
   public:
     using Flavor = honk::flavor::GoblinTranslator;
@@ -12,7 +12,7 @@ class GoblinTranslatorVerifier {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using TranslationEvaluations = barretenberg::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations;
     using Transcript = typename Flavor::Transcript;
 
     BF evaluation_input_x = 0;
@@ -38,4 +38,4 @@ class GoblinTranslatorVerifier {
     bool verify_proof(const plonk::proof& proof);
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
-} // namespace proof_system::honk
+} // namespace bb::honk

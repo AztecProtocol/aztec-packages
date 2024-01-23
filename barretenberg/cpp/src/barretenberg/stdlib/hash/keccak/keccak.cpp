@@ -3,10 +3,9 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
@@ -91,13 +90,13 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
      * stdlib::plookup cannot derive witnesses in the above pattern without a substantial rewrite,
      * so we do it manually in this method!
      **/
-    plookup::ReadData<barretenberg::fr> lookup;
+    plookup::ReadData<bb::fr> lookup;
 
     // compute plookup witness values for a given slice
     // (same lambda can be used to compute witnesses for left and right slices)
     auto compute_lookup_witnesses_for_limb = [&]<size_t limb_bits, size_t num_lookups>(uint256_t& normalized) {
         // (use a constexpr loop to make some pow and div operations compile-time)
-        barretenberg::constexpr_for<0, num_lookups, 1>([&]<size_t i> {
+        bb::constexpr_for<0, num_lookups, 1>([&]<size_t i> {
             constexpr size_t num_bits_processed = i * max_bits_per_table;
 
             // How many bits can this slice contain?
@@ -889,8 +888,7 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
     }
     return result;
 }
-template class keccak<proof_system::UltraCircuitBuilder>;
-template class keccak<proof_system::GoblinUltraCircuitBuilder>;
+template class keccak<bb::UltraCircuitBuilder>;
+template class keccak<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

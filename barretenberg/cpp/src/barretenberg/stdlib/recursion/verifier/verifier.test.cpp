@@ -12,11 +12,11 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
-    using InnerComposer = proof_system::plonk::UltraComposer;
+    using InnerComposer = bb::plonk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
 
     using OuterBuilder = typename OuterComposer::CircuitBuilder;
@@ -36,7 +36,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
     using inner_scalar_field = typename inner_curve::ScalarFieldNative;
     using outer_scalar_field = typename outer_curve::BaseFieldNative;
-    using pairing_target_field = barretenberg::fq12;
+    using pairing_target_field = bb::fq12;
 
     // These constexpr definitions are to allow for the following: An Ultra Pedersen hash evaluates to a
     // different value from the Standard version of the Pedersen hash. Therefore, the fiat-shamir
@@ -46,7 +46,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
     // select the relevant prover and verifier types (whose settings use the same hash for fiat-shamir),
     // depending on the Inner-Outer combo. It's a bit clunky, but the alternative is to have a template argument
     // for the hashtype, and that would pervade the entire UltraPlonkComposer, which would be horrendous.
-    static constexpr bool is_ultra_to_ultra = std::is_same_v<OuterComposer, proof_system::plonk::UltraComposer>;
+    static constexpr bool is_ultra_to_ultra = std::is_same_v<OuterComposer, bb::plonk::UltraComposer>;
     using ProverOfInnerCircuit =
         std::conditional_t<is_ultra_to_ultra, plonk::UltraProver, plonk::UltraToStandardProver>;
     using VerifierOfInnerProof =
@@ -212,7 +212,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         plonk::proof proof_to_recursively_verify_b = prover.construct_proof();
 
-        auto output = proof_system::plonk::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        auto output = bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
             &outer_circuit, verification_key_b, recursive_manifest, proof_to_recursively_verify_b, previous_output);
 
         verification_key_b->hash();
@@ -265,8 +265,8 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        proof_system::plonk::stdlib::recursion::aggregation_state<outer_curve> output =
-            proof_system::plonk::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
+        bb::stdlib::recursion::aggregation_state<outer_curve> output =
+            bb::stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 
         return { output, verification_key };
@@ -282,8 +282,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
      * @return boolean result
      */
 
-    static bool check_recursive_proof_public_inputs(OuterBuilder& builder,
-                                                    const barretenberg::pairing::miller_lines* lines)
+    static bool check_recursive_proof_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
         if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() == 16) {
             const auto& inputs = builder.public_inputs;
@@ -294,9 +293,9 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
                     const uint256_t l2 = builder.get_variable(inputs[idx2]);
                     const uint256_t l3 = builder.get_variable(inputs[idx3]);
 
-                    const uint256_t limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                                           (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                                           (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                    const uint256_t limb = l0 + (l1 << plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                                           (l2 << (plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                                           (l3 << (plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
                     return outer_scalar_field(limb);
                 };
 
@@ -321,8 +320,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
                 { x1, y1 },
             };
 
-            pairing_target_field result =
-                barretenberg::pairing::reduced_ate_pairing_batch_precomputed(P_affine, lines, 2);
+            pairing_target_field result = bb::pairing::reduced_ate_pairing_batch_precomputed(P_affine, lines, 2);
 
             return (result == pairing_target_field::one());
         }
@@ -334,14 +332,13 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
     static void check_pairing(const circuit_outputs& circuit_output)
     {
-        auto g2_lines = barretenberg::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
+        auto g2_lines = bb::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         g1::affine_element P[2];
         P[0].x = outer_scalar_field(circuit_output.aggregation_state.P0.x.get_value().lo);
         P[0].y = outer_scalar_field(circuit_output.aggregation_state.P0.y.get_value().lo);
         P[1].x = outer_scalar_field(circuit_output.aggregation_state.P1.x.get_value().lo);
         P[1].y = outer_scalar_field(circuit_output.aggregation_state.P1.y.get_value().lo);
-        pairing_target_field inner_proof_result =
-            barretenberg::pairing::reduced_ate_pairing_batch_precomputed(P, g2_lines, 2);
+        pairing_target_field inner_proof_result = bb::pairing::reduced_ate_pairing_batch_precomputed(P, g2_lines, 2);
         EXPECT_EQ(inner_proof_result, pairing_target_field::one());
     }
 
@@ -350,12 +347,12 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         info("number of gates in recursive verification circuit = ", outer_circuit.get_num_gates());
         bool result = outer_circuit.check_circuit();
         EXPECT_EQ(result, expected_result);
-        auto g2_lines = barretenberg::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
+        auto g2_lines = bb::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         EXPECT_EQ(check_recursive_proof_public_inputs(outer_circuit, g2_lines), true);
     }
 
   public:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     static void test_inner_circuit()
     {
@@ -583,7 +580,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition)
 
 HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
 {
-    if constexpr (std::same_as<TypeParam, UltraComposer>) {
+    if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_recursive_proof_composition_ultra_no_tables();
     } else {
         GTEST_SKIP();
@@ -592,7 +589,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
 
 HEAVY_TYPED_TEST(stdlib_verifier, double_verification)
 {
-    if constexpr (std::same_as<TypeParam, UltraComposer>) {
+    if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_double_verification();
     } else {
         // Test doesn't compile-.
@@ -620,4 +617,4 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_const_verif_key)
     TestFixture::test_recursive_proof_composition_with_constant_verification_key();
 }
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

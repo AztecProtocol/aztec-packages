@@ -10,7 +10,7 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 } // namespace
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 /**
  * @brief A test fixture that will let us generate VK data and run tests
@@ -20,10 +20,10 @@ using namespace proof_system::plonk;
  */
 template <typename Builder> class VerificationKeyFixture : public testing::Test {
   public:
-    using Curve = proof_system::plonk::stdlib::bn254<Builder>;
-    using RecursVk = proof_system::plonk::stdlib::recursion::verification_key<Curve>;
+    using Curve = bb::stdlib::bn254<Builder>;
+    using RecursVk = bb::stdlib::recursion::verification_key<Curve>;
 
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     /**
      * @brief generate a random vk data for use in tests
@@ -44,7 +44,7 @@ template <typename Builder> class VerificationKeyFixture : public testing::Test 
     }
 };
 
-using CircuitTypes = testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(VerificationKeyFixture, CircuitTypes);
 
 TYPED_TEST(VerificationKeyFixture, VkDataVsRecursionHashNative)
@@ -55,7 +55,7 @@ TYPED_TEST(VerificationKeyFixture, VkDataVsRecursionHashNative)
     verification_key_data vk_data = TestFixture::rand_vk_data();
     verification_key_data vk_data_copy = vk_data;
 
-    auto file_crs = std::make_unique<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto file_crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
     auto file_verifier = file_crs->get_verifier_crs();
 
     auto native_vk = std::make_shared<verification_key>(std::move(vk_data_copy), file_verifier);
@@ -75,7 +75,7 @@ TYPED_TEST(VerificationKeyFixture, HashVsHashNative)
 
     verification_key_data vk_data = TestFixture::rand_vk_data();
 
-    auto file_crs = std::make_unique<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto file_crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
     auto file_verifier = file_crs->get_verifier_crs();
 
     auto native_vk = std::make_shared<verification_key>(std::move(vk_data), file_verifier);

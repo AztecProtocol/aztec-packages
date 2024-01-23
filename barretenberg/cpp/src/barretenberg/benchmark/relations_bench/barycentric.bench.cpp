@@ -8,11 +8,11 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-using FF = barretenberg::fr;
-using barretenberg::BarycentricData;
-using barretenberg::Univariate;
+using FF = bb::fr;
+using bb::BarycentricData;
+using bb::Univariate;
 
-namespace proof_system::benchmark {
+namespace bb::benchmark {
 
 void extend_2_to_6(State& state) noexcept
 {
@@ -23,4 +23,4 @@ void extend_2_to_6(State& state) noexcept
 }
 BENCHMARK(extend_2_to_6);
 
-} // namespace proof_system::benchmark
+} // namespace bb::benchmark

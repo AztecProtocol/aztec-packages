@@ -4,12 +4,9 @@
 #include "./asset_id.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace circuit {
+namespace bb::join_split_example::proofs::notes::circuit {
 
-using namespace proof_system::plonk::stdlib;
+using namespace bb::stdlib;
 
 constexpr uint32_t input_asset_id_a_shift = DEFI_BRIDGE_ADDRESS_ID_LEN;
 constexpr uint32_t input_asset_id_b_shift = input_asset_id_a_shift + DEFI_BRIDGE_INPUT_A_ASSET_ID_LEN;
@@ -216,7 +213,4 @@ inline std::ostream& operator<<(std::ostream& os, bridge_call_data const& bridge
     return os;
 }
 
-} // namespace circuit
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::notes::circuit

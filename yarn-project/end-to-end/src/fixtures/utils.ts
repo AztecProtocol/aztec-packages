@@ -20,10 +20,10 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import {
+  AvailabilityOracleAbi,
+  AvailabilityOracleBytecode,
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
-  DecoderHelperAbi,
-  DecoderHelperBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -71,7 +71,6 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  deployDecoderHelper = false,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractDeploymentEmitter: {
@@ -90,17 +89,15 @@ export const setupL1Contracts = async (
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
     },
+    availabilityOracle: {
+      contractAbi: AvailabilityOracleAbi,
+      contractBytecode: AvailabilityOracleBytecode,
+    },
     rollup: {
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
   };
-  if (deployDecoderHelper) {
-    l1Artifacts.decoderHelper = {
-      contractAbi: DecoderHelperAbi,
-      contractBytecode: DecoderHelperBytecode,
-    };
-  }
   return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);
 };
 
@@ -288,12 +285,7 @@ export async function setup(
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, hdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  config.l1Contracts.rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-  config.l1Contracts.registryAddress = deployL1ContractsValues.l1ContractAddresses.registryAddress;
-  config.l1Contracts.contractDeploymentEmitterAddress =
-    deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
-  config.l1Contracts.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
-  config.l1Contracts.outboxAddress = deployL1ContractsValues.l1ContractAddresses.outboxAddress;
+  config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(config);

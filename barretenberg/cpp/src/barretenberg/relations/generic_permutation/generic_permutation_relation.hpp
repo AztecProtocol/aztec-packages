@@ -15,7 +15,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb::honk::sumcheck {
 /**
  * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
  *
@@ -151,10 +151,9 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         auto result = Accumulator(0);
 
         // Iterate over tuple and sum as a polynomial over beta
-        barretenberg::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX,
-                                    PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
-                                    1>(
-            [&]<size_t i>() { result = result * params.beta + View(std::get<i>(all_polynomials)); });
+        bb::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX,
+                          PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
+                          1>([&]<size_t i>() { result = result * params.beta + View(std::get<i>(all_polynomials)); });
 
         const auto& gamma = params.gamma;
         return result + gamma;
@@ -182,10 +181,9 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 
         auto result = Accumulator(0);
         // Iterate over tuple and sum as a polynomial over beta
-        barretenberg::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
-                                    PERMUTATION_SETS_START_POLYNOMIAL_INDEX + 2 * Settings::COLUMNS_PER_SET,
-                                    1>(
-            [&]<size_t i>() { result = result * params.beta + View(std::get<i>(used_entities)); });
+        bb::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
+                          PERMUTATION_SETS_START_POLYNOMIAL_INDEX + 2 * Settings::COLUMNS_PER_SET,
+                          1>([&]<size_t i>() { result = result * params.beta + View(std::get<i>(used_entities)); });
 
         const auto& gamma = params.gamma;
         return result + gamma;
@@ -215,4 +213,4 @@ using GenericPermutationRelation = Relation<GenericPermutationRelationImpl<Setti
 
 template <typename Settings, typename FF> using GenericPermutation = GenericPermutationRelationImpl<Settings, FF>;
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb::honk::sumcheck

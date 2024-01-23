@@ -6,7 +6,7 @@ use dep::aztec::{
         utils::compute_note_hash_for_read_or_nullify,
     },
     oracle::{
-        get_secret_key::get_secret_key,
+        nullifier_key::get_nullifier_secret_key,
         get_public_key::get_public_key,
     },
     log::emit_encrypted_log,
@@ -14,35 +14,37 @@ use dep::aztec::{
     context::PrivateContext,
 };
 
+// Shows how to create a custom note
+
 global CARD_NOTE_LEN: Field = 3;
 
 // docs:start:state_vars-CardNote
 struct CardNote {
     points: u8,
-    secret: Field,
+    randomness: Field,
     owner: AztecAddress,
     header: NoteHeader,
 }
 // docs:end:state_vars-CardNote
 
 impl CardNote {
-    pub fn new(points: u8, secret: Field, owner: AztecAddress) -> Self {
+    pub fn new(points: u8, randomness: Field, owner: AztecAddress) -> Self {
         CardNote {
             points,
-            secret,
+            randomness,
             owner,
             header: NoteHeader::empty(),
         }
     }
 
     pub fn serialize(self) -> [Field; CARD_NOTE_LEN] {
-        [self.points as Field, self.secret, self.owner.to_field()]
+        [self.points as Field, self.randomness, self.owner.to_field()]
     }
 
     pub fn deserialize(serialized_note: [Field; CARD_NOTE_LEN]) -> Self {
         CardNote {
             points: serialized_note[0] as u8,
-            secret: serialized_note[1],
+            randomness: serialized_note[1],
             owner: AztecAddress::from_field(serialized_note[2]),
             header: NoteHeader::empty(),
         }
@@ -51,14 +53,24 @@ impl CardNote {
     pub fn compute_note_hash(self) -> Field {
         pedersen_hash([
             self.points as Field, 
-            self.secret,
+            self.randomness,
             self.owner.to_field(),
         ],0)
     }
 
-    pub fn compute_nullifier(self) -> Field {
+    pub fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(CardNoteMethods, self);
-        let secret = get_secret_key(self.owner);
+        let secret = context.request_nullifier_secret_key(self.owner);
+        pedersen_hash([
+            note_hash_for_nullify,
+            secret.high,
+            secret.low,
+        ],0)
+    }
+
+    pub fn compute_nullifier_without_context(self) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(CardNoteMethods, self);
+        let secret = get_nullifier_secret_key(self.owner);
         pedersen_hash([
             note_hash_for_nullify,
             secret.high,
@@ -95,8 +107,12 @@ fn compute_note_hash(note: CardNote) -> Field {
     note.compute_note_hash()
 }
 
-fn compute_nullifier(note: CardNote) -> Field {
-    note.compute_nullifier()
+fn compute_nullifier(note: CardNote, context: &mut PrivateContext) -> Field {
+    note.compute_nullifier(context)
+}
+
+fn compute_nullifier_without_context(note: CardNote) -> Field {
+    note.compute_nullifier_without_context()
 }
 
 fn get_header(note: CardNote) -> NoteHeader {
@@ -117,6 +133,7 @@ global CardNoteMethods = NoteInterface {
     serialize,
     compute_note_hash,
     compute_nullifier,
+    compute_nullifier_without_context,
     get_header,
     set_header,
     broadcast,

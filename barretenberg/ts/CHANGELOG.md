@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.20.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.19.0...barretenberg.js-v0.20.0) (2024-01-22)
+
+
+### Features
+
+* Goblin acir composer ([#4112](https://github.com/AztecProtocol/aztec-packages/issues/4112)) ([5e85b92](https://github.com/AztecProtocol/aztec-packages/commit/5e85b92f48bc31fe55315de9f45c4907e417cb6a))
+
+## [0.19.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.18.0...barretenberg.js-v0.19.0) (2024-01-17)
+
+
+### Miscellaneous
+
+* Barretenberg =&gt; bb namespace shortening ([#4066](https://github.com/AztecProtocol/aztec-packages/issues/4066)) ([e6b66b8](https://github.com/AztecProtocol/aztec-packages/commit/e6b66b856db498e6fc465212f3645cf2c196c31a))
+
+## [0.18.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.17.0...barretenberg.js-v0.18.0) (2024-01-16)
+
+
+### Features
+
+* Bootstrap cache v2 ([#3876](https://github.com/AztecProtocol/aztec-packages/issues/3876)) ([331598d](https://github.com/AztecProtocol/aztec-packages/commit/331598d369ab9bb91dcc48d50bdd8df0684f0b79))
+
+
+### Bug Fixes
+
+* Dont spam logs with yarn install ([#4027](https://github.com/AztecProtocol/aztec-packages/issues/4027)) ([949c5ab](https://github.com/AztecProtocol/aztec-packages/commit/949c5abf1df399f691f17c19fab64f0e36476219))
+
 ## [0.17.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.9...barretenberg.js-v0.17.0) (2024-01-09)
 
 

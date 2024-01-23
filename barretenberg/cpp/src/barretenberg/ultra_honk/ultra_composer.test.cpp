@@ -16,15 +16,14 @@
 #include <string>
 #include <vector>
 
-using namespace proof_system::honk;
-
-namespace test_ultra_honk_composer {
+using namespace bb;
+using namespace bb::honk;
 
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<barretenberg::fr> variables)
+std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
 {
     std::vector<uint32_t> res;
     for (size_t i = 0; i < variables.size(); i++) {
@@ -54,10 +53,10 @@ void ensure_non_zero(auto& polynomial)
 
 class UltraHonkComposerTests : public ::testing::Test {
   public:
-    using fr = barretenberg::fr;
+    using fr = bb::fr;
 
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 /**
@@ -69,7 +68,7 @@ class UltraHonkComposerTests : public ::testing::Test {
  */
 TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     auto composer = UltraComposer();
     auto instance = composer.create_instance(circuit_builder);
@@ -96,7 +95,7 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
  */
 TEST_F(UltraHonkComposerTests, PublicInputs)
 {
-    auto builder = proof_system::UltraCircuitBuilder();
+    auto builder = bb::UltraCircuitBuilder();
     size_t num_gates = 10;
 
     // Add some arbitrary arithmetic gates that utilize public inputs
@@ -120,7 +119,7 @@ TEST_F(UltraHonkComposerTests, PublicInputs)
 
 TEST_F(UltraHonkComposerTests, XorConstraint)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     uint32_t left_value = engine.get_random_uint32();
     uint32_t right_value = engine.get_random_uint32();
@@ -142,15 +141,15 @@ TEST_F(UltraHonkComposerTests, XorConstraint)
     circuit_builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::UINT32_XOR, lookup_accumulators, left_witness_index, right_witness_index);
 
-    auto composer = UltraComposer(barretenberg::srs::get_crs_factory());
+    auto composer = UltraComposer(bb::srs::get_crs_factory());
     prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
 }
 
 TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
-    barretenberg::fr input_value = fr::random_element();
+    bb::fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -215,7 +214,7 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
 
 TEST_F(UltraHonkComposerTests, test_no_lookup_proof)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     for (size_t i = 0; i < 16; ++i) {
         for (size_t j = 0; j < 16; ++j) {
@@ -240,7 +239,7 @@ TEST_F(UltraHonkComposerTests, test_elliptic_gate)
 {
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     affine_element p1 = affine_element::random_element();
     affine_element p2 = affine_element::random_element();
@@ -272,7 +271,7 @@ TEST_F(UltraHonkComposerTests, test_elliptic_gate)
 
 TEST_F(UltraHonkComposerTests, non_trivial_tag_permutation)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     fr a = fr::random_element();
     fr b = -a;
 
@@ -300,7 +299,7 @@ TEST_F(UltraHonkComposerTests, non_trivial_tag_permutation)
 
 TEST_F(UltraHonkComposerTests, non_trivial_tag_permutation_and_cycles)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     fr a = fr::random_element();
     fr c = -a;
 
@@ -339,7 +338,7 @@ TEST_F(UltraHonkComposerTests, non_trivial_tag_permutation_and_cycles)
 TEST_F(UltraHonkComposerTests, bad_tag_permutation)
 {
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         fr a = fr::random_element();
         fr b = -a;
 
@@ -364,7 +363,7 @@ TEST_F(UltraHonkComposerTests, bad_tag_permutation)
     }
     // Same as above but without tag creation to check reason of failure is really tag mismatch
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         fr a = fr::random_element();
         fr b = -a;
 
@@ -384,7 +383,7 @@ TEST_F(UltraHonkComposerTests, bad_tag_permutation)
 
 TEST_F(UltraHonkComposerTests, sort_widget)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -412,7 +411,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
     fr h = fr(8);
 
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto a_idx = circuit_builder.add_variable(a);
         auto b_idx = circuit_builder.add_variable(b);
         auto c_idx = circuit_builder.add_variable(c);
@@ -429,7 +428,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
     }
 
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto a_idx = circuit_builder.add_variable(a);
         auto b_idx = circuit_builder.add_variable(b);
         auto c_idx = circuit_builder.add_variable(c);
@@ -445,7 +444,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/false);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto a_idx = circuit_builder.add_variable(a);
         auto b_idx = circuit_builder.add_variable(b);
         auto c_idx = circuit_builder.add_variable(c);
@@ -461,7 +460,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/false);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto a_idx = circuit_builder.add_variable(a);
         auto c_idx = circuit_builder.add_variable(c);
         auto d_idx = circuit_builder.add_variable(d);
@@ -477,7 +476,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/false);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto idx = add_variables(circuit_builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
                                                     26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         circuit_builder.create_sort_constraint_with_edges(idx, 1, 45);
@@ -486,7 +485,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto idx = add_variables(circuit_builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
                                                     26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         circuit_builder.create_sort_constraint_with_edges(idx, 1, 29);
@@ -499,7 +498,7 @@ TEST_F(UltraHonkComposerTests, sort_with_edges_gate)
 TEST_F(UltraHonkComposerTests, range_constraint)
 {
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto indices = add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 8);
@@ -511,7 +510,7 @@ TEST_F(UltraHonkComposerTests, range_constraint)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto indices = add_variables(circuit_builder, { 3 });
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 3);
@@ -523,7 +522,7 @@ TEST_F(UltraHonkComposerTests, range_constraint)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto indices = add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 8);
@@ -534,7 +533,7 @@ TEST_F(UltraHonkComposerTests, range_constraint)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/false);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto indices =
             add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
         for (size_t i = 0; i < indices.size(); i++) {
@@ -546,7 +545,7 @@ TEST_F(UltraHonkComposerTests, range_constraint)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto indices =
             add_variables(circuit_builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
@@ -558,7 +557,7 @@ TEST_F(UltraHonkComposerTests, range_constraint)
         prove_and_verify(circuit_builder, composer, /*expected_result=*/false);
     }
     {
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         auto indices =
             add_variables(circuit_builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
@@ -573,7 +572,7 @@ TEST_F(UltraHonkComposerTests, range_constraint)
 
 TEST_F(UltraHonkComposerTests, range_with_gates)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     auto idx = add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
         circuit_builder.create_new_range_constraint(idx[i], 8);
@@ -592,7 +591,7 @@ TEST_F(UltraHonkComposerTests, range_with_gates)
 
 TEST_F(UltraHonkComposerTests, range_with_gates_where_range_is_not_a_power_of_two)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     auto idx = add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
         circuit_builder.create_new_range_constraint(idx[i], 12);
@@ -613,7 +612,7 @@ TEST_F(UltraHonkComposerTests, sort_widget_complex)
 {
     {
 
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
@@ -625,7 +624,7 @@ TEST_F(UltraHonkComposerTests, sort_widget_complex)
     }
     {
 
-        auto circuit_builder = proof_system::UltraCircuitBuilder();
+        auto circuit_builder = bb::UltraCircuitBuilder();
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
@@ -639,7 +638,7 @@ TEST_F(UltraHonkComposerTests, sort_widget_complex)
 
 TEST_F(UltraHonkComposerTests, sort_widget_neg)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -657,7 +656,7 @@ TEST_F(UltraHonkComposerTests, sort_widget_neg)
 
 TEST_F(UltraHonkComposerTests, composed_range_constraint)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     auto c = fr::random_element();
     auto d = uint256_t(c).slice(0, 133);
     auto e = fr(d);
@@ -671,8 +670,8 @@ TEST_F(UltraHonkComposerTests, composed_range_constraint)
 
 TEST_F(UltraHonkComposerTests, non_native_field_multiplication)
 {
-    using fq = barretenberg::fq;
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    using fq = bb::fq;
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     fq a = fq::random_element();
     fq b = fq::random_element();
@@ -716,7 +715,7 @@ TEST_F(UltraHonkComposerTests, non_native_field_multiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    proof_system::non_native_field_witnesses<fr> inputs{
+    bb::non_native_field_witnesses<fr> inputs{
         a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
     };
     const auto [lo_1_idx, hi_1_idx] = circuit_builder.evaluate_non_native_field_multiplication(inputs);
@@ -728,7 +727,7 @@ TEST_F(UltraHonkComposerTests, non_native_field_multiplication)
 
 TEST_F(UltraHonkComposerTests, rom)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     uint32_t rom_values[8]{
         circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
@@ -770,7 +769,7 @@ TEST_F(UltraHonkComposerTests, rom)
 
 TEST_F(UltraHonkComposerTests, ram)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     uint32_t ram_values[8]{
         circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
@@ -834,7 +833,7 @@ TEST_F(UltraHonkComposerTests, ram)
 
 TEST_F(UltraHonkComposerTests, range_checks_on_duplicates)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     uint32_t a = circuit_builder.add_variable(100);
     uint32_t b = circuit_builder.add_variable(100);
@@ -874,7 +873,7 @@ TEST_F(UltraHonkComposerTests, range_checks_on_duplicates)
 // before range constraints are applied to it.
 TEST_F(UltraHonkComposerTests, range_constraint_small_variable)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
 
     uint16_t mask = (1 << 8) - 1;
     int a = engine.get_random_uint16() & mask;
@@ -891,5 +890,3 @@ TEST_F(UltraHonkComposerTests, range_constraint_small_variable)
     auto composer = UltraComposer();
     prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
 }
-
-} // namespace test_ultra_honk_composer

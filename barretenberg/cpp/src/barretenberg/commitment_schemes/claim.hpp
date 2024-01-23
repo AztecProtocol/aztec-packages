@@ -3,7 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
-namespace proof_system::honk::pcs {
+namespace bb::honk::pcs {
 /**
  * @brief Opening pair (r,v) for some witness polynomial p(X) such that p(r) = v
  *
@@ -26,7 +26,7 @@ template <typename Curve> class OpeningPair {
  */
 template <typename Curve> class ProverOpeningClaim {
     using Fr = typename Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
   public:
     Polynomial polynomial;           // p
@@ -59,7 +59,7 @@ template <typename Curve> class OpeningClaim {
      * @param polynomial the claimed witness polynomial p(X)
      * @return C = Commit(p(X)) && p(r) = v
      */
-    bool verify(std::shared_ptr<CK> ck, const barretenberg::Polynomial<Fr>& polynomial) const
+    bool verify(std::shared_ptr<CK> ck, const bb::Polynomial<Fr>& polynomial) const
     {
         Fr real_eval = polynomial.evaluate(opening_pair.challenge);
         if (real_eval != opening_pair.evaluation) {
@@ -72,4 +72,4 @@ template <typename Curve> class OpeningClaim {
 
     bool operator==(const OpeningClaim& other) const = default;
 };
-} // namespace proof_system::honk::pcs
+} // namespace bb::honk::pcs

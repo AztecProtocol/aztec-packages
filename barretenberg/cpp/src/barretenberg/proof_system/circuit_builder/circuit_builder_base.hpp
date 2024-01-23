@@ -8,14 +8,13 @@
 
 #include <unordered_map>
 
-namespace proof_system {
+namespace bb {
 static constexpr uint32_t DUMMY_TAG = 0;
 
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve =
-        std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
 
@@ -383,7 +382,7 @@ template <typename FF_> class CircuitBuilderBase {
     }
 };
 
-} // namespace proof_system
+} // namespace bb
 
 // TODO(#217)(Cody): This will need updating based on the approach we take to ensure no multivariate is zero.
 /**
