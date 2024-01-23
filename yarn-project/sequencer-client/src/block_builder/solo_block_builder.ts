@@ -157,15 +157,15 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected validateTxs(txs: ProcessedTx[]) {
     for (const tx of txs) {
-      for (const historicalTreeRoot of [
-        'noteHashTreeRoot',
-        'contractTreeRoot',
-        'nullifierTreeRoot',
-        'l1ToL2MessageTreeRoot',
-      ] as const) {
-        if (tx.data.constants.header[historicalTreeRoot].isZero()) {
-          throw new Error(`Empty ${historicalTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
-        }
+      const txHeader = tx.data.constants.header;
+      if (
+        txHeader.state.l1ToL2MessageTree.isEmpty() ||
+        txHeader.state.partial.noteHashTree.isEmpty() ||
+        txHeader.state.partial.nullifierTree.isEmpty() ||
+        txHeader.state.partial.contractTree.isEmpty() ||
+        txHeader.state.partial.publicDataTree.isEmpty()
+      ) {
+        throw new Error(`Empty tree in tx: ${toFriendlyJSON(tx)}`);
       }
     }
   }
@@ -487,14 +487,13 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
     const header = tx.data.constants.header;
-    const { noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot } = header;
     const blockHash = computeBlockHash(
-      header.globalVariablesHash,
-      noteHashTreeRoot,
-      nullifierTreeRoot,
-      contractTreeRoot,
-      l1ToL2MessageTreeRoot,
-      publicDataTreeRoot,
+      computeGlobalsHash(header.globalVariables),
+      header.state.partial.noteHashTree.root,
+      header.state.partial.nullifierTree.root,
+      header.state.partial.contractTree.root,
+      header.state.l1ToL2MessageTree.root,
+      header.state.partial.publicDataTree.root,
     );
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT);
   }
