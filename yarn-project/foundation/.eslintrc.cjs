@@ -34,7 +34,7 @@ const contexts = [
   'EnumExpression',
 ];
 
-const JSDOC_RULES_LEVEL = 'error';
+const JSDOC_RULES_LEVEL = 'off';
 
 module.exports = {
   extends: [
