@@ -1,10 +1,11 @@
 import { ArchiverConfig } from '@aztec/archiver';
 import { AztecNodeConfig } from '@aztec/aztec-node';
+import { AccountManager } from '@aztec/aztec.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { LogFn } from '@aztec/foundation/log';
 import { P2PConfig } from '@aztec/p2p';
-import { PXEServiceConfig } from '@aztec/pxe';
+import { GrumpkinScalar, PXEService, PXEServiceConfig } from '@aztec/pxe';
 
 /**
  * Checks if the object has l1Contracts property
@@ -103,3 +104,36 @@ export const mergeEnvVarsAndCliOptions = <T extends AztecNodeConfig | PXEService
 
   return merged;
 };
+
+/**
+ * Creates logs for the initial accounts
+ * @param accounts - The initial accounts
+ * @param pxe - A PXE instance to get the registered accounts
+ * @returns A string array containing the initial accounts details
+ */
+export async function createAccountLogs(
+  accounts: {
+    /**
+     * The account object
+     */
+    account: AccountManager;
+    /**
+     * The private key of the account
+     */
+    privateKey: GrumpkinScalar;
+  }[],
+  pxe: PXEService,
+) {
+  const registeredAccounts = await pxe.getRegisteredAccounts();
+  const accountLogStrings = [`Initial Accounts:\n\n`];
+  for (const account of accounts) {
+    const completeAddress = account.account.getCompleteAddress();
+    if (registeredAccounts.find(a => a.equals(completeAddress))) {
+      accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
+      accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
+      accountLogStrings.push(` Private Key: ${account.privateKey.toString()}\n`);
+      accountLogStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
+    }
+  }
+  return accountLogStrings;
+}

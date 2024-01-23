@@ -1,4 +1,3 @@
-import { deployInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   Archiver,
   ArchiverConfig,
@@ -7,14 +6,14 @@ import {
   getConfigEnvVars,
 } from '@aztec/archiver';
 import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/aztec.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { ServerList, createNamespacedJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
-import { PXEService, PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
@@ -22,8 +21,7 @@ import http from 'http';
 import { dirname, resolve } from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
-import { github, splash } from '../splash.js';
+import { MNEMONIC, createAztecNode, createAztecPXE, deployContractsToL1 } from '../sandbox.js';
 import { cliTexts } from './texts.js';
 import { installSignalHandlers, mergeEnvVarsAndCliOptions, parseModuleOptions } from './util.js';
 
@@ -41,41 +39,6 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
   const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
   program.name('aztec').description('Aztec command line interface').version(cliVersion);
-
-  // Start complete Sandbox.
-  program
-    .command('sandbox')
-    .description('Starts Aztec sandbox.')
-    .option('-p, --port <port>', 'Port to run Aztec on.', AZTEC_PORT)
-    .option('-s, --skip-test-accounts', 'DO NOT deploy test accounts.', false)
-    .action(async options => {
-      userLog(`${splash}\n${github}\n\n`);
-      userLog(`Setting up Aztec Sandbox v${cliVersion}, please stand by...`);
-      const { aztecNodeConfig, node, pxe, stop } = await createSandbox();
-      installSignalHandlers(stop);
-
-      // Deploy test accounts by default
-      if (!options.skipTestAccounts) {
-        if (aztecNodeConfig.p2pEnabled) {
-          userLog(`Not setting up test accounts as we are connecting to a network`);
-        } else {
-          userLog('Setting up test accounts...');
-          const accounts = await deployInitialTestAccounts(pxe);
-          const accLogs = await createAccountLogs(accounts, pxe);
-          userLog(accLogs.join(''));
-        }
-      }
-
-      // Start Node and PXE JSON-RPC server
-      const nodeServer = createAztecNodeRpcServer(node);
-      const pxeServer = createPXERpcServer(pxe);
-      const rpcServer = createNamespacedJsonRpcServer([{ node: nodeServer }, { pxe: pxeServer }], debugLogger);
-
-      const app = rpcServer.getApp();
-      const httpServer = http.createServer(app.callback());
-      httpServer.listen(options.port);
-      userLog(`Aztec Server listening on port ${options.port}`);
-    });
 
   // Start Aztec modules with options
   program
@@ -230,37 +193,4 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
       installSignalHandlers(debugLogger, signalHandlers);
     });
   return program;
-}
-
-/**
- * Creates logs for the initial accounts
- * @param accounts - The initial accounts
- * @param pxe - A PXE instance to get the registered accounts
- * @returns A string array containing the initial accounts details
- */
-async function createAccountLogs(
-  accounts: {
-    /**
-     * The account object
-     */
-    account: AccountManager;
-    /**
-     * The private key of the account
-     */
-    privateKey: GrumpkinScalar;
-  }[],
-  pxe: PXEService,
-) {
-  const registeredAccounts = await pxe.getRegisteredAccounts();
-  const accountLogStrings = [`Initial Accounts:\n\n`];
-  for (const account of accounts) {
-    const completeAddress = account.account.getCompleteAddress();
-    if (registeredAccounts.find(a => a.equals(completeAddress))) {
-      accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
-      accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
-      accountLogStrings.push(` Private Key: ${account.privateKey.toString()}\n`);
-      accountLogStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
-    }
-  }
-  return accountLogStrings;
 }
