@@ -27,14 +27,14 @@ contract Benchmarking {
         balances: Map<AztecAddress, PublicState<Field>>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                notes: Map::new(context, 1, |context, slot| { Set::new(context, slot) }),
-                balances: Map::new(context, 2, |context, slot| { PublicState::new(context, slot) }),
-            }
-        }
-    }
+    // impl Storage {
+    //     fn init(context: Context) -> Self {
+    //         Storage {
+    //             notes: Map::new(context, 1, |context, slot| { Set::new(context, slot) }),
+    //             balances: Map::new(context, 2, |context, slot| { PublicState::new(context, slot) }),
+    //         }
+    //     }
+    // }
 
     #[aztec(private)]
     fn constructor() {}

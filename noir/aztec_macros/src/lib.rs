@@ -13,6 +13,7 @@ use noirc_frontend::macros_api::{
 use noirc_frontend::macros_api::{CrateId, FileId};
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
 use noirc_frontend::macros_api::{ModuleDefId, NodeInterner, SortedModule, StructId};
+use noirc_frontend::ConstructorExpression;
 
 pub struct AztecMacro;
 
@@ -273,6 +274,17 @@ fn check_for_storage_definition(module: &SortedModule) -> bool {
     module.types.iter().any(|r#struct| r#struct.name.0.contents == "Storage")
 }
 
+// Check to see if the user has defined a storage struct
+fn check_for_storage_implementation(module: &SortedModule) -> bool {
+    module.impls.iter().any(|r#impl| match r#impl.object_type.typ.clone() {
+        UnresolvedTypeData::Named(path, _) => {
+            println!("{}", r#impl.methods[0].def.body);
+            path.segments.last().unwrap().0.contents == "Storage"
+        }
+        _ => false,
+    })
+}
+
 // Check if "compute_note_hash_and_nullifier(AztecAddress,Field,Field,[Field; N]) -> [Field; 4]" is defined
 fn check_for_compute_note_hash_and_nullifier_definition(module: &SortedModule) -> bool {
     module.functions.iter().any(|func| {
@@ -328,6 +340,12 @@ fn transform_module(
 
     // Check for a user defined storage struct
     let storage_defined = check_for_storage_definition(module);
+
+    let storage_implemented = check_for_storage_implementation(module);
+
+    if storage_defined && !storage_implemented {
+        generate_storage_implementation(module);
+    }
 
     if storage_defined && !check_for_compute_note_hash_and_nullifier_definition(module) {
         let crate_graph = &context.crate_graph[crate_id];
@@ -387,6 +405,68 @@ fn transform_module(
     }
 
     Ok(has_transformed_module)
+}
+
+fn generate_storage_implementation(module: &mut SortedModule) {
+    let definition =
+        module.types.iter().find(|r#struct| r#struct.name.0.contents == "Storage").unwrap();
+
+    println!("Storage definition: {:?}", definition);
+
+    let storage_constructor_statement =
+        make_statement(StatementKind::Expression(expression(ExpressionKind::constructor((
+            chained_path!("Storage"),
+            definition
+                .fields
+                .iter()
+                .map(|f| {
+                    if let UnresolvedTypeData::Named(path, _args) = &f.1.typ {
+                        let mut new_path = path.clone();
+                        new_path.segments.push(ident("new"));
+                        let expression = call(
+                            variable_path(new_path),
+                            vec![], // args
+                        );
+                        Some((f.0.clone(), expression))
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .collect(),
+        )))));
+
+    let init = NoirFunction::normal(FunctionDefinition::normal(
+        &ident("init"),
+        &vec![],
+        &vec![(
+            ident("context"),
+            UnresolvedType {
+                typ: UnresolvedTypeData::Named(
+                    chained_path!("aztec", "context", "Context"),
+                    vec![],
+                ),
+                span: Some(Span::default()),
+            },
+        )],
+        &BlockExpression(vec![storage_constructor_statement]),
+        &vec![],
+        &FunctionReturnType::Ty(UnresolvedType {
+            typ: UnresolvedTypeData::Named(chained_path!("Self"), vec![]),
+            span: Some(Span::default()),
+        }),
+    ));
+
+    let storage_impl = TypeImpl {
+        object_type: UnresolvedType {
+            typ: UnresolvedTypeData::Named(chained_path!("Storage"), vec![]),
+            span: Some(Span::default()),
+        },
+        type_span: Span::default(),
+        generics: vec![],
+        methods: vec![init],
+    };
+    module.impls.push(storage_impl);
 }
 
 /// If it does, it will insert the following things:
