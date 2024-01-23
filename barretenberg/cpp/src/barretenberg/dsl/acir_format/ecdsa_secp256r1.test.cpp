@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace acir_format::tests {
-using curve_ct = proof_system::plonk::stdlib::secp256r1<Builder>;
+using curve_ct = bb::stdlib::secp256r1<Builder>;
 
 // Generate r1 constraints given pre generated pubkey, sig and message values
 size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,
@@ -23,7 +23,7 @@ size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,
     std::vector<uint32_t> pub_x_indices_in;
     std::vector<uint32_t> pub_y_indices_in;
     std::vector<uint32_t> signature_in;
-    size_t offset = 1;
+    size_t offset = 0;
     for (size_t i = 0; i < hashed_message.size(); ++i) {
         message_in.emplace_back(i + offset);
         const auto byte = static_cast<uint8_t>(hashed_message[i]);

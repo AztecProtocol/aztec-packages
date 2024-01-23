@@ -24,12 +24,11 @@ auto& engine = numeric::random::get_debug_engine();
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 template <class Builder> class LogicTest : public testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(LogicTest, CircuitTypes);
 

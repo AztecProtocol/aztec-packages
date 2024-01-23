@@ -5,10 +5,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace barretenberg;
-using namespace crypto;
+using namespace bb;
+using namespace bb::crypto;
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 {
@@ -92,7 +92,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
  * @param point Point to be added into the accumulator
  */
 template <typename FF>
-ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenberg::g1::affine_element& point)
+ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const bb::g1::affine_element& point)
 {
     // Add raw op to queue
     op_queue->add_accumulate(point);
@@ -113,8 +113,7 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenb
  * @return ecc_op_tuple encoding the point and scalar inputs to the mul accum
  */
 template <typename FF>
-ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g1::affine_element& point,
-                                                                 const FF& scalar)
+ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
 {
     // Add raw op to op queue
     op_queue->mul_accumulate(point, scalar);
@@ -540,5 +539,5 @@ template <typename FF> bool GoblinUltraCircuitBuilder_<FF>::check_circuit()
     return result;
 }
 
-template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
-} // namespace proof_system
+template class GoblinUltraCircuitBuilder_<bb::fr>;
+} // namespace bb

@@ -153,7 +153,7 @@ contract InclusionProofs {
                 ValueNoteMethods,
                 maybe_note.unwrap_unchecked(),
                 block_number,
-                context
+                &mut context
             );
             // docs:end:prove_note_not_nullified
         } else {
@@ -177,7 +177,7 @@ contract InclusionProofs {
 
         // 2) Prove the note validity
         // docs:start:prove_note_validity
-        prove_note_validity(ValueNoteMethods, note, block_number, context);
+        prove_note_validity(ValueNoteMethods, note, block_number, &mut context);
         // docs:end:prove_note_validity
     }
 

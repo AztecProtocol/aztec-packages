@@ -11,9 +11,9 @@
 #include "index.hpp"
 #include "join_split_circuit.hpp"
 
-namespace join_split_example::proofs::join_split {
+namespace bb::join_split_example::proofs::join_split {
 
-using namespace proof_system::plonk::stdlib::merkle_tree;
+using namespace bb::stdlib::merkle_tree;
 
 /* Old join-split tests below. The value of having all of these logic tests is unclear, but we'll
    leave them around, at least for a while. */
@@ -25,11 +25,11 @@ constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
 constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
 #endif
 
-using namespace barretenberg;
-using namespace proof_system::plonk::stdlib;
-using namespace proof_system::plonk::stdlib::merkle_tree;
-using namespace join_split_example::proofs::notes::native;
-using key_pair = join_split_example::fixtures::grumpkin_key_pair;
+using namespace bb;
+using namespace bb::stdlib;
+using namespace bb::stdlib::merkle_tree;
+using namespace bb::join_split_example::proofs::notes::native;
+using key_pair = bb::join_split_example::fixtures::grumpkin_key_pair;
 
 auto create_account_leaf_data(fr const& account_alias_hash,
                               grumpkin::g1::affine_element const& owner_key,
@@ -43,10 +43,9 @@ class join_split_tests : public ::testing::Test {
     static constexpr size_t ACCOUNT_INDEX = 14;
     static void SetUpTestCase()
     {
-        barretenberg::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_crs_factory("../srs_db/ignition");
         init_proving_key(false);
-        auto crs_factory =
-            std::make_unique<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+        auto crs_factory = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
         init_verification_key();
         info("vk hash: ", get_verification_key()->sha256_hash());
     }
@@ -55,7 +54,7 @@ class join_split_tests : public ::testing::Test {
     {
         store = std::make_unique<MemoryStore>();
         tree = std::make_unique<MerkleTree<MemoryStore>>(*store, 32);
-        user = join_split_example::fixtures::create_user_context();
+        user = bb::join_split_example::fixtures::create_user_context();
 
         default_value_note = { .value = 100,
                                .asset_id = asset_id,
@@ -74,7 +73,7 @@ class join_split_tests : public ::testing::Test {
         value_notes[0].creator_pubkey = user.owner.public_key.x;
 
         value_notes[1].value = 50;
-        value_notes[1].creator_pubkey = join_split_example::fixtures::create_key_pair(nullptr).public_key.x;
+        value_notes[1].creator_pubkey = bb::join_split_example::fixtures::create_key_pair(nullptr).public_key.x;
 
         value_notes[2].value = 90;
         value_notes[2].account_required = true,
@@ -180,7 +179,7 @@ class join_split_tests : public ::testing::Test {
                                            .input_nullifier = input_nullifier2 };
 
         join_split_tx tx;
-        tx.proof_id = ProofIds::SEND;
+        tx.proof_id = proof_ids::SEND;
         tx.public_value = 0;
         tx.num_input_notes = 2;
         tx.input_index = input_indices;
@@ -196,7 +195,7 @@ class join_split_tests : public ::testing::Test {
         tx.account_private_key = user.owner.private_key;
         tx.partial_claim_note.input_nullifier = 0;
         tx.alias_hash =
-            !account_required ? join_split_example::fixtures::generate_alias_hash("penguin") : user.alias_hash;
+            !account_required ? bb::join_split_example::fixtures::generate_alias_hash("penguin") : user.alias_hash;
         tx.account_required = account_required;
         // default to no chaining:
         tx.backward_link = 0;
@@ -243,7 +242,7 @@ class join_split_tests : public ::testing::Test {
         value::value_note output_note2 = { 0, 0, 0, user.owner.public_key, user.note_secret, 0, input_nullifier2 };
 
         join_split_tx tx;
-        tx.proof_id = ProofIds::SEND;
+        tx.proof_id = proof_ids::SEND;
         tx.public_value = 0;
         tx.public_owner = 0;
         tx.asset_id = 0;
@@ -255,7 +254,7 @@ class join_split_tests : public ::testing::Test {
         tx.output_note = { output_note1, output_note2 };
         tx.partial_claim_note.input_nullifier = 0;
         tx.account_private_key = user.owner.private_key;
-        tx.alias_hash = join_split_example::fixtures::generate_alias_hash("penguin");
+        tx.alias_hash = bb::join_split_example::fixtures::generate_alias_hash("penguin");
         tx.account_required = false;
         tx.account_note_index = 0;
         tx.account_note_path = tree->get_hash_path(0);
@@ -301,7 +300,7 @@ class join_split_tests : public ::testing::Test {
         return verify_logic(tx);
     }
 
-    join_split_example::fixtures::user_context user;
+    bb::join_split_example::fixtures::user_context user;
     std::unique_ptr<MemoryStore> store;
     std::unique_ptr<MerkleTree<MemoryStore>> tree;
     bridge_call_data empty_bridge_call_data = { .bridge_address_id = 0,
@@ -459,7 +458,7 @@ TEST_F(join_split_tests, test_invalid_num_input_notes_fails)
 TEST_F(join_split_tests, test_deposit_public_value_invalid_fails)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 0; // <-- invalid, should be nonzero
     tx.public_owner = fr::random_element();
 
@@ -482,7 +481,7 @@ TEST_F(join_split_tests, test_send_public_value_invalid_fails)
 TEST_F(join_split_tests, test_withdraw_public_value_invalid_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::WITHDRAW;
+    tx.proof_id = proof_ids::WITHDRAW;
     tx.public_value = 0; // <-- invalid - should be nonzero
     tx.public_owner = fr::random_element();
 
@@ -494,7 +493,7 @@ TEST_F(join_split_tests, test_withdraw_public_value_invalid_fails)
 TEST_F(join_split_tests, test_defi_deposit_public_value_invalid_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.output_note[0].value = 0;
     tx.output_note[1].value = 99;
     tx.partial_claim_note.deposit_value = 50;
@@ -513,7 +512,7 @@ TEST_F(join_split_tests, test_defi_deposit_public_value_invalid_fails)
 TEST_F(join_split_tests, test_deposit_public_owner_invalid_fails)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 10;
     tx.public_owner = 0; // <-- invalid - should be nonzero
 
@@ -536,7 +535,7 @@ TEST_F(join_split_tests, test_send_public_owner_invalid_fails)
 TEST_F(join_split_tests, test_withdraw_public_owner_invalid_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::WITHDRAW;
+    tx.proof_id = proof_ids::WITHDRAW;
     tx.public_value = 10;
     tx.public_owner = 0; // <-- invalid - should be nonzero
 
@@ -548,7 +547,7 @@ TEST_F(join_split_tests, test_withdraw_public_owner_invalid_fails)
 TEST_F(join_split_tests, test_defi_deposit_public_owner_invalid_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.output_note[0].value = 0;
     tx.output_note[1].value = 99;
     tx.partial_claim_note.deposit_value = 50;
@@ -567,7 +566,7 @@ TEST_F(join_split_tests, test_defi_deposit_public_owner_invalid_fails)
 TEST_F(join_split_tests, test_wrong_proof_id)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEFI_CLAIM;
+    tx.proof_id = proof_ids::DEFI_CLAIM;
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -594,7 +593,7 @@ TEST_F(join_split_tests, test_send_with_0_input_notes_fails)
 TEST_F(join_split_tests, test_withdraw_with_0_input_notes_fails)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::WITHDRAW;
+    tx.proof_id = proof_ids::WITHDRAW;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
 
@@ -606,7 +605,7 @@ TEST_F(join_split_tests, test_withdraw_with_0_input_notes_fails)
 TEST_F(join_split_tests, test_defi_deposit_with_0_input_notes_fails)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -656,7 +655,7 @@ TEST_F(join_split_tests, test_different_output_note_2_asset_id_fails)
 TEST_F(join_split_tests, test_deposit_but_different_input_note_2_asset_id_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
     tx.input_note[1].asset_id = 3;
@@ -679,7 +678,7 @@ TEST_F(join_split_tests, test_send_but_different_input_note_2_asset_id_fails)
 TEST_F(join_split_tests, test_withdraw_but_different_input_note_2_asset_id_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::WITHDRAW;
+    tx.proof_id = proof_ids::WITHDRAW;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
     tx.input_note[1].asset_id = 3;
@@ -696,7 +695,7 @@ TEST_F(join_split_tests, test_withdraw_but_different_input_note_2_asset_id_fails
 TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 30;
     tx.public_owner = fr::random_element();
     tx.output_note[0].value = 30;
@@ -732,7 +731,7 @@ TEST_F(join_split_tests, test_0_input_notes_create_dupicate_output_notes_fails)
 {
     join_split_tx tx = zero_input_setup();
 
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 30;
     tx.public_owner = fr::random_element();
     tx.output_note[0].value = 15;
@@ -749,7 +748,7 @@ TEST_F(join_split_tests, test_0_input_notes_create_dupicate_output_notes_fails_2
 {
     join_split_tx tx = zero_input_setup();
 
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 30;
     tx.public_owner = fr::random_element();
     tx.output_note[0].value = 15;
@@ -768,7 +767,7 @@ TEST_F(join_split_tests, test_dummy_input_note_1_non_0_value_fails)
 {
     // Note: `tx.num_input_notes = 0` implies both inputs are 'dummy'
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
     tx.input_note[0].value = 10;
@@ -783,7 +782,7 @@ TEST_F(join_split_tests, test_dummy_input_note_2_non_0_value_fails)
 {
     // Note: `tx.num_input_notes = 0` implies both inputs are 'dummy'
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
     tx.input_note[1].value = 10;
@@ -827,13 +826,13 @@ TEST_F(join_split_tests, test_2_input_notes)
     join_split_tx tx = simple_setup();
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_TRUE(result.valid);
-    EXPECT_EQ(result.public_inputs.size(), InnerProofFields::NUM_FIELDS);
+    EXPECT_EQ(result.public_inputs.size(), inner_proof_fields::NUM_FIELDS);
 }
 
 TEST_F(join_split_tests, test_0_output_notes)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::WITHDRAW;
+    tx.proof_id = proof_ids::WITHDRAW;
     tx.output_note[0].value = 0;
     tx.output_note[1].value = 0;
     tx.public_value = tx.input_note[0].value + tx.input_note[1].value;
@@ -854,7 +853,7 @@ TEST_P(test_valid_allow_chain_permutations, )
     tx.allow_chain = GetParam();
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_TRUE(result.valid);
-    EXPECT_EQ(result.public_inputs[InnerProofFields::ALLOW_CHAIN], GetParam());
+    EXPECT_EQ(result.public_inputs[inner_proof_fields::ALLOW_CHAIN], GetParam());
 }
 INSTANTIATE_TEST_SUITE_P(join_split_tests, test_valid_allow_chain_permutations, ::testing::Values(0, 1, 2, 3));
 
@@ -901,7 +900,7 @@ void assign_backward_link(join_split_tx& tx, size_t& indicator)
         tx.backward_link = tx.input_note[1].commit();
         break;
     default:
-        tx.backward_link = barretenberg::fr::random_element();
+        tx.backward_link = bb::fr::random_element();
     }
 }
 
@@ -951,7 +950,7 @@ TEST_F(join_split_tests, test_propagated_input_note1_no_double_spend)
 TEST_F(join_split_tests, test_max_public_input)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = max_value;
     tx.output_note[0].value = max_value;
     tx.public_owner = fr::random_element();
@@ -962,7 +961,7 @@ TEST_F(join_split_tests, test_max_public_input)
 TEST_F(join_split_tests, test_overflow_public_value_fails)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = max_value + 1;
     tx.public_owner = fr::random_element();
 
@@ -978,13 +977,13 @@ TEST_F(join_split_tests, test_overflow_public_value_fails)
 TEST_F(join_split_tests, test_non_zero_tx_fee)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value += 10;
     tx.public_owner = fr::random_element();
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_TRUE(result.valid);
-    EXPECT_EQ(result.public_inputs[InnerProofFields::TX_FEE], 10);
+    EXPECT_EQ(result.public_inputs[inner_proof_fields::TX_FEE], 10);
 }
 
 TEST_F(join_split_tests, test_non_zero_tx_fee_zero_public_values)
@@ -994,27 +993,27 @@ TEST_F(join_split_tests, test_non_zero_tx_fee_zero_public_values)
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_TRUE(result.valid);
-    EXPECT_EQ(result.public_inputs[InnerProofFields::TX_FEE], 10);
+    EXPECT_EQ(result.public_inputs[inner_proof_fields::TX_FEE], 10);
 }
 
 TEST_F(join_split_tests, test_max_tx_fee)
 {
     join_split_tx tx = zero_input_setup();
-    auto tx_fee = (uint256_t(1) << join_split_example::TX_FEE_BIT_LENGTH) - 1;
-    tx.proof_id = ProofIds::DEPOSIT;
+    auto tx_fee = (uint256_t(1) << bb::join_split_example::TX_FEE_BIT_LENGTH) - 1;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value += tx_fee;
     tx.public_owner = fr::random_element();
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_TRUE(result.valid);
-    EXPECT_EQ(result.public_inputs[InnerProofFields::TX_FEE], fr(tx_fee));
+    EXPECT_EQ(result.public_inputs[inner_proof_fields::TX_FEE], fr(tx_fee));
 }
 
 TEST_F(join_split_tests, test_overflow_tx_fee_fails)
 {
     join_split_tx tx = simple_setup();
-    auto tx_fee = uint256_t(1) << join_split_example::TX_FEE_BIT_LENGTH;
-    tx.proof_id = ProofIds::DEPOSIT;
+    auto tx_fee = uint256_t(1) << bb::join_split_example::TX_FEE_BIT_LENGTH;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value += tx_fee;
     tx.public_owner = fr::random_element();
 
@@ -1105,7 +1104,7 @@ TEST_F(join_split_tests, test_random_output_note_owners)
 TEST_F(join_split_tests, test_tainted_output_owner_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 1;
     tx.signing_pub_key = user.owner.public_key;
     uint8_t public_owner[32] = { 0x01, 0xaa, 0x42, 0xd4, 0x72, 0x88, 0x8e, 0xae, 0xa5, 0x56, 0x39,
@@ -1117,8 +1116,8 @@ TEST_F(join_split_tests, test_tainted_output_owner_fails)
     auto prover = new_join_split_prover(tx, false);
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(proof.proof_data[InnerProofOffsets::PUBLIC_OWNER], 0x01);
-    proof.proof_data[InnerProofFields::PUBLIC_OWNER] = 0x02;
+    EXPECT_EQ(proof.proof_data[inner_proof_offsets::PUBLIC_OWNER], 0x01);
+    proof.proof_data[inner_proof_fields::PUBLIC_OWNER] = 0x02;
 
     EXPECT_FALSE(verify_proof(proof));
 }
@@ -1140,7 +1139,7 @@ TEST_F(join_split_tests, test_wrong_account_private_key_fails)
 TEST_F(join_split_tests, test_wrong_public_owner_sig_fail)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 1;
     tx.public_owner = fr::random_element();
 
@@ -1177,7 +1176,7 @@ TEST_F(join_split_tests, test_spend_registered_notes_with_owner_key_fails)
 TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("derive_generators");
+    tx.alias_hash = bb::join_split_example::fixtures::generate_alias_hash("derive_generators");
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -1187,7 +1186,7 @@ TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 TEST_F(join_split_tests, test_nonregistered_signing_key_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    auto keys = join_split_example::fixtures::create_key_pair(nullptr);
+    auto keys = bb::join_split_example::fixtures::create_key_pair(nullptr);
     tx.signing_pub_key = keys.public_key;
 
     auto result = sign_and_verify_logic(tx, user.owner);
@@ -1266,7 +1265,7 @@ TEST_F(join_split_tests, test_defi_deposit_one_virtual_input)
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1290,7 +1289,7 @@ TEST_F(join_split_tests, test_defi_deposit_one_real_one_virtual_inputs)
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1317,7 +1316,7 @@ TEST_F(join_split_tests, test_defi_deposit_one_virtual_one_real_inputs)
 {
     join_split_tx tx = simple_setup({ 10, 7 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 110;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1343,7 +1342,7 @@ TEST_F(join_split_tests, test_defi_deposit_one_real_one_virtual_inputs_same_asse
 {
     join_split_tx tx = simple_setup({ 0, 12 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1370,7 +1369,7 @@ TEST_F(join_split_tests, test_defi_deposit_two_real_inputs_different_asset_ids)
 {
     join_split_tx tx = simple_setup({ 0, 6 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1397,7 +1396,7 @@ TEST_F(join_split_tests, test_defi_deposit_two_virtual_inputs_different_asset_id
 {
     join_split_tx tx = simple_setup({ 4, 9 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1425,7 +1424,7 @@ TEST_F(join_split_tests,
 {
     join_split_tx tx = simple_setup({ 4, 10 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1454,7 +1453,7 @@ TEST_F(join_split_tests, test_defi_deposit_two_real_inputs_different_asset_ids_a
 {
     join_split_tx tx = simple_setup({ 0, 7 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1483,7 +1482,7 @@ TEST_F(join_split_tests, test_defi_deposit_two_real_inputs_different_asset_ids_a
 {
     join_split_tx tx = simple_setup({ 0, 6 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 95;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1512,7 +1511,7 @@ TEST_F(join_split_tests, test_defi_invalid_tx_fee_asset_id_fails)
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1542,7 +1541,7 @@ TEST_F(join_split_tests, test_defi_deposit_of_zero_fails)
 {
     join_split_tx tx = simple_setup();
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.output_note[0].value = 0;
     tx.output_note[1].value = 0;
     tx.partial_claim_note.deposit_value = 0; // <-- should be > 0
@@ -1559,7 +1558,7 @@ TEST_F(join_split_tests, test_defi_deposit_of_zero_fails)
 TEST_F(join_split_tests, test_defi_non_zero_output_note_1_ignored)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.output_note[0].value = 10; // This should be ignored in fee calculation.
     tx.output_note[1].value = 100;
     tx.partial_claim_note.deposit_value = 50;
@@ -1585,7 +1584,7 @@ TEST_F(join_split_tests, test_defi_non_zero_output_note_1_ignored)
 TEST_F(join_split_tests, test_defi_allow_chain_1_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.output_note[1].value = 100;
     tx.partial_claim_note.deposit_value = 50;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
@@ -1619,7 +1618,7 @@ TEST_F(join_split_tests, test_defi_deposit_incorrect_input_nullifier_in_partial_
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = 1; // incorrect nullifier
 
@@ -1648,7 +1647,7 @@ TEST_F(join_split_tests, test_defi_deposit_bridge_call_data_second_bridge_input_
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1680,7 +1679,7 @@ TEST_F(join_split_tests, test_defi_deposit_bridge_call_data_second_bridge_output
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1708,7 +1707,7 @@ TEST_F(join_split_tests, test_defi_deposit_second_bridge_input_in_use_but_same_b
 {
     join_split_tx tx = simple_setup();
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 50;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
     tx.output_note[1].value = 90;
@@ -1743,7 +1742,7 @@ TEST_F(join_split_tests, test_defi_deposit_second_bridge_output_in_use_and_same_
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1776,7 +1775,7 @@ TEST_F(join_split_tests, test_defi_deposit_second_bridge_output_in_use_but_same_
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1810,7 +1809,7 @@ TEST_F(join_split_tests, test_defi_deposit_first_bridge_output_asset_id_virtual_
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1841,7 +1840,7 @@ TEST_F(join_split_tests, test_defi_deposit_second_bridge_output_asset_id_virtual
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1878,7 +1877,7 @@ TEST_F(join_split_tests, test_defi_wrong_first_asset_id_in_bridge_call_data_fail
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1908,7 +1907,7 @@ TEST_F(join_split_tests, test_defi_bridge_call_data_config_second_input_in_use_b
     tx.output_note[1].input_nullifier =
         compute_nullifier(tx.input_note[1].commit(), user.owner.private_key, false); // input note 2 is a dummy note
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1935,7 +1934,7 @@ TEST_F(join_split_tests, test_defi_missing_second_asset_in_bridge_call_data_fail
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1963,7 +1962,7 @@ TEST_F(join_split_tests, test_defi_wrong_second_asset_id_in_bridge_call_data_fai
 {
     join_split_tx tx = simple_setup({ 4, 9 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -1997,7 +1996,7 @@ TEST_F(join_split_tests, test_repayment_logic)
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
     tx.output_note[1].value = 10; // <-- repaying some value back to the defi-depositor
@@ -2024,7 +2023,7 @@ TEST_F(join_split_tests, test_virtual_note_repay_different_asset_id_fail)
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
     tx.output_note[1].asset_id = 3; // <-- different from any of the input notes' asset_ids
@@ -2052,7 +2051,7 @@ TEST_F(join_split_tests, test_virtual_note_repay_different_asset_id_fail)
 TEST_F(join_split_tests, test_real_input_value_lt_virtual_input_value_fails)
 {
     join_split_tx tx = simple_setup({ 1, 11 });
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
@@ -2198,7 +2197,7 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
     {
         join_split_tx tx = simple_setup();
         tx.output_note[0].creator_pubkey =
-            join_split_example::fixtures::create_key_pair(nullptr)
+            bb::join_split_example::fixtures::create_key_pair(nullptr)
                 .public_key.x; // setting creator to be different from sender (the owner of the input notes).
         auto result = sign_and_verify_logic(tx, user.owner);
         EXPECT_FALSE(result.valid);
@@ -2207,7 +2206,7 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
     {
         join_split_tx tx = simple_setup();
         tx.output_note[1].creator_pubkey =
-            join_split_example::fixtures::create_key_pair(nullptr)
+            bb::join_split_example::fixtures::create_key_pair(nullptr)
                 .public_key.x; // setting creator to be different from sender (the owner of the input notes).
         auto result = sign_and_verify_logic(tx, user.owner);
         EXPECT_FALSE(result.valid);
@@ -2223,7 +2222,7 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
 TEST_F(join_split_tests, test_deposit_construct_proof)
 {
     join_split_tx tx = zero_input_setup();
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
     tx.output_note[0].value = 7;
@@ -2245,7 +2244,7 @@ TEST_F(join_split_tests, test_deposit_construct_proof)
     auto output_note1_commitment = tx.output_note[0].commit();
     auto output_note2_commitment = tx.output_note[1].commit();
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::DEPOSIT);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::DEPOSIT);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, nullifier1);
@@ -2266,7 +2265,7 @@ TEST_F(join_split_tests, test_deposit_construct_proof)
 TEST_F(join_split_tests, test_withdraw_full_proof)
 {
     join_split_tx tx = simple_setup();
-    tx.proof_id = ProofIds::WITHDRAW;
+    tx.proof_id = proof_ids::WITHDRAW;
     tx.public_value = 10;
     tx.public_owner = fr::random_element();
     tx.output_note[0].value -= 13;
@@ -2290,7 +2289,7 @@ TEST_F(join_split_tests, test_withdraw_full_proof)
     auto output_note1_commitment = tx.output_note[0].commit();
     auto output_note2_commitment = tx.output_note[1].commit();
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::WITHDRAW);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::WITHDRAW);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, nullifier1);
@@ -2331,7 +2330,7 @@ TEST_F(join_split_tests, test_private_send_full_proof)
     uint256_t nullifier1 = compute_nullifier(input_note1_commitment, user.owner.private_key, true);
     uint256_t nullifier2 = compute_nullifier(input_note2_commitment, user.owner.private_key, true);
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::SEND);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::SEND);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, nullifier1);
@@ -2355,7 +2354,7 @@ TEST_F(join_split_tests, test_defi_deposit_full_proof)
 {
     join_split_tx tx = simple_setup();
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 50;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
     tx.output_note[1].value = 90;
@@ -2395,7 +2394,7 @@ TEST_F(join_split_tests, test_defi_deposit_full_proof)
     uint256_t nullifier1 = compute_nullifier(input_note1_commitment, user.owner.private_key, true);
     uint256_t nullifier2 = compute_nullifier(input_note2_commitment, user.owner.private_key, true);
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::DEFI_DEPOSIT);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::DEFI_DEPOSIT);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, nullifier1);
@@ -2417,7 +2416,7 @@ TEST_F(join_split_tests, test_repayment_full_proof)
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
-    tx.proof_id = ProofIds::DEFI_DEPOSIT;
+    tx.proof_id = proof_ids::DEFI_DEPOSIT;
     tx.partial_claim_note.deposit_value = 90;
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
     tx.output_note[1].value = 10; // <-- repaying some value back to the defi-depositor
@@ -2457,7 +2456,7 @@ TEST_F(join_split_tests, test_repayment_full_proof)
     uint256_t nullifier1 = compute_nullifier(input_note1_commitment, user.owner.private_key, true);
     uint256_t nullifier2 = compute_nullifier(input_note2_commitment, user.owner.private_key, true);
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::DEFI_DEPOSIT);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::DEFI_DEPOSIT);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, nullifier1);
@@ -2498,7 +2497,7 @@ TEST_F(join_split_tests, test_send_two_virtual_notes_full_proof)
     uint256_t nullifier1 = compute_nullifier(input_note1_commitment, user.owner.private_key, true);
     uint256_t nullifier2 = compute_nullifier(input_note2_commitment, user.owner.private_key, true);
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::SEND);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::SEND);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, nullifier1);
@@ -2515,4 +2514,4 @@ TEST_F(join_split_tests, test_send_two_virtual_notes_full_proof)
     EXPECT_TRUE(verify_proof(proof));
 }
 
-} // namespace join_split_example::proofs::join_split
+} // namespace bb::join_split_example::proofs::join_split

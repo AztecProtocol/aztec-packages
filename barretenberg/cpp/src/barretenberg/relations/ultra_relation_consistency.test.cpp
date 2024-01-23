@@ -24,11 +24,11 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system;
+using namespace bb;
 
-namespace proof_system::ultra_relation_consistency_tests {
+namespace bb::ultra_relation_consistency_tests {
 
-using FF = barretenberg::fr;
+using FF = bb::fr;
 struct InputElements {
     static constexpr size_t NUM_ELEMENTS = 45;
     std::array<FF, NUM_ELEMENTS> _data;
@@ -681,4 +681,4 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
     run_test(/*random_inputs=*/true);
 };
 
-} // namespace proof_system::ultra_relation_consistency_tests
+} // namespace bb::ultra_relation_consistency_tests

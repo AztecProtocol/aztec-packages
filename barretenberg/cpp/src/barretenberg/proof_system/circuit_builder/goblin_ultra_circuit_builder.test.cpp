@@ -1,12 +1,12 @@
 #include "goblin_ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
+using namespace bb;
 
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
-namespace proof_system {
+namespace bb {
 
 TEST(GoblinUltraCircuitBuilder, CopyConstructor)
 {
@@ -157,4 +157,4 @@ TEST(GoblinUltraCircuitBuilder, GoblinEccOpQueueUltraOps)
     }
 }
 
-} // namespace proof_system
+} // namespace bb

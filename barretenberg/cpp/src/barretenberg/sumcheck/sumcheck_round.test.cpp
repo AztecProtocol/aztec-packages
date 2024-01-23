@@ -4,15 +4,15 @@
 
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
-using namespace proof_system::honk::sumcheck;
+using namespace bb::honk;
+using namespace bb::honk::sumcheck;
 
-using barretenberg::BarycentricData;
-using barretenberg::Univariate;
+using bb::BarycentricData;
+using bb::Univariate;
 
 using Flavor = flavor::Ultra;
 using FF = typename Flavor::FF;
-using Utils = barretenberg::RelationUtils<Flavor>;
+using Utils = bb::RelationUtils<Flavor>;
 
 namespace test_sumcheck_round {
 
@@ -22,7 +22,7 @@ namespace test_sumcheck_round {
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -43,7 +43,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
-    barretenberg::PowPolynomial<FF> pow_polynomial({ 1 });
+    bb::PowPolynomial<FF> pow_polynomial({ 1 });
     auto result = Univariate<FF, MAX_LENGTH>();
     SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_polynomial);
 
@@ -73,8 +73,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
-    using Utils = barretenberg::RelationUtils<Flavor>;
+    using Flavor = bb::honk::flavor::Ultra;
+    using Utils = bb::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -113,7 +113,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates

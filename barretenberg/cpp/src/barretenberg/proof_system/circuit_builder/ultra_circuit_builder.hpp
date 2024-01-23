@@ -12,7 +12,7 @@
 #include "circuit_builder_base.hpp"
 #include <optional>
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF> struct non_native_field_witnesses {
     // first 4 array elements = limbs
@@ -25,7 +25,7 @@ template <typename FF> struct non_native_field_witnesses {
     FF modulus;
 };
 
-using namespace barretenberg;
+using namespace bb;
 
 template <typename Arithmetization>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization::FF> {
@@ -279,8 +279,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      * restore the circuit to the state before the finalization.
      */
     struct CircuitDataBackup {
-        using WireVector = std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>;
-        using SelectorVector = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+        using WireVector = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+        using SelectorVector = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
         std::vector<uint32_t> public_inputs;
         std::vector<FF> variables;
@@ -569,7 +569,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         }
     };
 
-    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
+    std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
     Arithmetization selectors;
 
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
@@ -682,12 +682,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         w_o().reserve(size_hint);
         w_4().reserve(size_hint);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Once the hardcoded +1 offset is removed from
-        // noir, we'll need to move the addition of the const zero variable to after the acir witness has been
-        // incorporated into variables.
-        this->zero_idx = put_constant_variable(FF::zero());
-        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
-
         for (size_t idx = 0; idx < varnum; ++idx) {
             // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
             // be "set" later on via the assert_equal mechanism.
@@ -697,6 +691,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 
         // Add the public_inputs from acir
         this->public_inputs = public_inputs;
+
+        // Add the const zero variable after the acir witness has been
+        // incorporated into variables.
+        this->zero_idx = put_constant_variable(FF::zero());
+        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
@@ -993,7 +992,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     /**
      * Plookup Methods
      **/
-    void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
+    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
     void initialize_precomputed_table(const plookup::BasicTableId id,
                                       bool (*generator)(std::vector<FF>&, std::vector<FF>&, std::vector<FF>&),
                                       std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
@@ -1167,5 +1166,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 
     bool check_circuit();
 };
-using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
-} // namespace proof_system
+using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<bb::fr>>;
+} // namespace bb

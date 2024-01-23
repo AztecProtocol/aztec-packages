@@ -3,7 +3,7 @@
 
 namespace acir_format {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 template <typename Builder>
 crypto::ecdsa::signature ecdsa_convert_signature(Builder& builder, std::vector<uint32_t> signature)
@@ -48,14 +48,14 @@ secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affi
 {
     uint256_t x_u256(input.x);
     uint256_t y_u256(input.y);
-    secp256k1_ct::fq_ct x(witness_ct(ctx, barretenberg::fr(x_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
-                          witness_ct(ctx,
-                                     barretenberg::fr(x_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2,
-                                                                   secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
-    secp256k1_ct::fq_ct y(witness_ct(ctx, barretenberg::fr(y_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
-                          witness_ct(ctx,
-                                     barretenberg::fr(y_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2,
-                                                                   secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
+    secp256k1_ct::fq_ct x(
+        witness_ct(ctx, bb::fr(x_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(
+            ctx, bb::fr(x_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
+    secp256k1_ct::fq_ct y(
+        witness_ct(ctx, bb::fr(y_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(
+            ctx, bb::fr(y_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
 
     return { x, y };
 }
@@ -64,11 +64,11 @@ secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affi
 // with just a byte.
 // notice that this function truncates each field_element to a byte
 template <typename Builder>
-proof_system::plonk::stdlib::byte_array<Builder> ecdsa_vector_of_bytes_to_byte_array(
-    Builder& builder, std::vector<uint32_t> vector_of_bytes)
+bb::stdlib::byte_array<Builder> ecdsa_vector_of_bytes_to_byte_array(Builder& builder,
+                                                                    std::vector<uint32_t> vector_of_bytes)
 {
-    using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     byte_array_ct arr(&builder);
 
@@ -95,10 +95,10 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
                                         const EcdsaSecp256k1Constraint& input,
                                         bool has_valid_witness_assignments)
 {
-    using secp256k1_ct = proof_system::plonk::stdlib::secp256k1<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
-    using bool_ct = proof_system::plonk::stdlib::bool_t<Builder>;
-    using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
+    using secp256k1_ct = bb::stdlib::secp256k1<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
     if (has_valid_witness_assignments == false) {
         dummy_ecdsa_constraint(builder, input);

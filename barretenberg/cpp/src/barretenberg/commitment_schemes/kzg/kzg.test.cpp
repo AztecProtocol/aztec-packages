@@ -12,14 +12,14 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace proof_system::honk::pcs::kzg {
+namespace bb::honk::pcs::kzg {
 
 template <class Curve> class KZGTest : public CommitmentTest<Curve> {
   public:
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 };
 
 TYPED_TEST_SUITE(KZGTest, CommitmentSchemeParams);
@@ -32,7 +32,7 @@ TYPED_TEST(KZGTest, single)
     using Fr = typename TypeParam::ScalarField;
 
     auto witness = this->random_polynomial(n);
-    barretenberg::g1::element commitment = this->commit(witness);
+    bb::g1::element commitment = this->commit(witness);
 
     auto challenge = Fr::random_element();
     auto evaluation = witness.evaluate(challenge);
@@ -64,7 +64,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using GroupElement = typename TypeParam::Element;
-    using Polynomial = typename barretenberg::Polynomial<Fr>;
+    using Polynomial = typename bb::Polynomial<Fr>;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -177,4 +177,4 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     EXPECT_EQ(verified, true);
 }
 
-} // namespace proof_system::honk::pcs::kzg
+} // namespace bb::honk::pcs::kzg
