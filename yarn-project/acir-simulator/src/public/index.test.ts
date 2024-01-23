@@ -1,5 +1,5 @@
 import { L1ToL2Message } from '@aztec/circuit-types';
-import { BlockHeader, CallContext, FunctionData, GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { CallContext, FunctionData, GlobalVariables, Header, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -27,15 +27,15 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockHeader: BlockHeader;
+  let header: Header;
 
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockHeader = BlockHeader.empty();
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHeader);
+    header = Header.empty();
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
   }, 10000);
 
   describe('Token contract', () => {

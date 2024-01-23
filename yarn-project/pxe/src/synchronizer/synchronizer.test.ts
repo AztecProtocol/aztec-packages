@@ -1,5 +1,5 @@
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { BlockHeader, CompleteAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { Header, CompleteAddress, EthAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { TestKeyStore } from '@aztec/key-store';
@@ -11,24 +11,26 @@ import omit from 'lodash.omit';
 import { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';
+import { makeHeader } from '@aztec/circuits.js/factories';
 
 describe('Synchronizer', () => {
   let aztecNode: MockProxy<AztecNode>;
   let database: PxeDatabase;
   let synchronizer: TestSynchronizer;
   let roots: Record<MerkleTreeId, Fr>;
-  let blockHeader: BlockHeader;
+  let header: Header;
   let jobQueue: SerialQueue;
 
   beforeEach(async () => {
-    blockHeader = BlockHeader.random();
+    const randomInt = Math.floor(Math.random() * 1000);
+    header = makeHeader(randomInt, undefined);
     roots = {
-      [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot,
-      [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot,
-      [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: blockHeader.l1ToL2MessageTreeRoot,
-      [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot,
+      [MerkleTreeId.CONTRACT_TREE]: header.contractTreeRoot,
+      [MerkleTreeId.NOTE_HASH_TREE]: header.noteHashTreeRoot,
+      [MerkleTreeId.NULLIFIER_TREE]: header.nullifierTreeRoot,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: header.publicDataTreeRoot,
+      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: header.l1ToL2MessageTreeRoot,
+      [MerkleTreeId.ARCHIVE]: header.archiveRoot,
     };
 
     aztecNode = mock<AztecNode>();
@@ -39,7 +41,7 @@ describe('Synchronizer', () => {
 
   it('sets tree roots from aztec node on initial sync', async () => {
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getBlockHeader.mockResolvedValue(blockHeader);
+    aztecNode.getHeader.mockResolvedValue(header);
 
     await synchronizer.initialSync();
 
@@ -60,7 +62,7 @@ describe('Synchronizer', () => {
   it('overrides tree roots from initial sync once current block number is larger', async () => {
     // Initial sync is done on block with height 3
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getBlockHeader.mockResolvedValue(blockHeader);
+    aztecNode.getHeader.mockResolvedValue(header);
 
     await synchronizer.initialSync();
     const roots0 = database.getTreeRoots();

@@ -1,10 +1,10 @@
 import { L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
-  BlockHeader,
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
   FunctionData,
+  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
@@ -65,7 +65,7 @@ describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
 
-  let blockHeader = BlockHeader.empty();
+  let header = Header.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -141,10 +141,11 @@ describe('Private Execution test suite', () => {
 
     // Update root.
     const newRoot = trees[name].getRoot(true);
-    const prevRoots = blockHeader.toBuffer();
+    const prevRoots = header.toBuffer();
     const rootIndex = name === 'noteHash' ? 0 : 32 * 3;
+    // TODO(benesjan): I would expect this to be completely messed up now. Investigate!
     const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
-    blockHeader = BlockHeader.fromBuffer(newRoots);
+    header = Header.fromBuffer(newRoots);
 
     return trees[name];
   };
@@ -191,7 +192,7 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address ${accountAddress}`);
     });
-    oracle.getBlockHeader.mockResolvedValue(blockHeader);
+    oracle.getHeader.mockResolvedValue(header);
 
     acirSimulator = new AcirSimulator(oracle);
   });

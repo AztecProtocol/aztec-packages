@@ -70,7 +70,7 @@ impl Header {
 
     // TODO: Nuke this. This is not the desired block hash. Keeping it here for compatibility reasons.
     pub fn block_hash(self) -> Field {
-        // TODO(#3442): Unify the ordering in `BlockHeader::serialize` function and the ordering
+        // TODO(#3442): Unify the ordering in `Header::serialize` function and the ordering
         // in the block hash preimage --> This requires changes in the circuits.
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3595)
         pedersen_hash([

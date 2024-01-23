@@ -35,7 +35,7 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  getBlockHeader,
+  getHeader,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -153,8 +153,8 @@ describe('L1Publisher integration', () => {
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const blockHeader = await getBlockHeader(builderDb, prevGlobals);
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(blockHeader, new Fr(chainId), new Fr(config.version));
+    const header = await getHeader(builderDb, prevGlobals);
+    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(header, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
@@ -163,7 +163,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.blockHeader = await getBlockHeader(builderDb, prevGlobals);
+    kernelOutput.constants.header = await getHeader(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),

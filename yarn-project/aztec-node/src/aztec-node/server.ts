@@ -24,10 +24,10 @@ import {
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
-  BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
+  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -556,11 +556,11 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed block header.
    */
   // TODO(#3937): Nuke this
-  public async getBlockHeader(): Promise<BlockHeader> {
+  public async getHeader(): Promise<Header> {
     const committedDb = await this.#getWorldState('latest');
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
-    return new BlockHeader(
+    return new Header(
       roots[MerkleTreeId.NOTE_HASH_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],

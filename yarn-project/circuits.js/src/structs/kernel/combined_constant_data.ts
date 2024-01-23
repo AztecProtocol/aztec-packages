@@ -11,7 +11,7 @@ export class CombinedConstantData {
     /**
      * Roots of the trees relevant for both kernel circuits.
      */
-    public blockHeader: Header,
+    public header: Header,
     /**
      * Context of the transaction.
      */
@@ -19,7 +19,7 @@ export class CombinedConstantData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.blockHeader, this.txContext);
+    return serializeToBuffer(this.header, this.txContext);
   }
 
   /**

@@ -1,9 +1,9 @@
 import {
-  BlockHeader,
   CallContext,
   ContractDeploymentData,
   FunctionData,
   GlobalVariables,
+  Header,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallRequest,
@@ -103,19 +103,20 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 
 /**
  * Converts a block header into ACVM fields.
- * @param blockHeader - The block header object to convert.
+ * @param header - The block header object to convert.
  * @returns The ACVM fields.
  */
-export function toACVMBlockHeader(blockHeader: BlockHeader): ACVMField[] {
-  return [
-    toACVMField(blockHeader.noteHashTreeRoot),
-    toACVMField(blockHeader.nullifierTreeRoot),
-    toACVMField(blockHeader.contractTreeRoot),
-    toACVMField(blockHeader.l1ToL2MessageTreeRoot),
-    toACVMField(blockHeader.archiveRoot),
-    toACVMField(blockHeader.publicDataTreeRoot),
-    toACVMField(blockHeader.globalVariablesHash),
-  ];
+export function toACVMHeader(header: Header): ACVMField[] {
+  return toACVMFields(header.toBuffer());
+}
+
+export function toACVMFields(buf: Buffer): ACVMField[] {
+  // Ensure the buffer is a multiple of 32 bytes
+  if (buf.length % 32 !== 0) {
+    throw new Error('Buffer length must be a multiple of 32 bytes');
+  }
+  const chunks = buf.toString('hex').match(/.{1,64}/g);
+  return chunks!.map(chunk => `0x${chunk}`);
 }
 
 /**
@@ -157,7 +158,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),
 
-    ...toACVMBlockHeader(publicInputs.blockHeader),
+    ...toACVMHeader(publicInputs.header),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
 

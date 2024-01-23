@@ -163,7 +163,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         'nullifierTreeRoot',
         'l1ToL2MessageTreeRoot',
       ] as const) {
-        if (tx.data.constants.blockHeader[historicalTreeRoot].isZero()) {
+        if (tx.data.constants.header[historicalTreeRoot].isZero()) {
           throw new Error(`Empty ${historicalTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
         }
       }
@@ -486,11 +486,10 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
-    const blockHeader = tx.data.constants.blockHeader;
-    const { noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot } =
-      blockHeader;
+    const header = tx.data.constants.header;
+    const { noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot } = header;
     const blockHash = computeBlockHash(
-      blockHeader.globalVariablesHash,
+      header.globalVariablesHash,
       noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,

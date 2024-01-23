@@ -4,6 +4,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionSelector,
+  HEADER_LENGTH,
   Header,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -101,16 +102,8 @@ export function extractPrivateCircuitPublicInputs(
   const encryptedLogPreimagesLength = witnessReader.readField();
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  const blockHeader = new Header(
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    Fr.ZERO, // TODO(#3441)
-    witnessReader.readField(),
-    witnessReader.readField(),
-  );
+  const headerBuf = Buffer.concat(witnessReader.readFieldArray(HEADER_LENGTH).map(field => field.toBuffer()));
+  const header = Header.fromBuffer(headerBuf);
 
   const contractDeploymentData = new ContractDeploymentData(
     new Point(witnessReader.readField(), witnessReader.readField()),
@@ -139,7 +132,7 @@ export function extractPrivateCircuitPublicInputs(
     unencryptedLogsHash,
     encryptedLogPreimagesLength,
     unencryptedLogPreimagesLength,
-    blockHeader,
+    header,
     contractDeploymentData,
     chainId,
     version,
@@ -185,16 +178,9 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  const blockHeader = new BlockHeader(
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    Fr.ZERO, // TODO(#3441)
-    witnessReader.readField(),
-    witnessReader.readField(),
-  );
+  const headerBuf = Buffer.concat(witnessReader.readFieldArray(HEADER_LENGTH).map(field => field.toBuffer()));
+  const header = Header.fromBuffer(headerBuf);
+
   const proverAddress = AztecAddress.fromField(witnessReader.readField());
 
   return new PublicCircuitPublicInputs(
@@ -212,7 +198,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     newL2ToL1Msgs,
     unencryptedLogsHash,
     unencryptedLogPreimagesLength,
-    blockHeader,
+    header,
     proverAddress,
   );
 }

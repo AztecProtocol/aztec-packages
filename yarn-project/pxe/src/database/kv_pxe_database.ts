@@ -1,5 +1,5 @@
 import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { AztecAddress, Header, CompleteAddress } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -11,21 +11,11 @@ import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
-/** Serialized structure of a block header */
-type SynchronizedBlock = {
-  /** The tree roots when the block was created */
-  roots: Record<MerkleTreeId, string>;
-  /** The hash of the global variables */
-  globalVariablesHash: string;
-  /** The block number */
-  blockNumber: number;
-};
-
 /**
  * A PXE database backed by LMDB.
  */
 export class KVPxeDatabase implements PxeDatabase {
-  #synchronizedBlock: AztecSingleton<SynchronizedBlock>;
+  #synchronizedBlock: AztecSingleton<Header>;
   #addresses: AztecArray<Buffer>;
   #addressIndex: AztecMap<string, number>;
   #authWitnesses: AztecMap<string, Buffer[]>;
@@ -298,43 +288,21 @@ export class KVPxeDatabase implements PxeDatabase {
     };
   }
 
-  async setBlockData(blockNumber: number, blockHeader: BlockHeader): Promise<void> {
-    await this.#synchronizedBlock.set({
-      blockNumber,
-      globalVariablesHash: blockHeader.globalVariablesHash.toString(),
-      roots: {
-        [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot.toString(),
-        [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot.toString(),
-        [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot.toString(),
-        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: blockHeader.l1ToL2MessageTreeRoot.toString(),
-        [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot.toString(),
-        [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot.toString(),
-      },
-    });
+  async setHeader(header: Header): Promise<void> {
+    await this.#synchronizedBlock.set(header);
   }
 
   getBlockNumber(): number | undefined {
-    return this.#synchronizedBlock.get()?.blockNumber;
+    return Number(this.#synchronizedBlock.get()?.globalVariables.blockNumber.toBigInt());
   }
 
-  getBlockHeader(): BlockHeader {
-    const value = this.#synchronizedBlock.get();
-    if (!value) {
-      throw new Error(`Block header not set`);
+  getHeader(): Header {
+    const header = this.#synchronizedBlock.get();
+    if (!header) {
+      throw new Error(`Header not set`);
     }
 
-    const blockHeader = new BlockHeader(
-      Fr.fromString(value.roots[MerkleTreeId.NOTE_HASH_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.NULLIFIER_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.CONTRACT_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.ARCHIVE]),
-      Fr.ZERO, // todo: private kernel vk tree root
-      Fr.fromString(value.roots[MerkleTreeId.PUBLIC_DATA_TREE]),
-      Fr.fromString(value.globalVariablesHash),
-    );
-
-    return blockHeader;
+    return header;
   }
 
   addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {

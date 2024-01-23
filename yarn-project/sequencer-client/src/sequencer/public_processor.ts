@@ -11,13 +11,13 @@ import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, 
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
-  BlockHeader,
   CallRequest,
   CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
+  Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -56,7 +56,7 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getBlockHeader } from './utils.js';
+import { getHeader } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -79,18 +79,18 @@ export class PublicProcessorFactory {
     prevGlobalVariables: GlobalVariables,
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
-    const blockHeader = await getBlockHeader(this.merkleTree, prevGlobalVariables);
+    const header = await getHeader(this.merkleTree, prevGlobalVariables);
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
-    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, blockHeader);
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, header);
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,
       new RealPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       globalVariables,
-      blockHeader,
+      header,
       publicContractsDB,
       worldStatePublicDB,
     );
@@ -108,7 +108,7 @@ export class PublicProcessor {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
-    protected blockHeader: BlockHeader,
+    protected header: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
 
@@ -156,7 +156,7 @@ export class PublicProcessor {
    */
   public makeEmptyProcessedTx(): Promise<ProcessedTx> {
     const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.blockHeader, chainId, version);
+    return makeEmptyProcessedTx(this.header, chainId, version);
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
@@ -277,7 +277,7 @@ export class PublicProcessor {
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    this.blockHeader.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+    this.header.state.partial.publicDataTree.root = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const publicCallStackHashes = padArrayEnd(
@@ -311,7 +311,7 @@ export class PublicProcessor {
       publicCallStackHashes,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      blockHeader: this.blockHeader,
+      header: this.header,
     });
   }
 

@@ -17,7 +17,7 @@ unconstrained pub fn get_nullifier_root_block_number(nullifier_tree_root: Field)
     get_nullifier_root_block_number_oracle(nullifier_tree_root) as u32
 }
 
-#[oracle(getBlockHeader)]
+#[oracle(getHeader)]
 fn get_block_header_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
 unconstrained pub fn get_block_header_internal(block_number: u32) -> Header {

@@ -1,5 +1,5 @@
 import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/circuit-types';
-import { BlockHeader, CompleteAddress, PublicKey } from '@aztec/circuits.js';
+import { Header, CompleteAddress, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -118,18 +118,16 @@ export interface PxeDatabase extends ContractDatabase, ContractArtifactDatabase,
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getBlockHeader(): BlockHeader;
+  getHeader(): Header;
 
   /**
    * Set the latest Block Header.
-   * This function updates the 'global variables hash' and `tree roots` property of the instance
    * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param blockNumber - The block number of the most recent block
-   * @param blockHeader - An object containing the most recent block header.
+   * @param header - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setBlockData(blockNumber: number, blockHeader: BlockHeader): Promise<void>;
+  setHeader(header: Header): Promise<void>;
 
   /**
    * Adds complete address to the database.

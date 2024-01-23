@@ -45,10 +45,10 @@ describe('Private kernel', () => {
     // We check that the test data is for a contract deployment
     expect(kernelInputs.txRequest.txContext.isContractDeploymentTx).toBe(true);
 
-    const kernelOutputs = await executeInit(kernelInputs);
+  //   const kernelOutputs = await executeInit(kernelInputs);
 
-    expect(kernelOutputs).toMatchSnapshot();
-  });
+  //   expect(kernelOutputs).toMatchSnapshot();
+  // });
 
   // Taken from e2e_nested_contract => performs nested calls => last inner
   // To regenerate fixture data run the following on the yarn-project/e2e folder

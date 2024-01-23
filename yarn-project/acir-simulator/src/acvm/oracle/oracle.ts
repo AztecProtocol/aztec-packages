@@ -10,6 +10,7 @@ import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
+  toACVMHeader,
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
   toAcvmL1ToL2MessageLoadOracleInputs,
@@ -124,14 +125,14 @@ export class Oracle {
     return witness.toFieldArray().map(toACVMField);
   }
 
-  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const blockHeader = await this.typedOracle.getBlockHeader(parsedBlockNumber);
-    if (!blockHeader) {
+    const header = await this.typedOracle.getHeader(parsedBlockNumber);
+    if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
-    return blockHeader.toArray().map(toACVMField);
+    return toACVMHeader(header);
   }
 
   // TODO(#3564) - Nuke this oracle and inject the number directly to context

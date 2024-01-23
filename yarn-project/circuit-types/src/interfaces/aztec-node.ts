@@ -129,7 +129,7 @@ export interface AztecNode extends StateInfoProvider {
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getBlockHeader(): Promise<Header>;
+  getHeader(): Promise<Header>;
 
   /**
    * Simulates the public part of a transaction with the current state.

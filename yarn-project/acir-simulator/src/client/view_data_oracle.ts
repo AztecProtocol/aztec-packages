@@ -7,8 +7,8 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
 } from '@aztec/circuit-types';
-import { BlockHeader } from '@aztec/circuits.js';
-import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
+import { Header } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -25,7 +25,7 @@ export class ViewDataOracle extends TypedOracle {
   constructor(
     protected readonly contractAddress: AztecAddress,
     /** Data required to reconstruct the block hash, it contains historical roots. */
-    protected readonly blockHeader: BlockHeader,
+    protected readonly header: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
@@ -114,21 +114,12 @@ export class ViewDataOracle extends TypedOracle {
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  public async getHeader(blockNumber: number): Promise<Header | undefined> {
     const block = await this.db.getBlock(blockNumber);
     if (!block) {
       return undefined;
     }
-    return new BlockHeader(
-      block.header.state.partial.noteHashTree.root,
-      block.header.state.partial.nullifierTree.root,
-      block.header.state.partial.contractTree.root,
-      block.header.state.l1ToL2MessageTree.root,
-      block.archive.root,
-      new Fr(0), // TODO(#3441) privateKernelVkTreeRoot is not present in L2Block and it's not yet populated in noir
-      block.header.state.partial.publicDataTree.root,
-      computeGlobalsHash(block.header.globalVariables),
-    );
+    return block.header;
   }
 
   /**

@@ -1,18 +1,18 @@
-import { BlockHeader, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { Fr, GlobalVariables, Header } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Fetches the private, nullifier, contract tree and l1 to l2 message tree roots from a given db and assembles a CombinedHistoricalTreeRoots object.
  */
-export async function getBlockHeader(
+export async function getHeader(
   db: MerkleTreeOperations,
   prevBlockGlobalVariables: GlobalVariables = GlobalVariables.empty(),
 ) {
   const prevGlobalsHash = computeGlobalsHash(prevBlockGlobalVariables);
   const roots = await db.getTreeRoots();
 
-  return new BlockHeader(
+  return new Header(
     Fr.fromBuffer(roots.noteHashTreeRoot),
     Fr.fromBuffer(roots.nullifierTreeRoot),
     Fr.fromBuffer(roots.contractDataTreeRoot),
