@@ -17,20 +17,33 @@ use dep::aztec::{
     }
 };
 
+// Shows how to create a custom note
+
 global CARD_NOTE_LEN: Field = 3;
 
 // docs:start:state_vars-CardNote
 struct CardNote {
     points: u8,
-    secret: Field,
+    randomness: Field,
     owner: AztecAddress,
     header: NoteHeader,
 }
 // docs:end:state_vars-CardNote
 
+impl CardNote {
+    pub fn new(points: u8, randomness: Field, owner: AztecAddress) -> Self {
+        CardNote {
+            points,
+            randomness,
+            owner,
+            header: NoteHeader::empty(),
+        }
+    }
+}
+
 impl Serialize<CARD_NOTE_LEN> for CardNote {
     fn serialize(self) -> [Field; CARD_NOTE_LEN] {
-        [self.points as Field, self.secret, self.owner.to_field()]
+        [self.points as Field, self.randomness, self.owner.to_field()]
     }
 }
 
@@ -38,7 +51,7 @@ impl Deserialize<CARD_NOTE_LEN> for CardNote {
     fn deserialize(serialized_note: [Field; CARD_NOTE_LEN]) -> Self {
         CardNote {
             points: serialized_note[0] as u8,
-            secret: serialized_note[1],
+            randomness: serialized_note[1],
             owner: AztecAddress::from_field(serialized_note[2]),
             header: NoteHeader::empty(),
         }
@@ -54,7 +67,7 @@ impl NoteInterface for CardNote {
     fn compute_note_hash(self) -> Field {
         pedersen_hash([
             self.points as Field, 
-            self.secret,
+            self.randomness,
             self.owner.to_field(),
         ],0)
     }
@@ -97,16 +110,5 @@ impl NoteInterface for CardNote {
             encryption_pub_key,
             self.serialize(),
         );
-    }
-}
-
-impl CardNote {
-    pub fn new(points: u8, secret: Field, owner: AztecAddress) -> Self {
-        CardNote {
-            points,
-            secret,
-            owner,
-            header: NoteHeader::empty(),
-        }
     }
 }
