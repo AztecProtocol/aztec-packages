@@ -1,4 +1,4 @@
-import { PXE_URL } from '../config.js';
+import { pxe } from '../config.js';
 import { WalletDropdown } from './components/wallet_dropdown.js';
 import { Contract } from './contract.js';
 import styles from './home.module.scss';
@@ -73,7 +73,7 @@ export function Home() {
               <>
                 {`Failed to load accounts. Error: ${selectWalletError}`}
                 <br />
-                {`Make sure PXE from Aztec Sandbox is running at: ${PXE_URL}`}
+                {`Make sure PXE from Aztec Sandbox is running at: ${pxe.getPxeUrl()}`}
               </>
             )}
             {!selectWalletError && !selectedWallet && `No accounts.`}

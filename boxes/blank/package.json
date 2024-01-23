@@ -5,14 +5,15 @@
   "type": "module",
   "main": "./dest/index.js",
   "scripts": {
+    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
+    "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o artifacts --ts",
     "build": "yarn clean && yarn compile && yarn codegen && tsc -b && webpack",
-    "clean": "rm -rf ./dest .tsbuildinfo ./src/artifacts ./src/contracts/target",
-    "start": "serve -p 3000 ./dest",
-    "start:dev": "webpack serve --mode=development",
+    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src/contracts/target",
+    "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
+    "dev": "yarn prep && webpack serve --mode development",
+    "serve": "serve -p 3000 ./dest",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
-    "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o src/artifacts --ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
   "jest": {
@@ -28,8 +29,8 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.ts$",
-    "rootDir": "./src"
+    "testRegex": "tests/.*\\.test\\.ts$",
+    "rootDir": "./"
   },
   "dependencies": {
     "@aztec/accounts": "^0.16.9",
@@ -61,18 +62,6 @@
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1"
-  },
-  "browserslist": {
-    "production": [
-      ">0.5%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   },
   "files": [
     "dest",

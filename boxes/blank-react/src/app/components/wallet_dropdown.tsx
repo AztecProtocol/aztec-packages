@@ -20,7 +20,7 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
       return;
     }
     const loadOptions = async () => {
-      const fetchedOptions = await pxe.getRegisteredAccounts();
+      const fetchedOptions = await pxe.getPxe().getRegisteredAccounts();
       setOptions(fetchedOptions);
       onSelectChange(fetchedOptions[0]);
     };

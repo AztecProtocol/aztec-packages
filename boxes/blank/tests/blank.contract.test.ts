@@ -1,5 +1,5 @@
 import { BlankContract } from '../artifacts/Blank.js';
-import { callContractFunction, deployContract, getWallet } from '../index.js';
+import { callContractFunction, deployContract, getWallet } from '../src/index.js';
 import {
   AccountWallet,
   AztecAddress,
@@ -11,7 +11,7 @@ import {
   Wallet,
   createDebugLogger,
 } from '@aztec/aztec.js';
-import { setupEnvironment } from '../environment/index.js';
+import { pxe } from '../src/config.js';
 
 const logger = createDebugLogger('aztec:blank-box-test');
 
@@ -30,16 +30,14 @@ describe('ZK Contract Tests', () => {
   let _account3: CompleteAddress;
   let contract: Contract;
   let contractAddress: AztecAddress;
-  let pxe: PXE;
 
   beforeAll(async () => {
-    pxe = await setupEnvironment();
-    const accounts = await pxe.getRegisteredAccounts();
+    const accounts = await pxe.getPxe().getRegisteredAccounts();
     [owner, _account2, _account3] = accounts;
 
-    wallet = await getWallet(owner, pxe);
+    wallet = await getWallet(owner, pxe.getPxe());
 
-    contract = await deployZKContract(owner, wallet, pxe);
+    contract = await deployZKContract(owner, wallet, pxe.getPxe());
     contractAddress = contract.address;
   }, 60000);
 
@@ -49,7 +47,7 @@ describe('ZK Contract Tests', () => {
       contract.artifact,
       'getPublicKey',
       [owner.address.toField()],
-      pxe,
+      pxe.getPxe(),
       owner,
     );
     expect(callTxReceipt.status).toBe(TxStatus.MINED);
