@@ -1,7 +1,13 @@
 use crate::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        global_variables::GlobalVariables,
+        append_only_tree_snapshot::{
+            AppendOnlyTreeSnapshot,
+            APPEND_ONLY_TREE_SNAPSHOT_LENGTH,
+        },
+        global_variables::{
+            GlobalVariables,
+            GLOBAL_VARIABLES_LENGTH,
+        },
     },
     constants::{
         GENERATOR_INDEX__BLOCK_HASH,
@@ -9,7 +15,14 @@ use crate::{
         NUM_FIELDS_PER_SHA256,
     },
     hash::pedersen_hash,
-    state_reference::StateReference,
+    state_reference::{
+        StateReference,
+        STATE_REFERENCE_LENGTH,
+    },
+    utils::{
+        arr_copy_slice,
+        bounded_vec::BoundedVec,
+    },
 };
 
 struct Header {
@@ -22,26 +35,35 @@ struct Header {
 impl Header {
 
     pub fn serialize(self) -> [Field; HEADER_LENGTH] {
-        [
-            self.note_hash_tree_root,
-            self.nullifier_tree_root,
-            self.contract_tree_root,
-            self.l1_to_l2_message_tree_root,
-            self.archive_root,
-            self.public_data_tree_root,
-            self.global_variables_hash
-        ]
+        let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new(0);
+
+        fields.push_array(self.last_archive.serialize());
+        fields.push_array(self.body_hash);
+        fields.push_array(self.state.serialize());
+        fields.push_array(self.global_variables.serialize());
+
+        fields.storage
     }
 
-    pub fn deserialize(deserialized: [Field; HEADER_LENGTH]) -> Self {
+    pub fn deserialize(serialized: [Field; HEADER_LENGTH]) -> Self {
+        let mut offset = 0;
+
+        let last_archive_fields = arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
+        offset = offset + APPEND_ONLY_TREE_SNAPSHOT_LENGTH;
+
+        let body_hash = arr_copy_slice(serialized, [0; NUM_FIELDS_PER_SHA256], offset);
+        offset = offset + NUM_FIELDS_PER_SHA256;
+
+        let state_fields = arr_copy_slice(serialized, [0; STATE_REFERENCE_LENGTH], offset);
+        offset = offset + STATE_REFERENCE_LENGTH;
+
+        let global_variables_fields = arr_copy_slice(serialized, [0; GLOBAL_VARIABLES_LENGTH], offset);
+
         Header {
-            note_hash_tree_root: deserialized[0],
-            nullifier_tree_root: deserialized[1],
-            contract_tree_root: deserialized[2],
-            l1_to_l2_message_tree_root: deserialized[3],
-            archive_root: deserialized[4],
-            public_data_tree_root: deserialized[5],
-            global_variables_hash: deserialized[6],
+            last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
+            body_hash,
+            state: StateReference::deserialize(state_fields),
+            global_variables: GlobalVariables::deserialize(global_variables_fields),
         }
     }
 

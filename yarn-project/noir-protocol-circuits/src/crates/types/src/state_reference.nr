@@ -1,5 +1,17 @@
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
-use crate::partial_state_reference::PartialStateReference;
+use crate::{
+    abis::append_only_tree_snapshot::{
+        AppendOnlyTreeSnapshot,
+        APPEND_ONLY_TREE_SNAPSHOT_LENGTH,
+    },
+    partial_state_reference::{
+        PartialStateReference,
+        PARTIAL_STATE_REFERENCE_LENGTH,
+    },
+    utils::{
+        arr_copy_slice,
+        bounded_vec::BoundedVec,
+    },
+};
 
 struct StateReference {
     l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
@@ -15,32 +27,25 @@ impl StateReference {
     }
 
     fn serialize(self) -> [Field; STATE_REFERENCE_LENGTH] {
-        let serialized_l1_to_l2_message_tree = self.l1_to_l2_message_tree.serialize();
-        let serialized_partial = self.partial.serialize();
+        let mut fields: BoundedVec<Field, STATE_REFERENCE_LENGTH> = BoundedVec::new(0);
 
-        [
-            serialized_l1_to_l2_message_tree[0],
-            serialized_l1_to_l2_message_tree[1],
-            serialized_partial[0],
-            serialized_partial[1],
-            serialized_partial[2],
-            serialized_partial[3],
-            serialized_partial[4],
-            serialized_partial[5],
-            serialized_partial[6],
-            serialized_partial[7],
-        ]
+        fields.push_array(self.l1_to_l2_message_tree.serialize());
+        fields.push_array(self.partial.serialize());
+
+        fields.storage
     }
 
     fn deserialize(serialized: [Field; STATE_REFERENCE_LENGTH]) -> StateReference {
+        let mut offset = 0;
+
+        let l1_to_l2_message_tree_fields = arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
+        offset = offset + APPEND_ONLY_TREE_SNAPSHOT_LENGTH;
+
+        let partial_fields = arr_copy_slice(serialized, [0; PARTIAL_STATE_REFERENCE_LENGTH], offset);
+
         StateReference {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::deserialize(
-                [serialized[0], serialized[1]]
-            ),
-            partial: PartialStateReference::deserialize(
-                [serialized[2], serialized[3], serialized[4], serialized[5],
-                 serialized[6], serialized[7], serialized[8], serialized[9]]
-            ),
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::deserialize(l1_to_l2_message_tree_fields),
+            partial: PartialStateReference::deserialize(partial_fields),
         }
     }
 }
