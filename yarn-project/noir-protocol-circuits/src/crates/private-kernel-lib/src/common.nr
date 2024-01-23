@@ -441,6 +441,8 @@ fn field_to_grumpkin_private_key(val: Field) -> GrumpkinPrivateKey {
 }
 
 pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contract_address: AztecAddress) -> GrumpkinPrivateKey {
+    // TODO: Temporary hack. Should replace it with a secure way to derive the secret key.
+    // Match the way keys are derived in circuits.js/src/keys/index.ts
     let hash = pedersen_hash(
         [secret_key.high, secret_key.low, contract_address.to_field()],
         0
