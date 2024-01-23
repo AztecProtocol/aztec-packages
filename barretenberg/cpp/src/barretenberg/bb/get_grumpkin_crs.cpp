@@ -1,5 +1,6 @@
 #include "get_grumpkin_crs.hpp"
 
+namespace {
 std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 {
     size_t g1_start = 28;
@@ -19,9 +20,10 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 
     return data;
 }
+} // namespace
 
-std::vector<bb::curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path,
-                                                                     size_t num_points)
+namespace bb {
+std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path, size_t num_points)
 {
     std::filesystem::create_directories(path);
     std::ifstream size_file(path / "grumpkin_size");
@@ -34,9 +36,9 @@ std::vector<bb::curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::
         auto file = path / "grumpkin_g1.dat";
         vinfo("using cached crs at: ", file);
         auto data = read_file(file, 28 + num_points * 64);
-        auto points = std::vector<bb::curve::Grumpkin::AffineElement>(num_points);
+        auto points = std::vector<curve::Grumpkin::AffineElement>(num_points);
         auto size_of_points_in_bytes = num_points * 64;
-        bb::srs::IO<bb::curve::Grumpkin>::read_affine_elements_from_buffer(
+        srs::IO<curve::Grumpkin>::read_affine_elements_from_buffer(
             points.data(), (char*)data.data(), size_of_points_in_bytes);
         return points;
     }
@@ -52,7 +54,8 @@ std::vector<bb::curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::
     new_size_file << num_points;
     new_size_file.close();
 
-    auto points = std::vector<bb::curve::Grumpkin::AffineElement>(num_points);
-    bb::srs::IO<bb::curve::Grumpkin>::read_affine_elements_from_buffer(points.data(), (char*)data.data(), data.size());
+    auto points = std::vector<curve::Grumpkin::AffineElement>(num_points);
+    srs::IO<curve::Grumpkin>::read_affine_elements_from_buffer(points.data(), (char*)data.data(), data.size());
     return points;
 }
+} // namespace bb
