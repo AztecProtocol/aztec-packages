@@ -4,7 +4,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { initExecutionEnvironmentEmpty } from '../fixtures/index.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
 import { Add } from '../opcodes/arithmetic.js';
 import { Jump, Return } from '../opcodes/control_flow.js';
 import { Instruction } from '../opcodes/instruction.js';
@@ -30,7 +30,8 @@ describe('interpreter', () => {
       new Return(2, 1), // [3]
     ];
 
-    const context = new AvmMachineState(calldata, initExecutionEnvironmentEmpty());
+    const executionEnvironment = initExecutionEnvironment();
+    const context = new AvmMachineState(calldata, executionEnvironment);
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
     const avmReturnData = interpreter.run();
 
@@ -48,7 +49,8 @@ describe('interpreter', () => {
 
     const instructions: Instruction[] = [new Jump(invalidJumpDestination)];
 
-    const context = new AvmMachineState(calldata, initExecutionEnvironmentEmpty());
+    const executionEnvironment = initExecutionEnvironment();
+    const context = new AvmMachineState(calldata, executionEnvironment);
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
 
     const avmReturnData = interpreter.run();

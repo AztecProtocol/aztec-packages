@@ -4,7 +4,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { initExecutionEnvironmentEmpty } from '../fixtures/index.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
 import { Add, Mul, Sub } from './arithmetic.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { Eq, Lt, Lte } from './comparators.js';
@@ -17,7 +17,7 @@ describe('Control Flow Opcodes', () => {
 
   beforeEach(() => {
     stateManager = mock<AvmStateManager>();
-    machineState = new AvmMachineState([], initExecutionEnvironmentEmpty());
+    machineState = new AvmMachineState([], initExecutionEnvironment());
   });
 
   it('Should implement JUMP', () => {
@@ -138,7 +138,7 @@ describe('Control Flow Opcodes', () => {
 
     for (const instruction of instructions) {
       // Use a fresh machine state each run
-      const innerMachineState = new AvmMachineState([], initExecutionEnvironmentEmpty());
+      const innerMachineState = new AvmMachineState([], initExecutionEnvironment());
       expect(machineState.pc).toBe(0);
       instruction.execute(innerMachineState, stateManager);
       expect(innerMachineState.pc).toBe(1);

@@ -11,12 +11,12 @@ import { SLoad, SStore } from './storage.js';
 describe('Storage Instructions', () => {
   let stateManager: MockProxy<AvmStateManager>;
   let machineState: AvmMachineState;
-  const contractAddress = AztecAddress.random();
+  const address = AztecAddress.random();
 
   beforeEach(() => {
     stateManager = mock<AvmStateManager>();
 
-    const executionEnvironment = initExecutionEnvironment(contractAddress);
+    const executionEnvironment = initExecutionEnvironment({ address, storageAddress: address });
     machineState = new AvmMachineState([], executionEnvironment);
   });
 
@@ -29,7 +29,7 @@ describe('Storage Instructions', () => {
 
     new SStore(0, 1).execute(machineState, stateManager);
 
-    expect(stateManager.store).toBeCalledWith(contractAddress, a, b);
+    expect(stateManager.store).toBeCalledWith(address, a, b);
   });
 
   it('Sload should Read into storage', async () => {
@@ -45,7 +45,7 @@ describe('Storage Instructions', () => {
 
     await new SLoad(0, 1).execute(machineState, stateManager);
 
-    expect(stateManager.read).toBeCalledWith(contractAddress, a);
+    expect(stateManager.read).toBeCalledWith(address, a);
 
     const actual = machineState.readMemory(1);
     expect(actual).toEqual(expectedResult);

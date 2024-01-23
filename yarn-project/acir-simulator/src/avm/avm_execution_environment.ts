@@ -1,9 +1,13 @@
+import { GlobalVariables } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-/** - */
-export class ExecutionEnvironment {
+/**
+ * Contains variables that remain constant during AVM execution
+ * These variables are provided by the public kernel circuit
+ */
+export class AvmExecutionEnvironment {
   constructor(
     /** - */
     public readonly address: AztecAddress,
@@ -24,7 +28,7 @@ export class ExecutionEnvironment {
     /** - */
     public readonly contractCallDepth: Fr,
     /** - */
-    // globals: TODO:
+    public readonly globals: GlobalVariables,
     /** - */
     public readonly isStaticCall: boolean,
     /** - */
@@ -32,21 +36,4 @@ export class ExecutionEnvironment {
     /** - */
     public readonly calldata: Fr[],
   ) {}
-
-  static empty(): ExecutionEnvironment {
-    return new ExecutionEnvironment(
-      AztecAddress.zero(),
-      AztecAddress.zero(),
-      AztecAddress.zero(),
-      AztecAddress.zero(),
-      EthAddress.ZERO,
-      Fr.zero(),
-      Fr.zero(),
-      Fr.zero(),
-      Fr.zero(),
-      false,
-      false,
-      [],
-    );
-  }
 }

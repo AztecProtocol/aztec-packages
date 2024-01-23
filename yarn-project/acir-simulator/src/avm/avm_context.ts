@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { ExecutionEnvironment } from './avm_execution_environment.js';
+import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { AvmMessageCallResult } from './avm_message_call_result.js';
 import { AvmStateManager } from './avm_state_manager.js';
@@ -14,12 +14,14 @@ import { Instruction } from './opcodes/index.js';
  * It stores a state manager
  */
 export class AvmContext {
+  /** Contains constant variables provided by the kernel */
+  private executionEnvironment: AvmExecutionEnvironment;
+  /** A wrapper that manages mutable state during execution - (caching, fetching) */
   private stateManager: AvmStateManager;
-  private executionEnvironment: ExecutionEnvironment;
 
-  constructor(executionEnvironment: ExecutionEnvironment, stateManager: AvmStateManager) {
-    this.stateManager = stateManager;
+  constructor(executionEnvironment: AvmExecutionEnvironment, stateManager: AvmStateManager) {
     this.executionEnvironment = executionEnvironment;
+    this.stateManager = stateManager;
   }
 
   /**

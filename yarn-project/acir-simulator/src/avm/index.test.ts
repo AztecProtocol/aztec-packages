@@ -4,7 +4,7 @@ import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from './avm_machine_state.js';
 import { AvmStateManager } from './avm_state_manager.js';
-import { initExecutionEnvironmentEmpty } from './fixtures/index.js';
+import { initExecutionEnvironment } from './fixtures/index.js';
 import { AvmInterpreter } from './interpreter/interpreter.js';
 import { decodeBytecode } from './opcodes/decode_bytecode.js';
 import { encodeToBytecode } from './opcodes/encode_to_bytecode.js';
@@ -29,7 +29,7 @@ describe('avm', () => {
     const instructions = decodeBytecode(fullBytecode);
 
     // Execute instructions
-    const executionEnvironment = initExecutionEnvironmentEmpty();
+    const executionEnvironment = initExecutionEnvironment();
     const context = new AvmMachineState(calldata, executionEnvironment);
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
     const avmReturnData = interpreter.run();
