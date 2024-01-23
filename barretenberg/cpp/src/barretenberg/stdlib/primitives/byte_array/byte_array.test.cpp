@@ -8,8 +8,8 @@
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
 namespace test_stdlib_byte_array {
-using namespace barretenberg;
-using namespace proof_system::plonk::stdlib;
+using namespace bb;
+using namespace bb::stdlib;
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
@@ -22,7 +22,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {};
 
 template <class Builder> using byte_array_ct = byte_array<Builder>;
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(ByteArrayTest, CircuitTypes);
 
 TYPED_TEST(ByteArrayTest, test_reverse)

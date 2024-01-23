@@ -18,14 +18,14 @@
  * The challenges are ρ (batching) and r (random evaluation).
  *
  */
-namespace proof_system::honk::pcs::shplonk {
+namespace bb::honk::pcs::shplonk {
 
 /**
  * @brief Polynomial G(X) = Q(X) - ∑ₖ ẑₖ(r)⋅( Bₖ(X) − Tₖ(z) ), where Q(X) = ∑ₖ ( Bₖ(X) − Tₖ(X) ) / zₖ(X)
  *
  * @tparam Curve EC parameters
  */
-template <typename Curve> using OutputWitness = barretenberg::Polynomial<typename Curve::ScalarField>;
+template <typename Curve> using OutputWitness = bb::Polynomial<typename Curve::ScalarField>;
 
 /**
  * @brief Prover output (claim=([G], r, 0), witness = G(X), proof = [Q])
@@ -45,7 +45,7 @@ template <typename Curve> struct ProverOutput {
  */
 template <typename Curve> class ShplonkProver_ {
     using Fr = typename Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
   public:
     /**
@@ -271,4 +271,4 @@ template <typename Curve> class ShplonkVerifier_ {
         return { { z_challenge, Fr(0) }, G_commitment };
     };
 };
-} // namespace proof_system::honk::pcs::shplonk
+} // namespace bb::honk::pcs::shplonk

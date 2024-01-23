@@ -1,11 +1,11 @@
 #include "merge_verifier.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <typename Flavor>
 MergeVerifier_<Flavor>::MergeVerifier_()
     : transcript(std::make_shared<Transcript>())
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, barretenberg::srs::get_crs_factory())){};
+    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory())){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_i^(j), j = 1,2,3,4.
@@ -82,4 +82,4 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk
 template class MergeVerifier_<honk::flavor::Ultra>;
 template class MergeVerifier_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

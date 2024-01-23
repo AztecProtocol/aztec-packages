@@ -6,7 +6,7 @@
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace plookup::fixed_base {
+namespace bb::plookup::fixed_base {
 
 /**
  * @brief Generates plookup tables required to perform fixed-base scalar multiplication over a fixed number of points.
@@ -74,7 +74,7 @@ class table : public FixedBaseParams {
     template <size_t multitable_index, size_t num_bits> static MultiTable get_fixed_base_table(MultiTableId id);
 
     template <size_t multitable_index, size_t table_index>
-    static std::array<barretenberg::fr, 2> get_basic_fixed_base_table_values(const std::array<uint64_t, 2> key)
+    static std::array<bb::fr, 2> get_basic_fixed_base_table_values(const std::array<uint64_t, 2> key)
     {
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
         static_assert(table_index < get_num_bits_of_multi_table(multitable_index));
@@ -84,4 +84,4 @@ class table : public FixedBaseParams {
     }
 };
 
-} // namespace plookup::fixed_base
+} // namespace bb::plookup::fixed_base

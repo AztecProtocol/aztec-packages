@@ -8,8 +8,7 @@
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
 namespace test_stdlib_packed_byte_array {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace {
 auto& engine = numeric::random::get_debug_engine();
@@ -21,7 +20,7 @@ auto& engine = numeric::random::get_debug_engine();
 
 template <class Builder> class PackedByteArrayTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(PackedByteArrayTest, CircuitTypes);
 
 TYPED_TEST(PackedByteArrayTest, string_constructor_and_get_value_consistency)

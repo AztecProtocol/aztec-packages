@@ -16,7 +16,7 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 class Ultra {
   public:
@@ -27,7 +27,7 @@ class Ultra {
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
     using PCS = pcs::kzg::KZG<Curve>;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
@@ -43,15 +43,14 @@ class Ultra {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
-    using GrandProductRelations =
-        std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
+    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-                                 proof_system::UltraPermutationRelation<FF>,
-                                 proof_system::LookupRelation<FF>,
-                                 proof_system::GenPermSortRelation<FF>,
-                                 proof_system::EllipticRelation<FF>,
-                                 proof_system::AuxiliaryRelation<FF>>;
+    using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
+                                 bb::UltraPermutationRelation<FF>,
+                                 bb::LookupRelation<FF>,
+                                 bb::GenPermSortRelation<FF>,
+                                 bb::EllipticRelation<FF>,
+                                 bb::AuxiliaryRelation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
@@ -348,7 +347,7 @@ class Ultra {
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -499,7 +498,7 @@ class Ultra {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
@@ -553,8 +552,8 @@ class Ultra {
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        proof_data, num_bytes_read));
+                    deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+                                                                                                 num_bytes_read));
             }
             sumcheck_evaluations =
                 deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
@@ -603,4 +602,4 @@ class Ultra {
     };
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

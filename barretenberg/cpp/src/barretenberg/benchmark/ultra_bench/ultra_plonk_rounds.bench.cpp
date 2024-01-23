@@ -4,7 +4,7 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 
 using namespace benchmark;
-using namespace proof_system;
+using namespace bb;
 
 // The rounds to measure
 enum {
@@ -49,7 +49,7 @@ BBERG_PROFILE static void test_round_inner(State& state, plonk::UltraProver& pro
 }
 BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 {
-    barretenberg::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory("../srs_db/ignition");
     for (auto _ : state) {
         state.PauseTiming();
         plonk::UltraComposer composer;

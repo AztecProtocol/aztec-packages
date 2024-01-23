@@ -5,11 +5,11 @@
 #include "../types/program_settings.hpp"
 #include "barretenberg/plonk/work_queue/work_queue.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 class CommitmentScheme {
   public:
-    using fr = barretenberg::fr;
+    using fr = bb::fr;
 
     // Constructors for CommitmentScheme
     CommitmentScheme() {}
@@ -45,4 +45,4 @@ class CommitmentScheme {
                                                        bool in_lagrange_form = false) = 0;
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

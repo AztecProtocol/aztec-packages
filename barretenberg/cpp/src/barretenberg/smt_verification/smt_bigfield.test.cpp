@@ -27,12 +27,12 @@
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
 
 using namespace smt_circuit;
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
+using namespace bb::plonk;
 
-using field_ct = proof_system::plonk::stdlib::field_t<StandardCircuitBuilder>;
-using witness_t = proof_system::plonk::stdlib::witness_t<StandardCircuitBuilder>;
-using pub_witness_t = proof_system::plonk::stdlib::public_witness_t<StandardCircuitBuilder>;
+using field_ct = bb::stdlib::field_t<StandardCircuitBuilder>;
+using witness_t = bb::stdlib::witness_t<StandardCircuitBuilder>;
+using pub_witness_t = bb::stdlib::public_witness_t<StandardCircuitBuilder>;
 
 using bn254 = stdlib::bn254<StandardCircuitBuilder>;
 

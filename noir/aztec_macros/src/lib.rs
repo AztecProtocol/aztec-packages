@@ -31,10 +31,16 @@ impl MacroProcessor for AztecMacro {
     }
 }
 
+const FUNCTION_TREE_HEIGHT: u32 = 5;
+const MAX_CONTRACT_FUNCTIONS: usize = 2_usize.pow(FUNCTION_TREE_HEIGHT);
+
 #[derive(Debug, Clone)]
 pub enum AztecMacroError {
     AztecNotFound,
     AztecComputeNoteHashAndNullifierNotFound { span: Span },
+    AztecContractHasTooManyFunctions { span: Span },
+    AztecContractConstructorMissing { span: Span },
+    UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
 }
 
 impl From<AztecMacroError> for MacroError {
@@ -47,6 +53,21 @@ impl From<AztecMacroError> for MacroError {
             },
             AztecMacroError::AztecComputeNoteHashAndNullifierNotFound { span } => MacroError {
                 primary_message: "compute_note_hash_and_nullifier function not found. Define it in your contract. For more information go to https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#compute_note_hash_and_nullifier-function-not-found-define-it-in-your-contract".to_owned(),
+                secondary_message: None,
+                span: Some(span),
+            },
+            AztecMacroError::AztecContractHasTooManyFunctions { span } => MacroError {
+                primary_message: format!("Contract can only have a maximum of {} functions", MAX_CONTRACT_FUNCTIONS),
+                secondary_message: None,
+                span: Some(span),
+            },
+            AztecMacroError::AztecContractConstructorMissing { span } => MacroError {
+                primary_message: "Contract must have a constructor function".to_owned(),
+                secondary_message: None,
+                span: Some(span),
+            },
+            AztecMacroError::UnsupportedFunctionArgumentType { span, typ } => MacroError {
+                primary_message: format!("Provided parameter type `{typ:?}` is not supported in Aztec contract interface"),
                 secondary_message: None,
                 span: Some(span),
             },
@@ -326,11 +347,14 @@ fn transform_module(
 
     for func in module.functions.iter_mut() {
         for secondary_attribute in func.def.attributes.secondary.clone() {
+            let crate_graph = &context.crate_graph[crate_id];
             if is_custom_attribute(&secondary_attribute, "aztec(private)") {
-                transform_function("Private", func, storage_defined);
+                transform_function("Private", func, storage_defined)
+                    .map_err(|err| (err.into(), crate_graph.root_file_id))?;
                 has_transformed_module = true;
             } else if is_custom_attribute(&secondary_attribute, "aztec(public)") {
-                transform_function("Public", func, storage_defined);
+                transform_function("Public", func, storage_defined)
+                    .map_err(|err| (err.into(), crate_graph.root_file_id))?;
                 has_transformed_module = true;
             }
         }
@@ -340,6 +364,28 @@ fn transform_module(
             has_transformed_module = true;
         }
     }
+
+    if has_transformed_module {
+        // We only want to run these checks if the macro processor has found the module to be an Aztec contract.
+
+        if module.functions.len() > MAX_CONTRACT_FUNCTIONS {
+            let crate_graph = &context.crate_graph[crate_id];
+            return Err((
+                AztecMacroError::AztecContractHasTooManyFunctions { span: Span::default() }.into(),
+                crate_graph.root_file_id,
+            ));
+        }
+
+        let constructor_defined = module.functions.iter().any(|func| func.name() == "constructor");
+        if !constructor_defined {
+            let crate_graph = &context.crate_graph[crate_id];
+            return Err((
+                AztecMacroError::AztecContractConstructorMissing { span: Span::default() }.into(),
+                crate_graph.root_file_id,
+            ));
+        }
+    }
+
     Ok(has_transformed_module)
 }
 
@@ -347,7 +393,11 @@ fn transform_module(
 /// - A new Input that is provided for a kernel app circuit, named: {Public/Private}ContextInputs
 /// - Hashes all of the function input variables
 ///     - This instantiates a helper function  
-fn transform_function(ty: &str, func: &mut NoirFunction, storage_defined: bool) {
+fn transform_function(
+    ty: &str,
+    func: &mut NoirFunction,
+    storage_defined: bool,
+) -> Result<(), AztecMacroError> {
     let context_name = format!("{}Context", ty);
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
@@ -359,7 +409,7 @@ fn transform_function(ty: &str, func: &mut NoirFunction, storage_defined: bool) 
     }
 
     // Insert the context creation as the first action
-    let create_context = create_context(&context_name, &func.def.parameters);
+    let create_context = create_context(&context_name, &func.def.parameters)?;
     func.def.body.0.splice(0..0, (create_context).iter().cloned());
 
     // Add the inputs to the params
@@ -386,6 +436,8 @@ fn transform_function(ty: &str, func: &mut NoirFunction, storage_defined: bool) 
         "Public" => func.def.is_open = true,
         _ => (),
     }
+
+    Ok(())
 }
 
 /// Transform Unconstrained
@@ -584,7 +636,7 @@ fn create_inputs(ty: &str) -> Param {
 ///     let mut context = PrivateContext::new(inputs, hasher.hash());
 /// }
 /// ```
-fn create_context(ty: &str, params: &[Param]) -> Vec<Statement> {
+fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMacroError> {
     let mut injected_expressions: Vec<Statement> = vec![];
 
     // `let mut hasher = Hasher::new();`
@@ -600,7 +652,7 @@ fn create_context(ty: &str, params: &[Param]) -> Vec<Statement> {
     injected_expressions.push(let_hasher);
 
     // Iterate over each of the function parameters, adding to them to the hasher
-    params.iter().for_each(|Param { pattern, typ, span: _, visibility: _ }| {
+    for Param { pattern, typ, span, .. } in params {
         match pattern {
             Pattern::Identifier(identifier) => {
                 // Match the type to determine the padding to do
@@ -629,16 +681,18 @@ fn create_context(ty: &str, params: &[Param]) -> Vec<Statement> {
                             },
                         )
                     }
-                    _ => panic!(
-                        "[Aztec Noir] Provided parameter type: {:?} is not supported",
-                        unresolved_type
-                    ),
+                    _ => {
+                        return Err(AztecMacroError::UnsupportedFunctionArgumentType {
+                            typ: unresolved_type.clone(),
+                            span: *span,
+                        })
+                    }
                 };
                 injected_expressions.push(expression);
             }
             _ => todo!(), // Maybe unreachable?
         }
-    });
+    }
 
     // Create the inputs to the context
     let inputs_expression = variable("inputs");
@@ -660,7 +714,7 @@ fn create_context(ty: &str, params: &[Param]) -> Vec<Statement> {
     injected_expressions.push(let_context);
 
     // Return all expressions that will be injected by the hasher
-    injected_expressions
+    Ok(injected_expressions)
 }
 
 /// Abstract Return Type

@@ -2,8 +2,7 @@
 
 #include "../circuit_builders/circuit_builders.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief Construct a new ram table<Builder>::ram table object. It's dynamic memory!
@@ -252,7 +251,6 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     }
 }
 
-template class ram_table<proof_system::UltraCircuitBuilder>;
-template class ram_table<proof_system::GoblinUltraCircuitBuilder>;
-} // namespace stdlib
-} // namespace proof_system::plonk
+template class ram_table<bb::UltraCircuitBuilder>;
+template class ram_table<bb::GoblinUltraCircuitBuilder>;
+} // namespace bb::stdlib

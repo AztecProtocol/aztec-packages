@@ -6,7 +6,7 @@
 
 using namespace benchmark;
 
-namespace proof_system::honk {
+namespace bb::honk {
 using Flavor = flavor::Ultra;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
@@ -16,7 +16,7 @@ using Builder = Flavor::CircuitBuilder;
 // Fold one instance into an accumulator.
 void fold_one(State& state) noexcept
 {
-    barretenberg::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory("../srs_db/ignition");
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
     auto composer = UltraComposer();
@@ -38,4 +38,4 @@ void fold_one(State& state) noexcept
 }
 
 BENCHMARK(fold_one)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
-} // namespace proof_system::honk
+} // namespace bb::honk
