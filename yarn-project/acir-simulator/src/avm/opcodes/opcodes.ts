@@ -83,5 +83,5 @@ export enum Opcode {
   POSEIDON = 0x37,
 
   // Add new opcodes before this
-  TOTAL_OPCODES_NUMBER
+  TOTAL_OPCODES_NUMBER,
 }
