@@ -298,7 +298,7 @@ const sidebars = {
       items: [
         "dev_docs/cli/cli-commands",
         "dev_docs/cli/sandbox-reference",
-        "dev_docs/pxe/run_more_than_one_pxe_sandbox"
+        "dev_docs/cli/run_more_than_one_pxe_sandbox"
       ],
     },
     {
