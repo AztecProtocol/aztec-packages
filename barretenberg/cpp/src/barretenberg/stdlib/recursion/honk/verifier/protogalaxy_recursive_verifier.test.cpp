@@ -51,6 +51,9 @@ class ProtogalaxyRecursiveTest : public testing::Test {
      * @param builder
      * @param public_inputs
      * @param log_num_gates
+     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
+     * amongst test files
      */
     static void create_inner_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
     {
@@ -178,6 +181,12 @@ TEST_F(ProtogalaxyRecursiveTest, NewEvaluate)
     EXPECT_EQ(res1, res2.get_value());
 }
 
+/**
+ * @brief Recursively verify two rounds of folding valid circuits and then recursive verify the final decider proof,
+ * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native verifiers
+ * are identical by checking the manifests
+
+ */
 TEST_F(ProtogalaxyRecursiveTest, FullProtogalaxyRecursiveTest)
 {
 

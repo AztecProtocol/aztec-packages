@@ -71,7 +71,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     void prepare_for_folding();
 
     /**
-     * @brief Instantiatied the accumulator (i.e. the relaxed instance) from the transcript.
+     * @brief Instantiate the accumulator (i.e. the relaxed instance) from the transcript.
      *
      */
     void receive_accumulator(const std::shared_ptr<Instance>&, const std::string&);
@@ -96,10 +96,11 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     /**
      * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
      *
-     * @details This method is equivalent to the ones in the Polynomial class that evaluate a polynomial in coefficient
-     * form, class used in the native verifier for constructing and computing the perturbator. We implement this
-     * functionality here in the recursive folding verifier to avoid instantiating the entire Polynomial class on
-     * stdlib::bn254. The evaluation needs to be done sequentially asw e don't support a parallel_for in circuits.
+     * @details This method is equivalent to the one in the Polynomial class for evaluating a polynomial, represented by
+     * coefficients in monomial basis, at a given point. The Polynomial class is used in the native verifier for
+     * constructing and computing the perturbator. We implement this separate functionality here in the recursive
+     * folding verifier to avoid instantiating the entire Polynomial class on stdlib::bn254. Furthermore, the evaluation
+     * needs to be done sequentially as we don't support a parallel_for in circuits.
      *
      */
     static FF evaluate_perturbator(std::vector<FF> coeffs, FF point)
