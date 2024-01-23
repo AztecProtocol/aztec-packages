@@ -12,13 +12,14 @@ import {
   Shr,
   Xor,
 } from './bitwise.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
 
 describe('Bitwise instructions', () => {
   let machineState: AvmMachineState;
   let stateManager = mock<AvmStateManager>();
 
   beforeEach(() => {
-    machineState = new AvmMachineState([]);
+    machineState = new AvmMachineState([], initExecutionEnvironment());
     stateManager = mock<AvmStateManager>();
   });
 
