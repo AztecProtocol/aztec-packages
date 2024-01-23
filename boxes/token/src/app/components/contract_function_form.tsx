@@ -113,13 +113,20 @@ async function handleFunctionCall(
     // for now, dont let user change the salt.  requires some change to the form generation if we want to let user choose one
     // since everything is currently based on parsing the contractABI, and the salt parameter is not present there
     const salt = Fr.random();
-    return await deployContract(wallet, artifact, typedArgs, salt, pxe);
+    return await deployContract(wallet, artifact, typedArgs, salt, pxe.getPxe());
   }
 
   if (functionAbi.functionType === 'unconstrained') {
-    return await viewContractFunction(contractAddress!, artifact, functionName, typedArgs, pxe, wallet);
+    return await viewContractFunction(contractAddress!, artifact, functionName, typedArgs, pxe.getPxe(), wallet);
   } else {
-    const txnReceipt = await callContractFunction(contractAddress!, artifact, functionName, typedArgs, pxe, wallet);
+    const txnReceipt = await callContractFunction(
+      contractAddress!,
+      artifact,
+      functionName,
+      typedArgs,
+      pxe.getPxe(),
+      wallet,
+    );
     return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }

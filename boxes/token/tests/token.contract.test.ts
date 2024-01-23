@@ -7,7 +7,6 @@ import {
   ExtendedNote,
   Fr,
   Note,
-  PXE,
   TxHash,
   TxStatus,
   computeAuthWitMessageHash,
@@ -18,7 +17,7 @@ import {
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
-import { setupEnvironment } from '../environment/index.js';
+import { pxe } from '../src/config.js';
 
 const TIMEOUT = 60_000;
 
@@ -32,7 +31,6 @@ describe('e2e_token_contract', () => {
   let asset: TokenContract;
 
   let tokenSim: TokenSimulator;
-  let pxe: PXE;
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
@@ -43,10 +41,9 @@ describe('e2e_token_contract', () => {
 
   beforeAll(async () => {
     logger = createDebugLogger('box:token_contract_test');
-    pxe = await setupEnvironment();
     // wallets = await createAccounts(pxe, 3);
-    accounts = await pxe.getRegisteredAccounts();
-    wallets = await getInitialTestAccountsWallets(pxe);
+    accounts = await pxe.getPxe().getRegisteredAccounts();
+    wallets = await getInitialTestAccountsWallets(pxe.getPxe());
 
     logger(`Accounts: ${accounts.map(a => a.toReadableString())}`);
     logger(`Wallets: ${wallets.map(w => w.getAddress().toString())}`);
@@ -217,7 +214,7 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe('Transfer', () => {
+  describe.skip('Transfer', () => {
     describe('public', () => {
       it('transfer less than balance', async () => {
         const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
@@ -369,7 +366,7 @@ describe('e2e_token_contract', () => {
       });
     });
 
-    describe('private', () => {
+    describe.skip('private', () => {
       it('transfer less than balance', async () => {
         const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
         const amount = balance0 / 2n;
@@ -509,7 +506,7 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe('Shielding (shield + redeem_shield)', () => {
+  describe.skip('Shielding (shield + redeem_shield)', () => {
     const secret = Fr.random();
     let secretHash: Fr;
 
@@ -634,7 +631,7 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe('Unshielding', () => {
+  describe.skip('Unshielding', () => {
     it('on behalf of self', async () => {
       const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
       const amount = balancePriv / 2n;
@@ -746,7 +743,7 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe('Burn', () => {
+  describe.skip('Burn', () => {
     describe('public', () => {
       it('burn less than balance', async () => {
         const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();

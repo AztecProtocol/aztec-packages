@@ -1,6 +1,6 @@
 # Aztec Box
 
-This box is a one-stop-shop for Aztec that will deploy a blank React Page. You can use it as a boilerplate to start developing your own Aztec app in seconds!
+This box is a one-stop-shop for Aztec that will deploy a minimal barebones HTML+JS page. You can use it as a boilerplate to start developing your own Aztec app in seconds!
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ This will install all the dependencies and run the sandbox on port 8080 together
 Unbox the box with:
 
 ```bash
-aztec-cli unbox blank-react
+aztec-cli unbox blank
 ```
 
 and install dependencies:
@@ -56,12 +56,12 @@ In the `src/contracts` folder, you'll find the default contract being deployed. 
 
 ## More info
 
-There are five folders in your `src` folder:
+Here's what is inside your `src` folder:
 
-- `app` - This is your actual React app
-- `scripts` - These are the scripts the frontend is using to talk with the sandbox
 - `contracts` - The Aztec Contracts you just deployed!
-- `artifacts` - Auto-generated when you compile
-- `test` - A boilerplate with a simple test
+- `config.ts` - A file exporting environment, and other configurations you need
+- `index.html` and `.ts` - The actual website you're deploying
+
+There's also a `test` folder with minimal testing you can expand on, and an `artifacts` folder should pop up once you run your app, these are the artifacts from your contract's compilation.
 
 Visit the [Aztec Docs](https://docs.aztec.network) for more information on how Aztec works, and the [Awesome Aztec Repository](https://github.com/AztecProtocol/awesome-aztec) for more cool projects, boilerplates and tooling.

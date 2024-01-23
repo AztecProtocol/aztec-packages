@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "rootDir": "src",
     "outDir": "dest",
     "tsBuildInfoFile": ".tsbuildinfo",
     "target": "es2020",
@@ -21,5 +20,5 @@
     "skipLibCheck": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "src/contracts/target/*.json"]
+  "include": ["src", "src/*", "tests/*", "tests", "src/contracts/target/*.json", "artifacts", "artifacts/*"]
 }
