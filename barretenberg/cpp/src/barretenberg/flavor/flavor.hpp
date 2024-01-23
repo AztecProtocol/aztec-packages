@@ -203,6 +203,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
         return subrelations_in_relation + compute_number_of_subrelations<Tuple, Index + 1>();
     }
 }
+
 /**
  * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of

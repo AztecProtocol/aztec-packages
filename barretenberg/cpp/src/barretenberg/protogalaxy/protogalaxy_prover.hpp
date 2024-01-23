@@ -136,7 +136,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
-
+        FF linearly_dependent_contribution = FF(0);
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t row = 0; row < instance_size; row++) {
             auto row_evaluations = instance_polynomials.get_row(row);
@@ -150,6 +150,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             auto output = FF(0);
             auto running_challenge = FF(1);
+
+            // Sum relation evaluations, batched by their corresponding relation separator challenge, to get the value
+            // of the full honk relationa at a specific row
             Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
 
             full_honk_evaluations[row] = output;
