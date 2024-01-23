@@ -9,7 +9,7 @@ import { Add } from '../opcodes/arithmetic.js';
 import { Jump, Return } from '../opcodes/control_flow.js';
 import { Instruction } from '../opcodes/instruction.js';
 import { CalldataCopy } from '../opcodes/memory.js';
-import { AvmInterpreter } from './interpreter.js';
+import { AvmInterpreter, InvalidProgramCounterError } from './interpreter.js';
 
 describe('interpreter', () => {
   let stateManager: MockProxy<AvmStateManager>;
@@ -22,12 +22,9 @@ describe('interpreter', () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
 
     const instructions: Instruction[] = [
-      // Copy the first two elements of the calldata to memory regions 0 and 1
-      new CalldataCopy(0, 2, 0),
-      // Add the two together and store the result in memory region 2
-      new Add(0, 1, 2), // 1 + 2
-      // Return the result
-      new Return(2, 1), // [3]
+      new CalldataCopy(/*cdOffset=*/ 0, /*copySize=*/ 2, /*destOffset=*/ 0),
+      new Add(/*aOffset=*/ 0, /*bOffset=*/ 1, /*destOffset=*/ 2),
+      new Return(/*returnOffset=*/ 2, /*copySize=*/ 1),
     ];
 
     const executionEnvironment = initExecutionEnvironment();
@@ -36,10 +33,8 @@ describe('interpreter', () => {
     const avmReturnData = interpreter.run();
 
     expect(avmReturnData.reverted).toBe(false);
-
-    const returnData = avmReturnData.output;
-    expect(returnData.length).toBe(1);
-    expect(returnData).toEqual([new Fr(3)]);
+    expect(avmReturnData.revertReason).toBeUndefined();
+    expect(avmReturnData.output).toEqual([new Fr(3)]);
   });
 
   it('Should revert with an invalid jump', () => {
@@ -56,5 +51,7 @@ describe('interpreter', () => {
     const avmReturnData = interpreter.run();
 
     expect(avmReturnData.reverted).toBe(true);
+    expect(avmReturnData.revertReason).toBeInstanceOf(InvalidProgramCounterError);
+    expect(avmReturnData.output).toHaveLength(0);
   });
 });

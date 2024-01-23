@@ -7,9 +7,8 @@
 
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
-namespace test_stdlib_byte_array {
 using namespace bb;
-using namespace bb::plonk::stdlib;
+using namespace bb::stdlib;
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
@@ -138,5 +137,3 @@ TYPED_TEST(ByteArrayTest, set_bit)
     bool proof_result = builder.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
-
-} // namespace test_stdlib_byte_array
