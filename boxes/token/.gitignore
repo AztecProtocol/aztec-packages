@@ -3,5 +3,5 @@
 
 node_modules
 dest
-src/artifacts
+artifacts
 src/contracts/target
