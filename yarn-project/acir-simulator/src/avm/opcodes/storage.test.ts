@@ -6,7 +6,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmJournal } from '../journal/journal.js';
-import { SLoad, SStore } from './storage.js';
+import { SLoad, SStore, StaticCallStorageAlterError } from './storage.js';
 
 describe('Storage Instructions', () => {
   let journal: MockProxy<AvmJournal>;
@@ -20,16 +20,30 @@ describe('Storage Instructions', () => {
     machineState = new AvmMachineState(executionEnvironment);
   });
 
-  it('Sstore should Write into storage', () => {
+  it('Sstore should Write into storage', async () => {
     const a = new Fr(1n);
     const b = new Fr(2n);
 
     machineState.memory.set(0, a);
     machineState.memory.set(1, b);
 
-    new SStore(0, 1).execute(machineState, journal);
+    await new SStore(0, 1).execute(machineState, journal);
 
     expect(journal.writeStorage).toBeCalledWith(address, a, b);
+  });
+
+  it('Should not be able to write to storage in a static call', async () => {
+    const executionEnvironment = initExecutionEnvironment({ isStaticCall: true });
+    machineState = new AvmMachineState(executionEnvironment);
+
+    const a = new Fr(1n);
+    const b = new Fr(2n);
+
+    machineState.memory.set(0, a);
+    machineState.memory.set(1, b);
+
+    const instruction = () => new SStore(0, 1).execute(machineState, journal);
+    await expect(instruction()).rejects.toThrowError(StaticCallStorageAlterError);
   });
 
   it('Sload should Read into storage', async () => {

@@ -11,7 +11,7 @@ export class Set extends Instruction {
     super();
   }
 
-  execute(machineState: AvmMachineState, _journal: AvmJournal): void {
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const res = TaggedMemory.integralFromTag(this.value, this.dstTag);
 
     machineState.memory.set(this.dstOffset, res);
@@ -28,7 +28,7 @@ export class Cast extends Instruction {
     super();
   }
 
-  execute(machineState: AvmMachineState, _journal: AvmJournal): void {
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
 
     // TODO: consider not using toBigInt()
@@ -49,7 +49,7 @@ export class Mov extends Instruction {
     super();
   }
 
-  execute(machineState: AvmMachineState, _journal: AvmJournal): void {
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
 
     machineState.memory.set(this.dstOffset, a);
@@ -66,7 +66,7 @@ export class CMov extends Instruction {
     super();
   }
 
-  execute(machineState: AvmMachineState, _journal: AvmJournal): void {
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
     const b = machineState.memory.get(this.bOffset);
     const cond = machineState.memory.get(this.condOffset);
@@ -86,7 +86,7 @@ export class CalldataCopy extends Instruction {
     super();
   }
 
-  execute(machineState: AvmMachineState, _journal: AvmJournal): void {
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const transformedData = machineState.executionEnvironment.calldata
       .slice(this.cdOffset, this.cdOffset + this.copySize)
       .map(f => new Field(f));
