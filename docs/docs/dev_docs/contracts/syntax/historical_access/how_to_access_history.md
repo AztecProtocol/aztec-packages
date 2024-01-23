@@ -1,5 +1,5 @@
 ---
-title: How to access archival blockchain data from smart contracts
+title: How to prove existence of historical notes and nullifiers
 ---
 
 The Aztec Protocol uses an append-only Merkle tree to store the headers of all previous blocks in the chain as its leaves. This is known as an archive tree. You can learn more about how it works in the [concepts section](../../../../concepts/advanced/data_structures/trees.md#archive-tree).
