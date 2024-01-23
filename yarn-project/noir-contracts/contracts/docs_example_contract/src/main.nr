@@ -16,7 +16,7 @@ contract DocsExample {
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::AztecAddress,
-    };∫
+    };
     use dep::aztec::{
         note::{
             note_header::NoteHeader,
@@ -28,13 +28,13 @@ contract DocsExample {
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{
-        card_note::{CardNote, CardNoteMethods},
+        card_note::{CardNote, CARD_NOTE_LEN},
         leader::Leader,
     };
 
     struct Storage {
         // Shows how to create a custom struct in Public
-        leader: PublicState<Leader, LEADER_SERIALIZED_LEN>,
+        leader: PublicState<Leader>,
         // docs:start:storage-singleton-declaration
         legendary_card: Singleton<CardNote>,
         // docs:end:storage-singleton-declaration
@@ -119,7 +119,7 @@ contract DocsExample {
         serialized_note: [Field; CARD_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(CardNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(CardNote::deserialize, note_header, serialized_note)
     }
 
     /// Macro equivalence section
