@@ -14,7 +14,7 @@ Data includes:
 - Nullifiers to invalidate old private state ([Nullifier tree](#nullifier-tree))
 - Public state ([Public State tree](#public-state-tree))
 - Contracts ([Contract tree](#contract-tree))
-- Historical access ([Archive tree](#archive-tree))
+- Archive tree for Historical access ([Archive tree](#archive-tree))
 - Global Variables
 
 ```mermaid
