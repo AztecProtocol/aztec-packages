@@ -2,13 +2,13 @@ use crate::{
     abis::{
         call_context::CallContext,
         complete_address::CompleteAddress,
-        block_header::BlockHeader,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::{compute_constructor_hash, hash_args},
+    header::Header,
     tests::{
         fixtures,
         testing_harness::build_contract_deployment_data,
@@ -49,7 +49,7 @@ struct PrivateCircuitPublicInputsBuilder {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    block_header: BlockHeader,
+    block_header: Header,
 
     contract_deployment_data: ContractDeploymentData,
 

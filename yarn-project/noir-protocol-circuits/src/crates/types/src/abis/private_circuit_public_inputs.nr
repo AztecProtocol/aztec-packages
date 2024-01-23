@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         call_context::CallContext,
-        block_header::BlockHeader,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
@@ -9,6 +8,7 @@ use crate::{
     hash::{
         pedersen_hash,
     },
+    header::Header,
     utils::bounded_vec::BoundedVec,
 };
 use crate::constants::{
@@ -51,7 +51,7 @@ struct PrivateCircuitPublicInputs {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    block_header: BlockHeader,
+    block_header: Header,
 
     contract_deployment_data: ContractDeploymentData,
 

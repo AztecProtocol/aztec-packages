@@ -104,7 +104,8 @@ global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we
 // should change this constant as well as the offsets in private_call_stack_item.nr
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 189;
+// TODO(benesjan): Didn't find any offsets in call_stack_item.nr is this ^ still relevant
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 200;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 3;
 global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.

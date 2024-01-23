@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         call_context::CallContext,
-        block_header::BlockHeader,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
@@ -10,6 +9,7 @@ use crate::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
+    header::Header,
     tests::fixtures,
     utils::bounded_vec::BoundedVec,
 };
@@ -36,7 +36,7 @@ struct PublicCircuitPublicInputsBuilder {
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    block_header: BlockHeader,
+    block_header: Header,
     prover_address: AztecAddress,
 }
 
