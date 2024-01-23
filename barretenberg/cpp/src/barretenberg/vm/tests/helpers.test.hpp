@@ -12,5 +12,9 @@
     }
 namespace avm_trace {
 void validate_trace_proof(std::vector<Row>&& trace);
-void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& selectRow, FF const& newValue);
-} // namespace avm_trace
+void mutate_ic_in_trace(std::vector<Row>& trace,
+                        std::function<bool(Row)>&& selectRow,
+                        FF const& newValue,
+                        bool alu = false);
+
+} // namespace tests_avm
