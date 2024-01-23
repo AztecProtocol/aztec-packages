@@ -22,22 +22,27 @@ global MSG_SENDER = AztecAddress { inner: 27 };
 
 global DEPLOYER_PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
 
+// Workaround for https://github.com/noir-lang/noir/issues/1440
+fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
+    AppendOnlyTreeSnapshot::empty()
+}
+
 global BLOCK_HEADER = Header {
-    last_archive: AppendOnlyTreeSnapshot::empty(),
+    last_archive: empty_append_only_tree(),
     body_hash: [0; NUM_FIELDS_PER_SHA256],
     state: StateReference {
-        l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
+        l1_to_l2_message_tree: empty_append_only_tree(),
         partial: PartialStateReference {
             note_hash_tree: AppendOnlyTreeSnapshot {
                 root: fixtures::note_hash_tree::ROOT,
                 next_available_leaf_index: 0, // TODO: should this be populated?
             },
-            nullifier_tree: AppendOnlyTreeSnapshot::empty(),
+            nullifier_tree: empty_append_only_tree(),
             contract_tree: AppendOnlyTreeSnapshot {
                 root: fixtures::contract_tree::ROOT,
                 next_available_leaf_index: 0, // TODO: should this be populated?
             },
-            public_data_tree: AppendOnlyTreeSnapshot::empty()
+            public_data_tree: empty_append_only_tree()
         }
     },
     global_variables: GlobalVariables {

@@ -31,7 +31,7 @@ impl Empty for AppendOnlyTreeSnapshot {
     fn empty() -> Self {
         Self {
             root: 0,
-            next_available_leaf_index: 0
+            next_available_leaf_index: 0,
         }
     }
 }
