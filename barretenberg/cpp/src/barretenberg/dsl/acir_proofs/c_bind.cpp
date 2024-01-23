@@ -125,14 +125,14 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 WASM_EXPORT void acir_goblin_verify_accumulator(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
-    auto proof = from_buffer<std::vector<bb::fr>>(proof_buf);
+    auto proof = from_buffer < std::vector<uint8_t>(proof_buf);
     *result = acir_composer->verify_accumulator(proof);
 }
 
 WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
-    auto proof = from_buffer<std::vector<bb::fr>>(proof_buf);
+    auto proof = from_buffer < std::vector<uint8_t>(proof_buf);
     *result = acir_composer->verify(proof);
 }
 
