@@ -4,6 +4,7 @@ import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
 import {
   And,
   /*Not,*/
@@ -12,7 +13,6 @@ import {
   Shr,
   Xor,
 } from './bitwise.js';
-import { initExecutionEnvironment } from '../fixtures/index.js';
 
 describe('Bitwise instructions', () => {
   let machineState: AvmMachineState;

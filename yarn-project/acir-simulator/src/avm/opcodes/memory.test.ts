@@ -4,8 +4,8 @@ import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
+import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
 describe('Memory instructions', () => {
   let machineState: AvmMachineState;
