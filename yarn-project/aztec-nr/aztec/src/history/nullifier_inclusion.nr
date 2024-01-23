@@ -24,7 +24,7 @@ pub fn prove_nullifier_inclusion(
 
     // 5) Prove that the nullifier is in the nullifier tree
     assert(
-        block_header.nullifier_tree_root
+        block_header.state.partial.nullifier_tree.root
         == compute_merkle_root(nullifier_leaf, witness.index, witness.path), "Proving nullifier inclusion failed"
     );
     // --> Now we have traversed the trees all the way up to archive root and verified that the nullifier

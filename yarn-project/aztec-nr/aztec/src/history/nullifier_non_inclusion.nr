@@ -30,7 +30,7 @@ pub fn prove_nullifier_non_inclusion(
     // 3.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
     let low_nullifier_leaf = witness.leaf_preimage.hash();
     assert(
-        block_header.nullifier_tree_root
+        block_header.state.partial.nullifier_tree.root
         == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path), "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
     );
 

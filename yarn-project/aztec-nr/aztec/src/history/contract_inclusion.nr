@@ -52,7 +52,7 @@ pub fn prove_contract_inclusion(
 
     // 6) Prove that the leaf is in the contract tree
     assert(
-        block_header.contract_tree_root
+        block_header.state.partial.contract_tree.root
         == compute_merkle_root(contract_leaf, witness.index, witness.path), "Proving contract inclusion failed"
     );
 

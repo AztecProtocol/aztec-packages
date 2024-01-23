@@ -7,6 +7,7 @@ use crate::{
         PartialStateReference,
         PARTIAL_STATE_REFERENCE_LENGTH,
     },
+    traits::Empty,
     utils::{
         arr_copy_slice,
         bounded_vec::BoundedVec,
@@ -46,6 +47,15 @@ impl StateReference {
         StateReference {
             l1_to_l2_message_tree: AppendOnlyTreeSnapshot::deserialize(l1_to_l2_message_tree_fields),
             partial: PartialStateReference::deserialize(partial_fields),
+        }
+    }
+}
+
+impl Empty for StateReference {
+    fn empty() -> Self {
+        Self {
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
+            partial: PartialStateReference::empty(),
         }
     }
 }

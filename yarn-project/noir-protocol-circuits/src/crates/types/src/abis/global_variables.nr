@@ -1,7 +1,10 @@
 use dep::std::cmp::Eq;
 use crate::{
     constants::GENERATOR_INDEX__GLOBAL_VARIABLES,
-    traits::Hash,
+    traits::{
+        Empty,
+        Hash,
+    },
 };
 
 struct GlobalVariables {
@@ -52,5 +55,16 @@ impl Hash for GlobalVariables {
             ],
             GENERATOR_INDEX__GLOBAL_VARIABLES,
             )
+    }
+}
+
+impl Empty for GlobalVariables {
+    fn empty() -> Self {
+        Self {
+            chain_id: 0,
+            version: 0,
+            block_number: 0,
+            timestamp: 0,
+        }
     }
 }

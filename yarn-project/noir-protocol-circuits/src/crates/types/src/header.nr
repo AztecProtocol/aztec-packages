@@ -19,6 +19,7 @@ use crate::{
         StateReference,
         STATE_REFERENCE_LENGTH,
     },
+    traits::Empty,
     utils::{
         arr_copy_slice,
         bounded_vec::BoundedVec,
@@ -80,5 +81,16 @@ impl Header {
             self.state.l1_to_l2_message_tree.root,
             self.state.partial.public_data_tree.root,
         ], GENERATOR_INDEX__BLOCK_HASH)
+    }
+}
+
+impl Empty for Header {
+    fn empty() -> Self {
+        Self {
+            last_archive: AppendOnlyTreeSnapshot::empty(),
+            body_hash: [0; NUM_FIELDS_PER_SHA256],
+            state: StateReference::empty(),
+            global_variables: GlobalVariables::empty(),
+        }
     }
 }

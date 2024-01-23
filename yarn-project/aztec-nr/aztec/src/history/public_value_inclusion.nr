@@ -45,7 +45,7 @@ pub fn prove_public_value_inclusion(
 
     // 5) Prove that the leaf we validated is in the public data tree
     assert(
-        block_header.public_data_tree_root
+        block_header.state.partial.public_data_tree.root
         == compute_merkle_root(preimage.hash(), witness.index, witness.path), "Proving public value inclusion failed"
     );
     // --> Now we have traversed the trees all the way up to archive root and that way verified that a specific

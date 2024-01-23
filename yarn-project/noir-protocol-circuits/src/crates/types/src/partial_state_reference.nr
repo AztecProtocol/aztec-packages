@@ -1,4 +1,7 @@
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use crate::{
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    traits::Empty,
+};
 
 struct PartialStateReference {
     note_hash_tree: AppendOnlyTreeSnapshot,
@@ -49,6 +52,17 @@ impl PartialStateReference {
             public_data_tree: AppendOnlyTreeSnapshot::deserialize(
                 [serialized[6], serialized[7]]
             ),
+        }
+    }
+}
+
+impl Empty for PartialStateReference {
+    fn empty() -> Self {
+        Self {
+            note_hash_tree: AppendOnlyTreeSnapshot::empty(),
+            nullifier_tree: AppendOnlyTreeSnapshot::empty(),
+            contract_tree: AppendOnlyTreeSnapshot::empty(),
+            public_data_tree: AppendOnlyTreeSnapshot::empty(),
         }
     }
 }
