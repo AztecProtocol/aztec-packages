@@ -4,6 +4,7 @@
 
 #include "AvmMini_alu_trace.hpp"
 #include "AvmMini_common.hpp"
+#include "AvmMini_instructions.hpp"
 #include "AvmMini_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 
