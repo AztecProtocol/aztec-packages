@@ -37,20 +37,36 @@ The PXE is a client-side interface of the PXE Service, which is a set of server-
 
 ### ACIR simulator
 
+The ACIR (Abstract Circuit Intermediate Representation) simulator generates the partial witness and the public inputs of smart contract functions. You can learn more about what it does in [this section](./acir_simulator.md).
 
 ### Database
 
+The database stores transactional data and notes within the user's PXE. In the Aztec protocol, the database is implemented as a key-value database backed by LMDB. There is an interface ([GitHub](https://github.com/AztecProtocol/aztec-packages/blob/ca8b5d9dbff8d8062dbf1cb1bd39d93a4a636e86/yarn-project/pxe/src/database/pxe_database.ts)) for this PXE database that can be implemented in other ways, such as an in-memory database that can be used for testing.
+
+The database stores various types of data, including:
+
+- **Notes**: Encrypted representations of assets 
+- **Deferred Notes**: Notes that are intended for a user but cannot yet be decoded due to the associated contract not being present in the database
+- **Authentication Witnesses**: Data used to verify transactions
+- **Capsules**: External data or data injected into the system via oracles
+
 ### Note discovery
 
+There is an open RFP for how note discovery will work on Aztec. You can find more information in the [forum](https://forum.aztec.network/t/request-for-proposals-note-discovery-protocol/2584).
+
+Currently in the Aztec sandbox, users download every note, compute a secret, and generate the symmetric decryption key from that secret. If the note belongs to them, then the user will have derived the same secret and ultimately the required decryption key.
 
 
-### Key store
+### Keystore
 
-The key store is a secure storage for your private and public keys. 
+The keystore is a secure storage for private and public keys. 
 
 
 ## Oracles
 
+Oracles are pieces of data that are injected into a function from the client side. You can read more about why and how they work in the [functions section](https://docs.aztec.network/dev_docs/contracts/syntax/functions#oracle-functions).
+
+## For developers
 To learn how to develop on top of the PXE, refer to these guides:
 * [Run more than one PXE on your local machine](../../dev_docs/pxe/run_more_than_one_pxe_sandbox.md)
 * [Write a custom oracle](../../dev_docs/pxe/custom_oracles.md)

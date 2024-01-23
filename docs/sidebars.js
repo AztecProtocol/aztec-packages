@@ -295,7 +295,11 @@ const sidebars = {
         type: "doc",
         id: "dev_docs/cli/main",
       },
-      items: ["dev_docs/cli/cli-commands", "dev_docs/cli/sandbox-reference"],
+      items: [
+        "dev_docs/cli/cli-commands",
+        "dev_docs/cli/sandbox-reference",
+        "dev_docs/pxe/run_more_than_one_pxe_sandbox"
+      ],
     },
     {
       label: "Aztec.nr Contracts",
@@ -421,14 +425,6 @@ const sidebars = {
         id: "dev_docs/testing/main",
       },
       items: ["dev_docs/testing/cheat_codes"],
-    },
-    {
-      label: "Private Execution Environment (PXE)",
-      type: "category",
-      items: [
-        "dev_docs/pxe/custom_oracles",
-        "dev_docs/pxe/run_more_than_one_pxe_sandbox",
-      ],
     },
     {
       label: "Wallets",

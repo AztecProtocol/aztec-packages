@@ -30,4 +30,6 @@ This does a few things:
 
 This command uses the default ports, so they might need to be changed depending on yuor configuration.
 
+You can learn more about custom commands in the [sandbox reference](./sandbox-reference.md).
+
 
