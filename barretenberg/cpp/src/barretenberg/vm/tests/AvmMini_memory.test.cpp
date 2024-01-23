@@ -1,5 +1,6 @@
 #include "AvmMini_common.test.hpp"
 
+using namespace tests_avm;
 using namespace avm_trace;
 class AvmMiniMemoryTests : public ::testing::Test {
   public:

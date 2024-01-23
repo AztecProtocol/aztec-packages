@@ -1,6 +1,7 @@
 #include "AvmMini_common.test.hpp"
 
 using namespace avm_trace;
+using namespace tests_avm;
 
 class AvmMiniControlFlowTests : public ::testing::Test {
   public:

@@ -2,7 +2,7 @@
 
 using namespace bb;
 
-namespace avm_trace {
+namespace tests_avm {
 /**
  * @brief Helper routine proving and verifying a proof based on the supplied trace
  *
@@ -23,7 +23,7 @@ void validate_trace_proof(std::vector<Row>&& trace)
     bool verified = verifier.verify_proof(proof);
 
     if (!verified) {
-        log_avmMini_trace(circuit_builder.rows, 0, 10);
+        avm_trace::log_avmMini_trace(circuit_builder.rows, 0, 10);
     }
 };
 
@@ -70,4 +70,4 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     EXPECT_TRUE(mem_row != trace.end());
     mem_row->memTrace_m_val = newValue;
 };
-} // namespace avm_trace
+} // namespace tests_avm
