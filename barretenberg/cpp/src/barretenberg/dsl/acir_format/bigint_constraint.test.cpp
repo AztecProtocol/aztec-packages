@@ -46,7 +46,7 @@ TEST_F(BigIntTests, TestBigIntConstraintDummy)
         .result = 1,
     };
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = 4,
         .public_inputs = {},
         .logic_constraints = {},
