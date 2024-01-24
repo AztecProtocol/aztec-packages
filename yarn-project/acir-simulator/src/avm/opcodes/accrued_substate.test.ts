@@ -1,0 +1,84 @@
+import { Fr } from '@aztec/foundation/fields';
+
+import { mock } from 'jest-mock-extended';
+
+import { AvmMachineState } from '../avm_machine_state.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
+import { HostStorage } from '../journal/host_storage.js';
+import { AvmJournal } from '../journal/journal.js';
+import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
+import { StaticCallStorageAlterError } from './storage.js';
+
+describe('Accrued Substate', () => {
+  let journal: AvmJournal;
+  let machineState: AvmMachineState;
+
+  beforeEach(async () => {
+    const hostStorage = mock<HostStorage>();
+    journal = new AvmJournal(hostStorage);
+    machineState = new AvmMachineState(initExecutionEnvironment());
+  });
+
+  it('Should append a new note hash correctly', async () => {
+    const value = new Fr(69n);
+    machineState.writeMemory(0, value);
+
+    await new EmitNoteHash(0).execute(machineState, journal);
+
+    const journalState = journal.flush();
+    expect(journalState.newNoteHashes).toEqual([value]);
+  });
+
+  it('Should append a new nullifier correctly', async () => {
+    const value = new Fr(69n);
+    machineState.writeMemory(0, value);
+
+    await new EmitNullifier(0).execute(machineState, journal);
+
+    const journalState = journal.flush();
+    expect(journalState.newNullifiers).toEqual([value]);
+  });
+
+  it('Should append unencrypted logs correctly', async () => {
+    const startOffset = 0;
+    const length = 2;
+
+    const values = [new Fr(69n), new Fr(420n)];
+    machineState.writeMemoryChunk(0, values);
+
+    await new EmitUnencryptedLog(startOffset, length).execute(machineState, journal);
+
+    const journalState = journal.flush();
+    expect(journalState.newLogs).toEqual([values]);
+  });
+
+  it('Should append l1 to l2 messages correctly', async () => {
+    const startOffset = 0;
+    const length = 2;
+
+    const values = [new Fr(69n), new Fr(420n)];
+    machineState.writeMemoryChunk(0, values);
+
+    await new SendL2ToL1Message(startOffset, length).execute(machineState, journal);
+
+    const journalState = journal.flush();
+    expect(journalState.newLogs).toEqual([values]);
+  });
+
+  it('All substate instructions should fail within a static call', async () => {
+    const executionEnvironment = initExecutionEnvironment({ isStaticCall: true });
+    machineState = new AvmMachineState(executionEnvironment);
+
+    const instructions = [
+      new EmitNoteHash(0),
+      new EmitNullifier(0),
+      new EmitUnencryptedLog(0, 1),
+      new SendL2ToL1Message(0, 1),
+    ];
+
+    for (const instruction of instructions) {
+      const inst = () => instruction.execute(machineState, journal);
+      await expect(inst()).rejects.toThrowError(StaticCallStorageAlterError);
+    }
+  });
+});
