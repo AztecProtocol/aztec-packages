@@ -60,8 +60,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
 
     acir_composer->init_proving_key();
     auto proof = acir_composer->create_proof(*is_recursive);
-    auto proof_data_buf = to_buffer<true>(proof);
-    *out = to_heap_buffer(proof_data_buf);
+    *out = to_heap_buffer(proof);
 }
 
 WASM_EXPORT void acir_goblin_accumulate(in_ptr acir_composer_ptr,
