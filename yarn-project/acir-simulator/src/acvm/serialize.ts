@@ -107,16 +107,7 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
  * @returns The ACVM fields.
  */
 export function toACVMHeader(header: Header): ACVMField[] {
-  return toACVMFields(header.toBuffer());
-}
-
-export function toACVMFields(buf: Buffer): ACVMField[] {
-  // Ensure the buffer is a multiple of 32 bytes
-  if (buf.length % 32 !== 0) {
-    throw new Error('Buffer length must be a multiple of 32 bytes');
-  }
-  const chunks = buf.toString('hex').match(/.{1,64}/g);
-  return chunks!.map(chunk => `0x${chunk}`);
+  return header.toFieldArray().map(toACVMField);
 }
 
 /**
