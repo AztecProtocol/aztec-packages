@@ -6,13 +6,13 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+using namespace acir_format;
 using namespace bb::plonk;
 
 class AcirRecursionConstraint : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
-namespace acir_format::test {
 Builder create_inner_circuit()
 {
     /**
@@ -145,10 +145,10 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                                   transcript::HashType::PedersenBlake3s,
                                                   16);
 
-        std::vector<bb::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
+        std::vector<fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
         // - Save the public inputs so that we can set their values.
         // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
-        std::vector<bb::fr> inner_public_input_values(
+        std::vector<fr> inner_public_input_values(
             proof_witnesses.begin(), proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
 
         // We want to make sure that we do not remove the nested aggregation object in the case of the proof we want to
@@ -368,4 +368,3 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-} // namespace acir_format::test

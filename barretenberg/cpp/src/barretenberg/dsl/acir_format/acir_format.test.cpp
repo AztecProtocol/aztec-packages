@@ -7,7 +7,7 @@
 #include "barretenberg/serialize/test_helper.hpp"
 #include "ecdsa_secp256k1.hpp"
 
-namespace acir_format::tests {
+using namespace acir_format;
 
 class AcirFormatTests : public ::testing::Test {
   protected:
@@ -27,7 +27,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .q_c = 0,
     };
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = 4,
         .public_inputs = {},
         .logic_constraints = {},
@@ -240,12 +240,12 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                    .block_constraints = {} };
 
     std::string message_string = "tenletters";
-    crypto::schnorr::key_pair<grumpkin::fr, grumpkin::g1> account;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     account.private_key = grumpkin::fr::random_element();
     account.public_key = grumpkin::g1::one * account.private_key;
-    crypto::schnorr::signature signature_raw =
-        crypto::schnorr::construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_string,
-                                                                                                      account);
+    crypto::schnorr_signature signature_raw =
+        crypto::schnorr_construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_string,
+                                                                                                     account);
     uint256_t pub_x = account.public_key.x;
     uint256_t pub_y = account.public_key.y;
     WitnessVector witness{ 0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   pub_x, pub_y, 5,   202, 31,  146,
@@ -298,7 +298,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .result = 76,
         .signature = signature,
     };
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = 81,
         .public_inputs = {},
         .logic_constraints = {},
@@ -334,12 +334,12 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     };
 
     std::string message_string = "tenletters";
-    crypto::schnorr::key_pair<grumpkin::fr, grumpkin::g1> account;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
     account.private_key = grumpkin::fr::random_element();
     account.public_key = grumpkin::g1::one * account.private_key;
-    crypto::schnorr::signature signature_raw =
-        crypto::schnorr::construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_string,
-                                                                                                      account);
+    crypto::schnorr_signature signature_raw =
+        crypto::schnorr_construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_string,
+                                                                                                     account);
     uint256_t pub_x = account.public_key.x;
     uint256_t pub_y = account.public_key.y;
     WitnessVector witness{ 0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   pub_x, pub_y, 5,   202, 31,  146,
@@ -410,7 +410,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .q_c = fr::neg_one() * fr(4),
     };
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = 36,
         .public_inputs = {},
         .logic_constraints = {},
@@ -493,5 +493,3 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
 
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-
-} // namespace acir_format::tests
