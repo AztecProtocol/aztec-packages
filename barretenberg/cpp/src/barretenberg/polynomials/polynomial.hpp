@@ -116,8 +116,8 @@ template <typename Fr> class Polynomial {
         requires polynomial_arithmetic::SupportsFFT<Fr>;
     void coset_ifft(const EvaluationDomain<Fr>& domain)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void coset_ifft(const EvaluationDomain<Fr>& domain) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    Fr compute_kate_opening_coefficients(const Fr& z) requires polynomial_arithmetic::SupportsFFT<Fr>;
+    Fr compute_kate_opening_coefficients(const Fr& z)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
 
     bool is_empty() const { return size_ == 0; }
 
