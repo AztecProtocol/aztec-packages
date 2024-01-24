@@ -462,22 +462,20 @@ describe('Private Execution test suite', () => {
       const secretHashForRedeemingNotes = new Fr(2n);
       let secretForL1ToL2MessageConsumption = new Fr(1n);
 
-      let ccMsgRecipient: AztecAddress | undefined;
-      let ccMsgSender: EthAddress | undefined;
+      let crossChainMsgRecipient: AztecAddress | undefined;
+      let crossChainMsgSender: EthAddress | undefined;
       let messageKey: Fr | undefined;
 
       let preimage: L1ToL2Message;
 
       let args: Fr[];
 
-      // WE likely need to
-
       beforeEach(() => {
         bridgedAmount = 100n;
         secretForL1ToL2MessageConsumption = new Fr(2n);
 
-        ccMsgRecipient = undefined;
-        ccMsgSender = undefined;
+        crossChainMsgRecipient = undefined;
+        crossChainMsgSender = undefined;
         messageKey = undefined;
       });
 
@@ -485,7 +483,7 @@ describe('Private Execution test suite', () => {
         buildL1ToL2Message(
           getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
           [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
-          ccMsgRecipient ?? contractAddress,
+          crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
         );
 
@@ -522,7 +520,7 @@ describe('Private Execution test suite', () => {
           contractAddress,
           artifact,
           args,
-          portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+          portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
           txContext: { version: new Fr(1n), chainId: new Fr(1n) },
         });
 
@@ -550,7 +548,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Message not matching requested key');
@@ -568,14 +566,14 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Message not in state');
       });
 
       it('Invalid recipient', async () => {
-        ccMsgRecipient = AztecAddress.random();
+        crossChainMsgRecipient = AztecAddress.random();
 
         preimage = computePreimage();
 
@@ -590,14 +588,14 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Invalid recipient');
       });
 
       it('Invalid sender', async () => {
-        ccMsgSender = EthAddress.random();
+        crossChainMsgSender = EthAddress.random();
         preimage = computePreimage();
 
         args = computeArgs();
@@ -611,7 +609,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Invalid sender');
@@ -631,7 +629,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(2n) },
           }),
         ).rejects.toThrowError('Invalid Chainid');
@@ -651,7 +649,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(2n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Invalid Version');
@@ -672,7 +670,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Invalid Content');
@@ -693,7 +691,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: ccMsgSender ?? preimage.sender.sender,
+            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrowError('Invalid message secret');
