@@ -15,6 +15,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   Fr,
   GlobalVariables,
+  Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -119,9 +120,35 @@ describe('sequencer/solo_block_builder', () => {
     simulator.rootRollupCircuit.mockResolvedValue(rootRollupOutput);
   }, 20_000);
 
+  // TODO(benesjan): Could this be setup in a better way?
+  const buildPrevBlockHeader = async (db: MerkleTreeOperations) => {
+    const globalVars = new GlobalVariables(
+      globalVariables.chainId,
+      globalVariables.version,
+      new Fr(globalVariables.blockNumber.toBigInt() - BigInt(1)),
+      new Fr(globalVariables.timestamp.toBigInt() - BigInt(1)),
+    );
+
+    const roots = await db.getTreeRoots();
+    return new Header(
+      AppendOnlyTreeSnapshot.empty(),
+      Buffer.alloc(32, 0),
+      new StateReference(
+        new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.l1Tol2MessageTreeRoot), 0),
+        new PartialStateReference(
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.noteHashTreeRoot), 0),
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.nullifierTreeRoot), 0),
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.contractDataTreeRoot), 0),
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.publicDataTreeRoot), 0),
+        ),
+      ),
+      globalVars,
+    );
+  };
+
   const makeEmptyProcessedTx = async () => {
-    const historicalTreeRoots = await getHeader(builderDb);
-    return makeEmptyProcessedTxFromHistoricalTreeRoots(historicalTreeRoots, chainId, version);
+    const header = await buildPrevBlockHeader(builderDb);
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
@@ -189,7 +216,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.header = await getHeader(expectsDb);
+    kernelOutput.constants.header = await buildPrevBlockHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -295,7 +322,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.header = await getHeader(builderDb);
+      kernelOutput.constants.header = await buildPrevBlockHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),

@@ -366,7 +366,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
-      prevHeader = globalVariables;
+      prevHeader = block.header;
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
