@@ -277,7 +277,12 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getBlockNumber(): number | undefined {
-    return Number(this.getHeader().globalVariables.blockNumber.toBigInt());
+    const headerBuffer = this.#synchronizedBlock.get();
+    if (!headerBuffer) {
+      return undefined;
+    }
+
+    return Number(Header.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
   }
 
   getHeader(): Header {

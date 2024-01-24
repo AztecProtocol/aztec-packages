@@ -50,7 +50,7 @@ describe('Synchronizer', () => {
     await synchronizer.work();
 
     const obtainedHeader = database.getHeader();
-    expect(obtainedHeader).toEqual(block);
+    expect(obtainedHeader).toEqual(block.header);
   });
 
   it('overrides header from initial sync once current block number is larger', async () => {
