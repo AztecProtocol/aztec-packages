@@ -2,9 +2,9 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from '../avm_context.js';
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
 import { Instruction } from './instruction.js';
-import { Field } from '../avm_memory_types.js';
 
 export class Call extends Instruction {
   static type: string = 'CALL';
@@ -39,10 +39,11 @@ export class Call extends Instruction {
 
     // We only take as much data as was specified in the return size -> TODO: should we be reverting here
     const returnData = returnObject.output.slice(0, this.retSize);
+    const convertedReturnData = returnData.map(f => new Field(f));
 
     // Write our return data into memory
-    machineState.memory.set(this.successOffset, new Fr(success));
-    machineState.memory.setSlice(this.retOffset, returnData);
+    machineState.memory.set(this.successOffset, new Field(success ? 1 : 0));
+    machineState.memory.setSlice(this.retOffset, convertedReturnData);
 
     if (success) {
       avmContext.mergeJournal();
@@ -84,10 +85,11 @@ export class StaticCall extends Instruction {
 
     // We only take as much data as was specified in the return size -> TODO: should we be reverting here
     const returnData = returnObject.output.slice(0, this.retSize);
+    const convertedReturnData = returnData.map(f => new Field(f));
 
     // Write our return data into memory
-    machineState.memory.set(this.successOffset, new Fr(success));
-    machineState.memory.setSlice(this.retOffset, returnData);
+    machineState.memory.set(this.successOffset, new Field(success ? 1 : 0));
+    machineState.memory.setSlice(this.retOffset, convertedReturnData);
 
     if (success) {
       avmContext.mergeJournal();

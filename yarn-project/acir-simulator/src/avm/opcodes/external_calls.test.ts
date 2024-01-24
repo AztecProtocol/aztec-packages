@@ -5,6 +5,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmJournal } from '../journal/journal.js';
@@ -39,7 +40,7 @@ describe('External Calls', () => {
       const addr = new Fr(123456n);
 
       const argsOffset = 2;
-      const args = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const args = [new Field(1n), new Field(2n), new Field(3n)];
       const argsSize = args.length;
 
       const retOffset = 8;
@@ -47,13 +48,13 @@ describe('External Calls', () => {
 
       const successOffset = 7;
 
-      machineState.memory.set(0, gas);
-      machineState.memory.set(1, addr);
+      machineState.memory.set(0, new Field(gas));
+      machineState.memory.set(1, new Field(addr));
       machineState.memory.setSlice(2, args);
 
       const otherContextInstructions: [Opcode, any[]][] = [
         // Place [1,2,3] into memory
-        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*destOffset=*/ 0]],
+        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0]],
         // Store 1 into slot 1
         [Opcode.SSTORE, [/*slotOffset=*/ 0, /*dataOffset=*/ 0]],
         // Return [1,2] from memory
@@ -71,10 +72,10 @@ describe('External Calls', () => {
       await instruction.execute(machineState, journal);
 
       const successValue = machineState.memory.get(successOffset);
-      expect(successValue).toEqual(new Fr(1n));
+      expect(successValue).toEqual(new Field(1n));
 
       const retValue = machineState.memory.getSlice(retOffset, retSize);
-      expect(retValue).toEqual([new Fr(1n), new Fr(2n)]);
+      expect(retValue).toEqual([new Field(1n), new Field(2n)]);
 
       // Check that the storage call has been merged into the parent journal
       const { storageWrites } = journal.flush();
@@ -92,11 +93,11 @@ describe('External Calls', () => {
   describe('Static Call', () => {
     it('Should fail if a static call attempts to touch storage', async () => {
       const gasOffset = 0;
-      const gas = Fr.zero();
+      const gas = new Field(0);
       const addrOffset = 1;
-      const addr = new Fr(123456n);
+      const addr = new Field(123456n);
       const argsOffset = 2;
-      const args = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const args = [new Field(1n), new Field(2n), new Field(3n)];
 
       const argsSize = args.length;
       const retOffset = 8;
@@ -108,8 +109,9 @@ describe('External Calls', () => {
       machineState.memory.setSlice(2, args);
 
       const otherContextInstructions: [Opcode, any[]][] = [
-        [Opcode.SET, [/* value */ 1, /* destOffset */ 1]],
-        [Opcode.SSTORE, [/* slotOffset */ 1, /* dataOffset */ 0]],
+        // Place [1,2,3] into memory
+        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0]],
+        [Opcode.SSTORE, [/*slotOffset*/ 1, /*dataOffset=*/ 0]],
       ];
 
       const otherContextInstructionsBytecode = Buffer.concat(
@@ -124,7 +126,7 @@ describe('External Calls', () => {
 
       // No revert has occurred, but the nested execution has failed
       const successValue = machineState.memory.get(successOffset);
-      expect(successValue).toEqual(new Fr(0n));
+      expect(successValue).toEqual(new Field(0n));
     });
   });
 });
