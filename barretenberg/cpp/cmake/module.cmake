@@ -196,7 +196,7 @@ function(barretenberg_module MODULE_NAME)
     endif()
 
     file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
-    if(BENCHMARKS AND BENCH_SOURCE_FILES)
+    if(BENCH_SOURCE_FILES)
         add_library(
             ${MODULE_NAME}_bench_objects
             OBJECT

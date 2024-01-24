@@ -75,4 +75,6 @@ Diagnostics:
     # these checks get triggered by the Google macros
     Remove:
       - cppcoreguidelines-avoid-non-const-global-variables
+
+
       - cppcoreguidelines-special-member-functions

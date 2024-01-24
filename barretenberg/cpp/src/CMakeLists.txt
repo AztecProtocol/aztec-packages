@@ -85,9 +85,7 @@ if(SMT)
     add_subdirectory(barretenberg/smt_verification)
 endif()
 
-if(BENCHMARKS)
-    add_subdirectory(barretenberg/benchmark)
-endif()
+add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
