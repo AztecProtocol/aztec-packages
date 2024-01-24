@@ -2,6 +2,10 @@ use dep::std::option::Option;
 use dep::protocol_types::{
     address::AztecAddress,
     traits::{Serialize, Deserialize},
+        constants::{
+        GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    },
+    hash::pedersen_hash,
 };
 
 use crate::context::{PrivateContext, Context};
@@ -17,7 +21,6 @@ use crate::oracle::notes::check_nullifier_exists;
 struct ImmutableSingleton<Note> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
-    compute_initialization_nullifier: fn (Field, Option<AztecAddress>, Option<&mut PrivateContext>) -> Field,
 }
 // docs:end:struct
 
