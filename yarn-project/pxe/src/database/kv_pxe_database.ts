@@ -76,7 +76,8 @@ export class KVPxeDatabase implements PxeDatabase {
 
   getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
     const contract = this.#contractArtifacts.get(id.toString());
-    return Promise.resolve(contract && contractArtifactFromBuffer(contract));
+    // TODO(@spalladino): AztecMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
+    return Promise.resolve(contract && contractArtifactFromBuffer(Buffer.from(contract)));
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {

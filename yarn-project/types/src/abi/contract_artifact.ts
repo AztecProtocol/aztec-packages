@@ -17,7 +17,7 @@ import { mockVerificationKey } from './mocked_keys.js';
  */
 export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
   // TODO(@spalladino): More efficient serialization
-  return Buffer.from(JSON.stringify(artifact));
+  return Buffer.from(JSON.stringify(artifact), 'utf8');
 }
 
 /**
@@ -27,7 +27,7 @@ export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
  */
 export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
   // TODO(@spalladino): More efficient serialization
-  return JSON.parse(buffer.toString()) as ContractArtifact;
+  return JSON.parse(buffer.toString('utf8')) as ContractArtifact;
 }
 
 /**
