@@ -9,6 +9,7 @@ struct NoteViewerOptions<Note, N> {
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
     offset: u32,
+    includeNullified: bool,
 }
 // docs:end:NoteViewerOptions
 
@@ -19,6 +20,7 @@ impl<Note, N> NoteViewerOptions<Note, N> {
             sorts: BoundedVec::new(Option::none()),
             limit: MAX_NOTES_PER_PAGE as u32,
             offset: 0,
+            includeNullified: false,
         }
     }
 

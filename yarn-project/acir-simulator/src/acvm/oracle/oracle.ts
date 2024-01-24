@@ -167,6 +167,7 @@ export class Oracle {
     sortOrder: ACVMField[],
     [limit]: ACVMField[],
     [offset]: ACVMField[],
+    [includeNullified]: ACVMField[],
     [returnSize]: ACVMField[],
   ): Promise<ACVMField[]> {
     const noteDatas = await this.typedOracle.getNotes(
@@ -178,6 +179,7 @@ export class Oracle {
       sortOrder.map(s => +s),
       +limit,
       +offset,
+      !!+includeNullified,
     );
 
     const noteLength = noteDatas?.[0]?.note.items.length ?? 0;

@@ -137,6 +137,7 @@ export abstract class TypedOracle {
     _sortOrder: number[],
     _limit: number,
     _offset: number,
+    _nullified: boolean
   ): Promise<NoteData[]> {
     throw new Error('Not available.');
   }

@@ -117,6 +117,7 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field, note_interface:
         [],
         1, // limit
         0, // offset
+        false, // includeNullified - TODO: add a way for to retrieve nullified notes?
         placeholder_note,
         placeholder_fields
     )[0].unwrap() // Notice: we don't allow dummies to be returned from get_note (singular).
@@ -140,6 +141,7 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
         sort_order,
         options.limit,
         options.offset,
+        options.includeNullified,
         placeholder_opt_notes,
         placeholder_fields
     );
@@ -167,6 +169,7 @@ unconstrained pub fn view_notes<Note, N>(
         sort_order,
         options.limit,
         options.offset,
+        options.includeNullified,
         placeholder_opt_notes,
         placeholder_fields
     )

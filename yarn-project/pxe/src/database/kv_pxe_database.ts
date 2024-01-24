@@ -165,16 +165,29 @@ export class KVPxeDatabase implements PxeDatabase {
     }
   }
 
+  *#getAllNonNullifiedNoteIndices(): IterableIterator<number> {
+    for (const [index, _] of this.#notes.entries()) {
+      if (this.#nullifiedNotes.has(index)) {
+        continue;
+      }
+
+      yield index;
+    }
+  }
+
   async getNotes(filter: NoteFilter): Promise<NoteDao[]> {
     const publicKey: PublicKey | undefined = filter.owner
       ? (await this.getCompleteAddress(filter.owner))?.publicKey
       : undefined;
 
-    let initialNoteIds: IterableIterator<number> | undefined;
+    // TODO: refactor how we create the array of candidate note ids once the kv_pxe_database refactor from #3927 is
+    // merged.
+    let candidateNoteIds: Array<number> = [];
 
-    if ((filter.status ?? 'active') == 'active') {
-      // The #notesByX stores only track active notes.
-      initialNoteIds = publicKey
+    filter.status = filter.status ?? 'active';
+
+    if (filter.status == 'active' || filter.status == 'active_or_nullified') {
+      const candidateActiveNoteIds = publicKey
         ? this.#notesByOwner.getValues(publicKey.toString())
         : filter.txHash
         ? this.#notesByTxHash.getValues(filter.txHash.toString())
@@ -182,20 +195,17 @@ export class KVPxeDatabase implements PxeDatabase {
         ? this.#notesByContract.getValues(filter.contractAddress.toString())
         : filter.storageSlot
         ? this.#notesByStorageSlot.getValues(filter.storageSlot.toString())
-        : undefined;
+        : this.#getAllNonNullifiedNoteIndices();
 
-      if (!initialNoteIds) {
-        return Array.from(this.#getAllNonNullifiedNotes());
-      }
-    } else {
-      // TODO: this will cause a scan of all nullified notes in order to apply the filters manually. We could improve
-      // performance at the cost of storage by duplicating the #notesBy stores so that we also track nullified notes
-      // that way.
-      initialNoteIds = this.#nullifiedNotes.keys();
+      candidateNoteIds = candidateNoteIds.concat([...candidateActiveNoteIds]);
+    }
+
+    if (filter.status == 'active_or_nullified') {
+      candidateNoteIds = candidateNoteIds.concat([...this.#nullifiedNotes.keys()]);
     }
 
     const result: NoteDao[] = [];
-    for (const noteId of initialNoteIds) {
+    for (const noteId of candidateNoteIds) {
       const serializedNote = this.#notes.at(noteId);
       if (!serializedNote) {
         continue;

@@ -202,6 +202,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
    * @param offset - The starting index for pagination.
+   * @param includeNullified - Whether to include nullified notes.
    * @returns Array of note data.
    */
   public async getNotes(
@@ -213,8 +214,9 @@ export class ViewDataOracle extends TypedOracle {
     sortOrder: number[],
     limit: number,
     offset: number,
+    includeNullified: boolean,
   ): Promise<NoteData[]> {
-    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot);
+    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, includeNullified);
     return pickNotes<NoteData>(dbNotes, {
       selects: selectBy.slice(0, numSelects).map((index, i) => ({ index, value: selectValues[i] })),
       sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),

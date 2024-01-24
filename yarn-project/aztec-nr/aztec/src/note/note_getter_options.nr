@@ -49,6 +49,7 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
     offset: u32,
     filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
+    includeNullified: bool,
 }
 // docs:end:NoteGetterOptions
 
@@ -66,6 +67,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter: return_all_notes,
             filter_args: 0,
+            includeNullified: false,
         }
     }
 
@@ -82,6 +84,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter,
             filter_args,
+            includeNullified: false,
         }
     }
 
@@ -99,14 +102,14 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
         *self
     }
 
-    // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result. 
+    // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result.
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_READ_REQUESTS_PER_CALL as u32);
         self.limit = limit;
         *self
     }
 
-    // This method sets the offset value, which determines where to start retrieving notes in the query results. 
+    // This method sets the offset value, which determines where to start retrieving notes in the query results.
     pub fn set_offset(&mut self, offset: u32) -> Self {
         self.offset = offset;
         *self
