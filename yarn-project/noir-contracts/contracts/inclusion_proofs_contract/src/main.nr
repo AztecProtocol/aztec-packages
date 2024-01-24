@@ -95,11 +95,7 @@ contract InclusionProofs {
         // 2) Prove the note inclusion
         if maybe_note.is_some() {
             // docs:start:prove_note_inclusion
-            prove_note_inclusion(
-                maybe_note.unwrap_unchecked(),
-                block_number,
-                context
-            );
+            prove_note_inclusion(maybe_note.unwrap_unchecked(), block_number, context);
             // docs:end:prove_note_inclusion
         } else {
             // Note was not found so we will prove inclusion of the spare commitment
@@ -126,11 +122,7 @@ contract InclusionProofs {
         // 3) Compute the nullifier from the note
         if maybe_note.is_some() {
             // docs:start:prove_note_not_nullified
-            prove_note_not_nullified(
-                maybe_note.unwrap_unchecked(),
-                block_number,
-                &mut context
-            );
+            prove_note_not_nullified(maybe_note.unwrap_unchecked(), block_number, &mut context);
             // docs:end:prove_note_not_nullified
         } else {
             // Note was not found so we will use the spare nullifier
