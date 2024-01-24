@@ -908,6 +908,8 @@ export function makeRootRollupPublicInputs(
 /**
  * Makes header.
  */
+// TODO(benesjan): is passing in global vars separately really used?
+//                 would it be better to just allow for setting block num?
 export function makeHeader(seed = 0, globalVariables: GlobalVariables | undefined): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),

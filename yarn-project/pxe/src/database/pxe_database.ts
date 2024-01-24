@@ -1,5 +1,5 @@
-import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/circuit-types';
-import { Header, CompleteAddress, PublicKey } from '@aztec/circuits.js';
+import { ContractDatabase, NoteFilter } from '@aztec/circuit-types';
+import { CompleteAddress, Header, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -90,16 +90,6 @@ export interface PxeDatabase extends ContractDatabase, ContractArtifactDatabase,
    * @returns Removed notes.
    */
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]>;
-
-  /**
-   * Retrieve the stored Merkle tree roots from the database.
-   * The function returns a Promise that resolves to an object containing the MerkleTreeId as keys
-   * and their corresponding Fr values as roots. Throws an error if the tree roots are not set in the
-   * memory database.
-   *
-   * @returns An object containing the Merkle tree roots for each merkle tree id.
-   */
-  getTreeRoots(): Record<MerkleTreeId, Fr>;
 
   /**
    * Gets the most recently processed block number.

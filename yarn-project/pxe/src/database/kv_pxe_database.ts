@@ -272,22 +272,6 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  getTreeRoots(): Record<MerkleTreeId, Fr> {
-    const roots = this.#synchronizedBlock.get()?.roots;
-    if (!roots) {
-      throw new Error(`Tree roots not set`);
-    }
-
-    return {
-      [MerkleTreeId.ARCHIVE]: Fr.fromString(roots[MerkleTreeId.ARCHIVE]),
-      [MerkleTreeId.CONTRACT_TREE]: Fr.fromString(roots[MerkleTreeId.CONTRACT_TREE].toString()),
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr.fromString(roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].toString()),
-      [MerkleTreeId.NOTE_HASH_TREE]: Fr.fromString(roots[MerkleTreeId.NOTE_HASH_TREE].toString()),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.fromString(roots[MerkleTreeId.PUBLIC_DATA_TREE].toString()),
-      [MerkleTreeId.NULLIFIER_TREE]: Fr.fromString(roots[MerkleTreeId.NULLIFIER_TREE].toString()),
-    };
-  }
-
   async setHeader(header: Header): Promise<void> {
     await this.#synchronizedBlock.set(header);
   }

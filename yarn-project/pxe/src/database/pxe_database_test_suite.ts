@@ -1,9 +1,10 @@
-import { INITIAL_L2_BLOCK_NUM, MerkleTreeId, NoteFilter, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, Header, CompleteAddress } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM, NoteFilter, randomTxHash } from '@aztec/circuit-types';
+import { AztecAddress, CompleteAddress } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts/Benchmarking';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
+import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { NoteDao } from './note_dao.js';
 import { randomNoteDao } from './note_dao.test.js';
 import { PxeDatabase } from './pxe_database.js';
@@ -155,28 +156,18 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
     describe('block header', () => {
       it('stores and retrieves the block header', async () => {
-        const header = Header.random();
-        header.privateKernelVkTreeRoot = Fr.zero();
 
-        await database.setHeader(INITIAL_L2_BLOCK_NUM, header);
+        // TODO(benesjan): make this more straightforward?
+        const randomInt = () => Math.floor(Math.random() * 1000);
+        const globalVariables = makeGlobalVariables(randomInt(), INITIAL_L2_BLOCK_NUM);
+        const header = makeHeader(randomInt(), globalVariables);
+
+        await database.setHeader(header);
         expect(database.getHeader()).toEqual(header);
       });
 
-      it('retrieves the merkle tree roots from the block', async () => {
-        const header = Header.random();
-        await database.setHeader(INITIAL_L2_BLOCK_NUM, header);
-        expect(database.getTreeRoots()).toEqual({
-          [MerkleTreeId.NOTE_HASH_TREE]: header.noteHashTreeRoot,
-          [MerkleTreeId.NULLIFIER_TREE]: header.nullifierTreeRoot,
-          [MerkleTreeId.CONTRACT_TREE]: header.contractTreeRoot,
-          [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: header.l1ToL2MessageTreeRoot,
-          [MerkleTreeId.ARCHIVE]: header.archiveRoot,
-          [MerkleTreeId.PUBLIC_DATA_TREE]: header.publicDataTreeRoot,
-        });
-      });
-
-      it('rejects getting merkle tree roots if no block set', () => {
-        expect(() => database.getTreeRoots()).toThrow();
+      it('rejects getting header if no block set', () => {
+        expect(() => database.getHeader()).toThrow();
       });
     });
 

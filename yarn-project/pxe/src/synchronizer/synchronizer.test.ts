@@ -1,5 +1,5 @@
-import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { Header, CompleteAddress, EthAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block } from '@aztec/circuit-types';
+import { CompleteAddress, EthAddress, Fr, GrumpkinScalar, Header } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { TestKeyStore } from '@aztec/key-store';
@@ -8,30 +8,24 @@ import { AztecLmdbStore } from '@aztec/kv-store';
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 
+import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';
-import { makeHeader } from '@aztec/circuits.js/factories';
 
 describe('Synchronizer', () => {
   let aztecNode: MockProxy<AztecNode>;
   let database: PxeDatabase;
   let synchronizer: TestSynchronizer;
-  let roots: Record<MerkleTreeId, Fr>;
-  let header: Header;
   let jobQueue: SerialQueue;
+  const initialSyncBlockNumber = 3;
+  let headerBlock3: Header;
 
   beforeEach(async () => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    header = makeHeader(randomInt, undefined);
-    roots = {
-      [MerkleTreeId.CONTRACT_TREE]: header.contractTreeRoot,
-      [MerkleTreeId.NOTE_HASH_TREE]: header.noteHashTreeRoot,
-      [MerkleTreeId.NULLIFIER_TREE]: header.nullifierTreeRoot,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: header.publicDataTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: header.l1ToL2MessageTreeRoot,
-      [MerkleTreeId.ARCHIVE]: header.archiveRoot,
-    };
+    // TODO(benesjan): make this more straightforward?
+    const randomInt = () => Math.floor(Math.random() * 1000);
+    const globalVariables = makeGlobalVariables(randomInt(), initialSyncBlockNumber);
+    headerBlock3 = makeHeader(randomInt(), globalVariables);
 
     aztecNode = mock<AztecNode>();
     database = new KVPxeDatabase(await AztecLmdbStore.openTmp());
@@ -39,36 +33,36 @@ describe('Synchronizer', () => {
     synchronizer = new TestSynchronizer(aztecNode, database, jobQueue);
   });
 
-  it('sets tree roots from aztec node on initial sync', async () => {
+  it('sets header from aztec node on initial sync', async () => {
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHeader.mockResolvedValue(header);
+    aztecNode.getHeader.mockResolvedValue(headerBlock3);
 
     await synchronizer.initialSync();
 
-    expect(database.getTreeRoots()).toEqual(roots);
+    expect(database.getHeader()).toEqual(headerBlock3);
   });
 
-  it('sets tree roots from latest block', async () => {
+  it('sets header from latest block', async () => {
     const block = L2Block.random(1, 4);
     aztecNode.getBlocks.mockResolvedValue([L2Block.fromFields(omit(block, 'newEncryptedLogs', 'newUnencryptedLogs'))]);
     aztecNode.getLogs.mockResolvedValueOnce([block.newEncryptedLogs!]).mockResolvedValue([block.newUnencryptedLogs!]);
 
     await synchronizer.work();
 
-    const roots = database.getTreeRoots();
-    expect(roots[MerkleTreeId.CONTRACT_TREE]).toEqual(block.header.state.partial.contractTree.root);
+    const obtainedHeader = database.getHeader();
+    expect(obtainedHeader).toEqual(block);
   });
 
-  it('overrides tree roots from initial sync once current block number is larger', async () => {
+  it('overrides header from initial sync once current block number is larger', async () => {
     // Initial sync is done on block with height 3
-    aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHeader.mockResolvedValue(header);
+    aztecNode.getBlockNumber.mockResolvedValue(initialSyncBlockNumber);
+    aztecNode.getHeader.mockResolvedValue(headerBlock3);
 
     await synchronizer.initialSync();
-    const roots0 = database.getTreeRoots();
-    expect(roots0[MerkleTreeId.CONTRACT_TREE]).toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
+    const header0 = database.getHeader();
+    expect(header0).toEqual(headerBlock3);
 
-    // We then process block with height 1, this should not change tree roots
+    // We then process block with height 1, this should not change the header
     const block1 = L2Block.random(1, 4);
     aztecNode.getBlocks.mockResolvedValueOnce([
       L2Block.fromFields(omit(block1, 'newEncryptedLogs', 'newUnencryptedLogs')),
@@ -76,9 +70,9 @@ describe('Synchronizer', () => {
     aztecNode.getLogs.mockResolvedValue([block1.newEncryptedLogs!]).mockResolvedValue([block1.newUnencryptedLogs!]);
 
     await synchronizer.work();
-    const roots1 = database.getTreeRoots();
-    expect(roots1[MerkleTreeId.CONTRACT_TREE]).toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
-    expect(roots1[MerkleTreeId.CONTRACT_TREE]).not.toEqual(block1.header.state.partial.contractTree.root);
+    const header1 = database.getHeader();
+    expect(header1).toEqual(headerBlock3);
+    expect(header1).not.toEqual(block1.header);
 
     // But they should change when we process block with height 5
     const block5 = L2Block.random(5, 4);
@@ -87,9 +81,9 @@ describe('Synchronizer', () => {
     ]);
 
     await synchronizer.work();
-    const roots5 = database.getTreeRoots();
-    expect(roots5[MerkleTreeId.CONTRACT_TREE]).not.toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
-    expect(roots5[MerkleTreeId.CONTRACT_TREE]).toEqual(block5.header.state.partial.contractTree.root);
+    const header5 = database.getHeader();
+    expect(header5).not.toEqual(headerBlock3);
+    expect(header5).toEqual(block5.header);
   });
 
   it('note processor successfully catches up', async () => {
