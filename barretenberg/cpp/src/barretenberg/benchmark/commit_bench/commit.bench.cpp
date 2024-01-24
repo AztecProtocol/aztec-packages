@@ -19,9 +19,9 @@ std::shared_ptr<honk::pcs::CommitmentKey<Curve>> create_commitment_key(const siz
 }
 
 constexpr size_t MAX_LOG_NUM_POINTS = 24;
-constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
+// constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
 
-auto key = create_commitment_key<curve::BN254>(MAX_NUM_POINTS);
+// auto key = create_commitment_key<curve::BN254>(MAX_NUM_POINTS);
 
 template <typename Curve> void bench_commit(::benchmark::State& state)
 {
