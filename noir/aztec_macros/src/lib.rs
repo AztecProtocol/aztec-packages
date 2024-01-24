@@ -421,30 +421,80 @@ fn transform_module(
     Ok(has_transformed_module)
 }
 
+fn generate_map_field_constructor(typ: UnresolvedTypeData) -> Result<Expression, AztecMacroError> {
+    match &typ {
+        UnresolvedTypeData::Named(path, generics) => {
+            let mut new_path = path.clone().to_owned();
+            new_path.segments.push(ident("new"));
+            match path.segments.last().unwrap().0.contents.as_str() {
+                "Map" => {
+                    println!(
+                        "nesting! {} - {:?}",
+                        new_path,
+                        generics.iter().cloned().last().unwrap().typ
+                    );
+                    Ok(call(
+                        variable_path(new_path),
+                        vec![
+                            variable("context"),
+                            variable("slot"),
+                            expression(ExpressionKind::Lambda(Box::new(Lambda {
+                                parameters: vec![
+                                    (
+                                        Pattern::Identifier(ident("context")),
+                                        make_type(UnresolvedTypeData::Named(
+                                            chained_path!("aztec", "context", "Context"),
+                                            vec![],
+                                        )),
+                                    ),
+                                    (
+                                        Pattern::Identifier(ident("slot")),
+                                        make_type(UnresolvedTypeData::FieldElement),
+                                    ),
+                                ],
+                                return_type: UnresolvedType {
+                                    typ: UnresolvedTypeData::Unspecified,
+                                    span: Some(Span::default()),
+                                },
+                                body: generate_map_field_constructor(
+                                    generics.iter().cloned().last().unwrap().typ,
+                                )?,
+                            }))),
+                        ],
+                    ))
+                }
+                _ => {
+                    println!("Generating args - {}", new_path);
+                    Ok(call(variable_path(new_path), vec![variable("context"), variable("slot")]))
+                }
+            }
+        }
+        _ => {
+            return Err(AztecMacroError::UnsupportedStorageType {
+                typ: typ.clone(),
+                span: Some(Span::default()),
+            })
+        }
+    }
+}
+
 fn generate_storage_field_constructor(
     field: (Ident, UnresolvedType),
 ) -> Result<(Ident, Expression), AztecMacroError> {
-    let field_constructor = if let UnresolvedTypeData::Named(path, args) = &field.1.typ {
+    let field_constructor = if let UnresolvedTypeData::Named(path, generics) = &field.1.typ {
         let args = match path.segments.last().unwrap().0.contents.as_str() {
-            "PublicState" | "Set" | "Singleton" | "ImmutableSingleton" => {
-                vec![
-                    variable("context"),
-                    expression(ExpressionKind::Literal(Literal::Integer(
-                        FieldElement::from(i128::from(0)),
-                        false,
-                    ))),
-                ]
-            }
             "Map" => {
-                let mut mapped_struct_path =
-                    match args.last().and_then(|unresolved_type| Some(unresolved_type.typ.clone()))
-                    {
-                        Some(UnresolvedTypeData::Named(path, _)) => Ok(path),
-                        _ => Err(AztecMacroError::UnsupportedStorageType {
-                            typ: field.1.typ.clone(),
-                            span: field.1.span,
-                        }),
-                    }?;
+                let mapped_struct = generics
+                    .last()
+                    .and_then(|unresolved_type| Some(unresolved_type.typ.clone()))
+                    .unwrap();
+                let mut mapped_struct_path = match mapped_struct {
+                    UnresolvedTypeData::Named(ref path, _) => Ok(path.clone()),
+                    _ => Err(AztecMacroError::UnsupportedStorageType {
+                        typ: field.1.typ.clone(),
+                        span: field.1.span,
+                    }),
+                }?;
 
                 mapped_struct_path.segments.push(ident("new"));
 
@@ -472,18 +522,18 @@ fn generate_storage_field_constructor(
                             typ: UnresolvedTypeData::Unspecified,
                             span: Some(Span::default()),
                         },
-                        body: call(
-                            variable_path(mapped_struct_path),
-                            vec![variable("context"), variable("slot")],
-                        ),
+                        body: generate_map_field_constructor(mapped_struct)?,
                     }))),
                 ]
             }
             _ => {
-                return Err(AztecMacroError::UnsupportedStorageType {
-                    typ: field.1.typ.clone(),
-                    span: field.1.span,
-                })
+                vec![
+                    variable("context"),
+                    expression(ExpressionKind::Literal(Literal::Integer(
+                        FieldElement::from(i128::from(0)),
+                        false,
+                    ))),
+                ]
             }
         };
         let mut new_path = path.clone();
@@ -504,8 +554,12 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
     let definition =
         module.types.iter().find(|r#struct| r#struct.name.0.contents == "Storage").unwrap();
 
-    let field_constructors =
-        definition.fields.iter().map(|field| generate_storage_field_constructor(*field)?).collect();
+    let field_constructors = definition
+        .fields
+        .iter()
+        .map(|field| generate_storage_field_constructor(field.clone()))
+        .flatten()
+        .collect();
 
     let storage_constructor_statement = make_statement(StatementKind::Expression(expression(
         ExpressionKind::constructor((chained_path!("Storage"), field_constructors)),
