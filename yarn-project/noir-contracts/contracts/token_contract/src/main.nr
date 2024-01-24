@@ -430,19 +430,19 @@ contract Token {
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    // unconstrained fn compute_note_hash_and_nullifier(
-    //     contract_address: AztecAddress,
-    //     nonce: Field,
-    //     storage_slot: Field,
-    //     serialized_note: [Field; TOKEN_NOTE_LEN]
-    // ) -> pub [Field; 4] {
-    //     let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-    //     if (storage_slot == 5) {
-    //         note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
-    //     } else {
-    //         note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)
-    //     }
-    // }
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: AztecAddress,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; TOKEN_NOTE_LEN]
+    ) -> pub [Field; 4] {
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        if (storage_slot == 5) {
+            note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
+        } else {
+            note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)
+        }
+    }
     // docs:end:compute_note_hash_and_nullifier
 }
 // docs:end:token_all
