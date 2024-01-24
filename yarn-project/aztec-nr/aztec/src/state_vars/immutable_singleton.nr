@@ -31,7 +31,6 @@ impl<Note> ImmutableSingleton<Note> {
         Self {
             context: context.private,
             storage_slot,
-            compute_initialization_nullifier: compute_singleton_initialization_nullifier,
         }
     }
     // docs:end:new

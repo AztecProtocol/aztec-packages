@@ -24,8 +24,7 @@ use crate::oracle::{
 // docs:start:struct
 struct Singleton<Note> {
     context: Option<&mut PrivateContext>,
-    storage_slot: Field,
-    compute_initialization_nullifier: fn (Field, Option<AztecAddress>, Option<&mut PrivateContext>) -> Field,
+    storage_slot: Field
 }
 // docs:end:struct
 
