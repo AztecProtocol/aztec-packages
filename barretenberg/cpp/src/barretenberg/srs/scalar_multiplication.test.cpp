@@ -36,7 +36,7 @@ template <typename Curve> class ScalarMultiplicationTests : public ::testing::Te
         }
     }();
 
-    static void read_transcript_g2(std::string const& srs_path) 
+    static void read_transcript_g2(std::string const& srs_path)
         requires srs::HasG2<Curve>
     {
         typename Curve::G2AffineElement g2_x;
