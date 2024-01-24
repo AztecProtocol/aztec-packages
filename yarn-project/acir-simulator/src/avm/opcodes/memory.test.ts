@@ -12,7 +12,7 @@ describe('Memory instructions', () => {
   let stateManager = mock<AvmStateManager>();
 
   beforeEach(() => {
-    machineState = new AvmMachineState([], initExecutionEnvironment());
+    machineState = new AvmMachineState(initExecutionEnvironment());
     stateManager = mock<AvmStateManager>();
   });
 
@@ -142,7 +142,7 @@ describe('Memory instructions', () => {
       const previousValue = new Fr(123456n);
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
 
-      machineState = new AvmMachineState(calldata, initExecutionEnvironment());
+      machineState = new AvmMachineState(initExecutionEnvironment({ calldata }));
       machineState.writeMemory(0, previousValue);
 
       new CalldataCopy(/*cdOffset=*/ 2, /*copySize=*/ 0, /*dstOffset=*/ 0).execute(machineState, stateManager);
@@ -155,7 +155,7 @@ describe('Memory instructions', () => {
       const previousValue = new Fr(123456n);
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
 
-      machineState = new AvmMachineState(calldata, initExecutionEnvironment());
+      machineState = new AvmMachineState(initExecutionEnvironment({ calldata }));
       machineState.writeMemory(0, previousValue);
 
       new CalldataCopy(/*cdOffset=*/ 0, /*copySize=*/ 3, /*dstOffset=*/ 0).execute(machineState, stateManager);
@@ -168,7 +168,7 @@ describe('Memory instructions', () => {
       const previousValue = new Fr(123456n);
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
 
-      machineState = new AvmMachineState(calldata, initExecutionEnvironment());
+      machineState = new AvmMachineState(initExecutionEnvironment({ calldata }));
       machineState.writeMemory(0, previousValue);
 
       new CalldataCopy(/*cdOffset=*/ 1, /*copySize=*/ 2, /*dstOffset=*/ 0).execute(machineState, stateManager);

@@ -29,8 +29,7 @@ describe('avm', () => {
     const instructions = decodeBytecode(fullBytecode);
 
     // Execute instructions
-    const executionEnvironment = initExecutionEnvironment();
-    const context = new AvmMachineState(calldata, executionEnvironment);
+    const context = new AvmMachineState(initExecutionEnvironment({ calldata }));
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
     const avmReturnData = interpreter.run();
 

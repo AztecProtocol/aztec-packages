@@ -17,7 +17,7 @@ describe('Storage Instructions', () => {
     stateManager = mock<AvmStateManager>();
 
     const executionEnvironment = initExecutionEnvironment({ address, storageAddress: address });
-    machineState = new AvmMachineState([], executionEnvironment);
+    machineState = new AvmMachineState(executionEnvironment);
   });
 
   it('Sstore should Write into storage', () => {

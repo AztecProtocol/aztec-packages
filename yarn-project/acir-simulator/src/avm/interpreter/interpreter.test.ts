@@ -27,8 +27,7 @@ describe('interpreter', () => {
       new Return(/*returnOffset=*/ 2, /*copySize=*/ 1),
     ];
 
-    const executionEnvironment = initExecutionEnvironment();
-    const context = new AvmMachineState(calldata, executionEnvironment);
+    const context = new AvmMachineState(initExecutionEnvironment({ calldata }));
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
     const avmReturnData = interpreter.run();
 
@@ -44,8 +43,7 @@ describe('interpreter', () => {
 
     const instructions: Instruction[] = [new Jump(invalidJumpDestination)];
 
-    const executionEnvironment = initExecutionEnvironment();
-    const context = new AvmMachineState(calldata, executionEnvironment);
+    const context = new AvmMachineState(initExecutionEnvironment({ calldata }));
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
 
     const avmReturnData = interpreter.run();

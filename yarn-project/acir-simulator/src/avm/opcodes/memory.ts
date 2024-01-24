@@ -92,7 +92,7 @@ export class CalldataCopy extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const calldata = machineState.calldata.slice(this.cdOffset, this.cdOffset + this.copySize);
+    const calldata = machineState.executionEnvironment.calldata.slice(this.cdOffset, this.cdOffset + this.copySize);
     machineState.writeMemoryChunk(this.destOffset, calldata);
 
     this.incrementPc(machineState);

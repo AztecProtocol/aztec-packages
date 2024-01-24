@@ -12,7 +12,7 @@ describe('Arithmetic Instructions', () => {
   let stateManager: MockProxy<AvmStateManager>;
 
   beforeEach(() => {
-    machineState = new AvmMachineState([], initExecutionEnvironment());
+    machineState = new AvmMachineState(initExecutionEnvironment());
     stateManager = mock<AvmStateManager>();
   });
 

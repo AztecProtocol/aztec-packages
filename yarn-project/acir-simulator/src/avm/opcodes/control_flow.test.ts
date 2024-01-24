@@ -17,7 +17,7 @@ describe('Control Flow Opcodes', () => {
 
   beforeEach(() => {
     stateManager = mock<AvmStateManager>();
-    machineState = new AvmMachineState([], initExecutionEnvironment());
+    machineState = new AvmMachineState(initExecutionEnvironment());
   });
 
   it('Should implement JUMP', () => {
@@ -139,7 +139,7 @@ describe('Control Flow Opcodes', () => {
 
     for (const instruction of instructions) {
       // Use a fresh machine state each run
-      const innerMachineState = new AvmMachineState([], initExecutionEnvironment());
+      const innerMachineState = new AvmMachineState(initExecutionEnvironment());
       expect(machineState.pc).toBe(0);
       instruction.execute(innerMachineState, stateManager);
       expect(innerMachineState.pc).toBe(1);

@@ -19,7 +19,7 @@ describe('Bitwise instructions', () => {
   let stateManager = mock<AvmStateManager>();
 
   beforeEach(() => {
-    machineState = new AvmMachineState([], initExecutionEnvironment());
+    machineState = new AvmMachineState(initExecutionEnvironment());
     stateManager = mock<AvmStateManager>();
   });
 

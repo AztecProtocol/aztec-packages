@@ -12,8 +12,6 @@ export class AvmMachineState {
    */
   public readonly executionEnvironment: AvmExecutionEnvironment;
 
-  /** - */
-  public readonly calldata: Fr[];
   private returnData: Fr[];
 
   // TODO: implement tagged memory
@@ -38,11 +36,9 @@ export class AvmMachineState {
 
   /**
    * Create a new avm context
-   * @param calldata -
    * @param executionEnvironment - Machine context that is passed to the avm
    */
-  constructor(calldata: Fr[], executionEnvironment: AvmExecutionEnvironment) {
-    this.calldata = calldata;
+  constructor(executionEnvironment: AvmExecutionEnvironment) {
     this.returnData = [];
     this.memory = [];
     this.internalCallStack = [];
