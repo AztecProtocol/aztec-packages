@@ -4,9 +4,7 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
 
-namespace bb::plonk {
-namespace stdlib {
-namespace ecdsa {
+namespace bb::stdlib {
 
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
@@ -22,9 +20,9 @@ namespace ecdsa {
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
-                                 const G1& public_key,
-                                 const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& message,
+                                       const G1& public_key,
+                                       const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = message.get_context() ? message.get_context() : public_key.x.context;
 
@@ -132,9 +130,9 @@ bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
-                                                            const G1& public_key,
-                                                            const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
+                                                                  const G1& public_key,
+                                                                  const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
 
@@ -212,16 +210,15 @@ bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_a
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature_noassert(const stdlib::byte_array<Builder>& message,
-                                          const G1& public_key,
-                                          const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder>& message,
+                                                const G1& public_key,
+                                                const ecdsa_signature<Builder>& sig)
 {
     stdlib::byte_array<Builder> hashed_message =
         static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
 
-    return verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+    return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
+        hashed_message, public_key, sig);
 }
 
-} // namespace ecdsa
-} // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb::stdlib

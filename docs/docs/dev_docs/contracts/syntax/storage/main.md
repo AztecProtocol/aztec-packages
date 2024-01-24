@@ -288,7 +288,11 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 As mentioned, the Singleton is initialized to create the first note and value.
 
-When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialized again. If an `owner` is specified, the nullifier will be hashed with the owner's secret key. It's crucial to provide an owner if the Singleton is associated with an account. Initializing it without an owner may inadvertently reveal important information about the owner's intention.
+When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialized again.
+
+:::danger Privacy-Leak
+Beware that because this nullifier is created only from the storage slot without randomness it is "leaky". This means that if the storage slot depends on the an address then it is possible to link the nullifier to the address. For example, if the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
+:::
 
 Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `ImmutableSingleton` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
 
@@ -306,7 +310,7 @@ To update the value of a `Singleton`, we can use the `replace` method. The metho
 
 An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
 
-#include_code state_vars-SingletonReplace /yarn-project/noir-contracts/contracts/docs_example_contract/src/actions.nr rust
+#include_code state_vars-SingletonReplace /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 If two people are trying to modify the Singleton at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
 
@@ -314,7 +318,7 @@ If two people are trying to modify the Singleton at the same time, only one will
 
 This function allows us to get the note of a Singleton, essentially reading the value.
 
-#include_code state_vars-SingletonGet /yarn-project/noir-contracts/contracts/docs_example_contract/src/actions.nr rust
+#include_code state_vars-SingletonGet /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 #### Nullifying Note reads
 
@@ -338,7 +342,11 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 ### `initialize`
 
-When this function is invoked, it creates a nullifier for the storage slot, ensuring that the ImmutableSingleton cannot be initialized again. If an owner is specified, the nullifier will be hashed with the owner's secret key. It is crucial to provide an owner if the ImmutableSingleton is linked to an account; initializing it without one may inadvertently disclose sensitive information about the owner's intent.
+When this function is invoked, it creates a nullifier for the storage slot, ensuring that the ImmutableSingleton cannot be initialized again. 
+
+:::danger Privacy-Leak
+Beware that because this nullifier is created only from the storage slot without randomness it is "leaky". This means that if the storage slot depends on the an address then it is possible to link the nullifier to the address. For example, if the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
+:::
 
 Set the value of an ImmutableSingleton by calling the `initialize` method:
 

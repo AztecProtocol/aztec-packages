@@ -3,11 +3,9 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
-using namespace bb::plonk::stdlib;
+using namespace bb::stdlib;
 
-namespace rollup {
-namespace proofs {
-namespace mock {
+namespace rollup::proofs::mock {
 
 class MockCircuitTests : public ::testing::Test {
   protected:
@@ -38,6 +36,4 @@ TEST_F(MockCircuitTests, test_simple_circuit)
     EXPECT_TRUE(result);
 }
 
-} // namespace mock
-} // namespace proofs
-} // namespace rollup
+} // namespace rollup::proofs::mock

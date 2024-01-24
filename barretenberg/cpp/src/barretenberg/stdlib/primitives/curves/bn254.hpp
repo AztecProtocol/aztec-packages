@@ -4,8 +4,7 @@
 #include "../field/field.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
 
-namespace bb::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename CircuitBuilder> struct bn254 {
     static constexpr bb::CurveType type = bb::CurveType::BN254;
@@ -18,6 +17,8 @@ template <typename CircuitBuilder> struct bn254 {
     using ScalarFieldNative = curve::BN254::ScalarField;
     using BaseFieldNative = curve::BN254::BaseField;
     using GroupNative = curve::BN254::Group;
+    using ElementNative = GroupNative::element;
+    using AffineElementNative = GroupNative::affine_element;
 
     // Stdlib types corresponding to those defined in the native description of the curve.
     // Note: its useful to have these type names match the native analog exactly so that components that digest a Curve
@@ -40,5 +41,4 @@ template <typename CircuitBuilder> struct bn254 {
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
 
 }; // namespace bn254
-} // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb::stdlib
