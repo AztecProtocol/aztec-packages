@@ -284,10 +284,12 @@ export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNo
  */
 export function mapFeeVariablesToNoir(data: FeeVariables): FeeVariablesNoir {
   return {
+    fee_asset_address: mapAztecAddressToNoir(data.feeAssetAddress),
     fee_preparation_address: mapAztecAddressToNoir(data.feePreparationAddress),
     fee_preparation_selector: mapFunctionSelectorToNoir(data.feePreparationSelector),
     fee_distribution_address: mapAztecAddressToNoir(data.feeDistributionAddress),
     fee_distribution_selector: mapFunctionSelectorToNoir(data.feeDistributionSelector),
+    fee_limit: mapFieldToNoir(data.feeLimit),
   };
 }
 
@@ -298,6 +300,8 @@ export function mapFeeVariablesToNoir(data: FeeVariables): FeeVariablesNoir {
  */
 export function mapFeeVariablesFromNoir(feeVariables: FeeVariablesNoir): FeeVariables {
   return new FeeVariables(
+    mapFieldFromNoir(feeVariables.fee_limit),
+    mapAztecAddressFromNoir(feeVariables.fee_asset_address),
     mapAztecAddressFromNoir(feeVariables.fee_preparation_address),
     mapFunctionSelectorFromNoir(feeVariables.fee_preparation_selector),
     mapAztecAddressFromNoir(feeVariables.fee_distribution_address),

@@ -1,5 +1,6 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
@@ -8,6 +9,14 @@ import { FieldsOf } from '@aztec/foundation/types';
  */
 export class FeeVariables {
   constructor(
+    /**
+     * Fee limit
+     */
+    public feeLimit: Fr,
+    /**
+     * The asset used to pay the fee.
+     */
+    public feeAssetAddress: AztecAddress,
     /**
      * Address which contains the fee payment function.
      */
@@ -28,6 +37,8 @@ export class FeeVariables {
 
   isEmpty() {
     return (
+      this.feeLimit.isZero() &&
+      this.feeAssetAddress.isZero() &&
       this.feePreparationAddress.isZero() &&
       this.feePreparationSelector.isEmpty() &&
       this.feeDistributionAddress.isZero() &&
@@ -47,16 +58,18 @@ export class FeeVariables {
    * Creates an empty FeeVariables instance
    */
   static empty(): FeeVariables {
-    return new FeeVariables(AztecAddress.ZERO, FunctionSelector.empty(), AztecAddress.ZERO, FunctionSelector.empty());
+    return new FeeVariables(
+      Fr.ZERO,
+      AztecAddress.ZERO,
+      AztecAddress.ZERO,
+      FunctionSelector.empty(),
+      AztecAddress.ZERO,
+      FunctionSelector.empty(),
+    );
   }
 
   static isEmpty(feeVariables: FeeVariables) {
-    return (
-      feeVariables.feePreparationAddress.isZero() &&
-      feeVariables.feePreparationSelector.isEmpty() &&
-      feeVariables.feeDistributionAddress.isZero() &&
-      feeVariables.feeDistributionSelector.isEmpty()
-    );
+    return feeVariables.isEmpty();
   }
 
   /**
@@ -66,6 +79,8 @@ export class FeeVariables {
   static fromBuffer(buffer: Buffer | BufferReader): FeeVariables {
     const reader = BufferReader.asReader(buffer);
     return new FeeVariables(
+      Fr.fromBuffer(reader),
+      AztecAddress.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
       FunctionSelector.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
@@ -75,16 +90,19 @@ export class FeeVariables {
 
   static fromJSON(obj: any): FeeVariables {
     return new FeeVariables(
-      AztecAddress.fromString(obj.chainId),
-      FunctionSelector.fromString(obj.version),
-      AztecAddress.fromString(obj.blockNumber),
-      FunctionSelector.fromString(obj.timestamp),
+      Fr.fromString(obj.feeLimit),
+      AztecAddress.fromString(obj.feeAssetAddress),
+      AztecAddress.fromString(obj.feePaymentAddress),
+      FunctionSelector.fromString(obj.feePaymentSelector),
+      AztecAddress.fromString(obj.feeDistributionAddress),
+      FunctionSelector.fromString(obj.feeDistributionSelector),
     );
   }
 
   static getFields(fields: FieldsOf<FeeVariables>) {
-    // Note: The order here must match the order in the HeaderDecoder solidity library.
     return [
+      fields.feeLimit,
+      fields.feeAssetAddress,
       fields.feePreparationAddress,
       fields.feePreparationSelector,
       fields.feeDistributionAddress,
@@ -98,6 +116,8 @@ export class FeeVariables {
 
   toJSON() {
     return {
+      feeLimit: this.feeLimit.toString(),
+      feeAssetAddress: this.feeAssetAddress.toString(),
       feePaymentAddress: this.feePreparationAddress.toString(),
       feePaymentSelector: this.feePreparationSelector.toString(),
       feeDistributionAddress: this.feeDistributionAddress.toString(),

@@ -1,13 +1,12 @@
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
-import { Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { AztecAddress, FeeVariables, Fr, FunctionData, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
-// These must match the values defined in yarn-project/aztec-nr/aztec/src/entrypoint.nr
-const ACCOUNT_MAX_CALLS = 4;
+const FEE_MAX_CALLS = 1;
 
 /** Encoded function call for account contract entrypoint */
-type EntrypointFunctionCall = {
+type FeeFunctionCall = {
   // eslint-disable-next-line camelcase
   /** Arguments hash for the call */
   args_hash: Fr;
@@ -23,38 +22,49 @@ type EntrypointFunctionCall = {
 };
 
 /** Encoded payload for the account contract entrypoint */
-export type EntrypointPayload = {
+export type FeePayload = {
   // eslint-disable-next-line camelcase
   /** Encoded function calls to execute */
-  function_calls: EntrypointFunctionCall[];
+  function_calls: FeeFunctionCall[];
   /** A nonce for replay protection */
   nonce: Fr;
 };
 
-/** Assembles an entrypoint payload from a set of private and public function calls */
-export function buildAppPayload(calls: FunctionCall[]): {
-  /** The payload for the entrypoint function */
-  payload: EntrypointPayload;
-  /** The packed arguments of functions called */
-  packedArguments: PackedArguments[];
-} {
+/**
+ * Prepares the fee payload.
+ * @param sender - The sender's address
+ * @param fee - The fee variables
+ */
+export function buildFeePayload(sender: AztecAddress, fee: FeeVariables) {
   const nonce = Fr.random();
-
-  const paddedCalls = padArrayEnd(calls, emptyFunctionCall(), ACCOUNT_MAX_CALLS);
   const packedArguments: PackedArguments[] = [];
+  const calls: FunctionCall[] = [];
+
+  if (!fee.isEmpty()) {
+    calls.push({
+      to: fee.feeAssetAddress,
+      functionData: new FunctionData(
+        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+        false,
+        false,
+        false,
+      ),
+      args: [sender, fee.feePreparationAddress, fee.feeLimit, Fr.ZERO],
+    });
+  }
+
+  const paddedCalls: FunctionCall[] = padArrayEnd(calls, emptyFunctionCall(), FEE_MAX_CALLS);
   for (const call of paddedCalls) {
     packedArguments.push(PackedArguments.fromArgs(call.args));
   }
 
-  const formattedCalls: EntrypointFunctionCall[] = paddedCalls.map((call, index) => ({
-    // eslint-disable-next-line camelcase
+  const formattedCalls: FeeFunctionCall[] = paddedCalls.map((call, index) => ({
+    /* eslint-disable camelcase */
     args_hash: packedArguments[index].hash,
-    // eslint-disable-next-line camelcase
     function_selector: call.functionData.selector.toField(),
-    // eslint-disable-next-line camelcase
     target_address: call.to.toField(),
-    // eslint-disable-next-line camelcase
     is_public: !call.functionData.isPrivate,
+    /* eslint-enable camelcase */
   }));
 
   return {
@@ -68,15 +78,15 @@ export function buildAppPayload(calls: FunctionCall[]): {
 }
 
 /** Hashes an entrypoint payload to a 32-byte buffer (useful for signing) */
-export function hashPayload(payload: EntrypointPayload) {
+export function hashFeePayload(payload: FeePayload) {
   return pedersenHash(
     flattenPayload(payload).map(fr => fr.toBuffer()),
-    GeneratorIndex.SIGNATURE_PAYLOAD,
+    GeneratorIndex.FEE_VARIABLES,
   );
 }
 
 /** Flattens an entrypoint payload */
-function flattenPayload(payload: EntrypointPayload) {
+function flattenPayload(payload: FeePayload) {
   return [
     ...payload.function_calls.flatMap(call => [
       call.args_hash,

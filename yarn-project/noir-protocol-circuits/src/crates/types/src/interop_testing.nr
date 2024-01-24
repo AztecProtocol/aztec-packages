@@ -58,10 +58,12 @@ fn compute_tx_request_hash() {
             chain_id: 0,
             version: 0,
             fee_variables: FeeVariables {
-                fee_preparation_address: AztecAddress::from_field(1),
-                fee_preparation_selector: FunctionSelector::from_u32(2),
-                fee_distribution_address: AztecAddress::from_field(3),
-                fee_distribution_selector: FunctionSelector::from_u32(4)
+                fee_asset_address: AztecAddress::from_field(1),
+                fee_preparation_address: AztecAddress::from_field(2),
+                fee_preparation_selector: FunctionSelector::from_u32(3),
+                fee_distribution_address: AztecAddress::from_field(4),
+                fee_distribution_selector: FunctionSelector::from_u32(5),
+                fee_limit: 6
             }
         },
         function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: true, is_constructor: true }

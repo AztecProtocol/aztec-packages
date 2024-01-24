@@ -3,6 +3,7 @@ use dep::aztec::state_vars::{map::Map, public_state::PublicState};
 use dep::aztec::types::type_serialization::bool_serialization::{BoolSerializationMethods,BOOL_SERIALIZED_LEN};
 
 use crate::entrypoint::EntrypointPayload;
+use crate::fee::FeePayload;
 use crate::auth::IS_VALID_SELECTOR;
 
 struct AccountActions {
@@ -33,14 +34,23 @@ impl AccountActions {
   pub fn public(context: &mut PublicContext, approved_action_storage_slot: Field, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
     AccountActions::init(Context::public(context), approved_action_storage_slot, is_valid_impl)
   }
-  
+
   // docs:start:entrypoint
-  pub fn entrypoint(self, payload: EntrypointPayload) {
-    let message_hash = payload.hash();
+  pub fn entrypoint(self, app_payload: EntrypointPayload, fee_payload: FeePayload) {
     let valid_fn = self.is_valid_impl;
     let private_context = self.context.private.unwrap();
-    assert(valid_fn(private_context, message_hash));
-    payload.execute_calls(private_context);
+
+    let fee_message_hash = fee_payload.hash();
+    assert(valid_fn(private_context, fee_message_hash));
+
+    fee_payload.execute_calls(private_context);
+
+    // context.move_to_app_phase()
+
+    let app_message_hash = app_payload.hash();
+    assert(valid_fn(private_context, app_message_hash));
+
+    app_payload.execute_calls(private_context);
   }
   // docs:end:entrypoint
 
