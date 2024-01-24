@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <vector>
 
+using namespace bb;
+
 std::array<uint8_t, 32> hex_to_bytes(const std::string& hex)
 {
     std::array<uint8_t, 32> bytes;
