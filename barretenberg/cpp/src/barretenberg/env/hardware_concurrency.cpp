@@ -12,9 +12,9 @@ uint32_t env_hardware_concurrency()
 #ifndef __wasm__
     try {
 #endif
-        static auto val = std::getenv("HARDWARE_CONCURRENCY");
-        static const uint32_t cores = val ? (uint32_t)std::stoul(val) : std::thread::hardware_concurrency();
-        return cores;
+        // static auto val = std::getenv("HARDWARE_CONCURRENCY");
+        // static const uint32_t cores = val ? (uint32_t)std::stoul(val) : std::thread::hardware_concurrency();
+        return 16; // cores;
 #ifndef __wasm__
     } catch (std::exception const&) {
         throw std::runtime_error("HARDWARE_CONCURRENCY invalid.");

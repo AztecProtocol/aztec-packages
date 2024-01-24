@@ -229,6 +229,16 @@
       }
     },
     {
+      "name": "wasm-bench",
+      "displayName": "Build for pthread enabled WASM",
+      "description": "Build for pthread enabled WASM",
+      "inherits": "wasm-threads",
+      "binaryDir": "build-wasm-bench",
+      "cacheVariables": {
+        "CXXFLAGS": "-DWASMTIME_FAKE_SRS"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -367,6 +377,12 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "wasm-bench",
+      "configurePreset": "wasm-bench",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0
     },
     {
       "name": "xray",

@@ -156,7 +156,6 @@ CMake can be passed various build options on its command line:
 - `-DMULTITHREADING=ON | OFF`: Enable/disable multithreading.
 - `-DOMP_MULTITHREADING=ON | OFF`: Enable/disable multithreading that uses OpenMP.
 - `-DTESTING=ON | OFF`: Enable/disable building of tests.
-- `-DBENCHMARK=ON | OFF`: Enable/disable building of benchmarks.
 - `-DFUZZING=ON | OFF`: Enable building various fuzzers.
 
 If you are cross-compiling, you can use a preconfigured toolchain file:

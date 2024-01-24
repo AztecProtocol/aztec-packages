@@ -20,7 +20,7 @@
  * and OMP seems well designed to handle this. It actually looks like OMP consumes more cpu time in htop, and this
  * maybe due to aggressive spin-locking and may explain why it performs well in these scenarios.
  *
- * My theory as to why spawning seems to counter-intuitively perfrom so well, is that spawning a new thread may actually
+ * My theory as to why spawning seems to counter-intuitively perform so well, is that spawning a new thread may actually
  * be cheaper than waking a sleeping thread. Or joining is somehow very efficient. Or it's because there's very low
  * other overhead. Or libc++ STL does some magic. Ok, that's not much of a theory...
  *
@@ -79,9 +79,9 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     parallel_for_omp(num_iterations, func);
 #else
     // parallel_for_spawning(num_iterations, func);
-    // parallel_for_moody(num_iterations, func);
+    parallel_for_moody(num_iterations, func);
     // parallel_for_atomic_pool(num_iterations, func);
-    parallel_for_mutex_pool(num_iterations, func);
+    // parallel_for_mutex_pool(num_iterations, func);
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
