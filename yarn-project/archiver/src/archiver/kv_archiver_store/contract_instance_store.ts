@@ -21,9 +21,6 @@ export class ContractInstanceStore {
 
   getContractInstance(address: AztecAddress): ContractInstanceWithAddress | undefined {
     const contractInstance = this.#contractInstances.get(address.toString());
-    if (!contractInstance) {
-      return undefined;
-    }
-    return { ...SerializableContractInstance.fromBuffer(contractInstance), address };
+    return contractInstance && SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
   }
 }

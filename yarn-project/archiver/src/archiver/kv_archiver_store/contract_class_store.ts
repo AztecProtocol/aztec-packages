@@ -21,9 +21,6 @@ export class ContractClassStore {
 
   getContractClass(id: Fr): ContractClassWithId | undefined {
     const contractClass = this.#contractClasses.get(id.toString());
-    if (!contractClass) {
-      return undefined;
-    }
-    return { ...SerializableContractClass.fromBuffer(contractClass), id };
+    return contractClass && SerializableContractClass.fromBuffer(contractClass).withId(id);
   }
 }

@@ -326,6 +326,7 @@ __metadata:
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/foundation": "workspace:^"
+    "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -757,6 +758,7 @@ __metadata:
     "@aztec/key-store": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
+    "@aztec/noir-contracts": "workspace:^"
     "@aztec/noir-protocol-circuits": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0

@@ -38,6 +38,11 @@ export class SerializableContractClass implements ContractClass {
     this.packedBytecode = contractClass.packedBytecode;
   }
 
+  /** Returns a copy of this object with its id included. */
+  withId(id: Fr): ContractClassWithId {
+    return { ...this, id };
+  }
+
   public toBuffer() {
     return serializeToBuffer(
       numToUInt8(this.version),

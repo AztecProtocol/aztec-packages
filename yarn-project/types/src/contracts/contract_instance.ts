@@ -53,6 +53,11 @@ export class SerializableContractInstance {
     );
   }
 
+  /** Returns a copy of this object with its address included. */
+  withAddress(address: AztecAddress): ContractInstanceWithAddress {
+    return { ...this, address };
+  }
+
   static fromBuffer(bufferOrReader: Buffer | BufferReader) {
     const reader = BufferReader.asReader(bufferOrReader);
     return new SerializableContractInstance({
