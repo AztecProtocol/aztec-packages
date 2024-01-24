@@ -77,11 +77,19 @@ struct NativeTranscriptParams {
     }
 };
 
-// struct UltraStdlibTranscriptParams {
-//     using Builder = UltraCircuitBuilder;
-//     using Fr = stdlib::field_t<Builder>;
-//     static inline Fr hash(const std::vector<Fr>& data) { return stdlib::poseidon2<Builder>::hash(data); }
-// };
+struct UltraStdlibTranscriptParams {
+    using Builder = UltraCircuitBuilder;
+    using Fr = stdlib::field_t<Builder>;
+    Builder ctx;
+    static inline Fr hash(const std::vector<Fr>& data)
+    {
+        assert(!data.empty() && data[0].get_context() != nullptr);
+        Builder* ctx = data[0].get_context();
+        return stdlib::poseidon2<Builder>::hash(*ctx, data); // TODO: this is scary to just dereference
+    }
+
+    // template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+};
 
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the

@@ -1,6 +1,39 @@
 #pragma once
 
-namespace proof_system::plonk::stdlib {
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+
+namespace proof_system::plonk::stdlib::field_converion {
+
+static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
+
+template <typename Builder> using field_ct = bb::stdlib::field_t<Builder>;
+
+template <typename Builder>
+std::array<field_ct<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& builder,
+                                                                 const field_ct<Builder>& field_val)
+{
+    ASSERT(uint256_t(field_val.get_value()) <
+           (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits or less
+    constexpr uint256_t LIMB_MASK =
+        (uint256_t(1) << NUM_CONVERSION_LIMB_BITS) - 1; // split bn254_fr into two 64 bit limbs
+    const uint256_t value = field_val;
+    const uint64_t low = static_cast<uint64_t>(value & LIMB_MASK);
+    const uint64_t hi = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
+
+    field_ct<Builder> low_val{ witness_t<Builder>(builder, low) };
+    field_ct<Builder> hi_val{ witness_t<Builder>(builder, hi) };
+    // range constrain both to 64 bits
+    builder.range_constrain_two_limbs(
+        low_val.witness_index, hi_val.witness_index, NUM_CONVERSION_LIMB_BITS, NUM_CONVERSION_LIMB_BITS);
+
+    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) == value);
+    // checks this decomposition low + hi * 2^64 = value with an add gate
+    field_ct<Builder>::evaluate_linear_identity(
+        low_val, (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) * hi_val, -field_val, field_t<Builder>(0));
+
+    return std::array<field_ct<Builder>, 2>{ low_val, hi_val };
+}
 
 // circuit form
 // template <typename Arithmetization>
@@ -24,6 +57,12 @@ namespace proof_system::plonk::stdlib {
 
 //     return std::array<uint32_t, 2>{ low_idx, hi_idx };
 // }
+
+template <typename Builder>
+bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_fr(const Builder&,
+                                                                                  const field_ct<Builder>& low_bits_in,
+                                                                                  const field_ct<Builder>* high_bits_in)
+{}
 
 // template <typename Builder, typename T>
 // bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
@@ -130,4 +169,4 @@ namespace proof_system::plonk::stdlib {
 //     prime_basis_limb = low_bits_in + (high_bits_in * shift_2);
 // }
 
-} // namespace proof_system::plonk::stdlib
+} // namespace proof_system::plonk::stdlib::field_converion
