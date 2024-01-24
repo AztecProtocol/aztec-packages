@@ -44,10 +44,14 @@ impl<Note, N> Singleton<Note, N> {
     }
     // docs:end:new
 
-    // The following computation is leaky - the storage slot can easily be "guessed" by an adversary 
-    // by looking at the nullifier in the transaction data. 
-    // This is especially dangerous for `maps` because the storage slot is often also identifies the
-    // actor that is executing the transaction. e.g, `map.at(msg.sender)` will leak `msg.sender`.
+    // The following computation is leaky, in that it doesn't hide the storage slot that has been initialized, nor does it hide the contract address of this contract.
+    // When this initialization nullifier is emitted, an observer could do a dictionary or rainbow attack to learn the preimage of this nullifier to deduce the storage slot and contract address.
+    // For some applications, leaking the details that a particular state variable of a particular contract has been initialized will be unacceptable.
+    // Under such circumstances, such application developers might wish to _not_ use this state variable type.
+    // This is especially dangerous for initial assignment to elements of a `Map<AztecAddress, Singleton>` type (for example), because the storage slot often also identifies an actor. e.g. 
+    // the initial assignment to `my_map.at(msg.sender)` will leak: `msg.sender`, the fact that an element of `my_map` was assigned-to for the first time, and the contract_address.
+    // Note: subsequent nullification of this state variable, via the `replace` method will not be leaky, if the `compute_nullifier()` method of the underlying note is designed to ensure privacy. 
+    // For example, if the `compute_nullifier()` method injects the secret key of a note owner into the computed nullifier's preimage.
     pub fn compute_initialization_nullifier(self) -> Field {
         pedersen_hash([self.storage_slot], GENERATOR_INDEX__INITIALIZATION_NULLIFIER)
     }
