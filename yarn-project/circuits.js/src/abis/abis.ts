@@ -535,14 +535,7 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.encryptedLogPreimagesLength.toBuffer(),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    // TODO: use inputs.Header.toBuffer() instead of the following
-    input.header.state.partial.noteHashTree.root.toBuffer(),
-    input.header.state.partial.nullifierTree.root.toBuffer(),
-    input.header.state.partial.contractTree.root.toBuffer(),
-    input.header.state.l1ToL2MessageTree.root.toBuffer(),
-    input.header.lastArchive.root.toBuffer(),
-    input.header.state.partial.publicDataTree.root.toBuffer(),
-    computeGlobalsHash(input.header.globalVariables).toBuffer(),
+    ...(input.header.toFieldArray().map(fr => fr.toBuffer()) as Buffer[]),
     computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
     input.chainId.toBuffer(),
     input.version.toBuffer(),
@@ -608,14 +601,7 @@ export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    // TODO: use inputs.Header.toBuffer() instead of the following
-    input.header.state.partial.noteHashTree.root.toBuffer(),
-    input.header.state.partial.nullifierTree.root.toBuffer(),
-    input.header.state.partial.contractTree.root.toBuffer(),
-    input.header.state.l1ToL2MessageTree.root.toBuffer(),
-    input.header.lastArchive.toBuffer(),
-    input.header.state.partial.publicDataTree.root.toBuffer(),
-    computeGlobalsHash(input.header.globalVariables).toBuffer(),
+    ...input.header.toFieldArray().map(fr => fr.toBuffer()),
     input.proverAddress.toBuffer(),
   ];
   if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {

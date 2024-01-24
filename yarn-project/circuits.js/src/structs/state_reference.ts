@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PartialStateReference } from './partial_state_reference.js';
@@ -17,6 +18,10 @@ export class StateReference {
   toBuffer() {
     // Note: The order here must match the order in the HeaderLib solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
+  }
+
+  toFieldArray(): Fr[] {
+    return [...this.l1ToL2MessageTree.toFieldArray(), ...this.partial.toFieldArray()];
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): StateReference {

@@ -1,5 +1,7 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
 
+import { HEADER_LENGTH } from '../constants.gen.js';
 import { GlobalVariables } from './global_variables.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 import { StateReference } from './state_reference.js';
@@ -26,6 +28,20 @@ export class Header {
   toBuffer() {
     // Note: The order here must match the order in the HeaderLib solidity library.
     return serializeToBuffer(this.lastArchive, this.bodyHash, this.state, this.globalVariables);
+  }
+
+  toFieldArray(): Fr[] {
+    // Note: The order here must match the order in the HeaderDecoder solidity library.
+    const serialized = [
+      ...this.globalVariables.toFieldArray(),
+      ...this.state.toFieldArray(),
+      ...this.lastArchive.toFieldArray(),
+      ...to2Fields(this.bodyHash),
+    ];
+    if (serialized.length !== HEADER_LENGTH) {
+      throw new Error(`Expected header to have ${HEADER_LENGTH} fields, but it has ${serialized.length} fields`);
+    }
+    return serialized;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): Header {

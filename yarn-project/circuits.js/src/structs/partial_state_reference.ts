@@ -40,6 +40,15 @@ export class PartialStateReference {
     return serializeToBuffer(this.noteHashTree, this.nullifierTree, this.contractTree, this.publicDataTree);
   }
 
+  toFieldArray() {
+    return [
+      ...this.noteHashTree.toFieldArray(),
+      ...this.nullifierTree.toFieldArray(),
+      ...this.contractTree.toFieldArray(),
+      ...this.publicDataTree.toFieldArray(),
+    ];
+  }
+
   isEmpty(): boolean {
     return (
       this.noteHashTree.isEmpty() &&

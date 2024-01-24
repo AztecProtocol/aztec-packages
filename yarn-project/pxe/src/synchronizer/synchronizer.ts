@@ -9,8 +9,7 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, Header, Fr, PublicKey } from '@aztec/circuits.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
+import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';

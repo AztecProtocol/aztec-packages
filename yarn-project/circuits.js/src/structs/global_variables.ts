@@ -61,6 +61,10 @@ export class GlobalVariables {
     return serializeToBuffer(...GlobalVariables.getFields(this));
   }
 
+  toFieldArray() {
+    return GlobalVariables.getFields(this);
+  }
+
   toJSON() {
     return {
       chainId: this.chainId.toString(),
