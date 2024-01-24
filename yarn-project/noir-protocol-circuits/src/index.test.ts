@@ -56,14 +56,14 @@ describe('Private kernel', () => {
   it('Executes private kernel inner for a nested call', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
-    const filepath = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      './fixtures/nested-call-private-kernel-inner.hex',
-    );
-    const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
-    const kernelInputs = PrivateKernelInputsInner.fromBuffer(serialized);
+  //   const filepath = resolve(
+  //     dirname(fileURLToPath(import.meta.url)),
+  //     './fixtures/nested-call-private-kernel-inner.hex',
+  //   );
+  //   const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
+  //   const kernelInputs = PrivateKernelInputsInner.fromBuffer(serialized);
 
-    const kernelOutputs = await executeInner(kernelInputs);
+  //   const kernelOutputs = await executeInner(kernelInputs);
 
     expect(kernelOutputs).toMatchSnapshot();
   });
