@@ -10,7 +10,7 @@ These state variables come in two forms: public and private. Public variables ar
 
 Aztec.nr has a few abstractions to help define the type of data your contract holds. These include Singletons, ImmutableSingletons, Set, and Map.
 
-On this page, you’ll learn:
+On this and the following pages in this section, you’ll learn:
 
 - How to manage a smart contract's storage structure
 - The distinctions and applications of public and private state variables
