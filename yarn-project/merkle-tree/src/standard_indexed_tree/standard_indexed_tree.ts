@@ -58,8 +58,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);
 
   protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
-  protected leafs: AztecMap<`${string}:leaf_by_index:${string}`, Buffer>;
-  protected leafIndex: AztecMap<`${string}:leaf_index_by_leaf_key:${string}`, bigint>;
+  protected leaves: AztecMap<ReturnType<typeof buildDbKeyForPreimage>, Buffer>;
+  protected leafIndex: AztecMap<ReturnType<typeof buildDbKeyForLeafIndex>, bigint>;
 
   public constructor(
     store: AztecKVStore,
@@ -72,7 +72,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     root?: Buffer,
   ) {
     super(store, hasher, name, depth, size, root);
-    this.leafs = store.openMap(`tree_${name}_leafs`);
+    this.leaves = store.openMap(`tree_${name}_leaves`);
     this.leafIndex = store.openMap(`tree_${name}_leaf_index`);
   }
 
@@ -195,7 +195,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   }
 
   private getDbPreimage(index: bigint): IndexedTreeLeafPreimage | undefined {
-    const value = this.leafs.get(buildDbKeyForPreimage(this.getName(), index));
+    const value = this.leaves.get(buildDbKeyForPreimage(this.getName(), index));
     return value ? this.leafPreimageFactory.fromBuffer(value) : undefined;
   }
 
@@ -276,7 +276,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       for (const key of keys) {
         const leaf = this.cachedLeafPreimages[key];
         const index = BigInt(key);
-        void this.leafs.set(buildDbKeyForPreimage(this.getName(), index), leaf.toBuffer());
+        void this.leaves.set(buildDbKeyForPreimage(this.getName(), index), leaf.toBuffer());
         void this.leafIndex.set(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()), index);
       }
       this.clearCachedLeaves();

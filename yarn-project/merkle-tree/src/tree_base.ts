@@ -27,11 +27,11 @@ const decodeMeta = (meta: Buffer) => {
   };
 };
 
-const createMetaStorageSingleton = (store: AztecKVStore, treeName: string): AztecSingleton<Buffer> =>
+const openTreeMetaSingleton = (store: AztecKVStore, treeName: string): AztecSingleton<Buffer> =>
   store.openSingleton(`merkle_tree_${treeName}_meta`);
 
 export const getTreeMeta = (store: AztecKVStore, treeName: string) => {
-  const singleton = createMetaStorageSingleton(store, treeName);
+  const singleton = openTreeMetaSingleton(store, treeName);
   const val = singleton.get();
   if (!val) {
     throw new Error();
@@ -70,7 +70,7 @@ export abstract class TreeBase implements MerkleTree {
 
     this.hasher = new HasherWithStats(hasher);
     this.nodes = store.openMap('merkle_tree_' + name);
-    this.meta = createMetaStorageSingleton(store, name);
+    this.meta = openTreeMetaSingleton(store, name);
 
     // Compute the zero values at each layer.
     let current = INITIAL_LEAF;

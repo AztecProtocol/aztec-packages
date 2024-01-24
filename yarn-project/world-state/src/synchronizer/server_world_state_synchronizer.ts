@@ -29,7 +29,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private blockNumber: AztecSingleton<number>;
 
   constructor(
-    private store: AztecKVStore,
+    store: AztecKVStore,
     private merkleTreeDb: MerkleTrees,
     private l2BlockSource: L2BlockSource,
     config: WorldStateConfig,
@@ -105,8 +105,6 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     await this.merkleTreeDb.stop();
     this.log('Awaiting promise');
     await this.runningPromise;
-    this.log('Commiting current block number');
-    await this.commitCurrentL2BlockNumber();
     this.setCurrentState(WorldStateRunningState.STOPPED);
   }
 
@@ -170,7 +168,6 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     // This request for blocks will timeout after 1 second if no blocks are received
     const blocks = await this.l2BlockDownloader.getBlocks(1);
     await this.handleL2Blocks(blocks);
-    await this.commitCurrentL2BlockNumber();
   }
 
   /**
@@ -198,10 +195,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     const result = await this.merkleTreeDb.handleL2Block(l2Block);
     await this.blockNumber.set(l2Block.number);
 
-    if (
-      this.currentState === WorldStateRunningState.SYNCHING &&
-      this.currentL2BlockNum >= this.latestBlockNumberAtStart
-    ) {
+    if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
       this.setCurrentState(WorldStateRunningState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
@@ -217,9 +211,5 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private setCurrentState(newState: WorldStateRunningState) {
     this.currentState = newState;
     this.log(`Moved to state ${WorldStateRunningState[this.currentState]}`);
-  }
-
-  private async commitCurrentL2BlockNumber() {
-    await this.blockNumber.set(this.currentL2BlockNum);
   }
 }
