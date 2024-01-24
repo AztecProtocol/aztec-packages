@@ -7,8 +7,8 @@ if(BENCHMARKS)
 
     FetchContent_Declare(
         benchmark
-        GIT_REPOSITORY https://github.com/google/benchmark
-        GIT_TAG v1.7.1
+        GIT_REPOSITORY https://github.com/AztecProtocol/google-benchmark
+        GIT_TAG 9b721b1
         FIND_PACKAGE_ARGS
     )
 
