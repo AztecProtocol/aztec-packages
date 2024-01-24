@@ -10,7 +10,7 @@ We are working on a better solution for this so expect an update soon, but curre
 
 Rather than use the usual command, run:
 ```bash
-docker-compose up
+cd ~/.aztec && docker-compose up
 ```
 This removes any other arguments, allowing you to ensure an isolated environment for the sandbox so it doesn't interfere with another PXE.
 

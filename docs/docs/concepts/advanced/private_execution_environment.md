@@ -37,7 +37,7 @@ The PXE is a client-side interface of the PXE Service, which is a set of server-
 
 ### ACIR simulator
 
-The ACIR (Abstract Circuit Intermediate Representation) simulator generates the partial witness and the public inputs of smart contract functions. You can learn more about what it does in [this section](./acir_simulator.md).
+The ACIR (Abstract Circuit Intermediate Representation) simulator handles the accurate execution of smart contract functions by simulating transactions. It generates the required data and inputs for these functions. You can find more details about how it works [here](./acir_simulator.md).
 
 ### Database
 
@@ -45,10 +45,10 @@ The database stores transactional data and notes within the user's PXE. In the A
 
 The database stores various types of data, including:
 
-- **Notes**: Encrypted representations of assets 
-- **Deferred Notes**: Notes that are intended for a user but cannot yet be decoded due to the associated contract not being present in the database
-- **Authentication Witnesses**: Data used to verify transactions
-- **Capsules**: External data or data injected into the system via oracles
+- **Notes**: Encrypted representations of assets. 
+- **Deferred Notes**: Notes that are intended for a user but cannot yet be decoded due to the associated contract not being present in the database. When new contracts are deployed, there may be some time because it is accessible from the PXE database. When the PXE database is updated, deferred note are decoded.
+- **Authentication Witnesses**: Data used to verify transactions.
+- **Capsules**: External data or data injected into the system via [oracles](#oracles).
 
 ### Note discovery
 
@@ -56,15 +56,13 @@ There is an open RFP for how note discovery will work on Aztec. You can find mor
 
 Currently in the Aztec sandbox, users download every note, compute a secret, and generate the symmetric decryption key from that secret. If the note belongs to them, then the user will have derived the same secret and ultimately the required decryption key.
 
-
 ### Keystore
 
 The keystore is a secure storage for private and public keys. 
 
-
 ## Oracles
 
-Oracles are pieces of data that are injected into a function from the client side. You can read more about why and how they work in the [functions section](https://docs.aztec.network/dev_docs/contracts/syntax/functions#oracle-functions).
+Oracles are pieces of data that are injected into a function from the client side. You can read more about why and how they work in the [functions section](../../dev_docs/contracts/syntax/functions.md).
 
 ## For developers
 To learn how to develop on top of the PXE, refer to these guides:

@@ -331,6 +331,7 @@ const sidebars = {
             },
             "dev_docs/contracts/syntax/events",
             "dev_docs/contracts/syntax/functions",
+            "dev_docs/contracts/syntax/oracles",
             "dev_docs/contracts/syntax/slow_updates_tree",
             "dev_docs/contracts/syntax/context",
             "dev_docs/contracts/syntax/globals",
