@@ -7,11 +7,11 @@ The Aztec Protocol uses an append-only Merkle tree to store the headers of all p
 # History library
 
 The history library allows you to prove any of the following at a given block height before the current height:
-* [Note inclusion](#note-inclusion)
-* [Nullifier inclusion](#nullifier-inclusion)
-* [Note validity](#note-validity)
-* [Existence of public value](#public-value-inclusion)
-* [Contract inclusion](#contract-inclusion)
+* [Note inclusion](./history_lib_reference.md#note-inclusion)
+* [Nullifier inclusion](./history_lib_reference.md#nullifier-inclusion)
+* [Note validity](./history_lib_reference.md#note-validity)
+* [Existence of public value](./history_lib_reference.md#public-value-inclusion)
+* [Contract inclusion](./history_lib_reference.md#contract-inclusion)
 
 Using this library, you can check that specific notes or nullifiers were part of Aztec network state at specific blocks. This can be useful for things such as:
 
