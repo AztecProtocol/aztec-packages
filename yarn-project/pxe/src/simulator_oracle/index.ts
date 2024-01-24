@@ -65,11 +65,11 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, includeNullified?: boolean) {
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, includeNullified: boolean) {
     const noteDaos = await this.db.getNotes({
       contractAddress,
       storageSlot,
-      status: includeNullified ?? false ? 'active_or_nullified' : 'active',
+      status: includeNullified ? 'active_or_nullified' : 'active',
     });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,

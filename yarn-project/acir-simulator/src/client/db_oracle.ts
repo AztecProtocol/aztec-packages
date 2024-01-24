@@ -61,10 +61,10 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @param contractAddress - The AztecAddress instance representing the contract address.
    * @param storageSlot - The Fr instance representing the storage slot of the notes.
-   * @param includeNullified - Whether to include nullified notes. Defaults to false.
+   * @param includeNullified - Whether to include nullified notes.
    * @returns A Promise that resolves to an array of note data.
    */
-  getNotes(contractAddress: AztecAddress, storageSlot: Fr, includeNullified?: boolean): Promise<NoteData[]>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Fr, includeNullified: boolean): Promise<NoteData[]>;
 
   /**
    * Retrieve the artifact information of a specific function within a contract.
