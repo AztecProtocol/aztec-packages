@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/bigint_constraint.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
 #include "barretenberg/dsl/acir_format/blake3_constraint.hpp"
 #include "barretenberg/dsl/acir_format/block_constraint.hpp"
@@ -96,12 +97,12 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
     return pt;
 }
 
-void handle_arithmetic(Circuit::Opcode::AssertZero const& arg, acir_format& af)
+void handle_arithmetic(Circuit::Opcode::AssertZero const& arg, AcirFormat& af)
 {
     af.constraints.push_back(serialize_arithmetic_gate(arg.value));
 }
 
-void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, acir_format& af)
+void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af)
 {
     std::visit(
         [&](auto&& arg) {
@@ -240,6 +241,40 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .key_hash = arg.key_hash.witness.value,
                 };
                 af.recursion_constraints.push_back(c);
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntFromLeBytes>) {
+                af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
+                    .inputs = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .modulus = map(arg.modulus, [](auto& e) -> uint32_t { return e; }),
+                    .result = arg.output,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntAdd>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Add,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntNeg>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Neg,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntMul>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Mul,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntDiv>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Div,
+                });
             }
         },
         arg.value.value);
@@ -289,11 +324,11 @@ void handle_memory_op(Circuit::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     block.trace.push_back(acir_mem_op);
 }
 
-acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
 
-    acir_format af;
+    AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
