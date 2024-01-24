@@ -16,7 +16,6 @@ configure_file(
     @ONLY
 )
 
-
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
 option(MULTITHREADING "Enable multi-threading" ON)
@@ -75,7 +74,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     set(WASM ON)
     set(DISABLE_ASM ON)
     set(OMP_MULTITHREADING OFF)
-    set(BENCHMARKS OFF)
+    set(BENCHMARKS ${MULTITHREADING})
     set(DISABLE_TBB 1)
     add_compile_definitions(_WASI_EMULATED_PROCESS_CLOCKS=1)
 endif()

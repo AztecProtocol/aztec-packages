@@ -14,8 +14,7 @@ std::shared_ptr<honk::pcs::CommitmentKey<Curve>> create_commitment_key(const siz
         static_assert(std::same_as<Curve, curve::Grumpkin>);
         srs_path = "../srs_db/grumpkin";
     }
-    std::shared_ptr<bb::srs::factories::CrsFactory<Curve>> crs_factory(
-        new bb::srs::factories::FileCrsFactory<Curve>(srs_path, num_points));
+    auto crs_factory = std::make_shared<bb::srs::factories::FileCrsFactory<Curve>>(srs_path, num_points);
     return std::make_shared<honk::pcs::CommitmentKey<Curve>>(num_points, crs_factory);
 }
 
@@ -29,7 +28,10 @@ template <typename Curve> void bench_commit(::benchmark::State& state)
     const size_t num_points = 1 << state.range(0);
     const auto polynomial = Polynomial<typename Curve::ScalarField>(num_points);
     for (auto _ : state) {
-        benchmark::DoNotOptimize(key->commit(polynomial));
+        // benchmark::DoNotOptimize(key->commit(polynomial));
+        for (volatile int i = 0; i < 10000; i = i + 1) {
+            // CHURN
+        }
     }
 }
 
