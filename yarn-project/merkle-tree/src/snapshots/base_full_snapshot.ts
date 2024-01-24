@@ -33,12 +33,12 @@ type SnapshotMetadata = {
 export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends TreeSnapshot>
   implements TreeSnapshotBuilder<S>
 {
-  nodes: AztecMap<string, [Buffer, Buffer]>;
-  metadata: AztecMap<number, SnapshotMetadata>;
+  protected nodes: AztecMap<string, [Buffer, Buffer]>;
+  protected snapshotMetadata: AztecMap<number, SnapshotMetadata>;
 
   constructor(protected db: AztecKVStore, protected tree: T) {
-    this.nodes = db.openMap('full_snapshot:' + tree.getName());
-    this.metadata = db.openMap(`full_snapshot:${tree.getName()}:leaf`);
+    this.nodes = db.openMap(`full_snapshot:${tree.getName()}:node`);
+    this.snapshotMetadata = db.openMap(`full_snapshot:${tree.getName()}:metadata`);
   }
 
   snapshot(block: number): Promise<S> {
@@ -60,11 +60,12 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
       //   <node hash>:1 -> <right child's hash>
       while (queue.length > 0) {
         const [node, level, i] = queue.shift()!;
+        const nodeKey = node.toString('hex');
         // check if the database already has a child for this tree
         // if it does, then we know we've seen the whole subtree below it before
         // and we don't have to traverse it anymore
         // we use the left child here, but it could be anything that shows we've stored the node before
-        if (this.nodes.has(node.toString('hex'))) {
+        if (this.nodes.has(nodeKey)) {
           continue;
         }
 
@@ -80,7 +81,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
         // we want the zero hash at the children's level, not the node's level
         const zeroHash = this.tree.getZeroHash(level + 1);
 
-        void this.nodes.set(node.toString('hex'), [lhs ?? zeroHash, rhs ?? zeroHash]);
+        void this.nodes.set(nodeKey, [lhs ?? zeroHash, rhs ?? zeroHash]);
         // enqueue the children only if they're not zero hashes
         if (lhs) {
           queue.push([lhs, level + 1, 2n * i]);
@@ -91,7 +92,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
         }
       }
 
-      void this.metadata.set(block, { root, numLeaves });
+      void this.snapshotMetadata.set(block, { root, numLeaves });
       return this.openSnapshot(root, numLeaves);
     });
   }
@@ -111,7 +112,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
   protected abstract openSnapshot(root: Buffer, numLeaves: bigint): S;
 
   #getSnapshotMeta(block: number): SnapshotMetadata | undefined {
-    return this.metadata.get(block);
+    return this.snapshotMetadata.get(block);
   }
 }
 

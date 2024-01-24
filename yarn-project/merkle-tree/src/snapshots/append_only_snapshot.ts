@@ -7,12 +7,10 @@ import { TreeBase } from '../tree_base.js';
 import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
 // stores the last block that modified this node
-const nodeModifiedAtBlockKey = (treeName: string, level: number, index: bigint) =>
-  `snapshot:node:${treeName}:${level}:${index}:block`;
+const nodeModifiedAtBlockKey = (level: number, index: bigint) => `node:${level}:${index}:modifiedAtBlock`;
 
 // stores the value of the node at the above block
-const historicalNodeKey = (treeName: string, level: number, index: bigint) =>
-  `snapshot:node:${treeName}:${level}:${index}:value`;
+const historicalNodeKey = (level: number, index: bigint) => `node:${level}:${index}:value`;
 
 /**
  * Metadata for a snapshot, per block
@@ -40,14 +38,15 @@ type SnapshotMetadata = {
  *  Worst case: O(H) database reads + O(H) hashes
  */
 export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
-  nodes: AztecMap<string, Buffer>;
-  metadata: AztecMap<number, SnapshotMetadata>;
-  nodeHistory: AztecMap<string, number>;
+  #nodeValue: AztecMap<ReturnType<typeof historicalNodeKey>, Buffer>;
+  #nodeLastModifiedByBlock: AztecMap<ReturnType<typeof nodeModifiedAtBlockKey>, number>;
+  #snapshotMetadata: AztecMap<number, SnapshotMetadata>;
 
   constructor(private db: AztecKVStore, private tree: TreeBase & AppendOnlyTree, private hasher: Hasher) {
-    this.nodes = db.openMap('append_only_snapshot:' + tree.getName());
-    this.nodeHistory = db.openMap(`append_ony_snapshot:${tree.getName()}:block`);
-    this.metadata = db.openMap(`append_only_snapshot:${tree.getName()}:leaf`);
+    const treeName = tree.getName();
+    this.#nodeValue = db.openMap(`append_only_snapshot:${treeName}:node`);
+    this.#nodeLastModifiedByBlock = db.openMap(`append_ony_snapshot:${treeName}:block`);
+    this.#snapshotMetadata = db.openMap(`append_only_snapshot:${treeName}:snapshot_metadata`);
   }
 
   getSnapshot(block: number): Promise<TreeSnapshot> {
@@ -58,7 +57,15 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     }
 
     return Promise.resolve(
-      new AppendOnlySnapshot(this.nodes, this.nodeHistory, block, meta.numLeaves, meta.root, this.tree, this.hasher),
+      new AppendOnlySnapshot(
+        this.#nodeValue,
+        this.#nodeLastModifiedByBlock,
+        block,
+        meta.numLeaves,
+        meta.root,
+        this.tree,
+        this.hasher,
+      ),
     );
   }
 
@@ -68,8 +75,8 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       if (typeof meta !== 'undefined') {
         // no-op, we already have a snapshot
         return new AppendOnlySnapshot(
-          this.nodes,
-          this.nodeHistory,
+          this.#nodeValue,
+          this.#nodeLastModifiedByBlock,
           block,
           meta.numLeaves,
           meta.root,
@@ -80,19 +87,18 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
 
       const root = this.tree.getRoot(false);
       const depth = this.tree.getDepth();
-      const treeName = this.tree.getName();
       const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
 
       // walk the tree in BF and store latest nodes
       while (queue.length > 0) {
         const [node, level, index] = queue.shift()!;
 
-        const historicalValue = this.nodes.get(historicalNodeKey(treeName, level, index));
+        const historicalValue = this.#nodeValue.get(historicalNodeKey(level, index));
         if (!historicalValue || !node.equals(historicalValue)) {
           // we've never seen this node before or it's different than before
           // update the historical tree and tag it with the block that modified it
-          void this.nodeHistory.set(nodeModifiedAtBlockKey(treeName, level, index), block);
-          void this.nodes.set(historicalNodeKey(treeName, level, index), node);
+          void this.#nodeLastModifiedByBlock.set(nodeModifiedAtBlockKey(level, index), block);
+          void this.#nodeValue.set(historicalNodeKey(level, index), node);
         } else {
           // if this node hasn't changed, that means, nothing below it has changed either
           continue;
@@ -117,17 +123,25 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       }
 
       const numLeaves = this.tree.getNumLeaves(false);
-      void this.metadata.set(block, {
+      void this.#snapshotMetadata.set(block, {
         numLeaves,
         root,
       });
 
-      return new AppendOnlySnapshot(this.nodes, this.nodeHistory, block, numLeaves, root, this.tree, this.hasher);
+      return new AppendOnlySnapshot(
+        this.#nodeValue,
+        this.#nodeLastModifiedByBlock,
+        block,
+        numLeaves,
+        root,
+        this.tree,
+        this.hasher,
+      );
     });
   }
 
   #getSnapshotMeta(block: number): SnapshotMetadata | undefined {
-    return this.metadata.get(block);
+    return this.#snapshotMetadata.get(block);
   }
 }
 
@@ -188,7 +202,7 @@ class AppendOnlySnapshot implements TreeSnapshot {
 
     // leaf was set some time in the past
     if (blockNumber <= this.block) {
-      return this.nodes.get(historicalNodeKey(this.tree.getName(), leafLevel, index));
+      return this.nodes.get(historicalNodeKey(leafLevel, index));
     }
 
     // leaf has been set but in a block in the future
@@ -205,7 +219,7 @@ class AppendOnlySnapshot implements TreeSnapshot {
 
     // node was set some time in the past
     if (blockNumber <= this.block) {
-      return this.nodes.get(historicalNodeKey(this.tree.getName(), level, index))!;
+      return this.nodes.get(historicalNodeKey(level, index))!;
     }
 
     // the node has been modified since this snapshot was taken
@@ -232,7 +246,7 @@ class AppendOnlySnapshot implements TreeSnapshot {
   }
 
   #getBlockNumberThatModifiedNode(level: number, index: bigint): number | undefined {
-    return this.nodeHistory.get(nodeModifiedAtBlockKey(this.tree.getName(), level, index));
+    return this.nodeHistory.get(nodeModifiedAtBlockKey(level, index));
   }
 
   findLeafIndex(value: Buffer): bigint | undefined {
