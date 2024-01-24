@@ -122,13 +122,6 @@ describe('sequencer/solo_block_builder', () => {
 
   // TODO(benesjan): Could this be setup in a better way?
   const buildPrevBlockHeader = async (db: MerkleTreeOperations) => {
-    const globalVars = new GlobalVariables(
-      globalVariables.chainId,
-      globalVariables.version,
-      new Fr(globalVariables.blockNumber.toBigInt() - BigInt(1)),
-      new Fr(globalVariables.timestamp.toBigInt() - BigInt(1)),
-    );
-
     const roots = await db.getTreeRoots();
     return new Header(
       AppendOnlyTreeSnapshot.empty(),
@@ -142,7 +135,7 @@ describe('sequencer/solo_block_builder', () => {
           new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.publicDataTreeRoot), 0),
         ),
       ),
-      globalVars,
+      GlobalVariables.empty(),
     );
   };
 
