@@ -109,6 +109,7 @@ import {
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header, NUM_BYTES_PER_SHA256 } from '../structs/header.js';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -913,9 +914,9 @@ export function makeRootRollupPublicInputs(
 export function makeHeader(seed = 0, globalVariables: GlobalVariables | undefined): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    randomBytes(NUM_BYTES_PER_SHA256),
-    makeStateReference(seed + 0x200),
-    globalVariables ?? makeGlobalVariables((seed += 0x100)),
+    toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
+    makeStateReference(seed + 0x300),
+    globalVariables ?? makeGlobalVariables((seed += 0x400)),
   );
 }
 
