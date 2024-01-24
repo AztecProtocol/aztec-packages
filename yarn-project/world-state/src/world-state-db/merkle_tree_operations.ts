@@ -37,6 +37,7 @@ export interface TreeInfo {
 /**
  * The current roots of the commitment trees
  */
+// TODO(benesjan): try getting rid of this
 export type CurrentTreeRoots = {
   /** Note Hash Tree root. */
   noteHashTreeRoot: Buffer;

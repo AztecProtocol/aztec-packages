@@ -1,6 +1,6 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { GlobalVariables } from '@aztec/circuits.js';
+import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -139,6 +139,7 @@ export class Sequencer {
       }
       this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
+      // TODO(benesjan): remove this call and replace the value with the value from the block header?
       const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
 
       /**
@@ -163,12 +164,13 @@ export class Sequencer {
       this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      const prevGlobalVariables =
-        (await this.l2BlockSource.getBlock(-1))?.header.globalVariables ?? GlobalVariables.empty();
+      // TODO(benesjan): is this correct? Should we add a check that all the tree roots are really empty?
+      const INITIAL_HEADER = Header.empty();
+      const prevHeader = (await this.l2BlockSource.getBlock(-1))?.header ?? INITIAL_HEADER;
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+      const processor = this.publicProcessorFactory.create(prevHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);

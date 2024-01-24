@@ -56,7 +56,6 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getHeader } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -70,27 +69,23 @@ export class PublicProcessorFactory {
 
   /**
    * Creates a new instance of a PublicProcessor.
-   * @param prevGlobalVariables - The global variables for the previous block, used to calculate the prev global variables hash.
+   * @param prevHeader - The header of the previous block.
    * @param globalVariables - The global variables for the block being processed.
    * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
-  public async create(
-    prevGlobalVariables: GlobalVariables,
-    globalVariables: GlobalVariables,
-  ): Promise<PublicProcessor> {
-    const header = await getHeader(this.merkleTree, prevGlobalVariables);
+  public create(prevHeader: Header, globalVariables: GlobalVariables): PublicProcessor {
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
-    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, header);
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, prevHeader);
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,
       new RealPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       globalVariables,
-      header,
+      prevHeader,
       publicContractsDB,
       worldStatePublicDB,
     );

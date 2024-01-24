@@ -63,7 +63,6 @@ import {
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
-import { getHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';

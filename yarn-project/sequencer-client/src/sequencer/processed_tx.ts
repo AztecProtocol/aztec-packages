@@ -87,9 +87,10 @@ export async function makeProcessedTx(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(historicalTreeRoots: Header, chainId: Fr, version: Fr): Promise<ProcessedTx> {
+export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): Promise<ProcessedTx> {
   const emptyKernelOutput = PublicKernelPublicInputs.empty();
-  emptyKernelOutput.constants.header = historicalTreeRoots;
+  emptyKernelOutput.constants.header = header;
+  // TODO(benesjan): These values are now redundant. Should we remove them from TxContext?
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   const emptyProof = makeEmptyProof();

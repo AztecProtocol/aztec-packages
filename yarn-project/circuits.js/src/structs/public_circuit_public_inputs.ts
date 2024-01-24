@@ -198,7 +198,7 @@ export class PublicCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * L2 block header of the block used when executing the call.
+     * L2 block header of the block preceding the block in which this tx is included.
      */
     public header: Header,
     /**
