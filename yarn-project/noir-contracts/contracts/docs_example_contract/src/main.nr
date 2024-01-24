@@ -42,7 +42,7 @@ contract DocsExample {
         // docs:start:storage-map-singleton-declaration
         profiles: Map<AztecAddress, Singleton<CardNote>>,
         // docs:end:storage-map-singleton-declaration
-        imm_singleton: ImmutableSingleton<CardNote, CARD_NOTE_LEN>,
+        imm_singleton: ImmutableSingleton<CardNote>,
     }
 
     impl Storage {
@@ -65,7 +65,7 @@ contract DocsExample {
                     },
                 ),
                 // docs:end:state_vars-MapSingleton
-                imm_singleton: ImmutableSingleton::new(context, 4, CardNoteMethods),
+                imm_singleton: ImmutableSingleton::new(context, 4),
             }
         }
     }
