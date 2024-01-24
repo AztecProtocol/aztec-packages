@@ -8,12 +8,14 @@
 #include "barretenberg/stdlib/merkle_tree/index.hpp"
 #include "index.hpp"
 
-namespace bb::join_split_example::proofs::join_split {
+namespace join_split_example {
+namespace proofs {
+namespace join_split {
 
 using namespace bb;
 // using namespace bb::stdlib::types;
 using namespace bb::stdlib::merkle_tree;
-using namespace bb::join_split_example::proofs::notes::native;
+using namespace join_split_example::proofs::notes::native;
 using key_pair = join_split_example::fixtures::grumpkin_key_pair;
 
 /**
@@ -102,7 +104,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     value::value_note output_note2 = { 50, 0, 0, public_key, note_secret, 0, input_note2_nullifier };
 
     join_split_tx tx;
-    tx.proof_id = proof_ids::SEND;
+    tx.proof_id = ProofIds::SEND;
     tx.public_value = 0;
     tx.public_owner = 0;
     tx.asset_id = 0;
@@ -136,7 +138,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     auto output_note1_commitment = tx.output_note[0].commit();
     auto output_note2_commitment = tx.output_note[1].commit();
 
-    EXPECT_EQ(proof_data.proof_id, proof_ids::SEND);
+    EXPECT_EQ(proof_data.proof_id, ProofIds::SEND);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, uint256_t(input_note1_nullifier));
@@ -159,4 +161,6 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     // }
 }
 
-} // namespace bb::join_split_example::proofs::join_split
+} // namespace join_split
+} // namespace proofs
+} // namespace join_split_example

@@ -184,7 +184,7 @@ export class AcirSimulator {
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
-      to: contractAddress,
+      to: AztecAddress.ZERO,
       functionData: FunctionData.empty(),
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, extendedNoteItems]),
     };
@@ -192,7 +192,7 @@ export class AcirSimulator {
     const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
-      contractAddress,
+      AztecAddress.ZERO,
     )) as bigint[];
 
     return {

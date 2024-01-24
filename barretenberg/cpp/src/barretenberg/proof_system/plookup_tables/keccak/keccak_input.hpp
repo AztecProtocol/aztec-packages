@@ -5,7 +5,8 @@
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 
-namespace bb::plookup::keccak_tables {
+namespace plookup {
+namespace keccak_tables {
 
 /**
  * @brief Generates plookup tables used convert 64-bit integers into a sparse representation used for Keccak hash
@@ -139,4 +140,5 @@ class KeccakInput {
     }
 };
 
-} // namespace bb::plookup::keccak_tables
+} // namespace keccak_tables
+} // namespace plookup

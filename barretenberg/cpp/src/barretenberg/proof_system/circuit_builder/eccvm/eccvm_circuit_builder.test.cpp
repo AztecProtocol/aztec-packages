@@ -6,8 +6,10 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
+
+namespace eccvm_circuit_builder_tests {
 
 template <typename Flavor> class ECCVMCircuitBuilderTests : public ::testing::Test {};
 
@@ -19,7 +21,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, BaseCase)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
     typename G1::element b = generators[1];
@@ -53,7 +55,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, Add)
 {
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -69,7 +71,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, Mul)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
     Fr x = Fr::random_element(&engine);
@@ -85,7 +87,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, ShortMul)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
     auto generators = G1::derive_generators("test generators", 3);
 
     typename G1::element a = generators[0];
@@ -107,7 +109,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EqFails)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -122,7 +124,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EqFails)
 TYPED_TEST(ECCVMCircuitBuilderTests, EmptyRow)
 {
     using Flavor = TypeParam;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     circuit.empty_row();
 
@@ -135,7 +137,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -156,7 +158,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithEq)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -176,7 +178,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -197,7 +199,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithMul)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -216,7 +218,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithNoop)
     using Flavor = TypeParam;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -255,16 +257,17 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
     // single msms
     for (size_t j = 1; j < max_num_msms; ++j) {
         using Flavor = TypeParam;
-        ECCVMCircuitBuilder<Flavor> circuit;
+        bb::ECCVMCircuitBuilder<Flavor> circuit;
         try_msms(j, circuit);
         bool result = circuit.check_circuit();
         EXPECT_EQ(result, true);
     }
     // chain msms
-    ECCVMCircuitBuilder<Flavor> circuit;
+    bb::ECCVMCircuitBuilder<Flavor> circuit;
     for (size_t j = 1; j < 9; ++j) {
         try_msms(j, circuit);
     }
     bool result = circuit.check_circuit();
     EXPECT_EQ(result, true);
 }
+} // namespace eccvm_circuit_builder_tests

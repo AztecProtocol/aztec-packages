@@ -1,6 +1,6 @@
 #include "poseidon2.hpp"
 
-namespace bb::crypto {
+namespace crypto {
 /**
  * @brief Hashes a vector of field elements
  */
@@ -45,4 +45,4 @@ typename Poseidon2<Params>::FF Poseidon2<Params>::hash_buffer(const std::vector<
 }
 
 template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
-} // namespace bb::crypto
+} // namespace crypto

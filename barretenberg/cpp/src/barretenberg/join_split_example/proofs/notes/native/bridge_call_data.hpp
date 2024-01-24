@@ -5,7 +5,10 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace bb::join_split_example::proofs::notes::native {
+namespace join_split_example {
+namespace proofs {
+namespace notes {
+namespace native {
 
 /**
  * The bridge_call_data structure (with bit-lengths) is defined as follows:
@@ -176,4 +179,7 @@ inline std::ostream& operator<<(std::ostream& os, bridge_call_data const& bridge
     return os;
 }
 
-} // namespace bb::join_split_example::proofs::notes::native
+} // namespace native
+} // namespace notes
+} // namespace proofs
+} // namespace join_split_example

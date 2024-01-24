@@ -11,7 +11,7 @@
 #include "circuits/recursive_circuit.hpp"
 #include "utils/utils.hpp"
 
-using namespace bb::numeric;
+using namespace numeric;
 using numeric::uint256_t;
 
 template <typename Composer, template <typename> typename Circuit> void generate_proof(uint256_t inputs[])

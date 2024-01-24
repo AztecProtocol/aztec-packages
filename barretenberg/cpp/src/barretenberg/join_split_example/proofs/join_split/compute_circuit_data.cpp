@@ -5,11 +5,13 @@
 #include "join_split_circuit.hpp"
 #include "sign_join_split_tx.hpp"
 
-namespace bb::join_split_example::proofs::join_split {
+namespace join_split_example {
+namespace proofs {
+namespace join_split {
 
-using namespace bb::join_split_example::proofs::join_split;
+using namespace join_split_example::proofs::join_split;
 using namespace bb::stdlib;
-using namespace bb::join_split_example::proofs::notes::native;
+using namespace join_split_example::proofs::notes::native;
 using namespace bb::stdlib::merkle_tree;
 
 join_split_tx noop_tx()
@@ -27,7 +29,7 @@ join_split_tx noop_tx()
     auto gibberish_path = fr_hash_path(DATA_TREE_DEPTH, std::make_pair(fr::random_element(), fr::random_element()));
 
     join_split_tx tx;
-    tx.proof_id = proof_ids::DEPOSIT;
+    tx.proof_id = ProofIds::DEPOSIT;
     tx.public_value = 1;
     tx.public_owner = fr::one();
     tx.asset_id = 0;
@@ -70,4 +72,6 @@ circuit_data get_circuit_data(std::shared_ptr<bb::srs::factories::CrsFactory<cur
         "join split", "", srs, "", true, false, false, true, true, true, mock, build_circuit);
 }
 
-} // namespace bb::join_split_example::proofs::join_split
+} // namespace join_split
+} // namespace proofs
+} // namespace join_split_example

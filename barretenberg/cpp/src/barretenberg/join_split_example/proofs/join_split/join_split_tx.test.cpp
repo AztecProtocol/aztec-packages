@@ -11,10 +11,10 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::join_split_example::proofs::join_split;
+using namespace join_split_example::proofs::join_split;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 TEST(client_proofs_join_split_tx, test_serialization)

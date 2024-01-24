@@ -8,10 +8,11 @@
     using witness_ct = stdlib::witness_t<Builder>;                                                                     \
     using bool_ct = stdlib::bool_t<Builder>;
 
+namespace test_stdlib_bool {
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 template <class Builder> class BoolTest : public ::testing::Test {};
@@ -527,3 +528,4 @@ TYPED_TEST(BoolTest, Normalize)
     bool result = builder.check_circuit();
     EXPECT_EQ(result, true);
 }
+} // namespace test_stdlib_bool

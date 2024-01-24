@@ -1,2 +1,4 @@
 mod card_note;
-mod leader;
+mod profile_note;
+mod queen;
+mod rules_note;

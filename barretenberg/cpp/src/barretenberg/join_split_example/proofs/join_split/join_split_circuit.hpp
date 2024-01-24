@@ -5,7 +5,9 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "join_split_tx.hpp"
 
-namespace bb::join_split_example::proofs::join_split {
+namespace join_split_example {
+namespace proofs {
+namespace join_split {
 
 struct join_split_inputs {
 
@@ -22,7 +24,7 @@ struct join_split_inputs {
     notes::circuit::value::witness_data output_note2;
     notes::circuit::claim::partial_claim_note_witness_data partial_claim_note;
     group_ct signing_pub_key;
-    schnorr_signature_bits signature;
+    schnorr::signature_bits signature;
     field_ct merkle_root;
     hash_path_ct input_path1;
     hash_path_ct input_path2;
@@ -50,4 +52,6 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
 
 void join_split_circuit(Builder& builder, join_split_tx const& tx);
 
-} // namespace bb::join_split_example::proofs::join_split
+} // namespace join_split
+} // namespace proofs
+} // namespace join_split_example

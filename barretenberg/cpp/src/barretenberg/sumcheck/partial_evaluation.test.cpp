@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb::honk::sumcheck;
+namespace test_sumcheck_polynomials {
 
 template <typename Flavor> class PartialEvaluationTests : public testing::Test {};
 
@@ -316,3 +317,5 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
         EXPECT_EQ((polynomial_get_all[i])[0], expected_val[i]);
     }
 }
+
+} // namespace test_sumcheck_polynomials

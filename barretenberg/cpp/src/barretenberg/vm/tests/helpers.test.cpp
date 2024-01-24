@@ -1,8 +1,13 @@
-#include "AvmMini_common.test.hpp"
-
-using namespace bb;
+#include "helpers.test.hpp"
+#include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
+#include "barretenberg/vm/generated/AvmMini_composer.hpp"
+#include "barretenberg/vm/generated/AvmMini_prover.hpp"
+#include "barretenberg/vm/generated/AvmMini_verifier.hpp"
+#include <gtest/gtest.h>
 
 namespace tests_avm {
+using namespace avm_trace;
+
 /**
  * @brief Helper routine proving and verifying a proof based on the supplied trace
  *
@@ -10,12 +15,12 @@ namespace tests_avm {
  */
 void validate_trace_proof(std::vector<Row>&& trace)
 {
-    auto circuit_builder = AvmMiniCircuitBuilder();
+    auto circuit_builder = bb::AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
     EXPECT_TRUE(circuit_builder.check_circuit());
 
-    auto composer = honk::AvmMiniComposer();
+    auto composer = bb::honk::AvmMiniComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();
 
@@ -23,7 +28,7 @@ void validate_trace_proof(std::vector<Row>&& trace)
     bool verified = verifier.verify_proof(proof);
 
     if (!verified) {
-        avm_trace::log_avmMini_trace(circuit_builder.rows, 0, 10);
+        log_avmMini_trace(circuit_builder.rows, 0, 10);
     }
 };
 
@@ -34,9 +39,8 @@ void validate_trace_proof(std::vector<Row>&& trace)
  * @param trace Execution trace
  * @param selectRow Lambda serving to select the row in trace
  * @param newValue The value that will be written in intermediate register Ic at the selected row.
- * @param alu A boolean telling whether we mutate the ic value in alu as well.
  */
-void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& selectRow, FF const& newValue, bool alu)
+void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& selectRow, FF const& newValue)
 {
     // Find the first row matching the criteria defined by selectRow
     auto row = std::ranges::find_if(trace.begin(), trace.end(), selectRow);
@@ -47,18 +51,7 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     // Mutate the correct result in the main trace
     row->avmMini_ic = newValue;
 
-    // Optionally mutate the corresponding ic value in alu
-    if (alu) {
-        auto const clk = row->avmMini_clk;
-        // Find the relevant alu trace entry.
-        auto alu_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.aluChip_alu_clk == clk; });
-
-        EXPECT_TRUE(alu_row != trace.end());
-        alu_row->aluChip_alu_ic = newValue;
-    }
-
-    // Adapt the memory trace to be consistent with the wrong result
+    // Adapt the memory trace to be consistent with the wrongly computed addition
     auto const clk = row->avmMini_clk;
     auto const addr = row->avmMini_mem_idx_c;
 
@@ -70,4 +63,5 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     EXPECT_TRUE(mem_row != trace.end());
     mem_row->memTrace_m_val = newValue;
 };
+
 } // namespace tests_avm

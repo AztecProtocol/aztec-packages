@@ -5,7 +5,9 @@
 
 using namespace bb;
 
-using FF = fr;
+namespace bb::nested_contianers_tests {
+
+using FF = bb::fr;
 
 class NestedContainers : public testing::Test {};
 
@@ -13,10 +15,12 @@ TEST_F(NestedContainers, Univariate)
 {
     static constexpr std::array<size_t, 3> LENGTHS = { 0, 1, 2 };
     static constexpr TupleOfUnivariates<FF, LENGTHS> tuple;
-    static constexpr auto result0 = Univariate<FF, 0>();
-    static constexpr auto result1 = Univariate<FF, 1>();
-    static constexpr auto result2 = Univariate<FF, 2>();
+    static constexpr auto result0 = bb::Univariate<FF, 0>();
+    static constexpr auto result1 = bb::Univariate<FF, 1>();
+    static constexpr auto result2 = bb::Univariate<FF, 2>();
     EXPECT_EQ(std::get<0>(tuple), result0);
     EXPECT_EQ(std::get<1>(tuple), result1);
     EXPECT_EQ(std::get<2>(tuple), result2);
 }
+
+} // namespace bb::nested_contianers_tests

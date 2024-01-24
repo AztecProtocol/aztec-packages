@@ -4,15 +4,17 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "ram_table.hpp"
 
+namespace test_stdlib_ram_table {
+
 using namespace bb;
 // Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using ram_table_ct = stdlib::ram_table<Builder>;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 TEST(ram_table, ram_table_init_read_consistency)
@@ -28,7 +30,7 @@ TEST(ram_table, ram_table_init_read_consistency)
     ram_table_ct table(table_values);
 
     field_ct result(0);
-    fr expected(0);
+    bb::fr expected(0);
 
     for (size_t i = 0; i < 10; ++i) {
         field_ct index(witness_ct(&builder, (uint64_t)i));
@@ -54,7 +56,7 @@ TEST(ram_table, ram_table_read_write_consistency)
     Builder builder;
     const size_t table_size = 10;
 
-    std::vector<fr> table_values(table_size);
+    std::vector<bb::fr> table_values(table_size);
 
     ram_table_ct table(&builder, table_size);
 
@@ -62,12 +64,12 @@ TEST(ram_table, ram_table_read_write_consistency)
         table.write(i, 0);
     }
     field_ct result(0);
-    fr expected(0);
+    bb::fr expected(0);
 
     const auto update = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
-            table_values[2 * i] = fr::random_element();
-            table_values[2 * i + 1] = fr::random_element();
+            table_values[2 * i] = bb::fr::random_element();
+            table_values[2 * i + 1] = bb::fr::random_element();
 
             // init with both constant and variable values
             table.write(2 * i, table_values[2 * i]);
@@ -98,3 +100,4 @@ TEST(ram_table, ram_table_read_write_consistency)
     bool verified = builder.check_circuit();
     EXPECT_EQ(verified, true);
 }
+} // namespace test_stdlib_ram_table

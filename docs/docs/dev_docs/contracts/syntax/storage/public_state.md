@@ -2,8 +2,9 @@
 title: Public State
 ---
 
-The `PublicState` struct is generic over the variable type `T` and its serialized size `T_SERIALIZED_LEN`.
+To define that a variable is public, it is wrapped in the `PublicState` struct.
 
+The `PublicState` struct is generic over the variable type `T` and its serialized size `T_SERIALIZED_LEN`.
 :::info
 Currently, the length of the types must be specified when declaring the storage struct but the intention is that this will be inferred in the future.
 :::

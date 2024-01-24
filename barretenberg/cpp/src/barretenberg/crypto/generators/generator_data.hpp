@@ -7,7 +7,7 @@
 #include <map>
 #include <optional>
 
-namespace bb::crypto {
+namespace crypto {
 /**
  * @brief class that stores precomputed generators used for Pedersen commitments and Pedersen hashes
  *
@@ -143,4 +143,4 @@ template <typename Curve> struct GeneratorContext {
         , domain_separator(_domain_separator)
     {}
 };
-} // namespace bb::crypto
+} // namespace crypto

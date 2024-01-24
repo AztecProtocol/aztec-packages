@@ -1,4 +1,4 @@
-import { L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
@@ -9,10 +9,8 @@ import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
   PublicCallRequest,
+  PublicKey,
   TxContext,
-  computeNullifierSecretKey,
-  computeSiloedNullifierSecretKey,
-  derivePublicKey,
   nonEmptySideEffects,
   sideEffectArrayToValueArray,
 } from '@aztec/circuits.js';
@@ -54,7 +52,6 @@ import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
 import { getFunctionSelector } from 'viem';
 
-import { KeyPair } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
@@ -78,15 +75,13 @@ describe('Private Execution test suite', () => {
   let recipient: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
-  let ownerNullifierKeyPair: KeyPair;
-  let recipientNullifierKeyPair: KeyPair;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
   };
 
-  let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree } = {};
+  const trees: { [name: keyof typeof treeHeights]: AppendOnlyTree } = {};
   const txContextFields: FieldsOf<TxContext> = {
     isContractDeploymentTx: false,
     isFeePaymentTx: false,
@@ -143,7 +138,7 @@ describe('Private Execution test suite', () => {
     await trees[name].appendLeaves(leaves.map(l => l.toBuffer()));
 
     // Update root.
-    const newRoot = trees[name].getRoot(true);
+    const newRoot = trees[name].getRoot(false);
     const prevRoots = blockHeader.toBuffer();
     const rootIndex = name === 'noteHash' ? 0 : 32 * 3;
     const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
@@ -162,37 +157,18 @@ describe('Private Execution test suite', () => {
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
-
-    const ownerNullifierSecretKey = computeNullifierSecretKey(ownerPk);
-    ownerNullifierKeyPair = {
-      secretKey: ownerNullifierSecretKey,
-      publicKey: derivePublicKey(ownerNullifierSecretKey),
-    };
-
-    const recipientNullifierSecretKey = computeNullifierSecretKey(recipientPk);
-    recipientNullifierKeyPair = {
-      secretKey: recipientNullifierSecretKey,
-      publicKey: derivePublicKey(recipientNullifierSecretKey),
-    };
   });
 
   beforeEach(() => {
-    trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeyPair.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
-      if (accountAddress.equals(ownerCompleteAddress.address)) {
-        return Promise.resolve({
-          publicKey: ownerNullifierKeyPair.publicKey,
-          secretKey: computeSiloedNullifierSecretKey(ownerNullifierKeyPair.secretKey, contractAddress),
-        });
+    oracle.getSecretKey.mockImplementation((contractAddress: AztecAddress, pubKey: PublicKey) => {
+      if (pubKey.equals(ownerCompleteAddress.publicKey)) {
+        return Promise.resolve(ownerPk);
       }
-      if (accountAddress.equals(recipientCompleteAddress.address)) {
-        return Promise.resolve({
-          publicKey: recipientNullifierKeyPair.publicKey,
-          secretKey: computeSiloedNullifierSecretKey(recipientNullifierKeyPair.secretKey, contractAddress),
-        });
+      if (pubKey.equals(recipientCompleteAddress.publicKey)) {
+        return Promise.resolve(recipientPk);
       }
-      throw new Error(`Unknown address ${accountAddress}`);
+      throw new Error(`Unknown address ${pubKey}`);
     });
     oracle.getBlockHeader.mockResolvedValue(blockHeader);
 
@@ -477,248 +453,53 @@ describe('Private Execution test suite', () => {
       });
     });
 
-    describe('L1 to L2', () => {
+    it('Should be able to consume a dummy cross chain message', async () => {
+      const bridgedAmount = 100n;
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
-      const canceller = EthAddress.random();
-      let bridgedAmount = 100n;
 
+      const secretForL1ToL2MessageConsumption = new Fr(1n);
       const secretHashForRedeemingNotes = new Fr(2n);
-      let secretForL1ToL2MessageConsumption = new Fr(1n);
+      const canceller = EthAddress.random();
+      const preimage = buildL1ToL2Message(
+        getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
+        [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
+        contractAddress,
+        secretForL1ToL2MessageConsumption,
+      );
 
-      let crossChainMsgRecipient: AztecAddress | undefined;
-      let crossChainMsgSender: EthAddress | undefined;
-      let messageKey: Fr | undefined;
+      // stub message key
+      const messageKey = Fr.random();
+      const tree = await insertLeaves([messageKey], 'l1ToL2Messages');
 
-      let preimage: L1ToL2Message;
-
-      let args: Fr[];
-
-      beforeEach(() => {
-        bridgedAmount = 100n;
-        secretForL1ToL2MessageConsumption = new Fr(2n);
-
-        crossChainMsgRecipient = undefined;
-        crossChainMsgSender = undefined;
-        messageKey = undefined;
-      });
-
-      const computePreimage = () =>
-        buildL1ToL2Message(
-          getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
-          [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
-          crossChainMsgRecipient ?? contractAddress,
-          secretForL1ToL2MessageConsumption,
-        );
-
-      const computeArgs = () =>
-        encodeArguments(artifact, [
-          secretHashForRedeemingNotes,
-          bridgedAmount,
-          canceller.toField(),
-          messageKey ?? preimage.hash(),
-          secretForL1ToL2MessageConsumption,
-        ]);
-
-      const mockOracles = async () => {
-        const tree = await insertLeaves([messageKey ?? preimage.hash()], 'l1ToL2Messages');
-        oracle.getL1ToL2Message.mockImplementation(async () => {
-          return Promise.resolve({
-            message: preimage.toFieldArray(),
-            index: 0n,
-            siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
-          });
+      oracle.getL1ToL2Message.mockImplementation(async () => {
+        return Promise.resolve({
+          message: preimage.toFieldArray(),
+          index: 0n,
+          siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
         });
-      };
-
-      it('Should be able to consume a dummy cross chain message', async () => {
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        const result = await runSimulator({
-          contractAddress,
-          artifact,
-          args,
-          portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-          txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-        });
-
-        // Check a nullifier has been inserted
-        const newNullifiers = sideEffectArrayToValueArray(
-          nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers),
-        );
-
-        expect(newNullifiers).toHaveLength(1);
       });
 
-      it('Message not matching requested key', async () => {
-        messageKey = Fr.random();
-
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Message not matching requested key');
+      const args = [
+        secretHashForRedeemingNotes,
+        bridgedAmount,
+        canceller.toField(),
+        messageKey,
+        secretForL1ToL2MessageConsumption,
+      ];
+      const result = await runSimulator({
+        contractAddress,
+        artifact,
+        args,
+        portalContractAddress: preimage.sender.sender,
+        txContext: { version: new Fr(1n), chainId: new Fr(1n) },
       });
 
-      it('Invalid membership proof', async () => {
-        preimage = computePreimage();
+      // Check a nullifier has been inserted
+      const newNullifiers = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers),
+      );
 
-        args = computeArgs();
-
-        await mockOracles();
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Message not in state');
-      });
-
-      it('Invalid recipient', async () => {
-        crossChainMsgRecipient = AztecAddress.random();
-
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Invalid recipient');
-      });
-
-      it('Invalid sender', async () => {
-        crossChainMsgSender = EthAddress.random();
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Invalid sender');
-      });
-
-      it('Invalid chainid', async () => {
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(2n) },
-          }),
-        ).rejects.toThrowError('Invalid Chainid');
-      });
-
-      it('Invalid version', async () => {
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(2n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Invalid Version');
-      });
-
-      it('Invalid content', async () => {
-        preimage = computePreimage();
-
-        bridgedAmount = bridgedAmount + 1n; // Invalid amount
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Invalid Content');
-      });
-
-      it('Invalid Secret', async () => {
-        preimage = computePreimage();
-
-        secretForL1ToL2MessageConsumption = Fr.random();
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Invalid message secret');
-      });
+      expect(newNullifiers).toHaveLength(1);
     });
 
     it('Should be able to consume a dummy public to private message', async () => {
@@ -878,15 +659,7 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
-      const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
-        ownerNullifierKeyPair.secretKey,
-        contractAddress,
-      );
-      const expectedNullifier = hashFields([
-        innerNoteHash,
-        siloedNullifierSecretKey.low,
-        siloedNullifierSecretKey.high,
-      ]);
+      const expectedNullifier = hashFields([innerNoteHash, ownerPk.low, ownerPk.high]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 
@@ -959,15 +732,7 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
-      const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
-        ownerNullifierKeyPair.secretKey,
-        contractAddress,
-      );
-      const expectedNullifier = hashFields([
-        innerNoteHash,
-        siloedNullifierSecretKey.low,
-        siloedNullifierSecretKey.high,
-      ]);
+      const expectedNullifier = hashFields([innerNoteHash, ownerPk.low, ownerPk.high]);
       expect(nullifier.value).toEqual(expectedNullifier);
 
       // check that the last get_notes call return no note

@@ -3,6 +3,7 @@
 
 using namespace benchmark;
 using namespace bb;
+using namespace bb;
 using namespace bb::honk::pcs::ipa;
 namespace {
 using Curve = curve::Grumpkin;
@@ -28,7 +29,7 @@ std::vector<OpeningClaim> opening_claims(MAX_POLYNOMIAL_DEGREE_LOG2 - MIN_POLYNO
 
 void ipa_open(State& state) noexcept
 {
-    numeric::RNG& engine = numeric::get_debug_randomness();
+    numeric::random::Engine& engine = numeric::random::get_debug_engine();
     for (auto _ : state) {
         state.PauseTiming();
         size_t n = 1 << static_cast<size_t>(state.range(0));

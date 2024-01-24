@@ -3,7 +3,7 @@
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include <gtest/gtest.h>
 
-namespace bb::crypto {
+namespace crypto {
 
 using bb::fr;
 
@@ -51,4 +51,4 @@ TEST(Pedersen, GeneratorPrinter)
     }
 }
 
-}; // namespace bb::crypto
+}; // namespace crypto

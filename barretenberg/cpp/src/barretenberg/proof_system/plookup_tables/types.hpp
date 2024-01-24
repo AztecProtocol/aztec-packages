@@ -6,7 +6,7 @@
 #include "./fixed_base/fixed_base_params.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
-namespace bb::plookup {
+namespace plookup {
 
 enum BasicTableId {
     XOR,
@@ -325,4 +325,4 @@ template <class DataType> class ReadData {
     std::array<std::vector<DataType>, 3> columns;
 };
 
-} // namespace bb::plookup
+} // namespace plookup

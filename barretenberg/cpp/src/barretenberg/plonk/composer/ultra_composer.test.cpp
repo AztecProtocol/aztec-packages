@@ -10,10 +10,13 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
 using namespace bb;
+using namespace bb;
 using namespace bb::plonk;
 
+namespace bb::plonk::test_ultra_plonk_composer {
+
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 using plookup::ColumnIdx;
@@ -63,10 +66,10 @@ TYPED_TEST_SUITE(ultra_plonk_composer, BooleanTypes);
 
 TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
 {
-    auto circuit_builder = UltraCircuitBuilder();
+    auto circuit_builder = bb::UltraCircuitBuilder();
     auto composer = UltraComposer();
 
-    fr input_value = fr::random_element();
+    bb::fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -644,7 +647,7 @@ TYPED_TEST(ultra_plonk_composer, non_native_field_multiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    non_native_field_witnesses<fr> inputs{
+    bb::non_native_field_witnesses<fr> inputs{
         a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
     };
     const auto [lo_1_idx, hi_1_idx] = builder.evaluate_non_native_field_multiplication(inputs);
@@ -820,3 +823,5 @@ TEST(ultra_plonk_composer, range_constraint_small_variable)
     bool result = verifier.verify_proof(proof);
     EXPECT_EQ(result, true);
 }
+
+} // namespace bb::plonk::test_ultra_plonk_composer

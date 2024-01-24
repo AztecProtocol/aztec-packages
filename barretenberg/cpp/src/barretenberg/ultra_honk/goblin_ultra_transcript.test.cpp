@@ -6,14 +6,13 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb;
 using namespace bb::honk;
 
 class GoblinUltraTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    using Flavor = honk::flavor::GoblinUltra;
+    using Flavor = bb::honk::flavor::GoblinUltra;
     using FF = Flavor::FF;
 
     /**

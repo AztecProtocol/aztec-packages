@@ -1,6 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -115,10 +114,6 @@ export class L1ToL2Message {
 
   toBuffer(): Buffer {
     return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.deadline, this.fee);
-  }
-
-  hash(): Fr {
-    return Fr.fromBufferReduce(sha256(serializeToBuffer(...this.toFieldArray())));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): L1ToL2Message {

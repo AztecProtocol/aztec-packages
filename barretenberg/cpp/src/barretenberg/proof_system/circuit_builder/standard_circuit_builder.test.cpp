@@ -4,10 +4,13 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
+
+namespace standard_circuit_constructor_tests {
 
 TEST(standard_circuit_constructor, base_case)
 {
@@ -465,3 +468,5 @@ TEST(standard_circuit_constructor, test_check_circuit_broken)
     bool result = circuit_constructor.check_circuit();
     EXPECT_EQ(result, false);
 }
+
+} // namespace standard_circuit_constructor_tests

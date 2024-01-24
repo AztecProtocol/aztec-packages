@@ -1,1 +1,1 @@
-module.exports = require('@aztec/foundation/eslint.docs');
+module.exports = require('@aztec/foundation/eslint');

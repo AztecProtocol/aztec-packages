@@ -3,7 +3,7 @@
 #include "barretenberg/relations/utils.hpp"
 
 #include <gtest/gtest.h>
-using namespace bb;
+
 using namespace bb::honk;
 using namespace bb::honk::sumcheck;
 
@@ -12,7 +12,9 @@ using bb::Univariate;
 
 using Flavor = flavor::Ultra;
 using FF = typename Flavor::FF;
-using Utils = RelationUtils<Flavor>;
+using Utils = bb::RelationUtils<Flavor>;
+
+namespace test_sumcheck_round {
 
 /**
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
@@ -20,7 +22,7 @@ using Utils = RelationUtils<Flavor>;
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -41,7 +43,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
-    PowPolynomial<FF> pow_polynomial({ 1 });
+    bb::PowPolynomial<FF> pow_polynomial({ 1 });
     auto result = Univariate<FF, MAX_LENGTH>();
     SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_polynomial);
 
@@ -71,8 +73,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = honk::flavor::Ultra;
-    using Utils = RelationUtils<Flavor>;
+    using Flavor = bb::honk::flavor::Ultra;
+    using Utils = bb::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -111,7 +113,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = bb::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates
@@ -139,3 +141,5 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_1)), expected_sum_2);
     EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples_1)), expected_sum_3);
 }
+
+} // namespace test_sumcheck_round

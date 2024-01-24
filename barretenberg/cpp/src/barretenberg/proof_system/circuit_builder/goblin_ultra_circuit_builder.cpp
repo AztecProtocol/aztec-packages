@@ -6,7 +6,7 @@
 #include <unordered_set>
 
 using namespace bb;
-using namespace bb::crypto;
+using namespace crypto;
 
 namespace bb {
 

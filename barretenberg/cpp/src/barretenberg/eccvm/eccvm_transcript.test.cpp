@@ -6,7 +6,6 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb;
 using namespace bb::honk;
 
 template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
@@ -14,9 +13,9 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
     void SetUp() override
     {
         if constexpr (std::is_same<Flavor, flavor::ECCVM>::value) {
-            srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         } else {
-            srs::init_crs_factory("../srs_db/ignition");
+            bb::srs::init_crs_factory("../srs_db/ignition");
         }
     };
     using FF = typename Flavor::FF;
@@ -184,9 +183,9 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
 
         return manifest_expected;
     }
-    ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
+    bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
     {
-        ECCVMCircuitBuilder<Flavor> result;
+        bb::ECCVMCircuitBuilder<Flavor> result;
         using G1 = typename Flavor::CycleGroup;
         using Fr = typename G1::Fr;
 
@@ -220,7 +219,7 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
     }
 };
 
-numeric::RNG& engine = numeric::get_debug_randomness();
+numeric::random::Engine& engine = numeric::random::get_debug_engine();
 
 using FlavorTypes = testing::Types<flavor::ECCVM>;
 

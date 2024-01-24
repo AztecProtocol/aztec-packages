@@ -1,7 +1,9 @@
 #include "join_split_tx.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 
-namespace bb::join_split_example::proofs::join_split {
+namespace join_split_example {
+namespace proofs {
+namespace join_split {
 
 using namespace bb;
 
@@ -89,4 +91,6 @@ std::ostream& operator<<(std::ostream& os, join_split_tx const& tx)
               << "signature: " << tx.signature << "\n";
 }
 
-} // namespace bb::join_split_example::proofs::join_split
+} // namespace join_split
+} // namespace proofs
+} // namespace join_split_example

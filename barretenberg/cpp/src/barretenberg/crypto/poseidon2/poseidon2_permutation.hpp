@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace bb::crypto {
+namespace crypto {
 
 /**
  * @brief Applies the Poseidon2 permutation function from https://eprint.iacr.org/2023/323 .
@@ -162,4 +162,4 @@ template <typename Params> class Poseidon2Permutation {
         return current_state;
     }
 };
-} // namespace bb::crypto
+} // namespace crypto

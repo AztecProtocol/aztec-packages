@@ -10,7 +10,7 @@ use dep::aztec::{
     },
     oracle::{
         rand::rand,
-        nullifier_key::get_nullifier_secret_key,
+        get_secret_key::get_secret_key,
         get_public_key::get_public_key,
     },
     hash::pedersen_hash,
@@ -59,20 +59,9 @@ impl AddressNote {
         pedersen_hash(self.serialize(), 0)
     }
 
-    pub fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+    pub fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(AddressNoteMethods, self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
-            note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
-    }
-
-    pub fn compute_nullifier_without_context(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(AddressNoteMethods, self);
-        let secret = get_nullifier_secret_key(self.owner);
+        let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
             note_hash_for_nullify,
@@ -112,12 +101,8 @@ fn compute_note_hash(note: AddressNote) -> Field {
     note.compute_note_hash()
 }
 
-fn compute_nullifier(note: AddressNote, context: &mut PrivateContext) -> Field {
-    note.compute_nullifier(context)
-}
-
-fn compute_nullifier_without_context(note: AddressNote) -> Field {
-    note.compute_nullifier_without_context()
+fn compute_nullifier(note: AddressNote) -> Field {
+    note.compute_nullifier()
 }
 
 fn get_header(note: AddressNote) -> NoteHeader {
@@ -138,7 +123,6 @@ global AddressNoteMethods = NoteInterface {
     serialize,
     compute_note_hash,
     compute_nullifier,
-    compute_nullifier_without_context,
     get_header,
     set_header,
     broadcast,

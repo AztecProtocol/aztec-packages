@@ -2,19 +2,13 @@
 title: Getting Started
 ---
 
-## Build
-
-If this is your first time using Aztec, and you want to get started by learning by doing, head to the [Quickstart section](quickstart.md). This section is the entry point to:
+In this section, you will
 
 1. Set up the Aztec sandbox and deploy a sample first contract with the CLI
 2. Deploy and interact with a contract using Aztec.js
 3. Write your first smart contract in Aztec.nr
 
-## Learn
-
-If you want to read more about the high level concepts of Aztec before writing some code, head to the [Foundational Concepts section](../../concepts/foundation/main.md).
-
-## In this section
+The whole section should take you less than 60 minutes.
 
 import DocCardList from '@theme/DocCardList';
 

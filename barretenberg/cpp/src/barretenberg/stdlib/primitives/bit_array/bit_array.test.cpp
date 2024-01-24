@@ -17,10 +17,12 @@
     using bit_array_ct = stdlib::bit_array<Builder>;                                                                   \
     using bool_ct = stdlib::bool_t<Builder>;
 
+namespace test_stdlib_bit_array {
+
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 template <class Builder> class BitArrayTest : public ::testing::Test {};
@@ -127,3 +129,4 @@ TYPED_TEST(BitArrayTest, test_uint32_vector_constructor)
 
     static_cast<byte_array_ct>(test_bit_array_2).get_value();
 }
+} // namespace test_stdlib_bit_array

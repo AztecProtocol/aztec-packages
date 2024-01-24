@@ -33,14 +33,10 @@ export class Oracle {
     return toACVMField(packed);
   }
 
-  async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(fromACVMField(accountAddress));
-    return [
-      toACVMField(publicKey.x),
-      toACVMField(publicKey.y),
-      toACVMField(secretKey.high),
-      toACVMField(secretKey.low),
-    ];
+  async getSecretKey([publicKeyX]: ACVMField[], [publicKeyY]: ACVMField[]): Promise<ACVMField[]> {
+    const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
+    const secretKey = await this.typedOracle.getSecretKey(publicKey);
+    return [toACVMField(secretKey.low), toACVMField(secretKey.high)];
   }
 
   async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
@@ -232,8 +228,8 @@ export class Oracle {
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
-    const { ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
-    return toAcvmL1ToL2MessageLoadOracleInputs(message);
+    const { root, ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
+    return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
   }
 
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {

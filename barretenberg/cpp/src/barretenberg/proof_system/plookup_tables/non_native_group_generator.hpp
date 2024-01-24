@@ -6,7 +6,8 @@
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include <array>
 
-namespace bb::plookup::ecc_generator_tables {
+namespace plookup {
+namespace ecc_generator_tables {
 
 template <typename G1> class ecc_generator_table {
   public:
@@ -55,4 +56,5 @@ template <typename G1> class ecc_generator_table {
     static MultiTable get_xyprime_endo_table(const MultiTableId id, const BasicTableId basic_id);
 };
 
-} // namespace bb::plookup::ecc_generator_tables
+} // namespace ecc_generator_tables
+} // namespace plookup

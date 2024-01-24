@@ -1,11 +1,11 @@
 import { L2Block, MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
-import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, GrumpkinPrivateKey, PublicKey } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { KeyPair, NoteData } from '../acvm/index.js';
+import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/db.js';
 
 /**
@@ -43,16 +43,16 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve the nullifier key pair associated with a specific account.
+   * Retrieve the secret key associated with a specific public key.
    * The function only allows access to the secret keys of the transaction creator,
-   * and throws an error if the address does not match the account address of the key pair.
+   * and throws an error if the address does not match the public key address of the key pair.
    *
-   * @param accountAddress - The account address.
-   * @param contractAddress - The contract address.
-   * @returns A Promise that resolves to the nullifier key pair.
-   * @throws An Error if the input address does not match the account address of the key pair.
+   * @param contractAddress - The contract address. Ignored here. But we might want to return different keys for different contracts.
+   * @param pubKey - The public key of an account.
+   * @returns A Promise that resolves to the secret key.
+   * @throws An Error if the input address does not match the public key address of the key pair.
    */
-  getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair>;
+  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

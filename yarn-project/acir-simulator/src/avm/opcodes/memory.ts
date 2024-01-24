@@ -9,12 +9,13 @@ export class Set extends Instruction {
   static type: string = 'SET';
   static numberOfOperands = 2;
 
-  constructor(private value: bigint, private destOffset: number) {
+  constructor(private constt: bigint, private destOffset: number) {
     super();
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    machineState.writeMemory(this.destOffset, new Fr(this.value));
+    const dest = new Fr(this.constt);
+    machineState.writeMemory(this.destOffset, dest);
 
     this.incrementPc(machineState);
   }
@@ -52,31 +53,6 @@ export class Mov extends Instruction {
     const a = machineState.readMemory(this.aOffset);
 
     machineState.writeMemory(this.destOffset, a);
-
-    this.incrementPc(machineState);
-  }
-}
-
-/** - */
-export class CMov extends Instruction {
-  static type: string = 'MOV';
-  static numberOfOperands = 4;
-
-  constructor(
-    private aOffset: number,
-    private bOffset: number,
-    private condOffset: number,
-    private destOffset: number,
-  ) {
-    super();
-  }
-
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a = machineState.readMemory(this.aOffset);
-    const b = machineState.readMemory(this.bOffset);
-    const cond = machineState.readMemory(this.condOffset);
-
-    machineState.writeMemory(this.destOffset, cond.toBigInt() ? a : b);
 
     this.incrementPc(machineState);
   }

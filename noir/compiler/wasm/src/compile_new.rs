@@ -1,5 +1,5 @@
 use crate::compile::{
-    file_manager_with_source_map, generate_contract_artifact, generate_program_artifact, parse_all,
+    file_manager_with_source_map, generate_contract_artifact, generate_program_artifact,
     JsCompileResult, PathToFileSourceMap,
 };
 use crate::errors::{CompileError, JsCompileError};
@@ -20,7 +20,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 pub struct CompilerContext {
     // `wasm_bindgen` currently doesn't allow lifetime parameters on structs so we must use a `'static` lifetime.
     // `Context` must then own the `FileManager` to satisfy this lifetime.
-    context: Context<'static, 'static>,
+    context: Context<'static>,
 }
 
 #[wasm_bindgen(js_name = "CrateId")]
@@ -34,9 +34,7 @@ impl CompilerContext {
         console_error_panic_hook::set_once();
 
         let fm = file_manager_with_source_map(source_map);
-        let parsed_files = parse_all(&fm);
-
-        CompilerContext { context: Context::new(fm, parsed_files) }
+        CompilerContext { context: Context::new(fm) }
     }
 
     #[cfg(test)]
@@ -233,7 +231,7 @@ mod test {
     use noirc_driver::prepare_crate;
     use noirc_frontend::hir::Context;
 
-    use crate::compile::{file_manager_with_source_map, parse_all, PathToFileSourceMap};
+    use crate::compile::{file_manager_with_source_map, PathToFileSourceMap};
 
     use std::path::Path;
 
@@ -243,9 +241,8 @@ mod test {
         let mut fm = file_manager_with_source_map(source_map);
         // Add this due to us calling prepare_crate on "/main.nr" below
         fm.add_file_with_source(Path::new("/main.nr"), "fn foo() {}".to_string());
-        let parsed_files = parse_all(&fm);
 
-        let mut context = Context::new(fm, parsed_files);
+        let mut context = Context::new(fm);
         prepare_crate(&mut context, Path::new("/main.nr"));
 
         CompilerContext { context }

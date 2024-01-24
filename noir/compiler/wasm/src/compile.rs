@@ -13,7 +13,7 @@ use noirc_driver::{
 use noirc_evaluator::errors::SsaReport;
 use noirc_frontend::{
     graph::{CrateId, CrateName},
-    hir::{def_map::parse_file, Context, ParsedFiles},
+    hir::Context,
 };
 use serde::Deserialize;
 use std::{collections::HashMap, path::Path};
@@ -140,10 +140,6 @@ impl PathToFileSourceMap {
     }
 }
 
-pub(crate) fn parse_all(fm: &FileManager) -> ParsedFiles {
-    fm.as_file_map().all_file_ids().map(|&file_id| (file_id, parse_file(fm, file_id))).collect()
-}
-
 pub enum CompileResult {
     Contract { contract: ContractArtifact, warnings: Vec<SsaReport> },
     Program { program: ProgramArtifact, warnings: Vec<SsaReport> },
@@ -166,8 +162,8 @@ pub fn compile(
     };
 
     let fm = file_manager_with_source_map(file_source_map);
-    let parsed_files = parse_all(&fm);
-    let mut context = Context::new(fm, parsed_files);
+
+    let mut context = Context::new(fm);
 
     let path = Path::new(&entry_point);
     let crate_id = prepare_crate(&mut context, path);
@@ -295,18 +291,15 @@ mod test {
 
     use crate::compile::PathToFileSourceMap;
 
-    use super::{
-        file_manager_with_source_map, parse_all, process_dependency_graph, DependencyGraph,
-    };
+    use super::{file_manager_with_source_map, process_dependency_graph, DependencyGraph};
     use std::{collections::HashMap, path::Path};
 
-    fn setup_test_context(source_map: PathToFileSourceMap) -> Context<'static, 'static> {
+    fn setup_test_context(source_map: PathToFileSourceMap) -> Context<'static> {
         let mut fm = file_manager_with_source_map(source_map);
         // Add this due to us calling prepare_crate on "/main.nr" below
         fm.add_file_with_source(Path::new("/main.nr"), "fn foo() {}".to_string());
-        let parsed_files = parse_all(&fm);
 
-        let mut context = Context::new(fm, parsed_files);
+        let mut context = Context::new(fm);
         prepare_crate(&mut context, Path::new("/main.nr"));
 
         context

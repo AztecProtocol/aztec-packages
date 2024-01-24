@@ -7,7 +7,11 @@
 #include "create_partial_commitment.hpp"
 #include "witness_data.hpp"
 
-namespace bb::join_split_example::proofs::notes::circuit::claim {
+namespace join_split_example {
+namespace proofs {
+namespace notes {
+namespace circuit {
+namespace claim {
 
 using namespace bb::stdlib;
 
@@ -58,4 +62,8 @@ struct claim_note {
     operator byte_array_ct() const { return byte_array_ct(commitment); }
 };
 
-} // namespace bb::join_split_example::proofs::notes::circuit::claim
+} // namespace claim
+} // namespace circuit
+} // namespace notes
+} // namespace proofs
+} // namespace join_split_example

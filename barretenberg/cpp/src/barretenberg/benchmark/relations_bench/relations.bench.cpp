@@ -5,7 +5,7 @@
 #include <benchmark/benchmark.h>
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 using namespace bb::honk::sumcheck;

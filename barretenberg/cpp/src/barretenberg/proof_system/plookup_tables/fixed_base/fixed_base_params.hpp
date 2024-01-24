@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace bb::plookup {
+namespace plookup {
 /**
  * @brief Parameters definitions for our fixed-base-scalar-multiplication lookup tables
  *
@@ -73,4 +73,4 @@ struct FixedBaseParams {
         return MULTI_TABLE_BIT_LENGTHS[multitable_index];
     }
 };
-} // namespace bb::plookup
+} // namespace plookup

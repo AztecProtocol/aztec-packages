@@ -9,16 +9,17 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include <gtest/gtest.h>
 
+namespace test_stdlib_plookups {
 using namespace bb;
-using namespace bb::plookup;
+using namespace plookup;
 
 // Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
-using plookup_read = stdlib::plookup_read<Builder>;
+using plookup_read = bb::stdlib::plookup_read<Builder>;
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 // TODO FIX FIX
@@ -26,15 +27,15 @@ auto& engine = numeric::get_debug_randomness();
 // {
 //     Builder builder = Builder();
 
-//     fr input_value = fr::random_element();
+//     bb::fr input_value = fr::random_element();
 //     field_ct input_hi = witness_ct(&builder, uint256_t(input_value).slice(126, 256));
 //     field_ct input_lo = witness_ct(&builder, uint256_t(input_value).slice(0, 126));
 
 //     const auto lookup_hi = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_LEFT_HI, input_hi);
 //     const auto lookup_lo = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_LEFT_LO, input_lo);
 
-//     std::vector<fr> expected_x;
-//     std::vector<fr> expected_y;
+//     std::vector<bb::fr> expected_x;
+//     std::vector<bb::fr> expected_y;
 
 //     const size_t num_lookups_hi =
 //         (128 + crypto::pedersen_hash::lookup::BITS_PER_TABLE) / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
@@ -44,7 +45,7 @@ auto& engine = numeric::get_debug_randomness();
 //     EXPECT_EQ(num_lookups_lo, lookup_lo[ColumnIdx::C1].size());
 
 //     const size_t num_lookups = num_lookups_hi + num_lookups_lo;
-//     std::vector<fr> expected_scalars;
+//     std::vector<bb::fr> expected_scalars;
 //     expected_x.resize(num_lookups);
 //     expected_y.resize(num_lookups);
 //     expected_scalars.resize(num_lookups);
@@ -103,15 +104,15 @@ auto& engine = numeric::get_debug_randomness();
 // {
 //     Builder builder = Builder();
 
-//     fr input_value = fr::random_element();
+//     bb::fr input_value = fr::random_element();
 //     field_ct input_hi = witness_ct(&builder, uint256_t(input_value).slice(126, 256));
 //     field_ct input_lo = witness_ct(&builder, uint256_t(input_value).slice(0, 126));
 
 //     const auto lookup_hi = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_RIGHT_HI, input_hi);
 //     const auto lookup_lo = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_RIGHT_LO, input_lo);
 
-//     std::vector<fr> expected_x;
-//     std::vector<fr> expected_y;
+//     std::vector<bb::fr> expected_x;
+//     std::vector<bb::fr> expected_y;
 
 //     const size_t num_lookups_hi =
 //         (128 + crypto::pedersen_hash::lookup::BITS_PER_TABLE) / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
@@ -121,7 +122,7 @@ auto& engine = numeric::get_debug_randomness();
 //     EXPECT_EQ(num_lookups_lo, lookup_lo[ColumnIdx::C1].size());
 
 //     const size_t num_lookups = num_lookups_hi + num_lookups_lo;
-//     std::vector<fr> expected_scalars;
+//     std::vector<bb::fr> expected_scalars;
 //     expected_x.resize(num_lookups);
 //     expected_y.resize(num_lookups);
 //     expected_scalars.resize(num_lookups);
@@ -237,9 +238,9 @@ TEST(stdlib_plookup, blake2s_xor_rotate_16)
     const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
     const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
 
-    std::vector<fr> out_expected(num_lookups);
-    std::vector<fr> left_expected(num_lookups);
-    std::vector<fr> right_expected(num_lookups);
+    std::vector<bb::fr> out_expected(num_lookups);
+    std::vector<bb::fr> left_expected(num_lookups);
+    std::vector<bb::fr> right_expected(num_lookups);
 
     for (size_t i = 0; i < left_slices.size(); ++i) {
         if (i == 2) {
@@ -260,7 +261,7 @@ TEST(stdlib_plookup, blake2s_xor_rotate_16)
      * out_coefficients must be (a5/a4, a4/a3, a3/a2, a2/a1, a1/a0). Note that these are stored in reverse orde
      * for simplicity.
      */
-    std::vector<fr> out_coefficients{ (1 << 6), (bb::fr(1) / bb::fr(1 << 22)), (1 << 2), (1 << 6), (1 << 6) };
+    std::vector<bb::fr> out_coefficients{ (1 << 6), (bb::fr(1) / bb::fr(1 << 22)), (1 << 2), (1 << 6), (1 << 6) };
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
         out_expected[i] += out_expected[i + 1] * out_coefficients[i];
@@ -279,10 +280,10 @@ TEST(stdlib_plookup, blake2s_xor_rotate_16)
      * while defining the table we had set the coefficient of s0 to 1, so to correct that, we need to multiply by a
      * constant.
      */
-    auto mul_constant = fr(1 << 16);
-    fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
+    auto mul_constant = bb::fr(1 << 16);
+    bb::fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 16);
-    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+    EXPECT_EQ(bb::fr(uint256_t(xor_rotate_output)), lookup_output);
 
     bool result = builder.check_circuit();
 
@@ -306,9 +307,9 @@ TEST(stdlib_plookup, blake2s_xor_rotate_8)
     const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
     const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
 
-    std::vector<fr> out_expected(num_lookups);
-    std::vector<fr> left_expected(num_lookups);
-    std::vector<fr> right_expected(num_lookups);
+    std::vector<bb::fr> out_expected(num_lookups);
+    std::vector<bb::fr> left_expected(num_lookups);
+    std::vector<bb::fr> right_expected(num_lookups);
 
     for (size_t i = 0; i < left_slices.size(); ++i) {
         if (i == 1) {
@@ -323,8 +324,8 @@ TEST(stdlib_plookup, blake2s_xor_rotate_8)
         right_expected[i] = right_slices[i];
     }
 
-    auto mul_constant = fr(1 << 24);
-    std::vector<fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 4), (1 << 6), (1 << 6), (1 << 6) };
+    auto mul_constant = bb::fr(1 << 24);
+    std::vector<bb::fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 4), (1 << 6), (1 << 6), (1 << 6) };
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
         out_expected[i] += out_expected[i + 1] * out_coefficients[i];
@@ -338,9 +339,9 @@ TEST(stdlib_plookup, blake2s_xor_rotate_8)
         EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), out_expected[i]);
     }
 
-    fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
+    bb::fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 8);
-    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+    EXPECT_EQ(bb::fr(uint256_t(xor_rotate_output)), lookup_output);
 
     bool result = builder.check_circuit();
 
@@ -364,9 +365,9 @@ TEST(stdlib_plookup, blake2s_xor_rotate_7)
     const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
     const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
 
-    std::vector<fr> out_expected(num_lookups);
-    std::vector<fr> left_expected(num_lookups);
-    std::vector<fr> right_expected(num_lookups);
+    std::vector<bb::fr> out_expected(num_lookups);
+    std::vector<bb::fr> left_expected(num_lookups);
+    std::vector<bb::fr> right_expected(num_lookups);
 
     for (size_t i = 0; i < left_slices.size(); ++i) {
         if (i == 1) {
@@ -381,8 +382,8 @@ TEST(stdlib_plookup, blake2s_xor_rotate_7)
         right_expected[i] = right_slices[i];
     }
 
-    auto mul_constant = fr(1 << 25);
-    std::vector<fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 5), (1 << 6), (1 << 6), (1 << 6) };
+    auto mul_constant = bb::fr(1 << 25);
+    std::vector<bb::fr> out_coefficients{ (bb::fr(1) / mul_constant), (1 << 5), (1 << 6), (1 << 6), (1 << 6) };
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
         out_expected[i] += out_expected[i + 1] * out_coefficients[i];
@@ -396,9 +397,9 @@ TEST(stdlib_plookup, blake2s_xor_rotate_7)
         EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), out_expected[i]);
     }
 
-    fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
+    bb::fr lookup_output = lookup[ColumnIdx::C3][0].get_value() * mul_constant;
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 7);
-    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+    EXPECT_EQ(bb::fr(uint256_t(xor_rotate_output)), lookup_output);
 
     bool result = builder.check_circuit();
 
@@ -441,9 +442,9 @@ TEST(stdlib_plookup, blake2s_xor)
     // t5 = a5
     //
     // output = (t0 - 2^12 t2) * 2^{32 - 12} + t2
-    fr lookup_output = lookup[ColumnIdx::C3][2].get_value();
-    fr t2_term = fr(1 << 12) * lookup[ColumnIdx::C3][2].get_value();
-    lookup_output += fr(1 << 20) * (lookup[ColumnIdx::C3][0].get_value() - t2_term);
+    bb::fr lookup_output = lookup[ColumnIdx::C3][2].get_value();
+    bb::fr t2_term = bb::fr(1 << 12) * lookup[ColumnIdx::C3][2].get_value();
+    lookup_output += bb::fr(1 << 20) * (lookup[ColumnIdx::C3][0].get_value() - t2_term);
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
         out_expected[i] += out_expected[i + 1] * (1 << 6);
@@ -455,7 +456,7 @@ TEST(stdlib_plookup, blake2s_xor)
     // The following checks if the xor output rotated by 12 can be computed correctly from basic blake2s_xor.
     //
     auto xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 12);
-    EXPECT_EQ(fr(uint256_t(xor_rotate_output)), lookup_output);
+    EXPECT_EQ(bb::fr(uint256_t(xor_rotate_output)), lookup_output);
 
     for (size_t i = 0; i < num_lookups; ++i) {
         EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), bb::fr(left_expected[i]));
@@ -519,7 +520,7 @@ TEST(stdlib_plookup, secp256k1_generator)
 
     uint64_t wnaf_entries[18] = { 0 };
     bool skew = false;
-    wnaf::fixed_wnaf<129, 1, 8>(&input_value.data[0], &wnaf_entries[0], skew, 0);
+    bb::wnaf::fixed_wnaf<129, 1, 8>(&input_value.data[0], &wnaf_entries[0], skew, 0);
 
     std::vector<uint64_t> naf_values;
     for (size_t i = 0; i < 17; ++i) {
@@ -604,3 +605,5 @@ TEST(stdlib_plookup, secp256k1_generator)
     bool proof_result = builder.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
+
+} // namespace test_stdlib_plookups

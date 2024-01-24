@@ -5,7 +5,7 @@ using namespace bb;
 
 namespace bb::stdlib {
 
-using namespace bb::plookup;
+using namespace plookup;
 
 template <typename Builder, typename Native>
 uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator&(const uint_plookup& other) const

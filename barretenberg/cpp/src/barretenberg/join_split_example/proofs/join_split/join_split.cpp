@@ -4,7 +4,9 @@
 #include "compute_circuit_data.hpp"
 #include "join_split_circuit.hpp"
 
-namespace bb::join_split_example::proofs::join_split {
+namespace join_split_example {
+namespace proofs {
+namespace join_split {
 
 using namespace bb::plonk;
 using namespace bb::stdlib::merkle_tree;
@@ -30,7 +32,7 @@ void init_proving_key(bool mock)
         Builder builder;
         join_split_circuit(builder, tx);
         Composer composer;
-        bb::join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
+        join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
         proving_key = composer.compute_proving_key(builder);
     }
 }
@@ -68,7 +70,7 @@ Prover new_join_split_prover(join_split_tx const& tx, bool mock)
         return composer.create_prover(builder);
     } else {
         Composer mock_proof_composer(proving_key, nullptr);
-        bb::join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
+        join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
         info("mock composer gates: ", builder.get_num_gates());
         return mock_proof_composer.create_prover(builder);
     }
@@ -95,4 +97,6 @@ std::shared_ptr<plonk::verification_key> get_verification_key()
     return verification_key;
 }
 
-} // namespace bb::join_split_example::proofs::join_split
+} // namespace join_split
+} // namespace proofs
+} // namespace join_split_example

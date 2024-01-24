@@ -2,12 +2,12 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
-using namespace bb;
+namespace test_grumpkin {
 
 TEST(grumpkin, CheckB)
 {
     auto b = grumpkin::g1::curve_b;
-    fr seventeen = 17;
+    bb::fr seventeen = 17;
     EXPECT_EQ(seventeen, -b);
 }
 
@@ -329,3 +329,4 @@ TEST(grumpkin, BadPoints)
     }
     EXPECT_TRUE(res);
 }
+} // namespace test_grumpkin

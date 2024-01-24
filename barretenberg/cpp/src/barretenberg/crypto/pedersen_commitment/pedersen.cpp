@@ -6,7 +6,7 @@
 #include <omp.h>
 #endif
 
-namespace bb::crypto {
+namespace crypto {
 
 /**
  * @brief Given a vector of fields, generate a pedersen commitment using the indexed generators.
@@ -30,4 +30,4 @@ typename Curve::AffineElement pedersen_commitment_base<Curve>::commit_native(con
     return result.normalize();
 }
 template class pedersen_commitment_base<curve::Grumpkin>;
-} // namespace bb::crypto
+} // namespace crypto

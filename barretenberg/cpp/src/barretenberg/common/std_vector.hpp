@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-namespace bb {
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/794) namespace this once convenient
 /**
  * @brief Concatenates multiple std::vector objects into a single std::vector.
  *
@@ -23,4 +23,3 @@ template <typename T> std::vector<T> concatenate(const std::vector<T>& vector, c
 
     return concatenated;
 }
-} // namespace bb

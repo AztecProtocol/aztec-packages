@@ -7,14 +7,15 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 
+namespace test_stdlib_dynamic_array {
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 // Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 using bool_ct = stdlib::bool_t<Builder>;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
@@ -62,3 +63,5 @@ TEST(DynamicArray, DynamicArrayReadWriteConsistency)
     bool verified = builder.check_circuit();
     EXPECT_EQ(verified, true);
 }
+
+} // namespace test_stdlib_dynamic_array

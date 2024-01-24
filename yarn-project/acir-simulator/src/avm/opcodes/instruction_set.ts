@@ -1,9 +1,12 @@
 import { Add, Div, Mul, Sub } from './arithmetic.js';
-import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
+//import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 //import { Eq, Lt, Lte } from './comparators.js';
 import { InternalCall, InternalReturn, Jump, JumpI, Return } from './control_flow.js';
 import { Instruction } from './instruction.js';
-import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
+import {
+  CalldataCopy,
+  /*Cast, Mov*/
+} from './memory.js';
 import { Opcode } from './opcodes.js';
 
 /** - */
@@ -27,14 +30,14 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     //[Opcode.LT, Lt],
     //[Opcode.LTE, Lte],
     //// Compute - Bitwise
-    [Opcode.AND, And],
-    [Opcode.OR, Or],
-    [Opcode.XOR, Xor],
-    [Opcode.NOT, Not],
-    [Opcode.SHL, Shl],
-    [Opcode.SHR, Shr],
+    //[Opcode.AND, And],
+    //[Opcode.OR, Or],
+    //[Opcode.XOR, Xor],
+    //[Opcode.NOT, Not],
+    //[Opcode.SHL, Shl],
+    //[Opcode.SHR, Shr],
     //// Compute - Type Conversions
-    [Opcode.CAST, Cast],
+    //[Opcode.CAST, Cast],
 
     //// Execution Environment
     //[Opcode.ADDRESS, Address],
@@ -69,9 +72,9 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     [Opcode.INTERNALCALL, InternalCall],
     [Opcode.INTERNALRETURN, InternalReturn],
     //// Machine State - Memory
-    [Opcode.SET, Set],
-    [Opcode.MOV, Mov],
-    [Opcode.CMOV, CMov],
+    //[Opcode.SET, Set],
+    //[Opcode.MOV, Mov],
+    //[Opcode.CMOV, CMov],
 
     //// World State
     //[Opcode.BLOCKHEADERBYNUMBER, Blockheaderbynumber],

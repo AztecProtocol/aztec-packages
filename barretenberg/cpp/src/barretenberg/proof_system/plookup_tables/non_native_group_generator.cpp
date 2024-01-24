@@ -1,6 +1,7 @@
 #include "non_native_group_generator.hpp"
 
-namespace bb::plookup::ecc_generator_tables {
+namespace plookup {
+namespace ecc_generator_tables {
 
 /**
  * Init 8-bit generator lookup tables
@@ -487,4 +488,5 @@ MultiTable ecc_generator_table<G1>::get_xyprime_endo_table(const MultiTableId id
 template class ecc_generator_table<bb::g1>;
 template class ecc_generator_table<secp256k1::g1>;
 
-} // namespace bb::plookup::ecc_generator_tables
+} // namespace ecc_generator_tables
+} // namespace plookup

@@ -6,13 +6,15 @@
 #include <gtest/gtest.h>
 #include <utility>
 
-using namespace bb;
+namespace test_stdlib_array {
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
+
+using namespace bb;
 
 template <typename Builder> class stdlib_array : public testing::Test {
     typedef stdlib::bool_t<Builder> bool_ct;
@@ -693,3 +695,4 @@ TYPED_TEST(stdlib_array, test_pata_nonzero_after_zero_target_fails_2)
 {
     TestFixture::test_pata_nonzero_after_zero_target_fails_2();
 }
+} // namespace test_stdlib_array

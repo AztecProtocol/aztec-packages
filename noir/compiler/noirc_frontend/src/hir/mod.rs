@@ -7,22 +7,18 @@ pub mod type_check;
 use crate::graph::{CrateGraph, CrateId};
 use crate::hir_def::function::FuncMeta;
 use crate::node_interner::{FuncId, NodeInterner, StructId};
-use crate::parser::ParserError;
-use crate::ParsedModule;
 use def_map::{Contract, CrateDefMap};
 use fm::FileManager;
 use noirc_errors::Location;
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use self::def_map::TestFunction;
-
-pub type ParsedFiles = HashMap<fm::FileId, (ParsedModule, Vec<ParserError>)>;
 
 /// Helper object which groups together several useful context objects used
 /// during name resolution. Once name resolution is finished, only the
 /// def_interner is required for type inference and monomorphization.
-pub struct Context<'file_manager, 'parsed_files> {
+pub struct Context<'file_manager> {
     pub def_interner: NodeInterner,
     pub crate_graph: CrateGraph,
     pub(crate) def_maps: BTreeMap<CrateId, CrateDefMap>,
@@ -34,11 +30,6 @@ pub struct Context<'file_manager, 'parsed_files> {
     /// A map of each file that already has been visited from a prior `mod foo;` declaration.
     /// This is used to issue an error if a second `mod foo;` is declared to the same file.
     pub visited_files: BTreeMap<fm::FileId, Location>,
-
-    // A map of all parsed files.
-    // Same as the file manager, we take ownership of the parsed files in the WASM context.
-    // Parsed files is also read only.
-    pub parsed_files: Cow<'parsed_files, ParsedFiles>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -48,34 +39,25 @@ pub enum FunctionNameMatch<'a> {
     Contains(&'a str),
 }
 
-impl Context<'_, '_> {
-    pub fn new(file_manager: FileManager, parsed_files: ParsedFiles) -> Context<'static, 'static> {
+impl Context<'_> {
+    pub fn new(file_manager: FileManager) -> Context<'static> {
         Context {
             def_interner: NodeInterner::default(),
             def_maps: BTreeMap::new(),
             visited_files: BTreeMap::new(),
             crate_graph: CrateGraph::default(),
             file_manager: Cow::Owned(file_manager),
-            parsed_files: Cow::Owned(parsed_files),
         }
     }
 
-    pub fn from_ref_file_manager<'file_manager, 'parsed_files>(
-        file_manager: &'file_manager FileManager,
-        parsed_files: &'parsed_files ParsedFiles,
-    ) -> Context<'file_manager, 'parsed_files> {
+    pub fn from_ref_file_manager(file_manager: &FileManager) -> Context<'_> {
         Context {
             def_interner: NodeInterner::default(),
             def_maps: BTreeMap::new(),
             visited_files: BTreeMap::new(),
             crate_graph: CrateGraph::default(),
             file_manager: Cow::Borrowed(file_manager),
-            parsed_files: Cow::Borrowed(parsed_files),
         }
-    }
-
-    pub fn parsed_file_results(&self, file_id: fm::FileId) -> (ParsedModule, Vec<ParserError>) {
-        self.parsed_files.get(&file_id).expect("noir file wasn't parsed").clone()
     }
 
     /// Returns the CrateDefMap for a given CrateId.

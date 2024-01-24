@@ -1,7 +1,6 @@
 #include "get_bn254_crs.hpp"
 #include "barretenberg/bb/file_io.hpp"
 
-namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 {
     size_t g1_end = num_points * 64 - 1;
@@ -27,10 +26,8 @@ std::vector<uint8_t> download_bn254_g2_data()
     std::string command = "curl -s '" + url + "'";
     return exec_pipe(command);
 }
-} // namespace
 
-namespace bb {
-std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
+std::vector<bb::g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
 {
     std::filesystem::create_directories(path);
 
@@ -40,9 +37,9 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     if (g1_file_size >= num_points * 64 && g1_file_size % 64 == 0) {
         vinfo("using cached crs of size ", std::to_string(g1_file_size / 64), " at ", g1_path);
         auto data = read_file(g1_path, g1_file_size);
-        auto points = std::vector<g1::affine_element>(num_points);
+        auto points = std::vector<bb::g1::affine_element>(num_points);
         for (size_t i = 0; i < num_points; ++i) {
-            points[i] = from_buffer<g1::affine_element>(data, i * 64);
+            points[i] = from_buffer<bb::g1::affine_element>(data, i * 64);
         }
         return points;
     }
@@ -51,14 +48,14 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     auto data = download_bn254_g1_data(num_points);
     write_file(g1_path, data);
 
-    auto points = std::vector<g1::affine_element>(num_points);
+    auto points = std::vector<bb::g1::affine_element>(num_points);
     for (size_t i = 0; i < num_points; ++i) {
-        points[i] = from_buffer<g1::affine_element>(data, i * 64);
+        points[i] = from_buffer<bb::g1::affine_element>(data, i * 64);
     }
     return points;
 }
 
-g2::affine_element get_bn254_g2_data(const std::filesystem::path& path)
+bb::g2::affine_element get_bn254_g2_data(const std::filesystem::path& path)
 {
     std::filesystem::create_directories(path);
 
@@ -67,11 +64,10 @@ g2::affine_element get_bn254_g2_data(const std::filesystem::path& path)
 
     if (g2_file_size == 128) {
         auto data = read_file(g2_path);
-        return from_buffer<g2::affine_element>(data.data());
+        return from_buffer<bb::g2::affine_element>(data.data());
     }
 
     auto data = download_bn254_g2_data();
     write_file(g2_path, data);
-    return from_buffer<g2::affine_element>(data.data());
+    return from_buffer<bb::g2::affine_element>(data.data());
 }
-} // namespace bb

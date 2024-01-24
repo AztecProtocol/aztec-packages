@@ -6,10 +6,11 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+using namespace bb;
 using namespace bb::plonk;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 class StandardPlonkComposer : public ::testing::Test {

@@ -5,7 +5,9 @@
 
 using namespace bb::stdlib;
 
-namespace rollup::proofs::mock {
+namespace rollup {
+namespace proofs {
+namespace mock {
 
 class MockCircuitTests : public ::testing::Test {
   protected:
@@ -36,4 +38,6 @@ TEST_F(MockCircuitTests, test_simple_circuit)
     EXPECT_TRUE(result);
 }
 
-} // namespace rollup::proofs::mock
+} // namespace mock
+} // namespace proofs
+} // namespace rollup

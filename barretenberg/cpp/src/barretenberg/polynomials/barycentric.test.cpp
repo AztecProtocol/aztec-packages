@@ -2,7 +2,7 @@
 #include "univariate.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb;
+namespace bb::test_barycentric {
 
 template <class FF> class BarycentricDataTests : public testing::Test {};
 
@@ -86,3 +86,5 @@ TYPED_TEST(BarycentricDataTests, BarycentricData5to6)
     Univariate<FF, num_evals> expected{ { 1, 3, 25, 109, 321, 751 } };
     EXPECT_EQ(ext1, expected);
 }
+
+} // namespace bb::test_barycentric

@@ -20,7 +20,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace bb::numeric {
+namespace numeric {
 
 class alignas(32) uint256_t {
   public:
@@ -242,10 +242,10 @@ template <typename B> inline void write(B& it, uint256_t const& value)
     write(it, value.data[0]);
 }
 
-} // namespace bb::numeric
+} // namespace numeric
 
 #include "./uint256_impl.hpp"
 
 // disable linter errors; we want to expose a global uint256_t type to mimic uint64_t, uint32_t etc
 // NOLINTNEXTLINE(tidymisc-unused-using-decls, google-global-names-in-headers, misc-unused-using-decls)
-using bb::numeric::uint256_t;
+using numeric::uint256_t;

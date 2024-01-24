@@ -17,7 +17,8 @@
 #include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::honk::flavor {
+namespace bb::honk {
+namespace flavor {
 
 class ToyFlavor {
   public:
@@ -367,4 +368,5 @@ class ToyFlavor {
     };
 };
 
-} // namespace bb::honk::flavor
+} // namespace flavor
+} // namespace bb::honk

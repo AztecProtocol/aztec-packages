@@ -15,8 +15,10 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v4
 
-      - name: Install Yarn dependencies
-        uses: ./.github/actions/setup
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
 
       - name: Install wasm-bindgen-cli
         uses: taiki-e/install-action@v2
@@ -27,6 +29,9 @@ jobs:
         run: |
           npm i wasm-opt -g
       
+      - name: Install Yarn dependencies
+        uses: ./.github/actions/setup
+
       - name: Build docs for deploying
         working-directory: docs
         run: 

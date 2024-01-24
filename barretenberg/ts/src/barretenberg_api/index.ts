@@ -304,18 +304,6 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirNewGoblinAcirComposer(): Promise<Ptr> {
-    const inArgs = [].map(serializeBufferable);
-    const outTypes: OutputType[] = [Ptr];
-    const result = await this.wasm.callWasmExport(
-      'acir_new_goblin_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async acirDeleteAcirComposer(acirComposerPtr: Ptr): Promise<void> {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -369,7 +357,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGoblinAccumulate(
+  async acirCreateGoblinProof(
     acirComposerPtr: Ptr,
     constraintSystemBuf: Uint8Array,
     witnessBuf: Uint8Array,
@@ -377,23 +365,7 @@ export class BarretenbergApi {
     const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_goblin_accumulate',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirGoblinProve(
-    acirComposerPtr: Ptr,
-    constraintSystemBuf: Uint8Array,
-    witnessBuf: Uint8Array,
-  ): Promise<Uint8Array> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_goblin_prove',
+      'acir_create_goblin_proof',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -461,23 +433,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGoblinVerifyAccumulator(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
+  async acirVerifyGoblinProof(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
     const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_goblin_verify_accumulator',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirGoblinVerify(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_goblin_verify',
+      'acir_verify_goblin_proof',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -817,18 +777,6 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirNewGoblinAcirComposer(): Ptr {
-    const inArgs = [].map(serializeBufferable);
-    const outTypes: OutputType[] = [Ptr];
-    const result = this.wasm.callWasmExport(
-      'acir_new_goblin_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirDeleteAcirComposer(acirComposerPtr: Ptr): void {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -882,23 +830,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGoblinAccumulate(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
+  acirCreateGoblinProof(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
     const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_goblin_accumulate',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirGoblinProve(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_goblin_prove',
+      'acir_create_goblin_proof',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -966,23 +902,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGoblinVerifyAccumulator(acirComposerPtr: Ptr, proofBuf: Uint8Array): boolean {
+  acirVerifyGoblinProof(acirComposerPtr: Ptr, proofBuf: Uint8Array): boolean {
     const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_goblin_verify_accumulator',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirGoblinVerify(acirComposerPtr: Ptr, proofBuf: Uint8Array): boolean {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_goblin_verify',
+      'acir_verify_goblin_proof',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

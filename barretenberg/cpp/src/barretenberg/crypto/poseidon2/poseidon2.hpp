@@ -4,7 +4,7 @@
 #include "poseidon2_permutation.hpp"
 #include "sponge/sponge.hpp"
 
-namespace bb::crypto {
+namespace crypto {
 
 template <typename Params> class Poseidon2 {
   public:
@@ -25,4 +25,4 @@ template <typename Params> class Poseidon2 {
 };
 
 extern template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
-} // namespace bb::crypto
+} // namespace crypto

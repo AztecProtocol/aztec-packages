@@ -90,28 +90,34 @@ template <typename Fr> class Polynomial {
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
-    Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain) requires
-        polynomial_arithmetic::SupportsFFT<Fr>;
+    Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
     Fr evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
                          const Fr& z,
-                         const EvaluationDomain<Fr>& small_domain) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void fft(const EvaluationDomain<Fr>& domain) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void partial_fft(const EvaluationDomain<Fr>& domain,
-                     Fr constant = 1,
-                     bool is_coset = false) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void coset_fft(const EvaluationDomain<Fr>& domain) requires polynomial_arithmetic::SupportsFFT<Fr>;
+                         const EvaluationDomain<Fr>& small_domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void fft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void partial_fft(const EvaluationDomain<Fr>& domain, Fr constant = 1, bool is_coset = false)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
     void coset_fft(const EvaluationDomain<Fr>& domain,
                    const EvaluationDomain<Fr>& large_domain,
-                   size_t domain_extension) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void coset_fft_with_constant(const EvaluationDomain<Fr>& domain,
-                                 const Fr& constant) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain,
-                                        const Fr& constant) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void ifft(const EvaluationDomain<Fr>& domain) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void ifft_with_constant(const EvaluationDomain<Fr>& domain,
-                            const Fr& constant) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void coset_ifft(const EvaluationDomain<Fr>& domain) requires polynomial_arithmetic::SupportsFFT<Fr>;
-    Fr compute_kate_opening_coefficients(const Fr& z) requires polynomial_arithmetic::SupportsFFT<Fr>;
+                   size_t domain_extension)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void ifft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_ifft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    Fr compute_kate_opening_coefficients(const Fr& z)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
 
     bool is_empty() const { return size_ == 0; }
 
@@ -224,13 +230,6 @@ template <typename Fr> class Polynomial {
 
     std::size_t size() const { return size_; }
     std::size_t capacity() const { return size_ + MAXIMUM_COEFFICIENT_SHIFT; }
-
-    static Polynomial random(const size_t num_coeffs)
-    {
-        Polynomial p(num_coeffs);
-        std::generate_n(p.begin(), num_coeffs, []() { return Fr::random_element(); });
-        return p;
-    }
 
   private:
     // allocate a fresh memory pointer for backing memory

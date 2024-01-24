@@ -6,7 +6,7 @@ use clap::Args;
 use iter_extended::vecmap;
 use nargo::{
     artifacts::debug::DebugArtifact, insert_all_files_for_workspace_into_file_manager,
-    package::Package, parse_all,
+    package::Package,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_driver::{
@@ -67,13 +67,19 @@ pub(crate) fn run(
 
     let mut workspace_file_manager = file_manager_with_stdlib(&workspace.root_dir);
     insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
-    let parsed_files = parse_all(&workspace_file_manager);
+
+    let (binary_packages, contract_packages): (Vec<_>, Vec<_>) = workspace
+        .into_iter()
+        .filter(|package| !package.is_library())
+        .cloned()
+        .partition(|package| package.is_binary());
 
     let expression_width = backend.get_backend_info_or_default();
     let (compiled_programs, compiled_contracts) = compile_workspace(
         &workspace_file_manager,
-        &parsed_files,
         &workspace,
+        &binary_packages,
+        &contract_packages,
         expression_width,
         &args.compile_options,
     )?;
@@ -95,12 +101,11 @@ pub(crate) fn run(
         }
     }
 
-    let binary_packages =
-        workspace.into_iter().filter(|package| package.is_binary()).zip(compiled_programs);
     let program_info = binary_packages
-        .par_bridge()
+        .into_par_iter()
+        .zip(compiled_programs)
         .map(|(package, program)| {
-            count_opcodes_and_gates_in_program(backend, program, package, expression_width)
+            count_opcodes_and_gates_in_program(backend, program, &package, expression_width)
         })
         .collect::<Result<_, _>>()?;
 

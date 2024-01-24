@@ -70,11 +70,7 @@ impl TransparentNote {
         ],0)
     }
 
-    pub fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
-        self.compute_nullifier_without_context()
-    }
-
-    pub fn compute_nullifier_without_context(self) -> Field {
+    pub fn compute_nullifier(self) -> Field {
         // TODO(#1386): should use `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(TransparentNoteMethods, self);
         // TODO(#1205) Should use a non-zero generator index.
@@ -106,12 +102,8 @@ fn compute_note_hash(note: TransparentNote) -> Field {
     note.compute_note_hash()
 }
 
-fn compute_nullifier(note: TransparentNote, context: &mut PrivateContext) -> Field {
-    note.compute_nullifier(context)
-}
-
-fn compute_nullifier_without_context(note: TransparentNote) -> Field {
-    note.compute_nullifier_without_context()
+fn compute_nullifier(note: TransparentNote) -> Field {
+    note.compute_nullifier()
 }
 
 fn get_header(note: TransparentNote) -> NoteHeader {
@@ -131,7 +123,6 @@ global TransparentNoteMethods = NoteInterface {
     serialize,
     compute_note_hash,
     compute_nullifier,
-    compute_nullifier_without_context,
     get_header,
     set_header,
     broadcast,

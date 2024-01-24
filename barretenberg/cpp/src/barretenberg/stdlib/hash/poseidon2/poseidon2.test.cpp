@@ -4,9 +4,10 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
+namespace test_StdlibPoseidon2 {
 using namespace bb;
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 template <typename Builder> class StdlibPoseidon2 : public testing::Test {
@@ -127,7 +128,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
     {
         Builder builder;
 
-        std::vector<fr> inputs;
+        std::vector<bb::fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
@@ -139,7 +140,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             }
         }
 
-        fr expected = native_poseidon2::hash(inputs);
+        bb::fr expected = native_poseidon2::hash(inputs);
         auto result = poseidon2::hash(builder, witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
@@ -184,3 +185,5 @@ TYPED_TEST(StdlibPoseidon2, TestHashConstants)
 {
     TestFixture::test_hash_constants();
 };
+
+} // namespace test_StdlibPoseidon2

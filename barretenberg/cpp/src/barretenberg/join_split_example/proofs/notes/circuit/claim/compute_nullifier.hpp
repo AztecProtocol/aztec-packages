@@ -4,7 +4,11 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace bb::join_split_example::proofs::notes::circuit::claim {
+namespace join_split_example {
+namespace proofs {
+namespace notes {
+namespace circuit {
+namespace claim {
 
 inline field_ct compute_nullifier(field_ct const& note_commitment)
 {
@@ -19,4 +23,8 @@ inline field_ct compute_nullifier(field_ct const& note_commitment)
     // later spent, the value note nullifiers will not reveal that it is those notes being spent.
 }
 
-} // namespace bb::join_split_example::proofs::notes::circuit::claim
+} // namespace claim
+} // namespace circuit
+} // namespace notes
+} // namespace proofs
+} // namespace join_split_example

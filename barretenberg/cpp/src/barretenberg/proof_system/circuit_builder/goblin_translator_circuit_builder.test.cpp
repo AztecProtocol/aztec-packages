@@ -7,8 +7,10 @@
 
 using namespace bb;
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
+namespace bb {
+
 /**
  * @brief Check that a single accumulation gate is created correctly
  *
@@ -76,9 +78,9 @@ TEST(GoblinTranslatorCircuitBuilder, CircuitBuilderBaseCase)
  */
 TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
 {
-    using point = g1::affine_element;
-    using scalar = fr;
-    using Fq = fq;
+    using point = bb::g1::affine_element;
+    using scalar = bb::fr;
+    using Fq = bb::fq;
 
     auto P1 = point::random_element();
     auto P2 = point::random_element();
@@ -127,3 +129,4 @@ TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Check the computation result is in line with what we've computed
     EXPECT_EQ(result, circuit_builder.get_computation_result());
 }
+} // namespace bb

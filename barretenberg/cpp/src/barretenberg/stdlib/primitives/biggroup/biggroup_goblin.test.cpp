@@ -9,8 +9,9 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <memory>
 
+namespace test_stdlib_biggroup_goblin {
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 using namespace bb;
@@ -84,3 +85,4 @@ HEAVY_TYPED_TEST(stdlib_biggroup_goblin, batch_mul)
 {
     TestFixture::test_goblin_style_batch_mul();
 }
+} // namespace test_stdlib_biggroup_goblin

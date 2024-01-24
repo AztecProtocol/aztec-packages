@@ -2,7 +2,7 @@
 
 #include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-namespace bb::crypto {
+namespace crypto {
 /**
  * @brief Performs pedersen hashes!
  *
@@ -37,4 +37,4 @@ template <typename Curve> class pedersen_hash_base {
 };
 
 using pedersen_hash = pedersen_hash_base<curve::Grumpkin>;
-} // namespace bb::crypto
+} // namespace crypto

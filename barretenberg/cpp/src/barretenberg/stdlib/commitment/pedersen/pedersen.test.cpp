@@ -6,9 +6,10 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "pedersen.hpp"
 
+namespace test_StdlibPedersen {
 using namespace bb;
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::random::get_debug_engine();
 }
 
 template <typename Builder> class StdlibPedersen : public testing::Test {
@@ -60,7 +61,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     {
         Builder builder;
 
-        std::vector<fr> inputs;
+        std::vector<bb::fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
@@ -93,3 +94,5 @@ TYPED_TEST(StdlibPedersen, HashConstants)
 {
     TestFixture::test_hash_constants();
 };
+
+} // namespace test_StdlibPedersen
