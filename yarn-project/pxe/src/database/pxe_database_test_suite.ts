@@ -1,10 +1,10 @@
 import { INITIAL_L2_BLOCK_NUM, NoteFilter, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress } from '@aztec/circuits.js';
+import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts/Benchmarking';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
-import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { NoteDao } from './note_dao.js';
 import { randomNoteDao } from './note_dao.test.js';
 import { PxeDatabase } from './pxe_database.js';
@@ -156,7 +156,6 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
     describe('block header', () => {
       it('stores and retrieves the block header', async () => {
-
         // TODO(benesjan): make this more straightforward?
         const randomInt = () => Math.floor(Math.random() * 1000);
         const globalVariables = makeGlobalVariables(randomInt(), INITIAL_L2_BLOCK_NUM);

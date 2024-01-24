@@ -15,7 +15,7 @@ import { PxeDatabase } from './pxe_database.js';
  * A PXE database backed by LMDB.
  */
 export class KVPxeDatabase implements PxeDatabase {
-  #synchronizedBlock: AztecSingleton<Header>;
+  #synchronizedBlock: AztecSingleton<Buffer>;
   #addresses: AztecArray<Buffer>;
   #addressIndex: AztecMap<string, number>;
   #authWitnesses: AztecMap<string, Buffer[]>;
@@ -273,20 +273,20 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async setHeader(header: Header): Promise<void> {
-    await this.#synchronizedBlock.set(header);
+    await this.#synchronizedBlock.set(header.toBuffer());
   }
 
   getBlockNumber(): number | undefined {
-    return Number(this.#synchronizedBlock.get()?.globalVariables.blockNumber.toBigInt());
+    return Number(this.getHeader().globalVariables.blockNumber.toBigInt());
   }
 
   getHeader(): Header {
-    const header = this.#synchronizedBlock.get();
-    if (!header) {
+    const headerBuffer = this.#synchronizedBlock.get();
+    if (!headerBuffer) {
       throw new Error(`Header not set`);
     }
 
-    return header;
+    return Header.fromBuffer(headerBuffer);
   }
 
   addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {

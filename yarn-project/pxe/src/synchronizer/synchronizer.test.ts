@@ -1,6 +1,7 @@
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block } from '@aztec/circuit-types';
 import { CompleteAddress, EthAddress, Fr, GrumpkinScalar, Header } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store';
@@ -8,7 +9,6 @@ import { AztecLmdbStore } from '@aztec/kv-store';
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 
-import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';

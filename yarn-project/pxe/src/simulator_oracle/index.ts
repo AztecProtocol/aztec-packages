@@ -7,7 +7,7 @@ import {
   PublicDataWitness,
   StateInfoProvider,
 } from '@aztec/circuit-types';
-import { AztecAddress, Header, CompleteAddress, EthAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, EthAddress, Fr, FunctionSelector, Header } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
