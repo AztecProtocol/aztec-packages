@@ -422,26 +422,22 @@ fn transform_module(
 }
 
 fn generate_storage_field_constructor(
-    fields: &Vec<(Ident, UnresolvedType)>,
-) -> Result<Vec<(Ident, Expression)>, AztecMacroError> {
-    let mut field_constructors = vec![];
-
-    for field in fields.iter() {
-        if let UnresolvedTypeData::Named(path, args) = &field.1.typ {
-            let args = match path.segments.last().unwrap().0.contents.as_str() {
-                "PublicState" | "Set" | "Singleton" | "ImmutableSingleton" => {
-                    vec![
-                        variable("context"),
-                        expression(ExpressionKind::Literal(Literal::Integer(
-                            FieldElement::from(i128::from(0)),
-                            false,
-                        ))),
-                    ]
-                }
-                "Map" => {
-                    let mut mapped_struct_path = match args
-                        .last()
-                        .and_then(|unresolved_type| Some(unresolved_type.typ.clone()))
+    field: (Ident, UnresolvedType),
+) -> Result<(Ident, Expression), AztecMacroError> {
+    let field_constructor = if let UnresolvedTypeData::Named(path, args) = &field.1.typ {
+        let args = match path.segments.last().unwrap().0.contents.as_str() {
+            "PublicState" | "Set" | "Singleton" | "ImmutableSingleton" => {
+                vec![
+                    variable("context"),
+                    expression(ExpressionKind::Literal(Literal::Integer(
+                        FieldElement::from(i128::from(0)),
+                        false,
+                    ))),
+                ]
+            }
+            "Map" => {
+                let mut mapped_struct_path =
+                    match args.last().and_then(|unresolved_type| Some(unresolved_type.typ.clone()))
                     {
                         Some(UnresolvedTypeData::Named(path, _)) => Ok(path),
                         _ => Err(AztecMacroError::UnsupportedStorageType {
@@ -450,60 +446,66 @@ fn generate_storage_field_constructor(
                         }),
                     }?;
 
-                    mapped_struct_path.segments.push(ident("new"));
+                mapped_struct_path.segments.push(ident("new"));
 
-                    vec![
-                        variable("context"),
-                        expression(ExpressionKind::Literal(Literal::Integer(
-                            FieldElement::from(i128::from(0)),
-                            false,
-                        ))),
-                        expression(ExpressionKind::Lambda(Box::new(Lambda {
-                            parameters: vec![
-                                (
-                                    Pattern::Identifier(ident("context")),
-                                    make_type(UnresolvedTypeData::Named(
-                                        chained_path!("aztec", "context", "Context"),
-                                        vec![],
-                                    )),
-                                ),
-                                (
-                                    Pattern::Identifier(ident("slot")),
-                                    make_type(UnresolvedTypeData::FieldElement),
-                                ),
-                            ],
-                            return_type: UnresolvedType {
-                                typ: UnresolvedTypeData::Unspecified,
-                                span: Some(Span::default()),
-                            },
-                            body: call(
-                                variable_path(mapped_struct_path),
-                                vec![variable("context"), variable("slot")],
+                vec![
+                    variable("context"),
+                    expression(ExpressionKind::Literal(Literal::Integer(
+                        FieldElement::from(i128::from(0)),
+                        false,
+                    ))),
+                    expression(ExpressionKind::Lambda(Box::new(Lambda {
+                        parameters: vec![
+                            (
+                                Pattern::Identifier(ident("context")),
+                                make_type(UnresolvedTypeData::Named(
+                                    chained_path!("aztec", "context", "Context"),
+                                    vec![],
+                                )),
                             ),
-                        }))),
-                    ]
-                }
-                _ => {
-                    return Err(AztecMacroError::UnsupportedStorageType {
-                        typ: field.1.typ.clone(),
-                        span: field.1.span,
-                    })
-                }
-            };
-            let mut new_path = path.clone();
-            new_path.segments.push(ident("new"));
-            let expression = call(variable_path(new_path), args);
-            field_constructors.push((field.0.clone(), expression));
-        }
-    }
-    Ok(field_constructors)
+                            (
+                                Pattern::Identifier(ident("slot")),
+                                make_type(UnresolvedTypeData::FieldElement),
+                            ),
+                        ],
+                        return_type: UnresolvedType {
+                            typ: UnresolvedTypeData::Unspecified,
+                            span: Some(Span::default()),
+                        },
+                        body: call(
+                            variable_path(mapped_struct_path),
+                            vec![variable("context"), variable("slot")],
+                        ),
+                    }))),
+                ]
+            }
+            _ => {
+                return Err(AztecMacroError::UnsupportedStorageType {
+                    typ: field.1.typ.clone(),
+                    span: field.1.span,
+                })
+            }
+        };
+        let mut new_path = path.clone();
+        new_path.segments.push(ident("new"));
+        let expression = call(variable_path(new_path), args);
+        (field.0.clone(), expression)
+    } else {
+        return Err(AztecMacroError::UnsupportedStorageType {
+            typ: field.1.typ.clone(),
+            span: field.1.span,
+        });
+    };
+
+    Ok(field_constructor)
 }
 
 fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), AztecMacroError> {
     let definition =
         module.types.iter().find(|r#struct| r#struct.name.0.contents == "Storage").unwrap();
 
-    let field_constructors = generate_storage_field_constructor(&definition.fields)?;
+    let field_constructors =
+        definition.fields.iter().map(|field| generate_storage_field_constructor(*field)?).collect();
 
     let storage_constructor_statement = make_statement(StatementKind::Expression(expression(
         ExpressionKind::constructor((chained_path!("Storage"), field_constructors)),
