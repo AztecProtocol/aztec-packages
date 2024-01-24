@@ -30,14 +30,6 @@ contract EcdsaAccount {
         public_key: ImmutableSingleton<EcdsaPublicKeyNote>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                public_key: ImmutableSingleton::new(context, 1),
-            }
-        }
-    }
-
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
 
     // Creates a new account out of an ECDSA public key to use for signature verification

@@ -44,30 +44,6 @@ contract DocsExample {
         // docs:end:storage-map-singleton-declaration
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                leader: PublicState::new(
-                    context,
-                    1
-                ),
-                // docs:start:start_vars_singleton
-                legendary_card: Singleton::new(context, 2),
-                // docs:end:start_vars_singleton
-                // just used for docs example (not for game play):
-                // docs:start:state_vars-MapSingleton
-                profiles: Map::new(
-                    context,
-                    3,
-                    |context, slot| {
-                        Singleton::new(context, slot)
-                    },
-                ),
-                // docs:end:state_vars-MapSingleton
-            }
-        }
-    }
-
     #[aztec(private)]
     fn constructor() {}
 

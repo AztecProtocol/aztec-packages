@@ -45,14 +45,6 @@ contract Test {
         example_constant: ImmutableSingleton<FieldNote>,
     }
 
-    // impl Storage {
-    //     fn init(context: Context) -> Self {
-    //         Storage {
-    //             example_constant: ImmutableSingleton::new(context, 1),
-    //         }
-    //     }
-    // }
-
     #[aztec(private)]
     // docs:start:empty-constructor
     fn constructor() {}

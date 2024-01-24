@@ -27,14 +27,6 @@ contract Escrow {
         owners: Set<AddressNote>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                owners: Set::new(context, 1),
-            }
-        }
-    }
-
     // Creates a new instance
     // docs:start:constructor
     #[aztec(private)]

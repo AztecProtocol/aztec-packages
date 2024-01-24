@@ -28,16 +28,6 @@ contract SchnorrAccount {
         // docs:end:storage
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                // docs:start:storage_init
-                signing_public_key: ImmutableSingleton::new(context, 1),
-                // docs:end:storage_init
-            }
-        }
-    }
-
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
 
     // Constructs the contract

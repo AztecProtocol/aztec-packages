@@ -51,24 +51,6 @@ contract InclusionProofs {
         public_value: PublicState<Field>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                private_values: Map::new(
-                    context,
-                    1, // Storage slot
-                    |context, slot| {
-                        Set::new(context, slot)
-                    },
-                ),
-                public_value: PublicState::new(
-                    context,
-                    2, // Storage slot
-                ),
-            }
-        }
-    }
-
     #[aztec(private)]
     fn constructor(public_value: Field) {
         let selector = FunctionSelector::from_signature("_initialize(Field)");

@@ -1,5 +1,6 @@
-use iter_extended::vecmap;
+use std::borrow::{Borrow, BorrowMut};
 
+use iter_extended::vecmap;
 use noirc_frontend::macros_api::FieldElement;
 use noirc_frontend::macros_api::{
     BlockExpression, CallExpression, CastExpression, Distinctness, Expression, ExpressionKind,
@@ -13,7 +14,8 @@ use noirc_frontend::macros_api::{
 use noirc_frontend::macros_api::{CrateId, FileId};
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
 use noirc_frontend::macros_api::{ModuleDefId, NodeInterner, SortedModule, StructId};
-use noirc_frontend::ConstructorExpression;
+use noirc_frontend::node_interner::{TraitId, TraitImplKind};
+use noirc_frontend::Lambda;
 
 pub struct AztecMacro;
 
@@ -42,6 +44,8 @@ pub enum AztecMacroError {
     AztecContractHasTooManyFunctions { span: Span },
     AztecContractConstructorMissing { span: Span },
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
+    UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
+    CouldNotAssignStorageSlots { secondary_message: Option<String> },
 }
 
 impl From<AztecMacroError> for MacroError {
@@ -71,6 +75,16 @@ impl From<AztecMacroError> for MacroError {
                 primary_message: format!("Provided parameter type `{typ:?}` is not supported in Aztec contract interface"),
                 secondary_message: None,
                 span: Some(span),
+            },
+            AztecMacroError::UnsupportedStorageType { span, typ } => MacroError {
+                primary_message: format!("Provided storage type `{typ:?}` is not directly supported in Aztec. Please provide a custom storage implementation"),
+                secondary_message: None,
+                span,
+            },
+            AztecMacroError::CouldNotAssignStorageSlots { secondary_message } => MacroError {
+                primary_message: format!("Could not assign storage slots, please provide a custom storage implementation"),
+                secondary_message,
+                span: None,
             },
         }
     }
@@ -238,6 +252,7 @@ fn transform(
 /// Completes the Hir with data gathered from type resolution
 fn transform_hir(crate_id: &CrateId, context: &mut HirContext) {
     transform_events(crate_id, context);
+    assign_storage_slots(crate_id, context).unwrap();
 }
 
 /// Includes an import to the aztec library if it has not been included yet
@@ -277,10 +292,7 @@ fn check_for_storage_definition(module: &SortedModule) -> bool {
 // Check to see if the user has defined a storage struct
 fn check_for_storage_implementation(module: &SortedModule) -> bool {
     module.impls.iter().any(|r#impl| match r#impl.object_type.typ.clone() {
-        UnresolvedTypeData::Named(path, _) => {
-            println!("{}", r#impl.methods[0].def.body);
-            path.segments.last().unwrap().0.contents == "Storage"
-        }
+        UnresolvedTypeData::Named(path, _) => path.segments.last().unwrap().0.contents == "Storage",
         _ => false,
     })
 }
@@ -340,15 +352,17 @@ fn transform_module(
 
     // Check for a user defined storage struct
     let storage_defined = check_for_storage_definition(module);
-
     let storage_implemented = check_for_storage_implementation(module);
 
+    let crate_graph = &context.crate_graph[crate_id];
+
     if storage_defined && !storage_implemented {
-        generate_storage_implementation(module);
+        if let Err(err) = generate_storage_implementation(module) {
+            return Err((err.into(), crate_graph.root_file_id));
+        }
     }
 
     if storage_defined && !check_for_compute_note_hash_and_nullifier_definition(module) {
-        let crate_graph = &context.crate_graph[crate_id];
         return Err((
             AztecMacroError::AztecComputeNoteHashAndNullifierNotFound { span: Span::default() }
                 .into(),
@@ -407,34 +421,93 @@ fn transform_module(
     Ok(has_transformed_module)
 }
 
-fn generate_storage_implementation(module: &mut SortedModule) {
+fn generate_storage_field_constructor(
+    fields: &Vec<(Ident, UnresolvedType)>,
+) -> Result<Vec<(Ident, Expression)>, AztecMacroError> {
+    let mut field_constructors = vec![];
+
+    for field in fields.iter() {
+        if let UnresolvedTypeData::Named(path, args) = &field.1.typ {
+            let args = match path.segments.last().unwrap().0.contents.as_str() {
+                "PublicState" | "Set" | "Singleton" | "ImmutableSingleton" => {
+                    vec![
+                        variable("context"),
+                        expression(ExpressionKind::Literal(Literal::Integer(
+                            FieldElement::from(i128::from(0)),
+                            false,
+                        ))),
+                    ]
+                }
+                "Map" => {
+                    let mut mapped_struct_path = match args
+                        .last()
+                        .and_then(|unresolved_type| Some(unresolved_type.typ.clone()))
+                    {
+                        Some(UnresolvedTypeData::Named(path, _)) => Ok(path),
+                        _ => Err(AztecMacroError::UnsupportedStorageType {
+                            typ: field.1.typ.clone(),
+                            span: field.1.span,
+                        }),
+                    }?;
+
+                    mapped_struct_path.segments.push(ident("new"));
+
+                    vec![
+                        variable("context"),
+                        expression(ExpressionKind::Literal(Literal::Integer(
+                            FieldElement::from(i128::from(0)),
+                            false,
+                        ))),
+                        expression(ExpressionKind::Lambda(Box::new(Lambda {
+                            parameters: vec![
+                                (
+                                    Pattern::Identifier(ident("context")),
+                                    make_type(UnresolvedTypeData::Named(
+                                        chained_path!("aztec", "context", "Context"),
+                                        vec![],
+                                    )),
+                                ),
+                                (
+                                    Pattern::Identifier(ident("slot")),
+                                    make_type(UnresolvedTypeData::FieldElement),
+                                ),
+                            ],
+                            return_type: UnresolvedType {
+                                typ: UnresolvedTypeData::Unspecified,
+                                span: Some(Span::default()),
+                            },
+                            body: call(
+                                variable_path(mapped_struct_path),
+                                vec![variable("context"), variable("slot")],
+                            ),
+                        }))),
+                    ]
+                }
+                _ => {
+                    return Err(AztecMacroError::UnsupportedStorageType {
+                        typ: field.1.typ.clone(),
+                        span: field.1.span,
+                    })
+                }
+            };
+            let mut new_path = path.clone();
+            new_path.segments.push(ident("new"));
+            let expression = call(variable_path(new_path), args);
+            field_constructors.push((field.0.clone(), expression));
+        }
+    }
+    Ok(field_constructors)
+}
+
+fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), AztecMacroError> {
     let definition =
         module.types.iter().find(|r#struct| r#struct.name.0.contents == "Storage").unwrap();
 
-    println!("Storage definition: {:?}", definition);
+    let field_constructors = generate_storage_field_constructor(&definition.fields)?;
 
-    let storage_constructor_statement =
-        make_statement(StatementKind::Expression(expression(ExpressionKind::constructor((
-            chained_path!("Storage"),
-            definition
-                .fields
-                .iter()
-                .map(|f| {
-                    if let UnresolvedTypeData::Named(path, _args) = &f.1.typ {
-                        let mut new_path = path.clone();
-                        new_path.segments.push(ident("new"));
-                        let expression = call(
-                            variable_path(new_path),
-                            vec![], // args
-                        );
-                        Some((f.0.clone(), expression))
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
-                .collect(),
-        )))));
+    let storage_constructor_statement = make_statement(StatementKind::Expression(expression(
+        ExpressionKind::constructor((chained_path!("Storage"), field_constructors)),
+    )));
 
     let init = NoirFunction::normal(FunctionDefinition::normal(
         &ident("init"),
@@ -467,6 +540,8 @@ fn generate_storage_implementation(module: &mut SortedModule) {
         methods: vec![init],
     };
     module.impls.push(storage_impl);
+
+    Ok(())
 }
 
 /// If it does, it will insert the following things:
@@ -550,6 +625,23 @@ fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<Struct
         .collect()
 }
 
+fn collect_traits(context: &HirContext) -> Vec<TraitId> {
+    let crates = context.crates();
+    crates
+        .flat_map(|crate_id| context.def_map(&crate_id).and_then(|def_map| Some(def_map.modules())))
+        .flatten()
+        .flat_map(|(_, module)| {
+            module.type_definitions().filter_map(|typ| {
+                if let ModuleDefId::TraitId(struct_id) = typ {
+                    Some(struct_id)
+                } else {
+                    None
+                }
+            })
+        })
+        .collect()
+}
+
 /// Substitutes the signature literal that was introduced in the selector method previously with the actual signature.
 fn transform_event(struct_id: StructId, interner: &mut NodeInterner) {
     let struct_type = interner.get_struct(struct_id);
@@ -609,6 +701,150 @@ fn transform_events(crate_id: &CrateId, context: &mut HirContext) {
             transform_event(struct_id, &mut context.def_interner);
         }
     }
+}
+
+fn get_serialized_length(
+    serialize_traits: &Vec<TraitId>,
+    typ: &Type,
+    interner: &NodeInterner,
+) -> Result<u64, AztecMacroError> {
+    let stored_in_state = match typ {
+        Type::Struct(_, generics) => Ok(generics[0].clone()),
+        _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
+            secondary_message: Some("State storage variable must be a struct".to_string()),
+        }),
+    }?;
+    let trait_impl_kind = serialize_traits
+        .iter()
+        .filter_map(|&s_trait_id| {
+            interner
+                .lookup_all_trait_implementations(stored_in_state.clone(), s_trait_id)
+                .into_iter()
+                .nth(0)
+        })
+        .nth(0)
+        .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
+            secondary_message: Some("Stored data must implement Serialize trait".to_string()),
+        })?;
+
+    let trait_impl_id = match trait_impl_kind {
+        TraitImplKind::Normal(trait_impl_id) => Ok(trait_impl_id),
+        _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
+    }?;
+
+    let trait_impl_shared = interner.get_trait_implementation(trait_impl_id);
+    let trait_impl = trait_impl_shared.borrow();
+
+    match trait_impl.trait_generics.get(0).unwrap() {
+        Type::Constant(value) => Ok(value.clone()),
+        _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
+    }
+}
+
+fn assign_storage_slots(
+    crate_id: &CrateId,
+    context: &mut HirContext,
+) -> Result<(), AztecMacroError> {
+    let serialize_traits: Vec<_> = collect_traits(context)
+        .iter()
+        .filter(|trait_id| {
+            let r#trait = context.def_interner.get_trait(**trait_id);
+            r#trait.borrow().name.0.contents == "Serialize" && r#trait.borrow().generics.len() == 1
+        })
+        .cloned()
+        .collect();
+    for struct_id in collect_crate_structs(crate_id, context) {
+        let interner: &mut NodeInterner = context.def_interner.borrow_mut();
+        let r#struct = interner.get_struct(struct_id);
+        if r#struct.borrow().name.0.contents == "Storage" && r#struct.borrow().id.krate().is_root()
+        {
+            let init_id = interner
+                .lookup_method(
+                    &Type::Struct(interner.get_struct(struct_id), vec![]),
+                    struct_id,
+                    "init",
+                    false,
+                )
+                .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
+                    secondary_message: Some(
+                        "Storage struct must have an init function".to_string(),
+                    ),
+                })?;
+            let init_function = interner.function(&init_id).block(interner);
+            let init_function_statement_id = init_function.statements().first().ok_or(
+                AztecMacroError::CouldNotAssignStorageSlots {
+                    secondary_message: Some("Init storage statement not found".to_string()),
+                },
+            )?;
+            let storage_constructor_statement = interner.statement(init_function_statement_id);
+
+            let storage_constructor_expression = match storage_constructor_statement {
+                HirStatement::Expression(expression_id) => {
+                    match interner.expression(&expression_id) {
+                        HirExpression::Constructor(hir_constructor_expression) => {
+                            Ok(hir_constructor_expression)
+                        }
+                        _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
+                            secondary_message: Some(
+                                "Storage constructor statement must be a constructor expression"
+                                    .to_string(),
+                            ),
+                        }),
+                    }
+                }
+                _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
+                    secondary_message: Some(
+                        "Storage constructor statement must be an expression".to_string(),
+                    ),
+                }),
+            }?;
+
+            let mut storage_slot: u64 = 1;
+            for (index, (_, expr_id)) in storage_constructor_expression.fields.iter().enumerate() {
+                let fields = r#struct.borrow().get_fields(&[]);
+                let (_, field_type) = fields.get(index).unwrap();
+                let new_call_expression = match interner.expression(expr_id) {
+                    HirExpression::Call(hir_call_expression) => Ok(hir_call_expression),
+                    _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
+                        secondary_message: Some(
+                            "Storage field initialization expression is not a call expression"
+                                .to_string(),
+                        ),
+                    }),
+                }?;
+
+                let slot_arg_expression = interner.expression(&new_call_expression.arguments[1]);
+
+                let current_storage_slot = match slot_arg_expression {
+                    HirExpression::Literal(HirLiteral::Integer(slot, _)) => {
+                        Ok(slot.borrow().to_u128())
+                    }
+                    _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
+                        secondary_message: Some(
+                            "Storage slot argument expression must be a literal integer"
+                                .to_string(),
+                        ),
+                    }),
+                }?;
+
+                if current_storage_slot != 0 {
+                    continue;
+                }
+
+                let type_serialized_len =
+                    get_serialized_length(&serialize_traits, field_type, interner)?;
+                interner.update_expression(new_call_expression.arguments[1], |expr| {
+                    *expr = HirExpression::Literal(HirLiteral::Integer(
+                        FieldElement::from(u128::from(storage_slot)),
+                        false,
+                    ));
+                });
+
+                storage_slot += type_serialized_len;
+            }
+        }
+    }
+    Ok(())
 }
 
 const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
