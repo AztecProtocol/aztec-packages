@@ -7,7 +7,6 @@ The Aztec Protocol uses an append-only Merkle tree to store the headers of all p
 # History library
 
 The history library allows you to prove any of the following at a given block height before the current height:
-s
 * [Note inclusion](#note-inclusion)
 * [Nullifier inclusion](#nullifier-inclusion)
 * [Note validity](#note-validity)
@@ -81,7 +80,7 @@ You can easily nullify a note like so:
 
 This function gets a note from the PXE like we did in [step 3](#3-get-the-note-from-the-pxe) and nullifies it with `remove()`.
 
-You can then compute this nullifier with `note.compute_nullifier()`.
+You can then compute this nullifier with `note.compute_nullifier(&mut context)`.
 
 ## 6. Prove that a nullifier was included in a specified block
 
