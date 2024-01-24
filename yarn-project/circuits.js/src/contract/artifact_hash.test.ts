@@ -1,3 +1,5 @@
+// Cannot list noir-contracts as a devDependency since it'll trigger a circular dependency in tsconfigs
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts/Benchmarking';
 
 import { getArtifactHash } from './artifact_hash.js';
