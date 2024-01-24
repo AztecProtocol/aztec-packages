@@ -16,7 +16,7 @@ export class IndexedTreeSnapshotBuilder
   leaves: AztecMap<string, Buffer>;
   constructor(store: AztecKVStore, tree: IndexedTree & TreeBase, private leafPreimageBuilder: PreimageFactory) {
     super(store, tree);
-    this.leaves = store.createMap('indexed_tree_snapshot:' + tree.getName());
+    this.leaves = store.openMap('indexed_tree_snapshot:' + tree.getName());
   }
 
   protected openSnapshot(root: Buffer, numLeaves: bigint): IndexedTreeSnapshot {

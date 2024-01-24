@@ -45,9 +45,9 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
   nodeHistory: AztecMap<string, number>;
 
   constructor(private db: AztecKVStore, private tree: TreeBase & AppendOnlyTree, private hasher: Hasher) {
-    this.nodes = db.createMap('append_only_snapshot:' + tree.getName());
-    this.nodeHistory = db.createMap(`append_ony_snapshot:${tree.getName()}:block`);
-    this.metadata = db.createMap(`append_only_snapshot:${tree.getName()}:leaf`);
+    this.nodes = db.openMap('append_only_snapshot:' + tree.getName());
+    this.nodeHistory = db.openMap(`append_ony_snapshot:${tree.getName()}:block`);
+    this.metadata = db.openMap(`append_only_snapshot:${tree.getName()}:leaf`);
   }
 
   getSnapshot(block: number): Promise<TreeSnapshot> {

@@ -35,7 +35,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),
   ) {
-    this.blockNumber = store.createSingleton('world_state_synch_last_block_number');
+    this.blockNumber = store.openSingleton('world_state_synch_last_block_number');
     this.l2BlockDownloader = new L2BlockDownloader(
       l2BlockSource,
       config.l2QueueSize,

@@ -103,7 +103,7 @@ export class AztecNodeService implements AztecNode {
     }
 
     const log = createDebugLogger('aztec:node');
-    const store = await AztecLmdbStore.create(config.l1Contracts.rollupAddress, config.dataDirectory);
+    const store = await AztecLmdbStore.open(config.l1Contracts.rollupAddress, config.dataDirectory);
 
     // first create and sync the archiver
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);

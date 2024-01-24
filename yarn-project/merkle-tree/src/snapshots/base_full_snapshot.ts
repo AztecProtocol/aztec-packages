@@ -37,8 +37,8 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
   metadata: AztecMap<number, SnapshotMetadata>;
 
   constructor(protected db: AztecKVStore, protected tree: T) {
-    this.nodes = db.createMap('full_snapshot:' + tree.getName());
-    this.metadata = db.createMap(`full_snapshot:${tree.getName()}:leaf`);
+    this.nodes = db.openMap('full_snapshot:' + tree.getName());
+    this.metadata = db.openMap(`full_snapshot:${tree.getName()}:leaf`);
   }
 
   snapshot(block: number): Promise<S> {

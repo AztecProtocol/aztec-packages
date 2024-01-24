@@ -72,8 +72,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     root?: Buffer,
   ) {
     super(store, hasher, name, depth, size, root);
-    this.leafs = store.createMap(`tree_${name}_leafs`);
-    this.leafIndex = store.createMap(`tree_${name}_leaf_index`);
+    this.leafs = store.openMap(`tree_${name}_leafs`);
+    this.leafIndex = store.openMap(`tree_${name}_leaf_index`);
   }
 
   /**

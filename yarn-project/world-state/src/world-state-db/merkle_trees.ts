@@ -88,7 +88,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
   constructor(private store: AztecKVStore, private log = createDebugLogger('aztec:merkle_trees')) {
     this.latestGlobalVariablesHash = new Committable(Fr.ZERO);
-    this.#globalVariablesHash = store.createSingleton(LAST_GLOBAL_VARS_HASH);
+    this.#globalVariablesHash = store.openSingleton(LAST_GLOBAL_VARS_HASH);
   }
 
   /**
@@ -168,7 +168,7 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public static async new(store: AztecKVStore) {
     const merkleTrees = new MerkleTrees(store);
-    const globalVariablesHash = store.createSingleton<Buffer>(LAST_GLOBAL_VARS_HASH);
+    const globalVariablesHash = store.openSingleton<Buffer>(LAST_GLOBAL_VARS_HASH);
     const val = globalVariablesHash.get();
     await merkleTrees.init(val ? { globalVariablesHash: Fr.fromBuffer(val) } : undefined);
     return merkleTrees;
