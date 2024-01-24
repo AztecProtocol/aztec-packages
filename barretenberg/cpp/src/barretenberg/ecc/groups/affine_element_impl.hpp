@@ -221,9 +221,8 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  * @return constexpr affine_element<Fq, Fr, T>
  */
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
-                                                                             uint8_t attempt_count) noexcept
-    requires SupportsHashToCurve<T>
+constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(
+    const std::vector<uint8_t>& seed, uint8_t attempt_count) noexcept requires SupportsHashToCurve<T>
 
 {
     std::vector<uint8_t> target_seed(seed);
@@ -263,10 +262,10 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(con
 }
 
 template <typename Fq, typename Fr, typename T>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::random::Engine* engine) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::RNG* engine) noexcept
 {
     if (engine == nullptr) {
-        engine = &numeric::random::get_engine();
+        engine = &numeric::get_randomness();
     }
 
     Fq x;

@@ -19,7 +19,7 @@ inline size_t get_num_cpus()
 // For algorithms that need to be divided amongst power of 2 threads.
 inline size_t get_num_cpus_pow2()
 {
-    return static_cast<size_t>(1ULL << numeric::get_msb(get_num_cpus()));
+    return static_cast<size_t>(1ULL << bb::numeric::get_msb(get_num_cpus()));
 }
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func);
@@ -28,10 +28,19 @@ void run_loop_in_parallel(size_t num_points,
                           size_t no_multhreading_if_less_or_equal = 0);
 
 template <typename FunctionType>
-    requires(std::is_same_v<FunctionType, std::function<void(size_t, size_t)>> ||
-             std::is_same_v<FunctionType, std::function<void(size_t, size_t, size_t)>>)
-void run_loop_in_parallel_if_effective_internal(
-    size_t, const FunctionType&, size_t, size_t, size_t, size_t, size_t, size_t, size_t);
+requires(
+    std::is_same_v<FunctionType, std::function<void(size_t, size_t)>> ||
+    std::is_same_v<FunctionType,
+                   std::function<void(
+                       size_t, size_t, size_t)>>) void run_loop_in_parallel_if_effective_internal(size_t,
+                                                                                                  const FunctionType&,
+                                                                                                  size_t,
+                                                                                                  size_t,
+                                                                                                  size_t,
+                                                                                                  size_t,
+                                                                                                  size_t,
+                                                                                                  size_t,
+                                                                                                  size_t);
 /**
  * @brief Runs loop in parallel if parallelization if useful (costs less than the algorith)
  *

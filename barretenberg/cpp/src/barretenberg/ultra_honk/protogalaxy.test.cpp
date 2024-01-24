@@ -2,7 +2,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
-
+using namespace bb;
 using namespace bb::honk;
 
 using Flavor = flavor::Ultra;
@@ -14,22 +14,18 @@ using FF = Flavor::FF;
 using Affine = Flavor::Commitment;
 using Projective = Flavor::GroupElement;
 using Builder = Flavor::CircuitBuilder;
-using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
-using RelationParameters = bb::RelationParameters<FF>;
 using WitnessCommitments = typename Flavor::WitnessCommitments;
 using CommitmentKey = Flavor::CommitmentKey;
-using PowPolynomial = bb::PowPolynomial<FF>;
 
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-namespace bb::protogalaxy_tests {
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
 // amongst test files in the proof system
-bb::Polynomial<FF> get_random_polynomial(size_t size)
+Polynomial<FF> get_random_polynomial(size_t size)
 {
     auto poly = bb::Polynomial<FF>(size);
     for (auto& coeff : poly) {
@@ -51,7 +47,7 @@ std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Inst
                                           UltraComposer& composer,
                                           bool expected_result)
 {
-    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
+    auto folding_prover = composer.create_folding_prover(instances);
     auto folding_verifier = composer.create_folding_verifier();
 
     auto proof = folding_prover.fold_instances();
@@ -80,7 +76,7 @@ void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator,
 }
 void decide_and_verify(std::shared_ptr<Instance>& accumulator, UltraComposer& composer, bool expected_result)
 {
-    auto decider_prover = composer.create_decider_prover(accumulator, composer.commitment_key);
+    auto decider_prover = composer.create_decider_prover(accumulator);
     auto decider_verifier = composer.create_decider_verifier(accumulator);
     auto decision = decider_prover.construct_proof();
     auto verified = decider_verifier.verify_proof(decision);
@@ -144,12 +140,12 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
 
-    std::array<bb::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+    std::array<Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
         poly = get_random_polynomial(instance_size);
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-    auto relation_parameters = bb::RelationParameters<FF>::get_random();
+    auto relation_parameters = RelationParameters<FF>::get_random();
     RelationSeparator alphas;
     for (auto& alpha : alphas) {
         alpha = FF::random_element();
@@ -163,7 +159,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
 
     // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = PowPolynomial(betas);
+    auto pow_beta = bb::PowPolynomial(betas);
     pow_beta.compute_values();
 
     // Compute the corresponding target sum and create a dummy accumulator
@@ -189,12 +185,12 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
 {
     auto compressed_perturbator = FF(2); // F(\alpha) in the paper
-    auto combiner = bb::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
+    auto combiner = Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
     auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
     // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
     // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
-    auto expected_evals = bb::Univariate<FF, 13, 2>(std::array<FF, 11>{
+    auto expected_evals = Univariate<FF, 13, 2>(std::array<FF, 11>{
         (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
         (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
         (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
@@ -347,5 +343,3 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
 
     decide_and_verify(second_accumulator, composer, false);
 }
-
-} // namespace bb::protogalaxy_tests
