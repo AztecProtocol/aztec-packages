@@ -36,7 +36,7 @@ impl<Note, N> Singleton<Note, N> {
         note_interface: NoteInterface<Note, N>,
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Singleton {
+        Self {
             context: context.private,
             storage_slot,
             note_interface,
@@ -44,6 +44,10 @@ impl<Note, N> Singleton<Note, N> {
     }
     // docs:end:new
 
+    // The following computation is leaky - the storage slot can easily be "guessed" by an adversary 
+    // by looking at the nullifier in the transaction data. 
+    // This is especially dangerous for `maps` because the storage slot is often also identifies the
+    // actor that is executing the transaction. e.g, `map.at(msg.sender)` will leak `msg.sender`.
     pub fn compute_initialization_nullifier(self) -> Field {
         pedersen_hash([self.storage_slot], GENERATOR_INDEX__INITIALIZATION_NULLIFIER)
     }
