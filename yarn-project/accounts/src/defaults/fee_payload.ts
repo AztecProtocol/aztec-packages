@@ -1,5 +1,5 @@
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
-import { AztecAddress, FeeVariables, Fr, FunctionData, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
+import { AztecAddress, FeeVariables, Fr, FunctionData, GeneratorIndex } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
@@ -43,12 +43,7 @@ export function buildFeePayload(sender: AztecAddress, fee: FeeVariables) {
   if (!fee.isEmpty()) {
     calls.push({
       to: fee.feeAssetAddress,
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-        false,
-        false,
-      ),
+      functionData: new FunctionData(fee.feePreparationSelector, false, false, false),
       args: [sender, fee.feePreparationAddress, fee.feeLimit, Fr.ZERO],
     });
   }

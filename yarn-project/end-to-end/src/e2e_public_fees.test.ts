@@ -40,6 +40,7 @@ describe('e2e_public_fees', () => {
   // let recipient: AccountWallet;
   let recipientAddress: CompleteAddress;
   // let _sequencer: AccountWallet;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let sequencerAddress: CompleteAddress;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
@@ -106,14 +107,14 @@ describe('e2e_public_fees', () => {
       });
     });
 
-    it('rejects transactions if fee payment information is not set', async () => {
+    it.skip('rejects transactions if fee payment information is not set', async () => {
       // the recipient's account does not have fee payment information set up
       await expect(
         asset.methods.transfer_public(senderAddress, recipientAddress, 100n, Fr.ZERO).send().wait(),
       ).rejects.toThrow(/Transaction .* was dropped/);
     });
 
-    it.only('executes the transaction and pays the appropriate fee', async () => {
+    it('executes the transaction and pays the appropriate fee', async () => {
       const transferAmount = 100n;
       const feeAmount = 1n;
       const tx = await asset.methods
@@ -123,7 +124,7 @@ describe('e2e_public_fees', () => {
             new Fr(feeAmount),
             asset.address,
             feePaymentContract.address,
-            FunctionSelector.empty(),
+            FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
             feePaymentContract.address,
             FunctionSelector.empty(),
           ),

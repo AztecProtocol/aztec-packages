@@ -18,11 +18,11 @@ export class FeeVariables {
      */
     public feeAssetAddress: AztecAddress,
     /**
-     * Address which contains the fee payment function.
+     * Address which will hold the fee payment.
      */
     public feePreparationAddress: AztecAddress,
     /**
-     * The fee payment function selector.
+     * The fee payment function selector on the asset contract.
      */
     public feePreparationSelector: FunctionSelector,
     /**
@@ -30,7 +30,7 @@ export class FeeVariables {
      */
     public feeDistributionAddress: AztecAddress,
     /**
-     * The fee distribution function selector.
+     * Selector of the fee distribution function on the fee distribution contract.
      */
     public feeDistributionSelector: FunctionSelector,
   ) {}
