@@ -2,7 +2,6 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
-/** -*/
 export class Add extends Instruction {
   static type: string = 'ADD';
   static numberOfOperands = 3;
@@ -22,7 +21,6 @@ export class Add extends Instruction {
   }
 }
 
-/** -*/
 export class Sub extends Instruction {
   static type: string = 'SUB';
   static numberOfOperands = 3;
@@ -42,7 +40,6 @@ export class Sub extends Instruction {
   }
 }
 
-/** -*/
 export class Mul extends Instruction {
   static type: string = 'MUL';
   static numberOfOperands = 3;

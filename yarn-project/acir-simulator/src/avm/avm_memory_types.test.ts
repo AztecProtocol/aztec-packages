@@ -1,5 +1,6 @@
-import { FieldValue, Uint8, Uint32 } from './avm_memory_types.js';
+import { Field, Uint8 } from './avm_memory_types.js';
 
+// TODO: complete
 describe('Uint8', () => {
   it('Unsigned 8 max value', () => {
     expect(new Uint8(255).toBigInt()).toEqual(255n);
@@ -14,16 +15,8 @@ describe('Uint8', () => {
   });
 });
 
-describe('Uint32', () => {
-  it('ands', () => {
-    expect(new Uint32(0b11111110010011100100n).and(new Uint32(0b11100100111001001111n))).toEqual(
-      new Uint32(0b11100100010001000100n),
-    );
-  });
-});
-
-describe('FieldValue', () => {
-  it('xxx', () => {
-    expect(new FieldValue(27).add(new FieldValue(48))).toEqual(new FieldValue(75));
+describe('Field', () => {
+  it('Add correctly without wrapping', () => {
+    expect(new Field(27).add(new Field(48))).toEqual(new Field(75));
   });
 });

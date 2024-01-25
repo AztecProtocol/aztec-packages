@@ -22,9 +22,16 @@ export abstract class Instruction {
   static checkTags(machineState: AvmMachineState, tag: TypeTag, ...offsets: number[]) {
     for (const off of offsets) {
       if (machineState.memory.getTag(off) !== tag) {
-        const error = `Offset ${off} has tag ${machineState.memory.getTag(off)}, expected ${tag}`;
-        throw new Error(error);
+        const error = `Offset ${off} has tag ${TypeTag[machineState.memory.getTag(off)]}, expected ${TypeTag[tag]}`;
+        throw new InstructionExecutionError(error);
       }
     }
+  }
+}
+
+export class InstructionExecutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InstructionExecutionError';
   }
 }

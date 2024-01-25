@@ -1,9 +1,8 @@
 import { AvmMachineState } from '../avm_machine_state.js';
-import { FieldValue, TaggedMemory, TypeTag } from '../avm_memory_types.js';
+import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
-/** - */
 export class Set extends Instruction {
   static type: string = 'SET';
   static numberOfOperands = 2;
@@ -34,9 +33,7 @@ export class Cast extends Instruction {
 
     // TODO: consider not using toBigInt()
     const casted =
-      this.dstTag == TypeTag.FIELD
-        ? new FieldValue(a.toBigInt())
-        : TaggedMemory.integralFromTag(a.toBigInt(), this.dstTag);
+      this.dstTag == TypeTag.FIELD ? new Field(a.toBigInt()) : TaggedMemory.integralFromTag(a.toBigInt(), this.dstTag);
 
     // TODO cast
     machineState.memory.set(this.dstOffset, casted);
@@ -45,7 +42,6 @@ export class Cast extends Instruction {
   }
 }
 
-/** - */
 export class Mov extends Instruction {
   static type: string = 'MOV';
   static numberOfOperands = 2;
@@ -63,7 +59,6 @@ export class Mov extends Instruction {
   }
 }
 
-/** - */
 export class CMov extends Instruction {
   static type: string = 'CMOV';
   static numberOfOperands = 4;
@@ -84,7 +79,6 @@ export class CMov extends Instruction {
   }
 }
 
-/** - */
 export class CalldataCopy extends Instruction {
   static type: string = 'CALLDATACOPY';
   static numberOfOperands = 3;
@@ -96,7 +90,7 @@ export class CalldataCopy extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const transformedData = machineState.calldata
       .slice(this.cdOffset, this.cdOffset + this.copySize)
-      .map(f => new FieldValue(f));
+      .map(f => new Field(f));
     machineState.memory.setSlice(this.dstOffset, transformedData);
 
     this.incrementPc(machineState);

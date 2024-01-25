@@ -1,9 +1,8 @@
 import { AvmMachineState } from '../avm_machine_state.js';
-import { IntegralValueType, TypeTag } from '../avm_memory_types.js';
+import { IntegralValue, TypeTag } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
-/** - */
 export class And extends Instruction {
   static type: string = 'AND';
   static numberOfOperands = 3;
@@ -15,8 +14,8 @@ export class And extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const a = machineState.memory.getAs<IntegralValueType>(this.aOffset);
-    const b = machineState.memory.getAs<IntegralValueType>(this.bOffset);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
 
     const res = a.and(b);
     machineState.memory.set(this.destOffset, res);
@@ -25,7 +24,6 @@ export class And extends Instruction {
   }
 }
 
-/** - */
 export class Or extends Instruction {
   static type: string = 'OR';
   static numberOfOperands = 3;
@@ -37,8 +35,8 @@ export class Or extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const a = machineState.memory.getAs<IntegralValueType>(this.aOffset);
-    const b = machineState.memory.getAs<IntegralValueType>(this.bOffset);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
 
     const res = a.or(b);
     machineState.memory.set(this.destOffset, res);
@@ -47,7 +45,6 @@ export class Or extends Instruction {
   }
 }
 
-/** - */
 export class Xor extends Instruction {
   static type: string = 'XOR';
   static numberOfOperands = 3;
@@ -59,8 +56,8 @@ export class Xor extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const a = machineState.memory.getAs<IntegralValueType>(this.aOffset);
-    const b = machineState.memory.getAs<IntegralValueType>(this.bOffset);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
 
     const res = a.xor(b);
     machineState.memory.set(this.destOffset, res);
@@ -69,7 +66,6 @@ export class Xor extends Instruction {
   }
 }
 
-/** - */
 export class Not extends Instruction {
   static type: string = 'NOT';
   static numberOfOperands = 2;
@@ -81,7 +77,7 @@ export class Not extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     Instruction.checkTags(machineState, this.inTag, this.aOffset);
 
-    const a = machineState.memory.getAs<IntegralValueType>(this.aOffset);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
 
     const res = a.not();
     machineState.memory.set(this.destOffset, res);
@@ -102,8 +98,8 @@ export class Shl extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const a = machineState.memory.getAs<IntegralValueType>(this.aOffset);
-    const b = machineState.memory.getAs<IntegralValueType>(this.bOffset);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
 
     const res = a.shl(b);
     machineState.memory.set(this.destOffset, res);
@@ -124,8 +120,8 @@ export class Shr extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const a = machineState.memory.getAs<IntegralValueType>(this.aOffset);
-    const b = machineState.memory.getAs<IntegralValueType>(this.bOffset);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
 
     const res = a.shr(b);
     machineState.memory.set(this.destOffset, res);
