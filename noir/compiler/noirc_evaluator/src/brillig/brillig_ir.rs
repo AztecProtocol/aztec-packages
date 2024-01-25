@@ -1045,7 +1045,7 @@ pub(crate) mod tests {
         BinaryIntOp, ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value,
         ValueOrArray,
     };
-    use acvm::brillig_vm::{Registers, VMStatus, VM};
+    use acvm::brillig_vm::{VMStatus, VM};
     use acvm::{BlackBoxFunctionSolver, BlackBoxResolutionError, FieldElement};
 
     use crate::brillig::brillig_ir::BrilligContext;
@@ -1125,21 +1125,17 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn create_and_run_vm(
-        memory: Vec<Value>,
-        param_registers: Vec<Value>,
+        calldata: Vec<Value>,
         bytecode: &[BrilligOpcode],
-    ) -> VM<'_, DummyBlackBoxSolver> {
-        let mut vm = VM::new(
-            Registers { inner: param_registers },
-            memory,
-            bytecode,
-            vec![],
-            &DummyBlackBoxSolver,
-        );
+    ) -> (VM<'_, DummyBlackBoxSolver>, usize) {
+        let mut vm = VM::new(calldata, bytecode, vec![], &DummyBlackBoxSolver);
 
         let status = vm.process_opcodes();
-        assert_eq!(status, VMStatus::Finished);
-        vm
+        if let VMStatus::Finished { return_data_offset } = status {
+            (vm, return_data_offset)
+        } else {
+            panic!("VM did not finish")
+        }
     }
 
     /// Test a Brillig foreign call returning a vector
@@ -1158,7 +1154,7 @@ pub(crate) mod tests {
         let mut context = BrilligContext::new(true);
         let r_stack = ReservedRegisters::stack_pointer();
         // Start stack pointer at 0
-        context.const_instruction(r_stack, Value::from(0_usize));
+        context.const_instruction(r_stack, Value::from(ReservedRegisters::len() + 3));
         let r_input_size = MemoryAddress::from(ReservedRegisters::len());
         let r_array_ptr = MemoryAddress::from(ReservedRegisters::len() + 1);
         let r_output_size = MemoryAddress::from(ReservedRegisters::len() + 2);
@@ -1186,13 +1182,12 @@ pub(crate) mod tests {
         let bytecode = context.artifact().finish().byte_code;
         let number_sequence: Vec<Value> = (0_usize..12_usize).map(Value::from).collect();
         let mut vm = VM::new(
-            Registers { inner: vec![] },
             vec![],
             &bytecode,
             vec![ForeignCallResult { values: vec![ForeignCallParam::Array(number_sequence)] }],
             &DummyBlackBoxSolver,
         );
         let status = vm.process_opcodes();
-        assert_eq!(status, VMStatus::Finished);
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0 });
     }
 }

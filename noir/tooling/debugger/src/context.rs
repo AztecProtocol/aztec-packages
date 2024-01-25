@@ -1,6 +1,6 @@
 use acvm::acir::circuit::{Circuit, Opcode, OpcodeLocation};
 use acvm::acir::native_types::{Witness, WitnessMap};
-use acvm::brillig_vm::{brillig::Value, Registers};
+use acvm::brillig_vm::brillig::Value;
 use acvm::pwg::{
     ACVMStatus, BrilligSolver, BrilligSolverStatus, ForeignCallWaitInfo, StepResult, ACVM,
 };

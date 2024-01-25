@@ -384,7 +384,7 @@ impl BrilligContext {
 
 #[cfg(test)]
 mod tests {
-    use acvm::brillig_vm::brillig::{MemoryAddress, Value};
+    use acvm::brillig_vm::brillig::Value;
 
     use crate::brillig::brillig_ir::{
         artifact::BrilligParameter,
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn entry_point_with_nested_array_parameter() {
-        let flattened_array = vec![
+        let calldata = vec![
             Value::from(1_usize),
             Value::from(2_usize),
             Value::from(3_usize),
@@ -415,44 +415,17 @@ mod tests {
 
         // Allocate the parameter
         let array_pointer = context.allocate_register();
+        let array_value = context.allocate_register();
 
-        context.return_instruction(&[array_pointer]);
+        context.load_instruction(array_pointer, array_pointer);
+        context.load_instruction(array_pointer, array_pointer);
+        context.load_instruction(array_value, array_pointer);
+
+        context.return_instruction(&[array_value]);
 
         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-        let vm = create_and_run_vm(flattened_array.clone(), vec![Value::from(0_usize)], &bytecode);
-        let memory = vm.get_memory();
-
-        assert_eq!(vm.get_registers().get(MemoryAddress(0)), Value::from(flattened_array.len()));
-        assert_eq!(
-            memory,
-            &vec![
-                // The original flattened values
-                Value::from(1_usize),
-                Value::from(2_usize),
-                Value::from(3_usize),
-                Value::from(4_usize),
-                Value::from(5_usize),
-                Value::from(6_usize),
-                // The pointer to the nested reference of the first item
-                Value::from(12_usize),
-                Value::from(3_usize),
-                // The pointer to the nested reference of the second item
-                Value::from(16_usize),
-                Value::from(6_usize),
-                // The nested array of the first item
-                Value::from(1_usize),
-                Value::from(2_usize),
-                // The nested reference of the first item
-                Value::from(10_usize),
-                Value::from(1_usize),
-                // The nested array of the second item
-                Value::from(4_usize),
-                Value::from(5_usize),
-                // The nested reference of the second item
-                Value::from(14_usize),
-                Value::from(1_usize),
-            ]
-        );
+        let (vm, return_data_offset) = create_and_run_vm(calldata.clone(), &bytecode);
+        assert_eq!(vm.get_memory()[return_data_offset], Value::from(1_usize));
     }
 
     #[test]
@@ -487,46 +460,12 @@ mod tests {
         context.return_instruction(&brillig_array.extract_registers());
 
         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-        let vm = create_and_run_vm(flattened_array.clone(), vec![Value::from(0_usize)], &bytecode);
+        let (vm, return_data_pointer) = create_and_run_vm(flattened_array.clone(), &bytecode);
         let memory = vm.get_memory();
 
         assert_eq!(
-            memory,
-            &vec![
-                // The original flattened values
-                Value::from(1_usize),
-                Value::from(2_usize),
-                Value::from(3_usize),
-                Value::from(4_usize),
-                Value::from(5_usize),
-                Value::from(6_usize),
-                // The pointer to the nested reference of the first item
-                Value::from(12_usize),
-                Value::from(3_usize),
-                // The pointer to the nested reference of the second item
-                Value::from(16_usize),
-                Value::from(6_usize),
-                // The nested array of the first item
-                Value::from(1_usize),
-                Value::from(2_usize),
-                // The nested reference of the first item
-                Value::from(10_usize),
-                Value::from(1_usize),
-                // The nested array of the second item
-                Value::from(4_usize),
-                Value::from(5_usize),
-                // The nested reference of the second item
-                Value::from(14_usize),
-                Value::from(1_usize),
-                // The original flattened again
-                Value::from(1_usize),
-                Value::from(2_usize),
-                Value::from(3_usize),
-                Value::from(4_usize),
-                Value::from(5_usize),
-                Value::from(6_usize),
-            ]
+            memory[return_data_pointer..(return_data_pointer + flattened_array.len())],
+            flattened_array
         );
-        assert_eq!(vm.get_registers().get(MemoryAddress(0)), 18_usize.into());
     }
 }

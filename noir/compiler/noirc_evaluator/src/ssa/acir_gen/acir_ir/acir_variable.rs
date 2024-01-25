@@ -1438,18 +1438,17 @@ impl AcirContext {
     ) -> Option<Vec<AcirValue>> {
         let mut memory = (execute_brillig(code, inputs)?).into_iter();
 
-        let outputs_var =
-            vecmap(outputs_types.iter().enumerate(), |(index, output)| match output {
-                AcirType::NumericType(_) => {
-                    let var = self.add_data(AcirVarData::Const(
-                        memory.next().expect("Missing return data").to_field(),
-                    ));
-                    AcirValue::Var(var, output.clone())
-                }
-                AcirType::Array(element_types, size) => {
-                    self.brillig_constant_array_output(element_types, *size, &mut memory)
-                }
-            });
+        let outputs_var = vecmap(outputs_types.iter(), |output| match output {
+            AcirType::NumericType(_) => {
+                let var = self.add_data(AcirVarData::Const(
+                    memory.next().expect("Missing return data").to_field(),
+                ));
+                AcirValue::Var(var, output.clone())
+            }
+            AcirType::Array(element_types, size) => {
+                self.brillig_constant_array_output(element_types, *size, &mut memory)
+            }
+        });
 
         Some(outputs_var)
     }
