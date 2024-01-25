@@ -49,6 +49,18 @@ pub enum BlackBoxFunc {
     EmbeddedCurveAdd,
     /// Point doubling over the embedded curve on which [`FieldElement`][acir_field::FieldElement] is defined.
     EmbeddedCurveDouble,
+    /// BigInt addition
+    BigIntAdd,
+    /// BigInt subtraction
+    BigIntNeg,
+    /// BigInt multiplication
+    BigIntMul,
+    /// BigInt division
+    BigIntDiv,
+    /// BigInt from le bytes
+    BigIntFromLeBytes,
+    /// BigInt to le bytes
+    BigIntToLeBytes,
 }
 
 impl std::fmt::Display for BlackBoxFunc {
@@ -68,8 +80,8 @@ impl BlackBoxFunc {
             BlackBoxFunc::PedersenHash => "pedersen_hash",
             BlackBoxFunc::EcdsaSecp256k1 => "ecdsa_secp256k1",
             BlackBoxFunc::FixedBaseScalarMul => "fixed_base_scalar_mul",
-            BlackBoxFunc::EmbeddedCurveAdd => "ec_add",
-            BlackBoxFunc::EmbeddedCurveDouble => "ec_double",
+            BlackBoxFunc::EmbeddedCurveAdd => "embedded_curve_add",
+            BlackBoxFunc::EmbeddedCurveDouble => "embedded_curve_double",
             BlackBoxFunc::AND => "and",
             BlackBoxFunc::XOR => "xor",
             BlackBoxFunc::RANGE => "range",
@@ -77,8 +89,15 @@ impl BlackBoxFunc {
             BlackBoxFunc::Keccakf1600 => "keccakf1600",
             BlackBoxFunc::RecursiveAggregation => "recursive_aggregation",
             BlackBoxFunc::EcdsaSecp256r1 => "ecdsa_secp256r1",
+            BlackBoxFunc::BigIntAdd => "bigint_add",
+            BlackBoxFunc::BigIntNeg => "bigint_neg",
+            BlackBoxFunc::BigIntMul => "bigint_mul",
+            BlackBoxFunc::BigIntDiv => "bigint_div",
+            BlackBoxFunc::BigIntFromLeBytes => "bigint_from_le_bytes",
+            BlackBoxFunc::BigIntToLeBytes => "bigint_to_le_bytes",
         }
     }
+
     pub fn lookup(op_name: &str) -> Option<BlackBoxFunc> {
         match op_name {
             "sha256" => Some(BlackBoxFunc::SHA256),
@@ -90,14 +109,20 @@ impl BlackBoxFunc {
             "ecdsa_secp256k1" => Some(BlackBoxFunc::EcdsaSecp256k1),
             "ecdsa_secp256r1" => Some(BlackBoxFunc::EcdsaSecp256r1),
             "fixed_base_scalar_mul" => Some(BlackBoxFunc::FixedBaseScalarMul),
-            "ec_add" => Some(BlackBoxFunc::EmbeddedCurveAdd),
-            "ec_double" => Some(BlackBoxFunc::EmbeddedCurveDouble),
+            "embedded_curve_add" => Some(BlackBoxFunc::EmbeddedCurveAdd),
+            "embedded_curve_double" => Some(BlackBoxFunc::EmbeddedCurveDouble),
             "and" => Some(BlackBoxFunc::AND),
             "xor" => Some(BlackBoxFunc::XOR),
             "range" => Some(BlackBoxFunc::RANGE),
             "keccak256" => Some(BlackBoxFunc::Keccak256),
             "keccakf1600" => Some(BlackBoxFunc::Keccakf1600),
             "recursive_aggregation" => Some(BlackBoxFunc::RecursiveAggregation),
+            "bigint_add" => Some(BlackBoxFunc::BigIntAdd),
+            "bigint_neg" => Some(BlackBoxFunc::BigIntNeg),
+            "bigint_mul" => Some(BlackBoxFunc::BigIntMul),
+            "bigint_div" => Some(BlackBoxFunc::BigIntDiv),
+            "bigint_from_le_bytes" => Some(BlackBoxFunc::BigIntFromLeBytes),
+            "bigint_to_le_bytes" => Some(BlackBoxFunc::BigIntToLeBytes),
             _ => None,
         }
     }
