@@ -4,7 +4,6 @@ import { TestContract } from '@aztec/noir-contracts';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_get_notes', () => {
-  // export DEBUG=aztec:e2e_get_notes
   let wallet: Wallet;
   let teardown: () => Promise<void>;
 
