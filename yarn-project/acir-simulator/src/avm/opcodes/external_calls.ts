@@ -2,9 +2,10 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from '../avm_context.js';
 import { AvmMachineState } from '../avm_machine_state.js';
-import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
 import { Instruction } from './instruction.js';
+import { Field } from '../avm_memory_types.js';
+import { AvmInterpreter } from '../interpreter/interpreter.js';
 
 export class Call extends Instruction {
   static type: string = 'CALL';
@@ -30,6 +31,7 @@ export class Call extends Instruction {
     const avmContext = AvmContext.prepExternalCallContext(
       new Fr(callAddress.toBigInt()),
       calldata,
+      new AvmInterpreter(),
       machineState.executionEnvironment,
       journal,
     );
@@ -76,6 +78,8 @@ export class StaticCall extends Instruction {
     const avmContext = AvmContext.prepExternalStaticCallContext(
       new Fr(callAddress.toBigInt()),
       calldata,
+      // TODO: how can i remove this outside of the call context?
+      new AvmInterpreter(),
       machineState.executionEnvironment,
       journal,
     );
