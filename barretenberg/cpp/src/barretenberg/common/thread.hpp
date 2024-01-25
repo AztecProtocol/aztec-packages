@@ -90,4 +90,3 @@ inline void run_loop_in_parallel_if_effective_with_index(size_t num_points,
                                                scalar_multiplications_per_iteration,
                                                sequential_copy_ops_per_iteration);
 }
-
