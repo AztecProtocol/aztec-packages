@@ -13,7 +13,7 @@ export class Address extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { address } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, address);
+    machineState.memory.set(this.destOffset, address);
     this.incrementPc(machineState);
   }
 }
@@ -29,7 +29,7 @@ export class StorageAddress extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { storageAddress } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, storageAddress);
+    machineState.memory.set(this.destOffset, storageAddress);
     this.incrementPc(machineState);
   }
 }
@@ -45,7 +45,7 @@ export class Sender extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { sender } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, sender);
+    machineState.memory.set(this.destOffset, sender);
 
     this.incrementPc(machineState);
   }
@@ -62,7 +62,7 @@ export class Origin extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { origin } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, origin);
+    machineState.memory.set(this.destOffset, origin);
 
     this.incrementPc(machineState);
   }
@@ -79,7 +79,7 @@ export class FeePerL1Gas extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { feePerL1Gas } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, feePerL1Gas);
+    machineState.memory.set(this.destOffset, feePerL1Gas);
 
     this.incrementPc(machineState);
   }
@@ -96,7 +96,7 @@ export class FeePerL2Gas extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { feePerL2Gas } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, feePerL2Gas);
+    machineState.memory.set(this.destOffset, feePerL2Gas);
 
     this.incrementPc(machineState);
   }
@@ -113,7 +113,7 @@ export class FeePerDAGas extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { feePerDaGas } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, feePerDaGas);
+    machineState.memory.set(this.destOffset, feePerDaGas);
 
     this.incrementPc(machineState);
   }
@@ -130,7 +130,7 @@ export class Portal extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { portal } = machineState.executionEnvironment;
 
-    machineState.writeMemory(this.destOffset, portal.toField());
+    machineState.memory.set(this.destOffset, portal.toField());
 
     this.incrementPc(machineState);
   }
@@ -147,7 +147,7 @@ export class ChainId extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { chainId } = machineState.executionEnvironment.globals;
 
-    machineState.writeMemory(this.destOffset, chainId);
+    machineState.memory.set(this.destOffset, chainId);
 
     this.incrementPc(machineState);
   }
@@ -164,7 +164,7 @@ export class Version extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { version } = machineState.executionEnvironment.globals;
 
-    machineState.writeMemory(this.destOffset, version);
+    machineState.memory.set(this.destOffset, version);
 
     this.incrementPc(machineState);
   }
@@ -181,7 +181,7 @@ export class BlockNumber extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { blockNumber } = machineState.executionEnvironment.globals;
 
-    machineState.writeMemory(this.destOffset, blockNumber);
+    machineState.memory.set(this.destOffset, blockNumber);
 
     this.incrementPc(machineState);
   }
@@ -198,7 +198,7 @@ export class Timestamp extends Instruction {
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const { timestamp } = machineState.executionEnvironment.globals;
 
-    machineState.writeMemory(this.destOffset, timestamp);
+    machineState.memory.set(this.destOffset, timestamp);
 
     this.incrementPc(machineState);
   }
@@ -215,7 +215,7 @@ export class Timestamp extends Instruction {
 //     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
 //         const {coinbase} = machineState.executionEnvironment.globals;
 
-//         machineState.writeMemory(this.destOffset, coinbase);
+//         machineState.memory.set(this.destOffset, coinbase);
 
 //         this.incrementPc(machineState);
 //     }
@@ -233,7 +233,7 @@ export class Timestamp extends Instruction {
 //     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
 //         const {blockL1GasLimit} = machineState.executionEnvironment.globals;
 
-//         machineState.writeMemory(this.destOffset, blockL1GasLimit);
+//         machineState.memory.set(this.destOffset, blockL1GasLimit);
 
 //         this.incrementPc(machineState);
 //     }
@@ -250,7 +250,7 @@ export class Timestamp extends Instruction {
 //     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
 //         const {blockL2GasLimit} = machineState.executionEnvironment.globals;
 
-//         machineState.writeMemory(this.destOffset, blockL2GasLimit);
+//         machineState.memory.set(this.destOffset, blockL2GasLimit);
 
 //         this.incrementPc(machineState);
 //     }
@@ -267,7 +267,7 @@ export class Timestamp extends Instruction {
 //     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
 //         const {blockDAGasLimit} = machineState.executionEnvironment.globals;
 
-//         machineState.writeMemory(this.destOffset, blockDAGasLimit);
+//         machineState.memory.set(this.destOffset, blockDAGasLimit);
 
 //         this.incrementPc(machineState);
 //     }
