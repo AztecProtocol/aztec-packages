@@ -65,7 +65,7 @@ function(barretenberg_module MODULE_NAME)
     endif()
 
     file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
-    if(TESTING AND TEST_SOURCE_FILES)
+    if(TEST_SOURCE_FILES AND NOT FUZZING)
         add_library(
             ${MODULE_NAME}_test_objects
             OBJECT
