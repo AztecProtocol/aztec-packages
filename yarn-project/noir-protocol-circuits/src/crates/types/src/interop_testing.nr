@@ -61,7 +61,7 @@ fn compute_tx_request_hash() {
         },
         function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: true, is_constructor: true }
     };
-    assert(tx_request.hash() == 0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75);
+    assert(tx_request.hash() == 0x03c6f770359eaa045dec2671a39997f1ad677b907bc6b37bbcb2e8920cd38df4);
 }
 
 #[test]
