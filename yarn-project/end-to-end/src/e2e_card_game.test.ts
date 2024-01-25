@@ -65,8 +65,8 @@ describe('e2e_card_game', () => {
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
-  const wallets: AccountWallet[] = [];
-  const nullifierSecretKeys: GrumpkinScalar[] = [];
+  let wallets: AccountWallet[];
+  let nullifierSecretKeys: GrumpkinScalar[];
 
   let firstPlayerWallet: Wallet;
   let secondPlayerWallet: Wallet;
@@ -96,7 +96,7 @@ describe('e2e_card_game', () => {
   };
 
   beforeAll(async () => {
-    ({ pxe, logger, teardown } = await setup(0));
+    ({ pxe, logger, teardown, wallets } = await setup(0));
 
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
@@ -109,6 +109,7 @@ describe('e2e_card_game', () => {
       );
     });
 
+    nullifierSecretKeys = [];
     for (let i = 0; i < toRegister.length; i++) {
       logger(`Deploying account contract ${i}/${toRegister.length}...`);
       const encryptionPrivateKey = toRegister[i];
