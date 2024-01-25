@@ -176,7 +176,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           status: 'include_nullified',
         });
 
-        // We have compare the sorted arrays since the database does not return the same order as when originally
+        // We have to compare the sorted arrays since the database does not return the same order as when originally
         // inserted combining active and nullified results.
         expect(result.sort()).toEqual([...notes].sort());
       });
