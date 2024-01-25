@@ -7,6 +7,7 @@ import {
   FUNCTION_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
@@ -191,6 +192,14 @@ export class PrivateKernelInputsOrdering {
      * The previous kernel data
      */
     public previousKernel: PreviousKernelData,
+    /**
+     * The sorted phase transitions.
+     */
+    public sortedPhaseWatermarks: Tuple<SideEffect, typeof MAX_PHASE_TRANSITIONS_PER_TX>,
+    /**
+     * The sorted phase transition indexes. Maps original to sorted.
+     */
+    public sortedPhaseWatermarksIndexes: Tuple<number, typeof MAX_PHASE_TRANSITIONS_PER_TX>,
     /**
      * The sorted new commitments.
      */

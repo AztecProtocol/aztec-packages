@@ -8,6 +8,7 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -296,6 +297,10 @@ export class CombinedAccumulatedData {
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
+     * All the phase transitions made in this transaction.
+     */
+    public phaseWatermarks: Tuple<SideEffect, typeof MAX_PHASE_TRANSITIONS_PER_TX>,
+    /**
      * All the read requests made in this transaction.
      */
     public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
@@ -358,6 +363,7 @@ export class CombinedAccumulatedData {
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
+      this.phaseWatermarks,
       this.readRequests,
       this.newCommitments,
       this.newNullifiers,
@@ -388,6 +394,7 @@ export class CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
+      reader.readArray(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
@@ -408,6 +415,7 @@ export class CombinedAccumulatedData {
   static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       finalData.aggregationObject,
+      finalData.phaseWatermarks,
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       finalData.newCommitments,
       finalData.newNullifiers,
@@ -437,6 +445,7 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
+      makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect.empty),
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
@@ -465,6 +474,10 @@ export class FinalAccumulatedData {
      * Aggregated proof of all the previous kernel iterations.
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
+    /**
+     * The new commitments made in this transaction.
+     */
+    public phaseWatermarks: Tuple<SideEffect, typeof MAX_PHASE_TRANSITIONS_PER_TX>,
     /**
      * The new commitments made in this transaction.
      */
@@ -517,6 +530,7 @@ export class FinalAccumulatedData {
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
+      this.phaseWatermarks,
       this.newCommitments,
       this.newNullifiers,
       this.privateCallStack,
@@ -544,6 +558,7 @@ export class FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
       reader.readObject(AggregationObject),
+      reader.readArray(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
@@ -570,6 +585,7 @@ export class FinalAccumulatedData {
   static empty() {
     return new FinalAccumulatedData(
       AggregationObject.makeFake(),
+      makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),

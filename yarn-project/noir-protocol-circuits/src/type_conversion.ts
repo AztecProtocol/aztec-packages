@@ -32,6 +32,8 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PHASE_TRANSITIONS_PER_CALL,
+  MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -843,6 +845,7 @@ export function mapCombinedAccumulatedDataFromNoir(
   return new CombinedAccumulatedData(
     // TODO aggregation object
     AggregationObject.makeFake(),
+    mapTupleFromNoir(combinedAccumulatedData.phase_watermarks, MAX_PHASE_TRANSITIONS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
@@ -889,6 +892,7 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
   return new FinalAccumulatedData(
     // TODO aggregation object
     AggregationObject.makeFake(),
+    mapTupleFromNoir(finalAccumulatedData.phase_watermarks, MAX_PHASE_TRANSITIONS_PER_CALL, mapSideEffectFromNoir),
     mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -925,6 +929,7 @@ export function mapCombinedAccumulatedDataToNoir(
 ): CombinedAccumulatedDataNoir {
   return {
     aggregation_object: {},
+    phase_watermarks: mapTuple(combinedAccumulatedData.phaseWatermarks, mapSideEffectToNoir),
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
     new_commitments: mapTuple(combinedAccumulatedData.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
@@ -1067,6 +1072,8 @@ export function mapPrivateKernelInputsOrderingToNoir(
 ): PrivateKernelInputsOrderingNoir {
   return {
     previous_kernel: mapPreviousKernelDataToNoir(inputs.previousKernel),
+    sorted_phase_watermarks: mapTuple(inputs.sortedPhaseWatermarks, mapSideEffectToNoir),
+    sorted_phase_watermarks_indexes: mapTuple(inputs.sortedPhaseWatermarksIndexes, mapNumberToNoir),
     sorted_new_commitments: mapTuple(inputs.sortedNewCommitments, mapSideEffectToNoir),
     sorted_new_commitments_indexes: mapTuple(inputs.sortedNewCommitmentsIndexes, mapNumberToNoir),
     read_commitment_hints: mapTuple(inputs.readCommitmentHints, mapFieldToNoir),

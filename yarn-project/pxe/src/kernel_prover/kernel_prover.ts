@@ -6,6 +6,7 @@ import {
   Fr,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
@@ -168,6 +169,11 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
+    const [sortedPhaseWatermarks, sortedPhaseWatermarksIndexes] = this.sortSideEffects<
+      SideEffect,
+      typeof MAX_PHASE_TRANSITIONS_PER_TX
+    >(output.publicInputs.end.phaseWatermarks);
+
     const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_COMMITMENTS_PER_TX
@@ -187,6 +193,8 @@ export class KernelProver {
 
     const privateInputs = new PrivateKernelInputsOrdering(
       previousKernelData,
+      sortedPhaseWatermarks,
+      sortedPhaseWatermarksIndexes,
       sortedCommitments,
       sortedCommitmentsIndexes,
       readCommitmentHints,

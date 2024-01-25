@@ -19,6 +19,7 @@ use crate::constants::{
     MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_NEW_CONTRACTS_PER_TX,
     MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+    MAX_PHASE_TRANSITIONS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX,
     NUM_FIELDS_PER_SHA256,
@@ -26,6 +27,8 @@ use crate::constants::{
 
 struct CombinedAccumulatedData {
     aggregation_object: AggregationObject,
+
+    phase_watermarks: [SideEffect; MAX_PHASE_TRANSITIONS_PER_TX],
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
 
@@ -56,6 +59,8 @@ struct CombinedAccumulatedData {
 struct FinalAccumulatedData {
     aggregation_object: AggregationObject,
 
+    phase_watermarks: [SideEffect; MAX_PHASE_TRANSITIONS_PER_TX],
+
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
@@ -72,11 +77,13 @@ struct FinalAccumulatedData {
     unencrypted_log_preimages_length: Field,
 
     new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
-    optionally_revealed_data: [OptionallyRevealedData; MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX]
+    optionally_revealed_data: [OptionallyRevealedData; MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX],
 }
 
 struct CombinedAccumulatedDataBuilder {
     aggregation_object: AggregationObject,
+
+    phase_watermarks: BoundedVec<SideEffect, MAX_PHASE_TRANSITIONS_PER_TX>,
 
     read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
 
@@ -108,6 +115,8 @@ impl CombinedAccumulatedDataBuilder {
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
             aggregation_object: self.aggregation_object,
+
+            phase_watermarks: self.phase_watermarks.storage,
 
             read_requests: self.read_requests.storage,
 
@@ -141,6 +150,8 @@ impl CombinedAccumulatedDataBuilder {
 
         FinalAccumulatedData {
             aggregation_object: self.aggregation_object,
+
+            phase_watermarks: self.phase_watermarks.storage,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,

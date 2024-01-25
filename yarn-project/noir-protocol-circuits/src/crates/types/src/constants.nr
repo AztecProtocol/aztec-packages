@@ -46,6 +46,7 @@ global MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX: Field = 4;
 global MAX_READ_REQUESTS_PER_TX: Field = 128;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
+global MAX_PHASE_TRANSITIONS_PER_TX: Field = 3;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts

@@ -22,6 +22,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PHASE_TRANSITIONS_PER_CALL,
+  MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -190,6 +191,11 @@ describe('Private kernel', () => {
       EthAddress.ZERO,
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO, FeeLimits.empty());
+    const phaseWatermarks = makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, () => SideEffect.empty());
+    phaseWatermarks[0] = new SideEffect(
+      Fr.fromString('0x0000000000000000000000000000000000000000000000000000000000000001'),
+      Fr.fromString('0x0000000000000000000000000000000000000000000000000000000000000001'),
+    );
 
     const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => SideEffect.empty());
     newCommitments[0] = new SideEffect(
@@ -226,6 +232,7 @@ describe('Private kernel', () => {
 
     const combinedAccumulatedData = new CombinedAccumulatedData(
       AggregationObject.makeFake(),
+      makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, () => SideEffect.empty()),
       makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty()),
       newCommitments,
       newNullifiers,
@@ -273,6 +280,8 @@ describe('Private kernel', () => {
 
     const kernelInputs = new PrivateKernelInputsOrdering(
       previousKernelData,
+      phaseWatermarks,
+      makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, i => i),
       newCommitments,
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, i => i),
       makeTuple(MAX_READ_REQUESTS_PER_TX, () => Fr.ZERO),

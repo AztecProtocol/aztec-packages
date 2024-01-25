@@ -15,6 +15,7 @@ use dep::types::{
     constants::{
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_PHASE_TRANSITIONS_PER_TX,
         MAX_READ_REQUESTS_PER_TX,
     },
     hash::{
@@ -30,6 +31,8 @@ use dep::types::{
 
 struct PrivateKernelInputsOrdering {
     previous_kernel: PreviousKernelData,
+    sorted_phase_watermarks: [SideEffect; MAX_PHASE_TRANSITIONS_PER_TX],
+    sorted_phase_watermarks_indexes: [u32; MAX_PHASE_TRANSITIONS_PER_TX],
     sorted_new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     sorted_new_commitments_indexes: [u32; MAX_NEW_COMMITMENTS_PER_TX],
     read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
@@ -87,6 +90,7 @@ impl PrivateKernelInputsOrdering {
     }
 
     fn sort_arrays(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.phase_watermarks.storage, self.sorted_phase_watermarks, self.sorted_phase_watermarks_indexes);
         PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_commitments.storage, self.sorted_new_commitments, self.sorted_new_commitments_indexes);
         PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_nullifiers.storage, self.sorted_new_nullifiers, self.sorted_new_nullifiers_indexes);
         public_inputs.end.new_commitments.storage = self.sorted_new_commitments;
@@ -200,6 +204,7 @@ mod tests {
         MAX_READ_REQUESTS_PER_TX,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_PHASE_TRANSITIONS_PER_TX
     };
     use dep::types::{
         abis::{
@@ -217,6 +222,7 @@ mod tests {
 
     struct PrivateKernelOrderingInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,
+        phase_watermark_hints: [Field; MAX_PHASE_TRANSITIONS_PER_TX],
         read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
         nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     }
@@ -225,9 +231,14 @@ mod tests {
         pub fn new() -> Self {
             PrivateKernelOrderingInputsBuilder {
                 previous_kernel: PreviousKernelDataBuilder::new(),
+                phase_watermark_hints: [0; MAX_PHASE_TRANSITIONS_PER_TX],
                 read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
                 nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
             }
+        }
+
+        pub fn get_phase_watermarks(self) -> [SideEffect; MAX_PHASE_TRANSITIONS_PER_TX] {
+            self.previous_kernel.end.phase_watermarks.storage
         }
 
         pub fn get_new_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
@@ -268,6 +279,11 @@ mod tests {
             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
         }
 
+        // For example, suppose we are given the following side effects:
+        // [{value: 2, counter: 2}, {value: 1, counter: 1}, {value: 3, counter: 3}] 
+        // The sorted_indexes will be [1, 0, 2]
+        // sorted_sideffects will be [{value: 1, counter: 1}, {value: 2, counter: 2}, {value: 3, counter: 3}]
+        // reverse_map will be [1, 0, 2]
         fn sort_sideffects<T, N>(original: [T; N]) -> ([T; N],[u32; N]) where T: Ordered + Eq + Empty {
             let mut indexes = [0; N];
             for i in 0..N {
@@ -294,6 +310,11 @@ mod tests {
         }
 
         pub fn execute(self) -> KernelCircuitPublicInputsFinal {
+            let (sorted_phase_watermarks, sorted_phase_watermarks_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_phase_watermarks());
+            let mut sorted_phase_watermarks_hints = [0; MAX_READ_REQUESTS_PER_TX];
+            for i in 0..sorted_phase_watermarks_hints.len() {
+                sorted_phase_watermarks_hints[i] = sorted_phase_watermarks_indexes[self.phase_watermark_hints[i]] as Field;
+            }
             let (sorted_new_commitments, sorted_new_commitments_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_commitments());
             let mut sorted_read_commitment_hints = [0; MAX_READ_REQUESTS_PER_TX];
             for i in 0..sorted_read_commitment_hints.len() {
@@ -306,6 +327,8 @@ mod tests {
             }
             let kernel = PrivateKernelInputsOrdering {
                 previous_kernel: self.previous_kernel.finish(),
+                sorted_phase_watermarks,
+                sorted_phase_watermarks_indexes,
                 sorted_new_commitments,
                 sorted_new_commitments_indexes,
                 read_commitment_hints: sorted_read_commitment_hints,

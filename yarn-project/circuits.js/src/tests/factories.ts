@@ -44,6 +44,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PHASE_TRANSITIONS_PER_CALL,
+  MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -235,6 +236,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
+    tupleGenerator(MAX_PHASE_TRANSITIONS_PER_TX, sideEffectFromNumber, seed + 0x40),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
@@ -262,6 +264,7 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
 
   return new FinalAccumulatedData(
     makeAggregationObject(seed),
+    tupleGenerator(MAX_PHASE_TRANSITIONS_PER_TX, sideEffectFromNumber, seed + 0x40),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
