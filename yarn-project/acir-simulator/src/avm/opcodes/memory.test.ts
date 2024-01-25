@@ -243,7 +243,7 @@ describe('Memory instructions', () => {
   describe('CALLDATACOPY', () => {
     it('Writes nothing if size is 0', () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
-      machineState = new AvmMachineState(initExecutionEnvironment({calldata}));
+      machineState = new AvmMachineState(initExecutionEnvironment({ calldata }));
       machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
 
       new CalldataCopy(/*cdOffset=*/ 0, /*copySize=*/ 0, /*dstOffset=*/ 0).execute(machineState, stateManager);

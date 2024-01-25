@@ -1,3 +1,5 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
@@ -12,10 +14,14 @@ export class SStore extends Instruction {
   }
 
   execute(machineState: AvmMachineState, stateManager: AvmStateManager): void {
-    const slot = machineState.readMemory(this.slotOffset);
-    const data = machineState.readMemory(this.dataOffset);
+    const slot = machineState.memory.get(this.slotOffset);
+    const data = machineState.memory.get(this.dataOffset);
 
-    stateManager.store(machineState.executionEnvironment.storageAddress, slot, data);
+    stateManager.store(
+      machineState.executionEnvironment.storageAddress,
+      new Fr(slot.toBigInt()),
+      new Fr(data.toBigInt()),
+    );
 
     this.incrementPc(machineState);
   }
@@ -31,11 +37,11 @@ export class SLoad extends Instruction {
   }
 
   async execute(machineState: AvmMachineState, stateManager: AvmStateManager): Promise<void> {
-    const slot = machineState.readMemory(this.slotOffset);
+    const slot = machineState.memory.get(this.slotOffset);
 
-    const data = stateManager.read(machineState.executionEnvironment.storageAddress, slot);
+    const data = stateManager.read(machineState.executionEnvironment.storageAddress, new Fr(slot.toBigInt()));
 
-    machineState.writeMemory(this.destOffset, await data);
+    machineState.memory.set(this.destOffset, await data);
 
     this.incrementPc(machineState);
   }

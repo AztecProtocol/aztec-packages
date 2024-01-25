@@ -24,8 +24,8 @@ describe('Storage Instructions', () => {
     const a = new Fr(1n);
     const b = new Fr(2n);
 
-    machineState.writeMemory(0, a);
-    machineState.writeMemory(1, b);
+    machineState.memory.set(0, a);
+    machineState.memory.set(1, b);
 
     new SStore(0, 1).execute(machineState, stateManager);
 
@@ -40,14 +40,14 @@ describe('Storage Instructions', () => {
     const a = new Fr(1n);
     const b = new Fr(2n);
 
-    machineState.writeMemory(0, a);
-    machineState.writeMemory(1, b);
+    machineState.memory.set(0, a);
+    machineState.memory.set(1, b);
 
     await new SLoad(0, 1).execute(machineState, stateManager);
 
     expect(stateManager.read).toBeCalledWith(address, a);
 
-    const actual = machineState.readMemory(1);
+    const actual = machineState.memory.get(1);
     expect(actual).toEqual(expectedResult);
   });
 });

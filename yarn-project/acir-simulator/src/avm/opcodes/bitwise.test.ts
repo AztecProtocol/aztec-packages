@@ -3,8 +3,8 @@ import { mock } from 'jest-mock-extended';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
+import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 
 describe('Bitwise instructions', () => {
   let machineState: AvmMachineState;
