@@ -26,7 +26,7 @@ void goblin_full(State& state) noexcept
     Goblin::Proof proof;
     for (auto _ : state) {
         // Construct a series of simple Goblin circuits; generate and verify their proofs
-        size_t NUM_CIRCUITS = 1 << static_cast<size_t>(state.range(0));
+        size_t NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             // Construct a circuit with logic resembling that of the "kernel circuit"
             GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
@@ -58,7 +58,7 @@ void goblin_accumulate(State& state) noexcept
     Goblin::AccumulationOutput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 1 << static_cast<size_t>(state.range(0));
+    size_t NUM_CIRCUITS = static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             // Construct a circuit with logic resembling that of the "kernel circuit"
@@ -130,7 +130,19 @@ void goblin_translator_prove(State& state) noexcept
 
 } // namespace
 
-BENCHMARK(goblin_full)->Unit(kMillisecond)->DenseRange(0, 7);
-BENCHMARK(goblin_accumulate)->Unit(kMillisecond)->DenseRange(0, 7);
-BENCHMARK(goblin_eccvm_prove)->Unit(kMillisecond)->DenseRange(0, 7);
-BENCHMARK(goblin_translator_prove)->Unit(kMillisecond)->DenseRange(0, 7);
+static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 12;
+
+#define ARGS                                                                                                           \
+    Arg(NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                              \
+        ->Arg(1 << 0)                                                                                                  \
+        ->Arg(1 << 1)                                                                                                  \
+        ->Arg(1 << 2)                                                                                                  \
+        ->Arg(1 << 3)                                                                                                  \
+        ->Arg(1 << 4)                                                                                                  \
+        ->Arg(1 << 5)                                                                                                  \
+        ->Arg(1 << 6)
+
+BENCHMARK(goblin_full)->Unit(kMillisecond)->ARGS;
+BENCHMARK(goblin_accumulate)->Unit(kMillisecond)->ARGS;
+BENCHMARK(goblin_eccvm_prove)->Unit(kMillisecond)->ARGS;
+BENCHMARK(goblin_translator_prove)->Unit(kMillisecond)->ARGS;

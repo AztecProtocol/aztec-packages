@@ -25,13 +25,25 @@ class GoblinMockCircuits {
 
     static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t num_gates = 1)
     {
-        // Add some arithmetic gates that utilize public inputs
-        for (size_t i = 0; i < num_gates; ++i) {
+        {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
             FF d = a + b + c;
             uint32_t a_idx = builder.add_public_variable(a);
+            uint32_t b_idx = builder.add_variable(b);
+            uint32_t c_idx = builder.add_variable(c);
+            uint32_t d_idx = builder.add_variable(d);
+
+            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+        }
+        // Add some arithmetic gates that utilize public inputs
+        for (size_t i = 0; i < num_gates - 1; ++i) {
+            FF a = FF::random_element();
+            FF b = FF::random_element();
+            FF c = FF::random_element();
+            FF d = a + b + c;
+            uint32_t a_idx = builder.add_variable(a);
             uint32_t b_idx = builder.add_variable(b);
             uint32_t c_idx = builder.add_variable(c);
             uint32_t d_idx = builder.add_variable(d);
@@ -102,7 +114,7 @@ class GoblinMockCircuits {
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
 
-        construct_arithmetic_circuit(builder);
+        construct_arithmetic_circuit(builder, 350000);
     }
 
     /**
@@ -116,7 +128,7 @@ class GoblinMockCircuits {
     static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
     {
         // Generic operations e.g. state updates (just arith gates for now)
-        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 4);
+        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 16);
 
         // Execute recursive aggregation of previous kernel proof
         RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
