@@ -3,8 +3,8 @@
 #include "barretenberg/numeric/uint128/uint128.hpp"
 
 using namespace numeric;
-using namespace tests_avm;
 namespace {
+using namespace tests_avm;
 
 void common_validate_arithmetic_op(Row const& main_row,
                                    Row const& alu_row,
@@ -35,7 +35,7 @@ void common_validate_arithmetic_op(Row const& main_row,
     // Check the instruction tag
     EXPECT_EQ(main_row.avmMini_in_tag, FF(static_cast<uint32_t>(tag)));
 
-    // Check that intermediate rgiesters are correctly copied in Alu trace
+    // Check that intermediate registers are correctly copied in Alu trace
     EXPECT_EQ(alu_row.aluChip_alu_ia, a);
     EXPECT_EQ(alu_row.aluChip_alu_ib, b);
     EXPECT_EQ(alu_row.aluChip_alu_ic, c);
@@ -184,7 +184,9 @@ std::vector<Row> gen_mutated_trace_mul(FF const& a, FF const& b, FF const& c_mut
 
 } // anonymous namespace
 
+namespace tests_avm {
 using namespace avm_trace;
+
 class AvmMiniArithmeticTests : public ::testing::Test {
   public:
     AvmMiniTraceBuilder trace_builder;
@@ -1676,3 +1678,5 @@ TEST_F(AvmMiniArithmeticNegativeTestsU128, multiplication)
                                        AvmMemoryTag::U128);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U128");
 }
+
+} // namespace tests_avm

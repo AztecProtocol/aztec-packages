@@ -375,6 +375,11 @@ void AvmMiniTraceBuilder::call_data_copy(uint32_t cd_offset,
  */
 std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
 {
+    if (ret_size == 0) {
+        halt();
+        return std::vector<FF>{};
+    }
+
     // We parallelize loading memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
     // register Ia) relative to ret_offset:

@@ -1,7 +1,7 @@
 #include "AvmMini_common.test.hpp"
-
-using namespace tests_avm;
+namespace tests_avm {
 using namespace avm_trace;
+
 class AvmMiniMemoryTests : public ::testing::Test {
   public:
     AvmMiniTraceBuilder trace_builder;
@@ -236,3 +236,4 @@ TEST_F(AvmMiniMemoryTests, consistentTagNoErrorViolation)
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_IN_TAG_CONSISTENCY_1");
 }
+} // namespace tests_avm

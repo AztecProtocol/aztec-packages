@@ -63,8 +63,11 @@ std::vector<Instruction> Execution::parse(std::vector<uint8_t> const& bytecode)
         auto in_tag_u8 = static_cast<uint8_t>(AvmMemoryTag::U0);
 
         if (Bytecode::has_in_tag(opcode)) {
+            if (pos + AVM_IN_TAG_BYTE_LENGTH > length) {
+                throw std::runtime_error("Instruction tag missing at position " + std::to_string(pos));
+            }
             in_tag_u8 = bytecode.at(pos);
-            if (in_tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || in_tag_u8 == 7) {
+            if (in_tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || in_tag_u8 > MAX_MEM_TAG) {
                 throw std::runtime_error("Instruction tag is invalid at position " + std::to_string(pos) +
                                          " value: " + std::to_string(in_tag_u8));
             }
@@ -109,8 +112,7 @@ std::vector<Instruction> Execution::parse(std::vector<uint8_t> const& bytecode)
         }
 
         if (pos + operands_size > length) {
-            throw std::runtime_error("Bytecode does not contain enough bytes for operands at position " +
-                                     std::to_string(pos));
+            throw std::runtime_error("Operand is missing at position " + std::to_string(pos));
         }
 
         if (opcode == OpCode::SET && in_tag == AvmMemoryTag::U8) {
