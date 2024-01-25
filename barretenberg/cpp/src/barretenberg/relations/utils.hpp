@@ -192,19 +192,37 @@ template <typename Flavor> class RelationUtils {
                                          const RelationSeparator& challenges,
                                          FF current_scalar,
                                          FF& result,
-                                         std::optional<FF> linearly_dependent_contribution)
+                                         std::optional<FF> linearly_dependent_contribution = std::nullopt)
         requires bb::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
         std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
+
         std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-        auto scale_by_challenges_and_accumulate = [&](auto& element) {
-            for (auto& entry : element) {
-                result += entry * tmp[idx];
-                idx++;
-            }
-        };
-        apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
+        if (linearly_dependent_contribution.has_value()) {
+            auto scale_by_challenge_and_accumulate =
+                [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+                    using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                    const bool is_subrelation_linearly_independent =
+                        bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
+                    if (is_subrelation_linearly_independent) {
+                        result += element * tmp[idx];
+                    } else {
+                        linearly_dependent_contribution = linearly_dependent_contribution.value() + element * tmp[idx];
+                    }
+                    idx++;
+                };
+            apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, tuple);
+
+        } else {
+            auto scale_by_challenges_and_accumulate = [&](auto& element) {
+                for (auto& entry : element) {
+                    result += entry * tmp[idx];
+                    idx++;
+                }
+            };
+            apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
+        }
     }
 
     /**
@@ -238,6 +256,27 @@ template <typename Flavor> class RelationUtils {
 
         if constexpr (idx + 1 < sizeof...(Ts)) {
             apply_to_tuple_of_arrays<idx + 1, Operation>(operation, tuple);
+        }
+    }
+
+    // Recursive template function to apply operation to elements of arrays in a tuple
+    template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
+    static void apply_to_tuple_of_arrays_elements(Operation&& operation, std::tuple<Ts...>& tuple)
+    {
+        using Relation = typename std::tuple_element_t<outer_idx, Relations>;
+        const auto subrel = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
+        auto& element = std::get<outer_idx>(tuple);
+
+        // Invoke the operation with arrayIndex and elementIndex as template arguments
+        operation.template operator()<outer_idx, inner_idx>(element[inner_idx]);
+
+        if constexpr (inner_idx + 1 < subrel) {
+            // Recursively call for the next element within the same array
+            apply_to_tuple_of_arrays_elements<outer_idx, inner_idx + 1, Operation>(std::forward<Operation>(operation),
+                                                                                   tuple);
+        } else if constexpr (outer_idx + 1 < sizeof...(Ts)) {
+            // Move to the next array in the tuple
+            apply_to_tuple_of_arrays_elements<outer_idx + 1, 0, Operation>(std::forward<Operation>(operation), tuple);
         }
     }
 };

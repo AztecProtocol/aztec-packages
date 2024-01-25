@@ -46,7 +46,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             transcript->send_to_verifier(domain_separator + "_" + labels[idx], op_wire_comms[idx]);
         }
-
         // Commit to DataBus columns
         witness_commitments.calldata = commitment_key->commit(instance->proving_key->calldata);
         witness_commitments.calldata_read_counts = commitment_key->commit(instance->proving_key->calldata_read_counts);
@@ -181,6 +180,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     FF& challenge,
     const FF& compressed_perturbator)
 {
+    static_cast<void>(challenge);
+
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
 
     // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
@@ -305,14 +306,13 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 {
     prepare_for_folding();
     FF delta = transcript->get_challenge("delta");
-
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
-
     auto perturbator = compute_perturbator(accumulator, deltas);
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
+
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
@@ -320,8 +320,10 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     combine_alpha(instances);
     auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
     auto combiner = compute_combiner(instances, pow_polynomial);
+    info("G(0)", combiner.value_at(0));
 
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
+    info("F(alpha)", compressed_perturbator);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
@@ -334,7 +336,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
         compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
     res.folding_data = transcript->proof_data;
     res.accumulator = next_accumulator;
-
+    info("e*", next_accumulator->target_sum);
     return res;
 }
 

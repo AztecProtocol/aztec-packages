@@ -136,7 +136,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
-        FF linearly_dependent_contribution = FF(0);
+        std::optional<FF> linearly_dependent_contribution = FF(0);
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t row = 0; row < instance_size; row++) {
             auto row_evaluations = instance_polynomials.get_row(row);
@@ -152,17 +152,21 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             auto running_challenge = FF(1);
 
             // Sum relation evaluations, batched by their corresponding relation separator challenge, to get the value
-            // of the full honk relationa at a specific row
-            Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+            // of the full honk relation at a specific row
+            Utils::scale_and_batch_elements(
+                relation_evaluations, alpha, running_challenge, output, linearly_dependent_contribution);
 
             full_honk_evaluations[row] = output;
         }
+        // thsi wont take effect with Ultra cus no linearly dependent relations but maybe we could add constexprr
+        full_honk_evaluations[0] += linearly_dependent_contribution.value();
         return full_honk_evaluations;
     }
 
     /**
      * @brief  Recursively compute the parent nodes of each level in there, starting from the leaves. Note that at each
-     * level, the resulting parent nodes will be polynomials of degree (level + 1) because we multiply by an additional
+     * level, the resulting parent nodes will be polynomials of degree (level +
+1) because we multiply by an additional
      * factor of X.
      */
     static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
@@ -311,6 +315,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
                 // function have already been folded
+                // This will not add pow stuff to relation dependent stuff
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
@@ -326,6 +331,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(univariate_accumulators, instances.alphas);
     }
+
+    // This we get rid of!!
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                                                     const CombinedRelationSeparator& alpha)
     {
