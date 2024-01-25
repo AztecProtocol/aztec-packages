@@ -10,6 +10,7 @@ import {
   to2Fields,
 } from '@aztec/aztec.js';
 import {
+  AppendOnlyTreeSnapshot,
   Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -17,8 +18,10 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PartialStateReference,
   PublicDataUpdateRequest,
   SideEffectLinkedToNoteHash,
+  StateReference,
 } from '@aztec/circuits.js';
 import {
   fr,
@@ -150,8 +153,27 @@ describe('L1Publisher integration', () => {
     });
 
     // TODO(benesjan): is this correct?
-    prevHeader = Header.empty();
+    prevHeader = await buildPrevBlockHeader(builderDb);
   }, 100_000);
+
+  // TODO(benesjan): copied over from solo_block_builder.test.ts, should be refactored
+  const buildPrevBlockHeader = async (db: MerkleTreeOperations) => {
+    const roots = await db.getTreeRoots();
+    return new Header(
+      AppendOnlyTreeSnapshot.empty(),
+      Buffer.alloc(32, 0),
+      new StateReference(
+        new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.l1Tol2MessageTreeRoot), 0),
+        new PartialStateReference(
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.noteHashTreeRoot), 0),
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.nullifierTreeRoot), 0),
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.contractDataTreeRoot), 0),
+          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.publicDataTreeRoot), 0),
+        ),
+      ),
+      GlobalVariables.empty(),
+    );
+  };
 
   const makeEmptyProcessedTx = async () => {
     const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));

@@ -100,7 +100,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     txs: ProcessedTx[],
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
-    // Check txs are good for processing
+    // Check txs are good for processing by checking if all the tree snapshots in header are non-empty
     this.validateTxs(txs);
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
@@ -158,14 +158,20 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected validateTxs(txs: ProcessedTx[]) {
     for (const tx of txs) {
       const txHeader = tx.data.constants.header;
-      if (
-        txHeader.state.l1ToL2MessageTree.isEmpty() ||
-        txHeader.state.partial.noteHashTree.isEmpty() ||
-        txHeader.state.partial.nullifierTree.isEmpty() ||
-        txHeader.state.partial.contractTree.isEmpty() ||
-        txHeader.state.partial.publicDataTree.isEmpty()
-      ) {
-        throw new Error(`Empty tree in tx: ${toFriendlyJSON(tx)}`);
+      if (txHeader.state.l1ToL2MessageTree.isEmpty()) {
+        throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
+      }
+      if (txHeader.state.partial.noteHashTree.isEmpty()) {
+        throw new Error(`Empty note hash tree in tx: ${toFriendlyJSON(tx)}`);
+      }
+      if (txHeader.state.partial.nullifierTree.isEmpty()) {
+        throw new Error(`Empty nullifier tree in tx: ${toFriendlyJSON(tx)}`);
+      }
+      if (txHeader.state.partial.contractTree.isEmpty()) {
+        throw new Error(`Empty contract tree in tx: ${toFriendlyJSON(tx)}`);
+      }
+      if (txHeader.state.partial.publicDataTree.isEmpty()) {
+        throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
       }
     }
   }
