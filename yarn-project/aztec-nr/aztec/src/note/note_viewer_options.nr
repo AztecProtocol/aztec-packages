@@ -1,6 +1,6 @@
 use dep::std::option::Option;
 use dep::protocol_types::constants::MAX_NOTES_PER_PAGE;
-use crate::note::note_getter_options::{Select, Sort};
+use crate::note::note_getter_options::{Select, Sort, NoteStatus};
 use crate::types::vec::BoundedVec;
 
 // docs:start:NoteViewerOptions
@@ -9,7 +9,7 @@ struct NoteViewerOptions<Note, N> {
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
     offset: u32,
-    include_nullified: bool,
+    status: u2,
 }
 // docs:end:NoteViewerOptions
 
@@ -20,7 +20,7 @@ impl<Note, N> NoteViewerOptions<Note, N> {
             sorts: BoundedVec::new(Option::none()),
             limit: MAX_NOTES_PER_PAGE as u32,
             offset: 0,
-            include_nullified: false,
+            status: NoteStatus.ACTIVE,
         }
     }
 
@@ -45,8 +45,9 @@ impl<Note, N> NoteViewerOptions<Note, N> {
         *self
     }
 
-    pub fn include_nullified(&mut self) -> Self {
-        self.include_nullified = true;
+    // This method sets the status value, which determines whether to retrieve active or nullified notes.
+    pub fn set_status(&mut self, status: u2) -> Self {
+        self.status = status;
         *self
     }
 }

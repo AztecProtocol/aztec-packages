@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM, MerkleTreeId, NoteFilter, randomTxHash } from '@aztec/circuit-types';
+import { INITIAL_L2_BLOCK_NUM, MerkleTreeId, NoteFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 
@@ -142,7 +142,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await expect(database.removeNullifiedNotes(nullifiers, owner.publicKey)).resolves.toEqual(notesToNullify);
         }
 
-        await expect(database.getNotes({ ...getFilter(), status: 'includeNullified' })).resolves.toEqual(getExpected());
+        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
+          getExpected(),
+        );
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
@@ -155,7 +157,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         );
 
         const actualNotesWithDefault = await database.getNotes({});
-        const actualNotesWithActive = await database.getNotes({ status: 'activeOnly' });
+        const actualNotesWithActive = await database.getNotes({ status: NoteStatus.ACTIVE });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
@@ -171,7 +173,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         );
 
         const result = await database.getNotes({
-          status: 'includeNullified',
+          status: NoteStatus.ACTIVE_OR_NULLIFIED,
         });
 
         // We have to compare the sorted arrays since the database does not return the same order as when originally

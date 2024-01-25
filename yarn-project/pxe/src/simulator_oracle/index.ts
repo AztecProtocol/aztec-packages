@@ -3,6 +3,7 @@ import {
   KeyStore,
   L2Block,
   MerkleTreeId,
+  NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
   StateInfoProvider,
@@ -65,11 +66,11 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, includeNullified: boolean) {
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
     const noteDaos = await this.db.getNotes({
       contractAddress,
       storageSlot,
-      status: includeNullified ? 'includeNullified' : 'activeOnly',
+      status,
     });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,

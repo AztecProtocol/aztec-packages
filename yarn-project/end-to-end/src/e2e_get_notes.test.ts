@@ -28,11 +28,11 @@ describe('e2e_get_notes', () => {
     storageSlot += 1;
   });
 
-  async function assertNoteIsReturned(storageSlot: number, expectedValue: number, includeNullified: boolean) {
-    const viewNotesResult = await contract.methods.call_view_notes(storageSlot, includeNullified).view();
+  async function assertNoteIsReturned(storageSlot: number, expectedValue: number, activeOrNullified: boolean) {
+    const viewNotesResult = await contract.methods.call_view_notes(storageSlot, activeOrNullified).view();
 
     // call_get_notes exposes the return value via an event since we cannot use view() with it.
-    const tx = contract.methods.call_get_notes(storageSlot, includeNullified).send();
+    const tx = contract.methods.call_get_notes(storageSlot, activeOrNullified).send();
     await tx.wait();
 
     const logs = (await tx.getUnencryptedLogs()).logs;
@@ -44,42 +44,42 @@ describe('e2e_get_notes', () => {
     expect(viewNotesResult).toEqual(BigInt(expectedValue));
   }
 
-  async function assertNoReturnValue(storageSlot: number, includeNullified: boolean) {
-    await expect(contract.methods.call_view_notes(storageSlot, includeNullified).view()).rejects.toThrow('is_some');
-    await expect(contract.methods.call_get_notes(storageSlot, includeNullified).send().wait()).rejects.toThrow(
+  async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
+    await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).view()).rejects.toThrow('is_some');
+    await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).send().wait()).rejects.toThrow(
       'is_some',
     );
   }
 
   describe('active note only', () => {
-    const includeNullified = false;
+    const activeOrNullified = false;
 
     it('returns active notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
-      await assertNoteIsReturned(storageSlot, VALUE, includeNullified);
+      await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
     });
 
     it('does not return nullified notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
       await contract.methods.call_destroy_note(storageSlot).send().wait();
 
-      await assertNoReturnValue(storageSlot, includeNullified);
+      await assertNoReturnValue(storageSlot, activeOrNullified);
     });
   });
 
   describe('active and nullified notes', () => {
-    const includeNullified = true;
+    const activeOrNullified = true;
 
     it('returns active notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
-      await assertNoteIsReturned(storageSlot, VALUE, includeNullified);
+      await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
     });
 
     it('returns nullified notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
       await contract.methods.call_destroy_note(storageSlot).send().wait();
 
-      await assertNoteIsReturned(storageSlot, VALUE, includeNullified);
+      await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
     }, 30_000);
   });
 });

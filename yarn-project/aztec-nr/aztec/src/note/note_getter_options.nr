@@ -34,6 +34,17 @@ impl Sort {
     }
 }
 
+struct NoteStatusEnum {
+    ACTIVE: u2,
+    ACTIVE_OR_NULLIFIED: u2,
+}
+
+global NoteStatus = NoteStatusEnum {
+    ACTIVE: 1,
+    ACTIVE_OR_NULLIFIED: 2,
+    // TODO 4208: add 'NULLIFIED'
+};
+
 fn return_all_notes<Note, N>(
     notes: [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     _p: Field
@@ -49,7 +60,7 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
     offset: u32,
     filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
-    include_nullified: bool,
+    status: u2,
 }
 // docs:end:NoteGetterOptions
 
@@ -67,7 +78,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter: return_all_notes,
             filter_args: 0,
-            include_nullified: false,
+            status: NoteStatus.ACTIVE,
         }
     }
 
@@ -84,7 +95,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter,
             filter_args,
-            include_nullified: false,
+            status: NoteStatus.ACTIVE,
         }
     }
 
@@ -115,9 +126,9 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
         *self
     }
 
-    // This method sets the include_nullified flag, which indicates that nullified notes should also be retrieved.
-    pub fn include_nullified(&mut self) -> Self {
-        self.include_nullified = true;
+    // This method sets the status value, which determines whether to retrieve active or nullified notes.
+    pub fn set_status(&mut self, status: u2) -> Self {
+        self.status = status;
         *self
     }
 }

@@ -25,7 +25,7 @@ contract Test {
             utils as note_utils,
             lifecycle::{create_note, destroy_note},
             note_getter::{get_notes, view_notes},
-            note_getter_options::NoteGetterOptions,
+            note_getter_options::{NoteGetterOptions, NoteStatus},
             note_viewer_options::NoteViewerOptions,
         },
         oracle::{
@@ -97,12 +97,12 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn call_get_notes(storage_slot: Field, includeNullified: bool) {
+    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteGetterOptions::new();
-        if (includeNullified) {
-            options = options.include_nullified();
+        if (active_or_nullified) {
+            options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let opt_notes = get_notes(&mut context, storage_slot, ValueNoteMethods, options);
@@ -113,12 +113,12 @@ contract Test {
         emit_unencrypted_log_from_private(&mut context, value);
     }
 
-    unconstrained fn call_view_notes(storage_slot: Field, includeNullified: bool) -> pub Field {
+    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteViewerOptions::new();
-        if (includeNullified) {
-            options = options.include_nullified();
+        if (active_or_nullified) {
+            options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let opt_notes = view_notes(storage_slot, ValueNoteMethods, options);

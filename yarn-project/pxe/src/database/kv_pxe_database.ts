@@ -1,4 +1,4 @@
-import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/circuit-types';
+import { ContractDao, MerkleTreeId, NoteFilter, NoteStatus, PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecArray, AztecKVStore, AztecMap, AztecMultiMap, AztecSingleton } from '@aztec/kv-store';
@@ -184,9 +184,9 @@ export class KVPxeDatabase implements PxeDatabase {
     // merged.
     let candidateNoteIds: Array<number> = [];
 
-    filter.status = filter.status ?? 'activeOnly';
+    filter.status = filter.status ?? NoteStatus.ACTIVE;
 
-    if (filter.status == 'activeOnly' || filter.status == 'includeNullified') {
+    if (filter.status == NoteStatus.ACTIVE || filter.status == NoteStatus.ACTIVE_OR_NULLIFIED) {
       const candidateActiveNoteIds = publicKey
         ? this.#notesByOwner.getValues(publicKey.toString())
         : filter.txHash
@@ -200,7 +200,7 @@ export class KVPxeDatabase implements PxeDatabase {
       candidateNoteIds = candidateNoteIds.concat([...candidateActiveNoteIds]);
     }
 
-    if (filter.status == 'includeNullified') {
+    if (filter.status == NoteStatus.ACTIVE_OR_NULLIFIED) {
       candidateNoteIds = candidateNoteIds.concat([...this.#nullifiedNotes.keys()]);
     }
 
