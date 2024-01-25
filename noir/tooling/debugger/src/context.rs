@@ -352,15 +352,15 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         acir_index < opcodes.len() && matches!(opcodes[acir_index], Opcode::Brillig(..))
     }
 
-    pub(super) fn get_brillig_registers(&self) -> Option<&Registers> {
-        self.brillig_solver.as_ref().map(|solver| solver.get_registers())
-    }
+    // pub(super) fn get_brillig_registers(&self) -> Option<&Registers> {
+    //     self.brillig_solver.as_ref().map(|solver| solver.get_registers())
+    // }
 
-    pub(super) fn set_brillig_register(&mut self, register_index: usize, value: FieldElement) {
-        if let Some(solver) = self.brillig_solver.as_mut() {
-            solver.set_register(register_index, value.into());
-        }
-    }
+    // pub(super) fn set_brillig_register(&mut self, register_index: usize, value: FieldElement) {
+    //     if let Some(solver) = self.brillig_solver.as_mut() {
+    //         solver.set_register(register_index, value.into());
+    //     }
+    // }
 
     pub(super) fn get_brillig_memory(&self) -> Option<&[Value]> {
         self.brillig_solver.as_ref().map(|solver| solver.get_memory())
@@ -442,7 +442,7 @@ mod tests {
         },
         blackbox_solver::StubbedBlackBoxSolver,
         brillig_vm::brillig::{
-            BinaryFieldOp, Opcode as BrilligOpcode, RegisterIndex, RegisterOrMemory,
+            BinaryFieldOp, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray,
         },
     };
     use nargo::{artifacts::debug::DebugArtifact, ops::DefaultForeignCallExecutor};
@@ -462,13 +462,13 @@ mod tests {
             outputs: vec![],
             bytecode: vec![
                 BrilligOpcode::Const {
-                    destination: RegisterIndex::from(1),
+                    destination: MemoryAddress::from(1),
                     value: Value::from(fe_0),
                 },
                 BrilligOpcode::ForeignCall {
                     function: "clear_mock".into(),
                     destinations: vec![],
-                    inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
+                    inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
                 },
                 BrilligOpcode::Stop,
             ],
@@ -548,10 +548,10 @@ mod tests {
             outputs: vec![BrilligOutputs::Simple(w_z)],
             bytecode: vec![
                 BrilligOpcode::BinaryFieldOp {
-                    destination: RegisterIndex::from(0),
+                    destination: MemoryAddress::from(0),
                     op: BinaryFieldOp::Add,
-                    lhs: RegisterIndex::from(0),
-                    rhs: RegisterIndex::from(1),
+                    lhs: MemoryAddress::from(0),
+                    rhs: MemoryAddress::from(1),
                 },
                 BrilligOpcode::Stop,
             ],

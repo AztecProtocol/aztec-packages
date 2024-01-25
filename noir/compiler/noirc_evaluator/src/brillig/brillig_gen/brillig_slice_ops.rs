@@ -1,4 +1,4 @@
-use acvm::brillig_vm::brillig::{BinaryIntOp, RegisterIndex};
+use acvm::brillig_vm::brillig::{BinaryIntOp, MemoryAddress};
 
 use crate::brillig::brillig_ir::brillig_variable::{BrilligVariable, BrilligVector};
 
@@ -168,7 +168,7 @@ impl<'block> BrilligBlock<'block> {
         &mut self,
         target_vector: BrilligVector,
         source_vector: BrilligVector,
-        index: RegisterIndex,
+        index: MemoryAddress,
         items: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector incrementing the size by items.len()
@@ -240,7 +240,7 @@ impl<'block> BrilligBlock<'block> {
         &mut self,
         target_vector: BrilligVector,
         source_vector: BrilligVector,
-        index: RegisterIndex,
+        index: MemoryAddress,
         removed_items: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector decrementing the size by removed_items.len()
@@ -328,7 +328,7 @@ mod tests {
     use std::vec;
 
     use acvm::acir::brillig::Value;
-    use acvm::brillig_vm::brillig::RegisterIndex;
+    use acvm::brillig_vm::brillig::MemoryAddress;
 
     use crate::brillig::brillig_gen::brillig_block::BrilligBlock;
     use crate::brillig::brillig_gen::brillig_block_variables::BlockVariables;
@@ -438,8 +438,8 @@ mod tests {
 
             assert_eq!(vm.get_memory(), &expected_mem);
 
-            assert_eq!(vm.get_registers().get(RegisterIndex(0)), Value::from(array.len()));
-            assert_eq!(vm.get_registers().get(RegisterIndex(1)), Value::from(array.len() + 1));
+            assert_eq!(vm.get_registers().get(MemoryAddress(0)), Value::from(array.len()));
+            assert_eq!(vm.get_registers().get(MemoryAddress(1)), Value::from(array.len() + 1));
         }
 
         test_case_push(
@@ -538,9 +538,9 @@ mod tests {
 
             assert_eq!(vm.get_memory(), &expected_mem);
 
-            assert_eq!(vm.get_registers().get(RegisterIndex(0)), Value::from(array.len()));
-            assert_eq!(vm.get_registers().get(RegisterIndex(1)), Value::from(array.len() - 1));
-            assert_eq!(vm.get_registers().get(RegisterIndex(2)), expected_removed_item);
+            assert_eq!(vm.get_registers().get(MemoryAddress(0)), Value::from(array.len()));
+            assert_eq!(vm.get_registers().get(MemoryAddress(1)), Value::from(array.len() - 1));
+            assert_eq!(vm.get_registers().get(MemoryAddress(2)), expected_removed_item);
         }
 
         test_case_pop(
@@ -638,8 +638,8 @@ mod tests {
 
             assert_eq!(vm.get_memory(), &expected_mem);
 
-            assert_eq!(vm.get_registers().get(RegisterIndex(0)), Value::from(array.len()));
-            assert_eq!(vm.get_registers().get(RegisterIndex(1)), Value::from(array.len() + 1));
+            assert_eq!(vm.get_registers().get(MemoryAddress(0)), Value::from(array.len()));
+            assert_eq!(vm.get_registers().get(MemoryAddress(1)), Value::from(array.len() + 1));
         }
 
         test_case_insert(
@@ -767,9 +767,9 @@ mod tests {
 
             assert_eq!(vm.get_memory(), &expected_mem);
 
-            assert_eq!(vm.get_registers().get(RegisterIndex(0)), Value::from(array.len()));
-            assert_eq!(vm.get_registers().get(RegisterIndex(1)), Value::from(array.len() - 1));
-            assert_eq!(vm.get_registers().get(RegisterIndex(2)), expected_removed_item);
+            assert_eq!(vm.get_registers().get(MemoryAddress(0)), Value::from(array.len()));
+            assert_eq!(vm.get_registers().get(MemoryAddress(1)), Value::from(array.len() - 1));
+            assert_eq!(vm.get_registers().get(MemoryAddress(2)), expected_removed_item);
         }
 
         test_case_remove(

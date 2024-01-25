@@ -20,7 +20,7 @@ use acir::{
     native_types::{Expression, Witness},
 };
 use acir_field::FieldElement;
-use brillig::{HeapArray, RegisterIndex, RegisterOrMemory};
+use brillig::{HeapArray, MemoryAddress, ValueOrArray};
 
 #[test]
 fn addition_circuit() {
@@ -179,8 +179,8 @@ fn simple_brillig_foreign_call() {
         ],
         bytecode: vec![brillig::Opcode::ForeignCall {
             function: "invert".into(),
-            destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
-            inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
+            destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
+            inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
         }],
         predicate: None,
     };
@@ -245,13 +245,13 @@ fn complex_brillig_foreign_call() {
             brillig::Opcode::ForeignCall {
                 function: "complex".into(),
                 inputs: vec![
-                    RegisterOrMemory::HeapArray(HeapArray { pointer: 0.into(), size: 3 }),
-                    RegisterOrMemory::RegisterIndex(RegisterIndex::from(1)),
+                    ValueOrArray::HeapArray(HeapArray { pointer: 0.into(), size: 3 }),
+                    ValueOrArray::MemoryAddress(MemoryAddress::from(1)),
                 ],
                 destinations: vec![
-                    RegisterOrMemory::HeapArray(HeapArray { pointer: 0.into(), size: 3 }),
-                    RegisterOrMemory::RegisterIndex(RegisterIndex::from(1)),
-                    RegisterOrMemory::RegisterIndex(RegisterIndex::from(2)),
+                    ValueOrArray::HeapArray(HeapArray { pointer: 0.into(), size: 3 }),
+                    ValueOrArray::MemoryAddress(MemoryAddress::from(1)),
+                    ValueOrArray::MemoryAddress(MemoryAddress::from(2)),
                 ],
             },
         ],

@@ -1,4 +1,4 @@
-use acir::brillig::{RegisterIndex, Value};
+use acir::brillig::{MemoryAddress, Value};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Registers {
@@ -22,7 +22,7 @@ impl Registers {
     }
 
     /// Gets the values at register with address `index`
-    pub fn get(&self, register_index: RegisterIndex) -> Value {
+    pub fn get(&self, register_index: MemoryAddress) -> Value {
         let index = register_index.to_usize();
         assert!(index < MAX_REGISTERS, "Reading register past maximum!");
         let value = self.inner.get(index);
@@ -33,7 +33,7 @@ impl Registers {
     }
 
     /// Sets the value at register with address `index` to `value`
-    pub fn set(&mut self, RegisterIndex(index): RegisterIndex, value: Value) {
+    pub fn set(&mut self, MemoryAddress(index): MemoryAddress, value: Value) {
         assert!(index < MAX_REGISTERS, "Writing register past maximum!");
         // if size isn't at least index + 1, resize
         let new_register_size = std::cmp::max(index + 1, self.inner.len());

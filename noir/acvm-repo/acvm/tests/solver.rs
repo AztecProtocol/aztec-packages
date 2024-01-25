@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use acir::{
-    brillig::{BinaryFieldOp, Opcode as BrilligOpcode, RegisterIndex, RegisterOrMemory, Value},
+    brillig::{BinaryFieldOp, MemoryAddress, Opcode as BrilligOpcode, Value, ValueOrArray},
     circuit::{
         brillig::{Brillig, BrilligInputs, BrilligOutputs},
         opcodes::{BlockId, MemOp},
@@ -37,9 +37,9 @@ fn inversion_brillig_oracle_equivalence() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: RegisterIndex::from(0),
-        rhs: RegisterIndex::from(1),
-        destination: RegisterIndex::from(2),
+        lhs: MemoryAddress::from(0),
+        rhs: MemoryAddress::from(1),
+        destination: MemoryAddress::from(2),
     };
 
     let brillig_data = Brillig {
@@ -63,8 +63,8 @@ fn inversion_brillig_oracle_equivalence() {
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(1))],
-                inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
             },
         ],
         predicate: None,
@@ -151,9 +151,9 @@ fn double_inversion_brillig_oracle() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: RegisterIndex::from(0),
-        rhs: RegisterIndex::from(1),
-        destination: RegisterIndex::from(4),
+        lhs: MemoryAddress::from(0),
+        rhs: MemoryAddress::from(1),
+        destination: MemoryAddress::from(4),
     };
 
     let brillig_data = Brillig {
@@ -184,13 +184,13 @@ fn double_inversion_brillig_oracle() {
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(1))],
-                inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
             },
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(3))],
-                inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(2))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(3))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(2))],
             },
         ],
         predicate: None,
@@ -309,13 +309,13 @@ fn oracle_dependent_execution() {
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(1))],
-                inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
             },
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(3))],
-                inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(2))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(3))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(2))],
             },
         ],
         predicate: None,
@@ -404,9 +404,9 @@ fn brillig_oracle_predicate() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: RegisterIndex::from(0),
-        rhs: RegisterIndex::from(1),
-        destination: RegisterIndex::from(2),
+        lhs: MemoryAddress::from(0),
+        rhs: MemoryAddress::from(1),
+        destination: MemoryAddress::from(2),
     };
 
     let brillig_opcode = Opcode::Brillig(Brillig {
@@ -429,8 +429,8 @@ fn brillig_oracle_predicate() {
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
-                destinations: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(1))],
-                inputs: vec![RegisterOrMemory::RegisterIndex(RegisterIndex::from(0))],
+                destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
+                inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
             },
         ],
         predicate: Some(Expression::default()),
@@ -504,16 +504,16 @@ fn unsatisfied_opcode_resolved_brillig() {
 
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
-        lhs: RegisterIndex::from(0),
-        rhs: RegisterIndex::from(1),
-        destination: RegisterIndex::from(2),
+        lhs: MemoryAddress::from(0),
+        rhs: MemoryAddress::from(1),
+        destination: MemoryAddress::from(2),
     };
     // Jump pass the trap if the values are equal, else
     // jump to the trap
     let location_of_stop = 3;
 
     let jmp_if_opcode =
-        BrilligOpcode::JumpIf { condition: RegisterIndex::from(2), location: location_of_stop };
+        BrilligOpcode::JumpIf { condition: MemoryAddress::from(2), location: location_of_stop };
 
     let trap_opcode = BrilligOpcode::Trap;
     let stop_opcode = BrilligOpcode::Stop;
