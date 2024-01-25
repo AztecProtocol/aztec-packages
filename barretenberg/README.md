@@ -258,6 +258,6 @@ A common issue that arises is that our CI system has a different compiler versio
 cd barretenberg/cpp
 ./scripts/docker_interactive.sh
 mv build build-native # your native build folders are mounted, but will not work! have to clear them
-cmake --preset gcc ;  cmake --build gcc
+cmake --preset gcc ;  cmake --build build
 ```
 This will allow you to rebuild as efficiently as if you were running native code, and not have to see a full compile cycle.
