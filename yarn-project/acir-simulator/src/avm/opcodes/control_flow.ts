@@ -1,6 +1,9 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
+import { IntegralValueType } from '../avm_memory_types.js';
 
 /** - */
 export class Return extends Instruction {
@@ -12,7 +15,9 @@ export class Return extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const returnData = machineState.readMemoryChunk(this.returnOffset, this.returnOffset + this.copySize);
+    // TODO: reconsider this casting
+    const returnData = machineState.memory.getSlice(this.returnOffset, this.copySize).map(fvt => new Fr(fvt.toBigInt()));
+
     machineState.setReturnData(returnData);
 
     this.halt(machineState);
@@ -43,9 +48,10 @@ export class JumpI extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const condition = machineState.readMemory(this.condOffset);
+    const condition = machineState.memory.getAs<IntegralValueType>(this.condOffset);
 
-    if (condition.toBigInt() == 0n) {
+    if(condition.toBigInt() == 0n) {
+      // TODO: reconsider this casting
       this.incrementPc(machineState);
     } else {
       machineState.pc = this.jumpOffset;

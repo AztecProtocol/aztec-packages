@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
@@ -14,11 +12,11 @@ export class Add extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a = machineState.readMemory(this.aOffset);
-    const b = machineState.readMemory(this.bOffset);
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
 
     const dest = a.add(b);
-    machineState.writeMemory(this.destOffset, dest);
+    machineState.memory.set(this.destOffset, dest);
 
     this.incrementPc(machineState);
   }
@@ -34,11 +32,11 @@ export class Sub extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a = machineState.readMemory(this.aOffset);
-    const b = machineState.readMemory(this.bOffset);
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
 
     const dest = a.sub(b);
-    machineState.writeMemory(this.destOffset, dest);
+    machineState.memory.set(this.destOffset, dest);
 
     this.incrementPc(machineState);
   }
@@ -54,11 +52,11 @@ export class Mul extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
 
     const dest = a.mul(b);
-    machineState.writeMemory(this.destOffset, dest);
+    machineState.memory.set(this.destOffset, dest);
 
     this.incrementPc(machineState);
   }
@@ -74,11 +72,11 @@ export class Div extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
 
     const dest = a.div(b);
-    machineState.writeMemory(this.destOffset, dest);
+    machineState.memory.set(this.destOffset, dest);
 
     this.incrementPc(machineState);
   }
