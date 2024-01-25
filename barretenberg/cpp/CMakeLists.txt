@@ -20,8 +20,7 @@ option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
-option(TESTING "Build tests" ON)
-option(FUZZING "Build fuzzing harnesses" OFF)
+option(FUZZING "Build ONLY fuzzing harnesses" OFF)
 option(DISABLE_TBB "Intel Thread Building Blocks" ON)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
@@ -50,21 +49,10 @@ if(FUZZING)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
 
-    set(SANITIZER_OPTIONS "")
+    add_compile_options(-fsanitize=fuzzer)
+    add_link_options(-fsanitize=fuzzer)
 
-    if(ADDRESS_SANITIZER)
-        set(SANITIZER_OPTIONS ${SANITIZER_OPTIONS} -fsanitize=address)
-    endif()
-
-    if(UNDEFINED_BEHAVIOUR_SANITIZER)
-        set(SANITIZER_OPTIONS ${SANITIZER_OPTIONS} -fsanitize=undefined -fno-sanitize=alignment)
-    endif()
-
-    add_compile_options(-fsanitize=fuzzer-no-link ${SANITIZER_OPTIONS})
-
-    set(WASM OFF)
     set(MULTITHREADING OFF)
-    set(TESTING OFF)
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")

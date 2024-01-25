@@ -141,6 +141,19 @@
       }
     },
     {
+      "name": "ubsan",
+      "displayName": "Debugging build with undefined behaviour sanitizer on Clang-16",
+      "description": "Build with undefined behaviour sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-ubsan",
+      "generator": "Unix Makefiles",
+      "environment": {
+        "CFLAGS": "-fsanitize=undefined",
+        "CXXFLAGS": "-fsanitize=undefined",
+        "LDFLAGS": "-fsanitize=undefined"
+      }
+    },
+    {
       "name": "msan",
       "displayName": "Debugging build with memory sanitizer on Clang-16",
       "description": "Build with thread sanitizer on clang16 with debugging information",
@@ -151,10 +164,6 @@
         "CFLAGS": "-fsanitize=memory",
         "CXXFLAGS": "-fsanitize=memory",
         "LDFLAGS": "-fsanitize=memory"
-      },
-      "cacheVariables": {
-        "BENCHMARK": "OFF",
-        "TESTING": "OFF"
       }
     },
     {
@@ -345,6 +354,11 @@
       "name": "tsan",
       "inherits": "default",
       "configurePreset": "tsan"
+    },
+    {
+      "name": "ubsan",
+      "inherits": "default",
+      "configurePreset": "ubsan"
     },
     {
       "name": "coverage",

@@ -199,7 +199,7 @@ For detailed instructions look in cpp/docs/Fuzzing.md
 To build:
 
 ```bash
-cmake --preset fuzzing
+cmake --preset clang16 -DFUZZING=ON
 cmake --build --preset fuzzing
 ```
 
