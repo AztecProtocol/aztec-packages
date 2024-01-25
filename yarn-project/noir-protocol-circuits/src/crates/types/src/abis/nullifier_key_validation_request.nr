@@ -31,10 +31,6 @@ impl Empty for NullifierKeyValidationRequest {
 }
 
 impl NullifierKeyValidationRequest {
-    pub fn is_empty(self) -> bool {
-        self.public_key.is_zero() & self.secret_key.is_zero()
-    }
-
     pub fn serialize(self) -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_SERIALIZED_LEN] {
         [
             self.public_key.x,
@@ -85,11 +81,7 @@ impl Empty for NullifierKeyValidationRequestContext {
 }
 
 impl NullifierKeyValidationRequestContext {
-    pub fn is_empty(self) -> bool {
-        self.public_key.is_zero() & self.secret_key.is_zero() & self.contract_address.is_zero()
-    }
-
-     pub fn serialize(self) -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_SERIALIZED_LEN] {
+    pub fn serialize(self) -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_SERIALIZED_LEN] {
         [
             self.public_key.x,
             self.public_key.y,

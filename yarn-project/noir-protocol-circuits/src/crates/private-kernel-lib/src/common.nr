@@ -45,7 +45,7 @@ use dep::types::{
         },
         bounded_vec::BoundedVec,
     },
-    traits::is_empty_array,
+    traits::{is_empty, is_empty_array},
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
@@ -203,7 +203,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     // Nullifier key validation requests.
     for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
         let request = nullifier_key_validation_requests[i];
-        if !request.is_empty() {
+        if !is_empty(request) {
             public_inputs.end.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
         }
     }

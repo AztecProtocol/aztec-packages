@@ -54,7 +54,7 @@ impl PrivateKernelInputsOrdering {
         let requests = self.previous_kernel.public_inputs.end.nullifier_key_validation_requests;
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i];
-            if !request.is_empty() {
+            if !is_empty(request) {
                 let master_secret_key = self.master_nullifier_secret_keys[i];
                 let computed_public_key = master_secret_key.derive_public_key();
                 assert(computed_public_key.eq(request.public_key), "Cannot derive nullifier public key from the master key.");
