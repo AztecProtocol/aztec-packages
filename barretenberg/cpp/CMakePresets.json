@@ -230,12 +230,12 @@
     },
     {
       "name": "wasm-bench",
-      "displayName": "Build for pthread enabled WASM",
-      "description": "Build for pthread enabled WASM",
+      "displayName": "WASM benchmarking.",
+      "description": "WASM benchmarking.",
       "inherits": "wasm-threads",
       "binaryDir": "build-wasm-bench",
-      "cacheVariables": {
-        "CXXFLAGS": "-DWASMTIME_FAKE_SRS"
+      "environment": {
+        "CXXFLAGS": "-DWASMTIME_ENV_HACK"
       }
     },
     {
