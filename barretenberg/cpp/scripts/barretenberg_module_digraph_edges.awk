@@ -7,9 +7,14 @@ function extract_edges(line) {
     gsub(/[ ]+/, " ", line); # Sub multiple spaces for a single space
     split(line, modules, " ");
 
-    # Print each element in the array
-    for (i = 2; i <= length(modules); i++) {
-        print modules[1]" -> "modules[i];
+    # If node has no dependencies, just add the node
+    if (length(modules)==1) {
+        print modules[1];
+    }
+    else { # add edges
+        for (i = 2; i <= length(modules); i++) {
+            print modules[1]" -> "modules[i];
+        }
     }
 }
 
