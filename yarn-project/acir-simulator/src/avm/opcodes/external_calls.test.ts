@@ -5,6 +5,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmJournal } from '../journal/journal.js';
@@ -92,11 +93,11 @@ describe('External Calls', () => {
   describe('Static Call', () => {
     it('Should fail if a static call attempts to touch storage', async () => {
       const gasOffset = 0;
-      const gas = Fr.zero();
+      const gas = new Field(0);
       const addrOffset = 1;
-      const addr = new Fr(123456n);
+      const addr = new Field(123456n);
       const argsOffset = 2;
-      const args = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const args = [new Field(1n), new Field(2n), new Field(3n)];
 
       const argsSize = args.length;
       const retOffset = 8;
@@ -108,8 +109,9 @@ describe('External Calls', () => {
       machineState.memory.setSlice(2, args);
 
       const otherContextInstructions: [Opcode, any[]][] = [
-        [Opcode.SET, [/* value */ 1, /* destOffset */ 1]],
-        [Opcode.SSTORE, [/* slotOffset */ 1, /* dataOffset */ 0]],
+        // Place [1,2,3] into memory
+        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*destOffset=*/ 0]],
+        [Opcode.SSTORE, [/*slotOffset*/ 1, /*dataOffset=*/ 0]],
       ];
 
       const otherContextInstructionsBytecode = Buffer.concat(

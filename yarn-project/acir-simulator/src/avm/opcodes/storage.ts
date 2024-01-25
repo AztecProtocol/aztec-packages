@@ -15,6 +15,10 @@ export class SStore extends Instruction {
   }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
+    if (machineState.executionEnvironment.isStaticCall) {
+      throw new StaticCallStorageAlterError();
+    }
+
     const slot = machineState.memory.get(this.slotOffset);
     const data = machineState.memory.get(this.dataOffset);
 

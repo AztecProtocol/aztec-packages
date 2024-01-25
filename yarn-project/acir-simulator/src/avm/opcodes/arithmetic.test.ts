@@ -30,7 +30,7 @@ describe('Arithmetic Instructions', () => {
       expect(actual).toEqual(expected);
     });
 
-    it('Should wrap around on addition',async  () => {
+    it('Should wrap around on addition', async () => {
       const a = new Field(1n);
       const b = new Field(Field.MODULUS - 1n);
 
@@ -46,7 +46,7 @@ describe('Arithmetic Instructions', () => {
   });
 
   describe('Sub', () => {
-    it('Should subtract correctly over field elements',async  () => {
+    it('Should subtract correctly over field elements', async () => {
       const a = new Field(1n);
       const b = new Field(2n);
 

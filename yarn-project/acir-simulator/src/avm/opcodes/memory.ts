@@ -5,7 +5,7 @@ import { Instruction } from './instruction.js';
 
 export class Set extends Instruction {
   static type: string = 'SET';
-  static numberOfOperands = 2;
+  static numberOfOperands = 3;
 
   constructor(private value: bigint, private dstOffset: number, private dstTag: TypeTag) {
     super();
@@ -22,7 +22,7 @@ export class Set extends Instruction {
 
 export class Cast extends Instruction {
   static type: string = 'CAST';
-  static numberOfOperands = 2;
+  static numberOfOperands = 3;
 
   constructor(private aOffset: number, private dstOffset: number, private dstTag: TypeTag) {
     super();

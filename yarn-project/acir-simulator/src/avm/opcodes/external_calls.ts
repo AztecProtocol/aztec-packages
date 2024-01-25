@@ -2,9 +2,9 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from '../avm_context.js';
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
 import { Instruction } from './instruction.js';
-import { Field } from '../avm_memory_types.js';
 
 export class Call extends Instruction {
   static type: string = 'CALL';
