@@ -1,5 +1,6 @@
 import { L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
@@ -8,7 +9,9 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
+  PartialStateReference,
   PublicCallRequest,
+  StateReference,
   TxContext,
   computeNullifierSecretKey,
   computeSiloedNullifierSecretKey,
@@ -137,15 +140,36 @@ describe('Private Execution test suite', () => {
       const pedersen = new Pedersen();
       trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
-    await trees[name].appendLeaves(leaves.map(l => l.toBuffer()));
+    const tree = trees[name];
 
-    // Update root.
-    const newRoot = trees[name].getRoot(true);
-    const prevRoots = header.toBuffer();
-    const rootIndex = name === 'noteHash' ? 0 : 32 * 3;
-    // TODO(benesjan): I would expect this to be completely messed up now. Investigate!
-    const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
-    header = Header.fromBuffer(newRoots);
+    await tree.appendLeaves(leaves.map(l => l.toBuffer()));
+
+    // Create a new snapshot.
+    const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
+
+    if (name === 'noteHash') {
+      header = new Header(
+        header.lastArchive,
+        header.bodyHash,
+        new StateReference(
+          header.state.l1ToL2MessageTree,
+          new PartialStateReference(
+            newSnap,
+            header.state.partial.nullifierTree,
+            header.state.partial.contractTree,
+            header.state.partial.publicDataTree,
+          ),
+        ),
+        header.globalVariables,
+      );
+    } else {
+      header = new Header(
+        header.lastArchive,
+        header.bodyHash,
+        new StateReference(newSnap, header.state.partial),
+        header.globalVariables,
+      );
+    }
 
     return trees[name];
   };
