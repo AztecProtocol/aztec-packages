@@ -638,7 +638,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         // Doubling over the embedded curve: input is (x,y) coordinate of the point.
         BlackBoxFunc::EmbeddedCurveDouble => Some(2),
 
-        // Big integer operations take in 0 inputs. THey use constants for their inputs.
+        // Big integer operations take in 0 inputs. They use constants for their inputs.
         BlackBoxFunc::BigIntAdd
         | BlackBoxFunc::BigIntNeg
         | BlackBoxFunc::BigIntMul
