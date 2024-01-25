@@ -79,6 +79,13 @@ std::vector<Instruction> Execution::parse(std::vector<uint8_t> const& bytecode)
         size_t num_of_operands{};
         size_t operands_size{};
 
+        // SET opcode particularity about the number of operands depending on the
+        // instruction tag. Namely, a constant of type instruction tag and not a
+        // memory address is passed in the operands.
+        // The bytecode of the operands is of the form CONSTANT || dst_offset
+        // CONSTANT is of size k bits for type Uk, k=8,16,32,64,128
+        // dst_offset is of size 32 bits
+        // CONSTANT has to be decomposed into 32-bit chunks
         if (opcode == OpCode::SET) {
             switch (in_tag) {
             case AvmMemoryTag::U8:
@@ -115,31 +122,28 @@ std::vector<Instruction> Execution::parse(std::vector<uint8_t> const& bytecode)
             throw std::runtime_error("Operand is missing at position " + std::to_string(pos));
         }
 
+        // We handle operands which are encoded with less than 4 bytes.
+        // This occurs for opcode SET and tag U8 and U16.
         if (opcode == OpCode::SET && in_tag == AvmMemoryTag::U8) {
             operands.push_back(static_cast<uint32_t>(bytecode.at(pos)));
-            uint8_t const* ptr = &bytecode.at(pos + 1);
-            uint32_t operand{};
-            serialize::read(ptr, operand);
-            operands.push_back(operand);
-            pos += operands_size;
+            pos++;
+            num_of_operands--;
         } else if (opcode == OpCode::SET && in_tag == AvmMemoryTag::U16) {
             uint8_t const* ptr = &bytecode.at(pos);
             uint16_t operand{};
             serialize::read(ptr, operand);
             operands.push_back(static_cast<uint32_t>(operand));
-            ptr = &bytecode.at(pos + 2);
-            uint32_t operand2{};
-            serialize::read(ptr, operand2);
-            operands.push_back(operand2);
-            pos += operands_size;
-        } else {
-            for (size_t i = 0; i < num_of_operands; i++) {
-                uint8_t const* ptr = &bytecode.at(pos);
-                uint32_t operand{};
-                serialize::read(ptr, operand);
-                operands.push_back(operand);
-                pos += AVM_OPERAND_BYTE_LENGTH;
-            }
+            pos += 2;
+            num_of_operands--;
+        }
+
+        // Operands of size of 32 bits.
+        for (size_t i = 0; i < num_of_operands; i++) {
+            uint8_t const* ptr = &bytecode.at(pos);
+            uint32_t operand{};
+            serialize::read(ptr, operand);
+            operands.push_back(operand);
+            pos += AVM_OPERAND_BYTE_LENGTH;
         }
 
         instructions.emplace_back(opcode, operands, static_cast<AvmMemoryTag>(in_tag));
@@ -192,16 +196,17 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             case AvmMemoryTag::U8:
             case AvmMemoryTag::U16:
             case AvmMemoryTag::U32:
+                // U8, U16, U32 value represented in a single uint32_t operand
                 val = inst.operands.at(0);
                 dst_offset = inst.operands.at(1);
                 break;
-            case AvmMemoryTag::U64:
+            case AvmMemoryTag::U64: // value represented as 2 uint32_t operands
                 val = inst.operands.at(0);
                 val <<= 32;
                 val += inst.operands.at(1);
                 dst_offset = inst.operands.at(2);
                 break;
-            case AvmMemoryTag::U128:
+            case AvmMemoryTag::U128: // value represented as 4 uint32_t operands
                 for (size_t i = 0; i < 4; i++) {
                     val += inst.operands.at(i);
                     val <<= 32;
