@@ -96,35 +96,36 @@ fn compute_function_leaf() {
     assert_eq(leaf.hash(), 0x1ad8ece7f40e63d011ae47c6ce6cdaf31d632a23f5cf35bbeaaf69c8302afdbc);
 }
 
-// TODO(benesjan): re-enable this
-// #[test]
-// fn compute_call_stack_item_request() {
-//     let contract_address = AztecAddress::from_field(1);
-//     let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
+#[test]
+fn compute_call_stack_item_request_hash() {
+    let contract_address = AztecAddress::from_field(1);
+    let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
 
-//     let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-//     public_inputs.new_commitments[0] = SideEffect{
-//         value: 1,
-//         counter: 0,
-//         };
+    let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    public_inputs.new_commitments[0] = SideEffect{
+        value: 1,
+        counter: 0,
+    };
 
-//     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
+    let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
-//     assert_eq(call_stack_item.hash(), 0x0edc0b5221e098c129545ba693368cddc0e6950bb11baa4595b310fc1fa24b5f);
-// }
+    // Value from abis.test.ts "Computes a callstack item request hash" test
+    assert_eq(call_stack_item.hash(), 0x05c5d32c38f3de19dbfa92e25746e1db1a887d5b02b79dd915c0f50e9fc51dcd);
+}
 
-// #[test]
-// fn compute_call_stack_item() {
-//     let contract_address = AztecAddress::from_field(1);
-//     let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
+#[test]
+fn compute_call_stack_item_hash() {
+    let contract_address = AztecAddress::from_field(1);
+    let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
 
-//     let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-//     public_inputs.new_commitments[0] = SideEffect{
-//         value: 1,
-//         counter: 0,
-//         };
+    let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    public_inputs.new_commitments[0] = SideEffect{
+        value: 1,
+        counter: 0,
+    };
 
-//     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
+    let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
-//     assert_eq(call_stack_item.hash(), 0x10e265bf51be6945c10e526a86a928810429ac2d34c5fcda469245f0bb56abf6);
-// }
+    // Value from abis.test.ts "Computes a callstack item hash" test
+    assert_eq(call_stack_item.hash(), 0x06dc9c35290e1868f41fc9f45bca49482bf5d5c000c789d6c74e53bce0f686f8);
+}

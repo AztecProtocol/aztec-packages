@@ -1,6 +1,8 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`abis Computes an empty call request hash  1`] = `"0x1a3e087582cc1adb9de2e55c7aa289c00afe085942c44951479f5da5f6e5d963"`;
+exports[`abis Computes a callstack item hash 1`] = `"0x06dc9c35290e1868f41fc9f45bca49482bf5d5c000c789d6c74e53bce0f686f8"`;
+
+exports[`abis Computes a callstack item request hash 1`] = `"0x05c5d32c38f3de19dbfa92e25746e1db1a887d5b02b79dd915c0f50e9fc51dcd"`;
 
 exports[`abis Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17"`;
 
