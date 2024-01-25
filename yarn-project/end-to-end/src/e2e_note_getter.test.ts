@@ -3,10 +3,6 @@ import { DocsExampleContract } from '@aztec/noir-contracts';
 
 import { setup } from './fixtures/utils.js';
 
-interface CardNotePartial {
-  randomness: bigint;
-  points: bigint;
-}
 interface NoirOption<T> {
   _is_some: boolean;
   _value: T;
