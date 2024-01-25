@@ -41,7 +41,7 @@ pub struct Circuit {
     pub assert_messages: Vec<(OpcodeLocation, String)>,
 
     /// States whether the backend should use a SNARK recursion friendly prover.
-    /// If implemented by a backend, this means that proofs generated with this circuit 
+    /// If implemented by a backend, this means that proofs generated with this circuit
     /// will be friendly for recursively verifying inside of another SNARK.
     pub recursive: bool,
 }

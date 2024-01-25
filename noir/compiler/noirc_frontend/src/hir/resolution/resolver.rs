@@ -898,7 +898,9 @@ impl<'a> Resolver<'a> {
         }
         // '#[recursive]' attribute is only allowed for entry point functions
         if !self.is_entry_point_function(func) && func.kind == FunctionKind::Recursive {
-            self.push_err(ResolverError::MisplacedRecursiveAttribute { ident: func.name_ident().clone() });
+            self.push_err(ResolverError::MisplacedRecursiveAttribute {
+                ident: func.name_ident().clone(),
+            });
         }
 
         if !self.distinct_allowed(func)

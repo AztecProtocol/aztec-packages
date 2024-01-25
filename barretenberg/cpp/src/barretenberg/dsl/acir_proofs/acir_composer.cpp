@@ -29,6 +29,8 @@ void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system, Wi
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
+    recursive_ = constraint_system.recursive;
+    vinfo("circuit is recursive friendly: ", recursive_);
 }
 
 std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key()
@@ -39,7 +41,7 @@ std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key()
     return proving_key_;
 }
 
-std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
+std::vector<uint8_t> AcirComposer::create_proof()
 {
     if (!proving_key_) {
         throw_or_abort("Must compute proving key before constructing proof.");
@@ -49,7 +51,7 @@ std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
 
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
-    if (is_recursive) {
+    if (recursive_) {
         auto prover = composer.create_prover(builder_);
         proof = prover.construct_proof().proof_data;
     } else {
@@ -78,7 +80,7 @@ void AcirComposer::load_verification_key(bb::plonk::verification_key_data&& data
         std::make_shared<bb::plonk::verification_key>(std::move(data), srs::get_crs_factory()->get_verifier_crs());
 }
 
-bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
+bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof)
 {
     acir_format::Composer composer(proving_key_, verification_key_);
 
@@ -91,17 +93,7 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
-    // TODO: We could get rid of this, if we made the Noir program specify whether something should be
-    // TODO: created with the recursive setting or not. ie:
-    //
-    // #[recursive_friendly]
-    // fn main() {}
-    // would put in the ACIR that we want this to be recursion friendly with a flag maybe and the backend
-    // would set the is_recursive flag to be true.
-    // This would eliminate the need for nargo to have a --recursive flag
-    //
-    // End result is that we may just be able to get it off of builder_, like builder_.is_recursive_friendly
-    if (is_recursive) {
+    if (recursive_) {
         auto verifier = composer.create_verifier(builder_);
         return verifier.verify_proof({ proof });
     } else {

@@ -21,13 +21,13 @@ class AcirComposer {
 
     std::shared_ptr<bb::plonk::proving_key> init_proving_key();
 
-    std::vector<uint8_t> create_proof(bool is_recursive);
+    std::vector<uint8_t> create_proof();
 
     void load_verification_key(bb::plonk::verification_key_data&& data);
 
     std::shared_ptr<bb::plonk::verification_key> init_verification_key();
 
-    bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
+    bool verify_proof(std::vector<uint8_t> const& proof);
 
     std::string get_solidity_verifier();
     size_t get_total_circuit_size() { return builder_.get_total_circuit_size(); };
@@ -43,6 +43,7 @@ class AcirComposer {
     std::shared_ptr<bb::plonk::proving_key> proving_key_;
     std::shared_ptr<bb::plonk::verification_key> verification_key_;
     bool verbose_ = true;
+    bool recursive_ = false;
 
     template <typename... Args> inline void vinfo(Args... args)
     {
