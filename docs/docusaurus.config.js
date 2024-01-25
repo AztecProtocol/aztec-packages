@@ -195,7 +195,7 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "intro",
+            docId: "landing",
             position: "left",
             label: "Aztec Protocol",
           },
@@ -208,7 +208,7 @@ const config = {
             title: "Docs",
             items: [
               {
-                label: "Introduction",
+                label: "Welcome",
                 to: "/",
               },
               {
