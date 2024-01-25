@@ -114,6 +114,8 @@ TEST_F(EcOperations, TestECOperations)
         .ec_add_constraints = { ec_add_constraint },
         .ec_double_constraints = { ec_double_constraint },
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = { constrain_5_is_7, constrain_6_is_8 },
         .block_constraints = {},
     };
