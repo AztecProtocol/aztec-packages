@@ -113,10 +113,7 @@ contract Test {
         emit_unencrypted_log_from_private(&mut context, value);
     }
 
-    unconstrained fn call_view_notes(
-        storage_slot: Field,
-        includeNullified: bool
-    ) -> pub Field {
+    unconstrained fn call_view_notes(storage_slot: Field, includeNullified: bool) -> pub Field {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteViewerOptions::new();
