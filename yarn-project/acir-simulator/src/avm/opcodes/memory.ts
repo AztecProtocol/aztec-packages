@@ -35,7 +35,6 @@ export class Cast extends Instruction {
     const casted =
       this.dstTag == TypeTag.FIELD ? new Field(a.toBigInt()) : TaggedMemory.integralFromTag(a.toBigInt(), this.dstTag);
 
-    // TODO cast
     machineState.memory.set(this.dstOffset, casted);
 
     this.incrementPc(machineState);
@@ -72,7 +71,7 @@ export class CMov extends Instruction {
     const b = machineState.memory.get(this.bOffset);
     const cond = machineState.memory.get(this.condOffset);
 
-    // TODO: reconsider toBigInt() here.
+    // TODO: reconsider toBigInt() here
     machineState.memory.set(this.dstOffset, cond.toBigInt() > 0 ? a : b);
 
     this.incrementPc(machineState);

@@ -86,7 +86,6 @@ export class Not extends Instruction {
   }
 }
 
-/** -*/
 export class Shl extends Instruction {
   static type: string = 'SHL';
   static numberOfOperands = 3;
@@ -108,7 +107,6 @@ export class Shl extends Instruction {
   }
 }
 
-/** -*/
 export class Shr extends Instruction {
   static type: string = 'SHR';
   static numberOfOperands = 3;
