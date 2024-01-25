@@ -21,7 +21,7 @@ On this page you will learn:
 Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec-nr/aztec/src/oracle).
 
 :::note
-Please note that it is **not** advised to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [popCapsule](#how-to-use-the-pop_capsule-oracle).
+Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [popCapsule](#how-to-use-the-pop_capsule-oracle).
 :::
 
 ## How to use the popCapsule oracle
