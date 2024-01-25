@@ -156,6 +156,7 @@ CMake can be passed various build options on its command line:
 - `-DMULTITHREADING=ON | OFF`: Enable/disable multithreading.
 - `-DOMP_MULTITHREADING=ON | OFF`: Enable/disable multithreading that uses OpenMP.
 - `-DTESTING=ON | OFF`: Enable/disable building of tests.
+- `-DBENCHMARK=ON | OFF`: Enable/disable building of benchmarks.
 - `-DFUZZING=ON | OFF`: Enable building various fuzzers.
 
 If you are cross-compiling, you can use a preconfigured toolchain file:
@@ -199,7 +200,7 @@ For detailed instructions look in cpp/docs/Fuzzing.md
 To build:
 
 ```bash
-cmake --preset clang16 -DFUZZING=ON
+cmake --preset fuzzing
 cmake --build --preset fuzzing
 ```
 
@@ -241,22 +242,10 @@ A default configuration for VS Code is provided by the file [`barretenberg.code-
 
 ### Integration tests with Aztec in Monorepo
 
-CI will automatically run integration tests against Aztec. It is located in the `barretenberg` folder.
+CI will automatically run integration tests against Aztec. The tests in `circuits/cpp` folder use the embedded barretenberg, and can be used to integration test it.
 
 ### Integration tests with Aztec in Barretenberg Standalone Repo
 
 CI will automatically run integration tests against Aztec's circuits which live [here](https://github.com/AztecProtocol/aztec-packages/tree/master/circuits). To change which Aztec branch or commit for CI to test against, modify [`.aztec-packages-commit`](./cpp/.aztec-packages-commit).
 
 When working on a PR, you may want to point this file to a different Aztec branch or commit, but then it should probably be pointed back to master before merging.
-
-### Testing locally in docker
-
-A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimic the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
-
-```
-cd barretenberg/cpp
-./scripts/docker_interactive.sh
-mv build build-native # your native build folders are mounted, but will not work! have to clear them
-cmake --preset gcc ;  cmake --build build
-```
-This will allow you to rebuild as efficiently as if you were running native code, and not have to see a full compile cycle.
