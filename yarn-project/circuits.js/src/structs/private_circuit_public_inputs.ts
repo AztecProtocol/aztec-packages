@@ -8,6 +8,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_PHASE_TRANSITIONS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
@@ -15,7 +16,8 @@ import {
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
-import { BlockHeader, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
+import { BlockHeader } from './kernel/block_header.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from './side_effects.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -36,6 +38,10 @@ export class PrivateCircuitPublicInputs {
      * Return values of the corresponding function call.
      */
     public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
+    /**
+     * Side effect counters to demark the TX phases ("fee prep", "application logic", "fee distribution")
+     */
+    public phaseWatermarks: Tuple<SideEffect, typeof MAX_PHASE_TRANSITIONS_PER_CALL>,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -122,6 +128,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(CallContext),
       reader.readObject(Fr),
       reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readArray(MAX_PHASE_TRANSITIONS_PER_CALL, SideEffect),
       reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
@@ -149,6 +156,7 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
+      makeTuple(MAX_PHASE_TRANSITIONS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_READ_REQUESTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
@@ -176,6 +184,7 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isFrArrayEmpty(this.returnValues) &&
+      isSideEffectArrayEmpty(this.phaseWatermarks) &&
       isSideEffectArrayEmpty(this.readRequests) &&
       isSideEffectArrayEmpty(this.newCommitments) &&
       isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
@@ -203,6 +212,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
+      fields.phaseWatermarks,
       fields.readRequests,
       fields.newCommitments,
       fields.newNullifiers,

@@ -583,6 +583,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
+    phase_watermarks: mapTuple(privateCircuitPublicInputs.phaseWatermarks, mapFieldToNoir),
     read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
     new_commitments: mapTuple(privateCircuitPublicInputs.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapSideEffectLinkedToNoir),

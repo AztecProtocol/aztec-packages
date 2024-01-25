@@ -50,6 +50,7 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
 
     validate_array(app_public_inputs.return_values);
+    validate_array(app_public_inputs.phase_watermarks);
     validate_array(app_public_inputs.read_requests);
     validate_array(app_public_inputs.new_commitments);
     validate_array(app_public_inputs.new_nullifiers);

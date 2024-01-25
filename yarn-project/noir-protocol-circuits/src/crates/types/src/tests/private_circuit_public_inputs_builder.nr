@@ -18,6 +18,7 @@ use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PHASE_TRANSITIONS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -30,6 +31,8 @@ struct PrivateCircuitPublicInputsBuilder {
     
     args_hash: Field,
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
+
+    phase_watermarks: BoundedVec<SideEffect, MAX_PHASE_TRANSITIONS_PER_CALL>,
 
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
 
@@ -110,6 +113,8 @@ impl PrivateCircuitPublicInputsBuilder {
             call_context: self.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
+
+            phase_watermarks: self.phase_watermarks.storage,
 
             read_requests: self.read_requests.storage,
 

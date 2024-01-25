@@ -143,6 +143,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.argsHash),
 
     ...publicInputs.returnValues.map(toACVMField),
+    ...publicInputs.phaseWatermarks.flatMap(x => x.toFieldArray()).map(toACVMField),
     ...publicInputs.readRequests.flatMap(x => x.toFieldArray()).map(toACVMField),
     ...publicInputs.newCommitments.flatMap(x => x.toFieldArray()).map(toACVMField),
     ...publicInputs.newNullifiers.flatMap(x => x.toFieldArray()).map(toACVMField),

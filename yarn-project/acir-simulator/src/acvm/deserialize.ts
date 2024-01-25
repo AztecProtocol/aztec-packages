@@ -8,6 +8,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_PHASE_TRANSITIONS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -177,6 +178,7 @@ export function extractPrivateCircuitPublicInputs(
 
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
+  const phaseWatermarks = witnessReader.readSideEffectArray(MAX_PHASE_TRANSITIONS_PER_CALL);
   const readRequests = witnessReader.readSideEffectArray(MAX_READ_REQUESTS_PER_CALL);
   const newCommitments = witnessReader.readSideEffectArray(MAX_NEW_COMMITMENTS_PER_CALL);
   const newNullifiers = witnessReader.readSideEffectLinkedToNoteHashArray(MAX_NEW_NULLIFIERS_PER_CALL);
@@ -216,6 +218,7 @@ export function extractPrivateCircuitPublicInputs(
     callContext,
     argsHash,
     returnValues,
+    phaseWatermarks,
     readRequests,
     newCommitments,
     newNullifiers,

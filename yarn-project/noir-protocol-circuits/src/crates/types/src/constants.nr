@@ -31,6 +31,7 @@ global MAX_NEW_L2_TO_L1_MSGS_PER_CALL: Field = 2;
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: Field = 16;
 global MAX_PUBLIC_DATA_READS_PER_CALL: Field = 16;
 global MAX_READ_REQUESTS_PER_CALL: Field = 32;
+global MAX_PHASE_TRANSITIONS_PER_CALL: Field = 3;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_COMMITMENTS_PER_TX: Field = 64;
@@ -81,6 +82,11 @@ global NUM_FIELDS_PER_SHA256: Field = 2;
 global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
+// PHASE ENUMS
+global PHASE_FEE_PREP: Field = 1;
+global PHASE_APPLICATION_LOGIC: Field = 2;
+global PHASE_FEE_DISTRIBUTION: Field = 3;
+
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
 // Move these constants to a noir file once the issue bellow is resolved:
@@ -102,15 +108,15 @@ global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we
 // should change this constant as well as the offsets in private_call_stack_item.nr
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 189;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 195;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 3;
 global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 190;
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
-global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 195;
+global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 201;
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 87;
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 177;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 183;
 global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: Field = 1024;

@@ -1,6 +1,7 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::{map::Map, public_state::PublicState};
 use dep::aztec::types::type_serialization::bool_serialization::{BoolSerializationMethods,BOOL_SERIALIZED_LEN};
+use dep::aztec::protocol_types::constants::{PHASE_APPLICATION_LOGIC, PHASE_FEE_DISTRIBUTION};
 
 use crate::entrypoint::EntrypointPayload;
 use crate::fee::FeePayload;
@@ -45,12 +46,14 @@ impl AccountActions {
 
     fee_payload.execute_calls(private_context);
 
-    // context.move_to_app_phase()
+    private_context.set_phase(PHASE_APPLICATION_LOGIC);
 
     let app_message_hash = app_payload.hash();
     assert(valid_fn(private_context, app_message_hash));
 
     app_payload.execute_calls(private_context);
+
+    private_context.set_phase(PHASE_FEE_DISTRIBUTION);
   }
   // docs:end:entrypoint
 

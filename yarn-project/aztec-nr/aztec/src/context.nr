@@ -19,12 +19,16 @@ use dep::protocol_types::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PHASE_TRANSITIONS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
+        PHASE_FEE_PREP,
+        PHASE_APPLICATION_LOGIC,
+        PHASE_FEE_DISTRIBUTION,
         RETURN_VALUES_LENGTH,
     },
     contrakt::{
@@ -73,6 +77,8 @@ struct PrivateContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
+    phase_watermarks: BoundedVec<SideEffect, MAX_PHASE_TRANSITIONS_PER_CALL>,
+
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
@@ -94,12 +100,22 @@ struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
+        let start_side_effect_counter = inputs.call_context.start_side_effect_counter;
+        let mut phase_watermarks = BoundedVec::new(SideEffect::empty());
+        phase_watermarks.push(SideEffect {
+            value: PHASE_FEE_PREP,
+            counter: start_side_effect_counter,
+        });
+
+
         PrivateContext {
             inputs: inputs,
-            side_effect_counter: inputs.call_context.start_side_effect_counter,
+            side_effect_counter: start_side_effect_counter + 1,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
+
+            phase_watermarks: phase_watermarks,
 
             read_requests: BoundedVec::new(SideEffect::empty()),
 
@@ -115,7 +131,10 @@ impl PrivateContext {
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
+
+            // TODO(fees) grab this from the inputs
             fee_limits: FeeLimits::empty(),
+
         }
     }
 
@@ -147,6 +166,8 @@ impl PrivateContext {
         get_block_header(block_number, self)
     }
 
+
+
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
@@ -158,6 +179,7 @@ impl PrivateContext {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
+            phase_watermarks: self.phase_watermarks.storage,
             read_requests: self.read_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
@@ -175,6 +197,15 @@ impl PrivateContext {
             version: self.inputs.private_global_variables.version,
         };
         priv_circuit_pub_inputs
+    }
+
+    pub fn set_phase(&mut self, phase: Field) {
+        let side_effect = SideEffect {
+            value: phase,
+            counter: self.side_effect_counter,
+        };
+        self.phase_watermarks.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn push_read_request(&mut self, read_request: Field) {
@@ -297,6 +328,7 @@ impl PrivateContext {
                 },
                 args_hash: reader.read(),
                 return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
+                phase_watermarks: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_PHASE_TRANSITIONS_PER_CALL]),
                 read_requests: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
                 new_commitments: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
                 new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialise, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),

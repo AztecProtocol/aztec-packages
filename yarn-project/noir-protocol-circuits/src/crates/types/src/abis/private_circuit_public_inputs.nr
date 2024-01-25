@@ -14,6 +14,7 @@ use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PHASE_TRANSITIONS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -30,6 +31,8 @@ struct PrivateCircuitPublicInputs {
     
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
+
+    phase_watermarks: [SideEffect; MAX_PHASE_TRANSITIONS_PER_CALL],
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
 
@@ -64,6 +67,9 @@ impl Hash for PrivateCircuitPublicInputs {
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
 
+        for i in 0..MAX_PHASE_TRANSITIONS_PER_CALL{
+            fields.push_array(self.phase_watermarks[i].serialize());
+        }
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.push_array(self.read_requests[i].serialize());
         }
@@ -99,6 +105,9 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
 
+        for i in 0..MAX_PHASE_TRANSITIONS_PER_CALL {
+            fields.push_array(self.phase_watermarks[i].serialize());
+        }
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.push_array(self.read_requests[i].serialize());
         }
@@ -121,7 +130,7 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.chain_id);
         fields.push(self.version);
 
-        assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+        assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, "Incorrect number of input fields when serializing PrivateCircuitPublicInputs");
 
         fields.storage
     }
