@@ -149,9 +149,15 @@ pub enum BlackBoxFuncCall {
         input: u32,
         outputs: Vec<Witness>,
     },
+    /// Applies the Poseidon2 permutation function to the given state,
+    /// outputting the permuted state.
     Poseidon2Permutation {
+        /// Input state for the permutation of Poseidon2
         inputs: Vec<FunctionInput>,
+        /// Permuted state
         outputs: Vec<Witness>,
+        /// State length (in number of field elements)
+        /// It is the length of inputs and outputs vectors
         len: u32,
     },
 }

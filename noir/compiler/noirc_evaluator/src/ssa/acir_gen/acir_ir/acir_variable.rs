@@ -1286,9 +1286,6 @@ impl AcirContext {
 
         // Convert `AcirVar` to `FunctionInput`
         let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
-        dbg!(&name);
-        dbg!(&inputs);
-        dbg!(&constant_inputs);
         // Call Black box with `FunctionInput`
         let mut results = vecmap(&constant_outputs, |c| self.add_constant(*c));
         let outputs = self.acir_ir.call_black_box(

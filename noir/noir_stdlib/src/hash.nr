@@ -52,4 +52,4 @@ pub fn hash_to_field<N>(_input: [Field; N]) -> Field {
 pub fn keccak256<N>(_input: [u8; N], _message_size: u32) -> [u8; 32] {}
 
 #[foreign(poseidon2_permutation)]
-pub fn poseidon2_permutation<N>(_input: [u8; N], len: u32) -> [u8; N] {}
+pub fn poseidon2_permutation<N>(_input: [u8; N], _state_length: u32) -> [u8; N] {}
