@@ -17,7 +17,7 @@ graph TD;
         end
     end
 
-    subgraph server[Server]
+    subgraph server[Application Server]
         subgraph pxeService [PXE Service]
             acctMgmt[Account Management]
             contractTxInteract[Contract & Transaction Interactions]
@@ -46,8 +46,8 @@ The database stores transactional data and notes within the user's PXE. In the A
 The database stores various types of data, including:
 
 - **Notes**: Encrypted representations of assets. 
-- **Deferred Notes**: Notes that are intended for a user but cannot yet be decoded due to the associated contract not being present in the database. When new contracts are deployed, there may be some time because it is accessible from the PXE database. When the PXE database is updated, deferred note are decoded.
-- **Authentication Witnesses**: Data used to verify transactions.
+- **Deferred Notes**: Notes that are intended for a user but cannot yet be decoded due to the associated contract not being present in the database. When new contracts are deployed, there may be some time before it is accessible from the PXE database. When the PXE database is updated, deferred note are decoded.
+- **Authentication Witnesses**: Data used to approve others from executing transactions on your behalf
 - **Capsules**: External data or data injected into the system via [oracles](#oracles).
 
 ### Note discovery
@@ -62,7 +62,7 @@ The keystore is a secure storage for private and public keys.
 
 ## Oracles
 
-Oracles are pieces of data that are injected into a function from the client side. You can read more about why and how they work in the [functions section](../../dev_docs/contracts/syntax/functions.md).
+Oracles are pieces of data that are injected into a smart contract function from the client side. You can read more about why and how they work in the [functions section](../../dev_docs/contracts/syntax/functions.md).
 
 ## For developers
 To learn how to develop on top of the PXE, refer to these guides:
