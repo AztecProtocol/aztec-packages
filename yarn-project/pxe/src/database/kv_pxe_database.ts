@@ -184,9 +184,9 @@ export class KVPxeDatabase implements PxeDatabase {
     // merged.
     let candidateNoteIds: Array<number> = [];
 
-    filter.status = filter.status ?? 'active';
+    filter.status = filter.status ?? 'active_only';
 
-    if (filter.status == 'active' || filter.status == 'active_or_nullified') {
+    if (filter.status == 'active_only' || filter.status == 'include_nullified') {
       const candidateActiveNoteIds = publicKey
         ? this.#notesByOwner.getValues(publicKey.toString())
         : filter.txHash
@@ -200,7 +200,7 @@ export class KVPxeDatabase implements PxeDatabase {
       candidateNoteIds = candidateNoteIds.concat([...candidateActiveNoteIds]);
     }
 
-    if (filter.status == 'active_or_nullified') {
+    if (filter.status == 'include_nullified') {
       candidateNoteIds = candidateNoteIds.concat([...this.#nullifiedNotes.keys()]);
     }
 
