@@ -12,3 +12,4 @@ RUN forge install --no-commit \
 RUN forge clean && forge fmt --check && forge build && forge test
 RUN yarn && yarn lint
 RUN git add . && yarn slither && yarn slither-has-diff
+RUN forge build
