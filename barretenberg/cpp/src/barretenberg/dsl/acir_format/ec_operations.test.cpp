@@ -7,16 +7,17 @@
 #include <vector>
 
 namespace acir_format::tests {
-using curve_ct = proof_system::plonk::stdlib::secp256k1<Builder>;
+using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class EcOperations : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witness_values)
 {
-    using cycle_group_ct = proof_system::plonk::stdlib::cycle_group<Builder>;
+    using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
+
     auto g1 = grumpkin::g1::affine_one;
     cycle_group_ct input_point(g1);
     // Doubling
@@ -42,15 +43,15 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
 size_t generate_ec_double_constraint(EcDouble& ec_double_constraint, WitnessVector& witness_values)
 {
 
-    using cycle_group_ct = proof_system::plonk::stdlib::cycle_group<Builder>;
+    using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
     auto g1 = grumpkin::g1::affine_one;
     cycle_group_ct input_point(g1);
     // Doubling
     cycle_group_ct result = input_point.dbl();
     // add: x,y,x2,y2
-    uint32_t result_x_witness_index = (uint32_t)witness_values.size() + 1;
+    uint32_t result_x_witness_index = static_cast<uint32_t>(witness_values.size()) + 1;
     witness_values.push_back(result.x.get_value());
-    uint32_t result_y_witness_index = (uint32_t)witness_values.size() + 1;
+    uint32_t result_y_witness_index = static_cast<uint32_t>(witness_values.size()) + 1;
     witness_values.push_back(result.y.get_value());
     info("DOUBLE");
     info(result.x.get_value());
@@ -93,7 +94,7 @@ TEST_F(EcOperations, TestECOperations)
         .q_c = 0,
     };
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables + 1),
         .public_inputs = {},
         .logic_constraints = {},
@@ -117,16 +118,14 @@ TEST_F(EcOperations, TestECOperations)
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+
     auto composer = Composer();
     auto prover = composer.create_prover(builder);
 
     auto proof = prover.construct_proof();
     EXPECT_TRUE(builder.check_circuit());
-    // We create another builder
-    auto builder2 = create_circuit(constraint_system);
-    auto composer2 = Composer();
-    auto verifier = composer2.create_verifier(builder2);
+    auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 

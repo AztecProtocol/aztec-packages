@@ -11,8 +11,9 @@ template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
     // Input to cycle_group points
-    using cycle_group_ct = proof_system::plonk::stdlib::cycle_group<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+    using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+
     auto x1 = field_ct::from_witness_index(&builder, input.input1_x);
     auto y1 = field_ct::from_witness_index(&builder, input.input1_y);
     auto x2 = field_ct::from_witness_index(&builder, input.input2_x);
@@ -48,8 +49,8 @@ template void create_ec_add_constraint<GoblinUltraCircuitBuilder>(GoblinUltraCir
 template <typename Builder>
 void create_ec_double_constraint(Builder& builder, const EcDouble& input, bool has_valid_witness_assignments)
 {
-    using cycle_group_ct = proof_system::plonk::stdlib::cycle_group<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+    using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
     // Input to cycle_group point
     auto x = field_ct::from_witness_index(&builder, input.input_x);
     auto y = field_ct::from_witness_index(&builder, input.input_y);
