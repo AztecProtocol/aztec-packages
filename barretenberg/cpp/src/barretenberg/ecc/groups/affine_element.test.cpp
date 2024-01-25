@@ -7,7 +7,6 @@
 #include "barretenberg/serialize/test_helper.hpp"
 #include <fstream>
 
-namespace TestAffineElement {
 template <typename G1> class TestAffineElement : public testing::Test {
     using element = typename G1::element;
     using affine_element = typename G1::affine_element;
@@ -87,7 +86,7 @@ template <typename G1> class TestAffineElement : public testing::Test {
     }
 };
 
-using TestTypes = testing::Types<barretenberg::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
+using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
 
@@ -130,4 +129,3 @@ TEST(AffineElement, Msgpack)
     auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
     EXPECT_EQ(actual, expected);
 }
-} // namespace TestAffineElement

@@ -5,7 +5,7 @@
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:
     using FF = typename Flavor::FF;
@@ -20,11 +20,6 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
-    UltraRecursiveVerifier_(UltraRecursiveVerifier_&& other) = delete;
-    UltraRecursiveVerifier_(const UltraRecursiveVerifier_& other) = delete;
-    UltraRecursiveVerifier_& operator=(const UltraRecursiveVerifier_& other) = delete;
-    UltraRecursiveVerifier_& operator=(UltraRecursiveVerifier_&& other) = delete;
-    ~UltraRecursiveVerifier_() = default;
 
     // TODO(luke): Eventually this will return something like aggregation_state but I'm simplifying for now until we
     // determine the exact interface. Simply returns the two pairing points.
@@ -40,5 +35,4 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 // Instance declarations for Ultra and Goblin-Ultra verifier circuits with both conventional Ultra and Goblin-Ultra
 // arithmetization.
 using UltraRecursiveVerifier = UltraRecursiveVerifier_<UltraCircuitBuilder>;
-using GoblinRecursiveVerifier = UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

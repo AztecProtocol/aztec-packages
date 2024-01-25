@@ -1,12 +1,12 @@
 # barretenberg
 # copyright 2019 Spilsbury Holdings Ltd
 
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.17.0 # x-release-please-version
+    VERSION 0.20.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file

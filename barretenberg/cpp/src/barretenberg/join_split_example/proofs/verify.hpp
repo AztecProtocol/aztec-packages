@@ -5,8 +5,7 @@
 #include "barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace bb::join_split_example::proofs {
 
 template <typename Composer> struct verify_result {
     verify_result()
@@ -17,7 +16,7 @@ template <typename Composer> struct verify_result {
     bool logic_verified;
     std::string err;
     std::vector<fr> public_inputs;
-    plonk::stdlib::recursion::aggregation_state<plonk::stdlib::bn254<Composer>> aggregation_state;
+    stdlib::recursion::aggregation_state<stdlib::bn254<Composer>> aggregation_state;
 
     std::vector<uint8_t> proof_data;
     bool verified;
@@ -26,17 +25,17 @@ template <typename Composer> struct verify_result {
 };
 
 template <typename Composer>
-inline bool pairing_check(plonk::stdlib::recursion::aggregation_state<plonk::stdlib::bn254<Composer>> aggregation_state,
-                          std::shared_ptr<barretenberg::srs::factories::VerifierCrs> const& srs)
+inline bool pairing_check(stdlib::recursion::aggregation_state<stdlib::bn254<Composer>> aggregation_state,
+                          std::shared_ptr<bb::srs::factories::VerifierCrs> const& srs)
 {
     g1::affine_element P[2];
-    P[0].x = barretenberg::fq(aggregation_state.P0.x.get_value().lo);
-    P[0].y = barretenberg::fq(aggregation_state.P0.y.get_value().lo);
-    P[1].x = barretenberg::fq(aggregation_state.P1.x.get_value().lo);
-    P[1].y = barretenberg::fq(aggregation_state.P1.y.get_value().lo);
-    barretenberg::fq12 inner_proof_result =
-        barretenberg::pairing::reduced_ate_pairing_batch_precomputed(P, srs->get_precomputed_g2_lines(), 2);
-    return inner_proof_result == barretenberg::fq12::one();
+    P[0].x = bb::fq(aggregation_state.P0.x.get_value().lo);
+    P[0].y = bb::fq(aggregation_state.P0.y.get_value().lo);
+    P[1].x = bb::fq(aggregation_state.P1.x.get_value().lo);
+    P[1].y = bb::fq(aggregation_state.P1.y.get_value().lo);
+    bb::fq12 inner_proof_result =
+        bb::pairing::reduced_ate_pairing_batch_precomputed(P, srs->get_precomputed_g2_lines(), 2);
+    return inner_proof_result == bb::fq12::one();
 }
 
 template <typename Builder, typename Tx, typename CircuitData, typename F>
@@ -70,5 +69,4 @@ auto verify_logic_internal(Builder& builder, Tx& tx, CircuitData const& cd, char
     return result;
 }
 
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs

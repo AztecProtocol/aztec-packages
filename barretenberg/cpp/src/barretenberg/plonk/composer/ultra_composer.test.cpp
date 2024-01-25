@@ -9,14 +9,11 @@
 #include "barretenberg/proof_system/plookup_tables/sha256.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
-using namespace proof_system::plonk;
-
-namespace proof_system::plonk::test_ultra_plonk_composer {
+using namespace bb;
+using namespace bb::plonk;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using plookup::ColumnIdx;
@@ -33,7 +30,7 @@ std::vector<uint32_t> add_variables(UltraCircuitBuilder& builder, std::vector<fr
 
 template <typename T> class ultra_plonk_composer : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     void prove_and_verify(UltraCircuitBuilder& builder, UltraComposer& composer, bool expected_result)
     {
@@ -66,10 +63,10 @@ TYPED_TEST_SUITE(ultra_plonk_composer, BooleanTypes);
 
 TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
 {
-    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto circuit_builder = UltraCircuitBuilder();
     auto composer = UltraComposer();
 
-    barretenberg::fr input_value = fr::random_element();
+    fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -154,9 +151,9 @@ TYPED_TEST(ultra_plonk_composer, test_elliptic_gate)
     auto builder = UltraCircuitBuilder();
     auto composer = UltraComposer();
 
-    affine_element p1 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 0);
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
 
-    affine_element p2 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 1);
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 1);
     ;
     affine_element p3(element(p1) + element(p2));
 
@@ -647,7 +644,7 @@ TYPED_TEST(ultra_plonk_composer, non_native_field_multiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    proof_system::non_native_field_witnesses<fr> inputs{
+    non_native_field_witnesses<fr> inputs{
         a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
     };
     const auto [lo_1_idx, hi_1_idx] = builder.evaluate_non_native_field_multiplication(inputs);
@@ -823,5 +820,3 @@ TEST(ultra_plonk_composer, range_constraint_small_variable)
     bool result = verifier.verify_proof(proof);
     EXPECT_EQ(result, true);
 }
-
-} // namespace proof_system::plonk::test_ultra_plonk_composer

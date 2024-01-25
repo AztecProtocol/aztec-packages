@@ -4,10 +4,10 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
@@ -283,4 +283,4 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

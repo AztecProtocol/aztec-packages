@@ -100,8 +100,8 @@ struct Secp256k1FrParams {
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
 
-using fq = barretenberg::field<Secp256k1FqParams>;
-using fr = barretenberg::field<Secp256k1FrParams>;
+using fq = bb::field<Secp256k1FqParams>;
+using fr = bb::field<Secp256k1FrParams>;
 
 struct Secp256k1G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
@@ -118,11 +118,10 @@ struct Secp256k1G1Params {
         fq(0x9C47D08FFB10D4B8UL, 0xFD17B448A6855419UL, 0x5DA4FBFC0E1108A8UL, 0x483ADA7726A3C465UL).to_montgomery_form();
 };
 
-using g1 = barretenberg::
-    group<barretenberg::field<Secp256k1FqParams>, barretenberg::field<Secp256k1FrParams>, Secp256k1G1Params>;
+using g1 = bb::group<bb::field<Secp256k1FqParams>, bb::field<Secp256k1FrParams>, Secp256k1G1Params>;
 } // namespace secp256k1
 
-namespace curve {
+namespace bb::curve {
 class SECP256K1 {
   public:
     using ScalarField = secp256k1::fr;
@@ -131,6 +130,6 @@ class SECP256K1 {
     using Element = typename Group::element;
     using AffineElement = typename Group::affine_element;
 };
-} // namespace curve
+} // namespace bb::curve
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

@@ -1,4 +1,4 @@
-#include "barretenberg/benchmark/ultra_bench/benchmark_utilities.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
@@ -19,10 +19,10 @@
 // #define GET_PER_ROW_TIME
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 #ifdef GET_PER_ROW_TIME
 constexpr size_t LARGE_DOMAIN_SIZE = 4;
@@ -36,10 +36,10 @@ struct BasicPlonkKeyAndTranscript {
 
 BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
 {
-    barretenberg::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory("../srs_db/ignition");
     auto inner_composer = plonk::UltraComposer();
     auto builder = typename plonk::UltraComposer::CircuitBuilder();
-    bench_utils::generate_basic_arithmetic_circuit(builder, 16);
+    bb::mock_proofs::generate_basic_arithmetic_circuit(builder, 16);
     UltraProver inner_prover = inner_composer.create_prover(builder);
 #ifdef GET_PER_ROW_TIME
     if (!(inner_prover.key->circuit_size == WIDGET_BENCH_TEST_CIRCUIT_SIZE)) {
@@ -55,7 +55,7 @@ template <typename Flavor, typename Widget> void execute_widget(::benchmark::Sta
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
     Widget widget(data.key);
     for (auto _ : state) {
-        widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
+        widget.compute_quotient_contribution(bb::fr::random_element(), data.transcript);
     }
 }
 
@@ -67,7 +67,7 @@ template <typename Widget> void quotient_contribution(::benchmark::State& state)
 #ifdef GET_PER_ROW_TIME
         auto start = std::chrono::high_resolution_clock::now();
 #endif
-        widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
+        widget.compute_quotient_contribution(bb::fr::random_element(), data.transcript);
 #ifdef GET_PER_ROW_TIME
         auto end = std::chrono::high_resolution_clock::now();
         auto elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
@@ -100,11 +100,11 @@ template <typename Widget> void accumulate_contribution(::benchmark::State& stat
     using FFTKernel = typename Widget::FFTKernel;
 
     auto polynomials = FFTGetter::get_polynomials(data.key.get(), FFTKernel::get_required_polynomial_ids());
-    auto challenges = FFTGetter::get_challenges(
-        data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
+    auto challenges =
+        FFTGetter::get_challenges(data.transcript, bb::fr::random_element(), FFTKernel::quotient_required_challenges);
 
     for (auto _ : state) {
-        barretenberg::fr result{ 0 };
+        bb::fr result{ 0 };
         FFTKernel::accumulate_contribution(polynomials, challenges, result, 0);
     }
 }
@@ -113,4 +113,4 @@ BENCHMARK(accumulate_contribution<ProverGenPermSortWidget<ultra_settings>>);
 BENCHMARK(accumulate_contribution<ProverEllipticWidget<ultra_settings>>);
 BENCHMARK(accumulate_contribution<ProverPlookupAuxiliaryWidget<ultra_settings>>);
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

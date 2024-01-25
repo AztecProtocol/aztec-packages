@@ -8,8 +8,11 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
-using namespace barretenberg;
-namespace proof_system::honk::pcs::ipa::test {
+
+using namespace bb;
+using namespace bb::honk;
+using namespace bb::honk::pcs;
+using namespace bb::honk::pcs::ipa;
 
 using Curve = curve::Grumpkin;
 
@@ -19,7 +22,7 @@ class IPATest : public CommitmentTest<Curve> {
     using GroupElement = typename Curve::Element;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 };
 
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
@@ -176,4 +179,3 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     EXPECT_EQ(verified, true);
 }
-} // namespace proof_system::honk::pcs::ipa::test

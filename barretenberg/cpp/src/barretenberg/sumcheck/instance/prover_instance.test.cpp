@@ -5,13 +5,12 @@
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
-
-using namespace proof_system::honk;
-namespace instance_tests {
+using namespace bb;
+using namespace bb::honk;
 
 template <class Flavor> class InstanceTests : public testing::Test {
     using FF = typename Flavor::FF;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using Builder = typename Flavor::CircuitBuilder;
 
   public:
@@ -89,5 +88,3 @@ TYPED_TEST(InstanceTests, SortedListAccumulator)
 {
     TestFixture::test_sorted_list_accumulator_construction();
 }
-
-} // namespace instance_tests

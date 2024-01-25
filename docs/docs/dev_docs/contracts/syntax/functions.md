@@ -12,7 +12,6 @@ On this page, you’ll learn more about:
 - How constructors work and remain private
 - The process of calling functions from within the same smart contract and from different contracts, including calling private functions from private functions, public from public, and even private from public
 - What oracles and how Aztec smart contracts might use them
-- Built-in oracles
 
 ## Visibility
 
@@ -81,7 +80,7 @@ As alluded to earlier, a private function operates on private information, and i
 
 ## `unconstrained` functions
 
-Unconstrained functions are an underlying part of Noir - a deeper explanation can be found [here](https://noir-lang.org/docs/language_concepts/unconstrained). But in short, they are functions which are not directly constrained and therefore should be seen as untrusted! That they are untrusted means that, for security, the developer must make sure to constrain them when used!
+Unconstrained functions are an underlying part of Noir - a deeper explanation can be found [here](https://noir-lang.org/docs/noir/syntax/unconstrained). But in short, they are functions which are not directly constrained and therefore should be seen as untrusted! That they are untrusted means that, for security, the developer must make sure to constrain them when used!
 
 Beyond using them inside your other functions, they are convenient for providing an interface that reads storage, applies logic and returns values to a UI or test. Below is a snippet from exposing the `balance_of_private` function from a token implementation, which allows a user to easily read their balance, similar to the `balanceOf` function in the ERC20 standard.
 
@@ -109,15 +108,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 `Aztec.nr` has a module dedicated to its oracles. If you are interested, you can view them by following the link below:
 #include_code oracles-module /yarn-project/aztec-nr/aztec/src/oracle.nr rust
 
-### A few useful inbuilt oracles
-
-- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/debug_log.nr) - Provides a couple of debug functions that can be used to log information to the console.
-- [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/authwit/src/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
-- [`get_l1_to_l2_message`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/get_l1_to_l2_message.nr) - Useful for application that receive messages from L1 to be consumed on L2, such as token bridges or other cross-chain applications.
-- [`notes`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/notes.nr) - Provides a lot of functions related to notes, such as fetches notes from storage etc, used behind the scenes for value notes and other pre-build note implementations.
-- [`logs`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/logs.nr) - Provides the to log encrypted and unencrypted data.
-
----
+You can learn how to use oracles in your smart contracts [here](../syntax/oracles.md).
 
 ## Calling functions from other functions
 

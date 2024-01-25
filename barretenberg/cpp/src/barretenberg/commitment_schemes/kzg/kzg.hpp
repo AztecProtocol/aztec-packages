@@ -9,7 +9,7 @@
 #include <memory>
 #include <utility>
 
-namespace proof_system::honk::pcs::kzg {
+namespace bb::honk::pcs::kzg {
 
 template <typename Curve> class KZG {
     using CK = CommitmentKey<Curve>;
@@ -17,7 +17,7 @@ template <typename Curve> class KZG {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     /**
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point
@@ -101,4 +101,4 @@ template <typename Curve> class KZG {
         return { P_0, P_1 };
     };
 };
-} // namespace proof_system::honk::pcs::kzg
+} // namespace bb::honk::pcs::kzg

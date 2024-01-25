@@ -5,14 +5,14 @@
 #include <benchmark/benchmark.h>
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
-using namespace proof_system::honk::sumcheck;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::benchmark::relations {
+namespace bb::benchmark::relations {
 
-using Fr = barretenberg::fr;
+using Fr = bb::fr;
 using Fq = grumpkin::fr;
 
 template <typename Flavor, typename Relation> void execute_relation(::benchmark::State& state)
@@ -21,7 +21,7 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
     using AllValues = typename Flavor::AllValues;
     using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-    auto params = proof_system::RelationParameters<FF>::get_random();
+    auto params = bb::RelationParameters<FF>::get_random();
 
     // Extract an array containing all the polynomial evaluations at a given row i
     AllValues new_value{};
@@ -56,4 +56,4 @@ BENCHMARK(execute_relation<honk::flavor::ECCVM, ECCVMSetRelation<Fq>>);
 BENCHMARK(execute_relation<honk::flavor::ECCVM, ECCVMTranscriptRelation<Fq>>);
 BENCHMARK(execute_relation<honk::flavor::ECCVM, ECCVMWnafRelation<Fq>>);
 
-} // namespace proof_system::benchmark::relations
+} // namespace bb::benchmark::relations

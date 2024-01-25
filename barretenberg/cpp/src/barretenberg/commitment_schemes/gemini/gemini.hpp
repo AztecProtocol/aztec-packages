@@ -42,7 +42,7 @@
  * The verifier is able to computed the simulated commitments to A₀₊(X) and A₀₋(X)
  * since they are linear-combinations of the commitments [fⱼ] and [gⱼ].
  */
-namespace proof_system::honk::pcs::gemini {
+namespace bb::honk::pcs::gemini {
 
 /**
  * @brief Prover output (evalutation pair, witness) that can be passed on to Shplonk batch opening.
@@ -59,7 +59,7 @@ namespace proof_system::honk::pcs::gemini {
  */
 template <typename Curve> struct ProverOutput {
     std::vector<OpeningPair<Curve>> opening_pairs;
-    std::vector<barretenberg::Polynomial<typename Curve::ScalarField>> witnesses;
+    std::vector<bb::Polynomial<typename Curve::ScalarField>> witnesses;
 };
 
 /**
@@ -99,7 +99,7 @@ template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t
 
 template <typename Curve> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
   public:
     static std::vector<Polynomial> compute_gemini_polynomials(std::span<const Fr> mle_opening_point,
@@ -109,7 +109,7 @@ template <typename Curve> class GeminiProver_ {
     static ProverOutput<Curve> compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
                                                                    std::vector<Polynomial>&& gemini_polynomials,
                                                                    const Fr& r_challenge);
-}; // namespace proof_system::honk::pcs::gemini
+}; // namespace bb::honk::pcs::gemini
 
 template <typename Curve> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
@@ -262,6 +262,6 @@ template <typename Curve> class GeminiVerifier_ {
         return { C0_r_pos, C0_r_neg };
     }
 
-}; // namespace proof_system::honk::pcs::gemini
+}; // namespace bb::honk::pcs::gemini
 
-} // namespace proof_system::honk::pcs::gemini
+} // namespace bb::honk::pcs::gemini

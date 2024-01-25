@@ -11,7 +11,7 @@
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
     using ProverInstances = ProverInstances_;
@@ -19,7 +19,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Instance = typename ProverInstances::Instance;
-    using Utils = barretenberg::RelationUtils<Flavor>;
+    using Utils = bb::RelationUtils<Flavor>;
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
@@ -434,4 +434,4 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         const FF& compressed_perturbator);
 };
 
-} // namespace proof_system::honk
+} // namespace bb::honk
