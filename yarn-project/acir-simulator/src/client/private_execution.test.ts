@@ -535,7 +535,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         const result = await runSimulator({
           contractAddress,
@@ -562,7 +562,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -602,7 +602,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -623,7 +623,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -643,7 +643,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -663,7 +663,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -684,7 +684,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -705,7 +705,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
