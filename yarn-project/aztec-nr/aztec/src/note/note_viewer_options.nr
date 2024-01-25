@@ -23,7 +23,9 @@ impl<Note, N> NoteViewerOptions<Note, N> {
     }
        
     // This method adds a `Select` criterion to the options.
-    // It takes a field_index indicating which field to select and a value representing the specific value to match in that field.
+    // It takes a field_index indicating which field to select, 
+    // a value representing the specific value to match in that field, and 
+    // a comparator (For possible values of comparators, please see the Comparator enum from note_getter_options)
     pub fn select(&mut self, field_index: u8, value: Field, comparator: Option<u3>) -> Self {
         self.selects.push(Option::some(Select::new(field_index, value, comparator.unwrap_or(Comparator.EQ))));
         *self
