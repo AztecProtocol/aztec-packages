@@ -1,1 +1,1 @@
-barretenberg_module(protogalaxy_bench flavor relations)
+barretenberg_module(protogalaxy_bench ultra_honk protogalaxy stdlib_primitives)
