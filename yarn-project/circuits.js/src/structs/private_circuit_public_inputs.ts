@@ -101,6 +101,7 @@ export class PrivateCircuitPublicInputs {
      * Deployment data of contracts being deployed in this kernel iteration.
      */
     public contractDeploymentData: ContractDeploymentData,
+    // TODO(benesjan): Nuke the following 2 values --> they are in header now.
     /**
      * Chain Id of the instance.
      */

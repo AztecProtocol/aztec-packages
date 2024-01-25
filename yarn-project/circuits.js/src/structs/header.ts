@@ -1,8 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
+import { BufferReader, from2Fields, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
 
 import { HEADER_LENGTH } from '../constants.gen.js';
 import { GlobalVariables } from './global_variables.js';
+import { PartialStateReference } from './partial_state_reference.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 import { StateReference } from './state_reference.js';
 
@@ -31,12 +32,12 @@ export class Header {
   }
 
   toFieldArray(): Fr[] {
-    // Note: The order here must match the order in the HeaderDecoder solidity library.
+    // Note: The order here must match the order in header.nr
     const serialized = [
-      ...this.globalVariables.toFieldArray(),
-      ...this.state.toFieldArray(),
       ...this.lastArchive.toFieldArray(),
       ...to2Fields(this.bodyHash),
+      ...this.state.toFieldArray(),
+      ...this.globalVariables.toFieldArray(),
     ];
     if (serialized.length !== HEADER_LENGTH) {
       throw new Error(`Expected header to have ${HEADER_LENGTH} fields, but it has ${serialized.length} fields`);
@@ -53,6 +54,27 @@ export class Header {
       reader.readObject(StateReference),
       reader.readObject(GlobalVariables),
     );
+  }
+
+  static fromFieldArray(fields: Fr[]): Header {
+    if (fields.length !== HEADER_LENGTH) {
+      throw new Error(`Expected header to have ${HEADER_LENGTH} fields, but it has ${fields.length} fields`);
+    }
+    // Note: The order here must match the order in header.nr
+    const lastArchive = new AppendOnlyTreeSnapshot(fields[0], Number(fields[1].toBigInt()));
+    const bodyHash = from2Fields(fields[2], fields[3]);
+    const state = new StateReference(
+      new AppendOnlyTreeSnapshot(fields[4], Number(fields[5].toBigInt())),
+      new PartialStateReference(
+        new AppendOnlyTreeSnapshot(fields[6], Number(fields[7].toBigInt())),
+        new AppendOnlyTreeSnapshot(fields[8], Number(fields[9].toBigInt())),
+        new AppendOnlyTreeSnapshot(fields[10], Number(fields[11].toBigInt())),
+        new AppendOnlyTreeSnapshot(fields[12], Number(fields[13].toBigInt())),
+      ),
+    );
+    const globalVariables = new GlobalVariables(fields[14], fields[15], fields[16], fields[17]);
+
+    return new Header(lastArchive, bodyHash, state, globalVariables);
   }
 
   static empty(): Header {

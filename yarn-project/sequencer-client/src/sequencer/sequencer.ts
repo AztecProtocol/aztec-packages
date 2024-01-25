@@ -134,7 +134,6 @@ export class Sequencer {
 
       // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
-      console.log("txHeaders", pendingTxs.map(tx => tx.data.constants.header.state.l1ToL2MessageTree));
       if (pendingTxs.length < this.minTxsPerBLock) {
         return;
       }
