@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
     benchmark
     GIT_REPOSITORY https://github.com/AztecProtocol/google-benchmark
-    GIT_TAG 3c4f32821bb0a2aeb132c1113830573339cf416d
+    GIT_TAG 7638387d2727853d970fc9420dcf95cf3e9bd112
     FIND_PACKAGE_ARGS
 )
 
