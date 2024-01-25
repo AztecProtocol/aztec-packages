@@ -7,6 +7,8 @@
     "solhint": "https://github.com/LHerskind/solhint#master"
   },
   "scripts": {
-    "lint": "solhint --config ./.solhint.json --fix \"src/**/*.sol\""
+    "lint": "solhint --config ./.solhint.json --fix \"src/**/*.sol\"",
+    "slither": "slither . --checklist --show-ignored-findings | tee slither_output.md",
+    "slither-has-diff": "./slither_has_diff.sh"
   }
 }

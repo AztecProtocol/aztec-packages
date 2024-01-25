@@ -1,0 +1,4 @@
+{
+  "filter_paths": "lib",
+  "detectors_to_exclude": "naming-convention"
+}
