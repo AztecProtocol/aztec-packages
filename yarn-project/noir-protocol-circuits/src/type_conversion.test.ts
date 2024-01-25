@@ -3,6 +3,7 @@ import {
   BlockHeader,
   ContractDeploymentData,
   EthAddress,
+  FeeLimits,
   Fr,
   FunctionData,
   FunctionSelector,
@@ -10,7 +11,6 @@ import {
   TxContext,
 } from '@aztec/circuits.js';
 
-import { FeeLimits } from '../../circuits.js/src/structs/fee_limits.js';
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,

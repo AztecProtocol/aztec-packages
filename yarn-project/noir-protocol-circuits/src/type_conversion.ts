@@ -18,6 +18,7 @@ import {
   ContractStorageUpdateRequest,
   EthAddress,
   FUNCTION_TREE_HEIGHT,
+  FeeLimits,
   FinalAccumulatedData,
   Fr,
   FunctionData,
@@ -74,7 +75,6 @@ import {
 } from '@aztec/circuits.js';
 import { Tuple, from2Fields, mapTuple } from '@aztec/foundation/serialize';
 
-import { FeeLimits } from '../../circuits.js/src/structs/fee_limits.js';
 import {
   BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,

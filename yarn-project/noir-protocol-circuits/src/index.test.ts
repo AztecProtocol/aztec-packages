@@ -10,6 +10,7 @@ import {
   ContractDeploymentData,
   EthAddress,
   FUNCTION_TREE_HEIGHT,
+  FeeLimits,
   FunctionData,
   FunctionLeafPreimage,
   FunctionSelector,
@@ -62,7 +63,6 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { FeeLimits } from '../../circuits.js/src/structs/fee_limits.js';
 import { executeInit, executeInner, executeOrdering } from './index.js';
 
 function _makeEmptyReadRequest() {
