@@ -26,6 +26,7 @@ import {
   ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
   Fr,
+  GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -569,13 +570,14 @@ export class AztecNodeService implements AztecNode {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
-    const prevHeader = (await this.blockSource.getBlock(-1))?.header ?? Header.empty();
+    const prevHeader = (await this.blockSource.getBlock(-1))?.header;
+    const prevGlobalVariables = prevHeader?.globalVariables ?? GlobalVariables.empty();
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
     const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    const globalVariablesHash = computeGlobalsHash(prevHeader.globalVariables);
+    const globalVariablesHash = computeGlobalsHash(prevGlobalVariables);
     await merkleTrees.init({
       globalVariablesHash,
     });
