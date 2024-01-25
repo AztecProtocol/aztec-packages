@@ -327,7 +327,7 @@ void handle_memory_op(Circuit::Opcode::MemoryOp const& mem_op, BlockConstraint& 
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
-
+    info("is recursive: ", circuit.recursive);
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
