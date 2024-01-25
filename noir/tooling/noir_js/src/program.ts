@@ -67,7 +67,7 @@ export class Noir {
    *
    * @example
    * ```typescript
-   * async generateFinalProof(input)
+   * async generateProof(input)
    * ```
    *
    */
@@ -84,7 +84,7 @@ export class Noir {
    *
    * @example
    * ```typescript
-   * async verifyFinalProof(proof)
+   * async verifyProof(proof)
    * ```
    *
    */
