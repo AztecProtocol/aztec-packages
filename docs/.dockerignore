@@ -10,8 +10,6 @@
 build/
 Debug/
 Release/
-# Eventually remove these once people don't have circuits artifacts around
-circuits/cpp/build*
 barretenberg/
 
 # Ignore Node.js build artifacts
