@@ -206,48 +206,43 @@ fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use acir::brillig::BlackBoxOp;
+#[cfg(test)]
+mod test {
+    use acir::brillig::{BlackBoxOp, MemoryAddress};
 
-//     use crate::{
-//         black_box::{evaluate_black_box, to_u8_vec, to_value_vec},
-//         DummyBlackBoxSolver, HeapArray, HeapVector, Memory, Registers, Value,
-//     };
+    use crate::{
+        black_box::{evaluate_black_box, to_u8_vec, to_value_vec},
+        DummyBlackBoxSolver, HeapArray, HeapVector, Memory, Registers, Value,
+    };
 
-//     #[test]
-//     fn sha256() {
-//         let message: Vec<u8> = b"hello world".to_vec();
-//         let message_length = message.len();
+    #[test]
+    fn sha256() {
+        let message: Vec<u8> = b"hello world".to_vec();
+        let message_length = message.len();
 
-//         let mut memory = Memory::from(vec![]);
-//         let message_pointer = 0;
-//         let result_pointer = message_pointer + message_length;
-//         memory.write_slice(message_pointer, to_value_vec(&message).as_slice());
+        let mut memory = Memory::default();
+        let message_pointer = 3;
+        let result_pointer = message_pointer + message_length;
+        memory.write(MemoryAddress(0), message_pointer.into());
+        memory.write(MemoryAddress(1), message_length.into());
+        memory.write(MemoryAddress(2), result_pointer.into());
+        memory.write_slice(MemoryAddress(message_pointer), to_value_vec(&message).as_slice());
 
-//         let mut registers = Registers {
-//             inner: vec![
-//                 Value::from(message_pointer),
-//                 Value::from(message_length),
-//                 Value::from(result_pointer),
-//             ],
-//         };
+        let op = BlackBoxOp::Sha256 {
+            message: HeapVector { pointer: 0.into(), size: 1.into() },
+            output: HeapArray { pointer: 2.into(), size: 32 },
+        };
 
-//         let op = BlackBoxOp::Sha256 {
-//             message: HeapVector { pointer: 0.into(), size: 1.into() },
-//             output: HeapArray { pointer: 2.into(), size: 32 },
-//         };
+        evaluate_black_box(&op, &DummyBlackBoxSolver, &mut memory).unwrap();
 
-//         evaluate_black_box(&op, &DummyBlackBoxSolver, &mut registers, &mut memory).unwrap();
+        let result = memory.read_slice(MemoryAddress(result_pointer), 32);
 
-//         let result = memory.read_slice(result_pointer, 32);
-
-//         assert_eq!(
-//             to_u8_vec(result),
-//             vec![
-//                 185, 77, 39, 185, 147, 77, 62, 8, 165, 46, 82, 215, 218, 125, 171, 250, 196, 132,
-//                 239, 227, 122, 83, 128, 238, 144, 136, 247, 172, 226, 239, 205, 233
-//             ]
-//         );
-//     }
-// }
+        assert_eq!(
+            to_u8_vec(result),
+            vec![
+                185, 77, 39, 185, 147, 77, 62, 8, 165, 46, 82, 215, 218, 125, 171, 250, 196, 132,
+                239, 227, 122, 83, 128, 238, 144, 136, 247, 172, 226, 239, 205, 233
+            ]
+        );
+    }
+}
