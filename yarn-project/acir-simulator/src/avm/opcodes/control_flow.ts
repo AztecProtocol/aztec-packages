@@ -14,7 +14,6 @@ export class Return extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    // TODO: reconsider this casting
     const returnData = machineState.memory
       .getSlice(this.returnOffset, this.copySize)
       .map(fvt => new Fr(fvt.toBigInt()));
