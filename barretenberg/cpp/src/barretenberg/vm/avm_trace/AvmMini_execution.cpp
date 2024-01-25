@@ -49,8 +49,6 @@ std::vector<Instruction> Execution::parse(std::vector<uint8_t> const& bytecode)
     size_t pos = 0;
     const auto length = bytecode.size();
 
-    static_assert(sizeof(uint32_t) / sizeof(uint8_t) == AVM_OPERAND_BYTE_LENGTH);
-
     while (pos < length) {
         const uint8_t opcode_byte = bytecode.at(pos);
         pos += AVM_OPCODE_BYTE_LENGTH;

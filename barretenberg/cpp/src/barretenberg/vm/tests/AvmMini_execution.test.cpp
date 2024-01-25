@@ -1,5 +1,6 @@
 #include "barretenberg/vm/avm_trace/AvmMini_execution.hpp"
 #include "AvmMini_common.test.hpp"
+#include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_common.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_opcode.hpp"
@@ -9,25 +10,9 @@
 #include <string>
 #include <utility>
 
-namespace {
-
-// TODO: move to a common utils BB file (following code copied from ecdsa.test.cpp)
-std::vector<uint8_t> hex_to_bytes(const std::string& hex)
-{
-    std::vector<uint8_t> bytes;
-
-    for (unsigned int i = 0; i < hex.length(); i += 2) {
-        std::string byteString = hex.substr(i, 2);
-        bytes.push_back(static_cast<uint8_t>(strtol(byteString.c_str(), nullptr, 16)));
-    }
-
-    return bytes;
-}
-
-} // anonymous namespace
-
 namespace tests_avm {
 using namespace avm_trace;
+using bb::utils::hex_to_bytes;
 
 class AvmMiniExecutionTests : public ::testing::Test {
   public:
@@ -219,7 +204,7 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
 
-    // Find the first row enabling the subtraction selector
+    // Find the first row enabling the multiplication selector and pc = 13
     auto row = std::ranges::find_if(
         trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == 1 && r.avmMini_pc == 13; });
     EXPECT_EQ(row->avmMini_ic, 244140625); // 5^12 = 244140625
