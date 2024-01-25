@@ -69,7 +69,7 @@ export class SimulatorOracle implements DBOracle {
     const noteDaos = await this.db.getNotes({
       contractAddress,
       storageSlot,
-      status: includeNullified ? 'include_nullified' : 'active_only',
+      status: includeNullified ? 'includeNullified' : 'activeOnly',
     });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,

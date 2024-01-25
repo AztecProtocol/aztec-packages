@@ -142,9 +142,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await expect(database.removeNullifiedNotes(nullifiers, owner.publicKey)).resolves.toEqual(notesToNullify);
         }
 
-        await expect(database.getNotes({ ...getFilter(), status: 'include_nullified' })).resolves.toEqual(
-          getExpected(),
-        );
+        await expect(database.getNotes({ ...getFilter(), status: 'includeNullified' })).resolves.toEqual(getExpected());
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
@@ -157,7 +155,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         );
 
         const actualNotesWithDefault = await database.getNotes({});
-        const actualNotesWithActive = await database.getNotes({ status: 'active_only' });
+        const actualNotesWithActive = await database.getNotes({ status: 'activeOnly' });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
@@ -173,7 +171,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         );
 
         const result = await database.getNotes({
-          status: 'include_nullified',
+          status: 'includeNullified',
         });
 
         // We have to compare the sorted arrays since the database does not return the same order as when originally
