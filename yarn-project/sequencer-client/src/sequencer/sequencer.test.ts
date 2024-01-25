@@ -11,7 +11,7 @@ import {
 import { Fr, GlobalVariables, Header, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchronizer } from '@aztec/world-state';
+import { CurrentTreeRoots, MerkleTreeOperations, WorldStateRunningState, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -64,7 +64,7 @@ describe('sequencer', () => {
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_a, _b_) => publicProcessor,
+      create: (_a, _b_) => Promise.resolve(publicProcessor),
     });
 
     l2BlockSource = mock<L2BlockSource>({
@@ -77,7 +77,7 @@ describe('sequencer', () => {
     });
 
     sequencer = new TestSubject(
-      publisher,
+            publisher,
       globalVariableBuilder,
       p2p,
       worldState,

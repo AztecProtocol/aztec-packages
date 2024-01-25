@@ -15,7 +15,6 @@ import {
   BaseOrMergeRollupPublicInputs,
   Fr,
   GlobalVariables,
-  Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -32,7 +31,7 @@ import {
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  StateReference,
+  StateReference
 } from '@aztec/circuits.js';
 import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -54,7 +53,8 @@ import { AztecLmdbStore } from '@aztec/kv-store';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as levelup } from 'levelup';
+import { default as memdown, type MemDown } from 'memdown';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyRollupProver } from '../prover/empty.js';
@@ -64,6 +64,7 @@ import {
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
+import { buildInitialBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
@@ -120,27 +121,8 @@ describe('sequencer/solo_block_builder', () => {
     simulator.rootRollupCircuit.mockResolvedValue(rootRollupOutput);
   }, 20_000);
 
-  // TODO(benesjan): Could this be setup in a better way?
-  const buildPrevBlockHeader = async (db: MerkleTreeOperations) => {
-    const roots = await db.getTreeRoots();
-    return new Header(
-      AppendOnlyTreeSnapshot.empty(),
-      Buffer.alloc(32, 0),
-      new StateReference(
-        new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.l1Tol2MessageTreeRoot), 0),
-        new PartialStateReference(
-          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.noteHashTreeRoot), 0),
-          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.nullifierTreeRoot), 0),
-          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.contractDataTreeRoot), 0),
-          new AppendOnlyTreeSnapshot(Fr.fromBuffer(roots.publicDataTreeRoot), 0),
-        ),
-      ),
-      GlobalVariables.empty(),
-    );
-  };
-
   const makeEmptyProcessedTx = async () => {
-    const header = await buildPrevBlockHeader(builderDb);
+    const header = await buildInitialBlockHeader(builderDb);
     return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
   };
 
@@ -209,7 +191,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.header = await buildPrevBlockHeader(expectsDb);
+    kernelOutput.constants.header = await buildInitialBlockHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -315,7 +297,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.header = await buildPrevBlockHeader(builderDb);
+      kernelOutput.constants.header = await buildInitialBlockHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),

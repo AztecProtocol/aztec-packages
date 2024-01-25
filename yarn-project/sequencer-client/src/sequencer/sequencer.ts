@@ -7,7 +7,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
-import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
+import { MerkleTreeOperations, WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { BlockBuilder } from '../block_builder/index.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -16,6 +16,7 @@ import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessorFactory } from './public_processor.js';
+import { buildInitialBlockHeader } from './utils.js';
 
 /**
  * Sequencer client
@@ -35,7 +36,7 @@ export class Sequencer {
   private state = SequencerState.STOPPED;
 
   constructor(
-    private publisher: L1Publisher,
+        private publisher: L1Publisher,
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
@@ -165,12 +166,11 @@ export class Sequencer {
       this.state = SequencerState.CREATING_BLOCK;
 
       // TODO(benesjan): is this correct? Should we add a check that all the tree roots are really empty?
-      const INITIAL_HEADER = Header.empty();
-      const prevHeader = (await this.l2BlockSource.getBlock(-1))?.header ?? INITIAL_HEADER;
+      const prevHeader = (await this.l2BlockSource.getBlock(-1))?.header;
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = this.publicProcessorFactory.create(prevHeader, newGlobalVariables);
+      const processor = await this.publicProcessorFactory.create(prevHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);

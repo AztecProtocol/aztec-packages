@@ -56,6 +56,7 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import { buildInitialBlockHeader } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -74,7 +75,9 @@ export class PublicProcessorFactory {
    * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
-  public create(prevHeader: Header, globalVariables: GlobalVariables): PublicProcessor {
+  public async create(prevHeader: Header | undefined, globalVariables: GlobalVariables): Promise<PublicProcessor> {
+    prevHeader = prevHeader ?? await buildInitialBlockHeader(this.merkleTree);
+
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);

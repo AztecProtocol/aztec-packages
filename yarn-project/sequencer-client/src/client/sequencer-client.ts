@@ -50,7 +50,7 @@ export class SequencerClient {
     const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, l1ToL2MessageSource);
 
     const sequencer = new Sequencer(
-      publisher,
+            publisher,
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
