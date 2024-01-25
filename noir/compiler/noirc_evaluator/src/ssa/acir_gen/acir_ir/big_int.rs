@@ -5,15 +5,18 @@ use num_bigint::BigUint;
 ///     id is the identifier of the big integer number, and
 ///     modulus is the identifier of the big integer size
 #[derive(Default, Clone, Copy, Debug)]
-pub(crate) struct BigIntId(pub(crate) u32, pub(crate) u32); //bigint id, modulus id
+pub(crate) struct BigIntId {
+    pub(crate) bigint_id: u32,
+    pub(crate) modulus_id: u32,
+}
 
 impl BigIntId {
-    pub(crate) fn as_field(&self) -> FieldElement {
-        FieldElement::from(self.0 as u128)
+    pub(crate) fn bigint_id(&self) -> FieldElement {
+        FieldElement::from(self.bigint_id as u128)
     }
 
     pub(crate) fn modulus_id(&self) -> FieldElement {
-        FieldElement::from(self.1 as u128)
+        FieldElement::from(self.modulus_id as u128)
     }
 }
 
@@ -25,10 +28,10 @@ pub(crate) struct BigIntContext {
 }
 
 impl BigIntContext {
-    /// Creates a new BigIntId for the given modulus and returns it.
-    pub(crate) fn new_big_int(&mut self, modulus: FieldElement) -> BigIntId {
+    /// Creates a new BigIntId for the given modulus identifier and returns it.
+    pub(crate) fn new_big_int(&mut self, modulus_id: FieldElement) -> BigIntId {
         let id = self.big_integers.len() as u32;
-        let result = BigIntId(id, modulus.to_u128() as u32);
+        let result = BigIntId { bigint_id: id, modulus_id: modulus_id.to_u128() as u32 };
         self.big_integers.push(result);
         result
     }

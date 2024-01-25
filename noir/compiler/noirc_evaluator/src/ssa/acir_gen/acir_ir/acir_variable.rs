@@ -1201,7 +1201,7 @@ impl AcirContext {
                 let result_id = self.big_int_ctx.new_big_int(field_inputs[1]);
                 (
                     vec![field_inputs[0], field_inputs[2]],
-                    vec![result_id.as_field(), result_id.modulus_id()],
+                    vec![result_id.bigint_id(), result_id.modulus_id()],
                 )
             }
             BlackBoxFunc::BigIntToLeBytes => {
@@ -1221,9 +1221,9 @@ impl AcirContext {
                     field_inputs.push(i?);
                 }
                 let modulus = self.big_int_ctx.modulus(field_inputs[0]);
-                let bytes_nb = ((modulus - BigUint::from(1_u32)).bits() - 1) / 8 + 1;
-                output_count = bytes_nb as usize;
-                (field_inputs, vec![FieldElement::from(bytes_nb as u128)])
+                let bytes_len = ((modulus - BigUint::from(1_u32)).bits() - 1) / 8 + 1;
+                output_count = bytes_len as usize;
+                (field_inputs, vec![FieldElement::from(bytes_len as u128)])
             }
             BlackBoxFunc::BigIntFromLeBytes => {
                 let invalid_input = "ICE - bigint operation requires 2 inputs";
@@ -1254,7 +1254,7 @@ impl AcirContext {
                 let modulus_id = self.big_int_ctx.get_or_insert_modulus(big_modulus);
                 let result_id =
                     self.big_int_ctx.new_big_int(FieldElement::from(modulus_id as u128));
-                (modulus, vec![result_id.as_field(), result_id.modulus_id()])
+                (modulus, vec![result_id.bigint_id(), result_id.modulus_id()])
             }
             _ => (vec![], vec![]),
         };
