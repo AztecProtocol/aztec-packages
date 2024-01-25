@@ -1,5 +1,5 @@
 import { AuthWitness, FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { CompleteAddress, FeeVariables, Fr, TxContext } from '@aztec/circuits.js';
+import { CompleteAddress, FeeLimits, Fr, TxContext } from '@aztec/circuits.js';
 
 import { BaseWallet } from './base_wallet.js';
 
@@ -7,14 +7,15 @@ import { BaseWallet } from './base_wallet.js';
  * Wallet implementation which creates a transaction request directly to the requested contract without any signing.
  */
 export class SignerlessWallet extends BaseWallet {
-  async createTxExecutionRequest(executions: FunctionCall[], feeVariables?: FeeVariables): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
     if (executions.length !== 1) {
       throw new Error(`Unexpected number of executions. Expected 1 but received ${executions.length}).`);
     }
     const [execution] = executions;
     const packedArguments = PackedArguments.fromArgs(execution.args);
     const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
-    const txContext = TxContext.empty(chainId, protocolVersion, feeVariables);
+    const feeLimits = FeeLimits.empty();
+    const txContext = TxContext.empty(chainId, protocolVersion, feeLimits);
     return Promise.resolve(
       new TxExecutionRequest(
         execution.to,

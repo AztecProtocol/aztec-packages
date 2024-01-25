@@ -9,6 +9,7 @@
 import { Fr } from '@aztec/circuits.js';
 
 export { AccountContract } from './contract.js';
+export { FeePaymentInfo } from './fee_payment_info.js';
 export { AccountInterface, AuthWitnessProvider, EntrypointInterface } from './interface.js';
 export * from './wallet.js';
 

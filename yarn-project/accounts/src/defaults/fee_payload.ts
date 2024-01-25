@@ -1,5 +1,6 @@
+import { FeePaymentInfo } from '@aztec/aztec.js';
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
-import { AztecAddress, FeeVariables, Fr, FunctionData, GeneratorIndex } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionData, GeneratorIndex } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
@@ -35,7 +36,7 @@ export type FeePayload = {
  * @param sender - The sender's address
  * @param fee - The fee variables
  */
-export function buildFeePayload(sender: AztecAddress, fee: FeeVariables) {
+export function buildFeePayload(sender: AztecAddress, fee: FeePaymentInfo) {
   const nonce = Fr.random();
   const packedArguments: PackedArguments[] = [];
   const calls: FunctionCall[] = [];
@@ -76,7 +77,7 @@ export function buildFeePayload(sender: AztecAddress, fee: FeeVariables) {
 export function hashFeePayload(payload: FeePayload) {
   return pedersenHash(
     flattenPayload(payload).map(fr => fr.toBuffer()),
-    GeneratorIndex.FEE_VARIABLES,
+    GeneratorIndex.SIGNATURE_PAYLOAD,
   );
 }
 

@@ -2,7 +2,7 @@ use crate::{
     contrakt::deployment_data::ContractDeploymentData,
     tests::fixtures,
     transaction::context::TxContext,
-    abis::fee_variables::FeeVariables,
+    abis::fee_limits::FeeLimits,
 };
 
 pub fn build_contract_deployment_data(is_constructor: bool) -> ContractDeploymentData {
@@ -30,6 +30,6 @@ pub fn build_tx_context(is_constructor: bool) -> TxContext {
         contract_deployment_data,
         chain_id: 1,
         version: 0,
-        fee_variables: FeeVariables::empty()
+        fee_limits: FeeLimits::empty()
     }
 }

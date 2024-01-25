@@ -1,6 +1,6 @@
 import { PXE, Tx, TxExecutionRequest } from '@aztec/circuit-types';
-import { FeeVariables } from '@aztec/circuits.js';
 
+import { FeePaymentInfo } from '../account/fee_payment_info.js';
 import { SentTx } from './sent_tx.js';
 
 /**
@@ -16,7 +16,7 @@ export type SendMethodOptions = {
   /**
    * Fee payment information
    */
-  feeVariables?: FeeVariables;
+  feePaymentInfo?: FeePaymentInfo;
 };
 
 /**

@@ -17,7 +17,7 @@ export class BatchCall extends BaseContractInteraction {
    */
   public async create(opts: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest(this.calls, opts.feeVariables);
+      this.txRequest = await this.wallet.createTxExecutionRequest(this.calls, opts.feePaymentInfo);
     }
     return this.txRequest;
   }

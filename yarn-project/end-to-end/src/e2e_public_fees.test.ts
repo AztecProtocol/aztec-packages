@@ -3,6 +3,7 @@ import {
   AztecNode,
   CompleteAddress,
   DebugLogger,
+  FeePaymentInfo,
   Fr,
   FunctionSelector,
   GrumpkinPrivateKey,
@@ -13,7 +14,6 @@ import {
   generatePublicKey,
   getContractDeploymentInfo,
 } from '@aztec/aztec.js';
-import { FeeVariables } from '@aztec/circuits.js';
 import { EscrowContract, EscrowContractArtifact } from '@aztec/noir-contracts/Escrow';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
@@ -120,7 +120,7 @@ describe('e2e_public_fees', () => {
       const tx = await asset.methods
         .transfer_public(sender.getAddress(), recipientAddress.address, transferAmount, Fr.ZERO)
         .send({
-          feeVariables: new FeeVariables(
+          feePaymentInfo: new FeePaymentInfo(
             new Fr(feeAmount),
             asset.address,
             feePaymentContract.address,

@@ -2,7 +2,7 @@ use dep::protocol_types::{
     abis::{
         block_header::BlockHeader,
         call_context::CallContext,
-        fee_variables::FeeVariables,
+        fee_limits::FeeLimits,
         function_data::FunctionData,
         function_selector::FunctionSelector,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -89,7 +89,7 @@ struct PrivateContext {
     // encrypted_logs_preimages: Vec<Field>,
     // unencrypted_logs_preimages: Vec<Field>,
 
-    fee_variables: FeeVariables,
+    fee_limits: FeeLimits,
 }
 
 impl PrivateContext {
@@ -115,7 +115,7 @@ impl PrivateContext {
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
-            fee_variables: FeeVariables::empty(),
+            fee_limits: FeeLimits::empty(),
         }
     }
 

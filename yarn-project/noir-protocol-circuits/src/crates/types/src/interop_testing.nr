@@ -3,7 +3,7 @@ use crate::grumpkin_point::GrumpkinPoint;
 use crate::transaction::request::TxRequest;
 use crate::address::{AztecAddress, EthAddress};
 use crate::transaction::context::TxContext;
-use crate::abis::fee_variables::FeeVariables;
+use crate::abis::fee_limits::FeeLimits;
 use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::deployment_data::ContractDeploymentData;
@@ -57,14 +57,7 @@ fn compute_tx_request_hash() {
             },
             chain_id: 0,
             version: 0,
-            fee_variables: FeeVariables {
-                fee_asset_address: AztecAddress::from_field(1),
-                fee_preparation_address: AztecAddress::from_field(2),
-                fee_preparation_selector: FunctionSelector::from_u32(3),
-                fee_distribution_address: AztecAddress::from_field(4),
-                fee_distribution_selector: FunctionSelector::from_u32(5),
-                fee_limit: 6
-            }
+            fee_limits: FeeLimits { fee_per_da_gas: 0, da_tx_gas_limit: 0 }
         },
         function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: true, is_constructor: true }
     };

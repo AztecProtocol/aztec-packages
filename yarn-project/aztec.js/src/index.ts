@@ -50,9 +50,8 @@ export {
 
 export { createPXEClient } from './pxe_client.js';
 
-export { AuthWitnessProvider } from './account/index.js';
+export { AccountContract, AuthWitnessProvider, FeePaymentInfo } from './account/index.js';
 
-export { AccountContract } from './account/index.js';
 export { AccountManager } from './account_manager/index.js';
 
 export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';

@@ -17,16 +17,10 @@ import {
   TxHash,
   TxReceipt,
 } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  FeeVariables,
-  Fr,
-  GrumpkinPrivateKey,
-  PartialAddress,
-} from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
 
+import { FeePaymentInfo } from '../account/fee_payment_info.js';
 import { Wallet } from '../account/wallet.js';
 
 /**
@@ -37,7 +31,10 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getCompleteAddress(): CompleteAddress;
 
-  abstract createTxExecutionRequest(execs: FunctionCall[], feeVariables?: FeeVariables): Promise<TxExecutionRequest>;
+  abstract createTxExecutionRequest(
+    execs: FunctionCall[],
+    feePaymentInfo?: FeePaymentInfo,
+  ): Promise<TxExecutionRequest>;
 
   abstract createAuthWitness(message: Fr): Promise<AuthWitness>;
 

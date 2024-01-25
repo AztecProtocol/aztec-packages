@@ -44,7 +44,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], opts.feeVariables);
+      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], opts.feePaymentInfo);
     }
     return this.txRequest;
   }

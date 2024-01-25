@@ -5,7 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicKey } from '../types/public_key.js';
-import { FeeVariables } from './fee_variables.js';
+import { FeeLimits } from './fee_limits.js';
 
 /**
  * Contract deployment data in a TxContext
@@ -121,7 +121,7 @@ export class TxContext {
     /**
      * Fee variables for the transaction.
      */
-    public feeVariables: FeeVariables,
+    public feeLimits: FeeLimits,
   ) {}
 
   /**
@@ -136,7 +136,7 @@ export class TxContext {
       this.contractDeploymentData,
       this.chainId,
       this.version,
-      this.feeVariables,
+      this.feeLimits,
     );
   }
 
@@ -154,11 +154,11 @@ export class TxContext {
       reader.readObject(ContractDeploymentData),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readObject(FeeVariables),
+      reader.readObject(FeeLimits),
     );
   }
 
-  static empty(chainId: Fr | number = 0, version: Fr | number = 0, feeVariables = FeeVariables.empty()) {
+  static empty(chainId: Fr | number = 0, version: Fr | number = 0, feeVariables = FeeLimits.empty()) {
     return new TxContext(
       false,
       false,
@@ -178,7 +178,7 @@ export class TxContext {
       this.contractDeploymentData.isEmpty() &&
       this.chainId.isZero() &&
       this.version.isZero() &&
-      this.feeVariables.isEmpty()
+      this.feeLimits.isEmpty()
     );
   }
 
@@ -204,7 +204,7 @@ export class TxContext {
       fields.contractDeploymentData,
       fields.chainId,
       fields.version,
-      fields.feeVariables,
+      fields.feeLimits,
     ] as const;
   }
 }

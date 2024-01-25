@@ -6,8 +6,12 @@ import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Fee payment information for a transaction.
+ * Specified by the user and sent as an option when creating a contract function interaction.
+ *
+ * The specified values are translated in TS into a FeePayload which is
+ * used by the wallet entrypoint to prepare and distribute the fee.
  */
-export class FeeVariables {
+export class FeePaymentInfo {
   constructor(
     /**
      * Fee limit
@@ -47,18 +51,18 @@ export class FeeVariables {
   }
 
   /**
-   * Creates a FeeVariables instance from a set of fields
+   * Creates a FeePaymentInfo instance from a set of fields
    * @param fields - The fields
    */
-  static from(fields: FieldsOf<FeeVariables>): FeeVariables {
-    return new FeeVariables(...FeeVariables.getFields(fields));
+  static from(fields: FieldsOf<FeePaymentInfo>): FeePaymentInfo {
+    return new FeePaymentInfo(...FeePaymentInfo.getFields(fields));
   }
 
   /**
-   * Creates an empty FeeVariables instance
+   * Creates an empty FeePaymentInfo instance
    */
-  static empty(): FeeVariables {
-    return new FeeVariables(
+  static empty(): FeePaymentInfo {
+    return new FeePaymentInfo(
       Fr.ZERO,
       AztecAddress.ZERO,
       AztecAddress.ZERO,
@@ -68,17 +72,17 @@ export class FeeVariables {
     );
   }
 
-  static isEmpty(feeVariables: FeeVariables) {
-    return feeVariables.isEmpty();
+  static isEmpty(feePaymentInfo: FeePaymentInfo) {
+    return feePaymentInfo.isEmpty();
   }
 
   /**
-   * Creates a FeeVariables instance from a buffer
+   * Creates a FeePaymentInfo instance from a buffer
    * @param buffer - The buffer
    */
-  static fromBuffer(buffer: Buffer | BufferReader): FeeVariables {
+  static fromBuffer(buffer: Buffer | BufferReader): FeePaymentInfo {
     const reader = BufferReader.asReader(buffer);
-    return new FeeVariables(
+    return new FeePaymentInfo(
       Fr.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
@@ -88,8 +92,8 @@ export class FeeVariables {
     );
   }
 
-  static fromJSON(obj: any): FeeVariables {
-    return new FeeVariables(
+  static fromJSON(obj: any): FeePaymentInfo {
+    return new FeePaymentInfo(
       Fr.fromString(obj.feeLimit),
       AztecAddress.fromString(obj.feeAssetAddress),
       AztecAddress.fromString(obj.feePaymentAddress),
@@ -99,7 +103,7 @@ export class FeeVariables {
     );
   }
 
-  static getFields(fields: FieldsOf<FeeVariables>) {
+  static getFields(fields: FieldsOf<FeePaymentInfo>) {
     return [
       fields.feeLimit,
       fields.feeAssetAddress,
@@ -111,7 +115,7 @@ export class FeeVariables {
   }
 
   toBuffer() {
-    return serializeToBuffer(...FeeVariables.getFields(this));
+    return serializeToBuffer(...FeePaymentInfo.getFields(this));
   }
 
   toJSON() {

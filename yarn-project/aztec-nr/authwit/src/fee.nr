@@ -3,7 +3,7 @@ use dep::aztec::types::vec::BoundedVec;
 use dep::aztec::context::PrivateContext;
 use dep::aztec::protocol_types::{
   address::AztecAddress,
-  constants::GENERATOR_INDEX__FEE_VARIABLES,
+  constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
   hash::pedersen_hash,
 };
 
@@ -28,7 +28,7 @@ impl FeePayload {
   fn hash(self) -> Field {
     pedersen_hash(
       self.serialize(),
-      GENERATOR_INDEX__FEE_VARIABLES
+      GENERATOR_INDEX__SIGNATURE_PAYLOAD
     )
   }
 

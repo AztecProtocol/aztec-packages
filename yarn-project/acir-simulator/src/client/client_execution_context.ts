@@ -322,7 +322,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       ContractDeploymentData.empty(),
       this.txContext.chainId,
       this.txContext.version,
-      this.txContext.feeVariables,
+      this.txContext.feeLimits,
     );
 
     const derivedCallContext = await this.deriveCallContext(

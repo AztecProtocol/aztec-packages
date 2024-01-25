@@ -5,7 +5,7 @@ mod function_data;
 mod function_leaf_preimage;
 
 mod global_variables;
-mod fee_variables;
+mod fee_limits;
 
 mod membership_witness;
 

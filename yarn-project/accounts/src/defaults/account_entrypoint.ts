@@ -1,7 +1,7 @@
-import { createDebugLogger } from '@aztec/aztec.js';
+import { FeePaymentInfo, createDebugLogger } from '@aztec/aztec.js';
 import { AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, FeeVariables, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, FeeLimits, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
@@ -23,10 +23,10 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
 
   async createTxExecutionRequest(
     executions: FunctionCall[],
-    feeVariables: FeeVariables = FeeVariables.empty(),
+    feePaymentInfo: FeePaymentInfo = FeePaymentInfo.empty(),
   ): Promise<TxExecutionRequest> {
     const { payload: appPayload, packedArguments: callsPackedArguments } = buildAppPayload(executions);
-    const { payload: feePayload, packedArguments: feePackedArguments } = buildFeePayload(this.address, feeVariables);
+    const { payload: feePayload, packedArguments: feePackedArguments } = buildFeePayload(this.address, feePaymentInfo);
 
     const abi = this.getEntrypointAbi();
     const packedArgs = PackedArguments.fromArgs(encodeArguments(abi, [appPayload, feePayload]));
@@ -37,11 +37,13 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const feeMessage = Fr.fromBuffer(hashFeePayload(feePayload));
     const feeAuthWitness = await this.auth.createAuthWitness(feeMessage);
 
+    const feeLimits = new FeeLimits(Fr.random(), Fr.random());
+
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
-      txContext: TxContext.empty(this.chainId, this.version, feeVariables),
+      txContext: TxContext.empty(this.chainId, this.version, feeLimits),
       packedArguments: [...callsPackedArguments, ...feePackedArguments, packedArgs],
       authWitnesses: [appAuthWitness, feeAuthWitness],
     });

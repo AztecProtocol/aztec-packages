@@ -4,7 +4,7 @@ import {
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
-  FeeVariables,
+  FeeLimits,
   FunctionData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -90,7 +90,7 @@ describe('Private Execution test suite', () => {
     chainId: new Fr(10),
     version: new Fr(20),
     contractDeploymentData: ContractDeploymentData.empty(),
-    feeVariables: FeeVariables.empty(),
+    feeLimits: FeeLimits.empty(),
   };
 
   const runSimulator = ({

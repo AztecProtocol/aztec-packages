@@ -1,7 +1,8 @@
 import { AuthWitness, FunctionCall, PXE, TxExecutionRequest } from '@aztec/circuit-types';
-import { FeeVariables, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { ABIParameterVisibility, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
+import { FeePaymentInfo } from '../account/fee_payment_info.js';
 import { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { BaseWallet } from './base_wallet.js';
@@ -14,8 +15,8 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
-  createTxExecutionRequest(execs: FunctionCall[], feeVariables?: FeeVariables): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(execs, feeVariables);
+  createTxExecutionRequest(execs: FunctionCall[], feePaymentInfo?: FeePaymentInfo): Promise<TxExecutionRequest> {
+    return this.account.createTxExecutionRequest(execs, feePaymentInfo);
   }
 
   async createAuthWitness(message: Fr | Buffer): Promise<AuthWitness> {

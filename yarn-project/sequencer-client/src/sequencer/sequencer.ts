@@ -1,6 +1,6 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { FeeVariables, GlobalVariables } from '@aztec/circuits.js';
+import { FeeLimits, GlobalVariables } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -304,7 +304,7 @@ export class Sequencer {
         continue;
       }
 
-      if (this.chargeFees && FeeVariables.isEmpty(tx.data.constants.txContext.feeVariables)) {
+      if (this.chargeFees && FeeLimits.isEmpty(tx.data.constants.txContext.feeLimits)) {
         txsToDelete.push(tx);
         this.log(`Skipping tx without fee payment information ${await Tx.getHash(tx)}`);
         continue;

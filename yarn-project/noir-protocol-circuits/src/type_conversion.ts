@@ -74,7 +74,7 @@ import {
 } from '@aztec/circuits.js';
 import { Tuple, from2Fields, mapTuple } from '@aztec/foundation/serialize';
 
-import { FeeVariables } from '../../circuits.js/src/structs/fee_variables.js';
+import { FeeLimits } from '../../circuits.js/src/structs/fee_limits.js';
 import {
   BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,
@@ -84,7 +84,7 @@ import {
   CombinedConstantData as CombinedConstantDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
   ContractLeafMembershipWitness as ContractLeafMembershipWitnessNoir,
-  FeeVariables as FeeVariablesNoir,
+  FeeLimits as FeeLimitsNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
@@ -282,14 +282,10 @@ export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNo
  * @param data - The data.
  * @returns The fee payment data.
  */
-export function mapFeeVariablesToNoir(data: FeeVariables): FeeVariablesNoir {
+export function mapFeeLimitsToNoir(data: FeeLimits): FeeLimitsNoir {
   return {
-    fee_asset_address: mapAztecAddressToNoir(data.feeAssetAddress),
-    fee_preparation_address: mapAztecAddressToNoir(data.feePreparationAddress),
-    fee_preparation_selector: mapFunctionSelectorToNoir(data.feePreparationSelector),
-    fee_distribution_address: mapAztecAddressToNoir(data.feeDistributionAddress),
-    fee_distribution_selector: mapFunctionSelectorToNoir(data.feeDistributionSelector),
-    fee_limit: mapFieldToNoir(data.feeLimit),
+    fee_per_da_gas: mapFieldToNoir(data.feePerDAGas),
+    da_tx_gas_limit: mapFieldToNoir(data.dATxGasLimit),
   };
 }
 
@@ -298,15 +294,8 @@ export function mapFeeVariablesToNoir(data: FeeVariables): FeeVariablesNoir {
  * @param data - The noir data.
  * @returns The fee payment data.
  */
-export function mapFeeVariablesFromNoir(feeVariables: FeeVariablesNoir): FeeVariables {
-  return new FeeVariables(
-    mapFieldFromNoir(feeVariables.fee_limit),
-    mapAztecAddressFromNoir(feeVariables.fee_asset_address),
-    mapAztecAddressFromNoir(feeVariables.fee_preparation_address),
-    mapFunctionSelectorFromNoir(feeVariables.fee_preparation_selector),
-    mapAztecAddressFromNoir(feeVariables.fee_distribution_address),
-    mapFunctionSelectorFromNoir(feeVariables.fee_distribution_selector),
-  );
+export function mapFeeLimitsFromNoir(feeLimits: FeeLimitsNoir): FeeLimits {
+  return new FeeLimits(mapFieldFromNoir(feeLimits.fee_per_da_gas), mapFieldFromNoir(feeLimits.da_tx_gas_limit));
 }
 
 /**
@@ -322,7 +311,7 @@ export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
     contract_deployment_data: mapContractDeploymentDataToNoir(txContext.contractDeploymentData),
     chain_id: mapFieldToNoir(txContext.chainId),
     version: mapFieldToNoir(txContext.version),
-    fee_variables: mapFeeVariablesToNoir(txContext.feeVariables),
+    fee_limits: mapFeeLimitsToNoir(txContext.feeLimits),
   };
 }
 
@@ -339,7 +328,7 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
     mapContractDeploymentDataFromNoir(txContext.contract_deployment_data),
     mapFieldFromNoir(txContext.chain_id),
     mapFieldFromNoir(txContext.version),
-    mapFeeVariablesFromNoir(txContext.fee_variables),
+    mapFeeLimitsFromNoir(txContext.fee_limits),
   );
 }
 
