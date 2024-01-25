@@ -117,7 +117,7 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field, note_interface:
         [],
         1, // limit
         0, // offset
-        false, // include_nullified - TODO: add a way for get_note to retrieve nullified notes?
+        false, // include_nullified
         placeholder_note,
         placeholder_fields
     )[0].unwrap() // Notice: we don't allow dummies to be returned from get_note (singular).
