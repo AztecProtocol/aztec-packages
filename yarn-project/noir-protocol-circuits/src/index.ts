@@ -310,7 +310,7 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
 }
 
 /**
- * Executes the public kernel with private prevoius kernel with the given inputs
+ * Executes the public kernel with private previous kernel with the given inputs
  */
 async function executePublicKernelPrivatePreviousWithACVM(
   input: PublicPrivatePreviousInputType,
