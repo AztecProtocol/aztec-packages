@@ -79,9 +79,9 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     parallel_for_omp(num_iterations, func);
 #else
     // parallel_for_spawning(num_iterations, func);
-    parallel_for_moody(num_iterations, func);
+    // parallel_for_moody(num_iterations, func);
     // parallel_for_atomic_pool(num_iterations, func);
-    // parallel_for_mutex_pool(num_iterations, func);
+    parallel_for_mutex_pool(num_iterations, func);
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
