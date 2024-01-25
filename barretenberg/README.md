@@ -252,7 +252,7 @@ When working on a PR, you may want to point this file to a different Aztec branc
 
 ### Testing locally in docker
 
-A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimick the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
+A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimic the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
 
 ```
 cd barretenberg/cpp
