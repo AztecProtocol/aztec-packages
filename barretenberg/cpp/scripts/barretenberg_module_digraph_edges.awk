@@ -5,7 +5,7 @@ function extract_edges(line) {
     gsub(/^[ ]+/, "", line); # Remove leading spaces and tabs
     gsub(/[ ]+$/, "", line); # Remove trailing spaces and tabs
     gsub(/[ ]+/, " ", line); # Sub multiple spaces for a single space
-    split(line, modules, " ");
+    split(line, modules, " "); # Split into an array of words
 
     # If node has no dependencies, just add the node
     if (length(modules)==1) {
@@ -20,7 +20,7 @@ function extract_edges(line) {
 
 # Main AWK script
 {
-    # Concatenate lines if the opening parentheses is not closed
+    # Concatenate lines if the opening parenthesis is not closed
     while (!/\)/) {
         current_line = $0;
         getline;
