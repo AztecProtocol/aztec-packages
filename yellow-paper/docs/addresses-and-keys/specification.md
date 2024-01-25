@@ -337,14 +337,25 @@ An address is computed as the hash of the following fields:
 | `salt` | `Field` | User-generated pseudorandom value for uniqueness. |
 | `contract_class_id` | `Field` | Identifier of the contract class for this instance. |
 | `initialization_hash` | `Field` | Hash of the selector and arguments to the constructor. |
-| `portal_contract_address` | `EthereumAddress` | Optional address of the L1 portal contract. |
-| `public_keys_hash` | `Field` | Optional hash of the struct of public keys used for encryption and nullifying by this contract. |
+| `portal_contract_address` | `EthereumAddress` | Address of the L1 portal contract, zero if none. |
+| `public_keys_hash` | `Field` | Hash of the struct of public keys used for encryption and nullifying by this contract, zero if no public keys. |
 
-The hash is computed as follows:
+Storing these fields in the address preimage allows any part of the protocol to check them by recomputing the hash and verifying that the address matches. Examples of these checks are:
+- Sending an encrypted note to an undeployed account, which requires the sender app to check the recipient's public key given their address. This scenario also requires the recipient to share with the sender their public key and rest of preimage.
+- Having the kernel circuit verify that the code executed at a given address matches the one from the class.
+- Asserting that the initialization hash matches the function call in the contract constructor.
+- Checking the portal contract address when sending a cross-chain message.
+
+:::warning
+We may remove the `portal_contract_address` as a first-class citizen.
+:::
+
+The hashing scheme for the address should then ensure that checks that are more frequent can be done cheaply, and that data shared out of band is kept manageable. We define the hash to be computed as follows:
 
 ```
-salted_initialization_hash = pedersen([salt, initialization_hash], GENERATOR__SALTED_INITIALIZATION_HASH)
-address = pedersen([contract_class_id, portal_contract_address as Field, salted_initialization_hash, public_keys_hash], GENERATOR__CONTRACT_ADDRESS_V1)
+salted_initialization_hash = pedersen([salt, initialization_hash, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
+partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
+address = pedersen([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
 ```
 
 The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined above: $\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$. A suggested hashing is:
