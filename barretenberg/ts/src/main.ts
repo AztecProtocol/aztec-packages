@@ -186,12 +186,7 @@ export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: st
   /* eslint-enable camelcase */
 }
 
-export async function prove(
-  bytecodePath: string,
-  witnessPath: string,
-  crsPath: string,
-  outputPath: string,
-) {
+export async function prove(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
   const { api, acirComposer } = await init(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
