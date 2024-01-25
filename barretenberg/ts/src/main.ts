@@ -373,7 +373,7 @@ program
   .description('Generate a proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, recursive, crsPath }) => {
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
     const result = await proveAndVerify(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
@@ -407,9 +407,9 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, witnessPath, recursive, outputPath, crsPath }) => {
+  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await prove(bytecodePath, witnessPath, crsPath, recursive);
+    await prove(bytecodePath, witnessPath, crsPath, outputPath);
   });
 
 program
@@ -426,7 +426,7 @@ program
   .description('Verify a proof. Process exists with success or failure code.')
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
-  .action(async ({ proofPath, recursive, vk }) => {
+  .action(async ({ proofPath, vk }) => {
     handleGlobalOptions();
     const result = await verify(proofPath, vk);
     process.exit(result ? 0 : 1);
