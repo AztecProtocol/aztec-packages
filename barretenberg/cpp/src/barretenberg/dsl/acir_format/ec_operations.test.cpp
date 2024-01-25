@@ -17,7 +17,7 @@ class EcOperations : public ::testing::Test {
 size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witness_values)
 {
     using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
-
+    witness_values.push_back(0);
     auto g1 = grumpkin::g1::affine_one;
     cycle_group_ct input_point(g1);
     // Doubling
@@ -49,12 +49,11 @@ size_t generate_ec_double_constraint(EcDouble& ec_double_constraint, WitnessVect
     // Doubling
     cycle_group_ct result = input_point.dbl();
     // add: x,y,x2,y2
-    uint32_t result_x_witness_index = static_cast<uint32_t>(witness_values.size()) + 1;
+    uint32_t result_x_witness_index = static_cast<uint32_t>(witness_values.size());
+
     witness_values.push_back(result.x.get_value());
-    uint32_t result_y_witness_index = static_cast<uint32_t>(witness_values.size()) + 1;
+    uint32_t result_y_witness_index = static_cast<uint32_t>(witness_values.size());
     witness_values.push_back(result.y.get_value());
-    info("DOUBLE");
-    info(result.x.get_value());
     ec_double_constraint = EcDouble{
         .input_x = 1,
         .input_y = 2,
