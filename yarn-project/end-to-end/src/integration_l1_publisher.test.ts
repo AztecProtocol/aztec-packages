@@ -39,7 +39,7 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  buildInitialBlockHeader,
+  buildInitialHeader,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -153,7 +153,7 @@ describe('L1Publisher integration', () => {
       l1BlockPublishRetryIntervalMS: 100,
     });
 
-    prevHeader = await buildInitialBlockHeader(builderDb);
+    prevHeader = await buildInitialHeader(builderDb);
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {

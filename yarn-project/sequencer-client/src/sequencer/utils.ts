@@ -4,7 +4,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 /**
  * Builds the initial header by reading the roots from the database.
  */
-export async function buildInitialBlockHeader(
+export async function buildInitialHeader(
   db: MerkleTreeOperations,
   prevBlockGlobalVariables: GlobalVariables = GlobalVariables.empty(), // TODO(benesjan): this should most likely be removed
 ) {

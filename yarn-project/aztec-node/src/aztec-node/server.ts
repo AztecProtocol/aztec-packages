@@ -45,6 +45,7 @@ import {
   GlobalVariableBuilder,
   PublicProcessorFactory,
   SequencerClient,
+  buildInitialHeader,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
 import { SiblingPath } from '@aztec/types/membership';
@@ -556,10 +557,15 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  // TODO(#3937): Nuke this
   public async getHeader(): Promise<Header> {
     const block = await this.getBlock(-1);
-    return block?.header ?? Header.empty();
+    if (block) {
+      return block.header;
+    }
+
+    // No block was not found so we build the initial header.
+    const committedDb = await this.#getWorldState('latest');
+    return await buildInitialHeader(committedDb);
   }
 
   /**
