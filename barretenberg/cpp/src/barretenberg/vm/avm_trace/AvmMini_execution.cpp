@@ -174,7 +174,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.div(inst.operands.at(0), inst.operands.at(1), inst.operands.at(2), inst.in_tag);
             break;
         case OpCode::CALLDATACOPY:
-            trace_builder.call_data_copy(inst.operands.at(0), inst.operands.at(1), inst.operands.at(2), calldata);
+            trace_builder.calldata_copy(inst.operands.at(0), inst.operands.at(1), inst.operands.at(2), calldata);
             break;
         case OpCode::JUMP:
             trace_builder.jump(inst.operands.at(0));
