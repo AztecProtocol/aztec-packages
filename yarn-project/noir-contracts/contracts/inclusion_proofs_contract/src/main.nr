@@ -229,17 +229,17 @@ contract InclusionProofs {
     //       contract's aztec address instead of just the address.
     #[aztec(private)]
     fn test_contract_inclusion_proof(
-        deployer_public_key: GrumpkinPoint,
+        public_key: GrumpkinPoint,
         contract_address_salt: Field,
-        function_tree_root: Field,
+        contract_class_id: Field,
         constructor_hash: Field,
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
         let proven_contract_address = prove_contract_inclusion(
-            deployer_public_key,
+            public_key,
             contract_address_salt,
-            function_tree_root,
+            contract_class_id,
             constructor_hash,
             portal_contract_address,
             block_number,

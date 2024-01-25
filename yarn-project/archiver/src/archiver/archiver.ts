@@ -466,7 +466,12 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   }
 }
 
-/** Converts ExtendedContractData into contract classes and instances. */
+/**
+ * Converts ExtendedContractData into contract classes and instances.
+ * Note that the conversion is not correct, since there is some data missing from the broadcasted ExtendedContractData.
+ * The archiver will trust the ids broadcasted instead of trying to recompute them.
+ * Eventually this function and ExtendedContractData altogether will be removed.
+ */
 function extendedContractDataToContractClassAndInstance(
   data: ExtendedContractData,
 ): [ContractClassWithId, ContractInstanceWithAddress] {
@@ -481,14 +486,14 @@ function extendedContractDataToContractClassAndInstance(
     privateFunctions: [],
     packedBytecode: data.bytecode,
   };
-  const contractClassId = getContractClassId(contractClass);
+  const contractClassId = data.contractClassId;
   const contractInstance: ContractInstance = {
     version: 1,
-    salt: Fr.ZERO,
+    salt: data.saltedInitializationHash,
     contractClassId,
-    initializationHash: Fr.ZERO,
+    initializationHash: data.saltedInitializationHash,
     portalContractAddress: data.contractData.portalContractAddress,
-    publicKeysHash: data.partialAddress,
+    publicKeysHash: data.publicKeyHash,
   };
   const address = data.contractData.contractAddress;
   return [

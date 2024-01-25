@@ -2,9 +2,16 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { computeContractAddressFromPartial } from '../abis/abis.js';
+
+
 import { Grumpkin } from '../barretenberg/index.js';
-import { GrumpkinPrivateKey, PartialAddress, PublicKey } from '../index.js';
+import {
+  GrumpkinPrivateKey,
+  PartialAddress,
+  PublicKey,
+  computeContractAddressFromPartial,
+  computePartialAddress,
+} from '../index.js';
 
 /**
  * A complete address is a combination of an Aztec address, a public key and a partial address.
@@ -31,7 +38,7 @@ export class CompleteAddress {
   static readonly SIZE_IN_BYTES = 32 * 4;
 
   static create(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialAddress) {
-    const expectedAddress = computeContractAddressFromPartial(publicKey, partialAddress);
+    const expectedAddress = computeContractAddressFromPartial({ publicKey, partialAddress });
     if (!expectedAddress.equals(address)) {
       throw new Error(
         `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
@@ -42,16 +49,25 @@ export class CompleteAddress {
 
   static random() {
     const partialAddress = Fr.random();
-    const pubKey = Point.random();
-    const address = computeContractAddressFromPartial(pubKey, partialAddress);
-    return new CompleteAddress(address, pubKey, partialAddress);
+    const publicKey = Point.random();
+    const address = computeContractAddressFromPartial({ publicKey, partialAddress });
+    return new CompleteAddress(address, publicKey, partialAddress);
   }
 
   static fromPrivateKeyAndPartialAddress(privateKey: GrumpkinPrivateKey, partialAddress: Fr): CompleteAddress {
     const grumpkin = new Grumpkin();
-    const pubKey = grumpkin.mul(Grumpkin.generator, privateKey);
-    const address = computeContractAddressFromPartial(pubKey, partialAddress);
-    return new CompleteAddress(address, pubKey, partialAddress);
+    const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
+    const address = computeContractAddressFromPartial({ publicKey, partialAddress });
+    return new CompleteAddress(address, publicKey, partialAddress);
+  }
+
+  static fromPublicKeyAndInstance(
+    publicKey: PublicKey,
+    instance: Parameters<typeof computePartialAddress>[0],
+  ): CompleteAddress {
+    const partialAddress = computePartialAddress(instance);
+    const address = computeContractAddressFromPartial({ publicKey, partialAddress });
+    return new CompleteAddress(address, publicKey, partialAddress);
   }
 
   /**

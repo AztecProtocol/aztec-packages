@@ -1,22 +1,11 @@
 import { times } from '@aztec/foundation/collection';
 
-import {
-  AztecAddress,
-  Fr,
-  FunctionData,
-  FunctionLeafPreimage,
-  FunctionSelector,
-  GlobalVariables,
-  NewContractData,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-} from '../index.js';
+
+
+import { AztecAddress, Fr, FunctionData, FunctionLeafPreimage, FunctionSelector, GlobalVariables, NewContractData, PublicCallStackItem, PublicCircuitPublicInputs, SideEffect, SideEffectLinkedToNoteHash } from '../index.js';
 import {
   makeAztecAddress,
   makeEthAddress,
-  makePoint,
   makePrivateCallStackItem,
   makePublicCallStackItem,
   makeTxRequest,
@@ -26,8 +15,6 @@ import {
   computeBlockHashWithGlobals,
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeCompleteAddress,
-  computeContractAddressFromPartial,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
@@ -85,22 +72,6 @@ describe('abis', () => {
     const argsHash = new Fr(42);
     const vkHash = Buffer.alloc(32);
     const res = hashConstructor(functionData, argsHash, vkHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a complete address', () => {
-    const deployerPubKey = makePoint();
-    const contractAddrSalt = new Fr(2n);
-    const treeRoot = new Fr(3n);
-    const constructorHash = new Fr(4n);
-    const res = computeCompleteAddress(deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a contract address from partial', () => {
-    const deployerPubKey = makePoint();
-    const partialAddress = new Fr(2n);
-    const res = computeContractAddressFromPartial(deployerPubKey, partialAddress);
     expect(res).toMatchSnapshot();
   });
 

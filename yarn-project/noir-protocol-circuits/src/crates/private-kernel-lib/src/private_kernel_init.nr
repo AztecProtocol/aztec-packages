@@ -194,9 +194,9 @@ mod tests {
             private_circuit_vk_hash
         );
         let contract_address = CompleteAddress::compute(
-            cdd.deployer_public_key,
+            cdd.public_key,
             cdd.contract_address_salt,
-            cdd.function_tree_root,
+            cdd.contract_class_id,
             constructor_hash
         ).address;
         assert(public_inputs.end.new_contracts[0].contract_address.eq(contract_address));

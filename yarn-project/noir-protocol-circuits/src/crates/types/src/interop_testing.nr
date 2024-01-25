@@ -16,13 +16,13 @@ use crate::abis::side_effect::SideEffect;
 fn compute_complete_address() {
     let point = GrumpkinPoint { x: 1, y: 2 };
     let contract_address_salt = 3;
-    let function_tree_root = 4;
+    let contract_class_id = 4;
     let constructor_hash = 5;
 
     let complete_address = CompleteAddress::compute(
         point,
         contract_address_salt,
-        function_tree_root,
+        contract_class_id,
         constructor_hash
     );
 
@@ -48,9 +48,9 @@ fn compute_tx_request_hash() {
             is_rebate_payment_tx: false,
             is_contract_deployment_tx: true,
             contract_deployment_data: ContractDeploymentData {
-                deployer_public_key: GrumpkinPoint { x: 1, y: 2 },
-                constructor_vk_hash: 1,
-                function_tree_root: 2,
+                public_key: GrumpkinPoint { x: 1, y: 2 },
+                initialization_hash: 1,
+                contract_class_id: 2,
                 contract_address_salt: 3,
                 portal_contract_address: EthAddress::from_field(1)
             },

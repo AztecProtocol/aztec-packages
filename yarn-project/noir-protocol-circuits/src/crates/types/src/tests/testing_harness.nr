@@ -10,9 +10,9 @@ pub fn build_contract_deployment_data(is_constructor: bool) -> ContractDeploymen
         let contract_data = fixtures::contracts::default_contract;
         let constructor = fixtures::contract_functions::default_constructor;
         contract_deployment_data = ContractDeploymentData {
-            deployer_public_key: fixtures::DEPLOYER_PUBLIC_KEY,
-            constructor_vk_hash: constructor.vk_hash,
-            function_tree_root: contract_data.function_tree_root,
+            public_key: fixtures::PUBLIC_KEY,
+            initialization_hash: constructor.vk_hash,
+            contract_class_id: contract_data.contract_class_id,
             contract_address_salt: contract_data.contract_address_salt,
             portal_contract_address: contract_data.portal_contract_address,
         };

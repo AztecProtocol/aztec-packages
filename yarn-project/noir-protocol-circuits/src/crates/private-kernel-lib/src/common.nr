@@ -317,19 +317,19 @@ pub fn contract_logic(
         let constructor_hash = compute_constructor_hash(
             function_data,
             private_call_public_inputs.args_hash,
-            contract_dep_data.constructor_vk_hash
+            contract_dep_data.initialization_hash
         );
         let new_contract_address = CompleteAddress::compute(
-            contract_dep_data.deployer_public_key,
+            contract_dep_data.public_key,
             contract_dep_data.contract_address_salt,
-            contract_dep_data.function_tree_root,
+            contract_dep_data.contract_class_id,
             constructor_hash
         ).address;
 
         let new_contract_data = NewContractData {
             contract_address: new_contract_address,
             portal_contract_address,
-            function_tree_root: contract_dep_data.function_tree_root
+            contract_class_id: contract_dep_data.contract_class_id
         };
         public_inputs.end.new_contracts.push(new_contract_data);
 

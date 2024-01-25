@@ -164,14 +164,14 @@ impl PartialAddress {
         }
     }
 
-    pub fn compute(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Self {
+    pub fn compute(contract_address_salt : Field, contract_class_id : Field, constructor_hash : Field) -> Self {
         PartialAddress::from_field(
             pedersen_hash([
                 // TODO why the zeroes?
                 0,
                 0,
                 contract_address_salt,
-                function_tree_root,
+                contract_class_id,
                 constructor_hash
             ], GENERATOR_INDEX__PARTIAL_ADDRESS)
         )

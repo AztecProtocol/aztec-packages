@@ -7,7 +7,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   PXE,
   Point,
-  getContractDeploymentInfo,
+  getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { NewContractData } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
@@ -189,23 +189,25 @@ describe('e2e_inclusion_proofs_contract', () => {
   describe('contract inclusion', () => {
     // InclusionProofs contract doesn't have associated public key because it's not an account contract
     const publicKey = Point.ZERO;
-    let functionTreeRoot: Fr;
-    let constructorHash: Fr;
+    let contractClassId: Fr;
+    let initializationHash: Fr;
     let portalContractAddress: EthAddress;
 
     beforeAll(() => {
       const contractArtifact = contract.artifact;
-
       const constructorArgs = [publicValue];
+      portalContractAddress = EthAddress.random();
 
-      ({ constructorHash, functionTreeRoot } = getContractDeploymentInfo(
+      const instance = getContractInstanceFromDeployParams(
         contractArtifact,
         constructorArgs,
         contractAddressSalt,
         publicKey,
-      ));
+        portalContractAddress,
+      );
 
-      portalContractAddress = contract.portalContract;
+      contractClassId = instance.contractClassId;
+      initializationHash = instance.initializationHash;
     });
 
     it('proves existence of a contract', async () => {
@@ -218,8 +220,8 @@ describe('e2e_inclusion_proofs_contract', () => {
         .test_contract_inclusion_proof(
           publicKey,
           contractAddressSalt,
-          functionTreeRoot,
-          constructorHash,
+          contractClassId,
+          initializationHash,
           portalContractAddress,
           blockNumber,
         )
@@ -230,8 +232,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     it('contract existence failure case', async () => {
       // This should fail because we choose a block number before the contract was deployed
       const blockNumber = deploymentBlockNumber - 1;
-
-      const contractData = new NewContractData(contract.address, contract.portalContract, functionTreeRoot);
+      const contractData = new NewContractData(contract.address, portalContractAddress, contractClassId);
       const leaf = computeContractLeaf(contractData);
 
       await expect(
@@ -239,8 +240,8 @@ describe('e2e_inclusion_proofs_contract', () => {
           .test_contract_inclusion_proof(
             publicKey,
             contractAddressSalt,
-            functionTreeRoot,
-            constructorHash,
+            contractClassId,
+            initializationHash,
             portalContractAddress,
             blockNumber,
           )

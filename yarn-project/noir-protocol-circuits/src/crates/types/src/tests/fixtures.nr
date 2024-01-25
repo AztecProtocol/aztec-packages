@@ -11,7 +11,7 @@ use crate::tests::fixtures;
 
 global MSG_SENDER = AztecAddress { inner: 27 };
 
-global DEPLOYER_PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
+global PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
 
 global BLOCK_HEADER = BlockHeader {
     note_hash_tree_root: fixtures::note_hash_tree::ROOT,

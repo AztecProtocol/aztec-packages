@@ -1,6 +1,7 @@
 import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
-import { EthAddress, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { EthAddress, PublicKey, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { AccountContract } from '../account/contract.js';
 import { Salt } from '../account/index.js';
@@ -20,7 +21,9 @@ export class AccountManager {
   /** Deployment salt for the account contract. */
   public readonly salt?: Fr;
 
+  // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
   private completeAddress?: CompleteAddress;
+  private instance?: ContractInstanceWithAddress;
   private encryptionPublicKey?: PublicKey;
   private deployMethod?: DeployMethod;
 
@@ -62,15 +65,30 @@ export class AccountManager {
   public getCompleteAddress(): CompleteAddress {
     if (!this.completeAddress) {
       const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
-      const contractDeploymentInfo = getContractDeploymentInfo(
+      const instance = this.getInstance();
+      this.completeAddress = CompleteAddress.fromPublicKeyAndInstance(encryptionPublicKey, instance);
+    }
+    return this.completeAddress;
+  }
+
+  /**
+   * Returns the contract instance definition associated with this account.
+   * Does not require the account to be deployed or registered.
+   * @returns ContractInstance instance.
+   */
+  public getInstance(): ContractInstanceWithAddress {
+    if (!this.instance) {
+      const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
+      const portalAddress = EthAddress.ZERO;
+      this.instance = getContractInstanceFromDeployParams(
         this.accountContract.getContractArtifact(),
         this.accountContract.getDeploymentArgs(),
         this.salt!,
         encryptionPublicKey,
+        portalAddress,
       );
-      this.completeAddress = contractDeploymentInfo.completeAddress;
     }
-    return this.completeAddress;
+    return this.instance;
   }
 
   /**
@@ -91,17 +109,15 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
-    const address = await this.#register();
-
+    await this.#register();
     await this.pxe.addContracts([
       {
         artifact: this.accountContract.getContractArtifact(),
-        completeAddress: address,
-        portalContract: EthAddress.ZERO,
+        instance: this.getInstance(),
       },
     ]);
 
-    await waitForAccountSynch(this.pxe, address, opts);
+    await waitForAccountSynch(this.pxe, this.getCompleteAddress(), opts);
     return this.getWallet();
   }
 
@@ -154,9 +170,8 @@ export class AccountManager {
     return this.getWallet();
   }
 
-  async #register(): Promise<CompleteAddress> {
+  async #register(): Promise<void> {
     const completeAddress = this.getCompleteAddress();
     await this.pxe.registerAccount(this.encryptionPrivateKey, completeAddress.partialAddress);
-    return completeAddress;
   }
 }

@@ -79,9 +79,9 @@ impl PrivateCircuitPublicInputsBuilder {
             let constructor = fixtures::contract_functions::default_constructor;
             let constructor_hash = compute_constructor_hash(constructor.data, args_hash, constructor.vk_hash);
             CompleteAddress::compute(
-                contract_deployment_data.deployer_public_key,
+                contract_deployment_data.public_key,
                 contract_deployment_data.contract_address_salt,
-                contract_deployment_data.function_tree_root,
+                contract_deployment_data.contract_class_id,
                 constructor_hash,
             ).address
         } else {
