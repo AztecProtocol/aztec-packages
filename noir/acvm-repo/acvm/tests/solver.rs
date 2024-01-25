@@ -59,6 +59,11 @@ fn inversion_brillig_oracle_equivalence() {
             BrilligOutputs::Simple(w_equal_res), // Output Register 2
         ],
         bytecode: vec![
+            BrilligOpcode::CalldataCopy {
+                destination_address: MemoryAddress(0),
+                size: 2,
+                offset: 0,
+            },
             equal_opcode,
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
@@ -180,6 +185,11 @@ fn double_inversion_brillig_oracle() {
             BrilligOutputs::Simple(w_equal_res), // Output Register 4
         ],
         bytecode: vec![
+            BrilligOpcode::CalldataCopy {
+                destination_address: MemoryAddress(0),
+                size: 3,
+                offset: 0,
+            },
             equal_opcode,
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
@@ -306,6 +316,11 @@ fn oracle_dependent_execution() {
             BrilligOutputs::Simple(w_y_inv), // Output Register 3
         ],
         bytecode: vec![
+            BrilligOpcode::CalldataCopy {
+                destination_address: MemoryAddress(0),
+                size: 3,
+                offset: 0,
+            },
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
                 function: "invert".into(),
@@ -425,6 +440,11 @@ fn brillig_oracle_predicate() {
             BrilligOutputs::Simple(w_lt_res),
         ],
         bytecode: vec![
+            BrilligOpcode::CalldataCopy {
+                destination_address: MemoryAddress(0),
+                size: 2,
+                offset: 0,
+            },
             equal_opcode,
             // Oracles are named 'foreign calls' in brillig
             BrilligOpcode::ForeignCall {
@@ -502,6 +522,9 @@ fn unsatisfied_opcode_resolved_brillig() {
     let w_y = Witness(5);
     let w_result = Witness(6);
 
+    let calldata_copy_opcode =
+        BrilligOpcode::CalldataCopy { destination_address: MemoryAddress(0), size: 2, offset: 0 };
+
     let equal_opcode = BrilligOpcode::BinaryFieldOp {
         op: BinaryFieldOp::Equals,
         lhs: MemoryAddress::from(0),
@@ -516,7 +539,7 @@ fn unsatisfied_opcode_resolved_brillig() {
         BrilligOpcode::JumpIf { condition: MemoryAddress::from(2), location: location_of_stop };
 
     let trap_opcode = BrilligOpcode::Trap;
-    let stop_opcode = BrilligOpcode::Stop;
+    let stop_opcode = BrilligOpcode::Stop { return_data_offset: 0 };
 
     let brillig_opcode = Opcode::Brillig(Brillig {
         inputs: vec![
@@ -532,7 +555,7 @@ fn unsatisfied_opcode_resolved_brillig() {
             }),
         ],
         outputs: vec![BrilligOutputs::Simple(w_result)],
-        bytecode: vec![equal_opcode, jmp_if_opcode, trap_opcode, stop_opcode],
+        bytecode: vec![calldata_copy_opcode, equal_opcode, jmp_if_opcode, trap_opcode, stop_opcode],
         predicate: Some(Expression::one()),
     });
 
@@ -564,7 +587,7 @@ fn unsatisfied_opcode_resolved_brillig() {
         solver_status,
         ACVMStatus::Failure(OpcodeResolutionError::BrilligFunctionFailed {
             message: "explicit trap hit in brillig".to_string(),
-            call_stack: vec![OpcodeLocation::Brillig { acir_index: 0, brillig_index: 2 }]
+            call_stack: vec![OpcodeLocation::Brillig { acir_index: 0, brillig_index: 3 }]
         }),
         "The first opcode is not satisfiable, expected an error indicating this"
     );

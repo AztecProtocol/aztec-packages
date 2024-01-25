@@ -8,7 +8,6 @@ use super::{
 use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
 
 pub(crate) const MAX_STACK_SIZE: usize = 2_usize.pow(16);
-// pub(crate) const MAX_STACK_SIZE: usize = 1024;
 
 impl BrilligContext {
     /// Creates an entry point artifact that will jump to the function label provided.
