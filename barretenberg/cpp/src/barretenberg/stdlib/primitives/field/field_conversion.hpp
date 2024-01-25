@@ -277,7 +277,7 @@ fq<Builder> inline convert_from_bn254_frs(const Builder& builder,
 }
 
 template <typename Builder>
-stdlib::bn254<Builder>::AffineElement inline convert_from_bn254_frs(
+typename stdlib::bn254<Builder>::AffineElement inline convert_from_bn254_frs(
     const Builder& builder,
     std::span<const fr<Builder>> fr_vec,
     typename stdlib::bn254<Builder>::AffineElement* /*unused*/)

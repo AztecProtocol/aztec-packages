@@ -106,7 +106,7 @@ struct UltraStdlibTranscriptParams {
  */
 template <typename TranscriptParams> class BaseTranscript {
   public:
-    using Fr = TranscriptParams::Fr;
+    using Fr = typename TranscriptParams::Fr;
     using Proof = honk::proof;
 
     BaseTranscript() = default;
