@@ -1,17 +1,19 @@
 #pragma once
 
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace proof_system::plonk::stdlib::field_converion {
+namespace bb::stdlib::field_conversion {
+
+template <typename Builder> using fr = field_t<Builder>;
+template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 
 static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
 
-template <typename Builder> using field_ct = bb::stdlib::field_t<Builder>;
-
 template <typename Builder>
-std::array<field_ct<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& builder,
-                                                                 const field_ct<Builder>& field_val)
+std::array<fr<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& builder, const fr<Builder>& field_val)
 {
     ASSERT(uint256_t(field_val.get_value()) <
            (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits or less
@@ -21,18 +23,18 @@ std::array<field_ct<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& 
     const uint64_t low = static_cast<uint64_t>(value & LIMB_MASK);
     const uint64_t hi = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
 
-    field_ct<Builder> low_val{ witness_t<Builder>(builder, low) };
-    field_ct<Builder> hi_val{ witness_t<Builder>(builder, hi) };
+    fr<Builder> low_val{ witness_t<Builder>(builder, low) };
+    fr<Builder> hi_val{ witness_t<Builder>(builder, hi) };
     // range constrain both to 64 bits
     builder.range_constrain_two_limbs(
         low_val.witness_index, hi_val.witness_index, NUM_CONVERSION_LIMB_BITS, NUM_CONVERSION_LIMB_BITS);
 
     ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) == value);
     // checks this decomposition low + hi * 2^64 = value with an add gate
-    field_ct<Builder>::evaluate_linear_identity(
-        low_val, (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) * hi_val, -field_val, field_t<Builder>(0));
+    fr<Builder>::evaluate_linear_identity(
+        low_val, (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) * hi_val, -field_val, fr<Builder>(0));
 
-    return std::array<field_ct<Builder>, 2>{ low_val, hi_val };
+    return std::array<fr<Builder>, 2>{ low_val, hi_val };
 }
 
 // circuit form
@@ -59,14 +61,21 @@ std::array<field_ct<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& 
 // }
 
 template <typename Builder>
-bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_fr(const Builder&,
-                                                                                  const field_ct<Builder>& low_bits_in,
-                                                                                  const field_ct<Builder>* high_bits_in)
-{}
+fq<Builder> convert_bn254_frs_to_grumpkin_fr(const Builder& builder,
+                                             const fr<Builder>& low_bits_in,
+                                             const fr<Builder>& high_bits_in)
+{
+    // range constrain low_bits_in and high_bits_in?
+    auto low_bit_decomp = decompose_bn254_fr_to_two_limbs(builder, low_bits_in);
+
+    auto high_bit_decomp = decompose_bn254_fr_to_two_limbs(builder, high_bits_in);
+    // construct the bigfield
+    fq<Builder> result(low_bit_decomp[0], low_bit_decomp[1], high_bit_decomp[0], high_bit_decomp[1]);
+}
 
 // template <typename Builder, typename T>
-// bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
-//                                const field_t<Builder>& high_bits_in,
+// bigfield<Builder, T>::bigfield(const fr<Builder>& low_bits_in,
+//                                const fr<Builder>& high_bits_in,
 //                                const bool can_overflow,
 //                                const size_t maximum_bitlength)
 // {
@@ -78,10 +87,10 @@ bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_f
 //     ASSERT(uint256_t(high_bits_in.get_value()) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));
 
 //     context = low_bits_in.context == nullptr ? high_bits_in.context : low_bits_in.context;
-//     field_t<Builder> limb_0(context);
-//     field_t<Builder> limb_1(context);
-//     field_t<Builder> limb_2(context);
-//     field_t<Builder> limb_3(context);
+//     fr<Builder> limb_0(context);
+//     fr<Builder> limb_1(context);
+//     fr<Builder> limb_2(context);
+//     fr<Builder> limb_3(context);
 //     if (low_bits_in.witness_index != IS_CONSTANT) {
 //         std::vector<uint32_t> low_accumulator;
 //         if constexpr (HasPlookup<Builder>) {
@@ -90,7 +99,7 @@ bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_f
 //                 context->decompose_non_native_field_double_width_limb(low_bits_in.normalize().witness_index);
 //             limb_0.witness_index = limb_witnesses[0];
 //             limb_1.witness_index = limb_witnesses[1];
-//             field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
+//             fr<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, fr<Builder>(0));
 
 //             // // Enforce that low_bits_in indeed only contains 2*NUM_LIMB_BITS bits
 //             // low_accumulator = context->decompose_into_default_range(low_bits_in.witness_index,
@@ -116,8 +125,8 @@ bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_f
 //     } else {
 //         uint256_t slice_0 = uint256_t(low_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
 //         uint256_t slice_1 = uint256_t(low_bits_in.additive_constant).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS);
-//         limb_0 = field_t(context, bb::fr(slice_0));
-//         limb_1 = field_t(context, bb::fr(slice_1));
+//         limb_0 = field_t(context, fr<Builder>(slice_0));
+//         limb_1 = field_t(context, fr<Builder>(slice_1));
 //     }
 
 //     // If we wish to continue working with this element with lazy reductions - i.e. not moding out again after each
@@ -140,8 +149,8 @@ bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_f
 //                 high_bits_in.normalize().witness_index, (size_t)num_high_limb_bits);
 //             limb_2.witness_index = limb_witnesses[0];
 //             limb_3.witness_index = limb_witnesses[1];
-//             field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1,
-//             field_t<Builder>(0));
+//             fr<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1,
+//             fr<Builder>(0));
 
 //         } else {
 //             high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.witness_index,
@@ -153,8 +162,8 @@ bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_f
 //     } else {
 //         uint256_t slice_2 = uint256_t(high_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
 //         uint256_t slice_3 = uint256_t(high_bits_in.additive_constant).slice(NUM_LIMB_BITS, num_high_limb_bits);
-//         limb_2 = field_t(context, bb::fr(slice_2));
-//         limb_3 = field_t(context, bb::fr(slice_3));
+//         limb_2 = field_t(context, fr<Builder>(slice_2));
+//         limb_3 = field_t(context, fr<Builder>(slice_3));
 //     }
 //     binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
 //     binary_basis_limbs[1] = Limb(limb_1, DEFAULT_MAXIMUM_LIMB);
@@ -169,4 +178,282 @@ bb::stdlib::bigfield<Builder, bb::Bn254FqParams> convert_bn254_frs_to_grumpkin_f
 //     prime_basis_limb = low_bits_in + (high_bits_in * shift_2);
 // }
 
-} // namespace proof_system::plonk::stdlib::field_converion
+template <typename Builder> std::array<fr<Builder>, 2> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
+{
+    static const fr<Builder> shift(static_cast<uint256_t>(1) << NUM_CONVERSION_LIMB_BITS);
+    std::array<fr<Builder>, 2> result;
+    result[0] = input.binary_basis_limbs[0] + (input.binary_basis_limbs[1] * shift);
+    result[1] = input.binary_basis_limbs[2] + (input.binary_basis_limbs[3] * shift);
+    return result;
+}
+/**
+ * @brief Calculates the size of a types (in their native form) in terms of fr<Builder>s
+ * @details We want to support the following types: fr<Builder>, fq<Builder>,
+ * stdlib::bn254<Builder>::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = fr<Builder> or fq<Builder>, and N is arbitrary
+ * @tparam T
+ * @return constexpr size_t
+ */
+template <typename T> constexpr size_t calc_num_frs();
+
+template <typename Builder> constexpr size_t calc_num_frs(fr<Builder>* /*unused*/)
+{
+    return 1;
+}
+
+template <typename Builder> constexpr size_t calc_num_frs(fq<Builder>* /*unused*/)
+{
+    return 2;
+}
+
+template <typename Builder> constexpr size_t calc_num_frs(typename stdlib::bn254<Builder>::AffineElement* /*unused*/)
+{
+    return 2 * calc_num_frs<typename stdlib::bn254<Builder>::BaseField>();
+}
+
+// constexpr size_t calc_num_frs(curve::Grumpkin::AffineElement* /*unused*/)
+// {
+//     return 2 * calc_num_frs<typename stdlib::grumpkin<Builder>::BaseField>();
+// }
+
+template <typename T, std::size_t N> constexpr size_t calc_num_frs(std::array<T, N>* /*unused*/)
+{
+    return N * calc_num_frs<T>();
+}
+
+template <typename T, std::size_t N> constexpr size_t calc_num_frs(bb::Univariate<T, N>* /*unused*/)
+{
+    return N * calc_num_frs<T>();
+}
+
+template <typename T> constexpr size_t calc_num_frs()
+{
+    return calc_num_frs(static_cast<T*>(nullptr));
+}
+
+/**
+ * @brief Conversions from vector of fr<Builder> elements to transcript types.
+ * @details We want to support the following types: fr<Builder>, fq<Builder>,
+ * stdlib::bn254<Builder>::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = fr<Builder> or fq<Builder>, and N is arbitrary
+ * @tparam T
+ * @param fr_vec
+ * @return T
+ */
+template <typename Builder, typename T>
+T convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>> fr_vec);
+
+// template <typename Builder>
+// bool inline convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>> fr_vec, bool* /*unused*/)
+// {
+//     ASSERT(fr_vec.size() == 1);
+//     return fr_vec[0] != 0;
+// }
+
+// template <std::integral T> T inline convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>>
+// fr_vec, T*
+// /*unused*/)
+// {
+//     ASSERT(fr_vec.size() == 1);
+//     return static_cast<T>(fr_vec[0]);
+// }
+
+template <typename Builder>
+fr<Builder> inline convert_from_bn254_frs(const Builder& /*unused*/,
+                                          std::span<const fr<Builder>> fr_vec,
+                                          fr<Builder>* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 1);
+    return fr_vec[0];
+}
+
+template <typename Builder>
+fq<Builder> inline convert_from_bn254_frs(const Builder& builder,
+                                          std::span<const fr<Builder>> fr_vec,
+                                          fq<Builder>* /*unused*/)
+{
+    ASSERT(fr_vec.size() == 2);
+    return convert_bn254_frs_to_grumpkin_fr(builder, fr_vec[0], fr_vec[1]);
+}
+
+template <typename Builder>
+stdlib::bn254<Builder>::AffineElement inline convert_from_bn254_frs(
+    const Builder& builder,
+    std::span<const fr<Builder>> fr_vec,
+    typename stdlib::bn254<Builder>::AffineElement* /*unused*/)
+{
+    typename stdlib::bn254<Builder>::AffineElement val;
+    val.x = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec.subspan(0, 2));
+    val.y = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec.subspan(2, 2));
+    return val;
+}
+
+// template <typename Builder>
+// curve::Grumpkin::AffineElement inline convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>>,
+//                                                              curve::Grumpkin::AffineElement* /*unused*/)
+// {
+//     ASSERT(fr_vec.size() == 2);
+//     curve::Grumpkin::AffineElement val;
+//     val.x = fr_vec[0];
+//     val.y = fr_vec[1];
+//     return val;
+// }
+
+template <typename Builder, size_t N>
+std::array<fr<Builder>, N> inline convert_from_bn254_frs(const Builder& /*unused*/,
+                                                         std::span<const fr<Builder>> fr_vec,
+                                                         std::array<fr<Builder>, N>* /*unused*/)
+{
+    std::array<fr<Builder>, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        val[i] = fr_vec[i];
+    }
+    return val;
+}
+
+template <typename Builder, size_t N>
+std::array<fq<Builder>, N> inline convert_from_bn254_frs(const Builder& builder,
+                                                         std::span<const fr<Builder>> fr_vec,
+                                                         std::array<fq<Builder>, N>* /*unused*/)
+{
+    std::array<fq<Builder>, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        std::vector<fr<Builder>> fr_vec_tmp{ fr_vec[2 * i],
+                                             fr_vec[2 * i + 1] }; // each pair of consecutive elements is a fq<Builder>
+        val[i] = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec_tmp);
+    }
+    return val;
+}
+
+template <typename Builder, size_t N>
+bb::Univariate<fr<Builder>, N> inline convert_from_bn254_frs(const Builder& /*unused*/,
+                                                             std::span<const fr<Builder>> fr_vec,
+                                                             bb::Univariate<fr<Builder>, N>* /*unused*/)
+{
+    bb::Univariate<fr<Builder>, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        val.evaluations[i] = fr_vec[i];
+    }
+    return val;
+}
+
+template <typename Builder, size_t N>
+bb::Univariate<fq<Builder>, N> inline convert_from_bn254_frs(const Builder& builder,
+                                                             std::span<const fr<Builder>> fr_vec,
+                                                             bb::Univariate<fq<Builder>, N>* /*unused*/)
+{
+    bb::Univariate<fq<Builder>, N> val;
+    for (size_t i = 0; i < N; ++i) {
+        std::vector<fr<Builder>> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+        val.evaluations[i] = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec_tmp);
+    }
+    return val;
+}
+
+template <typename Builder, typename T> T inline convert_from_bn254_frs(std::span<const fr<Builder>> fr_vec)
+{
+    return convert_from_bn254_frs(fr_vec, static_cast<T*>(nullptr));
+}
+
+/**
+ * @brief Conversion from transcript values to fr<Builder>s
+ * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, fr<Builder>, fq<Builder>,
+ * typename stdlib::bn254<Builder>::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF,
+ * N>, for FF = fr<Builder>/fq<Builder>, and N is arbitrary.
+ * @tparam T
+ * @param val
+ * @return std::vector<fr<Builder>>
+ */
+// template <std::integral T> std::vector<fr<Builder>> inline convert_to_bn254_frs(const T& val)
+// {
+//     std::vector<fr<Builder>> fr_vec{ val };
+//     return fr_vec;
+// }
+
+template <typename Builder> std::vector<fr<Builder>> inline convert_to_bn254_frs(const fq<Builder>& val)
+{
+    auto fr_arr = convert_grumpkin_fr_to_bn254_frs(val);
+    std::vector<fr<Builder>> fr_vec(fr_arr.begin(), fr_arr.end());
+    return fr_vec;
+}
+
+template <typename Builder> std::vector<fr<Builder>> inline convert_to_bn254_frs(const fr<Builder>& val)
+{
+    std::vector<fr<Builder>> fr_vec{ val };
+    return fr_vec;
+}
+
+template <typename Builder>
+std::vector<fr<Builder>> inline convert_to_bn254_frs(const typename stdlib::bn254<Builder>::AffineElement& val)
+{
+    auto fr_vec_x = convert_to_bn254_frs(val.x);
+    auto fr_vec_y = convert_to_bn254_frs(val.y);
+    std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+    fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
+    return fr_vec;
+}
+
+// template <typename Builder>
+// std::vector<fr<Builder>> inline convert_to_bn254_frs(const curve::Grumpkin::AffineElement& val)
+// {
+//     auto fr_vec_x = convert_to_bn254_frs(val.x);
+//     auto fr_vec_y = convert_to_bn254_frs(val.y);
+//     std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+//     fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
+//     return fr_vec;
+// }
+
+template <typename Builder, size_t N>
+std::vector<fr<Builder>> inline convert_to_bn254_frs(const std::array<fr<Builder>, N>& val)
+{
+    std::vector<fr<Builder>> fr_vec(val.begin(), val.end());
+    return fr_vec;
+}
+
+template <typename Builder, size_t N>
+std::vector<fr<Builder>> inline convert_to_bn254_frs(const std::array<fq<Builder>, N>& val)
+{
+    std::vector<fr<Builder>> fr_vec;
+    for (size_t i = 0; i < N; ++i) {
+        auto tmp_vec = convert_to_bn254_frs(val[i]);
+        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
+    }
+    return fr_vec;
+}
+
+template <typename Builder, size_t N>
+std::vector<fr<Builder>> inline convert_to_bn254_frs(const bb::Univariate<fr<Builder>, N>& val)
+{
+    std::vector<fr<Builder>> fr_vec;
+    for (size_t i = 0; i < N; ++i) {
+        auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
+        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
+    }
+    return fr_vec;
+}
+
+template <typename Builder, size_t N>
+std::vector<fr<Builder>> inline convert_to_bn254_frs(const bb::Univariate<fq<Builder>, N>& val)
+{
+    std::vector<fr<Builder>> fr_vec;
+    for (size_t i = 0; i < N; ++i) {
+        auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
+        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
+    }
+    return fr_vec;
+}
+
+// TODO: why is this needed here but not for the other 3 functions?
+template <typename Builder, typename AllValues>
+std::vector<fr<Builder>> inline convert_to_bn254_frs(const AllValues& val)
+{
+    auto data = val.get_all();
+    std::vector<fr<Builder>> fr_vec;
+    for (auto& item : data) {
+        auto tmp_vec = convert_to_bn254_frs(item);
+        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
+    }
+    return fr_vec;
+}
+
+} // namespace bb::stdlib::field_conversion

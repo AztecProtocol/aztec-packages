@@ -8,6 +8,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
@@ -66,29 +67,37 @@ struct NativeTranscriptParams {
     {
         return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
     }
-    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
-    {
-        return bb::field_conversion::convert_to_bn254_frs(element);
-    }
     template <typename T> static constexpr size_t calc_num_frs() { return bb::field_conversion::calc_num_frs<T>(); }
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {
         return bb::field_conversion::convert_from_bn254_frs<T>(frs);
+    }
+    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    {
+        return bb::field_conversion::convert_to_bn254_frs(element);
     }
 };
 
 struct UltraStdlibTranscriptParams {
     using Builder = UltraCircuitBuilder;
     using Fr = stdlib::field_t<Builder>;
-    Builder ctx;
     static inline Fr hash(const std::vector<Fr>& data)
     {
         assert(!data.empty() && data[0].get_context() != nullptr);
-        Builder* ctx = data[0].get_context();
-        return stdlib::poseidon2<Builder>::hash(*ctx, data); // TODO: this is scary to just dereference
+        Builder* builder = data[0].get_context();
+        return stdlib::poseidon2<Builder>::hash(*builder, data); // TODO: this is scary to just dereference
     }
-
-    // template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    {
+        assert(!frs.empty() && frs[0].get_context() != nullptr);
+        Builder* builder = frs[0].get_context();
+        return bb::stdlib::field_conversion::convert_from_bn254_frs<T>(*builder, frs);
+    }
+    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    {
+        Builder* builder = element.get_context();
+        return bb::stdlib::field_conversion::convert_to_bn254_frs(*builder, element);
+    }
 };
 
 /**
@@ -404,4 +413,5 @@ template <typename Fr, typename T, size_t N> std::array<Fr, N> challenges_to_fie
 }
 
 using NativeTranscript = honk::BaseTranscript<NativeTranscriptParams>;
+using UltraStdlibTranscript = honk::BaseTranscript<UltraStdlibTranscriptParams>;
 } // namespace bb::honk
