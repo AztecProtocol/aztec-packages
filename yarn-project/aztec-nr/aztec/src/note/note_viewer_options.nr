@@ -9,7 +9,7 @@ struct NoteViewerOptions<Note, N> {
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
     offset: u32,
-    includeNullified: bool,
+    include_nullified: bool,
 }
 // docs:end:NoteViewerOptions
 
@@ -20,7 +20,7 @@ impl<Note, N> NoteViewerOptions<Note, N> {
             sorts: BoundedVec::new(Option::none()),
             limit: MAX_NOTES_PER_PAGE as u32,
             offset: 0,
-            includeNullified: false,
+            include_nullified: false,
         }
     }
 
@@ -42,6 +42,11 @@ impl<Note, N> NoteViewerOptions<Note, N> {
 
     pub fn set_offset(&mut self, offset: u32) -> Self {
         self.offset = offset;
+        *self
+    }
+
+    pub fn include_nullified(&mut self) -> Self {
+        self.include_nullified = true;
         *self
     }
 }

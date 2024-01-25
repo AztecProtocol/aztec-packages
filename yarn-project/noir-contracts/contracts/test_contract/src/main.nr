@@ -114,7 +114,10 @@ contract Test {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteGetterOptions::new();
-        options.includeNullified = includeNullified;
+        if (includeNullified) {
+            options = options.include_nullified();
+        }
+
         let opt_notes = get_notes(
             &mut context,
             storage_slot,
@@ -136,7 +139,10 @@ contract Test {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteViewerOptions::new();
-        options.includeNullified = includeNullified;
+        if (includeNullified) {
+            options = options.include_nullified();
+        }
+
         let opt_notes = view_notes(
             storage_slot,
             ValueNoteMethods,

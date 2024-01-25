@@ -49,7 +49,7 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
     offset: u32,
     filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
-    includeNullified: bool,
+    include_nullified: bool,
 }
 // docs:end:NoteGetterOptions
 
@@ -67,7 +67,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter: return_all_notes,
             filter_args: 0,
-            includeNullified: false,
+            include_nullified: false,
         }
     }
 
@@ -84,7 +84,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter,
             filter_args,
-            includeNullified: false,
+            include_nullified: false,
         }
     }
 
@@ -112,6 +112,12 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     // This method sets the offset value, which determines where to start retrieving notes in the query results.
     pub fn set_offset(&mut self, offset: u32) -> Self {
         self.offset = offset;
+        *self
+    }
+
+    // This method sets the include_nullified flag, which indicates that nullified notes should also be retrieved.
+    pub fn include_nullified(&mut self) -> Self {
+        self.include_nullified = true;
         *self
     }
 }
