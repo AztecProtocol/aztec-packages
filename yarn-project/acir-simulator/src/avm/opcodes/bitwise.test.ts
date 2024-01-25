@@ -152,7 +152,7 @@ describe('Bitwise instructions', () => {
       const actual = machineState.memory.get(2);
       expect(actual).toEqual(expected);
     });
-});
+  });
 
   it('Should NOT correctly over integral types', () => {
     const a = new Uint16(0b0110010011100100n);

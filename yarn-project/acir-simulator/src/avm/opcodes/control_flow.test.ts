@@ -1,13 +1,13 @@
 import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
+import { TypeTag, Uint16 } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Add, Mul, Sub } from './arithmetic.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { Eq, Lt, Lte } from './comparators.js';
 import { InternalCall, InternalCallStackEmptyError, InternalReturn, Jump, JumpI } from './control_flow.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
-import { TypeTag, Uint16 } from '../avm_memory_types.js';
 
 describe('Control Flow Opcodes', () => {
   let stateManager = mock<AvmStateManager>();

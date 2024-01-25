@@ -1,7 +1,7 @@
 import { AvmMachineState } from '../avm_machine_state.js';
+import { IntegralValueType, TypeTag } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
-import { IntegralValueType, TypeTag } from '../avm_memory_types.js';
 
 /** - */
 export class And extends Instruction {

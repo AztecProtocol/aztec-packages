@@ -151,7 +151,7 @@ describe('Memory instructions', () => {
 
     it('Should cast between field elements', () => {
       machineState.memory.set(0, new FieldValue(12345678n));
-      
+
       new Cast(/*aOffset=*/ 0, /*dstOffset=*/ 1, TypeTag.FIELD).execute(machineState, stateManager);
 
       const actual = machineState.memory.get(1);

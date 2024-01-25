@@ -3,9 +3,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
+import { FieldValue } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Add, Div, Mul, Sub } from './arithmetic.js';
-import { FieldValue } from '../avm_memory_types.js';
 
 describe('Arithmetic Instructions', () => {
   let machineState: AvmMachineState;
