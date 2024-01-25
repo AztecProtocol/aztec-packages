@@ -211,7 +211,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
-      selects: selectBy.slice(0, numSelects).map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
+      selects: selectBy
+        .slice(0, numSelects)
+        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
       sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
       limit,
       offset,

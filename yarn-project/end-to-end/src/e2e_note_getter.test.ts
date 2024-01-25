@@ -1,11 +1,11 @@
-import { Fr, Wallet, Comparator } from '@aztec/aztec.js';
+import { Comparator, Fr, Wallet } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts';
 
 import { setup } from './fixtures/utils.js';
 
 interface CardNotePartial {
-  randomness: bigint
-  points: bigint
+  randomness: bigint;
+  points: bigint;
 }
 interface NoirOption<T> {
   _is_some: boolean;
@@ -34,33 +34,29 @@ describe('e2e_singleton', () => {
   // Singleton tests:
   it('a test that inserts note and checks if ', async () => {
     const numbers = [...Array(10).keys()];
-    await Promise.all(numbers.map((number) => contract.methods.insert_note(number).send().wait()));
+    await Promise.all(numbers.map(number => contract.methods.insert_note(number).send().wait()));
     await contract.methods.insert_note(5).send().wait();
 
-    const [
-      returnEq,
-      returnNeq,
-      returnLt,
-      returnGt,
-      returnLte,
-      returnGte,
-    ] = await Promise.all([
+    const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
       contract.methods.read_note(5, Comparator.EQ).view(),
       contract.methods.read_note(5, Comparator.NEQ).view(),
       contract.methods.read_note(5, Comparator.LT).view(),
       contract.methods.read_note(5, Comparator.GT).view(),
       contract.methods.read_note(5, Comparator.LTE).view(),
       contract.methods.read_note(5, Comparator.GTE).view(),
-    ])
+    ]);
 
-    expect(unwrapOptions(returnEq).map(({points, randomness}: any) => ({points, randomness})))
-      .toStrictEqual([
-        { points: 5n, randomness: 1n },
-        { points: 5n, randomness: 1n },
-      ]);
+    expect(unwrapOptions(returnEq).map(({ points, randomness }: any) => ({ points, randomness }))).toStrictEqual([
+      { points: 5n, randomness: 1n },
+      { points: 5n, randomness: 1n },
+    ]);
 
-    expect(unwrapOptions(returnNeq).map(({points, randomness}: any) => ({points, randomness})).sort((a: any, b: any) => a.points > b.points ? 1 : -1))
-      .toStrictEqual([
+    expect(
+      unwrapOptions(returnNeq)
+        .map(({ points, randomness }: any) => ({ points, randomness }))
+        .sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    ).toStrictEqual(
+      [
         { points: 0n, randomness: 1n },
         { points: 1n, randomness: 1n },
         { points: 7n, randomness: 1n },
@@ -70,27 +66,42 @@ describe('e2e_singleton', () => {
         { points: 8n, randomness: 1n },
         { points: 4n, randomness: 1n },
         { points: 3n, randomness: 1n },
-      ].sort((a: any, b: any) => a.points > b.points ? 1 : -1));
+      ].sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    );
 
-    expect(unwrapOptions(returnLt).map(({points, randomness}: any) => ({points, randomness})).sort((a: any, b: any) => a.points > b.points ? 1 : -1))
-      .toStrictEqual([
+    expect(
+      unwrapOptions(returnLt)
+        .map(({ points, randomness }: any) => ({ points, randomness }))
+        .sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    ).toStrictEqual(
+      [
         { points: 0n, randomness: 1n },
         { points: 1n, randomness: 1n },
         { points: 2n, randomness: 1n },
         { points: 4n, randomness: 1n },
         { points: 3n, randomness: 1n },
-      ].sort((a: any, b: any) => a.points > b.points ? 1 : -1));
+      ].sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    );
 
-      expect(unwrapOptions(returnGt).map(({points, randomness}: any) => ({points, randomness})).sort((a: any, b: any) => a.points > b.points ? 1 : -1))
-      .toStrictEqual([
+    expect(
+      unwrapOptions(returnGt)
+        .map(({ points, randomness }: any) => ({ points, randomness }))
+        .sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    ).toStrictEqual(
+      [
         { points: 7n, randomness: 1n },
         { points: 9n, randomness: 1n },
         { points: 6n, randomness: 1n },
         { points: 8n, randomness: 1n },
-      ].sort((a: any, b: any) => a.points > b.points ? 1 : -1));
+      ].sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    );
 
-      expect(unwrapOptions(returnLte).map(({points, randomness}: any) => ({points, randomness})).sort((a: any, b: any) => a.points > b.points ? 1 : -1))
-      .toStrictEqual([
+    expect(
+      unwrapOptions(returnLte)
+        .map(({ points, randomness }: any) => ({ points, randomness }))
+        .sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    ).toStrictEqual(
+      [
         { points: 5n, randomness: 1n },
         { points: 5n, randomness: 1n },
         { points: 0n, randomness: 1n },
@@ -98,17 +109,22 @@ describe('e2e_singleton', () => {
         { points: 2n, randomness: 1n },
         { points: 4n, randomness: 1n },
         { points: 3n, randomness: 1n },
-      ].sort((a: any, b: any) => a.points > b.points ? 1 : -1));
+      ].sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    );
 
-      expect(unwrapOptions(returnGte).map(({points, randomness}: any) => ({points, randomness})).sort((a: any, b: any) => a.points > b.points ? 1 : -1))
-      .toStrictEqual([
+    expect(
+      unwrapOptions(returnGte)
+        .map(({ points, randomness }: any) => ({ points, randomness }))
+        .sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    ).toStrictEqual(
+      [
         { points: 5n, randomness: 1n },
         { points: 5n, randomness: 1n },
         { points: 7n, randomness: 1n },
         { points: 9n, randomness: 1n },
         { points: 6n, randomness: 1n },
         { points: 8n, randomness: 1n },
-      ].sort((a: any, b: any) => a.points > b.points ? 1 : -1));
-
+      ].sort((a: any, b: any) => (a.points > b.points ? 1 : -1)),
+    );
   }, 300_000);
 });
