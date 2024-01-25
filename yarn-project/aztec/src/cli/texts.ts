@@ -26,7 +26,7 @@ export const cliTexts = {
     'rcpUrl:ETHEREUM_HOST - string - The host of the Ethereum node to connect to. Default: http://localhost:8545\n' +
     'archiverUrl:ARCHIVER_URL - string - A URL for an archiver service that the node will use.\n' +
     'p2pEnabled:P2P_ENABLED - boolean - A flag dictating whether the P2P subsystem should be enabled.\n\n' +
-    'dataDirectory:DATA_DIRECTORY - string - Where to store node data. If not set, will store temporarily.\n',
+    'dataDirectory:DATA_DIRECTORY - string - Where to store node data. If not set, will store temporarily.\n' +
     'deployAztecContracts:DEPLOY_AZTEC_CONTRACTS - boolean - A flag dictating whether to deploy the Aztec contracts. Default: false\n' +
     'l2QueueSize:L2_QUEUE_SIZE - number - Size of queue of L2 blocks to store. Default: 1000\n' +
     'worldStateBlockCheckIntervalMS:WS_BLOCK_CHECK_INTERVAL_MS - number - The frequency in which to check for blocks in ms. Default: 100\n' +
