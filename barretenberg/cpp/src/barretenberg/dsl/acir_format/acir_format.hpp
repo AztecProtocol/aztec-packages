@@ -46,7 +46,6 @@ struct AcirFormat {
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
-    std::vector<EcDouble> ec_double_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -76,6 +75,7 @@ struct AcirFormat {
                    pedersen_constraints,
                    pedersen_hash_constraints,
                    fixed_base_scalar_mul_constraints,
+                   ec_add_constraints,
                    recursion_constraints,
                    constraints,
                    block_constraints,
