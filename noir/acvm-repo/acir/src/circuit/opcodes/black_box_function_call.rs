@@ -149,6 +149,11 @@ pub enum BlackBoxFuncCall {
         input: u32,
         outputs: Vec<Witness>,
     },
+    Poseidon2Permutation {
+        inputs: Vec<FunctionInput>,
+        outputs: Vec<Witness>,
+        len: u32,
+    },
 }
 
 impl BlackBoxFuncCall {
@@ -177,7 +182,8 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::BigIntMul { .. } => BlackBoxFunc::BigIntMul,
             BlackBoxFuncCall::BigIntDiv { .. } => BlackBoxFunc::BigIntDiv,
             BlackBoxFuncCall::BigIntFromLeBytes { .. } => BlackBoxFunc::BigIntFromLeBytes,
-            &BlackBoxFuncCall::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
+            BlackBoxFuncCall::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
+            BlackBoxFuncCall::Poseidon2Permutation { .. } => BlackBoxFunc::Poseidon2Permutation,
         }
     }
 
@@ -194,7 +200,8 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::Keccakf1600 { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
             | BlackBoxFuncCall::PedersenHash { inputs, .. }
-            | BlackBoxFuncCall::BigIntFromLeBytes { inputs, .. } => inputs.to_vec(),
+            | BlackBoxFuncCall::BigIntFromLeBytes { inputs, .. }
+            | BlackBoxFuncCall::Poseidon2Permutation { inputs, .. } => inputs.to_vec(),
             BlackBoxFuncCall::AND { lhs, rhs, .. } | BlackBoxFuncCall::XOR { lhs, rhs, .. } => {
                 vec![*lhs, *rhs]
             }
@@ -291,7 +298,8 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::Blake3 { outputs, .. }
             | BlackBoxFuncCall::Keccak256 { outputs, .. }
             | BlackBoxFuncCall::Keccakf1600 { outputs, .. }
-            | BlackBoxFuncCall::Keccak256VariableLength { outputs, .. } => outputs.to_vec(),
+            | BlackBoxFuncCall::Keccak256VariableLength { outputs, .. }
+            | BlackBoxFuncCall::Poseidon2Permutation { outputs, .. } => outputs.to_vec(),
             BlackBoxFuncCall::AND { output, .. }
             | BlackBoxFuncCall::XOR { output, .. }
             | BlackBoxFuncCall::SchnorrVerify { output, .. }

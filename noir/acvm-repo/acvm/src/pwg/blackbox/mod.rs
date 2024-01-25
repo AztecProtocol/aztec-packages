@@ -200,5 +200,6 @@ pub(crate) fn solve(
         BlackBoxFuncCall::BigIntDiv { .. } => todo!(),
         BlackBoxFuncCall::BigIntFromLeBytes { .. } => todo!(),
         BlackBoxFuncCall::BigIntToLeBytes { .. } => todo!(),
+        BlackBoxFuncCall::Poseidon2Permutation { .. } => todo!(),
     }
 }
