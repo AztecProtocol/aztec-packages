@@ -11,7 +11,9 @@
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace bb::plonk::stdlib::recursion::utility {
+namespace bb::stdlib::recursion::utility {
+
+using namespace bb::stdlib;
 
 /**
  * @brief Utility class for converting native types to corresponding stdlib types
@@ -115,6 +117,10 @@ template <typename Builder> class StdlibTypesUtility {
         using type = uint32_t;
     };
 
+    template <size_t LENGTH> struct NativeType<bool, LENGTH> {
+        using type = bool;
+    };
+
     template <size_t LENGTH> struct NativeType<field_ct, LENGTH> {
         using type = FF;
     };
@@ -131,4 +137,4 @@ template <typename Builder> class StdlibTypesUtility {
         using type = Univariate<LENGTH>;
     };
 };
-} // namespace bb::plonk::stdlib::recursion::utility
+} // namespace bb::stdlib::recursion::utility
