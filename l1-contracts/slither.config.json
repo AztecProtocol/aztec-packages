@@ -1,4 +1,4 @@
 {
-  "filter_paths": "lib",
+  "filter_paths": "(lib/|test/)",
   "detectors_to_exclude": "naming-convention"
 }
