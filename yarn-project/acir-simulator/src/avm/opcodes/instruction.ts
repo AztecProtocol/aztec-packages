@@ -1,4 +1,7 @@
+import { strict as assert } from 'assert';
+
 import { AvmMachineState } from '../avm_machine_state.js';
+import { TypeTag } from '../avm_memory_types.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 
 export const AVM_OPERAND_BYTE_LENGTH = 4;
@@ -16,5 +19,14 @@ export abstract class Instruction {
 
   halt(machineState: AvmMachineState): void {
     machineState.halted = true;
+  }
+
+  static checkTags(machineState: AvmMachineState, tag: TypeTag, ...offsets: number[]) {
+    for(const off of offsets) {
+      if(machineState.memory.getTag(off) !== tag) {
+        const error = `Offset ${off} has tag ${machineState.memory.getTag(off)}, expected ${tag}`;
+        throw new Error(error);
+      }
+    }
   }
 }
