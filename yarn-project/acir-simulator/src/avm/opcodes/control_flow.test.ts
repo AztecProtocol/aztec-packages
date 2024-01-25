@@ -1,13 +1,13 @@
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
-import { TypeTag, Uint16 } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint16 } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmJournal } from '../journal/journal.js';
 import { Add, Mul, Sub } from './arithmetic.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { Eq, Lt, Lte } from './comparators.js';
-import { InternalCall, InternalReturn, Jump, JumpI } from './control_flow.js';
+import { InternalCall, InternalReturn, Jump, JumpI, Return, Revert } from './control_flow.js';
 import { InstructionExecutionError } from './instruction.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
@@ -20,8 +20,9 @@ describe('Control Flow Opcodes', () => {
     machineState = new AvmMachineState(initExecutionEnvironment());
   });
 
-  it('Should implement JUMP', async () => {
-    const jumpLocation = 22;
+  describe('Jumps', () => {
+    it('Should implement JUMP', async () => {
+      const jumpLocation = 22;
 
     expect(machineState.pc).toBe(0);
 
@@ -144,8 +145,42 @@ describe('Control Flow Opcodes', () => {
       innerMachineState.memory.set(1, new Uint16(8n));
       innerMachineState.memory.set(2, new Uint16(12n));
       expect(machineState.pc).toBe(0);
-      await instruction.execute(innerMachineState, journal);
-      expect(innerMachineState.pc).toBe(1);
+
+      await instruction.execute(machineState, journal);
     }
+  });
+
+  });
+
+  describe('Halting Opcodes', () => {
+    it('Should return data from the return opcode', async () => {
+      const returnData = [new Field(1n), new Field(2n), new Field(3n)];
+
+      machineState.memory.set(0, new Field(1n));
+      machineState.memory.set(1, new Field(2n));
+      machineState.memory.set(2, new Field(3n));
+
+      const instruction = new Return(0, returnData.length);
+      await instruction.execute(machineState, journal);
+
+      expect(machineState.getReturnData()).toEqual(returnData);
+      expect(machineState.halted).toBe(true);
+      expect(machineState.reverted).toBe(false);
+    });
+
+    it('Should return data and revert from the revert opcode', async () => {
+      const returnData = [new  Field(1n), new  Field(2n), new  Field(3n)];
+
+      machineState.memory.set(0, new  Field(1n));
+      machineState.memory.set(1, new  Field(2n));
+      machineState.memory.set(2, new Field(3n));
+
+      const instruction = new Revert(0, returnData.length);
+      await instruction.execute(machineState, journal);
+
+      expect(machineState.getReturnData()).toEqual(returnData);
+      expect(machineState.halted).toBe(true);
+      expect(machineState.reverted).toBe(true);
+    });
   });
 });

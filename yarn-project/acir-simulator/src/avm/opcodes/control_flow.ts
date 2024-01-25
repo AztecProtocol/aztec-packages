@@ -24,6 +24,22 @@ export class Return extends Instruction {
   }
 }
 
+export class Revert extends Instruction {
+  static type: string = 'RETURN';
+  static numberOfOperands = 2;
+
+  constructor(private returnOffset: number, private retSize: number) {
+    super();
+  }
+
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    const returnData = machineState.readMemoryChunk(this.returnOffset, this.returnOffset + this.retSize);
+    machineState.setReturnData(returnData);
+
+    this.revert(machineState);
+  }
+}
+
 export class Jump extends Instruction {
   static type: string = 'JUMP';
   static numberOfOperands = 1;
