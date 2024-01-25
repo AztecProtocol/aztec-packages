@@ -6,7 +6,8 @@ import { AvmStateManager } from '../avm_state_manager.js';
 import { Add, Mul, Sub } from './arithmetic.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { Eq, Lt, Lte } from './comparators.js';
-import { InternalCall, InternalCallStackEmptyError, InternalReturn, Jump, JumpI } from './control_flow.js';
+import { InternalCall, InternalReturn, Jump, JumpI } from './control_flow.js';
+import { InstructionExecutionError } from './instruction.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
 describe('Control Flow Opcodes', () => {
@@ -111,7 +112,7 @@ describe('Control Flow Opcodes', () => {
 
   it('Should error if Internal Return is called without a corresponding Internal Call', () => {
     const returnInstruction = new InternalReturn();
-    expect(() => returnInstruction.execute(machineState, stateManager)).toThrow(InternalCallStackEmptyError);
+    expect(() => returnInstruction.execute(machineState, stateManager)).toThrow(InstructionExecutionError);
   });
 
   it('Should increment PC on All other Instructions', () => {
