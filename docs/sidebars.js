@@ -43,6 +43,10 @@ const sidebars = {
     {
       label: "Concepts",
       type: "category",
+      link: {
+        type: "doc",
+        id: "learn/concepts/main",
+      },
       items: [
         {
           label: "Hybrid State Model",
@@ -183,7 +187,6 @@ const sidebars = {
       },
       items: [
         "developers/getting_started/quickstart",
-        "developers/getting_started/core-concepts",
         "developers/getting_started/aztecnr-getting-started",
         "developers/getting_started/aztecjs-getting-started",
       ],

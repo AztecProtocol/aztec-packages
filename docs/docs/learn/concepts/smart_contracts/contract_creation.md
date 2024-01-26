@@ -4,7 +4,7 @@ title: Contract Creation
 
 <!-- TODO: Mike to update -->
 
-import Disclaimer from '../../misc/common/\_disclaimer.mdx';
+import Disclaimer from '../../../misc/common/\_disclaimer.mdx';
 
 <Disclaimer/>
 

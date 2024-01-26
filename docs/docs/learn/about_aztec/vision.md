@@ -22,5 +22,5 @@ We are building the [Aztec Network](https://aztec.network/), a fully programmabl
 
 To achieve these goals, we are pioneering the cryptography and research needed to bring our next generation, privacy-preserving zk-roll-up to mainnet.
 
-import Disclaimer from "../misc/common/\_disclaimer.mdx";
+import Disclaimer from "../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>
