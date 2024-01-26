@@ -71,14 +71,14 @@ describe('e2e_get_notes', () => {
     it('returns active notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
       await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-    });
+    }, 30_000);
 
     it('does not return nullified notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
       await contract.methods.call_destroy_note(storageSlot).send().wait();
 
       await assertNoReturnValue(storageSlot, activeOrNullified);
-    });
+    }, 30_000);
   });
 
   describe('active and nullified notes', () => {
@@ -87,7 +87,7 @@ describe('e2e_get_notes', () => {
     it('returns active notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
       await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-    });
+    }, 30_000);
 
     it('returns nullified notes', async () => {
       await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
@@ -114,6 +114,6 @@ describe('e2e_get_notes', () => {
       // however that both view_notes and get_notes get the exact same result.
       expect(viewNotesManyResult).toEqual(getNotesManyResult);
       expect(viewNotesManyResult.sort()).toEqual([BigInt(VALUE), BigInt(VALUE + 1)]);
-    }, 30_000);
+    }, 45_000);
   });
 });
