@@ -38,7 +38,7 @@ pub fn prove_contract_inclusion(
         contract_class_id,
         contract_address_salt,
         initialization_hash,
-        portal_contract_address,
+        portal_contract_address
     );
 
     // 3) Form the contract tree leaf preimage
