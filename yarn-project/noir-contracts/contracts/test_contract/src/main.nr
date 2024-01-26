@@ -113,7 +113,6 @@ contract Test {
         emit_unencrypted_log_from_private(&mut context, value);
     }
 
-
     #[aztec(private)]
     fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
