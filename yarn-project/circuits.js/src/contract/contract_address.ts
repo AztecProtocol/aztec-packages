@@ -85,7 +85,7 @@ export function computePublicKeysHash(publicKey: PublicKey | undefined): Fr {
   if (!publicKey) {
     return Fr.ZERO;
   }
-  return Fr.fromBuffer(pedersenHash([publicKey.toBuffer()], GeneratorIndex.PARTIAL_ADDRESS));
+  return Fr.fromBuffer(pedersenHash([publicKey.x.toBuffer(), publicKey.y.toBuffer()], GeneratorIndex.PARTIAL_ADDRESS));
 }
 
 /**
