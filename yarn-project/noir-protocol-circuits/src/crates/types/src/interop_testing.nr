@@ -1,6 +1,6 @@
 use crate::grumpkin_point::GrumpkinPoint;
 use crate::transaction::request::TxRequest;
-use crate::address::{AztecAddress, EthAddress};
+use crate::address::{AztecAddress, EthAddress, PartialAddress, PublicKeysHash};
 use crate::transaction::context::TxContext;
 use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
@@ -28,6 +28,22 @@ fn compute_address() {
     );
 
     assert(address.to_field() == 0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123);
+}
+
+#[test]
+fn compute_public_keys_hash() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let actual = PublicKeysHash::compute(point);
+    assert(actual.to_field() == 0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8);
+}
+
+#[test]
+fn compute_address_from_partial_and_pubkey() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let partial_address = PartialAddress::from_field(3);
+
+    let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
+    assert(address.to_field() == 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197);
 }
 
 #[test]

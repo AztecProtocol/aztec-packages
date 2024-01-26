@@ -1,5 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Noir compatibility tests (interop_testing.nr) Address from partial matches Noir 1`] = `"0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197"`;
+
 exports[`Noir compatibility tests (interop_testing.nr) Address matches Noir 1`] = `"0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) ComputeContractAddressFromPartial matches Noir 1`] = `"0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75"`;
@@ -9,6 +11,8 @@ exports[`Noir compatibility tests (interop_testing.nr) Function leaf matches noi
 exports[`Noir compatibility tests (interop_testing.nr) Public call stack item matches noir 1`] = `"0x10e265bf51be6945c10e526a86a928810429ac2d34c5fcda469245f0bb56abf6"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) Public call stack item request matches noir 1`] = `"0x0edc0b5221e098c129545ba693368cddc0e6950bb11baa4595b310fc1fa24b5f"`;
+
+exports[`Noir compatibility tests (interop_testing.nr) Public key hash matches Noir 1`] = `"0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) TxRequest Hash matches Noir 1`] = `"0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75"`;
 

@@ -15,6 +15,7 @@ import {
   TxContext,
   TxRequest,
   computeContractAddressFromInstance,
+  computeContractAddressFromPartial,
   computePublicKeysHash,
 } from '@aztec/circuits.js';
 import { computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
@@ -92,13 +93,8 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
   // Tests in this file are to check that what we are computing in Noir
   // is equivalent to what we were computing in circuits.js/the typescript implementation
   // This is to ensure that we have not introduced any bugs in the transition from circuits.js to Noir
-  let logger: DebugLogger;
-  beforeAll(() => {
-    logger = createDebugLogger('noir-private-kernel-compatibility');
-  });
 
   it('Address matches Noir', () => {
-    logger('Initialized Noir instance with private kernel init circuit');
     const publicKey = new Point(new Fr(1n), new Fr(2n));
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
@@ -114,6 +110,18 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       version: 1,
     });
 
+    expect(address.toString()).toMatchSnapshot();
+  });
+
+  it('Public key hash matches Noir', () => {
+    const publicKey = new Point(new Fr(1n), new Fr(2n));
+    expect(computePublicKeysHash(publicKey).toString()).toMatchSnapshot();
+  });
+
+  it('Address from partial matches Noir', () => {
+    const publicKey = new Point(new Fr(1n), new Fr(2n));
+    const partialAddress = new Fr(3n);
+    const address = computeContractAddressFromPartial({ publicKey, partialAddress });
     expect(address.toString()).toMatchSnapshot();
   });
 
