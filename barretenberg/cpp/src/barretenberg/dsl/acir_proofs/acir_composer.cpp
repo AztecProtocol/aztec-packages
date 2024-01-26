@@ -30,7 +30,7 @@ void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system, Wi
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
-    vinfo("circuit is recursive friendly: ", recursive_);
+    vinfo("circuit is recursive friendly: ", builder_.is_recursive_circuit);
 }
 
 std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key()

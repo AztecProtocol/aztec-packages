@@ -43,7 +43,6 @@ class AcirComposer {
     std::shared_ptr<bb::plonk::proving_key> proving_key_;
     std::shared_ptr<bb::plonk::verification_key> verification_key_;
     bool verbose_ = true;
-    bool recursive_ = false;
 
     template <typename... Args> inline void vinfo(Args... args)
     {
