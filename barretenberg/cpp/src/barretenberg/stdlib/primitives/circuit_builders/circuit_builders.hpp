@@ -13,4 +13,5 @@ concept HasPlookup = bb::IsAnyOf<T, bb::UltraCircuitBuilder, bb::GoblinUltraCirc
 template <typename T>
 concept IsGoblinBuilder = bb::IsAnyOf<T, bb::GoblinUltraCircuitBuilder>;
 template <typename T>
-concept IsNotGoblinBuilder = !IsGoblinBuilder<T>;
+concept IsNotGoblinBuilder = !
+IsGoblinBuilder<T>;
