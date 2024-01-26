@@ -54,13 +54,6 @@ library HeaderLib {
     uint32 nextAvailableLeafIndex;
   }
 
-  struct GlobalVariables {
-    uint256 chainId;
-    uint256 version;
-    uint256 blockNumber;
-    uint256 timestamp;
-  }
-
   struct PartialStateReference {
     AppendOnlyTreeSnapshot noteHashTree;
     AppendOnlyTreeSnapshot nullifierTree;
@@ -74,11 +67,18 @@ library HeaderLib {
     PartialStateReference partialStateReference;
   }
 
+  struct GlobalVariables {
+    uint256 chainId;
+    uint256 version;
+    uint256 blockNumber;
+    uint256 timestamp;
+  }
+
   struct Header {
-    GlobalVariables globalVariables;
-    StateReference stateReference;
     AppendOnlyTreeSnapshot lastArchive;
     bytes32 bodyHash;
+    StateReference stateReference;
+    GlobalVariables globalVariables;
   }
 
   /**
