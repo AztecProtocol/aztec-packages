@@ -21,7 +21,7 @@ export class TestKeyStore implements KeyStore {
   #keys: AztecMap<string, Buffer>;
 
   constructor(private curve: Grumpkin, database: AztecKVStore) {
-    this.#keys = database.createMap('key_store');
+    this.#keys = database.openMap('key_store');
   }
 
   public async addAccount(privKey: GrumpkinPrivateKey): Promise<PublicKey> {
@@ -49,6 +49,20 @@ export class TestKeyStore implements KeyStore {
   public async getNullifierSecretKey(pubKey: PublicKey) {
     const privateKey = await this.getAccountPrivateKey(pubKey);
     return computeNullifierSecretKey(privateKey);
+  }
+
+  public async getNullifierSecretKeyFromPublicKey(nullifierPubKey: PublicKey) {
+    const accounts = await this.getAccounts();
+    for (let i = 0; i < accounts.length; ++i) {
+      const accountPublicKey = accounts[i];
+      const privateKey = await this.getAccountPrivateKey(accountPublicKey);
+      const secretKey = computeNullifierSecretKey(privateKey);
+      const publicKey = derivePublicKey(secretKey);
+      if (publicKey.equals(nullifierPubKey)) {
+        return secretKey;
+      }
+    }
+    throw new Error('Unknown nullifier public key.');
   }
 
   public async getNullifierPublicKey(pubKey: PublicKey) {
