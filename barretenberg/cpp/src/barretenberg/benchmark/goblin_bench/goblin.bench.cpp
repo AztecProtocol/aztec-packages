@@ -18,6 +18,9 @@ class GoblinBench : public benchmark::Fixture {
     Goblin::AccumulationOutput kernel_accum;
     Goblin::Proof proof;
 
+    // Number of function circuits to accumulate (based on Zacs target numbers)
+    static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
+
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
         bb::srs::init_crs_factory("../srs_db/ignition");
@@ -51,76 +54,13 @@ class GoblinBench : public benchmark::Fixture {
             kernel_accum = goblin.accumulate(circuit_builder);
         }
     }
-
-    /**
-     * @brief Benchmark the full Goblin IVC protocol
-     *
-     */
-    void goblin_full(State& state) noexcept
-    {
-        for (auto _ : state) {
-            // perform a specified number of iterations of function/kernel accumulation
-            perform_goblin_accumulation_rounds(state);
-
-            // Construct proofs for ECCVM and Translator
-            proof = goblin.prove();
-        }
-
-        // Verify the final UGH proof
-        honk::GoblinUltraVerifier ultra_verifier{ kernel_accum.verification_key };
-        ultra_verifier.verify_proof(kernel_accum.proof);
-        // Verify the goblin proof (eccvm, translator, merge)
-        goblin.verify(proof);
-    }
-
-    /**
-     * @brief Benchmark only the accumulation rounds
-     *
-     */
-    void goblin_accumulate(State& state) noexcept
-    {
-        // Construct a series of simple Goblin circuits; generate and verify their proofs
-        for (auto _ : state) {
-            perform_goblin_accumulation_rounds(state);
-        }
-    }
-
-    /**
-     * @brief Benchmark only the ECCVM component
-     *
-     */
-    void goblin_eccvm_prove(State& state) noexcept
-    {
-        // Construct a series of simple Goblin circuits; generate and verify their proofs
-        perform_goblin_accumulation_rounds(state);
-
-        for (auto _ : state) {
-            goblin.prove_eccvm();
-        }
-    }
-
-    /**
-     * @brief Benchmark only the Translator component
-     *
-     */
-    void goblin_translator_prove(State& state) noexcept
-    {
-        // Construct a series of simple Goblin circuits; generate and verify their proofs
-        perform_goblin_accumulation_rounds(state);
-
-        goblin.prove_eccvm();
-        for (auto _ : state) {
-            goblin.prove_translator();
-        }
-    }
 };
-} // namespace
 
 // Number of function circuits to accumulate (based on Zacs target numbers)
-static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
+// static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
 
 #define ARGS                                                                                                           \
-    Arg(NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                              \
+    Arg(GoblinBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                 \
         ->Arg(1 << 0)                                                                                                  \
         ->Arg(1 << 1)                                                                                                  \
         ->Arg(1 << 2)                                                                                                  \
@@ -129,22 +69,66 @@ static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
         ->Arg(1 << 5)                                                                                                  \
         ->Arg(1 << 6)
 
-// Define the benchmarks
+/**
+ * @brief Benchmark the full Goblin IVC protocol
+ *
+ */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
 {
-    goblin_full(state);
+    for (auto _ : state) {
+        // perform a specified number of iterations of function/kernel accumulation
+        perform_goblin_accumulation_rounds(state);
+
+        // Construct proofs for ECCVM and Translator
+        proof = goblin.prove();
+    }
+
+    // Verify the final UGH proof
+    honk::GoblinUltraVerifier ultra_verifier{ kernel_accum.verification_key };
+    ultra_verifier.verify_proof(kernel_accum.proof);
+    // Verify the goblin proof (eccvm, translator, merge)
+    goblin.verify(proof);
 }
+
+/**
+ * @brief Benchmark only the accumulation rounds
+ *
+ */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
 {
-    goblin_accumulate(state);
+    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    for (auto _ : state) {
+        perform_goblin_accumulation_rounds(state);
+    }
 }
+
+/**
+ * @brief Benchmark only the ECCVM component
+ *
+ */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
 {
-    goblin_eccvm_prove(state);
+    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    perform_goblin_accumulation_rounds(state);
+
+    for (auto _ : state) {
+        goblin.prove_eccvm();
+    }
 }
+
+/**
+ * @brief Benchmark only the Translator component
+ *
+ */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
 {
-    goblin_translator_prove(state);
+    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    perform_goblin_accumulation_rounds(state);
+
+    goblin.prove_eccvm();
+    for (auto _ : state) {
+        goblin.prove_translator();
+    }
 }
 
 // Register the benchmark
@@ -152,3 +136,5 @@ BENCHMARK_REGISTER_F(GoblinBench, GoblinFull)->Unit(benchmark::kMillisecond)->AR
 BENCHMARK_REGISTER_F(GoblinBench, GoblinAccumulate)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(GoblinBench, GoblinECCVMProve)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(GoblinBench, GoblinTranslatorProve)->Unit(benchmark::kMillisecond)->ARGS;
+
+} // namespace
