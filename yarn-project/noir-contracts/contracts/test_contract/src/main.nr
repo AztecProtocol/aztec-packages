@@ -144,7 +144,10 @@ contract Test {
         opt_notes[0].unwrap().value
     }
 
-    unconstrained fn call_view_notes_many(storage_slot: Field, active_or_nullified: bool) -> pub [Field; 2] {
+    unconstrained fn call_view_notes_many(
+        storage_slot: Field,
+        active_or_nullified: bool
+    ) -> pub [Field; 2] {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteViewerOptions::new();
