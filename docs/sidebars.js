@@ -334,7 +334,22 @@ const sidebars = {
               ],
             },
             "dev_docs/contracts/syntax/events",
-            "dev_docs/contracts/syntax/functions",
+            {
+              label: "Functions",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "dev_docs/contracts/syntax/functions/main",
+              },
+              items: [
+                "dev_docs/contracts/syntax/functions/visibility",
+                "dev_docs/contracts/syntax/functions/public_private_unconstrained",
+                "dev_docs/contracts/syntax/functions/constructor",
+                "dev_docs/contracts/syntax/functions/calling_functions",
+                "dev_docs/contracts/syntax/functions/oracles",
+                "dev_docs/contracts/syntax/functions/inner_workings",
+              ],
+            },
             "dev_docs/contracts/syntax/oracles",
             {
               label: "Proving Historical Blockchain Data",
