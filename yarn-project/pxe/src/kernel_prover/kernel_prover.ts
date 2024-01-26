@@ -141,6 +141,7 @@ export class KernelProver {
 
       if (firstIteration) {
         const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);

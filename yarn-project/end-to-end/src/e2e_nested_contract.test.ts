@@ -37,10 +37,10 @@ describe('e2e_nested_contract', () => {
 
       if (isGenerateTestDataEnabled()) {
         {
-          const privateKernelInputsInner = getTestData('private-kernel-inputs-ordering');
-          const nestedCallPrivateKernelInput = privateKernelInputsInner[0];
+          const privateKernelInputsInit = getTestData('private-kernel-inputs-init');
+          const nestedCallPrivateKernelInput = privateKernelInputsInit[0];
           writeFileSync(
-            '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-ordering.hex',
+            '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-init.hex',
             nestedCallPrivateKernelInput.toBuffer().toString('hex'),
           );
         }
@@ -50,6 +50,15 @@ describe('e2e_nested_contract', () => {
           const nestedCallPrivateKernelInput = privateKernelInputsInner[privateKernelInputsInner.length - 1];
           writeFileSync(
             '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-inner.hex',
+            nestedCallPrivateKernelInput.toBuffer().toString('hex'),
+          );
+        }
+
+        {
+          const privateKernelInputsOrdering = getTestData('private-kernel-inputs-ordering');
+          const nestedCallPrivateKernelInput = privateKernelInputsOrdering[0];
+          writeFileSync(
+            '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-ordering.hex',
             nestedCallPrivateKernelInput.toBuffer().toString('hex'),
           );
         }

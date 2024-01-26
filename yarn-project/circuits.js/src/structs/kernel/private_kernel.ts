@@ -148,6 +148,16 @@ export class PrivateKernelInputsInit {
   toBuffer() {
     return serializeToBuffer(this.txRequest, this.privateCall);
   }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelInputsInit {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateKernelInputsInit(reader.readObject(TxRequest), reader.readObject(PrivateCallData));
+  }
 }
 
 /**

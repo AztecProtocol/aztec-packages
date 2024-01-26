@@ -1,45 +1,21 @@
 import {
   AztecAddress,
-  BlockHeader,
-  CONTRACT_TREE_HEIGHT,
-  CallContext,
-  CallRequest,
   ContractDeploymentData,
   EthAddress,
-  FUNCTION_TREE_HEIGHT,
   FunctionData,
   FunctionLeafPreimage,
   FunctionSelector,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_READ_REQUESTS_PER_CALL,
-  MAX_READ_REQUESTS_PER_TX,
-  MembershipWitness,
-  NullifierKeyValidationRequest,
   Point,
-  PrivateCallData,
-  PrivateCallStackItem,
-  PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
-  RETURN_VALUES_LENGTH,
-  ReadRequestMembershipWitness,
   SideEffect,
-  SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
-  VerificationKey,
-  makeEmptyProof
 } from '@aztec/circuits.js';
 import { computeCompleteAddress, computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
-import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
@@ -49,10 +25,6 @@ import { dirname, resolve } from 'path';
 
 import { executeInit, executeInner, executeOrdering } from './index.js';
 
-function _makeEmptyReadRequest() {
-  return makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty());
-}
-
 describe('Private kernel', () => {
   let logger: DebugLogger;
   beforeAll(() => {
@@ -60,94 +32,14 @@ describe('Private kernel', () => {
   });
 
   // Taken from e2e_nested_contract => performs nested calls => first deployment
+  // To regenerate fixture data run the following on the yarn-project/e2e folder
+  // AZTEC_GENERATE_TEST_DATA=1 yarn test e2e_nested_contract -t 'performs nested calls'
   it('Executes private kernel init circuit for a contract deployment', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
-    const txOrigin = AztecAddress.fromString('0x25e2c017f5da1f994401e61d26be435e3cfa26efee784c6b4e947f7651bd4104');
-    const argsHash = Fr.fromString('0x113c609cd625d5afd9f09daa2031011af161334e7508be0b1310ad2b7ff166af');
-    const deployerPubKey = new Point(
-      Fr.fromString('0x1de02ddacac6d2f427e5f0d3ce59d7294f146280455dd4c582254e0b4c254b23'),
-      Fr.fromString('0x23cd081dfe9c0d1873b65a36a08858e73a9b30d0339e94c4915d7110e2f07ecd'),
-    );
-    const contractDeploymentData = new ContractDeploymentData(
-      deployerPubKey,
-      Fr.fromString('0x0aefd90a69a643324c7bf0a9bd3b23ada090ad883773fdf0b0ad52a9f7d6f1f6'),
-      Fr.fromString('0x0cad3b5391e40af8743e1053c015e16abac6100a8b917512c083cb4cbb8ccc03'),
-      Fr.fromString('0x1ec59b0313fa504302c3336fc911d688edae67c4fbf229d68c7f36ed8797045c'),
-      EthAddress.ZERO,
-    );
-    const selector = FunctionSelector.fromString('0xaf9f8c44');
-    const functionData = new FunctionData(selector, false, true, true);
-    const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO);
-    const txRequest = new TxRequest(txOrigin, functionData, argsHash, txContext);
-
-    const contractAddress = AztecAddress.fromString(
-      '0x25e2c017f5da1f994401e61d26be435e3cfa26efee784c6b4e947f7651bd4104',
-    );
-
-    const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => SideEffect.empty());
-    newCommitments[0] = new SideEffect(
-      Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315'),
-      Fr.ZERO,
-    );
-
-    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => SideEffectLinkedToNoteHash.empty());
-    newNullifiers[0] = new SideEffectLinkedToNoteHash(
-      Fr.fromString('0x03579f468b2283611cc4d7adfbb93b8a4815d93ac0b1e1d11dace012cf73c7aa'),
-      Fr.ZERO,
-      Fr.ZERO,
-    );
-
-    const callContext = new CallContext(AztecAddress.ZERO, contractAddress, Fr.ZERO, selector, false, false, true, 0);
-
-    const blockHeader = new BlockHeader(
-      Fr.fromString('0x16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb'),
-      Fr.fromString('0x0bcfa3e9f1a8922ee92c6dc964d6595907c1804a86753774322b468f69d4f278'),
-      Fr.fromString('0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80'),
-      Fr.fromString('0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80'),
-      Fr.fromString('0x1759d221795419503f86c032e8f8762f2b739e74835099584b6531f5f27390fe'),
-      Fr.ZERO, // TODO(#3441)
-      Fr.fromString('0x0ccaafdc9c353743970d4e305ae73641ce694f07db67886d2769c9ed88e969d8'),
-      Fr.fromString('0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d'),
-    );
-
-    const appPublicInputs = new PrivateCircuitPublicInputs(
-      callContext,
-      argsHash,
-      makeTuple(RETURN_VALUES_LENGTH, () => Fr.ZERO),
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, () => SideEffect.empty()),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, () => NullifierKeyValidationRequest.empty()),
-      newCommitments,
-      newNullifiers,
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, () => Fr.ZERO),
-      Fr.ZERO,
-      [Fr.fromString('0x9cc0744c0dde14f24854659b052ffb7e'), Fr.fromString('0x28120e19a5cc9ec344f3d6d41b6fada2')],
-      [Fr.fromString('0xe3b0c44298fc1c149afbf4c8996fb924'), Fr.fromString('0x27ae41e4649b934ca495991b7852b855')],
-      Fr.fromString('0xf8'),
-      Fr.fromString('0x04'),
-      blockHeader,
-      contractDeploymentData,
-      Fr.ZERO,
-      Fr.ZERO,
-    );
-
-    const callStackItem = new PrivateCallStackItem(contractAddress, functionData, appPublicInputs, false);
-
-    const privateCall = new PrivateCallData(
-      callStackItem,
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => CallRequest.empty()),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => CallRequest.empty()),
-      makeEmptyProof(),
-      VerificationKey.makeFake(),
-      MembershipWitness.empty(FUNCTION_TREE_HEIGHT, 0n),
-      MembershipWitness.empty(CONTRACT_TREE_HEIGHT, 0n),
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, () => ReadRequestMembershipWitness.empty(0n)),
-      Fr.ZERO,
-      Fr.ZERO,
-    );
-    const kernelInputs = new PrivateKernelInputsInit(txRequest, privateCall);
+    const filepath = resolve(dirname(fileURLToPath(import.meta.url)), './fixtures/nested-call-private-kernel-init.hex');
+    const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
+    const kernelInputs = PrivateKernelInputsInit.fromBuffer(serialized);
 
     const kernelOutputs = await executeInit(kernelInputs);
 
@@ -155,6 +47,8 @@ describe('Private kernel', () => {
   });
 
   // Taken from e2e_nested_contract => performs nested calls => first ordering
+  // To regenerate fixture data run the following on the yarn-project/e2e folder
+  // AZTEC_GENERATE_TEST_DATA=1 yarn test e2e_nested_contract -t 'performs nested calls'
   it('Executes private kernel ordering after a deployment', async () => {
     const filepath = resolve(
       dirname(fileURLToPath(import.meta.url)),
