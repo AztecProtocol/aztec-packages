@@ -177,7 +177,7 @@ template <typename Curve> class IPA {
                        const OpeningClaim<Curve>& opening_claim,
                        const std::shared_ptr<NativeTranscript>& transcript)
     {
-        auto poly_degree = static_cast<size_t>(transcript->template receive_from_prover<Fr>("IPA:poly_degree"));
+        auto poly_degree = static_cast<uint32_t>(transcript->template receive_from_prover<Fr>("IPA:poly_degree"));
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
 
