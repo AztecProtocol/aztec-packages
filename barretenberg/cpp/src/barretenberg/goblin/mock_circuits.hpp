@@ -194,12 +194,17 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_mock_app_circuit(GoblinUltraBuilder& builder)
+    static void construct_mock_function_circuit(GoblinUltraBuilder& builder)
     {
         // WORKTODO: decide what to put here and how best to control circuit size
-        generate_sha256_test_circuit(builder, /*num_iterations=*/1);
-        generate_ecdsa_verification_test_circuit(builder, /*num_iterations=*/1);
-        generate_merkle_membership_test_circuit(builder, /*num_iterations=*/1);
+        // generate_sha256_test_circuit(builder, /*num_iterations=*/1);
+        // generate_ecdsa_verification_test_circuit(builder, /*num_iterations=*/1);
+        // generate_merkle_membership_test_circuit(builder, /*num_iterations=*/1);
+        construct_arithmetic_circuit(builder, 1 << 4);
+
+        // WORKTODO: its not clear whether goblin ops will be supported for function circuits initially but for UGH can
+        // only be used if some op gates are included so for now we'll assume each function circuit has some.
+        construct_goblin_ecc_op_circuit(builder); //
     }
 
     /**
@@ -260,22 +265,30 @@ class GoblinMockCircuits {
 
     /**
      * @brief Construct a mock kernel circuit
-     * @details This circuit contains (1) some basic/arbitrary arithmetic gates, (2) a genuine recursive verification of
-     * the proof provided as input. It does not contain any other real kernel logic.
+     * @details This circuit contains (1) some basic/arbitrary arithmetic gates, (2) recursive verification of a
+     * function circuit proof, and optionally (3) recursive verification of a previous kernel circuit proof
      *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Pairing point aggregation not implemented
      * @param builder
-     * @param kernel_input A proof to be recursively verified and the corresponding native verification key
+     * @param function_accum {proof, vkey} for function circuit to be recursively verified
+     * @param prev_kernel_accum {proof, vkey} for previous kernel circuit to be recursively verified
      */
-    static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
+    static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder,
+                                              const KernelInput& function_accum,
+                                              const KernelInput& prev_kernel_accum)
     {
         // Generic operations e.g. state updates (just arith gates for now)
-        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 16);
+        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 4);
 
-        // Execute recursive aggregation of previous kernel proof
-        RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Aggregation
-        auto pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
-        pairing_points = verifier.verify_proof(kernel_input.proof);      // previous kernel proof
+        // Execute recursive aggregation of function proof
+        RecursiveVerifier verifier1{ &builder, function_accum.verification_key };
+        verifier1.verify_proof(function_accum.proof);
+
+        // Execute recursive aggregation of previous kernel proof if one exists
+        if (!prev_kernel_accum.proof.proof_data.empty()) {
+            RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
+            verifier2.verify_proof(prev_kernel_accum.proof);
+        }
     }
 };
 } // namespace bb

@@ -18,29 +18,36 @@ void goblin_full(State& state) noexcept
 
     Goblin goblin;
 
-    // Construct an initial circuit; its proof will be recursively verified by the first kernel
-    GoblinUltraCircuitBuilder initial_circuit{ goblin.op_queue };
-    GoblinMockCircuits::construct_simple_initial_circuit(initial_circuit);
-    Goblin::AccumulationOutput kernel_input = goblin.accumulate(initial_circuit);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723): Simply populate the OpQueue with some data and
+    // corresponding commitments so the merge protocol has "prev" data into which it can accumulate
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
+    // Initialize empty kernel accum; first pass of kernel circuit will have no previous kernel proof to verify
+    Goblin::AccumulationOutput kernel_accum;
 
     Goblin::Proof proof;
     for (auto _ : state) {
         // Construct a series of simple Goblin circuits; generate and verify their proofs
-        size_t NUM_CIRCUITS = static_cast<size_t>(state.range(0));
+        auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-            // Construct a circuit with logic resembling that of the "kernel circuit"
-            GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
-            GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input);
 
-            // Construct proof of the current kernel circuit to be recursively verified by the next one
-            kernel_input = goblin.accumulate(circuit_builder);
+            // Construct and accumulate a mock function circuit
+            GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
+            GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+            auto function_accum = goblin.accumulate(function_circuit);
+
+            // Construct and accumulate the mock kernel circuit
+            GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, function_accum, kernel_accum);
+            kernel_accum = goblin.accumulate(circuit_builder);
         }
 
+        // Construct proofs for ECCVM and Translator
         proof = goblin.prove();
-        // Verify the final ultra proof
     }
-    honk::GoblinUltraVerifier ultra_verifier{ kernel_input.verification_key };
-    ultra_verifier.verify_proof(kernel_input.proof);
+    // Verify the final UGH proof
+    honk::GoblinUltraVerifier ultra_verifier{ kernel_accum.verification_key };
+    ultra_verifier.verify_proof(kernel_accum.proof);
     // Verify the goblin proof (eccvm, translator, merge)
     goblin.verify(proof);
 }
@@ -63,7 +70,7 @@ void goblin_accumulate(State& state) noexcept
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             // Construct a circuit with logic resembling that of the "kernel circuit"
             GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
-            GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input);
+            GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input, kernel_input);
 
             // Construct proof of the current kernel circuit to be recursively verified by the next one
             kernel_input = goblin.accumulate(circuit_builder);
@@ -88,7 +95,7 @@ void goblin_eccvm_prove(State& state) noexcept
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Construct a circuit with logic resembling that of the "kernel circuit"
         GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input);
+        GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input, kernel_input);
 
         // Construct proof of the current kernel circuit to be recursively verified by the next one
         kernel_input = goblin.accumulate(circuit_builder);
@@ -116,7 +123,7 @@ void goblin_translator_prove(State& state) noexcept
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Construct a circuit with logic resembling that of the "kernel circuit"
         GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input);
+        GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input, kernel_input);
 
         // Construct proof of the current kernel circuit to be recursively verified by the next one
         kernel_input = goblin.accumulate(circuit_builder);
