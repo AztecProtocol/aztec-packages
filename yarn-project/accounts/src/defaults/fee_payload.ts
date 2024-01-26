@@ -36,7 +36,7 @@ export type FeePayload = {
  * @param sender - The sender's address
  * @param fee - The fee variables
  */
-export function buildFeePayload(sender: AztecAddress, fee: FeePaymentInfo) {
+export function buildFeePrepPayload(sender: AztecAddress, fee: FeePaymentInfo) {
   const nonce = Fr.random();
   const packedArguments: PackedArguments[] = [];
   const calls: FunctionCall[] = [];
@@ -46,6 +46,48 @@ export function buildFeePayload(sender: AztecAddress, fee: FeePaymentInfo) {
       to: fee.feeAssetAddress,
       functionData: new FunctionData(fee.feePreparationSelector, false, false, false),
       args: [sender, fee.feePreparationAddress, fee.feeLimit, Fr.ZERO],
+    });
+  }
+
+  const paddedCalls: FunctionCall[] = padArrayEnd(calls, emptyFunctionCall(), FEE_MAX_CALLS);
+  for (const call of paddedCalls) {
+    packedArguments.push(PackedArguments.fromArgs(call.args));
+  }
+
+  const formattedCalls: FeeFunctionCall[] = paddedCalls.map((call, index) => ({
+    /* eslint-disable camelcase */
+    args_hash: packedArguments[index].hash,
+    function_selector: call.functionData.selector.toField(),
+    target_address: call.to.toField(),
+    is_public: !call.functionData.isPrivate,
+    /* eslint-enable camelcase */
+  }));
+
+  return {
+    payload: {
+      // eslint-disable-next-line camelcase
+      function_calls: formattedCalls,
+      nonce,
+    },
+    packedArguments,
+  };
+}
+
+/**
+ * Prepares the fee payload.
+ * @param sender - The sender's address
+ * @param fee - The fee variables
+ */
+export function buildFeeDistributionPayload(sender: AztecAddress, fee: FeePaymentInfo) {
+  const nonce = Fr.random();
+  const packedArguments: PackedArguments[] = [];
+  const calls: FunctionCall[] = [];
+
+  if (!fee.isEmpty()) {
+    calls.push({
+      to: fee.feeDistributionAddress,
+      functionData: new FunctionData(fee.feeDistributionSelector, false, false, false),
+      args: [fee.feeAssetAddress, fee.tempCoinbase, fee.feeLimit],
     });
   }
 

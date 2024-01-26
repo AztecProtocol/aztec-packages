@@ -37,16 +37,16 @@ impl AccountActions {
   }
 
   // docs:start:entrypoint
-  pub fn entrypoint(self, app_payload: EntrypointPayload, fee_payload: FeePayload) {
+  pub fn entrypoint(self, app_payload: EntrypointPayload, fee_prep_payload: FeePayload, fee_distribution_payload: FeePayload) {
     let valid_fn = self.is_valid_impl;
     let private_context = self.context.private.unwrap();
 
     private_context.set_phase(PHASE_FEE_PREP);
 
-    let fee_message_hash = fee_payload.hash();
+    let fee_message_hash = fee_prep_payload.hash();
     assert(valid_fn(private_context, fee_message_hash));
 
-    fee_payload.execute_calls(private_context);
+    fee_prep_payload.execute_calls(private_context);
 
     private_context.set_phase(PHASE_APPLICATION_LOGIC);
 
@@ -56,6 +56,11 @@ impl AccountActions {
     app_payload.execute_calls(private_context);
 
     private_context.set_phase(PHASE_FEE_DISTRIBUTION);
+
+    let fee_distribution_message_hash = fee_distribution_payload.hash();
+    assert(valid_fn(private_context, fee_distribution_message_hash));
+
+    fee_distribution_payload.execute_calls(private_context);
   }
   // docs:end:entrypoint
 

@@ -6,7 +6,7 @@ import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 import { buildAppPayload, hashPayload } from './entrypoint_payload.js';
-import { buildFeePayload, hashFeePayload } from './fee_payload.js';
+import { buildFeeDistributionPayload, buildFeePrepPayload, hashFeePayload } from './fee_payload.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -26,16 +26,26 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     feePaymentInfo: FeePaymentInfo = FeePaymentInfo.empty(),
   ): Promise<TxExecutionRequest> {
     const { payload: appPayload, packedArguments: callsPackedArguments } = buildAppPayload(executions);
-    const { payload: feePayload, packedArguments: feePackedArguments } = buildFeePayload(this.address, feePaymentInfo);
+    const { payload: feePrepPayload, packedArguments: feePrepPackedArguments } = buildFeePrepPayload(
+      this.address,
+      feePaymentInfo,
+    );
+    const { payload: feeDistributionPayload, packedArguments: feeDistributionPackedArguments } =
+      buildFeeDistributionPayload(this.address, feePaymentInfo);
 
     const abi = this.getEntrypointAbi();
-    const packedArgs = PackedArguments.fromArgs(encodeArguments(abi, [appPayload, feePayload]));
+    const packedArgs = PackedArguments.fromArgs(
+      encodeArguments(abi, [appPayload, feePrepPayload, feeDistributionPayload]),
+    );
 
     const appMessage = Fr.fromBuffer(hashPayload(appPayload));
     const appAuthWitness = await this.auth.createAuthWitness(appMessage);
 
-    const feeMessage = Fr.fromBuffer(hashFeePayload(feePayload));
-    const feeAuthWitness = await this.auth.createAuthWitness(feeMessage);
+    const feePrepMessage = Fr.fromBuffer(hashFeePayload(feePrepPayload));
+    const feePrepAuthWitness = await this.auth.createAuthWitness(feePrepMessage);
+
+    const feeDistributionMessage = Fr.fromBuffer(hashFeePayload(feeDistributionPayload));
+    const feeDistributionAuthWitness = await this.auth.createAuthWitness(feeDistributionMessage);
 
     const feeLimits = new FeeLimits(Fr.random(), Fr.random());
 
@@ -44,8 +54,13 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
       txContext: TxContext.empty(this.chainId, this.version, feeLimits),
-      packedArguments: [...callsPackedArguments, ...feePackedArguments, packedArgs],
-      authWitnesses: [appAuthWitness, feeAuthWitness],
+      packedArguments: [
+        ...callsPackedArguments,
+        ...feePrepPackedArguments,
+        ...feeDistributionPackedArguments,
+        packedArgs,
+      ],
+      authWitnesses: [appAuthWitness, feePrepAuthWitness, feeDistributionAuthWitness],
     });
     return txRequest;
   }
@@ -99,7 +114,49 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
           visibility: 'public',
         },
         {
-          name: 'fee',
+          name: 'fee_prep',
+          type: {
+            kind: 'struct',
+            path: 'authwit::fee::FeePayload',
+            fields: [
+              {
+                name: 'function_calls',
+                type: {
+                  kind: 'array',
+                  length: 1,
+                  type: {
+                    kind: 'struct',
+                    path: 'authwit::function_call::FunctionCall',
+                    fields: [
+                      { name: 'args_hash', type: { kind: 'field' } },
+                      {
+                        name: 'function_selector',
+                        type: {
+                          kind: 'struct',
+                          path: 'address_note::aztec::protocol_types::abis::function_selector::FunctionSelector',
+                          fields: [{ name: 'inner', type: { kind: 'integer', sign: 'unsigned', width: 32 } }],
+                        },
+                      },
+                      {
+                        name: 'target_address',
+                        type: {
+                          kind: 'struct',
+                          path: 'address_note::aztec::protocol_types::address::AztecAddress',
+                          fields: [{ name: 'inner', type: { kind: 'field' } }],
+                        },
+                      },
+                      { name: 'is_public', type: { kind: 'boolean' } },
+                    ],
+                  },
+                },
+              },
+              { name: 'nonce', type: { kind: 'field' } },
+            ],
+          },
+          visibility: 'public',
+        },
+        {
+          name: 'fee_distribution',
           type: {
             kind: 'struct',
             path: 'authwit::fee::FeePayload',

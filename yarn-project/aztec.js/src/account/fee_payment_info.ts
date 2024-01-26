@@ -37,6 +37,11 @@ export class FeePaymentInfo {
      * Selector of the fee distribution function on the fee distribution contract.
      */
     public feeDistributionSelector: FunctionSelector,
+    /**
+     * The coinbase address to pay the fee to.
+     * NOTE: this is temporarily here. Will be removed once we can add it to GlobalVariables
+     */
+    public tempCoinbase: AztecAddress,
   ) {}
 
   isEmpty() {
@@ -69,6 +74,7 @@ export class FeePaymentInfo {
       FunctionSelector.empty(),
       AztecAddress.ZERO,
       FunctionSelector.empty(),
+      AztecAddress.ZERO,
     );
   }
 
@@ -89,6 +95,7 @@ export class FeePaymentInfo {
       FunctionSelector.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
       FunctionSelector.fromBuffer(reader),
+      AztecAddress.fromBuffer(reader),
     );
   }
 
@@ -100,6 +107,7 @@ export class FeePaymentInfo {
       FunctionSelector.fromString(obj.feePaymentSelector),
       AztecAddress.fromString(obj.feeDistributionAddress),
       FunctionSelector.fromString(obj.feeDistributionSelector),
+      AztecAddress.fromString(obj.tempCoinbase),
     );
   }
 
@@ -111,6 +119,7 @@ export class FeePaymentInfo {
       fields.feePreparationSelector,
       fields.feeDistributionAddress,
       fields.feeDistributionSelector,
+      fields.tempCoinbase,
     ] as const;
   }
 
@@ -126,6 +135,7 @@ export class FeePaymentInfo {
       feePaymentSelector: this.feePreparationSelector.toString(),
       feeDistributionAddress: this.feeDistributionAddress.toString(),
       feeDistributionSelector: this.feeDistributionSelector.toString(),
+      tempCoinbase: this.tempCoinbase.toString(),
     };
   }
 }

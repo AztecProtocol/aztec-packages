@@ -15,7 +15,7 @@ contract FeePayment {
         // TODO(fees) gas
         // TODO(fees) refund fee leftover
         let this = context.this_address();
-        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field");
+        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)");
 
         let _void = context.call_public_function(
             asset_contract_address,

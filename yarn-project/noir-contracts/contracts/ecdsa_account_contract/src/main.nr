@@ -51,9 +51,9 @@ contract EcdsaAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
-    fn entrypoint(payload: pub EntrypointPayload, fee: FeePayload) {
+    fn entrypoint(payload: pub EntrypointPayload, fee_prep: pub FeePayload, fee_distribution: pub FeePayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.entrypoint(payload, fee);
+        actions.entrypoint(payload, fee_prep, fee_distribution);
     }
 
     #[aztec(private)]

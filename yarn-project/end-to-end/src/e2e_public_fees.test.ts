@@ -3,18 +3,22 @@ import {
   AztecNode,
   CompleteAddress,
   DebugLogger,
+  ExtendedNote,
   FeePaymentInfo,
   Fr,
   FunctionSelector,
   GrumpkinPrivateKey,
   GrumpkinScalar,
+  Note,
   PXE,
   PublicKey,
+  TxHash,
   TxStatus,
+  computeMessageSecretHash,
   generatePublicKey,
   getContractDeploymentInfo,
 } from '@aztec/aztec.js';
-import { EscrowContract, EscrowContractArtifact } from '@aztec/noir-contracts/Escrow';
+import { FeePaymentContract } from '@aztec/noir-contracts/FeePayment';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { setup } from './fixtures/utils.js';
@@ -28,7 +32,7 @@ describe('e2e_public_fees', () => {
 
   let asset: TokenContract;
 
-  let feePaymentContract: EscrowContract;
+  let feePaymentContract: FeePaymentContract;
 
   let pxe: PXE;
   let logger: DebugLogger;
@@ -82,9 +86,9 @@ describe('e2e_public_fees', () => {
     escrowPrivateKey = GrumpkinScalar.random();
     escrowPublicKey = generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
-    const deployInfo = getContractDeploymentInfo(EscrowContractArtifact, [senderAddress], salt, escrowPublicKey);
+    const deployInfo = getContractDeploymentInfo(FeePaymentContract.artifact, [senderAddress], salt, escrowPublicKey);
     await pxe.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
-    feePaymentContract = await EscrowContract.deployWithPublicKey(escrowPublicKey, sender, senderAddress)
+    feePaymentContract = await FeePaymentContract.deployWithPublicKey(escrowPublicKey, sender)
       .send({ contractAddressSalt: salt })
       .deployed();
     logger.info('fee payment contract address: ' + feePaymentContract.completeAddress.toReadableString());
@@ -96,16 +100,18 @@ describe('e2e_public_fees', () => {
 
   describe('sequencer charges fees', () => {
     beforeEach(async () => {
-      // give each one tokens
       await asset.methods.mint_public(senderAddress, MINTED_TOKENS).send().wait();
 
-      // enable fee payments only for the sender account
-      // await sender.setFeeContractAddress(feePaymentContract.completeAddress.address).send().wait();
+      const secret = Fr.random();
+      const hash = computeMessageSecretHash(secret);
+      const mintTx = await asset.methods.mint_private(MINTED_TOKENS, hash).send().wait();
+      await addPendingShieldNoteToPXE(sender, asset.completeAddress, MINTED_TOKENS, hash, mintTx.txHash);
+      await asset.methods.redeem_shield(senderAddress, MINTED_TOKENS, secret).send().wait();
 
       await aztecNode.setConfig({
         chargeFees: true,
       });
-    });
+    }, 50_000);
 
     it.skip('rejects transactions if fee payment information is not set', async () => {
       // the recipient's account does not have fee payment information set up
@@ -114,7 +120,7 @@ describe('e2e_public_fees', () => {
       ).rejects.toThrow(/Transaction .* was dropped/);
     });
 
-    it('executes the transaction and pays the appropriate fee', async () => {
+    it("executes transaction's transfer_public and pays the appropriate fee publicly", async () => {
       const transferAmount = 100n;
       const feeAmount = 1n;
       const tx = await asset.methods
@@ -126,7 +132,8 @@ describe('e2e_public_fees', () => {
             feePaymentContract.address,
             FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
             feePaymentContract.address,
-            FunctionSelector.empty(),
+            FunctionSelector.fromSignature('disburse_fee((Field),(Field),Field)'),
+            sequencerAddress.address,
           ),
         })
         .wait();
@@ -137,7 +144,52 @@ describe('e2e_public_fees', () => {
       expect(await asset.methods.balance_of_public(senderAddress).view()).toBe(
         MINTED_TOKENS - transferAmount - feeAmount,
       );
-      // expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(feeAmount);
-    });
+      expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(feeAmount);
+    }, 100_000);
+
+    it("executes transaction's unshield and pays the appropriate fee publicly", async () => {
+      const transferAmount = 100n;
+      const feeAmount = 1n;
+
+      const sendersPublicBalance = await asset.methods.balance_of_public(senderAddress).view();
+      const sequencersPublicBalance = await asset.methods.balance_of_public(sequencerAddress).view();
+
+      const tx = await asset.methods
+        .unshield(sender.getAddress(), recipientAddress.address, transferAmount, Fr.ZERO)
+        .send({
+          feePaymentInfo: new FeePaymentInfo(
+            new Fr(feeAmount),
+            asset.address,
+            feePaymentContract.address,
+            FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+            feePaymentContract.address,
+            FunctionSelector.fromSignature('disburse_fee((Field),(Field),Field)'),
+            sequencerAddress.address,
+          ),
+        })
+        .wait();
+
+      expect(tx.status).toBe(TxStatus.MINED);
+
+      expect(await asset.methods.balance_of_public(recipientAddress).view()).toBe(transferAmount);
+      expect(await asset.methods.balance_of_private(senderAddress).view()).toBe(MINTED_TOKENS - transferAmount);
+      expect(await asset.methods.balance_of_public(senderAddress).view()).toBe(sendersPublicBalance - feeAmount);
+      expect(await asset.methods.balance_of_public(sequencerAddress).view()).toBe(sequencersPublicBalance + feeAmount);
+    }, 100_000);
   });
 });
+
+async function addPendingShieldNoteToPXE(
+  wallet: AccountWallet,
+  asset: CompleteAddress,
+  amount: bigint,
+  secretHash: Fr,
+  txHash: TxHash,
+) {
+  // The storage slot of `pending_shields` is 5.
+  // TODO AlexG, this feels brittle
+  const storageSlot = new Fr(5);
+  const note = new Note([new Fr(amount), secretHash]);
+  const extendedNote = new ExtendedNote(note, wallet.getAddress(), asset.address, storageSlot, txHash);
+  await wallet.addNote(extendedNote);
+}
