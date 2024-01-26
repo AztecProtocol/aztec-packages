@@ -7,7 +7,7 @@ use dep::types::{
         call_request::CallRequest,
         previous_kernel_data::PreviousKernelData,
         kernel_circuit_public_inputs::{
-            KernelCircuitPublicInputsBuilder, 
+            KernelCircuitPublicInputsBuilder,
             KernelCircuitPublicInputsFinal,
         },
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered},
@@ -43,7 +43,7 @@ struct PrivateKernelInputsOrdering {
 
 impl PrivateKernelInputsOrdering {
     fn validate_inputs(self) {
-        assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, 
+        assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0,
             "Private call stack must be empty when executing the ordering circuit");
     }
 
@@ -181,7 +181,7 @@ impl PrivateKernelInputsOrdering {
         self.validate_inputs();
 
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
-        
+
         // Do this before any functions can modify the inputs.
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
 
@@ -189,9 +189,9 @@ impl PrivateKernelInputsOrdering {
 
         self.match_reads_to_commitments(&mut public_inputs);
 
-        self.match_nullifiers_to_commitments_and_squash(&mut public_inputs);        
+        self.match_nullifiers_to_commitments_and_squash(&mut public_inputs);
 
-        PrivateKernelInputsOrdering::apply_commitment_nonces(&mut public_inputs); 
+        PrivateKernelInputsOrdering::apply_commitment_nonces(&mut public_inputs);
 
         public_inputs.to_final()
     }
@@ -253,7 +253,7 @@ mod tests {
             self.compute_unique_siloed_commitments(self.previous_kernel.end.new_commitments.storage)
         }
 
-        // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed 
+        // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // commitments for the given commitments.
         pub fn compute_unique_siloed_commitments<N>(self, commitments: [SideEffect; N]) -> [SideEffect; N] {
             let first_nullifier = self.previous_kernel.end.new_nullifiers.get_unchecked(0);
@@ -280,7 +280,7 @@ mod tests {
         }
 
         // For example, suppose we are given the following side effects:
-        // [{value: 2, counter: 2}, {value: 1, counter: 1}, {value: 3, counter: 3}] 
+        // [{value: 2, counter: 2}, {value: 1, counter: 1}, {value: 3, counter: 3}]
         // The sorted_indexes will be [1, 0, 2]
         // sorted_sideffects will be [{value: 1, counter: 1}, {value: 2, counter: 2}, {value: 3, counter: 3}]
         // reverse_map will be [1, 0, 2]
@@ -311,7 +311,7 @@ mod tests {
 
         pub fn execute(self) -> KernelCircuitPublicInputsFinal {
             let (sorted_phase_watermarks, sorted_phase_watermarks_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_phase_watermarks());
-            let mut sorted_phase_watermarks_hints = [0; MAX_READ_REQUESTS_PER_TX];
+            let mut sorted_phase_watermarks_hints = [0; MAX_PHASE_TRANSITIONS_PER_TX];
             for i in 0..sorted_phase_watermarks_hints.len() {
                 sorted_phase_watermarks_hints[i] = sorted_phase_watermarks_indexes[self.phase_watermark_hints[i]] as Field;
             }

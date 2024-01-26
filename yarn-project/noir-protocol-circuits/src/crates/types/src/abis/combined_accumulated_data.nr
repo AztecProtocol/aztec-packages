@@ -141,7 +141,7 @@ impl CombinedAccumulatedDataBuilder {
 
             public_data_reads: self.public_data_reads.storage,
         }
-    } 
+    }
 
     pub fn to_final(self) -> FinalAccumulatedData {
         assert_eq(self.read_requests.len, 0, "Final accumulated data: read requests not empty");
@@ -169,5 +169,5 @@ impl CombinedAccumulatedDataBuilder {
             new_contracts: self.new_contracts.storage,
             optionally_revealed_data: self.optionally_revealed_data,
         }
-    } 
+    }
 }
