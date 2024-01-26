@@ -96,7 +96,6 @@ __metadata:
     "@aztec/aztec-ui": "npm:^0.1.14"
     "@aztec/aztec.js": "npm:^0.16.9"
     "@types/jest": "npm:^29.5.0"
-    "@types/mocha": "npm:^10.0.3"
     "@types/node": "npm:^20.5.9"
     "@types/react": "npm:^18.2.15"
     "@types/react-dom": "npm:^18.2.7"
@@ -255,7 +254,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     eslint: "npm:^8.35.0"
     lodash.chunk: "npm:^4.2.0"
-    lodash.times: "npm:^4.3.2"
     tslib: "npm:^2.4.0"
   languageName: node
   linkType: soft
@@ -302,6 +300,7 @@ __metadata:
   resolution: "@aztec/types@portal:../yarn-project/types::locator=%40aztec%2Fboxes%40workspace%3A."
   dependencies:
     "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
   languageName: node
   linkType: soft
 
