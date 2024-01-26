@@ -30,6 +30,7 @@ import {
   PublicCircuitPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
+  SideEffectType,
   TxContext,
   TxRequest,
   VerificationKey,
@@ -524,26 +525,30 @@ function computeCallContextHash(input: CallContext) {
   );
 }
 
+/** Flattens a list of side effects into an array of Buffers */
+function flattenSideEffects(sideEffects: SideEffectType[]): Buffer[] {
+  const arr: Buffer[] = [];
+  for (const sideEffect of sideEffects) {
+    for (const field of sideEffect.toFieldArray()) {
+      arr.push(field.toBuffer());
+    }
+  }
+
+  return arr;
+}
+
 /**
- *
+ * Computes the hash of a PrivateCircuitPublicInputs object
  */
 function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),
     ...input.returnValues.map(fr => fr.toBuffer()),
-    ...input.readRequests
-      .map(se => se.toFieldArray())
-      .flat()
-      .map(fr => fr.toBuffer()),
-    ...input.newCommitments
-      .map(se => se.toFieldArray())
-      .flat()
-      .map(fr => fr.toBuffer()),
-    ...input.newNullifiers
-      .map(selinked => selinked.toFieldArray())
-      .flat()
-      .map(fr => fr.toBuffer()),
+    ...flattenSideEffects(input.phaseWatermarks),
+    ...flattenSideEffects(input.readRequests),
+    ...flattenSideEffects(input.newCommitments),
+    ...flattenSideEffects(input.newNullifiers),
     ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
