@@ -1,8 +1,18 @@
 import { times } from '@aztec/foundation/collection';
 
-
-
-import { AztecAddress, Fr, FunctionData, FunctionLeafPreimage, FunctionSelector, GlobalVariables, NewContractData, PublicCallStackItem, PublicCircuitPublicInputs, SideEffect, SideEffectLinkedToNoteHash } from '../index.js';
+import {
+  AztecAddress,
+  Fr,
+  FunctionData,
+  FunctionLeafPreimage,
+  FunctionSelector,
+  GlobalVariables,
+  NewContractData,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+} from '../index.js';
 import {
   makeAztecAddress,
   makeEthAddress,

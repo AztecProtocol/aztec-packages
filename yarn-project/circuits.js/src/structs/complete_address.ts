@@ -2,8 +2,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-
-
 import { Grumpkin } from '../barretenberg/index.js';
 import {
   GrumpkinPrivateKey,
