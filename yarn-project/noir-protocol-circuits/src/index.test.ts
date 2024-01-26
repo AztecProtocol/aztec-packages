@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  CompleteAddress,
   ContractDeploymentData,
   EthAddress,
   FunctionData,
@@ -15,6 +14,8 @@ import {
   SideEffect,
   TxContext,
   TxRequest,
+  computeContractAddressFromInstance,
+  computePublicKeysHash
 } from '@aztec/circuits.js';
 import { computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
@@ -95,24 +96,24 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     logger = createDebugLogger('noir-private-kernel-compatibility');
   });
 
-  it('Complete Address matches Noir', () => {
+  it('Address matches Noir', () => {
     logger('Initialized Noir instance with private kernel init circuit');
     const publicKey = new Point(new Fr(1n), new Fr(2n));
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
-    const portalContractAddress = EthAddress.ZERO;
+    const portalContractAddress = EthAddress.fromField(new Fr(6n));
 
-    const res = CompleteAddress.fromPublicKeyAndInstance(publicKey, {
-      portalContractAddress,
+    const address = computeContractAddressFromInstance({
+      publicKeysHash: computePublicKeysHash(publicKey),
+      salt,
       contractClassId,
       initializationHash,
-      salt,
+      portalContractAddress,
+      version: 1,
     });
 
-    expect(res.address.toString()).toMatchSnapshot();
-    expect(res.publicKey).toMatchSnapshot();
-    expect(res.partialAddress.toString()).toMatchSnapshot();
+    expect(address.toString()).toMatchSnapshot();
   });
 
   it('TxRequest Hash matches Noir', () => {
