@@ -1,5 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Noir compatibility tests (interop_testing.nr) Address matches Noir 1`] = `"0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123"`;
+
 exports[`Noir compatibility tests (interop_testing.nr) Complete Address matches Noir 1`] = `"0x1a6e89b034478713c7a9f1c77fb80af995f708f6f208bf352b4dda2124739109"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) Complete Address matches Noir 2`] = `
