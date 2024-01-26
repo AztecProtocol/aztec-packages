@@ -166,7 +166,7 @@ export class Sequencer {
 
       // TODO(benesjan): is this correct? Should we add a check that all the tree roots are really empty?
       const prevHeader = (await this.l2BlockSource.getBlock(-1))?.header;
-      
+
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(prevHeader, newGlobalVariables);
@@ -201,7 +201,7 @@ export class Sequencer {
       await assertBlockHeight();
 
       const emptyTx = await processor.makeEmptyProcessedTx();
-            const [rollupCircuitsDuration, block] = await elapsed(() =>
+      const [rollupCircuitsDuration, block] = await elapsed(() =>
         this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
       );
 

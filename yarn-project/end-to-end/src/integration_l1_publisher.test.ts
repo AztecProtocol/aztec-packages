@@ -10,7 +10,6 @@ import {
   to2Fields,
 } from '@aztec/aztec.js';
 import {
-  AppendOnlyTreeSnapshot,
   Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -18,10 +17,8 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PartialStateReference,
   PublicDataUpdateRequest,
   SideEffectLinkedToNoteHash,
-  StateReference,
 } from '@aztec/circuits.js';
 import {
   fr,

@@ -1,5 +1,5 @@
 import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, Header, CompleteAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';

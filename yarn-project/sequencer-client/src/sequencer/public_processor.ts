@@ -76,7 +76,7 @@ export class PublicProcessorFactory {
    * @returns A new instance of a PublicProcessor.
    */
   public async create(prevHeader: Header | undefined, globalVariables: GlobalVariables): Promise<PublicProcessor> {
-    prevHeader = prevHeader ?? await buildInitialHeader(this.merkleTree);
+    prevHeader = prevHeader ?? (await buildInitialHeader(this.merkleTree));
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
