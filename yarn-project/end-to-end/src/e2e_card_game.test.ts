@@ -109,19 +109,19 @@ describe('e2e_card_game', () => {
       );
     });
 
-    nullifierSecretKeys = [];
     for (let i = 0; i < toRegister.length; i++) {
       logger(`Deploying account contract ${i}/${toRegister.length}...`);
       const encryptionPrivateKey = toRegister[i];
       const account = getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
       const wallet = await account.waitDeploy({ interval: 0.1 });
       wallets.push(wallet);
-      nullifierSecretKeys.push(computeNullifierSecretKey(encryptionPrivateKey));
     }
     logger('Account contracts deployed');
 
     [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
     [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
+
+    nullifierSecretKeys = PLAYER_ENCRYPTION_KEYS.map(pk => computeNullifierSecretKey(pk));
   }, 100_000);
 
   beforeEach(async () => {
