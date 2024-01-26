@@ -8,7 +8,8 @@ interface NoirOption<T> {
   _value: T;
 }
 
-const sortFunc = (a: any, b: any) => (a.points > b.points) ? 1 : (a.points < b.points) ? -1 : (a.randomness > b.randomness ? 1 : -1);
+const sortFunc = (a: any, b: any) =>
+  a.points > b.points ? 1 : a.points < b.points ? -1 : a.randomness > b.randomness ? 1 : -1;
 
 function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
   return options.filter((option: any) => option._is_some).map((option: any) => option._value);
@@ -36,7 +37,10 @@ describe('e2e_note_getter', () => {
     // await Promise.all(numbers.map(number => contract.methods.insert_note(number).send().wait()));
     // It causes a race condition complaining about root mismatch
 
-    await contract.methods.insert_notes([...Array(10).keys()]).send().wait();
+    await contract.methods
+      .insert_notes([...Array(10).keys()])
+      .send()
+      .wait();
     await contract.methods.insert_note(5, Fr.ZERO).send().wait();
 
     const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
@@ -51,11 +55,12 @@ describe('e2e_note_getter', () => {
     expect(
       unwrapOptions(returnEq)
         .map(({ points, randomness }: any) => ({ points, randomness }))
-        .sort(sortFunc)
-      ).toStrictEqual([
+        .sort(sortFunc),
+    ).toStrictEqual(
+      [
         { points: 5n, randomness: 1n },
         { points: 5n, randomness: 0n },
-      ].sort(sortFunc)
+      ].sort(sortFunc),
     );
 
     expect(
