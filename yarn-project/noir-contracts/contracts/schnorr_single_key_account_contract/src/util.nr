@@ -12,5 +12,8 @@ pub fn recover_address(message_hash: Field, witness: AuthWitness) -> AztecAddres
     );
     assert(verification == true);
 
-    AztecAddress::compute(PublicKeysHash::compute(witness.owner), witness.partial_address)
+    AztecAddress::compute(
+        PublicKeysHash::compute(witness.owner),
+        witness.partial_address
+    )
 }
