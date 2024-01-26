@@ -48,7 +48,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#contractInstances = db.openMap('contracts_instances');
     this.#notesByOwner = db.openMultiMap('notes_by_owner');
 
-    this.#synchronizedBlock = db.openSingleton('block_header');
+    this.#synchronizedBlock = db.openSingleton('header');
     this.#syncedBlockPerPublicKey = db.openMap('synced_block_per_public_key');
 
     this.#notes = db.openMap('notes');

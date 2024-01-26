@@ -1,5 +1,5 @@
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block } from '@aztec/circuit-types';
-import { CompleteAddress, EthAddress, Fr, GrumpkinScalar, Header } from '@aztec/circuits.js';
+import { CompleteAddress, Fr, GrumpkinScalar, Header } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { SerialQueue } from '@aztec/foundation/fifo';

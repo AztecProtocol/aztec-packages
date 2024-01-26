@@ -1,9 +1,8 @@
 import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-
-import { randomBytes } from 'crypto';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
@@ -109,7 +108,6 @@ import {
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header, NUM_BYTES_PER_SHA256 } from '../structs/header.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
  * Creates an arbitrary side effect object with the given seed.

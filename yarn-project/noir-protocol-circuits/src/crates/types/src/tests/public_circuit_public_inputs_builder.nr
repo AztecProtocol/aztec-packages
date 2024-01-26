@@ -36,7 +36,7 @@ struct PublicCircuitPublicInputsBuilder {
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    block_header: Header,
+    header: Header,
     prover_address: AztecAddress,
 }
 
@@ -44,7 +44,7 @@ impl PublicCircuitPublicInputsBuilder {
     pub fn new() -> Self {
         let mut public_inputs: PublicCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
         public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
-        public_inputs.block_header = fixtures::BLOCK_HEADER;
+        public_inputs.header = fixtures::BLOCK_HEADER;
         public_inputs
     }
 
@@ -61,7 +61,7 @@ impl PublicCircuitPublicInputsBuilder {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            block_header: self.block_header,
+            header: self.header,
             prover_address: self.prover_address,
         }
     }

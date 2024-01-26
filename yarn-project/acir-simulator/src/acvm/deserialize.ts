@@ -3,7 +3,6 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  FunctionSelector,
   HEADER_LENGTH,
   Header,
   MAX_NEW_COMMITMENTS_PER_CALL,

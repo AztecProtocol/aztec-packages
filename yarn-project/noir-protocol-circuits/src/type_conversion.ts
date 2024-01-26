@@ -619,7 +619,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     unencrypted_logs_hash: mapTuple(privateCircuitPublicInputs.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
-    block_header: mapHeaderToNoir(privateCircuitPublicInputs.header),
+    header: mapHeaderToNoir(privateCircuitPublicInputs.header),
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
@@ -994,7 +994,7 @@ export function mapCombinedAccumulatedDataToNoir(
  */
 export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
   return new CombinedConstantData(
-    mapHeaderFromNoir(combinedConstantData.block_header),
+    mapHeaderFromNoir(combinedConstantData.header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
   );
 }
@@ -1006,7 +1006,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
  */
 export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedConstantData): CombinedConstantDataNoir {
   return {
-    block_header: mapHeaderToNoir(combinedConstantData.header),
+    header: mapHeaderToNoir(combinedConstantData.header),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
   };
 }
@@ -1211,7 +1211,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     new_l2_to_l1_msgs: mapTuple(publicInputs.newL2ToL1Msgs, mapFieldToNoir),
     unencrypted_logs_hash: mapTuple(publicInputs.unencryptedLogsHash, mapFieldToNoir),
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
-    block_header: mapHeaderToNoir(publicInputs.header),
+    header: mapHeaderToNoir(publicInputs.header),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
   };

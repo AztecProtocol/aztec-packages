@@ -53,7 +53,6 @@ import { AztecLmdbStore } from '@aztec/kv-store';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
