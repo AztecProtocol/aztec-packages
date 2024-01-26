@@ -12,7 +12,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace proof_system::honk::pcs::kzg {
+namespace bb::honk::pcs::kzg {
 
 template <class Curve> class KZGTest : public CommitmentTest<Curve> {
   public:
@@ -32,7 +32,7 @@ TYPED_TEST(KZGTest, single)
     using Fr = typename TypeParam::ScalarField;
 
     auto witness = this->random_polynomial(n);
-    bb::g1::element commitment = this->commit(witness);
+    g1::element commitment = this->commit(witness);
 
     auto challenge = Fr::random_element();
     auto evaluation = witness.evaluate(challenge);
@@ -177,4 +177,4 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     EXPECT_EQ(verified, true);
 }
 
-} // namespace proof_system::honk::pcs::kzg
+} // namespace bb::honk::pcs::kzg

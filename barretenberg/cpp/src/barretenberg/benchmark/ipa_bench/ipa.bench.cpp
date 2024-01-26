@@ -3,8 +3,7 @@
 
 using namespace benchmark;
 using namespace bb;
-using namespace proof_system;
-using namespace proof_system::honk::pcs::ipa;
+using namespace bb::honk::pcs::ipa;
 namespace {
 using Curve = curve::Grumpkin;
 using Fr = Curve::ScalarField;
@@ -29,7 +28,7 @@ std::vector<OpeningClaim> opening_claims(MAX_POLYNOMIAL_DEGREE_LOG2 - MIN_POLYNO
 
 void ipa_open(State& state) noexcept
 {
-    numeric::random::Engine& engine = numeric::random::get_debug_engine();
+    numeric::RNG& engine = numeric::get_debug_randomness();
     for (auto _ : state) {
         state.PauseTiming();
         size_t n = 1 << static_cast<size_t>(state.range(0));

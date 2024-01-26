@@ -1,9 +1,8 @@
 #include "pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 using namespace bb;
-using namespace proof_system;
 
 template <typename C>
 field_t<C> pedersen_hash<C>::hash(const std::vector<field_ct>& inputs, const GeneratorContext context)
@@ -86,8 +85,8 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
     }
     return hashed;
 }
-template class pedersen_hash<proof_system::StandardCircuitBuilder>;
-template class pedersen_hash<proof_system::UltraCircuitBuilder>;
-template class pedersen_hash<proof_system::GoblinUltraCircuitBuilder>;
+template class pedersen_hash<bb::StandardCircuitBuilder>;
+template class pedersen_hash<bb::UltraCircuitBuilder>;
+template class pedersen_hash<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

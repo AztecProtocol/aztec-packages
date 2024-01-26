@@ -32,7 +32,7 @@ const sidebars = {
       label: "What is Aztec?",
       type: "category",
       link: { type: "doc", id: "intro" },
-      items: ["about_aztec/history/history", "about_aztec/overview"],
+      items: ["about_aztec/overview"],
     },
 
     "about_aztec/vision",
@@ -188,6 +188,7 @@ const sidebars = {
         },
         "concepts/advanced/public_vm",
         "concepts/advanced/contract_creation",
+        "concepts/advanced/private_execution_environment",
         "concepts/advanced/sequencer_selection",
         "concepts/advanced/acir_simulator",
       ],
@@ -217,8 +218,8 @@ const sidebars = {
       items: [
         "dev_docs/getting_started/quickstart",
         "dev_docs/getting_started/core-concepts",
-        "dev_docs/getting_started/aztecjs-getting-started",
         "dev_docs/getting_started/aztecnr-getting-started",
+        "dev_docs/getting_started/aztecjs-getting-started",
       ],
     },
 
@@ -294,7 +295,11 @@ const sidebars = {
         type: "doc",
         id: "dev_docs/cli/main",
       },
-      items: ["dev_docs/cli/cli-commands", "dev_docs/cli/sandbox-reference"],
+      items: [
+        "dev_docs/cli/cli-commands",
+        "dev_docs/cli/sandbox-reference",
+        "dev_docs/cli/run_more_than_one_pxe_sandbox"
+      ],
     },
     {
       label: "Aztec.nr Contracts",
@@ -322,11 +327,25 @@ const sidebars = {
                 type: "doc",
                 id: "dev_docs/contracts/syntax/storage/main",
               },
-              items: ["dev_docs/contracts/syntax/storage/storage_slots"],
+              items: [
+                "dev_docs/contracts/syntax/storage/public_state",
+                "dev_docs/contracts/syntax/storage/private_state",
+                "dev_docs/contracts/syntax/storage/storage_slots",
+              ],
             },
             "dev_docs/contracts/syntax/events",
             "dev_docs/contracts/syntax/functions",
+            "dev_docs/contracts/syntax/oracles",
+            {
+              label: "Proving Historical Blockchain Data",
+              type: "category",
+              items: [
+                "dev_docs/contracts/syntax/historical_access/how_to_prove_history",
+                "dev_docs/contracts/syntax/historical_access/history_lib_reference",
+            ],
+            },
             "dev_docs/contracts/syntax/slow_updates_tree",
+            
             "dev_docs/contracts/syntax/context",
             "dev_docs/contracts/syntax/globals",
           ],
@@ -421,7 +440,6 @@ const sidebars = {
       },
       items: ["dev_docs/testing/cheat_codes"],
     },
-
     {
       label: "Wallets",
       type: "category",

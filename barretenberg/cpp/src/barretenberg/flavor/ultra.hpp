@@ -16,7 +16,7 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 class Ultra {
   public:
@@ -43,15 +43,14 @@ class Ultra {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
-    using GrandProductRelations =
-        std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
+    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-                                 proof_system::UltraPermutationRelation<FF>,
-                                 proof_system::LookupRelation<FF>,
-                                 proof_system::GenPermSortRelation<FF>,
-                                 proof_system::EllipticRelation<FF>,
-                                 proof_system::AuxiliaryRelation<FF>>;
+    using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
+                                 bb::UltraPermutationRelation<FF>,
+                                 bb::LookupRelation<FF>,
+                                 bb::GenPermSortRelation<FF>,
+                                 bb::EllipticRelation<FF>,
+                                 bb::AuxiliaryRelation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
@@ -413,37 +412,8 @@ class Ultra {
      */
     class VerifierCommitments : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
-        {
-            q_m = verification_key->q_m;
-            q_c = verification_key->q_c;
-            q_l = verification_key->q_l;
-            q_r = verification_key->q_r;
-            q_o = verification_key->q_o;
-            q_4 = verification_key->q_4;
-            q_arith = verification_key->q_arith;
-            q_sort = verification_key->q_sort;
-            q_elliptic = verification_key->q_elliptic;
-            q_aux = verification_key->q_aux;
-            q_lookup = verification_key->q_lookup;
-            sigma_1 = verification_key->sigma_1;
-            sigma_2 = verification_key->sigma_2;
-            sigma_3 = verification_key->sigma_3;
-            sigma_4 = verification_key->sigma_4;
-            id_1 = verification_key->id_1;
-            id_2 = verification_key->id_2;
-            id_3 = verification_key->id_3;
-            id_4 = verification_key->id_4;
-            table_1 = verification_key->table_1;
-            table_2 = verification_key->table_2;
-            table_3 = verification_key->table_3;
-            table_4 = verification_key->table_4;
-            lagrange_first = verification_key->lagrange_first;
-            lagrange_last = verification_key->lagrange_last;
-        }
-
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const WitnessCommitments& witness_commitments)
+                            const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
         {
             q_m = verification_key->q_m;
             q_c = verification_key->q_c;
@@ -471,13 +441,16 @@ class Ultra {
             lagrange_first = verification_key->lagrange_first;
             lagrange_last = verification_key->lagrange_last;
 
-            w_l = witness_commitments.w_l;
-            w_r = witness_commitments.w_r;
-            w_o = witness_commitments.w_o;
-            sorted_accum = witness_commitments.sorted_accum;
-            w_4 = witness_commitments.w_4;
-            z_perm = witness_commitments.z_perm;
-            z_lookup = witness_commitments.z_lookup;
+            if (witness_commitments.has_value()) {
+                auto commitments = witness_commitments.value();
+                this->w_l = commitments.w_l;
+                this->w_r = commitments.w_r;
+                this->w_o = commitments.w_o;
+                this->sorted_accum = commitments.sorted_accum;
+                this->w_4 = commitments.w_4;
+                this->z_perm = commitments.z_perm;
+                this->z_lookup = commitments.z_lookup;
+            }
         }
     };
 
@@ -603,4 +576,4 @@ class Ultra {
     };
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

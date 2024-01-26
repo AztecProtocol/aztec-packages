@@ -1,9 +1,10 @@
-// import { AvmContext } from "../avm_machineState.js";
 import { Fr } from '@aztec/foundation/fields';
+
+import { strict as assert } from 'assert';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmMessageCallResult } from '../avm_message_call_result.js';
-import { AvmStateManager } from '../avm_state_manager.js';
+import { AvmJournal } from '../journal/index.js';
 import { Instruction } from '../opcodes/index.js';
 
 /**
@@ -14,12 +15,12 @@ import { Instruction } from '../opcodes/index.js';
 export class AvmInterpreter {
   private instructions: Instruction[] = [];
   private machineState: AvmMachineState;
-  private stateManager: AvmStateManager;
+  private journal: AvmJournal;
 
-  constructor(machineState: AvmMachineState, stateManager: AvmStateManager, bytecode: Instruction[]) {
+  constructor(machineState: AvmMachineState, stateManager: AvmJournal, instructions: Instruction[]) {
     this.machineState = machineState;
-    this.stateManager = stateManager;
-    this.instructions = bytecode;
+    this.journal = stateManager;
+    this.instructions = instructions;
   }
 
   /**
@@ -28,28 +29,31 @@ export class AvmInterpreter {
    *               - reverted execution will return false
    *               - any other panic will throw
    */
-  run(): AvmMessageCallResult {
+  async run(): Promise<AvmMessageCallResult> {
+    assert(this.instructions.length > 0);
+
     try {
-      while (!this.machineState.halted && this.machineState.pc < this.instructions.length) {
+      while (!this.machineState.halted) {
         const instruction = this.instructions[this.machineState.pc];
+        assert(!!instruction); // This should never happen
 
-        if (!instruction) {
-          throw new InvalidInstructionError(this.machineState.pc);
-        }
-
-        instruction.execute(this.machineState, this.stateManager);
+        await instruction.execute(this.machineState, this.journal);
 
         if (this.machineState.pc >= this.instructions.length) {
-          throw new InvalidProgramCounterError(this.machineState.pc, this.instructions.length);
+          throw new InvalidProgramCounterError(this.machineState.pc, /*max=*/ this.instructions.length);
         }
       }
 
       const returnData = this.machineState.getReturnData();
       return AvmMessageCallResult.success(returnData);
-    } catch (e) {
-      // TODO: This should only accept AVM defined errors, anything else SHOULD be thrown upstream
+    } catch (_e) {
+      if (!(_e instanceof AvmInterpreterError)) {
+        throw _e;
+      }
+
+      const revertReason: AvmInterpreterError = _e;
       const revertData = this.machineState.getReturnData();
-      return AvmMessageCallResult.revert(revertData);
+      return AvmMessageCallResult.revert(revertData, revertReason);
     }
   }
 
@@ -64,20 +68,22 @@ export class AvmInterpreter {
 }
 
 /**
- * Error is thrown when the program counter goes to an invalid location.
- * There is no instruction at the provided pc
+ * Avm-specific errors should derive from this
  */
-class InvalidProgramCounterError extends Error {
-  constructor(pc: number, max: number) {
-    super(`Invalid program counter ${pc}, max is ${max}`);
+export abstract class AvmInterpreterError extends Error {
+  constructor(message: string, ...rest: any[]) {
+    super(message, ...rest);
+    this.name = 'AvmInterpreterError';
   }
 }
 
 /**
- * This assertion should never be hit - there should always be a valid instruction
+ * Error is thrown when the program counter goes to an invalid location.
+ * There is no instruction at the provided pc
  */
-class InvalidInstructionError extends Error {
-  constructor(pc: number) {
-    super(`Invalid instruction at ${pc}`);
+export class InvalidProgramCounterError extends AvmInterpreterError {
+  constructor(pc: number, max: number) {
+    super(`Invalid program counter ${pc}, max is ${max}`);
+    this.name = 'InvalidProgramCounterError';
   }
 }

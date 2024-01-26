@@ -3,10 +3,9 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
@@ -889,8 +888,7 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
     }
     return result;
 }
-template class keccak<proof_system::UltraCircuitBuilder>;
-template class keccak<proof_system::GoblinUltraCircuitBuilder>;
+template class keccak<bb::UltraCircuitBuilder>;
+template class keccak<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

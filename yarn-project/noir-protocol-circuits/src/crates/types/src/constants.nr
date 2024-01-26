@@ -31,6 +31,7 @@ global MAX_NEW_L2_TO_L1_MSGS_PER_CALL: Field = 2;
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: Field = 16;
 global MAX_PUBLIC_DATA_READS_PER_CALL: Field = 16;
 global MAX_READ_REQUESTS_PER_CALL: Field = 32;
+global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: Field = 1;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_COMMITMENTS_PER_TX: Field = 64;
@@ -43,6 +44,7 @@ global MAX_PUBLIC_DATA_READS_PER_TX: Field = 16;
 global MAX_NEW_CONTRACTS_PER_TX: Field = 1;
 global MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX: Field = 4;
 global MAX_READ_REQUESTS_PER_TX: Field = 128;
+global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX: Field = 4;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 // docs:end:constants
@@ -86,7 +88,7 @@ global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 // Move these constants to a noir file once the issue bellow is resolved:
 // https://github.com/noir-lang/noir/issues/1734
 global L1_TO_L2_MESSAGE_LENGTH: Field = 8;
-global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: Field = 26;
+global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: Field = 25;
 global MAX_NOTE_FIELDS_LENGTH: Field = 20;
 // GET_NOTE_ORACLE_RETURN_LENGT = MAX_NOTE_FIELDS_LENGTH + 1 + 2
 // The plus 1 is 1 extra field for nonce.
@@ -108,7 +110,7 @@ global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 190;
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
-global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 195;
+global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 199;
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 87;
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 177;
 global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;

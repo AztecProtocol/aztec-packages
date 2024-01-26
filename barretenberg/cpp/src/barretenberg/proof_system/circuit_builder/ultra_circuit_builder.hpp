@@ -12,7 +12,7 @@
 #include "circuit_builder_base.hpp"
 #include <optional>
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF> struct non_native_field_witnesses {
     // first 4 array elements = limbs
@@ -779,7 +779,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                                      std::string const msg = "create_new_range_constraint");
     void create_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
     {
-        if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
+        if (num_bits == 1) {
+            create_bool_gate(variable_index);
+        } else if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
             /**
              * N.B. if `variable_index` is not used in any arithmetic constraints, this will create an unsatisfiable
              *      circuit!
@@ -1167,4 +1169,4 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     bool check_circuit();
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<bb::fr>>;
-} // namespace proof_system
+} // namespace bb

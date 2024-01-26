@@ -5,9 +5,8 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace proof_system::plonk;
 
-typedef proof_system::UltraCircuitBuilder Builder;
+typedef UltraCircuitBuilder Builder;
 typedef stdlib::byte_array<Builder> byte_array;
 typedef stdlib::public_witness_t<Builder> public_witness_t;
 typedef stdlib::field_t<Builder> field_ct;
@@ -15,7 +14,7 @@ typedef stdlib::witness_t<Builder> witness_ct;
 typedef stdlib::uint32<Builder> uint32_ct;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 TEST(stdlib_keccak, keccak_format_input_table)
@@ -68,7 +67,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
 {
     Builder builder = Builder();
 
-    bb::constexpr_for<0, 25, 1>([&]<size_t i> {
+    constexpr_for<0, 25, 1>([&]<size_t i> {
         uint256_t extended_native = 0;
         uint256_t binary_native = 0;
         for (size_t j = 0; j < 64; ++j) {

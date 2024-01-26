@@ -6,7 +6,7 @@
 namespace acir_format {
 
 template <typename Builder>
-void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments)
+void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
     for (const auto& constraint : constraint_system.constraints) {
@@ -81,17 +81,20 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 
     // Add ec add constraints
     for (const auto& constraint : constraint_system.ec_add_constraints) {
-        create_ec_add_constraint(builder, constraint);
-    }
-
-    // Add ec double
-    for (const auto& constraint : constraint_system.ec_double_constraints) {
-        create_ec_double_constraint(builder, constraint);
+        create_ec_add_constraint(builder, constraint, has_valid_witness_assignments);
     }
 
     // Add block constraints
     for (const auto& constraint : constraint_system.block_constraints) {
         create_block_constraints(builder, constraint, has_valid_witness_assignments);
+    }
+
+    // Add big_int constraints
+    for (const auto& constraint : constraint_system.bigint_operations) {
+        create_bigint_operations_constraint(builder, constraint);
+    }
+    for (const auto& constraint : constraint_system.bigint_from_le_bytes_constraints) {
+        create_bigint_from_le_bytes_constraint(builder, constraint);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
@@ -188,7 +191,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
  * @return Builder
  */
 template <typename Builder>
-Builder create_circuit(const acir_format& constraint_system, size_t size_hint, WitnessVector const& witness)
+Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint, WitnessVector const& witness)
 {
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum };
 
@@ -198,9 +201,9 @@ Builder create_circuit(const acir_format& constraint_system, size_t size_hint, W
     return builder;
 }
 
-template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
+template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const AcirFormat& constraint_system,
                                                                  size_t size_hint,
                                                                  WitnessVector const& witness);
-template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, acir_format const&, bool);
+template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool);
 
 } // namespace acir_format

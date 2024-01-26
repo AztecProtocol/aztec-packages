@@ -17,8 +17,7 @@
 #include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
-namespace flavor {
+namespace bb::honk::flavor {
 
 class ToyFlavor {
   public:
@@ -368,5 +367,4 @@ class ToyFlavor {
     };
 };
 
-} // namespace flavor
-} // namespace proof_system::honk
+} // namespace bb::honk::flavor
