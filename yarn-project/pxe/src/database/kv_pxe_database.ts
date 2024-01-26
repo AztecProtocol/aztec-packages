@@ -210,8 +210,6 @@ export class KVPxeDatabase implements PxeDatabase {
       ? (await this.getCompleteAddress(filter.owner))?.publicKey
       : undefined;
 
-    // TODO: refactor how we create the array of candidate note ids once the kv_pxe_database refactor from #3927 is
-    // merged.
     let candidateNoteIds: Array<number> = [];
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
