@@ -189,7 +189,7 @@ mod tests {
 
         let computed_initialization_hash = compute_initialization_hash(
             tx_request.function_data.selector.to_field(),
-            tx_request.args_hash,
+            tx_request.args_hash
         );
         assert(
             computed_initialization_hash == cdd.initialization_hash, "initialization hash does not match computed one"
@@ -199,7 +199,7 @@ mod tests {
             cdd.contract_class_id,
             cdd.contract_address_salt,
             cdd.initialization_hash,
-            cdd.portal_contract_address,
+            cdd.portal_contract_address
         );
         assert(public_inputs.end.new_contracts[0].contract_address.eq(contract_address));
     }

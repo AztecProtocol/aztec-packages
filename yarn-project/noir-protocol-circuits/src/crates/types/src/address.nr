@@ -266,8 +266,11 @@ impl PublicKeysHash {
 }
 
 pub fn compute_initialization_hash(selector: Field, args_hash: Field) -> Field {
-    pedersen_hash([
+    pedersen_hash(
+        [
         selector,
-        args_hash,
-    ], GENERATOR_INDEX__CONSTRUCTOR)
+        args_hash
+    ],
+        GENERATOR_INDEX__CONSTRUCTOR
+    )
 }

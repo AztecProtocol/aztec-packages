@@ -312,7 +312,10 @@ pub fn contract_logic(
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     if is_contract_deployment {
-        let computed_initialization_hash = compute_initialization_hash(function_data.selector.to_field(), private_call_public_inputs.args_hash);
+        let computed_initialization_hash = compute_initialization_hash(
+            function_data.selector.to_field(),
+            private_call_public_inputs.args_hash
+        );
 
         assert(
             computed_initialization_hash == contract_dep_data.initialization_hash, "initialization hash does not match computed one"
@@ -323,7 +326,7 @@ pub fn contract_logic(
             contract_dep_data.contract_class_id,
             contract_dep_data.contract_address_salt,
             contract_dep_data.initialization_hash,
-            contract_dep_data.portal_contract_address,
+            contract_dep_data.portal_contract_address
         );
 
         let new_contract_data = NewContractData {
