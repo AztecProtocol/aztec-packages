@@ -30,6 +30,8 @@ export function getTestData(itemName: string): { toBuffer(): Buffer }[] {
     return [];
   }
 
+  console.log(testData);
+
   const testName = expect.getState().currentTestName;
   const fullItemName = `${testName} ${itemName}`;
   return testData[fullItemName];

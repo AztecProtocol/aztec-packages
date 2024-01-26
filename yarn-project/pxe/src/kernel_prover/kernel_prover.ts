@@ -202,6 +202,7 @@ export class KernelProver {
       nullifierCommitmentHints,
       masterNullifierSecretKeys,
     );
+    pushTestData('private-kernel-inputs-ordering', privateInputs);
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
