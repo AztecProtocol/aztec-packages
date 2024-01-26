@@ -65,4 +65,19 @@ std::array<bb::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input
     return result;
 }
 
+grumpkin::fr convert_challenge(const bb::fr& f, grumpkin::fr* /*unused*/)
+{
+    const uint64_t NUM_CONVERSION_TWO_LIMB_BITS = 2 * NUM_CONVERSION_LIMB_BITS;
+
+    ASSERT(uint256_t(f) < (uint256_t(1) << (2 * NUM_CONVERSION_TWO_LIMB_BITS))); // should be 128 bits or less
+    constexpr uint256_t LIMB_MASK =
+        (uint256_t(1) << NUM_CONVERSION_TWO_LIMB_BITS) - 1; // split bn254_fr into two 64 bit limbs
+    const uint256_t value = f;
+    const uint64_t low = static_cast<uint64_t>(value & LIMB_MASK);
+    const uint64_t hi = static_cast<uint64_t>(value >> NUM_CONVERSION_TWO_LIMB_BITS);
+    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_CONVERSION_TWO_LIMB_BITS) == value);
+
+    return convert_bn254_frs_to_grumpkin_fr(low, hi);
+}
+
 } // namespace bb::field_conversion

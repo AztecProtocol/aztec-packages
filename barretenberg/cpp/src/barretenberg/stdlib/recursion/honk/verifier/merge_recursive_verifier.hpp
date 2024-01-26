@@ -2,7 +2,7 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::goblin {
 template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
@@ -14,7 +14,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using KZG = ::bb::honk::pcs::kzg::KZG<Curve>;
     using OpeningClaim = ::bb::honk::pcs::OpeningClaim<Curve>;
     using PairingPoints = std::array<GroupElement, 2>;
-    using Transcript = honk::Transcript<CircuitBuilder>;
+    using Transcript = honk::BaseTranscript<bb::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
     CircuitBuilder* builder;
     std::shared_ptr<Transcript> transcript;

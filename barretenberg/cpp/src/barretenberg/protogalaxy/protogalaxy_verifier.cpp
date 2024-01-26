@@ -77,12 +77,13 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
     witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
 
-    auto eta = transcript->get_challenge(domain_separator + "_eta");
+    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
     witness_commitments.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
 
-    auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
+    auto [beta, gamma] =
+        transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
     witness_commitments.z_perm =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
     witness_commitments.z_lookup =
@@ -95,7 +96,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
+        inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
 
     inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
@@ -124,7 +125,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
         // efficient by avoiding the computation of the perturbator
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        auto beta = transcript->get_challenge(domain_separator + "_initial_gate_challenge");
+        auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
         std::vector<FF> gate_challenges(inst->log_instance_size);
         gate_challenges[0] = beta;
         for (size_t i = 1; i < inst->log_instance_size; i++) {
@@ -146,7 +147,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<F
 {
     prepare_for_folding(fold_data);
 
-    auto delta = transcript->get_challenge("delta");
+    auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
@@ -160,7 +161,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<F
     }
 
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
-    FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
+    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
@@ -171,7 +172,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<F
     }
     Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
         combiner_quotient_evals);
-    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
+    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));

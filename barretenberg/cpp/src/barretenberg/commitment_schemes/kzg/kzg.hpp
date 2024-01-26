@@ -82,7 +82,7 @@ template <typename Curve> class KZG {
 
         GroupElement P_0;
         if constexpr (Curve::is_stdlib_type) {
-            auto builder = verifier_transcript->builder;
+            auto builder = quotient_commitment.get_context();
             auto one = Fr(builder, 1);
             std::vector<GroupElement> commitments = { claim.commitment,
                                                       quotient_commitment,

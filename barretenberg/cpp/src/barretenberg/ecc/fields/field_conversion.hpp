@@ -35,6 +35,18 @@ grumpkin::fr convert_bn254_frs_to_grumpkin_fr(const bb::fr& low_bits_in, const b
  */
 std::array<bb::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input);
 
+bb::fr inline convert_challenge(const bb::fr& f, bb::fr* /*unused*/)
+{
+    return f;
+}
+
+grumpkin::fr convert_challenge(const bb::fr& f, grumpkin::fr* /*unused*/);
+
+template <typename T> T inline convert_challenge(const bb::fr& challenge)
+{
+    return convert_challenge(challenge, static_cast<T*>(nullptr));
+}
+
 /**
  * @brief Calculates the size of a types in terms of bb::frs
  * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,

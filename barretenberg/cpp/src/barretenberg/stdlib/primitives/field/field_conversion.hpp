@@ -9,32 +9,32 @@ namespace bb::stdlib::field_conversion {
 
 template <typename Builder> using fr = field_t<Builder>;
 template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
+template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 
 static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
 
 template <typename Builder>
-std::array<fr<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& builder, const fr<Builder>& field_val)
+std::array<fr<Builder>, 2> decompose_bn254_fr_to_two_limbs(Builder& builder, const fr<Builder>& f)
 {
-    ASSERT(uint256_t(field_val.get_value()) <
-           (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits or less
+    ASSERT(uint256_t(f.get_value()) < (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits or less
     constexpr uint256_t LIMB_MASK =
         (uint256_t(1) << NUM_CONVERSION_LIMB_BITS) - 1; // split bn254_fr into two 64 bit limbs
-    const uint256_t value = field_val;
-    const uint64_t low = static_cast<uint64_t>(value & LIMB_MASK);
-    const uint64_t hi = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
+    constexpr uint256_t shift = (uint256_t(1) << NUM_CONVERSION_LIMB_BITS);
+    const uint256_t value = f.get_value();
+    const uint64_t low_val = static_cast<uint64_t>(value & LIMB_MASK);
+    const uint64_t hi_val = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
 
-    fr<Builder> low_val{ witness_t<Builder>(builder, low) };
-    fr<Builder> hi_val{ witness_t<Builder>(builder, hi) };
+    fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
+    fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
     // range constrain both to 64 bits
     builder.range_constrain_two_limbs(
-        low_val.witness_index, hi_val.witness_index, NUM_CONVERSION_LIMB_BITS, NUM_CONVERSION_LIMB_BITS);
+        low.witness_index, hi.witness_index, NUM_CONVERSION_LIMB_BITS, NUM_CONVERSION_LIMB_BITS);
 
-    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) == value);
+    ASSERT(static_cast<uint256_t>(low_val) + (static_cast<uint256_t>(hi_val) << NUM_CONVERSION_LIMB_BITS) == value);
     // checks this decomposition low + hi * 2^64 = value with an add gate
-    fr<Builder>::evaluate_linear_identity(
-        low_val, (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) * hi_val, -field_val, fr<Builder>(0));
+    fr<Builder>::evaluate_linear_identity(low, hi * shift, -f, fr<Builder>(0));
 
-    return std::array<fr<Builder>, 2>{ low_val, hi_val };
+    return std::array<fr<Builder>, 2>{ low, hi };
 }
 
 // circuit form
@@ -61,7 +61,7 @@ std::array<fr<Builder>, 2> decompose_bn254_fr_to_two_limbs(const Builder& builde
 // }
 
 template <typename Builder>
-fq<Builder> convert_bn254_frs_to_grumpkin_fr(const Builder& builder,
+fq<Builder> convert_bn254_frs_to_grumpkin_fr(Builder& builder,
                                              const fr<Builder>& low_bits_in,
                                              const fr<Builder>& high_bits_in)
 {
@@ -71,6 +71,42 @@ fq<Builder> convert_bn254_frs_to_grumpkin_fr(const Builder& builder,
     auto high_bit_decomp = decompose_bn254_fr_to_two_limbs(builder, high_bits_in);
     // construct the bigfield
     fq<Builder> result(low_bit_decomp[0], low_bit_decomp[1], high_bit_decomp[0], high_bit_decomp[1]);
+    return result;
+}
+
+template <typename Builder>
+fr<Builder> convert_challenge(const Builder& /*unused*/, const fr<Builder>& f, fr<Builder>* /*unused*/)
+{
+    return f;
+}
+
+template <typename Builder>
+fq<Builder> convert_challenge(Builder& builder, const fr<Builder>& f, fq<Builder>* /*unused*/)
+{
+    constexpr uint64_t NUM_CONVERSION_TWO_LIMB_BITS = 2 * NUM_CONVERSION_LIMB_BITS;
+    constexpr uint256_t shift = (uint256_t(1) << NUM_CONVERSION_TWO_LIMB_BITS);
+    // split f into low_bits_in and high_bits_in
+    constexpr uint256_t LIMB_MASK = shift - 1; // mask for upper 128 bits
+    const uint256_t value = f;
+    const uint64_t low_val = static_cast<uint64_t>(value & LIMB_MASK);
+    const uint64_t hi_val = static_cast<uint64_t>(value >> NUM_CONVERSION_TWO_LIMB_BITS);
+
+    fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
+    fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
+    // range constrain both to 64 bits
+    builder.range_constrain_two_limbs(
+        low.witness_index, hi.witness_index, NUM_CONVERSION_TWO_LIMB_BITS, NUM_CONVERSION_TWO_LIMB_BITS);
+
+    ASSERT(static_cast<uint256_t>(low_val) + (static_cast<uint256_t>(hi_val) << NUM_CONVERSION_TWO_LIMB_BITS) == value);
+    // checks this decomposition low + hi * 2^64 = value with an add gate
+    fr<Builder>::evaluate_linear_identity(low, hi * shift, -f, fr<Builder>(0));
+
+    return convert_bn254_frs_to_grumpkin_fr(builder, low, hi);
+}
+
+template <typename Builder, typename T> T convert_challenge(Builder& builder, const fr<Builder>& challenge)
+{
+    return convert_challenge(builder, challenge, static_cast<T*>(nullptr));
 }
 
 // template <typename Builder, typename T>
@@ -189,7 +225,7 @@ template <typename Builder> std::array<fr<Builder>, 2> convert_grumpkin_fr_to_bn
 /**
  * @brief Calculates the size of a types (in their native form) in terms of fr<Builder>s
  * @details We want to support the following types: fr<Builder>, fq<Builder>,
- * stdlib::bn254<Builder>::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * bn254_element<Builder>, bb::Univariate<FF, N>, std::array<FF, N>, for
  * FF = fr<Builder> or fq<Builder>, and N is arbitrary
  * @tparam T
  * @return constexpr size_t
@@ -206,9 +242,9 @@ template <typename Builder> constexpr size_t calc_num_frs(fq<Builder>* /*unused*
     return 2;
 }
 
-template <typename Builder> constexpr size_t calc_num_frs(typename stdlib::bn254<Builder>::AffineElement* /*unused*/)
+template <typename Builder> constexpr size_t calc_num_frs(bn254_element<Builder>* /*unused*/)
 {
-    return 2 * calc_num_frs<typename stdlib::bn254<Builder>::BaseField>();
+    return 2 * calc_num_frs<fq<Builder>>();
 }
 
 // constexpr size_t calc_num_frs(curve::Grumpkin::AffineElement* /*unused*/)
@@ -234,23 +270,22 @@ template <typename T> constexpr size_t calc_num_frs()
 /**
  * @brief Conversions from vector of fr<Builder> elements to transcript types.
  * @details We want to support the following types: fr<Builder>, fq<Builder>,
- * stdlib::bn254<Builder>::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * bn254_element<Builder>, bb::Univariate<FF, N>, std::array<FF, N>, for
  * FF = fr<Builder> or fq<Builder>, and N is arbitrary
  * @tparam T
  * @param fr_vec
  * @return T
  */
-template <typename Builder, typename T>
-T convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>> fr_vec);
+template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec);
 
 // template <typename Builder>
-// bool inline convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>> fr_vec, bool* /*unused*/)
+// bool inline convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec, bool* /*unused*/)
 // {
 //     ASSERT(fr_vec.size() == 1);
 //     return fr_vec[0] != 0;
 // }
 
-// template <std::integral T> T inline convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>>
+// template <std::integral T> T inline convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>>
 // fr_vec, T*
 // /*unused*/)
 // {
@@ -268,7 +303,7 @@ fr<Builder> inline convert_from_bn254_frs(const Builder& /*unused*/,
 }
 
 template <typename Builder>
-fq<Builder> inline convert_from_bn254_frs(const Builder& builder,
+fq<Builder> inline convert_from_bn254_frs(Builder& builder,
                                           std::span<const fr<Builder>> fr_vec,
                                           fq<Builder>* /*unused*/)
 {
@@ -277,19 +312,18 @@ fq<Builder> inline convert_from_bn254_frs(const Builder& builder,
 }
 
 template <typename Builder>
-typename stdlib::bn254<Builder>::AffineElement inline convert_from_bn254_frs(
-    const Builder& builder,
-    std::span<const fr<Builder>> fr_vec,
-    typename stdlib::bn254<Builder>::AffineElement* /*unused*/)
+bn254_element<Builder> inline convert_from_bn254_frs(Builder& builder,
+                                                     std::span<const fr<Builder>> fr_vec,
+                                                     bn254_element<Builder>* /*unused*/)
 {
-    typename stdlib::bn254<Builder>::AffineElement val;
-    val.x = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec.subspan(0, 2));
-    val.y = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec.subspan(2, 2));
+    bn254_element<Builder> val;
+    val.x = convert_from_bn254_frs<Builder, fq<Builder>>(builder, fr_vec.subspan(0, 2));
+    val.y = convert_from_bn254_frs<Builder, fq<Builder>>(builder, fr_vec.subspan(2, 2));
     return val;
 }
 
 // template <typename Builder>
-// curve::Grumpkin::AffineElement inline convert_from_bn254_frs(const Builder& builder, std::span<const fr<Builder>>,
+// curve::Grumpkin::AffineElement inline convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>>,
 //                                                              curve::Grumpkin::AffineElement* /*unused*/)
 // {
 //     ASSERT(fr_vec.size() == 2);
@@ -312,7 +346,7 @@ std::array<fr<Builder>, N> inline convert_from_bn254_frs(const Builder& /*unused
 }
 
 template <typename Builder, size_t N>
-std::array<fq<Builder>, N> inline convert_from_bn254_frs(const Builder& builder,
+std::array<fq<Builder>, N> inline convert_from_bn254_frs(Builder& builder,
                                                          std::span<const fr<Builder>> fr_vec,
                                                          std::array<fq<Builder>, N>* /*unused*/)
 {
@@ -320,7 +354,7 @@ std::array<fq<Builder>, N> inline convert_from_bn254_frs(const Builder& builder,
     for (size_t i = 0; i < N; ++i) {
         std::vector<fr<Builder>> fr_vec_tmp{ fr_vec[2 * i],
                                              fr_vec[2 * i + 1] }; // each pair of consecutive elements is a fq<Builder>
-        val[i] = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec_tmp);
+        val[i] = convert_from_bn254_frs<Builder, fq<Builder>>(builder, fr_vec_tmp);
     }
     return val;
 }
@@ -338,27 +372,28 @@ bb::Univariate<fr<Builder>, N> inline convert_from_bn254_frs(const Builder& /*un
 }
 
 template <typename Builder, size_t N>
-bb::Univariate<fq<Builder>, N> inline convert_from_bn254_frs(const Builder& builder,
+bb::Univariate<fq<Builder>, N> inline convert_from_bn254_frs(Builder& builder,
                                                              std::span<const fr<Builder>> fr_vec,
                                                              bb::Univariate<fq<Builder>, N>* /*unused*/)
 {
     bb::Univariate<fq<Builder>, N> val;
     for (size_t i = 0; i < N; ++i) {
         std::vector<fr<Builder>> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
-        val.evaluations[i] = convert_from_bn254_frs<fq<Builder>>(builder, fr_vec_tmp);
+        val.evaluations[i] = convert_from_bn254_frs<Builder, fq<Builder>>(builder, fr_vec_tmp);
     }
     return val;
 }
 
-template <typename Builder, typename T> T inline convert_from_bn254_frs(std::span<const fr<Builder>> fr_vec)
+template <typename Builder, typename T>
+T inline convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec)
 {
-    return convert_from_bn254_frs(fr_vec, static_cast<T*>(nullptr));
+    return convert_from_bn254_frs(builder, fr_vec, static_cast<T*>(nullptr));
 }
 
 /**
  * @brief Conversion from transcript values to fr<Builder>s
  * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, fr<Builder>, fq<Builder>,
- * typename stdlib::bn254<Builder>::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF,
+ * bn254_element<Builder>, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF,
  * N>, for FF = fr<Builder>/fq<Builder>, and N is arbitrary.
  * @tparam T
  * @param val
@@ -383,8 +418,7 @@ template <typename Builder> std::vector<fr<Builder>> inline convert_to_bn254_frs
     return fr_vec;
 }
 
-template <typename Builder>
-std::vector<fr<Builder>> inline convert_to_bn254_frs(const typename stdlib::bn254<Builder>::AffineElement& val)
+template <typename Builder> std::vector<fr<Builder>> inline convert_to_bn254_frs(const bn254_element<Builder>& val)
 {
     auto fr_vec_x = convert_to_bn254_frs(val.x);
     auto fr_vec_y = convert_to_bn254_frs(val.y);

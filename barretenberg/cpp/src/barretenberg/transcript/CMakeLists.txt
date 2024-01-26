@@ -1,1 +1,1 @@
-barretenberg_module(transcript crypto_poseidon2)
+barretenberg_module(transcript crypto_poseidon2 stdlib_primitives)

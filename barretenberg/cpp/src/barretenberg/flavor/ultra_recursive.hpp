@@ -17,7 +17,6 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -378,7 +377,7 @@ template <typename BuilderType> class UltraRecursive_ {
         }
     };
 
-    using Transcript = bb::stdlib::recursion::honk::Transcript<CircuitBuilder>;
+    using Transcript = bb::honk::BaseTranscript<bb::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb::honk::flavor

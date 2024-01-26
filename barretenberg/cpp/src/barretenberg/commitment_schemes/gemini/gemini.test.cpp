@@ -65,7 +65,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
             prover_transcript->send_to_verifier(label, commitment);
         }
 
-        const Fr r_challenge = prover_transcript->get_challenge("Gemini:r");
+        const Fr r_challenge = prover_transcript->get_challenge<Fr>("Gemini:r");
 
         auto prover_output = GeminiProver::compute_fold_polynomial_evaluations(
             multilinear_evaluation_point, std::move(gemini_polynomials), r_challenge);

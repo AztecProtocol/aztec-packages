@@ -63,9 +63,14 @@ class TranscriptManifest {
 
 struct NativeTranscriptParams {
     using Fr = bb::fr;
+    using Proof = honk::proof;
     static inline Fr hash(const std::vector<Fr>& data)
     {
         return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
+    }
+    template <typename T> static inline T convert_challenge(const Fr& challenge)
+    {
+        return bb::field_conversion::convert_challenge<T>(challenge);
     }
     template <typename T> static constexpr size_t calc_num_frs() { return bb::field_conversion::calc_num_frs<T>(); }
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
@@ -78,20 +83,46 @@ struct NativeTranscriptParams {
     }
 };
 
-struct UltraStdlibTranscriptParams {
-    using Builder = UltraCircuitBuilder;
+template <typename Builder> struct StdlibTranscriptParams {
     using Fr = stdlib::field_t<Builder>;
+    using Proof = std::vector<Fr>;
     static inline Fr hash(const std::vector<Fr>& data)
     {
-        assert(!data.empty() && data[0].get_context() != nullptr);
-        Builder* builder = data[0].get_context();
-        return stdlib::poseidon2<Builder>::hash(*builder, data); // TODO: this is scary to just dereference
+        if constexpr (std::is_same_v<Builder, GoblinUltraCircuitBuilder>) {
+            assert(!data.empty() && data[0].get_context() != nullptr);
+            Builder* builder = data[0].get_context();
+            return stdlib::poseidon2<Builder>::hash(*builder, data);
+        } else {
+            using NativeFr = bb::fr;
+            assert(!data.empty() && data[0].get_context() != nullptr);
+            Builder* builder = data[0].get_context();
+
+            // call the native hash on the data
+            std::vector<NativeFr> native_data;
+            native_data.reserve(data.size());
+            for (const auto& fr : data) {
+                native_data.push_back(fr.get_value());
+            }
+            NativeFr hash_value = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(native_data);
+
+            Fr hash_field_ct = Fr::from_witness(builder, hash_value);
+            return hash_field_ct;
+        }
+    }
+    template <typename T> static inline T convert_challenge(const Fr& challenge)
+    {
+        Builder* builder = challenge.get_context();
+        return bb::stdlib::field_conversion::convert_challenge<Builder, T>(*builder, challenge);
+    }
+    template <typename T> static constexpr size_t calc_num_frs()
+    {
+        return bb::stdlib::field_conversion::calc_num_frs<T>();
     }
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {
         assert(!frs.empty() && frs[0].get_context() != nullptr);
         Builder* builder = frs[0].get_context();
-        return bb::stdlib::field_conversion::convert_from_bn254_frs<T>(*builder, frs);
+        return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
     }
     template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
     {
@@ -107,7 +138,7 @@ struct UltraStdlibTranscriptParams {
 template <typename TranscriptParams> class BaseTranscript {
   public:
     using Fr = typename TranscriptParams::Fr;
-    using Proof = honk::proof;
+    using Proof = typename TranscriptParams::Proof;
 
     BaseTranscript() = default;
 
@@ -116,7 +147,7 @@ template <typename TranscriptParams> class BaseTranscript {
      *
      * @param proof_data
      */
-    explicit BaseTranscript(const Proof& proof_data)
+    explicit BaseTranscript(const honk::proof& proof_data)
         : proof_data(proof_data.begin(), proof_data.end())
     {}
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
@@ -209,7 +240,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
+        auto element_frs = TranscriptParams::template convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -267,7 +298,8 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param labels human-readable names for the challenges for the manifest
      * @return std::array<Fr, num_challenges> challenges for this round.
      */
-    template <typename... Strings> std::array<uint256_t, sizeof...(Strings)> get_challenges(const Strings&... labels)
+    template <typename ChallengeType, typename... Strings>
+    std::array<ChallengeType, sizeof...(Strings)> get_challenges(const Strings&... labels)
     {
         constexpr size_t num_challenges = sizeof...(Strings);
 
@@ -277,7 +309,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
-        std::array<uint256_t, num_challenges> challenges{};
+        std::array<ChallengeType, num_challenges> challenges{};
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges; i++) {
@@ -289,7 +321,7 @@ template <typename TranscriptParams> class BaseTranscript {
             // std::copy_n(next_challenge_buffer.begin(),
             //             HASH_OUTPUT_SIZE / 2,
             //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
-            challenges[i] = static_cast<uint256_t>(field_element_buffer);
+            challenges[i] = TranscriptParams::template convert_challenge<ChallengeType>(field_element_buffer);
         }
 
         // Prepare for next round.
@@ -319,7 +351,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
         // convert element to field elements
-        auto element_frs = bb::field_conversion::convert_to_bn254_frs(element);
+        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
 
 #ifdef LOG_INTERACTIONS
@@ -338,16 +370,17 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        constexpr size_t element_size = bb::field_conversion::calc_num_frs<T>(); // TODO: need to change calculation
+        /* constexpr */ size_t element_size =
+            TranscriptParams::template calc_num_frs<T>(); // TODO: need to change calculation
         ASSERT(num_frs_read + element_size <= proof_data.size());
 
-        auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
+        std::span<Fr> element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         num_frs_read += element_size;
 
         BaseTranscript::consume_prover_element_frs(label, element_frs);
 
         // T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
-        auto element = bb::field_conversion::convert_from_bn254_frs<T>(element_frs);
+        auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -381,13 +414,13 @@ template <typename TranscriptParams> class BaseTranscript {
     static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
         auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
-        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
+        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
         return verifier_transcript;
     };
 
-    uint256_t get_challenge(const std::string& label)
+    template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
     {
-        uint256_t result = get_challenges(label)[0];
+        ChallengeType result = get_challenges<ChallengeType>(label)[0];
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
         info("challenge: ", label, ": ", result);
 #endif
@@ -405,13 +438,15 @@ template <typename TranscriptParams> class BaseTranscript {
  * @details The syntax `std::array<Fr, 2> [a, b] = transcript.get_challenges("a", "b")` is unfortunately not allowed
  * (structured bindings must be defined with auto return type), so we need a workaround.
  */
-template <typename Fr, typename T, size_t N> std::array<Fr, N> challenges_to_field_elements(std::array<T, N>&& arr)
-{
-    std::array<Fr, N> result;
-    std::move(arr.begin(), arr.end(), result.begin());
-    return result;
-}
+// template <typename Fr, typename T, size_t N> std::array<Fr, N> challenges_to_field_elements(std::array<T, N>&& arr)
+// {
+//     std::array<Fr, N> result;
+//     std::move(arr.begin(), arr.end(), result.begin());
+//     return result;
+// }
 
 using NativeTranscript = honk::BaseTranscript<NativeTranscriptParams>;
-using UltraStdlibTranscript = honk::BaseTranscript<UltraStdlibTranscriptParams>;
+using UltraStdlibTranscript = honk::BaseTranscript<StdlibTranscriptParams<UltraCircuitBuilder>>;
+using GoblinUltraStdlibTranscript = honk::BaseTranscript<StdlibTranscriptParams<GoblinUltraCircuitBuilder>>;
+
 } // namespace bb::honk

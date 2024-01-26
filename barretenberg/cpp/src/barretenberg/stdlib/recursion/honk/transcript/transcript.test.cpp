@@ -5,7 +5,6 @@
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -15,6 +14,7 @@ using UltraFlavor = ::bb::honk::flavor::Ultra;
 using UltraRecursiveFlavor = ::bb::honk::flavor::UltraRecursive_<Builder>;
 using FF = bb::fr;
 using NativeTranscript = ::bb::honk::NativeTranscript;
+using StdlibTranscript = bb::honk::BaseTranscript<bb::honk::StdlibTranscriptParams<Builder>>;
 
 /**
  * @brief Create some mock data; add it to the provided prover transcript in various mock rounds
@@ -41,16 +41,16 @@ template <class Flavor, size_t LENGTH> auto generate_mock_proof_data(auto prover
 
     // round 0
     prover_transcript.send_to_verifier("data", data);
-    prover_transcript.get_challenge("alpha");
+    prover_transcript.template get_challenge<FF>("alpha");
 
     // round 1
     prover_transcript.send_to_verifier("scalar", scalar);
     prover_transcript.send_to_verifier("commitment", commitment);
-    prover_transcript.get_challenges("beta, gamma");
+    prover_transcript.template get_challenges<FF>("beta, gamma");
 
     // round 2
     prover_transcript.send_to_verifier("univariate", univariate);
-    prover_transcript.get_challenges("gamma", "delta");
+    prover_transcript.template get_challenges<FF>("gamma", "delta");
 
     return prover_transcript.proof_data;
 }
@@ -71,17 +71,17 @@ template <class Flavor, size_t LENGTH> void perform_mock_verifier_transcript_ope
     using Univariate = typename bb::Univariate<FF, LENGTH>;
 
     // round 0
-    transcript.template receive_from_prover<uint32_t>("data");
-    transcript.get_challenge("alpha");
+    transcript.template receive_from_prover<FF>("data");
+    transcript.template get_challenge<FF>("alpha");
 
     // round 1
     transcript.template receive_from_prover<FF>("scalar");
     transcript.template receive_from_prover<Commitment>("commitment");
-    transcript.get_challenges("beta, gamma");
+    transcript.template get_challenges<FF>("beta, gamma");
 
     // round 2
     transcript.template receive_from_prover<Univariate>("univariate");
-    transcript.get_challenges("gamma", "delta");
+    transcript.template get_challenges<FF>("gamma", "delta");
 }
 
 /**
@@ -107,7 +107,7 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     EXPECT_EQ(prover_transcript.get_manifest(), native_transcript.get_manifest());
 
     // Instantiate a stdlib Transcript and perform the same operations
-    Transcript<Builder> transcript{ &builder, proof_data };
+    StdlibTranscript transcript{ proof_data };
     perform_mock_verifier_transcript_operations<UltraRecursiveFlavor, LENGTH>(transcript);
 
     // Confirm that the native and stdlib verifier transcripts have generated the same manifest
@@ -148,7 +148,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     prover_transcript.send_to_verifier("scalar", scalar);
     prover_transcript.send_to_verifier("commitment", commitment);
     prover_transcript.send_to_verifier("evaluations", evaluations);
-    prover_transcript.get_challenges("alpha, beta");
+    prover_transcript.template get_challenges<FF>("alpha, beta");
     auto proof_data = prover_transcript.proof_data;
 
     // Perform the corresponding operations with the native verifier transcript
@@ -156,15 +156,15 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     auto native_scalar = native_transcript.template receive_from_prover<FF>("scalar");
     auto native_commitment = native_transcript.template receive_from_prover<Commitment>("commitment");
     auto native_evaluations = native_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
-    auto [native_alpha, native_beta] = native_transcript.get_challenges("alpha", "beta");
+    auto [native_alpha, native_beta] = native_transcript.template get_challenges<FF>("alpha", "beta");
 
     // Perform the same operations with the stdlib verifier transcript
-    Transcript<Builder> stdlib_transcript{ &builder, proof_data };
+    StdlibTranscript stdlib_transcript{ proof_data };
     auto stdlib_scalar = stdlib_transcript.template receive_from_prover<field_ct>("scalar");
     auto stdlib_commitment = stdlib_transcript.template receive_from_prover<element_ct>("commitment");
     auto stdlib_evaluations =
         stdlib_transcript.template receive_from_prover<std::array<field_ct, LENGTH>>("evaluations");
-    auto [stdlib_alpha, stdlib_beta] = stdlib_transcript.get_challenges("alpha", "beta");
+    auto [stdlib_alpha, stdlib_beta] = stdlib_transcript.template get_challenges<field_ct>("alpha", "beta");
 
     // Confirm that return values are equivalent
     EXPECT_EQ(native_scalar, stdlib_scalar.get_value());
