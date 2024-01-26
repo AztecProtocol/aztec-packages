@@ -360,8 +360,6 @@ pub fn contract_logic(
          * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
          */
 
-        // TODO(@spalladino): Add check here about class id
-
         // The logic below ensures that the contract exists in the contracts tree
         let computed_function_tree_root = function_tree_root_from_siblings(
             private_call.call_stack_item.function_data.selector,
@@ -382,9 +380,16 @@ pub fn contract_logic(
         );
 
         let purported_contract_tree_root = private_call.call_stack_item.public_inputs.block_header.contract_tree_root();
-        assert_eq(
-            computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root"
-        );
+        
+        // TODO(@spalladino): Re-enable this check using contract classes:
+        // - Compute the function_leaf
+        // - Compute the function_tree_root using the sibling path
+        // - Compute the contract_class_id (needs injecting artifact_hash and bytecode_commitment into kernel)
+        // - Compute the address using the class_id (needs injecting salted_initialization_hash and public_keys_hash)
+        
+        // assert_eq(
+        //     computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root"
+        // );
     }
 }
 
