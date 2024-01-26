@@ -8,7 +8,7 @@ custom_edit_url: null
 
 The `@aztec/accounts/defaults` export provides the base class [DefaultAccountContract](../classes/defaults.DefaultAccountContract.md) for implementing account contracts that use the default entrypoint payload module.
 
-Read more in [Writing an account contract](https://docs.aztec.network/dev_docs/wallets/writing_an_account_contract).
+Read more in [Writing an account contract](https://docs.aztec.network/developers/wallets/writing_an_account_contract).
 
 ## Classes
 

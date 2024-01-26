@@ -19,7 +19,7 @@ However if you’d rather skip this part, our dev-rels repo contains the starter
 
 - [node v18+](https://github.com/tj/n)
 - [docker](https://docs.docker.com/)
-- [Aztec sandbox](https://docs.aztec.network/dev_docs/getting_started/sandbox) - you should have this running before starting the tutorial
+- [Aztec sandbox](https://docs.aztec.network/developers/getting_started/sandbox) - you should have this running before starting the tutorial
 - [Aztec CLI](../../getting_started/quickstart.md)
 
 ```bash

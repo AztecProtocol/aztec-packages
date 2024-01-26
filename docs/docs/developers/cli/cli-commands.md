@@ -41,11 +41,11 @@ You can find more information about compiling contracts [on this page](../contra
 
 ## Creating Accounts
 
-The first thing we want to do is create a couple of accounts. We will use the `create-account` command which will generate a new private key for us, register the account on the sandbox, and deploy a simple account contract which [uses a single key for privacy and authentication](../../concepts/foundation/accounts/keys.md):
+The first thing we want to do is create a couple of accounts. We will use the `create-account` command which will generate a new private key for us, register the account on the sandbox, and deploy a simple account contract which [uses a single key for privacy and authentication](../../learn/concepts/accounts/keys.md):
 
 #include_code create-account yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
-Once the account is set up, the CLI returns the resulting address, its privacy key, and partial address. You can read more about these [here](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys).
+Once the account is set up, the CLI returns the resulting address, its privacy key, and partial address. You can read more about these [here](../../learn/concepts/accounts/keys.md#addresses-partial-addresses-and-public-keys).
 
 Save the Address and Private key as environment variables. We will be using them later.
 

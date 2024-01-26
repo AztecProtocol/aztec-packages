@@ -54,7 +54,7 @@ That's right, the Sandbox doesn't actually generate or verify any zk-SNARKs yet!
 
 The main goal of the Sandbox is to enable developers to experiment with building apps, and hopefully to provide feedback. We want the developer experience to be as fast as possible, much like how Ethereum developers use Ganache or Anvil to get super-fast block times, instead of the slow-but-realistic 12-second block times that they'll encounter in production. A fast Sandbox enables fast testing, which enables developers to iterate quickly.
 
-That's not to say a super-fast proving system isn't being worked on [as we speak](../../about_aztec/roadmap/cryptography_roadmap.md).
+That's not to say a super-fast proving system isn't being worked on [as we speak](../../misc/roadmap/cryptography_roadmap.md).
 
 #### What are the consequences?
 
@@ -209,13 +209,13 @@ Not only are there limits on a _per function_ basis, there are also limits on a 
 
 **In particular, these _per-transaction_ limits will limit transaction call stack depths** in the Sandbox. That means if a function call results in a cascade of nested function calls, and each of those function calls outputs lots of state reads and writes, or logs (etc.), then all of that accumulated output data might exceed the per-transaction limits that we currently have. This would cause such transactions to fail.
 
-There are plans to relax all of this rigidity, by providing many 'sizes' of [kernel circuit](../../concepts/advanced/circuits/kernels/main.md), and introducing a 'bus' to ferry varying lengths of data between kernel iterations. But that'll all take some time.
+There are plans to relax all of this rigidity, by providing many 'sizes' of [kernel circuit](../../learn/concepts/circuits/kernels/main.md), and introducing a 'bus' to ferry varying lengths of data between kernel iterations. But that'll all take some time.
 
 > **In the mean time**, if you encounter a per-transaction limit when testing, and you're feeling adventurous, you could 'hack' the Sandbox to increase the limits. See here (TODO: link) for a guide. **However**, the limits cannot be increased indefinitely. So although we do anticipate that we'll be able to increase them a little bit, don't go mad and provide yourself with 1 million state transitions per transaction. That would be as unrealistic as artificially increasing Ethereum gas limits to 1 trillion.
 
 ### Circuits Processing Order Differs from Execution Order
 
-Each function call is represented by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. In doing so, the processing order differs from the execution order. Firstly, the private kernel has to handle one function call in its entirety at a time because a zk proof cannot be verified partially. This property alone makes it impossible for the ordering of kernel circuit validation to match the order in which the functions of the transaction were executed. Secondly, the private kernel processes function calls in a stack-based order, i.e., after having processed a function call, it processes all direct child function calls in an order which is the reverse of the execution order.
+Each function call is represented by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../learn/concepts/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. In doing so, the processing order differs from the execution order. Firstly, the private kernel has to handle one function call in its entirety at a time because a zk proof cannot be verified partially. This property alone makes it impossible for the ordering of kernel circuit validation to match the order in which the functions of the transaction were executed. Secondly, the private kernel processes function calls in a stack-based order, i.e., after having processed a function call, it processes all direct child function calls in an order which is the reverse of the execution order.
 
 Note that there is no plan to change this in the future.
 
@@ -243,7 +243,7 @@ Transaction output elements such as notes in encrypted logs, note hashes (commit
 
 ### Chopped Transient Notes are still Emitted in Logs
 
-A note which is created and nullified during the very same transaction is called transient. Such a note is chopped by the [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) and is never stored in any persistent data tree.
+A note which is created and nullified during the very same transaction is called transient. Such a note is chopped by the [private kernel circuit](../../learn/concepts/circuits/kernels/private_kernel.md) and is never stored in any persistent data tree.
 
 For the time being, such chopped notes are still emitted through encrypted logs (which is the communication channel to transmit notes). When a log containing a chopped note is processed, a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurrence. However, this might be a source of confusion.
 This issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-packages/issues/1641).

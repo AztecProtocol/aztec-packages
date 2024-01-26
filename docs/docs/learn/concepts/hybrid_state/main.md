@@ -55,4 +55,4 @@ This is achieved with two main features:
 
 ## Further reading
 
-Read more about how to leverage the Aztec state model in Aztec contracts [here](../../../dev_docs/contracts/syntax/storage/main.md).
+Read more about how to leverage the Aztec state model in Aztec contracts [here](../../../developers/contracts/syntax/storage/main.md).

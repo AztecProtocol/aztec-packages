@@ -29,8 +29,9 @@ const sidebars = {
     },
 
     "welcome",
-    "learn/what_is_aztec",
-    "learn/technical_overview",
+    "learn/about_aztec/what_is_aztec",
+    "learn/about_aztec/vision",
+    "learn/about_aztec/technical_overview",
   
     {
       type: "html",
@@ -141,7 +142,7 @@ const sidebars = {
                 "learn/concepts/circuits/kernels/public_kernel",
               ],
             },
-            "learn/concepts/circuits/rollup_circuits",
+            "learn/concepts/circuits/rollup_circuits/main",
           ],
         },
         {

@@ -93,12 +93,12 @@ At the time of this writing, there are no events emitted when new private notes 
 
 ## Working with public state
 
-While [private and public state](../../../concepts/foundation/state_model/main.md) are fundamentally different, the API for working with private and public functions and state from `aztec.js` is equivalent. To query the balance in public tokens for our user accounts, we can just call the `balance_of_public` view function in the contract:
+While [private and public state](../../../learn/concepts/hybrid_state/main.md) are fundamentally different, the API for working with private and public functions and state from `aztec.js` is equivalent. To query the balance in public tokens for our user accounts, we can just call the `balance_of_public` view function in the contract:
 
 #include_code showPublicBalances yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
 :::info
-Since this we are working with pubic balances, we can now query the balance for any address, not just those registered in our local PXE. We can also send funds to addresses for which we don't know their [public encryption key](../../../concepts/foundation/accounts/keys.md#encryption-keys).
+Since this we are working with pubic balances, we can now query the balance for any address, not just those registered in our local PXE. We can also send funds to addresses for which we don't know their [public encryption key](../../../learn/concepts/accounts/keys.md#encryption-keys).
 :::
 
 Here, since the token contract does not mint any initial funds upon deployment, the balances for all of our user's accounts will be zero.

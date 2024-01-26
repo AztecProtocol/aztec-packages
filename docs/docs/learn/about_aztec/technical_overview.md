@@ -1,5 +1,5 @@
 ---
-title: Technical Overview
+title: Core Components
 ---
 
 Aztec Labs is building a layer 2 rollup on Ethereum focused on 3 things:
@@ -40,9 +40,9 @@ A user of the Aztec network will interact with the network through Aztec.js. Azt
 
 ### Private Execution Environment
 
-The PXE provides a secure environment for the execution of sensitive operations, ensuring private information and decrypted data are not accessible to unauthorized applications. It hides the details of the [state model](./state_model/main.md) from end users, but the state model is important for Aztec developers to understand as it has implications for [private/public execution](./communication/public_private_calls/main.md) and [L1/L2 communication](./communication/cross_chain_calls.md). The PXE also includes the [ACIR Simulator](../advanced/acir_simulator.md) for private executions and the KeyStore for secure key management.
+The PXE provides a secure environment for the execution of sensitive operations, ensuring private information and decrypted data are not accessible to unauthorized applications. It hides the details of the [state model](../concepts/hybrid_state/main.md) from end users, but the state model is important for Aztec developers to understand as it has implications for [private/public execution](../concepts/communication/public_private_calls/main.md) and [L1/L2 communication](../concepts/communication/cross_chain_calls.md). The PXE also includes the [ACIR Simulator](../concepts/pxe/acir_simulator.md) for private executions and the KeyStore for secure key management.
 
-Procedurally, the PXE sends results of private function execution and requests for public function executions to the [sequencer](./nodes_clients/sequencer.md), which will update the state of the rollup.
+Procedurally, the PXE sends results of private function execution and requests for public function executions to the [sequencer](../concepts/nodes_clients/sequencer/main.md), which will update the state of the rollup.
 
 ### Sequencer
 
@@ -50,8 +50,8 @@ The sequencer aggregates transactions into a block, generates proofs of the stat
 
 ## Further Reading
 
-- [The state model](./state_model/main.md)
-- [Accounts](./accounts/main.md)
-- [Aztec Smart Contracts](./contracts.md)
-- [Transactions](./transactions.md)
-- [Communication between network components](./communication/main.md)
+- [The state model](../concepts/hybrid_state/main.md)
+- [Accounts](../concepts/accounts/main.md)
+- [Aztec Smart Contracts](../concepts/smart_contracts/main.md)
+- [Transactions](../concepts/transactions.md)
+- [Communication between network components](../concepts/communication/main.md)

@@ -54,7 +54,7 @@ All of these issues have been discussed in the community for a while, and there 
 
 Adopting ERC20 for Aztec is not as simple as it might seem because of private state.
 
-If you recall from [State model](./../state_model/main.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
+If you recall from the [Hyrid State model](../hybrid_state/main.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
 
 If we were to implement the `approve` with an allowance in private, you might know the allowance, but unless you also know about the individual notes that make up the user's balances, it would be of no use to you! It is private after all. To spend the user's funds you would need to know the decryption key, see [keys for more](../accounts/keys.md). 
 
@@ -182,7 +182,7 @@ For the transfer, this could be done simply by appending a nonce to the argument
 action = H(defi, token, transfer_selector, H(alice_account, defi, 1000, nonce));
 ```
 
-Beware that the account contract will be unable to emit the nullifier since it is checked with a static call, so the calling contract must do it. This is similar to nonces in ERC20 tokens today. We provide a small library that handles this which we will see in the [developer documentation](./../../../dev_docs/contracts/resources/common_patterns/authwit.md).
+Beware that the account contract will be unable to emit the nullifier since it is checked with a static call, so the calling contract must do it. This is similar to nonces in ERC20 tokens today. We provide a small library that handles this which we will see in the [developer documentation](./../../../developers/contracts/resources/common_patterns/authwit.md).
 
 ### Differences to approval
 
@@ -196,4 +196,4 @@ We don't need to limit ourselves to the `transfer` function, we can use the same
 
 ### Next Steps
 
-Check out the [developer documentation](./../../../dev_docs/contracts/resources/common_patterns/authwit.md) to see how to implement this in your own contracts.
+Check out the [developer documentation](./../../../developers/contracts/resources/common_patterns/authwit.md) to see how to implement this in your own contracts.

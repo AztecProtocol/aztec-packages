@@ -107,7 +107,7 @@ This `init` function will be called every time we access `storage` in our functi
 
 The next step is to initialize the contract with a constructor. The constructor will take an address as a parameter and set the admin.
 
-All constructors must be private, and because the admin is in public storage, we cannot directly update it from the constructor. You can find more information about this [here](../../concepts/foundation/communication/public_private_calls/main.md).
+All constructors must be private, and because the admin is in public storage, we cannot directly update it from the constructor. You can find more information about this [here](../../learn/concepts/communication/public_private_calls/main.md).
 
 Therefore our constructor must call a public function by using `context.call_public_function()`. Paste this under the `impl` storage block:
 
@@ -141,7 +141,7 @@ Create a private function called `cast_vote`:
 
 #include_code cast_vote yarn-project/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like [nullifier secrets](../../concepts/foundation/accounts/keys.md#nullifier-secrets).
+In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like [nullifier secrets](../../learn/concepts/accounts/keys.md#nullifier-secrets).
 
 To do this, we make an [oracle call](../contracts/syntax/functions.md#oracle-functions) to fetch the caller's secret key, hash it to create a nullifier, and push the nullifier to Aztec. The `secret.high` and `secret.low` values here refer to how we divide a large [Grumpkin scalar](https://github.com/AztecProtocol/aztec-packages/blob/7fb35874eae3f2cad5cb922282a619206573592c/noir/noir_stdlib/src/grumpkin_scalar.nr) value into its higher and lower parts. This allows for faster cryptographic computations so our hash can still be secure but is calculated faster.
 
@@ -163,7 +163,7 @@ We will create a function that anyone can call that will return the number of vo
 
 #include_code get_vote yarn-project/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state. You can read more about unconstrained functions [here](../../concepts/advanced/acir_simulator.md#unconstrained-functions).
+We set it as `unconstrained` and do not annotate it because it is only reading from state. You can read more about unconstrained functions [here](../../learn/concepts/pxe/acir_simulator.md#unconstrained-functions).
 
 ## Allowing an admin to end a voting period
 

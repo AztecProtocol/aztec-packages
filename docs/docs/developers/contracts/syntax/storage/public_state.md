@@ -4,7 +4,7 @@ title: Public State
 
 On this page we will look at how to manage public state in Aztec contracts. We will look at how to declare public state, how to read and write to it, and how to use it in your contracts.
 
-For a higher level overview of the state model in Aztec, see the [state model](../../../../concepts/foundation/state_model/main.md) page, or jump back to the previous page on [Storage](./main.md).
+For a higher level overview of the state model in Aztec, see the [state model](../../../../learn/concepts/hybrid_state/main.md) page, or jump back to the previous page on [Storage](./main.md).
 
 ## Overview
 
@@ -14,7 +14,7 @@ The `PublicState` struct is generic over the variable type `T` and its serialize
 Currently, the length of the types must be specified when declaring the storage struct but the intention is that this will be inferred in the future.
 :::
 
-The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out _where_ in storage the variable is located. Notice that while we don't have the exact same [state model](../../../../concepts/foundation/state_model/main.md) as EVM chains it will look similar from the contract developers point of view.
+The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out _where_ in storage the variable is located. Notice that while we don't have the exact same [state model](../../../../learn/concepts/hybrid_state/main.md) as EVM chains it will look similar from the contract developers point of view.
 
 Beyond the struct, the `PublicState` also contains `serialization_methods`, which is a struct with methods that instruct the `PublicState` how to serialize and deserialize the variable. You can find the details of `PublicState` in the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec-nr/aztec/src/state_vars/public_state.nr).
 
@@ -50,7 +50,7 @@ We know its verbose, and are working on making it less so.
 
 #### Mapping example
 
-Say we want to have a group of `minters` that are able to mint assets in our contract, and we want them in public storage, because [access control in private is quite cumbersome](../../../../concepts/foundation/communication/public_private_calls/main.md#a-note-on-l2-access-control). In the `Storage` struct we can add it as follows:
+Say we want to have a group of `minters` that are able to mint assets in our contract, and we want them in public storage, because [access control in private is quite cumbersome](../../../../learn/concepts/communication/cross_chain_calls.md#a-note-on-l2-access-control). In the `Storage` struct we can add it as follows:
 
 #include_code storage_minters /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 

@@ -4,7 +4,7 @@ title: Private State
 
 On this page we will look at how to manage private state in Aztec contracts. We will look at how to declare private state, how to read and write to it, and how to use it in your contracts.
 
-For a higher level overview of the state model in Aztec, see the [state model](../../../../concepts/foundation/state_model/main.md) page, or jump back to the previous page on [Storage](./main.md).
+For a higher level overview of the state model in Aztec, see the [hybrid state model](../../../../learn/concepts/hybrid_state/main.md) page, or jump back to the previous page on [Storage](./main.md).
 
 ## Overview
 
@@ -12,7 +12,7 @@ In contrast to public state, private state is persistent state that is **not** v
 
 The value of a private state variable can either be shared via an [encrypted log](../events.md#encrypted-events), or offchain via web2, or completely offline: it's up to the app developer.
 
-Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_transaction_output)-based model. That is, a private state's current value is represented as one or many [notes](#notes). Each note is stored as an individual leaf in a utxo-based merkle tree: the [private state tree](../../../../concepts/advanced/data_structures/trees.md).
+Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_transaction_output)-based model. That is, a private state's current value is represented as one or many [notes](#notes). Each note is stored as an individual leaf in a utxo-based merkle tree: the [private state tree](../../../../learn/concepts/storage/trees/main.md).
 
 To greatly simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
 

@@ -48,7 +48,7 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways:
 
-1. For public storage that changes infrequently, use the slow updates tree! Learn more about it [here](../../../../concepts/foundation/communication/public_private_calls/slow_updates_tree.md).
+1. For public storage that changes infrequently, use the slow updates tree! Learn more about it [here](../../../../learn/concepts/communication/public_private_calls/slow_updates_tree.md).
 
 2. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
 
@@ -93,7 +93,7 @@ This pattern is discussed in detail in [writing a token contract section in the 
 
 ### Discovering my notes
 
-When you send someone a note, the note hash gets added to the [note hash tree](../../../../concepts/advanced/data_structures/trees#note-hash-tree). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
+When you send someone a note, the note hash gets added to the [note hash tree](../../../../learn/concepts/storage/trees#note-hash-tree). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
 1. When sending someone a note, use `emit_encrypted_log` (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../../syntax/events.md)
 2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`emit_encrypted_log` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public.
@@ -169,6 +169,6 @@ PS: when calling from private to public, `msg_sender` is the contract address wh
 
 In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
-E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../concepts/foundation/accounts/keys.md#nullifier-secrets). E.g.:
+E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../learn/concepts/accounts/keys.md#nullifier-secrets). E.g.:
 
 #include_code nullifier /yarn-project/aztec-nr/value-note/src/value_note.nr rust

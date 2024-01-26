@@ -132,7 +132,7 @@ nullifier = hash(note_hash, owner_secret_key);
 
 This has the property that it's inextricably linked to the Note it is nullifying, and it can only be derived by the owner of the `owner_public_key` contained within the Note. Ensuring that the secret key corresponds to the public key would be implemented in the Aztec contract.
 
-A smart contract that generates this nullifier and submits it to the network will only be allowed to submit it once; a second submission will be rejected by the base [Rollup Circuit](../circuits/rollup_circuits/main.md#base-rollup-circuit) (which performs Merkle non-membership checks against the Nullifier Tree). This prevents a Note from being 'deleted' twice.
+A smart contract that generates this nullifier and submits it to the network will only be allowed to submit it once; a second submission will be rejected by the base [Rollup Circuit](../../circuits/rollup_circuits/main.md) (which performs Merkle non-membership checks against the Nullifier Tree). This prevents a Note from being 'deleted' twice.
 
 :::note
 
@@ -171,7 +171,7 @@ This tree's data can only be read/written by the Sequencer, since only they can 
 
 ## Contract Tree
 
-The contract tree contains information about every function of every contract deployed to the Aztec network. This allows the [Kernel Circuits](../circuits/kernels/main.md) to validate that a function belongs to a specific contract.
+The contract tree contains information about every function of every contract deployed to the Aztec network. This allows the [Kernel Circuits](../../circuits/kernels/main.md) to validate that a function belongs to a specific contract.
 
 <Image img={require("/img/contract-tree.png")} />
 
@@ -211,7 +211,7 @@ HistoricalAccessTree --- Header
 
 ```
 
-It can also be used to find information about notes, public state, and contracts that were included in a certain block using [inclusion and non-inclusion proofs](../../../dev_docs/contracts/syntax/historical_access/how_to_prove_history.md).
+It can also be used to find information about notes, public state, and contracts that were included in a certain block using [inclusion and non-inclusion proofs](../../../../developers/contracts/syntax/historical_access/how_to_prove_history.md).
 
 ## Trees of valid Kernel/Rollup circuit Verification Keys
 

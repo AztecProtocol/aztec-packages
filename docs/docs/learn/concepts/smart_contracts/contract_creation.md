@@ -327,4 +327,4 @@ Adds initial public state variables to the public data tree.
 
 ## Further reading
 
-To see how to deploy a contract in practice, check out the [dapp development tutorial](../../dev_docs/tutorials/writing_dapp/main.md).
+To see how to deploy a contract in practice, check out the [dapp development tutorial](../../../developers/tutorials/writing_dapp/main.md).

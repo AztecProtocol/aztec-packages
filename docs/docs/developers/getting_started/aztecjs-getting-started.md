@@ -152,7 +152,7 @@ The sandbox is preloaded with multiple accounts so you don't have to sit and cre
 
 #include_code load_accounts /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
-An explanation on accounts on Aztec can be found [here](../../concepts/foundation/accounts/main.md).
+An explanation on accounts on Aztec can be found [here](../../learn/concepts/accounts/main.md).
 
 If you want more accounts, you can find instructions in the [Account creation section](../wallets/creating_schnorr_accounts.md).
 
@@ -268,7 +268,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 1. The sender.
 2. The recipient.
 3. The quantity of tokens to be transferred.
-4. The nonce for the [authentication witness](../../concepts//foundation/accounts/main.md#authorizing-actions), or 0 if msg.sender equal sender.
+4. The nonce for the [authentication witness](../../learn//concepts/accounts/main.md#authorizing-actions), or 0 if msg.sender equal sender.
 
 Here is the Typescript code to call the `transfer` function, add this to your `index.ts` at the bottom of the `main` function:
 
@@ -371,7 +371,7 @@ Our complete output should now be something like:
   token Bob's balance 10543 +43ms
 ```
 
-That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract. To see exactly what has happened here, you can learn about the transaction flow [here](../../concepts/foundation/transactions.md).
+That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract. To see exactly what has happened here, you can learn about the transaction flow [here](../../learn/concepts/transactions.md).
 
 ## Next Steps
 

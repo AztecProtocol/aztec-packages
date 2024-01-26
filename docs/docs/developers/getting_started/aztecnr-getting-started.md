@@ -223,7 +223,7 @@ Now you can explore.
 
 **Interested in learning more about how Aztec works under the hood?**
 
-Understand the high level architecture [here](../../concepts/foundation/main.md).
+Understand the high level architecture [here](../../learn/about_aztec/technical_overview.md).
 
 **Want to write more advanced smart contracts?**
 
@@ -231,4 +231,4 @@ Follow the token contract tutorial [here](../tutorials/writing_token_contract.md
 
 **Ready to dive into Aztec and Ethereum cross-chain communication?**
 
-Read the [Portals page](../../concepts/foundation/communication/cross_chain_calls.md) and learn how to practically implement portals in the [token bridge tutorial](../tutorials/token_portal/main.md).
+Read the [Portals page](../../learn/concepts/communication/cross_chain_calls.md) and learn how to practically implement portals in the [token bridge tutorial](../tutorials/token_portal/main.md).

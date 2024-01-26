@@ -68,7 +68,7 @@ def entryPoint(payload):
         enqueueCall(to, data, value, gasLimit);
 ```
 
-Read more about how to write an account contract [here](../../../dev_docs/wallets/writing_an_account_contract.md).
+Read more about how to write an account contract [here](../../../developers/wallets/writing_an_account_contract.md).
 
 ### Account contracts and wallets
 

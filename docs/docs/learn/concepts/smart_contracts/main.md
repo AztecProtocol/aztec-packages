@@ -23,4 +23,4 @@ There are no plans for EVM compatibility or to support Solidity in Aztec. The pr
 
 ## Further reading
 
-Read more about writing Aztec contracts [here](../../dev_docs/contracts/main.md).
+Read more about writing Aztec contracts [here](../../../developers/contracts/main.md).

@@ -70,4 +70,4 @@ Developers are used to instant state updates, so the Slow Updates Tree might tak
 
 ## Dive into the code
 
-For a code walkthrough of how a token blacklist contract can use a slow updates tree, read [this](../../../../dev_docs/contracts/syntax/slow_updates_tree.md).
+For a code walkthrough of how a token blacklist contract can use a slow updates tree, read [this](../../../../developers/contracts/syntax/slow_updates_tree.md).

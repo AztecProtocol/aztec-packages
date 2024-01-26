@@ -36,7 +36,7 @@ You cannot call a private function from a public function, but you can use a [sl
 
 ### Data types
 
-Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](../../concepts/advanced/data_structures/trees.md#note-hash-tree), and a nullifier is created when notes are invalidated.
+Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](../../learn/concepts/storage/trees/main.md#note-hash-tree), and a nullifier is created when notes are invalidated.
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger.
 
@@ -75,7 +75,7 @@ Every account in Aztec is a smart contract (account abstraction). This allows im
 
 You can write your own account contract to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed.
 
-Learn more about account contracts [here](../../concepts/foundation/accounts/main.md).
+Learn more about account contracts [here](../../learn/concepts/accounts/main.md).
 
 ## Noir Language
 
