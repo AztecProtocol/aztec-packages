@@ -1,5 +1,5 @@
 ---
-title: Core Concepts
+title: Concepts
 ---
 
 import Image from '@theme/IdealImage';
