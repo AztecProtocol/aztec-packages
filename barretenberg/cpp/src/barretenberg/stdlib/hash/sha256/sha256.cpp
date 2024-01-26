@@ -203,5 +203,6 @@ template packed_byte_array<bb::StandardCircuitBuilder> sha256(
 template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
 template packed_byte_array<bb::GoblinUltraCircuitBuilder> sha256(
     const packed_byte_array<bb::GoblinUltraCircuitBuilder>& input);
+template void generate_sha256_test_circuit(bb::UltraCircuitBuilder&, size_t);
 template void generate_sha256_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
 } // namespace bb::stdlib

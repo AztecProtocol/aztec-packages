@@ -7,6 +7,9 @@ set(BENCHMARK_SOURCES
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
   goblin
+  stdlib_sha256
+  stdlib_merkle_tree
+  stdlib_primitives
   benchmark::benchmark
 )
 

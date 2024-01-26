@@ -156,7 +156,7 @@ class GoblinMockCircuits {
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
 
-        construct_arithmetic_circuit(builder, 350000);
+        construct_arithmetic_circuit(builder, 1 << 10);
     }
 
     /**
