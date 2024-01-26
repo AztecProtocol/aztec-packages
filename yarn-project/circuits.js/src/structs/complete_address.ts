@@ -36,13 +36,9 @@ export class CompleteAddress {
   static readonly SIZE_IN_BYTES = 32 * 4;
 
   static create(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialAddress) {
-    const expectedAddress = computeContractAddressFromPartial({ publicKey, partialAddress });
-    if (!expectedAddress.equals(address)) {
-      throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
-      );
-    }
-    return new CompleteAddress(address, publicKey, partialAddress);
+    const completeAddress = new CompleteAddress(address, publicKey, partialAddress);
+    completeAddress.validate();
+    return completeAddress;
   }
 
   static random() {
@@ -66,6 +62,17 @@ export class CompleteAddress {
     const partialAddress = computePartialAddress(instance);
     const address = computeContractAddressFromPartial({ publicKey, partialAddress });
     return new CompleteAddress(address, publicKey, partialAddress);
+  }
+
+  /** Throws if the address is not correctly derived from the public key and partial address.*/
+  public validate() {
+    const expectedAddress = computeContractAddressFromPartial(this);
+    const address = this.address;
+    if (!expectedAddress.equals(address)) {
+      throw new Error(
+        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+      );
+    }
   }
 
   /**
