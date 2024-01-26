@@ -20,7 +20,7 @@ export const startArchiver = async (options: any, signalHandlers: (() => Promise
   // merge env vars and cli options
   const archiverConfig = mergeEnvVarsAndCliOptions<ArchiverConfig>(archiverConfigEnvVars, archiverCliOptions, true);
 
-  const store = await AztecLmdbStore.create(archiverConfig.l1Contracts.rollupAddress, archiverConfig.dataDirectory);
+  const store = await AztecLmdbStore.open(archiverConfig.l1Contracts.rollupAddress, archiverConfig.dataDirectory);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);
