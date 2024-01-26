@@ -55,12 +55,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
  */
 template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
 {
-    std::string in;
-    in.resize(32);
-    stdlib::packed_byte_array<Builder> input(&builder, in);
-    for (size_t i = 0; i < num_iterations; i++) {
-        input = stdlib::sha256<Builder>(input);
-    }
+    stdlib::generate_sha256_test_circuit(builder, num_iterations);
 }
 
 // WORKTODO: just get rid of these pass-throughs and call the mock circuit methods directly in ultra bench
@@ -72,7 +67,7 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
  */
 template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
 {
-    GoblinMockCircuits::generate_sha256_test_circuit(builder, num_iterations);
+    stdlib::keccak<Builder>::generate_test_circuit(builder, num_iterations);
 }
 
 /**
@@ -83,7 +78,7 @@ template <typename Builder> void generate_keccak_test_circuit(Builder& builder, 
  */
 template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations)
 {
-    GoblinMockCircuits::generate_ecdsa_verification_test_circuit(builder, num_iterations);
+    stdlib::generate_ecdsa_verification_test_circuit(builder, num_iterations);
 }
 
 /**
@@ -94,7 +89,7 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
  */
 template <typename Builder> void generate_merkle_membership_test_circuit(Builder& builder, size_t num_iterations)
 {
-    GoblinMockCircuits::generate_merkle_membership_test_circuit(builder, num_iterations);
+    stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, num_iterations);
 }
 
 // ultrahonk

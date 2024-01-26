@@ -6,9 +6,7 @@ set(BENCHMARK_SOURCES
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
-  ultra_honk
-  eccvm
-  stdlib_recursion
+  goblin
   benchmark::benchmark
 )
 

@@ -83,110 +83,6 @@ class GoblinMockCircuits {
     }
 
     /**
-     * @brief Generate test circuit with specified number of sha256 hashes
-     *
-     * @param builder
-     * @param num_iterations
-     */
-    template <typename Builder> static void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
-    {
-        std::string in;
-        in.resize(32);
-        stdlib::packed_byte_array<Builder> input(&builder, in);
-        for (size_t i = 0; i < num_iterations; i++) {
-            input = stdlib::sha256<Builder>(input);
-        }
-    }
-
-    /**
-     * @brief Generate test circuit with specified number of ecdsa verifications
-     *
-     * @param builder
-     * @param num_iterations
-     */
-    template <typename Builder>
-    static void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations)
-    {
-        using curve = stdlib::secp256k1<Builder>;
-        using fr = typename curve::fr;
-        using fq = typename curve::fq;
-        using g1 = typename curve::g1;
-
-        std::string message_string = "Instructions unclear, ask again later.";
-
-        crypto::ecdsa_key_pair<fr, g1> account;
-        for (size_t i = 0; i < num_iterations; i++) {
-            // Generate unique signature for each iteration
-            account.private_key = curve::fr::random_element();
-            account.public_key = curve::g1::one * account.private_key;
-
-            crypto::ecdsa_signature signature =
-                crypto::ecdsa_construct_signature<Sha256Hasher, fq, fr, g1>(message_string, account);
-
-            bool first_result =
-                crypto::ecdsa_verify_signature<Sha256Hasher, fq, fr, g1>(message_string, account.public_key, signature);
-            static_cast<void>(first_result); // TODO(Cody): This is not used anywhere.
-
-            std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
-            std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-            uint8_t vv = signature.v;
-
-            typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
-
-            stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                                  typename curve::byte_array_ct(&builder, ss),
-                                                  stdlib::uint8<Builder>(&builder, vv) };
-
-            typename curve::byte_array_ct message(&builder, message_string);
-
-            // Verify ecdsa signature
-            stdlib::ecdsa_verify_signature<Builder,
-                                           curve,
-                                           typename curve::fq_ct,
-                                           typename curve::bigfr_ct,
-                                           typename curve::g1_bigfr_ct>(message, public_key, sig);
-        }
-    }
-
-    /**
-     * @brief Generate test circuit with specified number of merkle membership checks
-     *
-     * @param builder
-     * @param num_iterations
-     */
-    template <typename Builder>
-    static void generate_merkle_membership_test_circuit(Builder& builder, size_t num_iterations)
-    {
-        using namespace stdlib;
-        using field_ct = field_t<Builder>;
-        using witness_ct = witness_t<Builder>;
-        using witness_ct = witness_t<Builder>;
-        using MemStore = merkle_tree::MemoryStore;
-        using MerkleTree_ct = merkle_tree::MerkleTree<MemStore>;
-
-        MemStore store;
-        const size_t tree_depth = 7;
-        auto merkle_tree = MerkleTree_ct(store, tree_depth);
-
-        for (size_t i = 0; i < num_iterations; i++) {
-            // For each iteration update and check the membership of a different value
-            size_t idx = i;
-            size_t value = i * 2;
-            merkle_tree.update_element(idx, value);
-
-            field_ct root_ct = witness_ct(&builder, merkle_tree.root());
-            auto idx_ct = field_ct(witness_ct(&builder, fr(idx))).decompose_into_bits();
-            auto value_ct = field_ct(value);
-
-            merkle_tree::check_membership(
-                root_ct,
-                merkle_tree::create_witness_hash_path(builder, merkle_tree.get_hash_path(idx)),
-                value_ct,
-                idx_ct);
-        }
-    }
-
-    /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
      * @details Although the details of the circuit constructed here are arbitrary, the intent is to mock something a
      * bit more realistic than a circuit comprised entirely of arithmetic gates. E.g. the circuit should respond
@@ -197,14 +93,14 @@ class GoblinMockCircuits {
     static void construct_mock_function_circuit(GoblinUltraBuilder& builder)
     {
         // WORKTODO: decide what to put here and how best to control circuit size
-        // generate_sha256_test_circuit(builder, /*num_iterations=*/1);
-        // generate_ecdsa_verification_test_circuit(builder, /*num_iterations=*/1);
-        // generate_merkle_membership_test_circuit(builder, /*num_iterations=*/1);
+        stdlib::generate_sha256_test_circuit(builder, /*num_iterations=*/1);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, /*num_iterations=*/1);
+        stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, /*num_iterations=*/1);
         construct_arithmetic_circuit(builder, 1 << 4);
 
         // WORKTODO: its not clear whether goblin ops will be supported for function circuits initially but for UGH can
         // only be used if some op gates are included so for now we'll assume each function circuit has some.
-        construct_goblin_ecc_op_circuit(builder); //
+        construct_goblin_ecc_op_circuit(builder);
     }
 
     /**
