@@ -31,7 +31,7 @@ describe('Private kernel', () => {
     logger = createDebugLogger('noir-private-kernel');
   });
 
-  // Taken from e2e_nested_contract => performs nested calls => first deployment
+  // Taken from e2e_nested_contract => performs nested calls => first init (corresponds to deployment)
   // To regenerate fixture data run the following on the yarn-project/e2e folder
   // AZTEC_GENERATE_TEST_DATA=1 yarn test e2e_nested_contract -t 'performs nested calls'
   it('Executes private kernel init circuit for a contract deployment', async () => {
@@ -40,6 +40,10 @@ describe('Private kernel', () => {
     const filepath = resolve(dirname(fileURLToPath(import.meta.url)), './fixtures/nested-call-private-kernel-init.hex');
     const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
     const kernelInputs = PrivateKernelInputsInit.fromBuffer(serialized);
+
+    if (!kernelInputs.txRequest.txContext.isContractDeploymentTx) {
+      throw new Error('Test data is not for a contract deployment');
+    }
 
     const kernelOutputs = await executeInit(kernelInputs);
 
