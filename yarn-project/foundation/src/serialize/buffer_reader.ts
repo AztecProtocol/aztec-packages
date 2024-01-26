@@ -55,12 +55,12 @@ export class BufferReader {
   }
 
   /**
-   * Reads `size` 32-bit unsigned integers from the buffer at the current index position.
-   * @param size - The number of 32-bit unsigned integers to read.
+   * Reads `count` 32-bit unsigned integers from the buffer at the current index position.
+   * @param count - The number of 32-bit unsigned integers to read.
    * @returns An array of 32-bit unsigned integers.
    */
-  public readNumbers<N extends number>(size: N): Tuple<number, N> {
-    const result = Array.from({ length: size }, () => this.readNumber());
+  public readNumbers<N extends number>(count: N): Tuple<number, N> {
+    const result = Array.from({ length: count }, () => this.readNumber());
     return result as Tuple<number, N>;
   }
 
