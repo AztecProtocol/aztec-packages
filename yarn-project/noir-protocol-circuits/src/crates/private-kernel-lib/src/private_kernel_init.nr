@@ -7,6 +7,7 @@ use dep::types::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
+    address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
     traits::is_empty_array,
@@ -122,15 +123,14 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            complete_address::CompleteAddress,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             nullifier_key_validation_request::NullifierKeyValidationRequest,
             private_kernel::private_call_data::PrivateCallData,
             side_effect::{SideEffect, SideEffectLinkedToNoteHash},
         },
-        address::AztecAddress,
         grumpkin_point::GrumpkinPoint,
         grumpkin_private_key::GrumpkinPrivateKey,
+        address::{AztecAddress, compute_initialization_hash},
         hash::{
             compute_constructor_hash,
             compute_logs_hash,
@@ -187,18 +187,20 @@ mod tests {
         assert_eq(public_inputs.end.new_contracts.len(), 1);
         let cdd = tx_request.tx_context.contract_deployment_data;
 
-        let private_circuit_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
-        let constructor_hash = compute_constructor_hash(
-            tx_request.function_data,
+        let computed_initialization_hash = compute_initialization_hash(
+            tx_request.function_data.selector.to_field(),
             tx_request.args_hash,
-            private_circuit_vk_hash
         );
-        let contract_address = CompleteAddress::compute(
+        assert(
+            computed_initialization_hash == cdd.initialization_hash, "initialization hash does not match computed one"
+        );
+        let contract_address = AztecAddress::compute_from_public_key(
             cdd.public_key,
-            cdd.contract_address_salt,
             cdd.contract_class_id,
-            constructor_hash
-        ).address;
+            cdd.contract_address_salt,
+            cdd.initialization_hash,
+            cdd.portal_contract_address,
+        );
         assert(public_inputs.end.new_contracts[0].contract_address.eq(contract_address));
     }
 

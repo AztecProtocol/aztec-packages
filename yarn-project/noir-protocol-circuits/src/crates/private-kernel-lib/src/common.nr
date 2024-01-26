@@ -2,7 +2,6 @@ use dep::types::{
     abis::{
         call_request::CallRequest,
         combined_accumulated_data::CombinedAccumulatedData,
-        complete_address::CompleteAddress,
         function_data::FunctionData,
         kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder,
         membership_witness::ReadRequestMembershipWitness,
@@ -13,7 +12,7 @@ use dep::types::{
         previous_kernel_data::PreviousKernelData,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    address::{AztecAddress, EthAddress},
+    address::{AztecAddress, EthAddress, compute_initialization_hash},
     contrakt::deployment_data::ContractDeploymentData,
     constants::{
         MAX_NEW_NULLIFIERS_PER_CALL,
@@ -313,18 +312,19 @@ pub fn contract_logic(
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     if is_contract_deployment {
-        //TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) use locally computed private_call_vk_hash here
-        let constructor_hash = compute_constructor_hash(
-            function_data,
-            private_call_public_inputs.args_hash,
-            contract_dep_data.initialization_hash
+        let computed_initialization_hash = compute_initialization_hash(function_data.selector.to_field(), private_call_public_inputs.args_hash);
+
+        assert(
+            computed_initialization_hash == contract_dep_data.initialization_hash, "initialization hash does not match computed one"
         );
-        let new_contract_address = CompleteAddress::compute(
+
+        let new_contract_address = AztecAddress::compute_from_public_key(
             contract_dep_data.public_key,
-            contract_dep_data.contract_address_salt,
             contract_dep_data.contract_class_id,
-            constructor_hash
-        ).address;
+            contract_dep_data.contract_address_salt,
+            contract_dep_data.initialization_hash,
+            contract_dep_data.portal_contract_address,
+        );
 
         let new_contract_data = NewContractData {
             contract_address: new_contract_address,

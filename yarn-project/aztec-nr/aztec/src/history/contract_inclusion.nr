@@ -1,6 +1,5 @@
 use dep::protocol_types::{
     abis::{
-        complete_address::CompleteAddress,
         new_contract_data::NewContractData as ContractLeafPreimage,
     },
     address::{AztecAddress, EthAddress},
@@ -34,12 +33,13 @@ pub fn prove_contract_inclusion(
     let block_header = context.get_block_header(block_number);
 
     // 2) Compute the contract address
-    let contract_address = CompleteAddress::compute(
+    let contract_address = AztecAddress::compute_from_public_key(
         public_key,
-        contract_address_salt,
         contract_class_id,
-        initialization_hash
-    ).address;
+        contract_address_salt,
+        initialization_hash,
+        portal_contract_address,
+    );
 
     // 3) Form the contract tree leaf preimage
     let preimage = ContractLeafPreimage { contract_address, portal_contract_address, contract_class_id };

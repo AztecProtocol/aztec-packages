@@ -1,4 +1,3 @@
-use crate::abis::complete_address::CompleteAddress;
 use crate::grumpkin_point::GrumpkinPoint;
 use crate::transaction::request::TxRequest;
 use crate::address::{AztecAddress, EthAddress};
@@ -13,29 +12,22 @@ use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 use crate::abis::side_effect::SideEffect;
 
 #[test]
-fn compute_complete_address() {
+fn compute_address() {
     let point = GrumpkinPoint { x: 1, y: 2 };
     let contract_address_salt = 3;
     let contract_class_id = 4;
-    let constructor_hash = 5;
+    let initialization_hash = 5;
+    let portal_contract_address = EthAddress::from_field(6);
 
-    let complete_address = CompleteAddress::compute(
+    let address = AztecAddress::compute_from_public_key(
         point,
-        contract_address_salt,
         contract_class_id,
-        constructor_hash
+        contract_address_salt,
+        initialization_hash,
+        portal_contract_address
     );
 
-    assert(
-        complete_address.partial_address.to_field()
-        == 0x197673f31940878b2d6c681223dbed9cfacd2f722cbe30155225b2ada17778db
-    );
-    assert(
-        complete_address.address.to_field()
-        == 0x1a6e89b034478713c7a9f1c77fb80af995f708f6f208bf352b4dda2124739109
-    );
-    assert(complete_address.public_key.x == 1);
-    assert(complete_address.public_key.y == 2);
+    assert(address.to_field() == 0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123);
 }
 
 #[test]

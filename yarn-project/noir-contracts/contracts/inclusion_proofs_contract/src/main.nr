@@ -232,7 +232,7 @@ contract InclusionProofs {
         public_key: GrumpkinPoint,
         contract_address_salt: Field,
         contract_class_id: Field,
-        constructor_hash: Field,
+        initialization_hash: Field,
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
@@ -240,7 +240,7 @@ contract InclusionProofs {
             public_key,
             contract_address_salt,
             contract_class_id,
-            constructor_hash,
+            initialization_hash,
             portal_contract_address,
             block_number,
             context
