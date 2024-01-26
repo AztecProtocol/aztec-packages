@@ -1,7 +1,7 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::{map::Map, public_state::PublicState};
 use dep::aztec::types::type_serialization::bool_serialization::{BoolSerializationMethods,BOOL_SERIALIZED_LEN};
-use dep::aztec::protocol_types::constants::{PHASE_APPLICATION_LOGIC, PHASE_FEE_DISTRIBUTION};
+use dep::aztec::protocol_types::constants::{PHASE_FEE_PREP, PHASE_APPLICATION_LOGIC, PHASE_FEE_DISTRIBUTION};
 
 use crate::entrypoint::EntrypointPayload;
 use crate::fee::FeePayload;
@@ -40,6 +40,8 @@ impl AccountActions {
   pub fn entrypoint(self, app_payload: EntrypointPayload, fee_payload: FeePayload) {
     let valid_fn = self.is_valid_impl;
     let private_context = self.context.private.unwrap();
+
+    private_context.set_phase(PHASE_FEE_PREP);
 
     let fee_message_hash = fee_payload.hash();
     assert(valid_fn(private_context, fee_message_hash));

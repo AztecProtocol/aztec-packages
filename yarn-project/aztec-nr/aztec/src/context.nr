@@ -26,9 +26,6 @@ use dep::protocol_types::{
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
-        PHASE_FEE_PREP,
-        PHASE_APPLICATION_LOGIC,
-        PHASE_FEE_DISTRIBUTION,
         RETURN_VALUES_LENGTH,
     },
     contrakt::{
@@ -101,12 +98,7 @@ struct PrivateContext {
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         let start_side_effect_counter = inputs.call_context.start_side_effect_counter;
-        let mut phase_watermarks = BoundedVec::new(SideEffect::empty());
-        phase_watermarks.push(SideEffect {
-            value: PHASE_FEE_PREP,
-            counter: start_side_effect_counter,
-        });
-
+        let phase_watermarks = BoundedVec::new(SideEffect::empty());
 
         PrivateContext {
             inputs: inputs,
@@ -237,7 +229,7 @@ impl PrivateContext {
     }
 
     // docs:start:context_message_portal
-    pub fn message_portal(&mut self, content: Field) 
+    pub fn message_portal(&mut self, content: Field)
     // docs:end:context_message_portal
     {
         self.new_l2_to_l1_msgs.push(content);
@@ -252,7 +244,7 @@ impl PrivateContext {
         msg_key: Field,
         content: Field,
         secret: Field
-    ) 
+    )
     // docs:end:context_consume_l1_to_l2_message
     {
         let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_message_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
@@ -276,8 +268,8 @@ impl PrivateContext {
 
     pub fn call_private_function<ARGS_COUNT>(
         &mut self,
-        contract_address: AztecAddress, 
-        function_selector: FunctionSelector, 
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
@@ -287,8 +279,8 @@ impl PrivateContext {
 
     pub fn call_private_function_no_args(
         &mut self,
-        contract_address: AztecAddress, 
-        function_selector: FunctionSelector, 
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
     ) -> [Field; RETURN_VALUES_LENGTH] {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0)
     }
@@ -301,7 +293,7 @@ impl PrivateContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let fields = call_private_function_internal(
             contract_address,
-            function_selector, 
+            function_selector,
             args_hash,
             self.side_effect_counter,
         );
@@ -352,7 +344,7 @@ impl PrivateContext {
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: GrumpkinPoint {
-                      x: reader.read(), 
+                      x: reader.read(),
                       y: reader.read()
                     },
                     constructor_vk_hash : reader.read(),
@@ -370,7 +362,7 @@ impl PrivateContext {
 
         assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
-        
+
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
 
@@ -395,8 +387,8 @@ impl PrivateContext {
 
     pub fn call_public_function<ARGS_COUNT>(
         &mut self,
-        contract_address: AztecAddress, 
-        function_selector: FunctionSelector, 
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args(args);
@@ -406,7 +398,7 @@ impl PrivateContext {
 
     pub fn call_public_function_no_args(
         &mut self,
-        contract_address: AztecAddress, 
+        contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0)
@@ -419,8 +411,8 @@ impl PrivateContext {
         args_hash: Field
     ) {
         let fields = enqueue_public_function_call_internal(
-            contract_address, 
-            function_selector, 
+            contract_address,
+            function_selector,
             args_hash,
             self.side_effect_counter
         );
@@ -469,7 +461,7 @@ impl PrivateContext {
         assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
         // We increment the sideffect counter by one, to account for the call itself being a side effect.
         self.side_effect_counter = self.side_effect_counter + 1;
-        
+
         assert(args_hash == item.public_inputs.args_hash);
 
         // Assert that the call context of the enqueued call generated by the oracle matches our request.
@@ -529,7 +521,7 @@ impl PublicContext {
 
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
-            
+
             unencrypted_logs_hash: BoundedVec::new(0),
             unencrypted_logs_preimages_length: 0,
 
@@ -646,27 +638,27 @@ impl PublicContext {
 
     pub fn call_public_function<ARGS_COUNT>(
         _self: Self,
-        contract_address: AztecAddress, 
+        contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         call_public_function_internal(
-            contract_address, 
-            function_selector, 
+            contract_address,
+            function_selector,
             args_hash,
         )
     }
 
     pub fn call_public_function_no_args(
         _self: Self,
-        contract_address: AztecAddress, 
+        contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) -> [Field; RETURN_VALUES_LENGTH] {
         call_public_function_internal(
-            contract_address, 
-            function_selector, 
+            contract_address,
+            function_selector,
             0,
         )
     }
