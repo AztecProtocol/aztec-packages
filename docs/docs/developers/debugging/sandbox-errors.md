@@ -13,7 +13,7 @@ This section contains a list of errors you may encounter when using Aztec Sandbo
 
 ### Kernel Circuits
 
-We have several versions of public and private kernels as explained in [our circuits section](../../learn/concepts/circuits/kernels/main.md). Certain things are only possible in certain versions of the circuits. So always ensure that the right version is being used for proof generation. For example, there is a specific version of the public kernel that only works if the previous kernel iteration was a private kernel. Similarly there is one that only works if the previous kernel was public.
+We have several versions of public and private kernels as explained in [our circuits section](../../learn/concepts/circuits/main.md). Certain things are only possible in certain versions of the circuits. So always ensure that the right version is being used for proof generation. For example, there is a specific version of the public kernel that only works if the previous kernel iteration was a private kernel. Similarly there is one that only works if the previous kernel was public.
 
 Remember that for each function call (i.e. each item in the call stack), there is a new kernel iteration that gets run.
 

@@ -171,7 +171,7 @@ This tree's data can only be read/written by the Sequencer, since only they can 
 
 ## Contract Tree
 
-The contract tree contains information about every function of every contract deployed to the Aztec network. This allows the [Kernel Circuits](../../circuits/kernels/main.md) to validate that a function belongs to a specific contract.
+The contract tree contains information about every function of every contract deployed to the Aztec network. This allows the [Kernel Circuits](../../circuits/main.md) to validate that a function belongs to a specific contract.
 
 <Image img={require("/img/contract-tree.png")} />
 

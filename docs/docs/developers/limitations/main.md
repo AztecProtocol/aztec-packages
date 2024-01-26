@@ -209,7 +209,7 @@ Not only are there limits on a _per function_ basis, there are also limits on a 
 
 **In particular, these _per-transaction_ limits will limit transaction call stack depths** in the Sandbox. That means if a function call results in a cascade of nested function calls, and each of those function calls outputs lots of state reads and writes, or logs (etc.), then all of that accumulated output data might exceed the per-transaction limits that we currently have. This would cause such transactions to fail.
 
-There are plans to relax all of this rigidity, by providing many 'sizes' of [kernel circuit](../../learn/concepts/circuits/kernels/main.md), and introducing a 'bus' to ferry varying lengths of data between kernel iterations. But that'll all take some time.
+There are plans to relax all of this rigidity, by providing many 'sizes' of [kernel circuit](../../learn/concepts/circuits/main.md), and introducing a 'bus' to ferry varying lengths of data between kernel iterations. But that'll all take some time.
 
 > **In the mean time**, if you encounter a per-transaction limit when testing, and you're feeling adventurous, you could 'hack' the Sandbox to increase the limits. See here (TODO: link) for a guide. **However**, the limits cannot be increased indefinitely. So although we do anticipate that we'll be able to increase them a little bit, don't go mad and provide yourself with 1 million state transitions per transaction. That would be as unrealistic as artificially increasing Ethereum gas limits to 1 trillion.
 

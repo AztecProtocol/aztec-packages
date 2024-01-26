@@ -155,7 +155,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 
 ### Private functions
 
-These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](../../learn/concepts/storage/trees#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
+These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](../../learn/concepts/storage/trees/main.md#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
 - `redeem_shield` enables accounts to claim tokens that have been made private via `mint_private` or `shield` by providing the secret
 - `unshield` enables an account to send tokens from their private balance to any other account's public balance
