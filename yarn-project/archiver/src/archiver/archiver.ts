@@ -15,7 +15,7 @@ import {
   LogType,
   TxHash,
 } from '@aztec/circuit-types';
-import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, getContractClassId } from '@aztec/circuits.js';
+import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';

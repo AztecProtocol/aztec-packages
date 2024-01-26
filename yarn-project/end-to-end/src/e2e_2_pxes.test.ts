@@ -4,7 +4,6 @@ import {
   AztecNode,
   CompleteAddress,
   DebugLogger,
-  EthAddress,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
