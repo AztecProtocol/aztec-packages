@@ -220,11 +220,6 @@ impl GeneratedAcir {
                 input2_y: inputs[3][0],
                 outputs: (outputs[0], outputs[1]),
             },
-            BlackBoxFunc::EmbeddedCurveDouble => BlackBoxFuncCall::EmbeddedCurveDouble {
-                input_x: inputs[0][0],
-                input_y: inputs[1][0],
-                outputs: (outputs[0], outputs[1]),
-            },
             BlackBoxFunc::Keccak256 => {
                 let var_message_size = match inputs.to_vec().pop() {
                     Some(var_message_size) => var_message_size[0],
@@ -280,6 +275,11 @@ impl GeneratedAcir {
             BlackBoxFunc::BigIntToLeBytes => BlackBoxFuncCall::BigIntToLeBytes {
                 input: constant_inputs[0].to_u128() as u32,
                 outputs,
+            },
+            BlackBoxFunc::Poseidon2Permutation => BlackBoxFuncCall::Poseidon2Permutation {
+                inputs: inputs[0].clone(),
+                outputs,
+                len: constant_inputs[0].to_u128() as u32,
             },
         };
 
@@ -614,6 +614,8 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         | BlackBoxFunc::PedersenHash => None,
 
         BlackBoxFunc::Keccakf1600 => Some(25),
+        // The permutation takes a fixed number of inputs, but the inputs length depends on the proving system implementation.
+        BlackBoxFunc::Poseidon2Permutation => None,
 
         // Can only apply a range constraint to one
         // witness at a time.
@@ -634,9 +636,6 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
 
         // Addition over the embedded curve: input are coordinates (x1,y1) and (x2,y2) of the Grumpkin points
         BlackBoxFunc::EmbeddedCurveAdd => Some(4),
-
-        // Doubling over the embedded curve: input is (x,y) coordinate of the point.
-        BlackBoxFunc::EmbeddedCurveDouble => Some(2),
 
         // Big integer operations take in 0 inputs. They use constants for their inputs.
         BlackBoxFunc::BigIntAdd
@@ -665,6 +664,8 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         | BlackBoxFunc::Blake3 => Some(32),
 
         BlackBoxFunc::Keccakf1600 => Some(25),
+        // The permutation returns a fixed number of outputs, equals to the inputs length which depends on the proving system implementation.
+        BlackBoxFunc::Poseidon2Permutation => None,
 
         // Pedersen commitment returns a point
         BlackBoxFunc::PedersenCommitment => Some(2),
@@ -683,9 +684,7 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
 
         // Output of operations over the embedded curve
         // will be 2 field elements representing the point.
-        BlackBoxFunc::FixedBaseScalarMul
-        | BlackBoxFunc::EmbeddedCurveAdd
-        | BlackBoxFunc::EmbeddedCurveDouble => Some(2),
+        BlackBoxFunc::FixedBaseScalarMul | BlackBoxFunc::EmbeddedCurveAdd => Some(2),
 
         // Big integer operations return a big integer
         BlackBoxFunc::BigIntAdd

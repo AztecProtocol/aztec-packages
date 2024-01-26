@@ -47,8 +47,6 @@ pub enum BlackBoxFunc {
     RecursiveAggregation,
     /// Addition over the embedded curve on which [`FieldElement`][acir_field::FieldElement] is defined.
     EmbeddedCurveAdd,
-    /// Point doubling over the embedded curve on which [`FieldElement`][acir_field::FieldElement] is defined.
-    EmbeddedCurveDouble,
     /// BigInt addition
     BigIntAdd,
     /// BigInt subtraction
@@ -61,6 +59,8 @@ pub enum BlackBoxFunc {
     BigIntFromLeBytes,
     /// BigInt to le bytes
     BigIntToLeBytes,
+    /// Permutation function of Poseidon2
+    Poseidon2Permutation,
 }
 
 impl std::fmt::Display for BlackBoxFunc {
@@ -81,7 +81,6 @@ impl BlackBoxFunc {
             BlackBoxFunc::EcdsaSecp256k1 => "ecdsa_secp256k1",
             BlackBoxFunc::FixedBaseScalarMul => "fixed_base_scalar_mul",
             BlackBoxFunc::EmbeddedCurveAdd => "embedded_curve_add",
-            BlackBoxFunc::EmbeddedCurveDouble => "embedded_curve_double",
             BlackBoxFunc::AND => "and",
             BlackBoxFunc::XOR => "xor",
             BlackBoxFunc::RANGE => "range",
@@ -95,6 +94,7 @@ impl BlackBoxFunc {
             BlackBoxFunc::BigIntDiv => "bigint_div",
             BlackBoxFunc::BigIntFromLeBytes => "bigint_from_le_bytes",
             BlackBoxFunc::BigIntToLeBytes => "bigint_to_le_bytes",
+            BlackBoxFunc::Poseidon2Permutation => "poseidon2_permutation",
         }
     }
 
@@ -110,7 +110,6 @@ impl BlackBoxFunc {
             "ecdsa_secp256r1" => Some(BlackBoxFunc::EcdsaSecp256r1),
             "fixed_base_scalar_mul" => Some(BlackBoxFunc::FixedBaseScalarMul),
             "embedded_curve_add" => Some(BlackBoxFunc::EmbeddedCurveAdd),
-            "embedded_curve_double" => Some(BlackBoxFunc::EmbeddedCurveDouble),
             "and" => Some(BlackBoxFunc::AND),
             "xor" => Some(BlackBoxFunc::XOR),
             "range" => Some(BlackBoxFunc::RANGE),
@@ -123,6 +122,7 @@ impl BlackBoxFunc {
             "bigint_div" => Some(BlackBoxFunc::BigIntDiv),
             "bigint_from_le_bytes" => Some(BlackBoxFunc::BigIntFromLeBytes),
             "bigint_to_le_bytes" => Some(BlackBoxFunc::BigIntToLeBytes),
+            "poseidon2_permutation" => Some(BlackBoxFunc::Poseidon2Permutation),
             _ => None,
         }
     }
