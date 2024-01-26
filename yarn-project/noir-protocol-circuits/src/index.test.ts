@@ -42,9 +42,8 @@ describe('Private kernel', () => {
     const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
     const kernelInputs = PrivateKernelInputsInit.fromBuffer(serialized);
 
-    if (!kernelInputs.txRequest.txContext.isContractDeploymentTx) {
-      throw new Error('Test data is not for a contract deployment');
-    }
+    // We check that the test data is for a contract deployment
+    expect(kernelInputs.txRequest.txContext.isContractDeploymentTx).toBe(true);
 
     const kernelOutputs = await executeInit(kernelInputs);
 
