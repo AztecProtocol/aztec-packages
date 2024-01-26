@@ -305,7 +305,7 @@ export function computeBlockHashWithGlobals(
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
-// TODO(benesjan): nuke this and replace with `Header.hash()`
+// TODO(#3941): nuke this and replace with `Header.hash()`
 export function computeBlockHash(
   globalsHash: Fr,
   noteHashTreeRoot: Fr,
