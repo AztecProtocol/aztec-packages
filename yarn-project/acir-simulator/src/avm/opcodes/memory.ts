@@ -7,12 +7,12 @@ export class Set extends Instruction {
   static type: string = 'SET';
   static numberOfOperands = 3;
 
-  constructor(private dstTag: TypeTag, private value: bigint, private dstOffset: number) {
+  constructor(private inTag: TypeTag, private value: bigint, private dstOffset: number) {
     super();
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const res = TaggedMemory.integralFromTag(this.value, this.dstTag);
+    const res = TaggedMemory.integralFromTag(this.value, this.inTag);
 
     machineState.memory.set(this.dstOffset, res);
 
