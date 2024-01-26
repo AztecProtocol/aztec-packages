@@ -147,9 +147,10 @@ template <typename TranscriptParams> class BaseTranscript {
      *
      * @param proof_data
      */
-    explicit BaseTranscript(const honk::proof& proof_data)
+    explicit BaseTranscript(const Proof& proof_data)
         : proof_data(proof_data.begin(), proof_data.end())
     {}
+
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
@@ -431,6 +432,16 @@ template <typename TranscriptParams> class BaseTranscript {
 
     void print() { manifest.print(); }
 };
+
+template <typename Builder>
+static bb::honk::StdlibProof<Builder> convert_proof_to_witness(Builder* builder, const bb::honk::proof& proof)
+{
+    bb::honk::StdlibProof<Builder> result;
+    for (const auto& element : proof) {
+        result.push_back(bb::stdlib::field_t<Builder>(builder, element));
+    }
+    return result;
+}
 
 // might be useless now
 /**

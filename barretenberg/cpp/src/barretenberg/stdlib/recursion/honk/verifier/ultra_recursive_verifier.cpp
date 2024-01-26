@@ -30,7 +30,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     RelationParams relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof);
+    bb::honk::StdlibProof<Builder> stdlib_proof = bb::honk::convert_proof_to_witness(builder, proof);
+    transcript = std::make_shared<Transcript>(stdlib_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -45,8 +46,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
-        auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
-        public_inputs.emplace_back(public_input_i);
+        public_inputs.emplace_back(transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i)));
     }
 
     // Get commitments to first three wire polynomials
