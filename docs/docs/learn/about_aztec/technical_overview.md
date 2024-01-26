@@ -1,5 +1,5 @@
 ---
-title: Foundational Concepts
+title: Technical Overview
 ---
 
 Aztec Labs is building a layer 2 rollup on Ethereum focused on 3 things:
