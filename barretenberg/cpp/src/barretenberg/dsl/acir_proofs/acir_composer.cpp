@@ -8,6 +8,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "contract.hpp"
+#include <memory>
 
 namespace acir_proofs {
 
@@ -29,7 +30,6 @@ void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system, Wi
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
-    recursive_ = constraint_system.recursive;
     vinfo("circuit is recursive friendly: ", recursive_);
 }
 
@@ -51,7 +51,7 @@ std::vector<uint8_t> AcirComposer::create_proof()
 
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
-    if (recursive_) {
+    if (builder_.is_recursive_circuit) {
         auto prover = composer.create_prover(builder_);
         proof = prover.construct_proof().proof_data;
     } else {
@@ -70,6 +70,7 @@ std::shared_ptr<bb::plonk::verification_key> AcirComposer::init_verification_key
     vinfo("computing verification key...");
     acir_format::Composer composer(proving_key_, nullptr);
     verification_key_ = composer.compute_verification_key(builder_);
+
     vinfo("done.");
     return verification_key_;
 }
@@ -93,7 +94,7 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof)
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
-    if (recursive_) {
+    if (verification_key_->is_recursive_circuit) {
         auto verifier = composer.create_verifier(builder_);
         return verifier.verify_proof({ proof });
     } else {

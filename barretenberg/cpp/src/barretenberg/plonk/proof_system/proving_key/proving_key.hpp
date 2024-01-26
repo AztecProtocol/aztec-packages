@@ -63,6 +63,13 @@ struct proving_key {
     std::vector<uint32_t> memory_read_records;  // Used by UltraPlonkComposer only; for ROM, RAM reads.
     std::vector<uint32_t> memory_write_records; // Used by UltraPlonkComposer only, for RAM writes.
 
+    // We only know from the circuit description whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. However, a verifier does not need a full circuit
+    // description and should be able to verify a proof with just the verification key and the proof.
+    // This field exists to later set the same field in the verification key, and make sure
+    // that we are using the correct prover/verifier.
+    // bool generate_recursive_proof = false;
+
 #ifdef __wasm__
     PolynomialStoreCache polynomial_store;
     // PolynomialStoreWasm<bb::fr> polynomial_store;
