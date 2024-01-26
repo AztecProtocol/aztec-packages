@@ -15,7 +15,7 @@ import {
   TxContext,
   TxRequest,
   computeContractAddressFromInstance,
-  computePublicKeysHash
+  computePublicKeysHash,
 } from '@aztec/circuits.js';
 import { computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
