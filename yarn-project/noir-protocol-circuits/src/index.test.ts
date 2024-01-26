@@ -27,6 +27,7 @@ import { executeInit, executeInner, executeOrdering } from './index.js';
 
 describe('Private kernel', () => {
   let logger: DebugLogger;
+
   beforeAll(() => {
     logger = createDebugLogger('noir-private-kernel');
   });
@@ -50,22 +51,6 @@ describe('Private kernel', () => {
     expect(kernelOutputs).toMatchSnapshot();
   });
 
-  // Taken from e2e_nested_contract => performs nested calls => first ordering
-  // To regenerate fixture data run the following on the yarn-project/e2e folder
-  // AZTEC_GENERATE_TEST_DATA=1 yarn test e2e_nested_contract -t 'performs nested calls'
-  it('Executes private kernel ordering after a deployment', async () => {
-    const filepath = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      './fixtures/nested-call-private-kernel-ordering.hex',
-    );
-    const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
-    const kernelInputs = PrivateKernelInputsOrdering.fromBuffer(serialized);
-
-    const kernelOutputs = await executeOrdering(kernelInputs);
-
-    expect(kernelOutputs).toMatchSnapshot();
-  });
-
   // Taken from e2e_nested_contract => performs nested calls => last inner
   // To regenerate fixture data run the following on the yarn-project/e2e folder
   // AZTEC_GENERATE_TEST_DATA=1 yarn test e2e_nested_contract -t 'performs nested calls'
@@ -80,6 +65,22 @@ describe('Private kernel', () => {
     const kernelInputs = PrivateKernelInputsInner.fromBuffer(serialized);
 
     const kernelOutputs = await executeInner(kernelInputs);
+
+    expect(kernelOutputs).toMatchSnapshot();
+  });
+
+  // Taken from e2e_nested_contract => performs nested calls => first ordering
+  // To regenerate fixture data run the following on the yarn-project/e2e folder
+  // AZTEC_GENERATE_TEST_DATA=1 yarn test e2e_nested_contract -t 'performs nested calls'
+  it('Executes private kernel ordering after a deployment', async () => {
+    const filepath = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      './fixtures/nested-call-private-kernel-ordering.hex',
+    );
+    const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
+    const kernelInputs = PrivateKernelInputsOrdering.fromBuffer(serialized);
+
+    const kernelOutputs = await executeOrdering(kernelInputs);
 
     expect(kernelOutputs).toMatchSnapshot();
   });
