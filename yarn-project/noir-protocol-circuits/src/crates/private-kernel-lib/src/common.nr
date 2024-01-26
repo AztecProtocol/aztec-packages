@@ -360,6 +360,8 @@ pub fn contract_logic(
          * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
          */
 
+        // TODO(@spalladino): Add check here about class id
+
         // The logic below ensures that the contract exists in the contracts tree
         let computed_function_tree_root = function_tree_root_from_siblings(
             private_call.call_stack_item.function_data.selector,
