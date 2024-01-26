@@ -105,7 +105,12 @@ pub(super) fn transform_internal(
                         transformer.mark_solvable(*output);
                     }
                     acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. } => (),
+                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntFromLeBytes { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntAdd { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntNeg { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntMul { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntDiv { .. } => (),
                     acir::circuit::opcodes::BlackBoxFuncCall::SHA256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256VariableLength {
@@ -114,7 +119,17 @@ pub(super) fn transform_internal(
                     }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccakf1600 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Blake2s { outputs, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake3 { outputs, .. } => {
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake3 { outputs, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntToLeBytes {
+                        outputs, ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Poseidon2Permutation {
+                        outputs,
+                        ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Sha256Compression {
+                        outputs, ..
+                    } => {
                         for witness in outputs {
                             transformer.mark_solvable(*witness);
                         }
@@ -125,10 +140,6 @@ pub(super) fn transform_internal(
                     }
                     | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveAdd {
                         outputs, ..
-                    }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveDouble {
-                        outputs,
-                        ..
                     }
                     | acir::circuit::opcodes::BlackBoxFuncCall::PedersenCommitment {
                         outputs,

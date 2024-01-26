@@ -1,13 +1,12 @@
 import { Add, Div, Mul, Sub } from './arithmetic.js';
-//import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
-//import { Eq, Lt, Lte } from './comparators.js';
+import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 import { InternalCall, InternalReturn, Jump, JumpI, Return } from './control_flow.js';
+// import { Call } from './external_calls.js';
 import { Instruction } from './instruction.js';
-import {
-  CalldataCopy,
-  /*Cast, Mov*/
-} from './memory.js';
+import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 import { Opcode } from './opcodes.js';
+//import { Eq, Lt, Lte } from './comparators.js';
+import { SLoad, SStore } from './storage.js';
 
 /** - */
 type InstructionConstructor = new (...args: any[]) => Instruction;
@@ -30,14 +29,14 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     //[Opcode.LT, Lt],
     //[Opcode.LTE, Lte],
     //// Compute - Bitwise
-    //[Opcode.AND, And],
-    //[Opcode.OR, Or],
-    //[Opcode.XOR, Xor],
-    //[Opcode.NOT, Not],
-    //[Opcode.SHL, Shl],
-    //[Opcode.SHR, Shr],
+    [Opcode.AND, And],
+    [Opcode.OR, Or],
+    [Opcode.XOR, Xor],
+    [Opcode.NOT, Not],
+    [Opcode.SHL, Shl],
+    [Opcode.SHR, Shr],
     //// Compute - Type Conversions
-    //[Opcode.CAST, Cast],
+    [Opcode.CAST, Cast],
 
     //// Execution Environment
     //[Opcode.ADDRESS, Address],
@@ -72,14 +71,14 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     [Opcode.INTERNALCALL, InternalCall],
     [Opcode.INTERNALRETURN, InternalReturn],
     //// Machine State - Memory
-    //[Opcode.SET, Set],
-    //[Opcode.MOV, Mov],
-    //[Opcode.CMOV, CMov],
+    [Opcode.SET, Set],
+    [Opcode.MOV, Mov],
+    [Opcode.CMOV, CMov],
 
     //// World State
     //[Opcode.BLOCKHEADERBYNUMBER, Blockheaderbynumber],
-    //[Opcode.SLOAD, Sload], // Public Storage
-    //[Opcode.SSTORE, Sstore], // Public Storage
+    [Opcode.SLOAD, SLoad], // Public Storage
+    [Opcode.SSTORE, SStore], // Public Storage
     //[Opcode.READL1TOL2MSG, Readl1tol2msg], // Messages
     //[Opcode.SENDL2TOL1MSG, Sendl2tol1msg], // Messages
     //[Opcode.EMITNOTEHASH, Emitnotehash], // Notes & Nullifiers
@@ -89,7 +88,7 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     //[Opcode.EMITUNENCRYPTEDLOG, Emitunencryptedlog],
 
     //// Control Flow - Contract Calls
-    //[Opcode.CALL, Call],
+    // [Opcode.CALL, Call],
     //[Opcode.STATICCALL, Staticcall],
     [Opcode.RETURN, Return],
     //[Opcode.REVERT, Revert],
