@@ -7,7 +7,7 @@ export class Eq extends Instruction {
   static type: string = 'EQ';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
@@ -16,7 +16,7 @@ export class Eq extends Instruction {
     const b = machineState.memory.get(this.bOffset);
 
     const dest = new Field(a.toBigInt() == b.toBigInt() ? 1 : 0);
-    machineState.memory.set(this.destOffset, dest);
+    machineState.memory.set(this.dstOffset, dest);
 
     this.incrementPc(machineState);
   }
@@ -26,7 +26,7 @@ export class Lt extends Instruction {
   static type: string = 'Lt';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
@@ -35,7 +35,7 @@ export class Lt extends Instruction {
     const b = machineState.memory.get(this.bOffset);
 
     const dest = new Field(a.toBigInt() < b.toBigInt() ? 1 : 0);
-    machineState.memory.set(this.destOffset, dest);
+    machineState.memory.set(this.dstOffset, dest);
 
     this.incrementPc(machineState);
   }
@@ -45,7 +45,7 @@ export class Lte extends Instruction {
   static type: string = 'LTE';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
@@ -54,7 +54,7 @@ export class Lte extends Instruction {
     const b = machineState.memory.get(this.bOffset);
 
     const dest = new Field(a.toBigInt() < b.toBigInt() ? 1 : 0);
-    machineState.memory.set(this.destOffset, dest);
+    machineState.memory.set(this.dstOffset, dest);
 
     this.incrementPc(machineState);
   }

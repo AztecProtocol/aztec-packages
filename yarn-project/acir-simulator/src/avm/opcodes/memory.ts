@@ -7,7 +7,7 @@ export class Set extends Instruction {
   static type: string = 'SET';
   static numberOfOperands = 3;
 
-  constructor(private value: bigint, private dstOffset: number, private dstTag: TypeTag) {
+  constructor(private dstTag: TypeTag, private value: bigint, private dstOffset: number) {
     super();
   }
 
@@ -24,7 +24,7 @@ export class Cast extends Instruction {
   static type: string = 'CAST';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private dstOffset: number, private dstTag: TypeTag) {
+  constructor(private dstTag: TypeTag, private aOffset: number, private dstOffset: number) {
     super();
   }
 
