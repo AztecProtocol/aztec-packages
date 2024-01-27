@@ -104,6 +104,16 @@ barretenberg-acir-tests-bb.js:
     - bb.js
     - noir-compile-acir-tests
 
+barretenberg-bench:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.bench
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+
+barretenberg-docs:
+  buildDir: barretenberg/cpp
+  dockerfile: docs/Dockerfile
+
 l1-contracts:
   buildDir: l1-contracts
 
@@ -166,6 +176,7 @@ boxes:
   buildDir: boxes
   dependencies:
     - aztec-sandbox
+    - noir
   runDependencies:
     - aztec-sandbox
 
@@ -190,7 +201,6 @@ docs:
     - ^.*.hpp$
     - ^.*.ts$
     - ^.release-please-manifest.json$
-    - ^.*/noir-version.json$
     - ^.*.nr$
   dependencies:
     - yarn-project

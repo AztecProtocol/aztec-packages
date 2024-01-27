@@ -50,9 +50,9 @@ authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
-easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/easy-private-state"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
+easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/easy-private-state"}
 ```
 
 ## Define the functions
@@ -72,7 +72,7 @@ We need to define some imports.
 
 Write this within your contract at the top
 
-#include_code imports /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code imports /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 `context::{PrivateContext, Context}`
 
@@ -96,11 +96,11 @@ This allows us to store our counter in a way that acts as an integer, abstractin
 
 In this step, we will initiate a `Storage` struct to store balances in a private way. The vast majority Aztec.nr smart contracts will need this.
 
-#include_code storage_struct /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code storage_struct /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 We are only storing one variable - `counts` as a `Map` of `EasyPrivateUint`. This means our `count` will act as a private integer, and we can map it to an address.
 
-#include_code storage_init /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code storage_init /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 This `init` method is creating and initializing a `Storage` instance. This instance includes a `Map` named `counters`. Each entry in this `Map` represents an account's counter.
 
@@ -110,7 +110,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a `constructor` method to run on deployment that assigns an initial supply of tokens to a specified owner. In the constructor we created in the first step, write this:
 
-#include_code constructor /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code constructor /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
@@ -120,7 +120,7 @@ We have annotated this and other functions with `#[aztec(private)]` which are AB
 
 Now let’s implement the `increment` function we defined in the first step.
 
-#include_code increment /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code increment /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
 
@@ -130,7 +130,7 @@ Because our counters are private, the network can't directly verify if a note wa
 
 Add a new function into your contract as shown below:
 
-#include_code nullifier /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code nullifier /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 Here, we're computing both the note hash and the nullifier. The nullifier computation uses Aztec’s `compute_note_hash_and_nullifier` function, which takes details about the note's attributes eg contract address, nonce, storage slot, and preimage.
 
@@ -138,7 +138,7 @@ Here, we're computing both the note hash and the nullifier. The nullifier comput
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-#include_code get_counter /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
+#include_code get_counter /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 This function is `unconstrained` which allows us to fetch data from storage without a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
 
@@ -148,13 +148,19 @@ Now we've written a simple Aztec.nr smart contract, it's time to ensure everythi
 
 ### Compile the smart contract
 
-In the root of the `nargo` project, run this:
+In `./contracts/counter/` directory, run this:
 
 ```bash
-aztec-cli compile .
+aztec-nargo compile
 ```
 
 This will compile the smart contract and create a `target` folder with a `.json` artifact inside.
+
+After compiling, you can generate a typescript class. In the same directory, run this:
+
+```bash
+aztec-cli codegen target -o src/artifacts --ts
+```
 
 ### Deploy
 
@@ -192,22 +198,24 @@ Use one of these `address`es as the `owner`. You can either copy it or export.
 To deploy the counter contract, [ensure the sandbox is running](../cli/sandbox-reference.md) and run this in the root of your Noir project:
 
 ```bash
-aztec-cli deploy target/Counter.json --args 100 0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0
+aztec-cli deploy contracts/counter/src/artifacts/Counter.json --args 100 0x2a0f32c34c5b948a7f9766f0c1aad70a86c0ee649f56208e936be4324d49b0b9
 ```
 
 You can also test the functions by applying what you learned in the [quickstart](./quickstart.md).
 
 Congratulations, you have now written, compiled, and deployed your first Aztec.nr smart contract!
 
-## Install `nargo` (recommended)
+## Install Noir LSP (recommended)
 
-The CLI comes with the Noir compiler, so installing `nargo` is not required, however it is recommended as it provides a better developer experience for writing contracts. You will need nargo installed to take advantage of the [Noir Language Server](https://noir-lang.org/nargo/language_server), which provides syntax highlighting and formatting for your Aztec contracts.
+Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
 
-You will also need `nargo` if you want to run unit tests in Noir.
+Once the extension is installed, go to your VSCode settings, search for "noir" and update the `Noir: Nargo Path` field to point to your `aztec-nargo` executable.
 
-You can install `nargo` with the following commands:
+You can print the path of your `aztec-nargo` executable by running:
 
-<InstallNargoInstructions />
+```bash
+which aztec-nargo
+```
 
 ## What's next?
 

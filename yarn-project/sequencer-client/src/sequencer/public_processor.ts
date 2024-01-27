@@ -7,6 +7,8 @@ import {
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/acir-simulator';
+import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   BlockHeader,
@@ -36,16 +38,18 @@ import {
   PublicKernelInputs,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
-import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
+import { Timer } from '@aztec/foundation/timer';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
-import { getVerificationKeys } from '../index.js';
+import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
@@ -157,12 +161,23 @@ export class PublicProcessor {
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
     if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
+      const timer = new Timer();
+
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
-      return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+      const processedTransaction = await makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+      this.log(`Processed public part of ${tx.data.end.newNullifiers[0]}`, {
+        eventName: 'tx-sequencer-processing',
+        duration: timer.ms(),
+        publicDataUpdateRequests:
+          processedTransaction.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
+        ...tx.getStats(),
+      } satisfies TxSequencerProcessingStats);
+
+      return processedTransaction;
     } else {
       return makeProcessedTx(tx);
     }
@@ -279,8 +294,8 @@ export class PublicProcessor {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
+      newCommitments: padArrayEnd(result.newCommitments, SideEffect.empty(), MAX_NEW_COMMITMENTS_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(

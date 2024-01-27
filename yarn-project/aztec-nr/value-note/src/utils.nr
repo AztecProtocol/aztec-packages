@@ -7,7 +7,7 @@ use crate::{
     filter::filter_notes_min_sum,
     value_note::{ValueNote, VALUE_NOTE_LEN},
 };
-use dep::protocol_types::address::AztecAddress;
+use dep::aztec::protocol_types::address::AztecAddress;
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
@@ -40,7 +40,11 @@ pub fn decrement(balance: Set<ValueNote, VALUE_NOTE_LEN>, amount: Field, owner: 
 // equal `amount`.
 //
 // It returns the decremented amount, which should be less than or equal to max_amount.
-pub fn decrement_by_at_most(balance: Set<ValueNote, VALUE_NOTE_LEN>, max_amount: Field, owner: AztecAddress) -> Field {
+pub fn decrement_by_at_most(
+    balance: Set<ValueNote, VALUE_NOTE_LEN>,
+    max_amount: Field,
+    owner: AztecAddress
+) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let opt_notes = balance.get_notes(options);
 
@@ -64,7 +68,11 @@ pub fn decrement_by_at_most(balance: Set<ValueNote, VALUE_NOTE_LEN>, max_amount:
 
 // Removes the note from the owner's set of notes.
 // Returns the value of the destroyed note.
-pub fn destroy_note(balance: Set<ValueNote, VALUE_NOTE_LEN>, owner: AztecAddress, note: ValueNote) -> Field {
+pub fn destroy_note(
+    balance: Set<ValueNote, VALUE_NOTE_LEN>,
+    owner: AztecAddress,
+    note: ValueNote
+) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
     assert(note.owner.eq(owner));

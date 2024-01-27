@@ -4,12 +4,10 @@
 #include "compute_circuit_data.hpp"
 #include "join_split_circuit.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace join_split {
+namespace bb::join_split_example::proofs::join_split {
 
-using namespace proof_system::plonk;
-using namespace proof_system::plonk::stdlib::merkle_tree;
+using namespace bb::plonk;
+using namespace bb::stdlib::merkle_tree;
 
 static std::shared_ptr<plonk::proving_key> proving_key;
 static std::shared_ptr<plonk::verification_key> verification_key;
@@ -32,7 +30,7 @@ void init_proving_key(bool mock)
         Builder builder;
         join_split_circuit(builder, tx);
         Composer composer;
-        join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
+        bb::join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
         proving_key = composer.compute_proving_key(builder);
     }
 }
@@ -49,7 +47,7 @@ void init_verification_key()
     }
 
     verification_key =
-        proof_system::plonk::compute_verification_key_common(proving_key, srs::get_crs_factory()->get_verifier_crs());
+        bb::plonk::compute_verification_key_common(proving_key, srs::get_crs_factory()->get_verifier_crs());
 }
 
 Prover new_join_split_prover(join_split_tx const& tx, bool mock)
@@ -70,7 +68,7 @@ Prover new_join_split_prover(join_split_tx const& tx, bool mock)
         return composer.create_prover(builder);
     } else {
         Composer mock_proof_composer(proving_key, nullptr);
-        join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
+        bb::join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
         info("mock composer gates: ", builder.get_num_gates());
         return mock_proof_composer.create_prover(builder);
     }
@@ -97,6 +95,4 @@ std::shared_ptr<plonk::verification_key> get_verification_key()
     return verification_key;
 }
 
-} // namespace join_split
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::join_split

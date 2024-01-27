@@ -12,7 +12,6 @@ use crate::{
         private_kernel::private_call_data::PrivateCallData,
     },
     address::{AztecAddress, EthAddress},
-    hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
         fixtures,
@@ -30,6 +29,7 @@ use crate::constants::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
+        NUM_FIELDS_PER_SHA256,
 };
 
 struct PrivateCallDataBuilder {
@@ -149,6 +149,9 @@ impl PrivateCallDataBuilder {
                     hash,
                     caller_contract_address: self.contract_address,
                     caller_context,
+                    // TODO: populate these
+                    start_side_effect_counter: 0,
+                    end_side_effect_counter:0,
                 };
                 hashes.push(hash);
                 call_requests.push(request);

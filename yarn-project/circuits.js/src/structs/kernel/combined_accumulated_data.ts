@@ -1,4 +1,5 @@
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { makeTuple } from '@aztec/foundation/array';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -6,8 +7,8 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-  MAX_PENDING_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -15,10 +16,17 @@ import {
   MAX_READ_REQUESTS_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
-import { makeTuple } from '../../index.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { CallRequest } from '../call_request.js';
-import { AggregationObject, AztecAddress, EthAddress, Fr, FunctionData } from '../index.js';
+import {
+  AggregationObject,
+  AztecAddress,
+  EthAddress,
+  Fr,
+  FunctionData,
+  NullifierKeyValidationRequestContext,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+} from '../index.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -292,24 +300,22 @@ export class CombinedAccumulatedData {
     /**
      * All the read requests made in this transaction.
      */
-    public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
-     * All the read requests made in this transaction.
+     * All the nullifier key validation requests made in this transaction.
      */
-    public pendingReadRequests: Tuple<Fr, typeof MAX_PENDING_READ_REQUESTS_PER_TX>,
+    public nullifierKeyValidationRequests: Tuple<
+      NullifierKeyValidationRequestContext,
+      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    >,
     /**
      * The new commitments made in this transaction.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      */
@@ -362,10 +368,9 @@ export class CombinedAccumulatedData {
     return serializeToBuffer(
       this.aggregationObject,
       this.readRequests,
-      this.pendingReadRequests,
+      this.nullifierKeyValidationRequests,
       this.newCommitments,
       this.newNullifiers,
-      this.nullifiedCommitments,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -393,11 +398,10 @@ export class CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
-      reader.readArray(MAX_PENDING_READ_REQUESTS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -415,11 +419,10 @@ export class CombinedAccumulatedData {
   static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       finalData.aggregationObject,
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_TX, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       finalData.newCommitments,
       finalData.newNullifiers,
-      finalData.nullifiedCommitments,
       finalData.privateCallStack,
       finalData.publicCallStack,
       finalData.newL2ToL1Msgs,
@@ -446,11 +449,10 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
@@ -479,16 +481,11 @@ export class FinalAccumulatedData {
     /**
      * The new commitments made in this transaction.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      * TODO(#3417): Given this field must empty, should we just remove it?
@@ -535,7 +532,6 @@ export class FinalAccumulatedData {
       this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
-      this.nullifiedCommitments,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -561,9 +557,8 @@ export class FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -588,9 +583,8 @@ export class FinalAccumulatedData {
   static empty() {
     return new FinalAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),

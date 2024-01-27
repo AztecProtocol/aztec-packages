@@ -2,11 +2,10 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 /**
  * Create GoblinTranslatorProver from proving key, witness and manifest.
@@ -141,9 +140,12 @@ void GoblinTranslatorProver::execute_relation_check_rounds()
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
-
-    FF alpha = transcript->get_challenge("alpha");
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha);
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha, gate_challenges);
 }
 
 /**
@@ -195,4 +197,4 @@ plonk::proof& GoblinTranslatorProver::construct_proof()
     return export_proof();
 }
 
-} // namespace proof_system::honk
+} // namespace bb::honk

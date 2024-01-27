@@ -2,37 +2,38 @@ use crate::{
     abis::{
         call_request::CallRequest,
         new_contract_data::NewContractData,
+        nullifier_key_validation_request::NullifierKeyValidationRequestContext,
         optionally_revealed_data::OptionallyRevealedData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    hash::NUM_FIELDS_PER_SHA256,
     mocked::AggregationObject,
-    utils::bounded_vec::BoundedVec,
+    utils::bounded_vec::BoundedVec
 };
 use crate::constants::{
     MAX_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     MAX_NEW_COMMITMENTS_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_PENDING_READ_REQUESTS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_NEW_CONTRACTS_PER_TX,
     MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_READS_PER_TX
+    MAX_PUBLIC_DATA_READS_PER_TX,
+    NUM_FIELDS_PER_SHA256,
 };
 
 struct CombinedAccumulatedData {
     aggregation_object: AggregationObject,
 
-    read_requests: [Field; MAX_READ_REQUESTS_PER_TX],
-    pending_read_requests: [Field; MAX_PENDING_READ_REQUESTS_PER_TX],
+    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
+    nullifier_key_validation_requests: [NullifierKeyValidationRequestContext; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-    nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
@@ -58,12 +59,8 @@ struct CombinedAccumulatedData {
 struct FinalAccumulatedData {
     aggregation_object: AggregationObject,
 
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-    nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-
-    // For pending nullifiers, we have:
-    // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
@@ -84,12 +81,11 @@ struct FinalAccumulatedData {
 struct CombinedAccumulatedDataBuilder {
     aggregation_object: AggregationObject,
 
-    read_requests: BoundedVec<Field,MAX_READ_REQUESTS_PER_TX>,
-    pending_read_requests: BoundedVec<Field, MAX_PENDING_READ_REQUESTS_PER_TX>,
+    read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_TX>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
@@ -118,11 +114,10 @@ impl CombinedAccumulatedDataBuilder {
             aggregation_object: self.aggregation_object,
 
             read_requests: self.read_requests.storage,
-            pending_read_requests: self.pending_read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
 
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
@@ -146,7 +141,7 @@ impl CombinedAccumulatedDataBuilder {
 
     pub fn to_final(self) -> FinalAccumulatedData {
         assert_eq(self.read_requests.len, 0, "Final accumulated data: read requests not empty");
-        assert_eq(self.pending_read_requests.len, 0, "Final accumulated data: pending read requests not empty");
+        assert_eq(self.nullifier_key_validation_requests.len, 0, "Final accumulated data: nullifier key validation requests not empty");
         assert_eq(self.public_data_update_requests.len, 0, "Final accumulated data: public data update requests not empty");
         assert_eq(self.public_data_reads.len, 0, "Final accumulated data: public data reads not empty");
 
@@ -155,7 +150,6 @@ impl CombinedAccumulatedDataBuilder {
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
 
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,

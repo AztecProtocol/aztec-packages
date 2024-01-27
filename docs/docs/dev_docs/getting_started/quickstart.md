@@ -4,8 +4,8 @@ title: Quickstart
 
 In this guide, you will
 
-1. Set up the Aztec sandbox locally
-2. Install the Aztec CLI
+1. Set up the Aztec sandbox (local development environment) locally
+2. Install the Aztec development kit
 3. Use the CLI to deploy an example contract that comes with the sandbox
 4. Use the CLI to interact with the contract you just deployed
 
@@ -17,7 +17,7 @@ In this guide, you will
 
 ## Install Docker
 
-See this page of the Docker docs for instructions on how to install Docker Desktop for your operating system: [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)
+See [this page of the Docker docs](https://docs.docker.com/get-docker/) for instructions on how to install Docker Desktop for your operating system.
 
 Once you have Docker installed, make sure it is running by opening the Docker Desktop application.
 
@@ -36,7 +36,21 @@ You can run the Sandbox using Docker.
 To install the latest Sandbox version, run:
 
 ```bash
-/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+bash -i <(curl -s install.aztec.network)
+```
+
+This will install the following:
+
+- **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
+- **aztec-cli** - a command line tool for interfacing and experimenting with infrastructure.
+- **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-sandbox** - a wrapper around docker-compose that launches services needed for sandbox testing.
+- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+
+Once these have been installed, to start the sandbox, run:
+
+```bash
+aztec-sandbox
 ```
 
 This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.

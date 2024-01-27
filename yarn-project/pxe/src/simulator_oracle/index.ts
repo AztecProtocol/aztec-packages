@@ -1,15 +1,4 @@
-import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
-import {
-  AztecAddress,
-  BlockHeader,
-  CompleteAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  GrumpkinPrivateKey,
-  PublicKey,
-} from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   KeyStore,
   L2Block,
@@ -17,7 +6,10 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
   StateInfoProvider,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { AztecAddress, BlockHeader, CompleteAddress, EthAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';
@@ -34,15 +26,18 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
-    return this.keyStore.getAccountPrivateKey(pubKey);
+  async getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair> {
+    const accountPublicKey = (await this.db.getCompleteAddress(accountAddress))!.publicKey;
+    const publicKey = await this.keyStore.getNullifierPublicKey(accountPublicKey);
+    const secretKey = await this.keyStore.getSiloedNullifierSecretKey(accountPublicKey, contractAddress);
+    return { publicKey, secretKey };
   }
 
   async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#no-public-key-registered-error`,
+        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;
@@ -116,7 +111,7 @@ export class SimulatorOracle implements DBOracle {
    *
    * @param msgKey - The key of the message to be retrieved
    * @returns A promise that resolves to the message data, a sibling path and the
-   *          index of the message in the l1ToL2MessagesTree
+   *          index of the message in the l1ToL2MessageTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);

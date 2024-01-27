@@ -7,7 +7,7 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 /**
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
@@ -33,13 +33,10 @@ template <typename Flavor> class MergeProver_ {
     explicit MergeProver_(const std::shared_ptr<CommitmentKey>&,
                           const std::shared_ptr<ECCOpQueue>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    plonk::proof& construct_proof();
+    BBERG_PROFILE plonk::proof& construct_proof();
 
   private:
     plonk::proof proof;
 };
 
-extern template class MergeProver_<honk::flavor::Ultra>;
-extern template class MergeProver_<honk::flavor::GoblinUltra>;
-
-} // namespace proof_system::honk
+} // namespace bb::honk

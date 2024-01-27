@@ -3,7 +3,10 @@ import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { NoirPackageConfig } from '@aztec/foundation/noir';
+import { AvailabilityOracleAbi, AvailabilityOracleBytecode } from '@aztec/l1-artifacts';
 
+import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
 import { readFile, rename, writeFile } from 'fs/promises';
 
@@ -78,6 +81,10 @@ export async function deployAztecContracts(
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
     },
+    availabilityOracle: {
+      contractAbi: AvailabilityOracleAbi,
+      contractBytecode: AvailabilityOracleBytecode,
+    },
     rollup: {
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
@@ -90,9 +97,9 @@ export async function deployAztecContracts(
  * Gets all contracts available in \@aztec/noir-contracts.
  * @returns The contract ABIs.
  */
-export async function getExampleContractArtifacts() {
-  const artifacts: ArtifactsType = await import('@aztec/noir-contracts/artifacts');
-  return artifacts;
+export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
+  const imports: any = await import('@aztec/noir-contracts');
+  return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }
 
 /**
@@ -204,4 +211,21 @@ export async function atomicUpdateFile(filePath: string, contents: string) {
       throw e;
     }
   }
+}
+
+/**
+ * Pretty prints Nargo.toml contents to a string
+ * @param config - Nargo.toml contents
+ * @returns The Nargo.toml contents as a string
+ */
+export function prettyPrintNargoToml(config: NoirPackageConfig): string {
+  const withoutDependencies = Object.fromEntries(Object.entries(config).filter(([key]) => key !== 'dependencies'));
+
+  const partialToml = TOML.stringify(withoutDependencies);
+  const dependenciesToml = Object.entries(config.dependencies).map(([name, dep]) => {
+    const depToml = TOML.stringify.value(dep);
+    return `${name} = ${depToml}`;
+  });
+
+  return partialToml + '\n[dependencies]\n' + dependenciesToml.join('\n') + '\n';
 }

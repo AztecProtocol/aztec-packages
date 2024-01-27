@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
+
+# Check node version.
+node_version=$(node -v | tr -d 'v')
+major=${node_version%%.*}
+rest=${node_version#*.}
+minor=${rest%%.*}
+
+if (( major < 18 || ( major == 18 && minor < 19 ) )); then
+    echo "Node.js version is less than 18.19. Exiting."
+    exit 1
+fi
 
 cd "$(dirname "$0")"
 
@@ -15,32 +27,30 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-# if [ "$(uname)" = "Darwin" ]; then
-#   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
-#   echo "Note: not sourcing nvm on Mac, see github #158"
-# else
-#   \. ~/.nvm/nvm.sh
-# fi
-# set +eu # nvm runs in our context - don't assume it's compatible with these flags
-# nvm install
-# set -eu
-
 yarn install --immutable
 
-# Build the necessary dependencies for Aztec.nr contracts typegen.
-for package in "@aztec/foundation" "@aztec/noir-compiler"; do
-  echo "Building $package"
-  yarn workspace $package build
-done
-
+echo -e "\033[1mGenerating constants files...\033[0m"
+# Required to run remake-constants.
+yarn workspace @aztec/foundation build
 # Run remake constants before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
 yarn workspace @aztec/circuits.js remake-constants
-yarn workspace @aztec/noir-protocol-circuits noir:build
 
-(cd noir-contracts && ./bootstrap.sh)
+echo -e "\033[1mSetting up compiler and building contracts...\033[0m"
+# This is actually our code generation tool. Needed to build contract typescript wrappers.
+echo "Building noir compiler..."
+yarn workspace @aztec/noir-compiler build
+# Builds noir contracts (TODO: move this stage pre yarn-project). Generates typescript wrappers.
+echo "Building contracts from noir-contracts..."
+yarn workspace @aztec/noir-contracts build:contracts
+# Bundle compiled account contracts into accounts package
+echo "Copying account contracts..."
+yarn workspace @aztec/accounts build:copy-contracts
+# Build protocol circuits. TODO: move pre yarn-project.
+echo "Building contracts from noir-protocol-circuits..."
+yarn workspace @aztec/noir-protocol-circuits build
 
-# We do not need to build individual packages, yarn build will build the root tsconfig.json
+echo -e "\033[1mBuilding all packages...\033[0m"
 yarn build
 
 echo
-echo "Success! You can now e.g. run anvil and end-to-end tests"
+echo "Yarn project successfully built."

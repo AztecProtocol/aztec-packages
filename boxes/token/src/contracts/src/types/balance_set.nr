@@ -1,12 +1,12 @@
 use dep::std::option::Option;
 use dep::safe_math::SafeU120;
-use dep::protocol_types::{
-    constants::MAX_READ_REQUESTS_PER_CALL,
-    address::AztecAddress,
-};
 use dep::aztec::{
   context::Context,
   state_vars::set::Set,
+};
+use dep::aztec::protocol_types::{
+    constants::MAX_READ_REQUESTS_PER_CALL,
+    address::AztecAddress,
 };
 use dep::aztec::note::{
     note_getter::view_notes,
@@ -18,33 +18,19 @@ use dep::aztec::note::{
     note_interface::NoteInterface,
     utils::compute_note_hash_for_read_or_nullify,
 };
-use dep::aztec::oracle::{
-    rand::rand,
-    get_secret_key::get_secret_key,
-    get_public_key::get_public_key,
-};
-
 use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
 
 // A set implementing standard manipulation of balances.
 // Does not require spending key, but only knowledge.
 // Spending key requirement should be enforced by the contract using this.
 struct BalanceSet {
-  context: Context,
-  owner: AztecAddress,
-  set: Set<TokenNote, TOKEN_NOTE_LEN>
+    owner: AztecAddress,
+    set: Set<TokenNote, TOKEN_NOTE_LEN>
 }
 
 impl BalanceSet {
-  pub fn new(context: Context, owner: AztecAddress, storage_slot: Field) -> Self {
-    assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-    let set = Set {
-        context,
-        storage_slot,
-        note_interface: TokenNoteMethods,
-    };
+  pub fn new(set: Set<TokenNote, TOKEN_NOTE_LEN>, owner: AztecAddress) -> Self {
     Self {
-        context,
         owner,
         set,
     }
@@ -114,7 +100,10 @@ impl BalanceSet {
     }
 }
 
-pub fn filter_notes_min_sum(notes: [Option<TokenNote>; MAX_READ_REQUESTS_PER_CALL], min_sum: SafeU120) -> [Option<TokenNote>; MAX_READ_REQUESTS_PER_CALL] {
+pub fn filter_notes_min_sum(
+    notes: [Option<TokenNote>; MAX_READ_REQUESTS_PER_CALL],
+    min_sum: SafeU120
+) -> [Option<TokenNote>; MAX_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
     let mut sum = SafeU120::min();
     for i in 0..notes.len() {

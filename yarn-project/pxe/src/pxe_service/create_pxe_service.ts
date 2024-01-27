@@ -1,7 +1,7 @@
+import { AztecNode } from '@aztec/circuit-types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store';
-import { AztecNode } from '@aztec/types';
 
 import { join } from 'path';
 
@@ -35,11 +35,8 @@ export async function createPXEService(
   const keyStorePath = config.dataDirectory ? join(config.dataDirectory, 'pxe_key_store') : undefined;
   const l1Contracts = await aztecNode.getL1ContractAddresses();
 
-  const keyStore = new TestKeyStore(
-    new Grumpkin(),
-    await AztecLmdbStore.create(l1Contracts.rollupAddress, keyStorePath),
-  );
-  const db = new KVPxeDatabase(await AztecLmdbStore.create(l1Contracts.rollupAddress, pxeDbPath));
+  const keyStore = new TestKeyStore(new Grumpkin(), await AztecLmdbStore.open(l1Contracts.rollupAddress, keyStorePath));
+  const db = new KVPxeDatabase(await AztecLmdbStore.open(l1Contracts.rollupAddress, pxeDbPath));
 
   const server = new PXEService(keyStore, aztecNode, db, config, logSuffix);
 

@@ -1,8 +1,12 @@
+import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecArray, AztecKVStore, AztecMap, AztecMultiMap, AztecSingleton } from '@aztec/kv-store';
-import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
+import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
+import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
@@ -32,29 +36,61 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByStorageSlot: AztecMultiMap<string, number>;
   #notesByTxHash: AztecMultiMap<string, number>;
   #notesByOwner: AztecMultiMap<string, number>;
+  #deferredNotes: AztecArray<Buffer>;
+  #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
+  #contractArtifacts: AztecMap<string, Buffer>;
+  #contractInstances: AztecMap<string, Buffer>;
   #db: AztecKVStore;
 
   constructor(db: AztecKVStore) {
     this.#db = db;
 
-    this.#addresses = db.createArray('addresses');
-    this.#addressIndex = db.createMap('address_index');
+    this.#addresses = db.openArray('addresses');
+    this.#addressIndex = db.openMap('address_index');
 
-    this.#authWitnesses = db.createMap('auth_witnesses');
-    this.#capsules = db.createArray('capsules');
-    this.#contracts = db.createMap('contracts');
+    this.#authWitnesses = db.openMap('auth_witnesses');
+    this.#capsules = db.openArray('capsules');
+    this.#contracts = db.openMap('contracts');
 
-    this.#synchronizedBlock = db.createSingleton('block_header');
-    this.#syncedBlockPerPublicKey = db.createMap('synced_block_per_public_key');
+    this.#contractArtifacts = db.openMap('contract_artifacts');
+    this.#contractInstances = db.openMap('contracts_instances');
 
-    this.#notes = db.createArray('notes');
-    this.#nullifiedNotes = db.createMap('nullified_notes');
+    this.#synchronizedBlock = db.openSingleton('block_header');
+    this.#syncedBlockPerPublicKey = db.openMap('synced_block_per_public_key');
 
-    this.#notesByContract = db.createMultiMap('notes_by_contract');
-    this.#notesByStorageSlot = db.createMultiMap('notes_by_storage_slot');
-    this.#notesByTxHash = db.createMultiMap('notes_by_tx_hash');
-    this.#notesByOwner = db.createMultiMap('notes_by_owner');
+    this.#notes = db.openArray('notes');
+    this.#nullifiedNotes = db.openMap('nullified_notes');
+
+    this.#notesByContract = db.openMultiMap('notes_by_contract');
+    this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
+    this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
+    this.#notesByOwner = db.openMultiMap('notes_by_owner');
+
+    this.#deferredNotes = db.openArray('deferred_notes');
+    this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
+  }
+
+  public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
+    await this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract));
+  }
+
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    const contract = this.#contractArtifacts.get(id.toString());
+    // TODO(@spalladino): AztecMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
+    return Promise.resolve(contract && contractArtifactFromBuffer(Buffer.from(contract)));
+  }
+
+  async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
+    await this.#contractInstances.set(
+      contract.address.toString(),
+      new SerializableContractInstance(contract).toBuffer(),
+    );
+  }
+
+  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const contract = this.#contractInstances.get(address.toString());
+    return Promise.resolve(contract && SerializableContractInstance.fromBuffer(contract).withAddress(address));
   }
 
   async addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void> {
@@ -93,6 +129,60 @@ export class KVPxeDatabase implements PxeDatabase {
         this.#notesByOwner.set(note.publicKey.toString(), noteId),
       ]);
     }
+  }
+
+  async addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void> {
+    const newLength = await this.#deferredNotes.push(...deferredNotes.map(note => note.toBuffer()));
+    for (const [index, note] of deferredNotes.entries()) {
+      const noteId = newLength - deferredNotes.length + index;
+      await this.#deferredNotesByContract.set(note.contractAddress.toString(), noteId);
+    }
+  }
+
+  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
+    const noteIds = this.#deferredNotesByContract.getValues(contractAddress.toString());
+    const notes: DeferredNoteDao[] = [];
+    for (const noteId of noteIds) {
+      const serializedNote = this.#deferredNotes.at(noteId);
+      if (!serializedNote) {
+        continue;
+      }
+
+      const note = DeferredNoteDao.fromBuffer(serializedNote);
+      notes.push(note);
+    }
+
+    return Promise.resolve(notes);
+  }
+
+  /**
+   * Removes all deferred notes for a given contract address.
+   * @param contractAddress - the contract address to remove deferred notes for
+   * @returns an array of the removed deferred notes
+   *
+   * @remarks We only remove indices from the deferred notes by contract map, but not the actual deferred notes.
+   * This is safe because our only getter for deferred notes is by contract address.
+   * If we should add a more general getter, we will need a delete vector for deferred notes as well,
+   * analogous to this.#nullifiedNotes.
+   */
+  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
+    return this.#db.transaction(() => {
+      const deferredNotes: DeferredNoteDao[] = [];
+      const indices = this.#deferredNotesByContract.getValues(contractAddress.toString());
+
+      for (const index of indices) {
+        const deferredNoteBuffer = this.#deferredNotes.at(index);
+        if (!deferredNoteBuffer) {
+          continue;
+        } else {
+          deferredNotes.push(DeferredNoteDao.fromBuffer(deferredNoteBuffer));
+        }
+
+        void this.#deferredNotesByContract.deleteValue(contractAddress.toString(), index);
+      }
+
+      return deferredNotes;
+    });
   }
 
   *#getAllNonNullifiedNotes(): IterableIterator<NoteDao> {
@@ -155,6 +245,9 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]> {
+    if (nullifiers.length === 0) {
+      return Promise.resolve([]);
+    }
     const nullifierSet = new Set(nullifiers.map(n => n.toString()));
     return this.#db.transaction(() => {
       const notesIds = this.#notesByOwner.getValues(account.toString());
@@ -186,7 +279,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return {
       [MerkleTreeId.ARCHIVE]: Fr.fromString(roots[MerkleTreeId.ARCHIVE]),
       [MerkleTreeId.CONTRACT_TREE]: Fr.fromString(roots[MerkleTreeId.CONTRACT_TREE].toString()),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.fromString(roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE].toString()),
+      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr.fromString(roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].toString()),
       [MerkleTreeId.NOTE_HASH_TREE]: Fr.fromString(roots[MerkleTreeId.NOTE_HASH_TREE].toString()),
       [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.fromString(roots[MerkleTreeId.PUBLIC_DATA_TREE].toString()),
       [MerkleTreeId.NULLIFIER_TREE]: Fr.fromString(roots[MerkleTreeId.NULLIFIER_TREE].toString()),
@@ -201,7 +294,7 @@ export class KVPxeDatabase implements PxeDatabase {
         [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot.toString(),
         [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot.toString(),
         [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot.toString(),
-        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockHeader.l1ToL2MessagesTreeRoot.toString(),
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: blockHeader.l1ToL2MessageTreeRoot.toString(),
         [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot.toString(),
         [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot.toString(),
       },
@@ -222,7 +315,7 @@ export class KVPxeDatabase implements PxeDatabase {
       Fr.fromString(value.roots[MerkleTreeId.NOTE_HASH_TREE]),
       Fr.fromString(value.roots[MerkleTreeId.NULLIFIER_TREE]),
       Fr.fromString(value.roots[MerkleTreeId.CONTRACT_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]),
+      Fr.fromString(value.roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
       Fr.fromString(value.roots[MerkleTreeId.ARCHIVE]),
       Fr.ZERO, // todo: private kernel vk tree root
       Fr.fromString(value.roots[MerkleTreeId.PUBLIC_DATA_TREE]),

@@ -42,6 +42,10 @@ pub enum RuntimeError {
     UnknownLoopBound { call_stack: CallStack },
     #[error("Argument is not constant")]
     AssertConstantFailed { call_stack: CallStack },
+    #[error("Nested slices are not supported")]
+    NestedSlice { call_stack: CallStack },
+    #[error("Big Integer modulus do no match")]
+    BigIntModulus { call_stack: CallStack },
 }
 
 // We avoid showing the actual lhs and rhs since most of the time they are just 0
@@ -106,7 +110,7 @@ pub enum InternalError {
     #[error("ICE: Undeclared AcirVar")]
     UndeclaredAcirVar { call_stack: CallStack },
     #[error("ICE: Expected {expected:?}, found {found:?}")]
-    UnExpected { expected: String, found: String, call_stack: CallStack },
+    Unexpected { expected: String, found: String, call_stack: CallStack },
 }
 
 impl RuntimeError {
@@ -119,7 +123,7 @@ impl RuntimeError {
                 | InternalError::MissingArg { call_stack, .. }
                 | InternalError::NotAConstant { call_stack, .. }
                 | InternalError::UndeclaredAcirVar { call_stack }
-                | InternalError::UnExpected { call_stack, .. },
+                | InternalError::Unexpected { call_stack, .. },
             )
             | RuntimeError::FailedConstraint { call_stack, .. }
             | RuntimeError::IndexOutOfBounds { call_stack, .. }
@@ -129,7 +133,9 @@ impl RuntimeError {
             | RuntimeError::UnknownLoopBound { call_stack }
             | RuntimeError::AssertConstantFailed { call_stack }
             | RuntimeError::IntegerOutOfBounds { call_stack, .. }
-            | RuntimeError::UnsupportedIntegerSize { call_stack, .. } => call_stack,
+            | RuntimeError::UnsupportedIntegerSize { call_stack, .. }
+            | RuntimeError::NestedSlice { call_stack, .. }
+            | RuntimeError::BigIntModulus { call_stack, .. } => call_stack,
         }
     }
 }

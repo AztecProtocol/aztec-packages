@@ -1,8 +1,3 @@
-import { BlockHeader, PublicKey } from '@aztec/circuits.js';
-import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 import {
   AuthWitness,
   AztecNode,
@@ -11,7 +6,12 @@ import {
   MerkleTreeId,
   NullifierMembershipWitness,
   PublicDataWitness,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { BlockHeader } from '@aztec/circuits.js';
+import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -36,11 +36,11 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Return the secret key of a owner to use in a specific contract.
-   * @param owner - The owner of the secret key.
+   * Return the nullifier key pair of an account to use in a specific contract.
+   * @param account - The account address of the nullifier key.
    */
-  public getSecretKey(owner: PublicKey) {
-    return this.db.getSecretKey(this.contractAddress, owner);
+  public getNullifierKeyPair(account: AztecAddress) {
+    return this.db.getNullifierKeyPair(account, this.contractAddress);
   }
 
   /**
@@ -120,14 +120,14 @@ export class ViewDataOracle extends TypedOracle {
       return undefined;
     }
     return new BlockHeader(
-      block.endNoteHashTreeSnapshot.root,
-      block.endNullifierTreeSnapshot.root,
-      block.endContractTreeSnapshot.root,
-      block.endL1ToL2MessagesTreeSnapshot.root,
-      block.endArchiveSnapshot.root,
+      block.header.state.partial.noteHashTree.root,
+      block.header.state.partial.nullifierTree.root,
+      block.header.state.partial.contractTree.root,
+      block.header.state.l1ToL2MessageTree.root,
+      block.archive.root,
       new Fr(0), // TODO(#3441) privateKernelVkTreeRoot is not present in L2Block and it's not yet populated in noir
-      block.endPublicDataTreeSnapshot.root,
-      computeGlobalsHash(block.globalVariables),
+      block.header.state.partial.publicDataTree.root,
+      computeGlobalsHash(block.header.globalVariables),
     );
   }
 
@@ -145,10 +145,10 @@ export class ViewDataOracle extends TypedOracle {
       if (!block) {
         throw new Error(`Block ${i} not found`);
       }
-      if (block.endNullifierTreeSnapshot.root.equals(nullifierTreeRoot)) {
+      if (block.header.state.partial.nullifierTree.root.equals(nullifierTreeRoot)) {
         return i;
       }
-      if (block.startNullifierTreeSnapshot.root.equals(nullifierTreeRoot)) {
+      if (block.header.state.partial.nullifierTree.root.equals(nullifierTreeRoot)) {
         return i - 1;
       }
     }
@@ -198,6 +198,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
    * @param selectValues - The values to match.
+   * @param selectComparators - The comparators to use to match values.
    * @param sortBy - An array of indices of the fields to sort.
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
@@ -209,6 +210,7 @@ export class ViewDataOracle extends TypedOracle {
     numSelects: number,
     selectBy: number[],
     selectValues: Fr[],
+    selectComparators: number[],
     sortBy: number[],
     sortOrder: number[],
     limit: number,
@@ -216,7 +218,9 @@ export class ViewDataOracle extends TypedOracle {
   ): Promise<NoteData[]> {
     const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot);
     return pickNotes<NoteData>(dbNotes, {
-      selects: selectBy.slice(0, numSelects).map((index, i) => ({ index, value: selectValues[i] })),
+      selects: selectBy
+        .slice(0, numSelects)
+        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
       sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
       limit,
       offset,
@@ -240,8 +244,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns The l1 to l2 message data
    */
   public async getL1ToL2Message(msgKey: Fr) {
-    const message = await this.db.getL1ToL2Message(msgKey);
-    return { ...message, root: this.blockHeader.l1ToL2MessagesTreeRoot };
+    return await this.db.getL1ToL2Message(msgKey);
   }
 
   /**

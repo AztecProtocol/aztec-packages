@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * The string encoding used for serializing BlockHeader objects.
@@ -12,6 +10,7 @@ const STRING_ENCODING: BufferEncoding = 'hex';
 /**
  * Information about the tree roots used for both public and private kernels.
  */
+// TODO(#3937): Nuke this
 export class BlockHeader {
   constructor(
     /**
@@ -27,9 +26,9 @@ export class BlockHeader {
      */
     public contractTreeRoot: Fr,
     /**
-     * Root of the l1 to l2 messages tree at the time of when this information was assembled.
+     * Root of the l1 to l2 message tree at the time of when this information was assembled.
      */
-    public l1ToL2MessagesTreeRoot: Fr,
+    public l1ToL2MessageTreeRoot: Fr,
     /**
      * Root of the state roots tree (archive) at the block prior to when this information was assembled.
      */
@@ -70,7 +69,7 @@ export class BlockHeader {
       fields.noteHashTreeRoot,
       fields.nullifierTreeRoot,
       fields.contractTreeRoot,
-      fields.l1ToL2MessagesTreeRoot,
+      fields.l1ToL2MessageTreeRoot,
       fields.archiveRoot,
       fields.privateKernelVkTreeRoot,
       fields.publicDataTreeRoot,
@@ -96,7 +95,7 @@ export class BlockHeader {
       this.noteHashTreeRoot,
       this.nullifierTreeRoot,
       this.contractTreeRoot,
-      this.l1ToL2MessagesTreeRoot,
+      this.l1ToL2MessageTreeRoot,
       this.archiveRoot, // TODO(#3441) Note private_kernel_vk_tree_root, is not included yet as
       // it is not present in noir,
       this.publicDataTreeRoot,
@@ -127,7 +126,7 @@ export class BlockHeader {
       this.noteHashTreeRoot.isZero() &&
       this.nullifierTreeRoot.isZero() &&
       this.contractTreeRoot.isZero() &&
-      this.l1ToL2MessagesTreeRoot.isZero() &&
+      this.l1ToL2MessageTreeRoot.isZero() &&
       this.archiveRoot.isZero() &&
       this.privateKernelVkTreeRoot.isZero() &&
       this.publicDataTreeRoot.isZero() &&

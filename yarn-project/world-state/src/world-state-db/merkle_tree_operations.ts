@@ -1,9 +1,10 @@
+import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -42,7 +43,7 @@ export type CurrentTreeRoots = {
   /** Contract data tree root. */
   contractDataTreeRoot: Buffer;
   /** L1 to L2 Messages data tree root. */
-  l1Tol2MessagesTreeRoot: Buffer;
+  l1Tol2MessageTreeRoot: Buffer;
   /** Nullifier data tree root. */
   nullifierTreeRoot: Buffer;
   /** Archive root. */

@@ -1,8 +1,8 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computePrivateCallStackItemHash, computePublicCallStackItemHash } from '../abis/abis.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
@@ -93,7 +93,8 @@ export class PrivateCallStackItem {
     const callerContext = callContext.isDelegateCall
       ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
       : CallerContext.empty();
-    return new CallRequest(this.hash(), callContext.msgSender, callerContext);
+    // todo: populate side effect counters correctly
+    return new CallRequest(this.hash(), callContext.msgSender, callerContext, Fr.ZERO, Fr.ZERO);
   }
 }
 
@@ -163,6 +164,7 @@ export class PublicCallStackItem {
     const callerContext = callContext.isDelegateCall
       ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
       : CallerContext.empty();
-    return new CallRequest(this.hash(), callContext.msgSender, callerContext);
+    // todo: populate side effect counters correctly
+    return new CallRequest(this.hash(), callContext.msgSender, callerContext, Fr.ZERO, Fr.ZERO);
   }
 }

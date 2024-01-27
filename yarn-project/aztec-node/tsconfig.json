@@ -10,6 +10,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
@@ -17,6 +20,9 @@
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
     },
     {
       "path": "../l1-artifacts"
@@ -35,9 +41,6 @@
     },
     {
       "path": "../world-state"
-    },
-    {
-      "path": "../kv-store"
     }
   ],
   "include": ["src"]

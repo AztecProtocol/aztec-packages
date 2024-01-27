@@ -5,12 +5,10 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib/merkle_tree/membership.hpp"
 
-namespace proof_system::stdlib_merkle_tree_hash_test {
+using namespace bb;
+using namespace bb::stdlib;
 
-using namespace barretenberg;
-using namespace proof_system::plonk::stdlib;
-
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
@@ -64,4 +62,3 @@ TEST(stdlib_merkle_tree_hash, compute_tree_native)
     }
     EXPECT_EQ(tree_vector.back(), mem_tree.root());
 }
-} // namespace proof_system::stdlib_merkle_tree_hash_test

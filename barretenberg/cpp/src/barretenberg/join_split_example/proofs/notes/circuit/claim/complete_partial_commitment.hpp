@@ -3,13 +3,9 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace circuit {
-namespace claim {
+namespace bb::join_split_example::proofs::notes::circuit::claim {
 
-using namespace proof_system::plonk::stdlib;
+using namespace bb::stdlib;
 
 inline auto complete_partial_commitment(field_ct const& partial_commitment,
                                         field_ct const& interaction_nonce,
@@ -19,8 +15,4 @@ inline auto complete_partial_commitment(field_ct const& partial_commitment,
                                GeneratorIndex::CLAIM_NOTE_COMMITMENT);
 }
 
-} // namespace claim
-} // namespace circuit
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::notes::circuit::claim

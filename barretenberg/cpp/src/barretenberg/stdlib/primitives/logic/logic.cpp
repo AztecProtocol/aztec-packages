@@ -6,7 +6,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstddef>
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief A logical AND or XOR over a variable number of bits.
@@ -59,8 +59,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         auto left((uint256_t)a.get_value());
         auto right((uint256_t)b.get_value());
 
-        field_pt a_accumulator(barretenberg::fr::zero());
-        field_pt b_accumulator(barretenberg::fr::zero());
+        field_pt a_accumulator(bb::fr::zero());
+        field_pt b_accumulator(bb::fr::zero());
 
         field_pt res(ctx, 0);
         for (size_t i = 0; i < num_chunks; ++i) {
@@ -113,5 +113,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         return field_t<Builder>::from_witness_index(ctx, out_idx);
     }
 }
-INSTANTIATE_STDLIB_TYPE(logic);
-} // namespace proof_system::plonk::stdlib
+template class logic<bb::StandardCircuitBuilder>;
+template class logic<bb::UltraCircuitBuilder>;
+template class logic<bb::GoblinUltraCircuitBuilder>;
+} // namespace bb::stdlib

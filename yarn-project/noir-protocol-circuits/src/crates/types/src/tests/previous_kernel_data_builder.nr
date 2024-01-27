@@ -9,9 +9,9 @@ use crate::{
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{AztecAddress, EthAddress},
-    hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
         fixtures,
@@ -20,11 +20,11 @@ use crate::{
     transaction::context::TxContext,
 };
 use crate::constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        NUM_FIELDS_PER_SHA256,
         VK_TREE_HEIGHT,
 };
 
@@ -39,13 +39,17 @@ struct PreviousKernelDataBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
+    sideffect_counter: u32,
 }
 
 impl PreviousKernelDataBuilder {
     pub fn new() -> Self {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
-        end.new_nullifiers.push(321); // 0th nullifier must be non-zero.
-        end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
+        end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+            value: 321,
+            note_hash: 0,
+            counter: 0
+        }); // 0th nullifier must be non-zero.
 
         let tx_context = build_tx_context(false);
 
@@ -60,6 +64,7 @@ impl PreviousKernelDataBuilder {
             vk: VerificationKey {},
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
+            sideffect_counter: 2,
         }
     }
 
@@ -105,9 +110,20 @@ impl PreviousKernelDataBuilder {
         }
     }
 
+    fn next_sideffect_counter(&mut self) -> u32 {
+        let counter = self.sideffect_counter;
+        self.sideffect_counter += 1;
+        counter
+    }
+
     pub fn add_read_request_for_transient_commitment(&mut self, commitment_index: Field) -> Field {
         let new_read_request_index = self.end.read_requests.len();
-        self.end.read_requests.push(self.end.new_commitments.get(commitment_index));
+        let commitment = self.end.new_commitments.get(commitment_index);
+        let read_request = SideEffect {
+            value: commitment.value,
+            counter: self.next_sideffect_counter(),
+        };
+        self.end.read_requests.push(read_request);
         new_read_request_index
     }
 
@@ -116,18 +132,25 @@ impl PreviousKernelDataBuilder {
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             if i as u64 < num_new_commitments as u64 {
                 // The default value is its index + 1.
-                self.end.new_commitments.push(i + mocked_value_offset);
+                self.end.new_commitments.push(SideEffect{
+                    value: i + mocked_value_offset,
+                    counter: self.next_sideffect_counter()
+                });
             }
         }
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: Field) {
         let first_nullifier = self.end.new_nullifiers.get(0);
-        let mocked_value_offset = first_nullifier + self.end.new_nullifiers.len();
+        let mocked_value_offset = first_nullifier.value + self.end.new_nullifiers.len();
         for i in 1..MAX_NEW_NULLIFIERS_PER_TX {
             if i as u64 <= num_extra_nullifier as u64 {
                 // The default value is its index + the value of the first nullifier.
-                self.end.new_nullifiers.push(i + mocked_value_offset);
+                self.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+                    value: i + mocked_value_offset,
+                    note_hash: first_nullifier.note_hash,
+                    counter: self.next_sideffect_counter()
+                });
             }
         }
     }
@@ -152,16 +175,21 @@ impl PreviousKernelDataBuilder {
         self.end.public_call_stack.push(call_stack_item);
     }
 
-    fn generate_call_request(self, hash: Field, is_delegate_call: bool) -> CallRequest {
+    fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
         let mut caller_context = CallerContext::empty();
         if is_delegate_call {
             caller_context.msg_sender = fixtures::MSG_SENDER;
             caller_context.storage_contract_address = self.contract_address;
         }
+        let counter = self.next_sideffect_counter();
+        let end_counter = counter + 10;
+        self.sideffect_counter = end_counter;
         CallRequest {
             hash,
             caller_contract_address: self.contract_address,
             caller_context,
+            start_side_effect_counter: counter,
+            end_side_effect_counter: end_counter,
         }
     }
 

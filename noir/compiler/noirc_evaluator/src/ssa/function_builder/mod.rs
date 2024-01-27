@@ -255,6 +255,19 @@ impl FunctionBuilder {
         self.insert_instruction(Instruction::Constrain(lhs, rhs, assert_message), None);
     }
 
+    /// Insert a [`Instruction::RangeCheck`] instruction at the end of the current block.
+    pub(crate) fn insert_range_check(
+        &mut self,
+        value: ValueId,
+        max_bit_size: u32,
+        assert_message: Option<String>,
+    ) {
+        self.insert_instruction(
+            Instruction::RangeCheck { value, max_bit_size, assert_message },
+            None,
+        );
+    }
+
     /// Insert a call instruction at the end of the current block and return
     /// the results of the call.
     pub(crate) fn insert_call(
@@ -264,15 +277,6 @@ impl FunctionBuilder {
         result_types: Vec<Type>,
     ) -> Cow<[ValueId]> {
         self.insert_instruction(Instruction::Call { func, arguments }, Some(result_types)).results()
-    }
-
-    /// Insert ssa instructions which computes lhs << rhs by doing lhs*2^rhs
-    pub(crate) fn insert_shift_left(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
-        let base = self.field_constant(FieldElement::from(2_u128));
-        let pow = self.pow(base, rhs);
-        let typ = self.current_function.dfg.type_of_value(lhs);
-        let pow = self.insert_cast(pow, typ);
-        self.insert_binary(lhs, BinaryOp::Mul, pow)
     }
 
     /// Insert ssa instructions which computes lhs << rhs by doing lhs*2^rhs
@@ -289,8 +293,9 @@ impl FunctionBuilder {
             if let Some(rhs_constant) = self.current_function.dfg.get_numeric_constant(rhs) {
                 // Happy case is that we know precisely by how many bits the the integer will
                 // increase: lhs_bit_size + rhs
-                let (rhs_bit_size_pow_2, overflows) =
-                    2_u128.overflowing_pow(rhs_constant.to_u128() as u32);
+                let bit_shift_size = rhs_constant.to_u128() as u32;
+
+                let (rhs_bit_size_pow_2, overflows) = 2_u128.overflowing_pow(bit_shift_size);
                 if overflows {
                     assert!(bit_size < 128, "ICE - shift left with big integers are not supported");
                     if bit_size < 128 {
@@ -299,17 +304,19 @@ impl FunctionBuilder {
                     }
                 }
                 let pow = self.numeric_constant(FieldElement::from(rhs_bit_size_pow_2), typ);
-                (bit_size + (rhs_constant.to_u128() as u32), pow)
+
+                let max_lhs_bits = self.current_function.dfg.get_value_max_num_bits(lhs);
+
+                (max_lhs_bits + bit_shift_size, pow)
             } else {
                 // we use a predicate to nullify the result in case of overflow
                 let bit_size_var =
                     self.numeric_constant(FieldElement::from(bit_size as u128), typ.clone());
                 let overflow = self.insert_binary(rhs, BinaryOp::Lt, bit_size_var);
-                let one = self.numeric_constant(FieldElement::one(), Type::unsigned(1));
-                let predicate = self.insert_binary(overflow, BinaryOp::Eq, one);
-                let predicate = self.insert_cast(predicate, typ.clone());
-
-                let pow = self.pow(base, rhs);
+                let predicate = self.insert_cast(overflow, typ.clone());
+                // we can safely cast to unsigned because overflow_checks prevent bit-shift with a negative value
+                let rhs_unsigned = self.insert_cast(rhs, Type::unsigned(bit_size));
+                let pow = self.pow(base, rhs_unsigned);
                 let pow = self.insert_cast(pow, typ);
                 (FieldElement::max_num_bits(), self.insert_binary(predicate, BinaryOp::Mul, pow))
             };
@@ -323,9 +330,16 @@ impl FunctionBuilder {
     }
 
     /// Insert ssa instructions which computes lhs >> rhs by doing lhs/2^rhs
-    pub(crate) fn insert_shift_right(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
+    pub(crate) fn insert_shift_right(
+        &mut self,
+        lhs: ValueId,
+        rhs: ValueId,
+        bit_size: u32,
+    ) -> ValueId {
         let base = self.field_constant(FieldElement::from(2_u128));
-        let pow = self.pow(base, rhs);
+        // we can safely cast to unsigned because overflow_checks prevent bit-shift with a negative value
+        let rhs_unsigned = self.insert_cast(rhs, Type::unsigned(bit_size));
+        let pow = self.pow(base, rhs_unsigned);
         self.insert_binary(lhs, BinaryOp::Div, pow)
     }
 
@@ -353,10 +367,12 @@ impl FunctionBuilder {
                 let r_squared = self.insert_binary(r, BinaryOp::Mul, r);
                 let a = self.insert_binary(r_squared, BinaryOp::Mul, lhs);
                 let idx = self.field_constant(FieldElement::from((bit_size - i) as i128));
-                let b = self.insert_array_get(rhs_bits, idx, Type::field());
+                let b = self.insert_array_get(rhs_bits, idx, Type::bool());
+                let not_b = self.insert_not(b);
+                let b = self.insert_cast(b, Type::field());
+                let not_b = self.insert_cast(not_b, Type::field());
                 let r1 = self.insert_binary(a, BinaryOp::Mul, b);
-                let c = self.insert_binary(one, BinaryOp::Sub, b);
-                let r2 = self.insert_binary(c, BinaryOp::Mul, r_squared);
+                let r2 = self.insert_binary(r_squared, BinaryOp::Mul, not_b);
                 r = self.insert_binary(r1, BinaryOp::Add, r2);
             }
             r

@@ -13,28 +13,6 @@ Here you will find a reference to the commands available in the Aztec CLI.
 
 The CLI will be installed automatically via Docker by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#with-docker).
 
-:::info
-
-The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
-
-<Tabs>
-  <TabItem value="yarn" label="yarn" default>
-    
-<code>
-yarn global remove @aztec/aztec-sandbox @aztec/cli
-</code>
-
-  </TabItem>
-  <TabItem value="npm" label="npm">
-
-<code>
-npm -g uninstall @aztec/aztec-sandbox @aztec/cli
-</code>
-
-   </TabItem>
-</Tabs>
-:::
-
 ## Update
 
 The CLI comes with an update command.
@@ -49,6 +27,7 @@ This command does a few things to manage updates:
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
 - It outputs the changes.
 
+You can specify a version to update to with the `--aztec-version` flag, but it defaults to `latest` so this is typically not necessary.
 
 :::info
 
@@ -93,7 +72,7 @@ export ADDRESS2=<Account address printed by the above command>
 
 ## Deploying a Token Contract
 
-We will now deploy a token contract using the `deploy` command, and set an address of the admin via a constructor argument. You can find the contract we are deploying [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) (or write it for yourself in [this tutorial!](../tutorials/writing_token_contract.md))
+We will now deploy a token contract using the `deploy` command, and set an address of the admin via a constructor argument. You can find the contract we are deploying [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/token_contract/src/main.nr) (or write it for yourself in [this tutorial!](../tutorials/writing_token_contract.md))
 Make sure to replace this address with one of the two you created earlier.
 
 #include_code deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
@@ -123,7 +102,7 @@ The `send` command expect the function name as the first unnamed argument and th
 
 #include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
-We called the [`mint_public`](https://github.com/AztecProtocol/aztec-packages/blob/87fa621347e55f82e36c70515c1824161eee5282/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr#L157C10-L157C10) function and provided it with the 2 arguments it expects: the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
+We called the [`mint_public`](https://github.com/AztecProtocol/aztec-packages/blob/87fa621347e55f82e36c70515c1824161eee5282/yarn-project/noir-contracts/contracts/token_contract/src/main.nr#L157C10-L157C10) function and provided it with the 2 arguments it expects: the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 

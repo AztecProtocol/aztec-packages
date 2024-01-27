@@ -1,6 +1,6 @@
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { addNoirCompilerCommanderActions } from '@aztec/noir-compiler/cli';
+import { addCodegenCommanderAction } from '@aztec/noir-compiler/cli';
 
 import { Command, Option } from 'commander';
 import { lookup } from 'dns/promises';
@@ -296,9 +296,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .command('get-accounts')
     .description('Gets all the Aztec accounts stored in the PXE.')
     .addOption(pxeOption)
+    .option('--json', 'Emit output as json')
     .action(async (options: any) => {
       const { getAccounts } = await import('./cmds/get_accounts.js');
-      await getAccounts(options.rpcUrl, debugLogger, log);
+      await getAccounts(options.rpcUrl, options.json, debugLogger, log, logJson);
     });
 
   program
@@ -490,7 +491,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       await update(projectPath, contract, rpcUrl, aztecVersion, log);
     });
 
-  addNoirCompilerCommanderActions(program, log);
+  addCodegenCommanderAction(program, log);
 
   return program;
 }

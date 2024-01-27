@@ -1,7 +1,7 @@
 use acir::brillig::{BlackBoxOp, HeapArray, HeapVector, Value};
 use acir::{BlackBoxFunc, FieldElement};
 use acvm_blackbox_solver::{
-    blake2s, ecdsa_secp256k1_verify, ecdsa_secp256r1_verify, hash_to_field_128_security, keccak256,
+    blake2s, blake3, ecdsa_secp256k1_verify, ecdsa_secp256r1_verify, keccak256, keccakf1600,
     sha256, BlackBoxFunctionSolver, BlackBoxResolutionError,
 };
 
@@ -58,17 +58,30 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write_slice(registers.get(output.pointer).to_usize(), &to_value_vec(&bytes));
             Ok(())
         }
+        BlackBoxOp::Blake3 { message, output } => {
+            let message = to_u8_vec(read_heap_vector(memory, registers, message));
+            let bytes = blake3(message.as_slice())?;
+            memory.write_slice(registers.get(output.pointer).to_usize(), &to_value_vec(&bytes));
+            Ok(())
+        }
         BlackBoxOp::Keccak256 { message, output } => {
             let message = to_u8_vec(read_heap_vector(memory, registers, message));
             let bytes = keccak256(message.as_slice())?;
             memory.write_slice(registers.get(output.pointer).to_usize(), &to_value_vec(&bytes));
             Ok(())
         }
-        BlackBoxOp::HashToField128Security { message, output } => {
-            let field = hash_to_field_128_security(&to_u8_vec(read_heap_vector(
-                memory, registers, message,
-            )))?;
-            registers.set(*output, field.into());
+        BlackBoxOp::Keccakf1600 { message, output } => {
+            let state_vec: Vec<u64> = read_heap_vector(memory, registers, message)
+                .iter()
+                .map(|value| value.to_field().try_to_u64().unwrap())
+                .collect();
+            let state: [u64; 25] = state_vec.try_into().unwrap();
+
+            let new_state = keccakf1600(state)?;
+
+            let new_state: Vec<Value> =
+                new_state.into_iter().map(|x| Value::from(x as usize)).collect();
+            memory.write_slice(registers.get(output.pointer).to_usize(), &new_state);
             Ok(())
         }
         BlackBoxOp::EcdsaSecp256k1 {
@@ -85,11 +98,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             signature,
             result: result_register,
         } => {
-            let bb_func = match op {
-                BlackBoxOp::EcdsaSecp256k1 { .. } => BlackBoxFunc::EcdsaSecp256k1,
-                BlackBoxOp::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
-                _ => unreachable!(),
-            };
+            let bb_func = black_box_function_from_op(op);
 
             let public_key_x: [u8; 32] = to_u8_vec(read_heap_array(
                 memory,
@@ -124,7 +133,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                 BlackBoxOp::EcdsaSecp256r1 { .. } => {
                     ecdsa_secp256r1_verify(&hashed_msg, &public_key_x, &public_key_y, &signature)?
                 }
-                _ => unreachable!(),
+                _ => unreachable!("`BlackBoxOp` is guarded against being a non-ecdsa operation"),
             };
 
             registers.set(*result_register, result.into());
@@ -144,6 +153,15 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             let low = registers.get(*low).to_field();
             let high = registers.get(*high).to_field();
             let (x, y) = solver.fixed_base_scalar_mul(&low, &high)?;
+            memory.write_slice(registers.get(result.pointer).to_usize(), &[x.into(), y.into()]);
+            Ok(())
+        }
+        BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
+            let input1_x = registers.get(*input1_x).to_field();
+            let input1_y = registers.get(*input1_y).to_field();
+            let input2_x = registers.get(*input2_x).to_field();
+            let input2_y = registers.get(*input2_y).to_field();
+            let (x, y) = solver.ec_add(&input1_x, &input1_y, &input2_x, &input2_y)?;
             memory.write_slice(registers.get(result.pointer).to_usize(), &[x.into(), y.into()]);
             Ok(())
         }
@@ -175,6 +193,39 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             registers.set(*output, hash.into());
             Ok(())
         }
+        BlackBoxOp::BigIntAdd { .. } => todo!(),
+        BlackBoxOp::BigIntNeg { .. } => todo!(),
+        BlackBoxOp::BigIntMul { .. } => todo!(),
+        BlackBoxOp::BigIntDiv { .. } => todo!(),
+        BlackBoxOp::BigIntFromLeBytes { .. } => todo!(),
+        BlackBoxOp::BigIntToLeBytes { .. } => todo!(),
+        BlackBoxOp::Poseidon2Permutation { .. } => todo!(),
+        BlackBoxOp::Sha256Compression { .. } => todo!(),
+    }
+}
+
+fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
+    match op {
+        BlackBoxOp::Sha256 { .. } => BlackBoxFunc::SHA256,
+        BlackBoxOp::Blake2s { .. } => BlackBoxFunc::Blake2s,
+        BlackBoxOp::Blake3 { .. } => BlackBoxFunc::Blake3,
+        BlackBoxOp::Keccak256 { .. } => BlackBoxFunc::Keccak256,
+        BlackBoxOp::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
+        BlackBoxOp::EcdsaSecp256k1 { .. } => BlackBoxFunc::EcdsaSecp256k1,
+        BlackBoxOp::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
+        BlackBoxOp::SchnorrVerify { .. } => BlackBoxFunc::SchnorrVerify,
+        BlackBoxOp::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
+        BlackBoxOp::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
+        BlackBoxOp::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
+        BlackBoxOp::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
+        BlackBoxOp::BigIntAdd { .. } => BlackBoxFunc::BigIntAdd,
+        BlackBoxOp::BigIntNeg { .. } => BlackBoxFunc::BigIntNeg,
+        BlackBoxOp::BigIntMul { .. } => BlackBoxFunc::BigIntMul,
+        BlackBoxOp::BigIntDiv { .. } => BlackBoxFunc::BigIntDiv,
+        BlackBoxOp::BigIntFromLeBytes { .. } => BlackBoxFunc::BigIntFromLeBytes,
+        BlackBoxOp::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
+        BlackBoxOp::Poseidon2Permutation { .. } => BlackBoxFunc::Poseidon2Permutation,
+        BlackBoxOp::Sha256Compression { .. } => BlackBoxFunc::Sha256Compression,
     }
 }
 

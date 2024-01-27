@@ -1,20 +1,40 @@
+use crate::{
+    abi::{
+        PrivateContextInputs,
+        PublicContextInputs,
+    },
+    key::nullifier_key::validate_nullifier_key_against_address,
+    messaging::process_l1_to_l2_message,
+    oracle::{
+        arguments,
+        call_private_function::call_private_function_internal,
+        public_call::call_public_function_internal,
+        enqueue_public_function_call::enqueue_public_function_call_internal,
+        context::get_portal_address,
+        get_block_header::get_block_header,
+        nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
+    },
+    types::vec::BoundedVec,
+    utils::Reader,
+};
 use dep::protocol_types::{
     abis::{
         block_header::BlockHeader,
         call_context::CallContext,
         function_data::FunctionData,
         function_selector::FunctionSelector,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         call_stack_item::PrivateCallStackItem,
         call_stack_item::PublicCallStackItem,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{
         AztecAddress,
         EthAddress,
     },
     constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
@@ -23,7 +43,7 @@ use dep::protocol_types::{
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
@@ -32,52 +52,31 @@ use dep::protocol_types::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
+    grumpkin_point::GrumpkinPoint,
+    grumpkin_private_key::GrumpkinPrivateKey,
     hash::hash_args,
-    point::Point,
+};
+use dep::std::{
+    option::Option,
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
 // use dep::std::collections::vec::Vec;
 
-use crate::abi::{
-    PrivateContextInputs,
-    PublicContextInputs,
-};
-
-// l1 to l2 messaging
-use crate::messaging::process_l1_to_l2_message;
-
-use crate::types::{
-    vec::BoundedVec,
-};
-
-use crate::utils::arr_copy_slice;
-
-use crate::oracle::{
-    arguments,
-    call_private_function::call_private_function_internal,
-    public_call::call_public_function_internal,
-    enqueue_public_function_call::enqueue_public_function_call_internal,
-    context::get_portal_address,
-    get_block_header::get_block_header,
-};
-
-use dep::std::option::Option;
-
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateContext {
     // docs:start:private-context
     inputs: PrivateContextInputs,
+    side_effect_counter: u32,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
-    pending_read_requests: BoundedVec<Field, MAX_PENDING_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -89,22 +88,24 @@ struct PrivateContext {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     // encrypted_logs_preimages: Vec<Field>,
     // unencrypted_logs_preimages: Vec<Field>,
+
+    nullifier_key: Option<NullifierKeyPair>,
 }
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
             inputs: inputs,
+            side_effect_counter: inputs.call_context.start_side_effect_counter,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
-            read_requests: BoundedVec::new(0),
-            pending_read_requests: BoundedVec::new(0),
+            read_requests: BoundedVec::new(SideEffect::empty()),
+            nullifier_key_validation_requests: BoundedVec::new(NullifierKeyValidationRequest::empty()),
 
-            new_commitments: BoundedVec::new(0),
-            new_nullifiers: BoundedVec::new(0),
-            nullified_commitments: BoundedVec::new(0),
+            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
 
             block_header: inputs.block_header,
 
@@ -115,6 +116,8 @@ impl PrivateContext {
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
+
+            nullifier_key: Option::none(),
         }
     }
 
@@ -158,13 +161,13 @@ impl PrivateContext {
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
             read_requests: self.read_requests.storage,
-            pending_read_requests: self.pending_read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            end_side_effect_counter: self.side_effect_counter,
             encrypted_logs_hash: encrypted_logs_hash,
             unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: encrypted_log_preimages_length,
@@ -178,27 +181,49 @@ impl PrivateContext {
     }
 
     pub fn push_read_request(&mut self, read_request: Field) {
-        self.read_requests.push(read_request);
-    }
-
-    pub fn push_pending_read_request(&mut self, pending_read_request: Field) {
-        self.pending_read_requests.push(pending_read_request);
+        let side_effect = SideEffect {
+            value: read_request,
+            counter: self.side_effect_counter,
+        };
+        self.read_requests.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        let side_effect = SideEffect {
+            value: note_hash,
+            counter: self.side_effect_counter,
+        };
+        self.new_commitments.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    // We never push a zero nullified_commitment as zero is used to indicate the end
-    // of a field array in private kernel. This routine transparently replaces a
-    // zero value into the special placeholder: EMPTY_NULLIFIED_COMMITMENT.
     pub fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field) {
-        self.new_nullifiers.push(nullifier);
-        let mut non_zero_nullified = nullified_commitment;
-        if (non_zero_nullified == 0) {
-            non_zero_nullified = EMPTY_NULLIFIED_COMMITMENT;
-        }
-        self.nullified_commitments.push(non_zero_nullified);
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: nullified_commitment,
+            counter: self.side_effect_counter,
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    pub fn request_nullifier_secret_key(&mut self, account: AztecAddress) -> GrumpkinPrivateKey {
+        let key_pair = if self.nullifier_key.is_none() {
+            let key_pair = get_nullifier_key_pair(account);
+            validate_nullifier_key_against_address(account, key_pair.public_key);
+            let request = NullifierKeyValidationRequest { public_key: key_pair.public_key, secret_key: key_pair.secret_key };
+            self.nullifier_key_validation_requests.push(request);
+            self.nullifier_key = Option::some(key_pair);
+            key_pair
+        } else {
+            let key_pair = self.nullifier_key.unwrap_unchecked();
+            // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
+            assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
+            assert(key_pair.account == account, "Cannot query nullifier key for more than one account per call");
+            key_pair
+        };
+        key_pair.secret_key
     }
 
     // docs:start:context_message_portal
@@ -220,10 +245,10 @@ impl PrivateContext {
     ) 
     // docs:end:context_consume_l1_to_l2_message
     {
-        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_message_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
+        self.push_new_nullifier(nullifier, 0)
     }
     // docs:end:consume_l1_to_l2_message
 
@@ -267,66 +292,75 @@ impl PrivateContext {
         let fields = call_private_function_internal(
             contract_address,
             function_selector, 
-            args_hash
+            args_hash,
+            self.side_effect_counter,
         );
+        let mut reader = Reader::new(fields);
+
         let item = PrivateCallStackItem {
-            contract_address: AztecAddress::from_field(fields[0]),
+            contract_address: AztecAddress::from_field(reader.read()),
             function_data: FunctionData {
-                selector: FunctionSelector::from_field(fields[1]),
-                is_internal: fields[2] as bool,
-                is_private: fields[3] as bool,
-                is_constructor: fields[4] as bool,
+                selector: FunctionSelector::from_field(reader.read()),
+                is_internal: reader.read() as bool,
+                is_private: reader.read() as bool,
+                is_constructor: reader.read() as bool,
             },
             public_inputs: PrivateCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(fields[5]),
-                    storage_contract_address : AztecAddress::from_field(fields[6]),
-                    portal_contract_address : EthAddress::from_field(fields[7]),
-                    function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
-                    is_delegate_call : fields[9] as bool,
-                    is_static_call : fields[10] as bool,
-                    is_contract_deployment: fields[11] as bool,
+                    msg_sender : AztecAddress::from_field(reader.read()),
+                    storage_contract_address : AztecAddress::from_field(reader.read()),
+                    portal_contract_address : EthAddress::from_field(reader.read()),
+                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
+                    is_delegate_call : reader.read() as bool,
+                    is_static_call : reader.read() as bool,
+                    is_contract_deployment: reader.read() as bool,
+                    start_side_effect_counter: reader.read() as u32,
                 },
-                // TODO handle the offsets as a variable incremented during extraction?
-                args_hash: fields[12],
-                return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 13),
-                read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 17),
-                pending_read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 49),
-                new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 81),
-                new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 97),
-                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 113),
-                private_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 129),
-                public_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 133),
-                new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 137),
-                encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 139),
-                unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 141),
-                encrypted_log_preimages_length: fields[143],
-                unencrypted_log_preimages_length: fields[144],
-                block_header: BlockHeader {
+                args_hash: reader.read(),
+                return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
+                read_requests: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
+                nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialise, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
+                new_commitments: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
+                new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialise, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
+                private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
+                public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
+                new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+                end_side_effect_counter: reader.read() as u32,
+                encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+                unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+                encrypted_log_preimages_length: reader.read(),
+                unencrypted_log_preimages_length: reader.read(),
+                block_header: BlockHeader{
                     // Must match order in `private_circuit_public_inputs.hpp`
-                    note_hash_tree_root : fields[145],
-                    nullifier_tree_root : fields[146],
-                    contract_tree_root : fields[147],
-                    l1_to_l2_messages_tree_root : fields[148],
-                    archive_root : fields[149],
-                    public_data_tree_root: fields[150],
-                    global_variables_hash: fields[151],
+                    note_hash_tree_root : reader.read(),
+                    nullifier_tree_root : reader.read(),
+                    contract_tree_root : reader.read(),
+                    l1_to_l2_message_tree_root : reader.read(),
+                    archive_root : reader.read(),
+                    public_data_tree_root: reader.read(),
+                    global_variables_hash: reader.read(),
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    deployer_public_key: Point {
-                        x: fields[152],
-                        y: fields[153],
+                    deployer_public_key: GrumpkinPoint {
+                      x: reader.read(), 
+                      y: reader.read()
                     },
-                    constructor_vk_hash : fields[154],
-                    function_tree_root : fields[155],
-                    contract_address_salt : fields[156],
-                    portal_contract_address : EthAddress::from_field(fields[157]),
+                    constructor_vk_hash : reader.read(),
+                    function_tree_root : reader.read(),
+                    contract_address_salt : reader.read(),
+                    portal_contract_address : EthAddress::from_field(reader.read()),
                 },
-                chain_id: fields[158],
-                version: fields[159],
+                chain_id: reader.read(),
+                version: reader.read(),
             },
-            is_execution_request: fields[160] as bool,
+            is_execution_request: reader.read() as bool,
         };
+
+        reader.finish();
+
+        assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
+        self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
+        
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
 
@@ -377,33 +411,38 @@ impl PrivateContext {
         let fields = enqueue_public_function_call_internal(
             contract_address, 
             function_selector, 
-            args_hash
+            args_hash,
+            self.side_effect_counter
         );
+
+        let mut reader = Reader::new(fields);
+
         let item = PublicCallStackItem {
-            contract_address:  AztecAddress::from_field(fields[0]),
+            contract_address:  AztecAddress::from_field(reader.read()),
             function_data: FunctionData {
-                selector: FunctionSelector::from_field(fields[1]),
-                is_internal: fields[2] as bool,
-                is_private: fields[3] as bool,
-                is_constructor: fields[4] as bool,
+                selector: FunctionSelector::from_field(reader.read()),
+                is_internal: reader.read() as bool,
+                is_private: reader.read() as bool,
+                is_constructor: reader.read() as bool,
             },
             public_inputs: PublicCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(fields[5]),
-                    storage_contract_address : AztecAddress::from_field(fields[6]),
-                    portal_contract_address : EthAddress::from_field(fields[7]),
-                    function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
-                    is_delegate_call : fields[9] as bool,
-                    is_static_call : fields[10] as bool,
-                    is_contract_deployment: fields[11] as bool,
+                    msg_sender : AztecAddress::from_field(reader.read()),
+                    storage_contract_address : AztecAddress::from_field(reader.read()),
+                    portal_contract_address : EthAddress::from_field(reader.read()),
+                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
+                    is_delegate_call : reader.read() as bool,
+                    is_static_call : reader.read() as bool,
+                    is_contract_deployment: reader.read() as bool,
+                    start_side_effect_counter: reader.read() as u32,
                 },
-                args_hash: fields[12],
+                args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
-                new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
+                new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
+                new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
@@ -412,9 +451,14 @@ impl PrivateContext {
             },
             is_execution_request: true,
         };
+        reader.finish();
 
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
+
+        assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
+        // We increment the sideffect counter by one, to account for the call itself being a side effect.
+        self.side_effect_counter = self.side_effect_counter + 1;
         
         assert(args_hash == item.public_inputs.args_hash);
 
@@ -434,6 +478,7 @@ impl PrivateContext {
 
 struct PublicContext {
     inputs: PublicContextInputs,
+    side_effect_counter: u32,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
@@ -442,8 +487,8 @@ struct PublicContext {
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
@@ -460,6 +505,7 @@ impl PublicContext {
         let empty_storage_update = StorageUpdateRequest::empty();
         PublicContext {
             inputs: inputs,
+            side_effect_counter: inputs.call_context.start_side_effect_counter,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
@@ -468,8 +514,8 @@ impl PublicContext {
             contract_storage_reads: BoundedVec::new(empty_storage_read),
             public_call_stack_hashes: BoundedVec::new(0),
 
-            new_commitments: BoundedVec::new(0),
-            new_nullifiers: BoundedVec::new(0),
+            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
 
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
@@ -544,11 +590,22 @@ impl PublicContext {
     }
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        let side_effect = SideEffect {
+            value: note_hash,
+            counter: self.side_effect_counter
+        };
+        self.new_commitments.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        self.new_nullifiers.push(nullifier);
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: 0, // cannot nullify pending notes in public context
+            counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn message_portal(&mut self, content: Field) {
@@ -559,10 +616,10 @@ impl PublicContext {
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
         let this = (*self).this_address();
-        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_message_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
+        self.push_new_nullifier(nullifier, 0)
     }
 
     pub fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {

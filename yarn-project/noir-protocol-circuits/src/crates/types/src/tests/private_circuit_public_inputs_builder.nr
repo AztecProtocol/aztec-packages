@@ -3,10 +3,12 @@ use crate::{
         call_context::CallContext,
         complete_address::CompleteAddress,
         block_header::BlockHeader,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
-    hash::{compute_constructor_hash, NUM_FIELDS_PER_SHA256, hash_args},
+    hash::{compute_constructor_hash, hash_args},
     tests::{
         fixtures,
         testing_harness::build_contract_deployment_data,
@@ -15,12 +17,13 @@ use crate::{
 };
 use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
 };
 
@@ -30,12 +33,11 @@ struct PrivateCircuitPublicInputsBuilder {
     args_hash: Field,
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
-    pending_read_requests: BoundedVec<Field, MAX_PENDING_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -94,6 +96,7 @@ impl PrivateCircuitPublicInputsBuilder {
             is_delegate_call: false,
             is_static_call: false,
             is_contract_deployment: is_constructor,
+            start_side_effect_counter: 0,
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
@@ -112,15 +115,15 @@ impl PrivateCircuitPublicInputsBuilder {
             return_values: self.return_values.storage,
 
             read_requests: self.read_requests.storage,
-            pending_read_requests: self.pending_read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
 
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            end_side_effect_counter: 10,
 
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,

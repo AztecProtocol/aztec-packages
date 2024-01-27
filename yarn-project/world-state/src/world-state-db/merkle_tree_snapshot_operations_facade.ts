@@ -1,7 +1,8 @@
+import { MerkleTreeId } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import { MerkleTreeId, SiblingPath } from '@aztec/types';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { MerkleTreeDb } from './merkle_tree_db.js';
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
@@ -91,14 +92,14 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
       this.#getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
       this.#getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
       this.#getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
-      this.#getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      this.#getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
       this.#getTreeSnapshot(MerkleTreeId.ARCHIVE),
     ]);
 
     return {
       archiveRoot: snapshots[MerkleTreeId.ARCHIVE].getRoot(),
       contractDataTreeRoot: snapshots[MerkleTreeId.CONTRACT_TREE].getRoot(),
-      l1Tol2MessagesTreeRoot: snapshots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE].getRoot(),
+      l1Tol2MessageTreeRoot: snapshots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].getRoot(),
       noteHashTreeRoot: snapshots[MerkleTreeId.NOTE_HASH_TREE].getRoot(),
       nullifierTreeRoot: snapshots[MerkleTreeId.NULLIFIER_TREE].getRoot(),
       publicDataTreeRoot: snapshots[MerkleTreeId.PUBLIC_DATA_TREE].getRoot(),

@@ -12,7 +12,7 @@ Since Aztec implements full [signature abstraction](./main.md), signing keys dep
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code entrypoint /yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr rust
+#include_code entrypoint /yarn-project/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
 Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms. Read [how to write an account contract](../../../dev_docs/wallets/writing_an_account_contract.md) for a full example of how to manage authentication.
 
@@ -82,7 +82,7 @@ Note that any accounts you own that have been added to the PXE are automatically
 
 In addition to deriving encryption keys, the privacy master key is used for deriving nullifier secrets. Whenever a private note is consumed, a nullifier deterministically derived from it is emitted. This mechanisms prevents double-spends, since nullifiers are checked by the protocol to be unique. Now, in order to preserve privacy, a third party should not be able to link a note commitment to its nullifier - this link is enforced by the note implementation. Therefore, calculating the nullifier for a note requires a secret from its owner.
 
-An application in Aztec.nr can request a secret from the current user for computing the nullifier of a note via the `get_secret_key` oracle call:
+An application in Aztec.nr can request a secret from the current user for computing the nullifier of a note via the `request_nullifier_secret_key` api:
 
 #include_code nullifier /yarn-project/aztec-nr/value-note/src/value_note.nr rust
 

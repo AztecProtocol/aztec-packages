@@ -44,6 +44,15 @@ jobs:
         run: |
             cargo update --workspace
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.17.1
+          cache: 'yarn'
+          cache-dependency-path: 'yarn.lock'
+      
+      - name: Update yarn.lock
+        run: yarn
+        
       - name: Configure git
         run: |
           git config user.name kevaundray
@@ -67,11 +76,6 @@ jobs:
         with:
           ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.NOIR_RELEASES_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
 
       - name: Install Yarn dependencies
         uses: ./.github/actions/setup
@@ -119,21 +123,6 @@ jobs:
           ref: master
           token: ${{ secrets.NOIR_REPO_TOKEN }}
           inputs: '{ "noir-ref": "${{ needs.release-please.outputs.tag-name }}", "npm-tag": "latest" }'
-
-  publish-docs:
-    name: Publish docs
-    needs: [release-please]
-    if: ${{ needs.release-please.outputs.tag-name }}
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Dispatch to publish-docs
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: publish-docs.yml
-          ref: master
-          token: ${{ secrets.NOIR_REPO_TOKEN }}
-          inputs: '{ "noir-ref": "${{ needs.release-please.outputs.tag-name }}" }'
 
   publish-acvm:
     name: Publish acvm

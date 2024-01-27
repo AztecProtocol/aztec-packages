@@ -1,8 +1,8 @@
 #include "ecc_msm_relation.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/flavor/relation_definitions_fwd.hpp"
+#include "barretenberg/flavor/relation_definitions.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb::honk::sumcheck {
 
 /**
  * @brief MSM relations that evaluate the Strauss multiscalar multiplication algorithm.
@@ -394,4 +394,4 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 template class ECCVMMSMRelationImpl<grumpkin::fr>;
 DEFINE_SUMCHECK_RELATION_CLASS(ECCVMMSMRelationImpl, flavor::ECCVM);
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb::honk::sumcheck

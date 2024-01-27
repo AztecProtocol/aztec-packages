@@ -2,25 +2,17 @@
   "extends": "..",
   "compilerOptions": {
     "outDir": "dest",
-    "rootDir": "src",
+    "rootDir": ".",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
   "references": [
     {
       "path": "../aztec.js"
-    },
-    {
-      "path": "../foundation"
-    },
-    {
-      "path": "../noir-compiler"
     }
   ],
   "include": [
     "src",
-    "src/**/*.json"
+    "target",
+    "target/*.json",
   ],
-  "exclude": [
-    "src/contracts"
-  ]
 }

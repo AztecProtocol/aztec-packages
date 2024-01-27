@@ -451,6 +451,15 @@ impl BlackBoxFunctionSolver for DummyBlackBoxSolver {
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
         Ok((4_u128.into(), 5_u128.into()))
     }
+    fn ec_add(
+        &self,
+        _input1_x: &FieldElement,
+        _input1_y: &FieldElement,
+        _input2_x: &FieldElement,
+        _input2_y: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        Ok((5_u128.into(), 6_u128.into()))
+    }
 }
 
 #[cfg(test)]

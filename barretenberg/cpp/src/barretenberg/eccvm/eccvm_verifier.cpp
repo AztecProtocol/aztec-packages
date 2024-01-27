@@ -1,14 +1,13 @@
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
@@ -158,10 +157,16 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.z_perm = receive_commitment(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-    FF alpha = transcript->get_challenge("alpha");
+    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+
     auto [multivariate_challenge, purported_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, transcript);
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
@@ -195,11 +200,12 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
+        // TODO(@zac-williamson)(https://github.com/AztecProtocol/barretenberg/issues/820) ensure ECCVM polynomial
+        // commitments are never points at infinity
         if (commitment.y != 0) {
             batched_commitment_unshifted += commitment * rhos[commitment_idx];
         } else {
-            info("ECCVM Verifier: point at infinity (unshifted)");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/820)
         }
         ++commitment_idx;
     }
@@ -210,7 +216,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         if (commitment.y != 0) {
             batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
         } else {
-            info("ECCVM Verifier: point at infinity (to be shifted)");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/820)
         }
         ++commitment_idx;
     }
@@ -277,4 +283,4 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

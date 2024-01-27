@@ -1,5 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNode } from '@aztec/circuit-types';
 import {
   DeployL1Contracts,
   L1ContractArtifactsForDeployment,
@@ -10,6 +11,8 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
+  AvailabilityOracleAbi,
+  AvailabilityOracleBytecode,
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
   InboxAbi,
@@ -22,7 +25,6 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { AztecNode } from '@aztec/types';
 
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -89,6 +91,10 @@ export async function deployContractsToL1(aztecNodeConfig: AztecNodeConfig, hdAc
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
+    },
+    availabilityOracle: {
+      contractAbi: AvailabilityOracleAbi,
+      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,

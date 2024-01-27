@@ -1,17 +1,11 @@
 #pragma once
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/proof_system/plookup_tables/types.hpp"
-#include "barretenberg/proof_system/types/merkle_hash_type.hpp"
-#include "barretenberg/proof_system/types/pedersen_commitment_type.hpp"
 #include "ultra_circuit_builder.hpp"
-#include <optional>
 
-namespace proof_system {
+namespace bb {
 
-using namespace barretenberg;
+using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<arithmetization::UltraHonk<FF>> {
   public:
@@ -19,8 +13,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-
-    size_t num_vars_added_in_constructor = 0; // needed in constructing circuit from acir
 
     size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
 
@@ -70,6 +62,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
   private:
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
+    void set_goblin_ecc_op_code_constant_variables();
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
@@ -78,15 +71,36 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
-        null_op_idx = this->zero_idx;
-        add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-        mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-        equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
-        num_vars_added_in_constructor = this->variables.size();
+        set_goblin_ecc_op_code_constant_variables();
     };
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : GoblinUltraCircuitBuilder_(0, op_queue_in)
     {}
+
+    /**
+     * @brief Constructor from data generated from ACIR
+     *
+     * @param op_queue_in Op queue to which goblinized group ops will be added
+     * @param witness_values witnesses values known to acir
+     * @param public_inputs indices of public inputs in witness array
+     * @param varnum number of known witness
+     *
+     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
+     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
+     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
+     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
+     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     */
+    GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
+                               auto& witness_values,
+                               std::vector<uint32_t>& public_inputs,
+                               size_t varnum)
+        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+        , op_queue(op_queue_in)
+    {
+        // Set indices to constants corresponding to Goblin ECC op codes
+        set_goblin_ecc_op_code_constant_variables();
+    };
 
     void finalize_circuit();
     void add_gates_to_ensure_all_polys_are_non_zero();
@@ -130,24 +144,24 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     }
 
     /**
-     * Make a witness variable a member of the public calldata.
+     * @brief Add a witness variable to the public calldata.
      *
-     * @param witness_index The index of the witness.
+     * @param in Value to be added to calldata.
      * */
-    void set_public_calldata(const uint32_t witness_index)
+    uint32_t add_public_calldata(const FF& in)
     {
-        for (const uint32_t calldata : public_calldata) {
-            if (calldata == witness_index) {
-                if (!this->failed()) {
-                    this->failure("Attempted to redundantly set a public calldata!");
-                }
-                return;
-            }
-        }
-        public_calldata.emplace_back(witness_index);
+        const uint32_t index = this->add_variable(in);
+        public_calldata.emplace_back(index);
+        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
+        calldata_read_counts.resize(public_calldata.size());
+        return index;
     }
+
+    void create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in);
+
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in);
 
     FF compute_poseidon2_external_identity(FF q_poseidon2_external_value,
                                            FF q_1_value,
@@ -180,6 +194,5 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     bool check_circuit();
 };
-extern template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
-using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;
-} // namespace proof_system
+using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<bb::fr>;
+} // namespace bb

@@ -9,7 +9,6 @@ use crate::note::{
     utils::compute_inner_note_hash,
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
-use dep::protocol_types::constants::EMPTY_NULLIFIED_COMMITMENT;
 
 pub fn create_note<Note, N>(
     context: &mut PrivateContext,
@@ -53,11 +52,15 @@ pub fn create_note_hash_from_public<Note, N>(
     context.push_new_note_hash(inner_note_hash);
 }
 
-pub fn destroy_note<Note, N>(context: &mut PrivateContext, note: Note, note_interface: NoteInterface<Note, N>) {
+pub fn destroy_note<Note, N>(
+    context: &mut PrivateContext,
+    note: Note,
+    note_interface: NoteInterface<Note, N>
+) {
     let mut nullifier = 0;
-    let mut nullified_commitment: Field = EMPTY_NULLIFIED_COMMITMENT;
+    let mut nullified_commitment: Field = 0;
     let compute_nullifier = note_interface.compute_nullifier;
-    nullifier = compute_nullifier(note);
+    nullifier = compute_nullifier(note, context);
 
     // We also need the note commitment corresponding to the "nullifier"
     let get_header = note_interface.get_header;

@@ -2,26 +2,31 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 
-namespace barretenberg {
-class GoblinTestingUtils {
+namespace bb {
+class GoblinMockCircuits {
   public:
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Fbase = Curve::BaseField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = proof_system::honk::pcs::CommitmentKey<Curve>;
-    using OpQueue = proof_system::ECCOpQueue;
-    using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
-    using Flavor = proof_system::honk::flavor::GoblinUltra;
+    using CommitmentKey = bb::honk::pcs::CommitmentKey<Curve>;
+    using OpQueue = bb::ECCOpQueue;
+    using GoblinUltraBuilder = bb::GoblinUltraCircuitBuilder;
+    using Flavor = bb::honk::flavor::GoblinUltra;
+    using RecursiveFlavor = bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
+    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
+    using KernelInput = Goblin::AccumulationOutput;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder)
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t num_gates = 1)
     {
         // Add some arithmetic gates that utilize public inputs
-        for (size_t i = 0; i < 10; ++i) {
+        for (size_t i = 0; i < num_gates; ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
@@ -56,10 +61,9 @@ class GoblinTestingUtils {
      *
      * @param op_queue
      */
-    static void perform_op_queue_interactions_for_mock_first_circuit(
-        std::shared_ptr<proof_system::ECCOpQueue>& op_queue)
+    static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
     {
-        proof_system::GoblinUltraCircuitBuilder builder{ op_queue };
+        bb::GoblinUltraCircuitBuilder builder{ op_queue };
 
         // Add some goblinized ecc ops
         construct_goblin_ecc_op_circuit(builder);
@@ -67,7 +71,7 @@ class GoblinTestingUtils {
         op_queue->set_size_data();
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        auto crs_factory_ = barretenberg::srs::get_crs_factory();
+        auto crs_factory_ = bb::srs::get_crs_factory();
         auto commitment_key = CommitmentKey(op_queue->get_current_size(), crs_factory_);
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
@@ -100,5 +104,25 @@ class GoblinTestingUtils {
 
         construct_arithmetic_circuit(builder);
     }
+
+    /**
+     * @brief Construct a mock kernel circuit
+     * @details This circuit contains (1) some basic/arbitrary arithmetic gates, (2) a genuine recursive verification of
+     * the proof provided as input. It does not contain any other real kernel logic.
+     *
+     * @param builder
+     * @param kernel_input A proof to be recursively verified and the corresponding native verification key
+     */
+    static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
+    {
+        // Generic operations e.g. state updates (just arith gates for now)
+        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 4);
+
+        // Execute recursive aggregation of previous kernel proof
+        RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Aggregation
+        auto pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
+        pairing_points = verifier.verify_proof(kernel_input.proof);      // previous kernel proof
+    }
 };
-} // namespace barretenberg
+} // namespace bb

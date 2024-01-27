@@ -7,14 +7,17 @@
 #include <gtest/gtest.h>
 #include <span>
 
-namespace proof_system::honk::pcs::gemini {
+using namespace bb;
+using namespace bb::honk;
+using namespace bb::honk::pcs;
+using namespace bb::honk::pcs::gemini;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
-    using Polynomial = typename barretenberg::Polynomial<Fr>;
+    using Polynomial = typename bb::Polynomial<Fr>;
 
   public:
     void execute_gemini_and_verify_claims(size_t log_n,
@@ -237,5 +240,3 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
                                            multilinear_commitments,
                                            multilinear_commitments_to_be_shifted);
 }
-
-} // namespace proof_system::honk::pcs::gemini

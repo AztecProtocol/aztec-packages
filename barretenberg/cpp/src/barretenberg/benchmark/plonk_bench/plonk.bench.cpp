@@ -12,14 +12,14 @@ constexpr size_t START = (MAX_GATES) >> (NUM_CIRCUITS - 1);
 // constexpr size_t MAX_HASH_ROUNDS = 8192;
 // constexpr size_t START_HASH_ROUNDS = 64;
 
-using Builder = proof_system::StandardCircuitBuilder;
-using Composer = proof_system::plonk::StandardComposer;
+using Builder = bb::StandardCircuitBuilder;
+using Composer = bb::plonk::StandardComposer;
 
 void generate_test_plonk_circuit(Builder& builder, size_t num_gates)
 {
-    plonk::stdlib::field_t a(plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
-    plonk::stdlib::field_t b(plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
-    plonk::stdlib::field_t c(&builder);
+    stdlib::field_t a(stdlib::witness_t(&builder, bb::fr::random_element()));
+    stdlib::field_t b(stdlib::witness_t(&builder, bb::fr::random_element()));
+    stdlib::field_t c(&builder);
     for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
         c = a + b;
         c = a * c;
@@ -108,5 +108,3 @@ void verify_proofs_bench(State& state) noexcept
     }
 }
 BENCHMARK(verify_proofs_bench)->RangeMultiplier(2)->Range(START, MAX_GATES);
-
-BENCHMARK_MAIN();

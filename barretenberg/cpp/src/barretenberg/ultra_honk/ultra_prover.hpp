@@ -8,7 +8,7 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <UltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
@@ -20,6 +20,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Curve = typename Flavor::Curve;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit UltraProver_(const std::shared_ptr<Instance>&,
@@ -41,7 +42,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     std::shared_ptr<Transcript> transcript;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     CommitmentLabels commitment_labels;
 
@@ -57,10 +58,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     plonk::proof proof;
 };
 
-extern template class UltraProver_<honk::flavor::Ultra>;
-extern template class UltraProver_<honk::flavor::GoblinUltra>;
-
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
 using GoblinUltraProver = UltraProver_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

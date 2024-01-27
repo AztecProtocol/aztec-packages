@@ -3,12 +3,11 @@
 
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk::sumcheck;
-namespace test_sumcheck_polynomials {
+using namespace bb::honk::sumcheck;
 
 template <typename Flavor> class PartialEvaluationTests : public testing::Test {};
 
-using Flavors = testing::Types<proof_system::honk::flavor::Ultra>;
+using Flavors = testing::Types<bb::honk::flavor::Ultra>;
 
 TYPED_TEST_SUITE(PartialEvaluationTests, Flavors);
 
@@ -317,5 +316,3 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
         EXPECT_EQ((polynomial_get_all[i])[0], expected_val[i]);
     }
 }
-
-} // namespace test_sumcheck_polynomials

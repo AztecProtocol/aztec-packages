@@ -27,11 +27,11 @@ import {
   Fr,
   Note,
   computeMessageSecretHash,
-  createAccount,
   createPXEClient,
-  waitForSandbox,
+  waitForPXE,
 } from "@aztec/aztec.js";
-import { TokenContractArtifact } from "@aztec/noir-contracts/artifacts";
+import { createAccount } from '@aztec/accounts/testing';
+import { TokenContractArtifact } from "@aztec/noir-contracts/Token";
 
 const {
   PXE_URL = "http://localhost:8080",

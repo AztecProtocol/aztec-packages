@@ -10,7 +10,7 @@
       "path": "../acir-simulator"
     },
     {
-      "path": "../kv-store"
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
@@ -25,6 +25,9 @@
       "path": "../key-store"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../noir-compiler"
     },
     {
@@ -32,6 +35,9 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../noir-contracts"
     }
   ],
   "include": ["src"]
