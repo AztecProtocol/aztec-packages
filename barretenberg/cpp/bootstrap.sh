@@ -19,7 +19,12 @@ fi
 # Check CMake version
 check_cmake_version() {
     local cmake_preset_file="CMakePresets.json"
-
+    
+    # Check if CMakePresets.json file exists, silently return if it does not
+    if [ ! -f "$cmake_preset_file" ]; then
+        return 0
+    fi
+    
     # Check if CMake is installed
     if ! command -v cmake &> /dev/null; then
         echo "CMake is not installed. Please install CMake before proceeding."
