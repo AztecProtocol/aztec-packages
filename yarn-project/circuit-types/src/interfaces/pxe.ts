@@ -1,6 +1,7 @@
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
 
+import { AppExecutionResult } from '../app_execution_result.js';
 import { AuthWitness } from '../auth_witness.js';
 import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L2Block } from '../l2_block.js';
@@ -261,5 +262,25 @@ export interface PXE {
    * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
    */
   getSyncStatus(): Promise<SyncStatus>;
+
+  /// STATE CHANNEL PXE METHODS ///
+
+  /**
+   * Simulates the execution of a transaction / app circuit while stripping unnecessary data
+   * @dev in the future, this will be a proven result
+   *
+   * @param txRequest - the request to execute the transaction
+   * @returns - a chopped version of an ExecutionResult containing the bare minimum info needed to prove a kernel circuit
+   */
+  simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppExecutionResult>;
+
+  /**
+   * Functionally just splits the simulateAndProve function into two parts
+   *
+   * @param request - the request to execute the transaction
+   * @param result - the result of the transaction execution
+   * @returns - a transaction ready to broadcast
+   */
+  proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppExecutionResult): Promise<Tx>;
 }
 // docs:end:pxe-interface

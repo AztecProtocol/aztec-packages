@@ -1,4 +1,3 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -26,6 +25,7 @@ import {
   VerificationKey,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+import { ExecutionResult, NoteAndSlot } from '@aztec/circuit-types';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';

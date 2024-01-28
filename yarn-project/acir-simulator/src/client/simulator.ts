@@ -1,4 +1,4 @@
-import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/circuit-types';
+import { AztecNode, FunctionCall, Note, TxExecutionRequest, ExecutionResult } from '@aztec/circuit-types';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
@@ -20,7 +20,6 @@ import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult } from './execution_result.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';

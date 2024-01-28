@@ -1,4 +1,5 @@
 import {
+  AppExecutionResult,
   AuthWitness,
   ContractData,
   DeployedContract,
@@ -115,5 +116,12 @@ export abstract class BaseWallet implements Wallet {
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
+  }
+  simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppExecutionResult> {
+    return this.pxe.simulateAppCircuit(txRequest);
+  }
+
+  proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppExecutionResult): Promise<Tx> {
+    return this.pxe.proveSimulatedAppCircuits(request, result);
   }
 }

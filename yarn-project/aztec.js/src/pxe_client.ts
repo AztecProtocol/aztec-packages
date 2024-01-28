@@ -14,6 +14,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  AppExecutionResult
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -57,7 +58,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
       LogId,
       L2Block,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs, AppExecutionResult },
     false,
     fetch,
   );

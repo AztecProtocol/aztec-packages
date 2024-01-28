@@ -1,4 +1,4 @@
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/circuit-types';
+import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log, ExecutionResult, NoteAndSlot } from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
@@ -27,7 +27,6 @@ import {
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult, NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';

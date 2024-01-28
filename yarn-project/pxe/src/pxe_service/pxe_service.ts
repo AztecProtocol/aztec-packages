@@ -1,9 +1,5 @@
 import {
   AcirSimulator,
-  ExecutionResult,
-  collectEncryptedLogs,
-  collectEnqueuedPublicFunctionCalls,
-  collectUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
@@ -32,6 +28,11 @@ import {
   TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
+  ExecutionResult,
+  collectEncryptedLogs,
+  collectEnqueuedPublicFunctionCalls,
+  collectUnencryptedLogs,
+  AppExecutionResult,
 } from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
@@ -722,5 +723,52 @@ export class PXEService implements PXE {
 
   public getKeyStore() {
     return this.keyStore;
+  }
+
+  /// STATE CHANNEL EXPOSED METHODS
+
+  /**
+   * Simulates the execution of a transaction / app circuit while stripping unnecessary data
+   * @dev in the future, this will be a proven result
+   * 
+   * @param txRequest - the request to execute the transaction 
+   * @returns - a chopped version of an ExecutionResult containing the bare minimum info needed to prove a kernel circuit
+   */
+  public async simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppExecutionResult> {
+    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
+    try {
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
+      this.log('Simulation completed!');
+      return AppExecutionResult.fromExecutionResult(result);
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await this.#enrichSimulationError(err);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Functionally just splits the simulateAndProve function into two parts
+   * 
+   * @param request - the request to execute the transaction
+   * @param result - the result of the transaction execution
+   * @returns - a transaction ready to broadcast
+   */
+  public async proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppExecutionResult): Promise<Tx> {
+    // convert the app circuit into an execution result
+    const executionResult = result.toExecutionResult();
+    // everything else from #simulateAndProve
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
+    const kernelProver = new KernelProver(kernelOracle);
+    const { proof, publicInputs } = await kernelProver.prove(request.toTxRequest(), executionResult);
+    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
+    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+    const extendedContractData = ExtendedContractData.empty()
+    // HACK(#1639): Manually patches the ordering of the public call stack
+    // TODO(#757): Enforce proper ordering of enqueued public calls
+    await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
   }
 }

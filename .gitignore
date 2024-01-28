@@ -9,6 +9,7 @@ cmake-build-debug
 .terraform*
 .bootstrapped
 .tsbuildinfo
+*/log/
 
 # Local Netlify folder
 .netlify

@@ -15,6 +15,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  AppExecutionResult,
 } from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -54,7 +55,7 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       L2Tx,
       LogId,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs, AppExecutionResult },
     false,
     ['start', 'stop'],
   );

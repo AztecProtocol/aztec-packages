@@ -3,7 +3,10 @@ import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness }
 import { DecodedReturn } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ACVMField } from '../acvm/index.js';
+/**
+ * ACVMField
+ */
+export type ACVMField = string;
 
 /**
  * The contents of a new note.
