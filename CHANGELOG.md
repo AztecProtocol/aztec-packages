@@ -500,7 +500,7 @@
 
 ### Documentation
 
-* Documenting issue with `context.header` ([#3565](https://github.com/AztecProtocol/aztec-packages/issues/3565)) ([1237e26](https://github.com/AztecProtocol/aztec-packages/commit/1237e2658d90114c03a6b838cbab80005aa3a661))
+* Documenting issue with `context.block_header` ([#3565](https://github.com/AztecProtocol/aztec-packages/issues/3565)) ([1237e26](https://github.com/AztecProtocol/aztec-packages/commit/1237e2658d90114c03a6b838cbab80005aa3a661))
 
 ## [0.16.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.16.1...aztec-packages-v0.16.2) (2023-12-05)
 
