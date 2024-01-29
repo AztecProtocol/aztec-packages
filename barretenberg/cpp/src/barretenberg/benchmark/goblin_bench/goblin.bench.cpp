@@ -76,7 +76,7 @@ class GoblinBench : public benchmark::Fixture {
 BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
 {
     for (auto _ : state) {
-        // perform a specified number of iterations of function/kernel accumulation
+        // Perform a specified number of iterations of function/kernel accumulation
         perform_goblin_accumulation_rounds(state);
 
         // Construct proofs for ECCVM and Translator
@@ -96,7 +96,7 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
 {
-    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    // Perform a specified number of iterations of function/kernel accumulation
     for (auto _ : state) {
         perform_goblin_accumulation_rounds(state);
     }
@@ -108,9 +108,10 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
 {
-    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    // Perform a specified number of iterations of function/kernel accumulation
     perform_goblin_accumulation_rounds(state);
 
+    // Prove ECCVM only
     for (auto _ : state) {
         goblin.prove_eccvm();
     }
@@ -122,9 +123,10 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
 {
-    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    // Perform a specified number of iterations of function/kernel accumulation
     perform_goblin_accumulation_rounds(state);
 
+    // Prove ECCVM (unmeasured) and Translator (measured)
     goblin.prove_eccvm();
     for (auto _ : state) {
         goblin.prove_translator();
