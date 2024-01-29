@@ -888,18 +888,17 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
 /**
  * Makes root rollup public inputs.
  * @param seed - The seed to use for generating the root rollup public inputs.
- * @param blockNumber - The block number to use for generating the root rollup public inputs.
- * if blockNumber is undefined, it will be set to seed + 2.
+ * @param blockNumber - The block number to use in the global variables of a header.
  * @returns A root rollup public inputs.
  */
 export function makeRootRollupPublicInputs(
   seed = 0,
-  globalVariables: GlobalVariables | undefined = undefined,
+  blockNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     aggregationObject: makeAggregationObject(seed),
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, globalVariables),
+    header: makeHeader(seed + 0x200, blockNumber),
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
 }
@@ -907,14 +906,12 @@ export function makeRootRollupPublicInputs(
 /**
  * Makes header.
  */
-// TODO(benesjan): is passing in global vars separately really used?
-//                 would it be better to just allow for setting block num?
-export function makeHeader(seed = 0, globalVariables: GlobalVariables | undefined): Header {
+export function makeHeader(seed = 0, blockNumber: number | undefined = undefined): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
     makeStateReference(seed + 0x300),
-    globalVariables ?? makeGlobalVariables((seed += 0x400)),
+    makeGlobalVariables((seed += 0x400), blockNumber),
   );
 }
 

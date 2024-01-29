@@ -109,7 +109,8 @@ describe('sequencer/solo_block_builder', () => {
     // Create mock outputs for simulator
     baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs(0, globalVariables);
     baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs(0, globalVariables);
-    rootRollupOutput = makeRootRollupPublicInputs(0, globalVariables);
+    rootRollupOutput = makeRootRollupPublicInputs(0);
+    rootRollupOutput.header.globalVariables = globalVariables;
 
     // Set up mocks
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);

@@ -1,7 +1,7 @@
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block } from '@aztec/circuit-types';
 import { CompleteAddress, Fr, GrumpkinScalar, Header } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
+import { makeHeader } from '@aztec/circuits.js/factories';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store';
@@ -22,10 +22,7 @@ describe('Synchronizer', () => {
   let headerBlock3: Header;
 
   beforeEach(async () => {
-    // TODO(benesjan): make this more straightforward?
-    const randomInt = () => Math.floor(Math.random() * 1000);
-    const globalVariables = makeGlobalVariables(randomInt(), initialSyncBlockNumber);
-    headerBlock3 = makeHeader(randomInt(), globalVariables);
+    headerBlock3 = makeHeader(Math.floor(Math.random() * 1000), initialSyncBlockNumber);
 
     aztecNode = mock<AztecNode>();
     database = new KVPxeDatabase(await AztecLmdbStore.openTmp());

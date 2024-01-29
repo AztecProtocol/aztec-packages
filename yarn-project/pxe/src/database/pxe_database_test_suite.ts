@@ -156,10 +156,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
     describe('block header', () => {
       it('stores and retrieves the block header', async () => {
-        // TODO(benesjan): make this more straightforward?
-        const randomInt = () => Math.floor(Math.random() * 1000);
-        const globalVariables = makeGlobalVariables(randomInt(), INITIAL_L2_BLOCK_NUM);
-        const header = makeHeader(randomInt(), globalVariables);
+        const header = makeHeader(Math.floor(Math.random() * 1000), INITIAL_L2_BLOCK_NUM);
 
         await database.setHeader(header);
         expect(database.getHeader()).toEqual(header);
