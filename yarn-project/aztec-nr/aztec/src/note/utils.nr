@@ -1,40 +1,62 @@
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__OUTER_NULLIFIER,
-    hash::pedersen_hash,
-    traits::{Deserialize, Serialize},
-};
 use crate::{
     context::PrivateContext,
     note::{
-        note_hash::{compute_inner_hash, compute_siloed_hash, compute_unique_hash},
         note_header::NoteHeader,
         note_interface::NoteInterface,
     },
     utils::arr_copy_slice,
 };
 
-pub fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface {
+use dep::protocol_types::{
+    address::AztecAddress,
+    constants::{
+        GENERATOR_INDEX__OUTER_NULLIFIER,
+        GENERATOR_INDEX__UNIQUE_COMMITMENT,
+        GENERATOR_INDEX__SILOED_COMMITMENT,
+    },
+    hash::pedersen_hash,
+    traits::{Deserialize, Serialize},
+};
+
+fn compute_inner_hash(storage_slot: Field, note_hash: Field) -> Field {
+    // TODO(#1205) Do we need a generator index here?
+    pedersen_hash([storage_slot, note_hash], 0)
+}
+
+fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {
+    let inputs = [contract_address.to_field(), inner_note_hash];
+    pedersen_hash(inputs, GENERATOR_INDEX__SILOED_COMMITMENT)
+}
+
+fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
+    let inputs = [nonce, siloed_note_hash];
+    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_COMMITMENT)
+}
+
+fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface {
     let header = note.get_header();
     let note_hash = note.compute_note_hash();
 
     compute_inner_hash(header.storage_slot, note_hash)
 }
 
-pub fn compute_siloed_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface {
-    let header = note.get_header();
-    let inner_note_hash = compute_inner_note_hash(note);
+fn compute_siloed_note_hash<Note>(note_with_header: Note) -> Field where Note: NoteInterface {
+    let header = note_with_header.get_header();
+
+    let inner_note_hash = compute_inner_note_hash(note_with_header);
 
     compute_siloed_hash(header.contract_address, inner_note_hash)
 }
 
-pub fn compute_unique_siloed_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface {
-    let header = note.get_header();
-    let siloed_note_hash = compute_siloed_note_hash(note);
+fn compute_unique_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface {
+    let header = note_with_header.get_header();
+
+    let siloed_note_hash = compute_siloed_note_hash(note_with_header);
 
     compute_unique_hash(header.nonce, siloed_note_hash)
 }
 
-pub fn compute_siloed_nullifier<Note, N>(
+pub fn compute_siloed_nullifier<Note>(
     note_with_header: Note,
     context: &mut PrivateContext
 ) -> Field where Note: NoteInterface {
@@ -45,7 +67,7 @@ pub fn compute_siloed_nullifier<Note, N>(
     pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
-pub fn compute_note_hash_for_read_or_nullify<Note, N>(note: Note) -> Field where Note: NoteInterface {
+pub fn compute_note_hash_for_read_or_nullify<Note>(note: Note) -> Field where Note: NoteInterface {
     let header = note.get_header();
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)

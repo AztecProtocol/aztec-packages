@@ -18,12 +18,17 @@ contract DocsExample {
         address::AztecAddress,
     };
     use dep::aztec::{
+        oracle::{
+            debug_log::debug_log_format,
+        },
         note::{
             note_header::NoteHeader,
+            note_getter_options::{NoteGetterOptions, Comparator},
+            note_viewer_options::{NoteViewerOptions},
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton},
+        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -42,6 +47,7 @@ contract DocsExample {
         // docs:start:storage-map-singleton-declaration
         profiles: Map<AztecAddress, Singleton<CardNote>>,
         // docs:end:storage-map-singleton-declaration
+        test: Set<CardNote>,
         imm_singleton: ImmutableSingleton<CardNote>,
     }
 
@@ -60,6 +66,27 @@ contract DocsExample {
         let mut legendary_card = CardNote::new(points, randomness, context.msg_sender());
         // create and broadcast note
         storage.legendary_card.initialize(&mut legendary_card, true);
+    }
+
+    #[aztec(private)]
+    fn insert_notes(amounts: [u8; 10]) {
+        for i in 0..amounts.len() {
+            let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
+            storage.test.insert(&mut note, true);
+        }
+    }
+
+    #[aztec(private)]
+    fn insert_note(amount: u8, randomness: Field) {
+        let mut note = CardNote::new(amount, randomness, context.msg_sender());
+        storage.test.insert(&mut note, true);
+    }
+
+    unconstrained fn read_note(amount: Field, comparator: u3) -> pub [Option<CardNote>; 10] {
+        let options = NoteViewerOptions::new().select(0, amount, Option::some(comparator));
+        let notes = storage.test.view_notes(options);
+
+        notes
     }
 
     #[aztec(private)]
@@ -111,9 +138,11 @@ contract DocsExample {
         storage.legendary_card.view_note()
     }
 
+    // docs:start:singleton_is_initialized
     unconstrained fn is_legendary_initialized() -> pub bool {
         storage.legendary_card.is_initialized()
     }
+    // docs:end:singleton_is_initialized
 
     unconstrained fn get_imm_card() -> pub CardNote {
         storage.imm_singleton.view_note()

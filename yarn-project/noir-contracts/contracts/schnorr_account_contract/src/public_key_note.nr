@@ -2,7 +2,7 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_unique_siloed_note_hash,
+        utils::compute_note_hash_for_read_or_nullify,
     },
     hash::pedersen_hash,
     oracle::{
@@ -53,7 +53,7 @@ impl Deserialize<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 impl NoteInterface for PublicKeyNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
-        let unique_siloed_note_hash = compute_unique_siloed_note_hash(self);
+        let unique_siloed_note_hash = compute_note_hash_for_read_or_nullify(self);
         let secret = context.request_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -64,7 +64,7 @@ impl NoteInterface for PublicKeyNote {
     }
 
     fn compute_nullifier_without_context(self) -> Field {
-        let unique_siloed_note_hash = compute_unique_siloed_note_hash(self);
+        let unique_siloed_note_hash = compute_note_hash_for_read_or_nullify(self);
         let secret = get_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([

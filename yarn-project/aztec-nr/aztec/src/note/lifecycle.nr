@@ -6,7 +6,7 @@ use crate::context::{
 use crate::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
-    utils::compute_inner_note_hash,
+    utils::compute_note_hash_for_read_or_nullify,
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 use dep::protocol_types::traits::{Serialize, Deserialize};
@@ -22,7 +22,8 @@ pub fn create_note<Note, N>(
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
-    let inner_note_hash = compute_inner_note_hash(*note);
+    // As `is_transient` is true, this will compute the inner note hsah
+    let inner_note_hash = compute_note_hash_for_read_or_nullify(*note);
 
     // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
     let serialized_note: [Field; N] = Note::serialize(*note);
@@ -35,18 +36,18 @@ pub fn create_note<Note, N>(
     }
 }
 
-pub fn create_note_hash_from_public<Note, N>(context: &mut PublicContext, storage_slot: Field, note: &mut Note) where Note: NoteInterface {
+pub fn create_note_hash_from_public<Note>(context: &mut PublicContext, storage_slot: Field, note: &mut Note) where Note: NoteInterface {
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
-    let inner_note_hash = compute_inner_note_hash(*note);
+    let inner_note_hash = compute_note_hash_for_read_or_nullify(*note);
 
     context.push_new_note_hash(inner_note_hash);
 }
 
-pub fn destroy_note<Note, N>(context: &mut PrivateContext, note: Note) where Note: NoteInterface {
+pub fn destroy_note<Note>(context: &mut PrivateContext, note: Note) where Note: NoteInterface {
     let mut nullifier = 0;
     let mut nullified_commitment: Field = 0;
     nullifier = note.compute_nullifier(context);
@@ -60,7 +61,7 @@ pub fn destroy_note<Note, N>(context: &mut PrivateContext, note: Note) where Not
     // just siloes and forwards the nullifier to its output.
     if (header.is_transient) {
         // TODO(1718): Can we reuse the note commitment computed in `compute_nullifier`?
-        nullified_commitment = compute_inner_note_hash(note);
+        nullified_commitment = compute_note_hash_for_read_or_nullify(note);
     }
     assert(notify_nullified_note(nullifier, nullified_commitment) == 0);
 

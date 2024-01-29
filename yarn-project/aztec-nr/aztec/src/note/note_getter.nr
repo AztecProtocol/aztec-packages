@@ -11,7 +11,7 @@ use dep::protocol_types::{
 };
 use crate::context::PrivateContext;
 use crate::note::{
-    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder},
+    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator},
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_or_nullify,
@@ -33,7 +33,24 @@ fn check_note_header<Note, N>(
 fn check_note_fields<N>(fields: [Field; N], selects: BoundedVec<Option<Select>, N>) {
     for i in 0..selects.len {
         let select = selects.get_unchecked(i).unwrap_unchecked();
-        assert(fields[select.field_index] == select.value, "Mismatch return note field.");
+
+        // Values are computed ahead of time because circuits evaluate all branches
+        let isEqual = fields[select.field_index] == select.value;
+        let isLt = fields[select.field_index].lt(select.value);
+
+        if (select.comparator == Comparator.EQ) {
+            assert(isEqual, "Mismatch return note field.");
+        } else if (select.comparator == Comparator.NEQ) {
+            assert(!isEqual, "Mismatch return note field.");
+        } else if (select.comparator == Comparator.LT) {
+            assert(isLt, "Mismatch return note field.");
+        } else if (select.comparator == Comparator.LTE) {
+            assert(isLt | isEqual, "Mismatch return note field.");
+        } else if (select.comparator == Comparator.GT) {
+            assert(!isLt & !isEqual, "Mismatch return note field.");
+        } else if (select.comparator == Comparator.GTE) {
+            assert(!isLt, "Mismatch return note field.");
+        }
     }
 }
 
@@ -116,6 +133,7 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where N
         [],
         [],
         [],
+        [],
         1, // limit
         0, // offset
         placeholder_note,
@@ -128,7 +146,7 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface + Deserialize<N> {
-    let (num_selects, select_by, select_values, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
+    let (num_selects, select_by, select_values, select_comparators, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
@@ -137,6 +155,7 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
         num_selects,
         select_by,
         select_values,
+        select_comparators,
         sort_by,
         sort_order,
         options.limit,
@@ -155,7 +174,7 @@ unconstrained pub fn view_notes<Note, N>(
     storage_slot: Field,
     options: NoteViewerOptions<Note, N>
 ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface + Deserialize<N> {
-    let (num_selects, select_by, select_values, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
+    let (num_selects, select_by, select_values, select_comparators, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
@@ -164,6 +183,7 @@ unconstrained pub fn view_notes<Note, N>(
         num_selects,
         select_by,
         select_values,
+        select_comparators,
         sort_by,
         sort_order,
         options.limit,
@@ -177,15 +197,18 @@ unconstrained pub fn view_notes<Note, N>(
 unconstrained fn flatten_options<Note, N>(
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>
-) -> (u8, [u8; N], [Field; N], [u8; N], [u2; N]) {
+) -> (u8, [u8; N], [Field; N], [u3; N], [u8; N], [u2; N]) {
     let mut num_selects = 0;
     let mut select_by = [0; N];
     let mut select_values = [0; N];
+    let mut select_comparators = [0; N];
+
     for i in 0..selects.len {
         let select = selects.get(i);
         if select.is_some() {
             select_by[num_selects] = select.unwrap_unchecked().field_index;
             select_values[num_selects] = select.unwrap_unchecked().value;
+            select_comparators[num_selects] = select.unwrap_unchecked().comparator;
             num_selects += 1;
         };
     }
@@ -200,5 +223,5 @@ unconstrained fn flatten_options<Note, N>(
         };
     }
 
-    (num_selects, select_by, select_values, sort_by, sort_order)
+    (num_selects, select_by, select_values, select_comparators, sort_by, sort_order)
 }

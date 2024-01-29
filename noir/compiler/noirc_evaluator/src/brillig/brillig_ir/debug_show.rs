@@ -413,15 +413,6 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::EmbeddedCurveDouble { input1_x, input1_y, result } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  EMBEDDED_CURVE_DOUBLE ({} {}) -> {}",
-                    input1_x,
-                    input1_y,
-                    result
-                );
-            }
             BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
                 debug_println!(
                     self.enable_debug_trace,
@@ -507,6 +498,24 @@ impl DebugShow {
                     self.enable_debug_trace,
                     "  BIGINT_TO_LE_BYTES {} -> {}",
                     input,
+                    output
+                );
+            }
+            BlackBoxOp::Poseidon2Permutation { message, output, len } => {
+                debug_println!(
+                    self.enable_debug_trace,
+                    "  POSEIDON2_PERMUTATION {} {} -> {}",
+                    message,
+                    len,
+                    output
+                );
+            }
+            BlackBoxOp::Sha256Compression { input, hash_values, output } => {
+                debug_println!(
+                    self.enable_debug_trace,
+                    "  SHA256COMPRESSION {} {} -> {}",
+                    input,
+                    hash_values,
                     output
                 );
             }

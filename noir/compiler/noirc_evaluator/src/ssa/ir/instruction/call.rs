@@ -417,7 +417,7 @@ fn simplify_black_box_func(
                 _ => SimplifyResult::None,
             }
         }
-
+        BlackBoxFunc::Poseidon2Permutation => SimplifyResult::None, //TODO(Guillaume)
         BlackBoxFunc::EcdsaSecp256k1 => {
             simplify_signature(dfg, arguments, acvm::blackbox_solver::ecdsa_secp256k1_verify)
         }
@@ -429,8 +429,7 @@ fn simplify_black_box_func(
         | BlackBoxFunc::SchnorrVerify
         | BlackBoxFunc::PedersenCommitment
         | BlackBoxFunc::PedersenHash
-        | BlackBoxFunc::EmbeddedCurveAdd
-        | BlackBoxFunc::EmbeddedCurveDouble => {
+        | BlackBoxFunc::EmbeddedCurveAdd => {
             // Currently unsolvable here as we rely on an implementation in the backend.
             SimplifyResult::None
         }
@@ -453,6 +452,7 @@ fn simplify_black_box_func(
                 "ICE: `BlackBoxFunc::RANGE` calls should be transformed into a `Instruction::Cast`"
             )
         }
+        BlackBoxFunc::Sha256Compression => SimplifyResult::None, //TODO(Guillaume)
     }
 }
 
