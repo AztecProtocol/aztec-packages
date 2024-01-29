@@ -1,13 +1,37 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmJournal } from '../journal/index.js';
 import { Instruction } from './instruction.js';
+import { OperandPair, OperandType, deserialize, serialize } from './serialization.js';
 
 export class Add extends Instruction {
-  static type: string = 'ADD';
-  static numberOfOperands = 3;
+  static readonly type: string = 'ADD';
+  static readonly numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
+  private static readonly operands: OperandPair[] = [
+    [(c: Add) => c.indirect, OperandType.UINT8],
+    [(c: Add) => c.inTag, OperandType.UINT8],
+    [(c: Add) => c.aOffset, OperandType.UINT32],
+    [(c: Add) => c.bOffset, OperandType.UINT32],
+    [(c: Add) => c.dstOffset, OperandType.UINT32],
+  ];
+
+  constructor(
+    private indirect: number,
+    private inTag: number,
+    private aOffset: number,
+    private bOffset: number,
+    private dstOffset: number,
+  ) {
     super();
+  }
+
+  public static deserialize(buf: Buffer): Add {
+    const args = deserialize(buf, Add.operands) as ConstructorParameters<typeof Add>;
+    return new Add(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(Add.operands, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -59,7 +83,6 @@ export class Mul extends Instruction {
   }
 }
 
-/** -*/
 export class Div extends Instruction {
   static type: string = 'DIV';
   static numberOfOperands = 3;
