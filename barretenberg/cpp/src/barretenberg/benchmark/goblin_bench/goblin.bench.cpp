@@ -47,7 +47,7 @@ class GoblinBench : public benchmark::Fixture {
             // Construct and accumulate a mock function circuit
             GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
             // On the first iteration construct a "large" function circuit (2^19), otherwise medium (2^17)
-            GoblinMockCircuits::construct_mock_function_circuit(function_circuit, /*large_flag=*/circuit_idx == 0);
+            GoblinMockCircuits::construct_mock_function_circuit(function_circuit, /*large=*/circuit_idx == 0);
             auto function_accum = goblin.accumulate(function_circuit);
 
             // Construct and accumulate the mock kernel circuit

@@ -88,15 +88,15 @@ class GoblinMockCircuits {
      * realistically to efforts to parallelize circuit construction.
      *
      * @param builder
-     * @param large_flag If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
+     * @param large If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
      */
-    static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large_flag = false)
+    static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
     {
         // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
         // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
         const size_t NUM_ITERATIONS_LARGE = 8;  // results in circuit size 2^19
         const size_t NUM_ITERATIONS_MEDIUM = 1; // results in circuit size 2^17
-        const size_t NUM_ITERATIONS = large_flag ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
+        const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
         stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
