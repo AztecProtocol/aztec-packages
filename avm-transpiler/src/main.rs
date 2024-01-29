@@ -3,13 +3,13 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-mod contract;
 mod instructions;
 mod opcodes;
 mod transpile;
+mod transpile_contract;
 mod utils;
 
-use contract::{CompiledAcirContract, TranspiledContract};
+use transpile_contract::{CompiledAcirContract, TranspiledContract};
 
 fn main() {
     env_logger::init();

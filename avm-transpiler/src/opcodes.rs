@@ -1,4 +1,4 @@
-/// All AVM opcodes.
+/// All AVM opcodes
 /// Keep updated with TS and yellow paper!
 #[derive(Copy, Clone)]
 pub enum AvmOpcode {
