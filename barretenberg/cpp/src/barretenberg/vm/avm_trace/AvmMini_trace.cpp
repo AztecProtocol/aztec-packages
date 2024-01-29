@@ -452,7 +452,7 @@ std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret
             pos = ret_size;
         }
     }
-    pc = UINT32_MAX;
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
     return returnMem;
 }
 
@@ -473,7 +473,7 @@ void AvmMiniTraceBuilder::halt()
         .avmMini_sel_halt = FF(1),
     });
 
-    pc = UINT32_MAX;
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
 }
 
 /**
