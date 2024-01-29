@@ -8,7 +8,7 @@ Below, we go more into depth of what is happening under the hood when you create
 
 Aztec.nr uses an attribute system to annotate a function's type. Annotating a function with the `#[aztec(private)]` attribute tells the framework that this will be a private function that will be executed on a users device. Thus the compiler will create a circuit to define this function.
 
-However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../../../concepts/advanced/circuits/kernels/private_kernel.md).
+However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../../../learn/concepts/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -22,12 +22,12 @@ To help illustrate how this interacts with the internals of Aztec and its kernel
 
 #### The expansion broken down?
 
-Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../../../concepts/advanced/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
+Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../../../learn/concepts/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
 
 **Receiving context from the kernel.**
 #include_code context-example-inputs /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../../../concepts/advanced/circuits/kernels/private_kernel.md). The kernel circuit forwards information to each app circuit. This information then becomes part of the private context.
+Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../../../learn/concepts/circuits/kernels/private_kernel.md). The kernel circuit forwards information to each app circuit. This information then becomes part of the private context.
 For example, within each circuit we can access some global variables. To access them we can call `context.chain_id()`. The value of this chain ID comes from the values passed into the circuit from the kernel.
 
 The kernel can then check that all of the values passed to each circuit in a function call are the same.
@@ -74,14 +74,14 @@ This function takes the application context, and converts it into the `PrivateCi
 
 ## Unconstrained functions
 
-Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../../concepts/advanced/acir_simulator.md) without generating proofs. They are useful for extracting information from a user through an [oracle](./oracles.md).
+Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../../learn/concepts/pxe/acir_simulator.md) without generating proofs. They are useful for extracting information from a user through an [oracle](./oracles.md).
 
 When an unconstrained function is called, it prompts the ACIR simulator to 
 
 1. generate the execution environment
 2. execute the function within this environment
 
-To generate the environment, the simulator gets the blockheader from the [PXE database](../../../../concepts/advanced/private_execution_environment.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
+To generate the environment, the simulator gets the blockheader from the [PXE database](../../../../learn/concepts/pxe/main.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 

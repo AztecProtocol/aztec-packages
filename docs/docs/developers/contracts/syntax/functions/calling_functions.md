@@ -6,7 +6,7 @@ This page talks about how functions call other functions. For a more practical g
 
 ### Private -> Private
 
-In Aztec Private to Private function calls are handled by the [private kernel circuit](../../../../concepts/advanced/circuits/kernels/private_kernel.md), and take place on the user's device.
+In Aztec Private to Private function calls are handled by the [private kernel circuit](../../../../learn/concepts/circuits/kernels/private_kernel.md), and take place on the user's device.
 Behind the scenes, the `Private Execution Environment (PXE)` (the beating heart of Aztec that runs in your wallet) will execute all of the functions in the desired order "simulating" them in sequence. For example, a very common use-case of Private to Private interaction is calling another private function from an `account contract` (Account contracts are a general concept, more information about them can be found [here](../../../wallets/writing_an_account_contract.md)).
 
 Take, for example, the following call stack:
@@ -79,13 +79,13 @@ The following snippet is from a token bridge that is burning the underlying toke
 
 ### Public -> Public
 
-The public execution environment in Aztec takes place on the sequencer through a [Public VM](../../../../concepts/advanced/public_vm.md). This execution model is conceptually much simpler than the private transaction model as code is executed and proven on the sequencer.
+The public execution environment in Aztec takes place on the sequencer through a [Public VM](../../../../learn/concepts/hybrid_state/public_vm.md). This execution model is conceptually much simpler than the private transaction model as code is executed and proven on the sequencer.
 
 Using the same example code and call stack from the section [above](#private----private-function-calls), we will walk through how it gets executed in public.
 
 The first key difference is that public functions are not compiled to circuits, rather they are compiled to `Aztec Bytecode` (might also be referred to as brillig).
 
-This bytecode is run by the sequencer in the `Aztec VM`, which is in turn proven by the [`Aztec VM circuit`](../../../../concepts/advanced/public_vm.md).
+This bytecode is run by the sequencer in the `Aztec VM`, which is in turn proven by the [`Aztec VM circuit`](../../../../learn/concepts/hybrid_state/public_vm.md).
 The mental model for public execution carries many of the same idea as are carried by Ethereum. Programs are compiled into a series of opcodes (known as bytecode). This bytecode is then executed. The extra step for the Aztec VM is that each opcode is then proven for correctness.
 
 Calling a public function from another public function is quite similar to what we saw for private to private, with the keyword private swapped for public.
@@ -95,7 +95,7 @@ Calling a public function from another public function is quite similar to what 
 
 ### Private -> Public
 
-As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../../concepts/foundation/communication/public_private_calls/main.md).
+As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the concepts [here](../../../../learn/concepts/communication/public_private_calls/main.md).
 
 Private function execution takes place on the users device, where it keeps track of any public function calls that have been made. Whenever private execution completes, and a kernel proof is produced, the transaction sent to the network will include all of the public calls that were dispatched.
 When the sequencer receives the messages, it will take over and execute the public parts of the transaction.
@@ -125,7 +125,7 @@ If you recall the `redeem_shield` from back in the [private function section](./
 
 #include_code redeem_shield /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
-When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the note hash tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](../../../../concepts/foundation/communication/cross_chain_calls.md) we are going to see this pattern again.
+When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the note hash tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](./../../../../learn/concepts/communication/cross_chain_calls.md) we are going to see this pattern again.
 
 :::danger
 Something to be mindful of when inserting from public. Everyone can see the insertion and what happens in public, so if you are including a secret directly anyone would be able to see it. This is why the hash of the secret is used in the snippet above (`secret_hash`).

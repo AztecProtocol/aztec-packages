@@ -2,7 +2,7 @@
 title: Aztec.js
 ---
 
-If you are looking for the API reference, go [here](../../apis/aztec-js/index.md).
+If you are looking for the API reference, go [here](../../developers/aztecjs/main.md).
 
 ## Introduction
 
