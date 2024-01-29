@@ -111,7 +111,7 @@ function deploy (
   if constructor_selector then call(address, constructor_selector, constructor_args)
   assert nullifier_exists silo(address, address)
 
-  emit_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+  emit_unencrypted_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
 ```
 
 Upon seeing a `ContractInstanceDeployed` event from the canonical `ContractInstanceDeployer` contract, nodes are expected to store the address and preimage, so they can verify executed code during public code execution as described in the next section.
@@ -183,7 +183,7 @@ function deploy (
 -  if constructor_selector then call(address, constructor_selector, constructor_args)
 -  assert nullifier_exists silo(address, address)
 
-  emit_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+  emit_unencrypted_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
 ```
 
 This approach also allows devs to handle initialization in alternate ways, since there is nothing in the protocol or in a canonical contract that mandates how contracts are expected to be initialized. And it also allows for contracts to _not_ have a constructor at all if it is not needed, while still allowing them to be Publicly Deployed.
@@ -196,6 +196,6 @@ However, this opens the door for a contract to be simultaneously Publicly Deploy
 
 While it is appealing to allow a user to privately create a new contract instance and not reveal it to the world, we have not yet validated this use case. We could simplify deployment by relying on a single nullifier to track Initialization, and couple it with Public Deployment. Private functions can check initialization via the Deployment Nullifier emitted by the `ContractInstanceDeployer`.
 
-This approach requires that constructors are only invoked as part of Public Deployment, so constructors would require an additional check for `msg_sender` being the canonical `ContractInstanceDeployer`. Furthermore, to ensure that an instance constructor is properly run, the `ContractInstanceDeployer` would need to know the selector for the instance constructor, which now needs to be part of the Contract Class, re-enshrining it into the protocol. 
+This approach requires that constructors are only invoked as part of Public Deployment, so constructors would require an additional check for `msg_sender` being the canonical `ContractInstanceDeployer`. Furthermore, to ensure that an instance constructor is properly run, the `ContractInstanceDeployer` would need to know the selector for the instance constructor, which now needs to be part of the Contract Class, re-enshrining it into the protocol. Last, being able to keep agreements (contracts) private among their parties is commonplace in the traditional world, so there is a compelling argument for keeping this requirement.
 
 Alternatively, we could remove constructor abstraction altogether, and have the Private Kernel Circuit check for the Deployment Nullifier, much like the Public Kernel Circuit does. However, this hurts Diversified and Stealth account contracts, which now require an explicit deployment and cannot be used directly.

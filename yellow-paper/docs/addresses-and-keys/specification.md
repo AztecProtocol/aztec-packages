@@ -360,10 +360,17 @@ address = pedersen([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDR
 
 The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined above: $\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$. A suggested hashing is:
 ```
-public_keys_hash = pedersen([nullifier_pubkey, tagging_pubkey, incoming_view_pubkey, outgoing_view_pubkey], GENERATOR__PUBLIC_KEYS)
+public_keys_hash = pedersen([
+  nullifier_pubkey.x, nullifier_pubkey.y, 
+  tagging_pubkey.x, tagging_pubkey.y, 
+  incoming_view_pubkey.x, incoming_view_pubkey.y, 
+  outgoing_view_pubkey.x, outgoing_view_pubkey.y
+], GENERATOR__PUBLIC_KEYS)
 ```
 
-<!-- TODO(@iamMichaelConnor): Can we just hash the `x` coordinate for each pubkey and be done with it, for the sake of the hashing? Or should we also include the `y` coordinate? Or at least the sign bit? If we include the sign bit, does it make sense to "compress" all the sign bits in a single field, or is it better to expand it? -->
+This recommended hash format is compatible with the [encryption precompiles](./precompiles.md#encryption-and-tagging-precompiles) initially defined in the protocol and advertised in the canonical [registry](../private-message-delivery/registry.md) for private message delivery. An address that chooses to use a different format for its keys will not be compatible with apps that rely on the registry for note encryption. Nevertheless, new precompiles introduced in future versions of the protocol could use different public keys formats.
+
+<!-- TODO(cryptography): Can we restrict "x" components of public keys to all be the same sign, so we don't need to encode "y"'s signs? -->
 
 ## Derive siloed keys
 
