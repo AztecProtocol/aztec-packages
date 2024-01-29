@@ -38,7 +38,7 @@ fn main() {
     let contract: CompiledAcirContract =
         serde_json::from_str(&contract_json).expect("Unable to parse json");
 
-    // Transpile entire contract (all functions that should become AVM bytecode)
+    // Transpile contract to AVM bytecode
     let transpiled_contract = TranspiledContract::from(contract);
     let transpiled_json =
         serde_json::to_string(&transpiled_contract).expect("Unable to serialize json");

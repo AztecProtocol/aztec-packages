@@ -8,24 +8,22 @@ use noirc_driver::ContractFunctionType;
 use crate::transpile::brillig_to_avm;
 use crate::utils::extract_brillig_from_acir;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)] // omit Acir/Avm tag for these objects in json
-pub enum AvmOrAcirContractFunction {
-    Acir(AcirContractFunction),
-    Avm(AvmContractFunction),
-}
-
+/// Representation of a contract with some transpiled functions
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TranspiledContract {
     pub transpiled: bool,
     pub noir_version: String,
     pub name: String,
+    // Functions can be ACIR or AVM
     pub functions: Vec<AvmOrAcirContractFunction>,
     pub events: serde_json::Value,
     pub file_map: serde_json::Value,
     //pub warnings: serde_json::Value,
 }
 
+/// A regular contract with ACIR+Brillig functions
+/// but with fields irrelevant to transpilation
+/// represented as catch-all serde Values
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompiledAcirContract {
     pub noir_version: String,
@@ -36,6 +34,8 @@ pub struct CompiledAcirContract {
     //pub warnings: serde_json::Value,
 }
 
+/// Transpilation is performed when a TranspiledContract
+/// is constructed from a CompiledAcirContract
 impl From<CompiledAcirContract> for TranspiledContract {
     fn from(contract: CompiledAcirContract) -> Self {
         let mut functions = Vec::new();
@@ -66,7 +66,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
                     debug_symbols: function.debug_symbols,
                 }));
             } else {
-                // Not an AVM function, push original ABI entry
+                // This function is not flagged for transpilation. Push original entry.
                 functions.push(AvmOrAcirContractFunction::Acir(function));
             }
         }
@@ -74,7 +74,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
             transpiled: true,
             noir_version: contract.noir_version,
             name: contract.name,
-            functions,
+            functions, // some acir, some transpiled avm functions
             events: contract.events,
             file_map: contract.file_map,
             //warnings: contract.warnings,
@@ -82,6 +82,20 @@ impl From<CompiledAcirContract> for TranspiledContract {
     }
 }
 
+/// Representation of a contract function
+/// with AVM bytecode as a base64 string
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AvmContractFunction {
+    pub name: String,
+    pub function_type: ContractFunctionType,
+    pub is_internal: bool,
+    pub abi: serde_json::Value,
+    pub bytecode: String, // base64
+    pub debug_symbols: serde_json::Value,
+}
+
+/// Representation of an ACIR contract function but with
+/// catch-all serde Values for fields irrelevant to transpilation
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AcirContractFunction {
     pub name: String,
@@ -96,12 +110,11 @@ pub struct AcirContractFunction {
     pub debug_symbols: serde_json::Value,
 }
 
+/// An enum that allows the TranspiledContract struct to contain
+/// functions with either ACIR or AVM bytecode
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AvmContractFunction {
-    pub name: String,
-    pub function_type: ContractFunctionType,
-    pub is_internal: bool,
-    pub abi: serde_json::Value,
-    pub bytecode: String, // base64
-    pub debug_symbols: serde_json::Value,
+#[serde(untagged)] // omit Acir/Avm tag for these objects in json
+pub enum AvmOrAcirContractFunction {
+    Acir(AcirContractFunction),
+    Avm(AvmContractFunction),
 }
