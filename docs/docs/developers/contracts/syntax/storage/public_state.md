@@ -10,8 +10,8 @@ For a higher level overview of the state model in Aztec, see the [state model](.
 
 The `PublicState` struct is generic over the variable type `T`. The type *must* implement Serialize and Deserialize traits, as specified here:
 
-#include_code Serialize<N> /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr#L48-L50 rust
-#include_code Deserialize<N> /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr#L52-L54 rust
+#include_code serialize /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr rust
+#include_code deserialize /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr rust
 
 The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out _where_ in storage the variable is located. Notice that while we don't have the exact same [state model](../../../../learn/concepts/hybrid_state/main.md) as EVM chains it will look similar from the contract developers point of view.
 

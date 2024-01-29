@@ -45,10 +45,14 @@ impl ToField for Field {
     }
 }
 
+// docs:start:serialize
 trait Serialize<N> {
     fn serialize(self) -> [Field; N];
 }
+// docs:end:serialize
 
+// docs:start:deserialize
 trait Deserialize<N> {
     fn deserialize(fields: [Field; N]) -> Self;
 }
+// docs:end:deserialize

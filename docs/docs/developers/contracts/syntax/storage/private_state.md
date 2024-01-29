@@ -34,9 +34,11 @@ Notes are the fundamental elements in the private world.
 
 A note should implement the following traits:
 
-#include_code NoteInterface /yarn-project/aztec-nr/aztec/src/note/note_interface.nr rust
-#include_code Serialize<N> /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr#L48-L50 rust
-#include_code Deserialize<N> /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr#L52-L54 rust
+#include_code note_interface /yarn-project/aztec-nr/aztec/src/note/note_interface.nr rust
+
+#include_code serialize /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr rust
+
+#include_code deserialize /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr rust
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
