@@ -1,6 +1,5 @@
 #pragma once
 
-// #include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
