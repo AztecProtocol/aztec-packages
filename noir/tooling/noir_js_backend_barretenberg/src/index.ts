@@ -50,10 +50,12 @@ export class BarretenbergBackend implements Backend {
   /** @description Generates a proof */
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
     await this.instantiate();
+    // TODO: Change once `@aztec/bb.js` version is updated to use methods without isRecursive flag
     const proofWithPublicInputs = await this.api.acirCreateProof(
       this.acirComposer,
       this.acirUncompressedBytecode,
       gunzip(compressedWitness),
+      false,
     );
 
     const splitIndex = proofWithPublicInputs.length - numBytesInProofWithoutPublicInputs;
@@ -114,7 +116,8 @@ export class BarretenbergBackend implements Backend {
     const proof = reconstructProofWithPublicInputs(proofData);
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);
-    return await this.api.acirVerifyProof(this.acirComposer, proof);
+    // TODO: Change once `@aztec/bb.js` version is updated to use methods without isRecursive flag
+    return await this.api.acirVerifyProof(this.acirComposer, proof, false);
   }
 
   async destroy(): Promise<void> {
