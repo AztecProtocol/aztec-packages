@@ -1,5 +1,5 @@
 ---
-title: Aztec Boxes
+title: Run a blank Aztec Box
 ---
 
 This page will go over Aztec Boxes, which are full stack Aztec project templates that come with:
@@ -16,11 +16,11 @@ There are also boxes that include a basic React interface (`blank-react`) and an
 
 ## Setup
 
-See the Quickstart page for [requirements](../getting_started/quickstart.md#requirements), starting the local [Sandbox environment](../getting_started/quickstart.md#sandbox-installation) and [installing the CLI](../getting_started/quickstart#cli-installation).
+See the Quickstart page for [requirements](../../getting_started/quickstart.md#requirements), starting the local [Sandbox environment](../../getting_started/quickstart.md#sandbox-installation) and [installing the CLI](../../getting_started/quickstart#cli-installation).
 
 Aztec Boxes use [yarn](https://classic.yarnpkg.com/) for package management, so if you want to follow along exactly, make sure you have it [installed](https://classic.yarnpkg.com/en/docs/install).
 
-You will also need to install Aztec tooling to compile contracts. You can find instructions for installing the latest version [here](../cli/sandbox-reference.md).
+You will also need to install Aztec tooling to compile contracts. You can find instructions for installing the latest version [here](../../sandbox/references/sandbox-reference.md).
 
 ## Getting the Box
 
@@ -68,7 +68,7 @@ yarn
 
 ### Start the Sandbox
 
-See the Quickstart for [installing and starting the Sandbox](../getting_started/quickstart.md#sandbox-installation).
+See the Quickstart for [installing and starting the Sandbox](../../getting_started/quickstart.md#sandbox-installation).
 
 ### Start the frontend
 

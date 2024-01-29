@@ -199,7 +199,7 @@ This will create a new directory called `target` and a JSON artifact inside it. 
 aztec-cli codegen target -o src/artifacts --ts
 ```
 
-Once it is compiled you can [deploy](../contracts/deploying.md) it to the sandbox. Ensure your [sandbox is running](../cli/sandbox-reference.md) and run this in the same dir as before:
+Once it is compiled you can [deploy](../contracts/deploying.md) it to the sandbox. Ensure your [sandbox is running](../sandbox/references/sandbox-reference.md) and run this in the same dir as before:
 
 ```bash
 aztec-cli deploy ./target/Voting.json --args $ADMIN_ADDRESS
@@ -229,7 +229,7 @@ aztec-cli call get_vote --contract-artifact ./target/Voting.json --contract-addr
 
 This should return `1n`.
 
-You can follow this pattern to test `end_vote()` and access control of other functions. Find more information about calling functions from the CLI [here](../cli/cli-commands.md).
+You can follow this pattern to test `end_vote()` and access control of other functions. Find more information about calling functions from the CLI [here](../sandbox/references/cli-commands.md).
 
 ## Next steps
 

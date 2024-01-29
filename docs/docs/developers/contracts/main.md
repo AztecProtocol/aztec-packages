@@ -20,7 +20,7 @@ An **Aztec smart contract** is a smart contract with **private** state variables
 
 ## Install aztec-nargo
 
-To write an Aztec.nr contract, you need to the compiler, `aztec-nargo` which is installed when you install the sandbox. See install instructions [here](../cli/sandbox-reference.md).
+To write an Aztec.nr contract, you need to the compiler, `aztec-nargo` which is installed when you install the sandbox. See install instructions [here](../sandbox/references/sandbox-reference.md).
 
 :::info
 For those coming from vanilla Noir, the version used for aztec.nr is tracked separately to nargo for vanilla Noir. Be sure to use `aztec-nargo` to compile your contracts.

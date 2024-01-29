@@ -1,5 +1,5 @@
 ---
-title: Getting Started with Aztec.nr
+title: Writing your first smart contract
 ---
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase the awesome stuff Aztec is capable of.
@@ -195,7 +195,7 @@ Partial Address: 0x211edeb823ef3e042e91f338d0d83d0c90606dba16f678c701d8bb64e64e2
 
 Use one of these `address`es as the `owner`. You can either copy it or export.
 
-To deploy the counter contract, [ensure the sandbox is running](../cli/sandbox-reference.md) and run this in the root of your Noir project:
+To deploy the counter contract, [ensure the sandbox is running](../sandbox/references/sandbox-reference.md) and run this in the root of your Noir project:
 
 ```bash
 aztec-cli deploy contracts/counter/src/artifacts/Counter.json --args 100 0x2a0f32c34c5b948a7f9766f0c1aad70a86c0ee649f56208e936be4324d49b0b9
@@ -223,11 +223,11 @@ Now you can explore.
 
 **Interested in learning more about how Aztec works under the hood?**
 
-Understand the high level architecture [here](../../learn/about_aztec/technical_overview.md).
+Understand the high level architecture on the [Core Components page](../../learn/about_aztec/technical_overview.md). You can also explore Aztec's [hybrid state model](../../learn/concepts/hybrid_state/) and [the lifecycle of a transaction](../../learn/concepts/transactions.md).
 
-**Want to write more advanced smart contracts?**
+**Want to write more contracts?**
 
-Follow the token contract tutorial [here](../tutorials/writing_token_contract.md).
+Follow the series of tutorials, starting with the private voting contract [here](../tutorials/writing_private_voting_contract.md).
 
 **Ready to dive into Aztec and Ethereum cross-chain communication?**
 

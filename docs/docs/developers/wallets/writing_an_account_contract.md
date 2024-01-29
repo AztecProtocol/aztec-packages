@@ -28,7 +28,7 @@ Let's start with the account contract itself in Aztec.nr. Create [a new Aztec.nr
 #include_code contract yarn-project/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
 :::info
-You can use [the Aztec CLI](../cli/main.md) to generate a new keypair if you want to use a different one:
+You can use [the Aztec CLI](../sandbox/main.md) to generate a new keypair if you want to use a different one:
 
 ```bash
 $ aztec-cli generate-private-key

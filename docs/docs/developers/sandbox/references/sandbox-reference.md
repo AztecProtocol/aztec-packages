@@ -6,7 +6,7 @@ Here you will find a reference to everything available within the Sandbox.
 
 ## Installation
 
-You can run the Sandbox using Docker. See the [Quickstart](../getting_started/quickstart.md#install-docker) for instructions on installing Docker.
+You can run the Sandbox using Docker. See the [Quickstart](../../getting_started/quickstart.md#install-docker) for instructions on installing Docker.
 
 ### With Docker
 
@@ -161,7 +161,7 @@ To help with testing, the sandbox is shipped with a set of cheatcodes.
 
 Cheatcodes allow you to change the time of the Aztec block, load certain state or more easily manipulate Ethereum instead of having to write dedicated RPC calls to anvil or hardhat.
 
-You can find the cheat code reference [here](../testing/cheat_codes.md).
+You can find the cheat code reference [here](../../testing/cheat_codes.md).
 
 ## Contracts
 
@@ -204,4 +204,4 @@ You can see all of our example contracts in the monorepo [here](https://github.c
 
 The sandbox is shipped with full-stack Aztec project templates, with example Aztec.nr contracts, testing scripts, and web interfaces.
 
-You can read more information about how to use boxes [here](./blank_box.md).
+You can read more information about how to use boxes [here](../guides/blank_box.md).

@@ -18,7 +18,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../cli/sandbox-reference.md) for installation instructions.
+You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../sandbox/references/sandbox-reference.md) for installation instructions.
 
 You should also install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for VS Code.
 
@@ -459,7 +459,7 @@ If you don't yet have any private state variables defined put there a placeholde
 
 ## Compiling
 
-Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../cli/sandbox-reference.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../sandbox/references/sandbox-reference.md) for instructions on setting it up.
 
 Run the following command in the directory where your `Nargo.toml` file is located:
 

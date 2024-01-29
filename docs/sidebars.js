@@ -262,12 +262,32 @@ const sidebars = {
       type: "category",
       link: {
         type: "doc",
-        id: "developers/cli/main",
+        id: "developers/sandbox/main",
       },
       items: [
-        "developers/cli/cli-commands",
-        "developers/cli/sandbox-reference",
-        "developers/cli/run_more_than_one_pxe_sandbox"
+        {
+          label: "Guides",
+          type: "category",
+          items: [
+            "developers/sandbox/guides/blank_box",
+            "developers/sandbox/guides/run_more_than_one_pxe_sandbox",
+          ],
+        },
+        {
+          label: "References",
+          type: "category",
+          items: [
+            "developers/sandbox/references/cli-commands",
+            "developers/sandbox/references/sandbox-reference",
+            {
+              label: "PXE Reference",
+              type: "doc",
+              id: "developers/sandbox/references/pxe_reference/interfaces/PXE",
+            },
+          ],
+
+        },
+       
       ],
     },
     {
@@ -431,11 +451,6 @@ const sidebars = {
       label: "API Reference",
       type: "category",
       items: [
-        {
-          label: "Private Execution Environment (PXE)",
-          type: "doc",
-          id: "developers/apis/pxe/interfaces/PXE",
-        },
         {
           label: "Aztec.js",
           type: "category",
