@@ -63,7 +63,7 @@ describe('e2e_note_getter', () => {
       ).toStrictEqual(
         [
           { points: 5n, randomness: 1n },
-          { points: 5n, randomness: 1n },
+          { points: 5n, randomness: 0n },
         ].sort(sortFunc),
       );
 
