@@ -1,3 +1,4 @@
+use log::warn;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -11,6 +12,8 @@ mod utils;
 use contract::{CompiledAcirContract, TranspiledContract};
 
 fn main() {
+    env_logger::init();
+
     let args: Vec<String> = env::args().collect();
     let in_contract_artifact_path = &args[1];
     let out_transpiled_artifact_path = &args[2];
@@ -25,7 +28,7 @@ fn main() {
     if let Some(transpiled) = raw_json_obj.get("transpiled") {
         match transpiled {
             serde_json::Value::Bool(true) => {
-                println!("Contract already transpiled. Skipping.");
+                warn!("Contract already transpiled. Skipping.");
                 return; // nothing to transpile
             }
             _ => (),

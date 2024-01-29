@@ -1,3 +1,4 @@
+use log::info;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -44,8 +45,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
             if function.function_type == ContractFunctionType::Unconstrained
                 && re.is_match(function.name.as_str())
             {
-                // TODO: only print if verbose
-                println!(
+                info!(
                     "Transpiling AVM function {} on contract {}",
                     function.name, contract.name
                 );

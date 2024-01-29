@@ -7,7 +7,7 @@ use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, FIRST_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
-use crate::utils::{print_avm_program, print_brillig_program};
+use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program};
 
 /// Map Brillig register indices directly to AVM memory offsets
 /// Map Brillig memory to AVM memory, but offset by a constant
@@ -17,8 +17,7 @@ const POINTER_TO_MEMORY: u32 = 2048;
 const SCRATCH_WORD: u32 = 2049;
 
 pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
-    // TODO: only print if VERY verbose
-    print_brillig_program(&brillig);
+    dbg_print_brillig_program(&brillig);
 
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
 
@@ -68,10 +67,6 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     BinaryFieldOp::Mul => AvmOpcode::MUL,
                     BinaryFieldOp::Div => AvmOpcode::DIV,
                     BinaryFieldOp::Equals => AvmOpcode::EQ,
-                    _ => panic!(
-                        "Transpiler doesn't know how to process BinaryFieldOp {:?}",
-                        brillig_instr
-                    ),
                 };
                 // TODO(4268): set in_tag to `field`
                 avm_instrs.push(AvmInstruction {
@@ -93,7 +88,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
             BrilligOpcode::BinaryIntOp {
                 destination,
                 op,
-                bit_size,
+                bit_size: _, // TODO(4268): support u8..u128 and use in_tag
                 lhs,
                 rhs,
             } => {
@@ -321,8 +316,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
         }
     }
 
-    // TODO: only print if VERY verbose
-    print_avm_program(&avm_instrs);
+    dbg_print_avm_program(&avm_instrs);
 
     // Constructing bytecode from instructions
     let mut bytecode = Vec::new();

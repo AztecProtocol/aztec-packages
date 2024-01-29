@@ -1,3 +1,5 @@
+use log::debug;
+
 use acvm::acir::circuit::brillig::Brillig;
 use acvm::acir::circuit::Opcode;
 
@@ -20,20 +22,20 @@ pub fn acir_to_brillig(opcodes: &Vec<Opcode>) -> &Brillig {
 }
 
 /// Print inputs, outputs, and instructions in a Brillig program
-pub fn print_brillig_program(brillig: &Brillig) {
-    println!("Printing Brillig program...");
-    println!("\tInputs: {:?}", brillig.inputs);
+pub fn dbg_print_brillig_program(brillig: &Brillig) {
+    debug!("Printing Brillig program...");
+    debug!("\tInputs: {:?}", brillig.inputs);
     for i in 0..brillig.bytecode.len() {
         let instr = &brillig.bytecode[i];
-        println!("\tPC:{0} {1:?}", i, instr);
+        debug!("\tPC:{0} {1:?}", i, instr);
     }
-    println!("\tOutputs: {:?}", brillig.outputs);
+    debug!("\tOutputs: {:?}", brillig.outputs);
 }
 
 /// Print each instruction in an AVM program
-pub fn print_avm_program(avm_program: &Vec<AvmInstruction>) {
-    println!("Printing AVM program...");
+pub fn dbg_print_avm_program(avm_program: &Vec<AvmInstruction>) {
+    debug!("Printing AVM program...");
     for i in 0..avm_program.len() {
-        println!("\tPC:{0}: {1}", i, &avm_program[i].to_string());
+        debug!("\tPC:{0}: {1}", i, &avm_program[i].to_string());
     }
 }
