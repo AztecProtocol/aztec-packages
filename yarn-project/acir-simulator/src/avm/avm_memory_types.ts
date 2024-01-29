@@ -16,6 +16,11 @@ export abstract class MemoryValue {
 
   // Use sparingly.
   public abstract toBigInt(): bigint;
+
+  // To field
+  public toFr(): Fr {
+    return new Fr(this.toBigInt());
+  }
 }
 
 export abstract class IntegralValue extends MemoryValue {

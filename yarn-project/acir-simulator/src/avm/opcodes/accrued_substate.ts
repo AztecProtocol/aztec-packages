@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
@@ -20,7 +18,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     Instruction.checkTags(machineState, TypeTag.FIELD, this.noteHashOffset);
-    const noteHash = machineState.memory.getAs<Fr>(this.noteHashOffset);
+    const noteHash = machineState.memory.get(this.noteHashOffset).toFr();
 
     journal.writeNoteHash(noteHash);
 
@@ -42,7 +40,7 @@ export class EmitNullifier extends Instruction {
     }
 
     Instruction.checkTags(machineState, TypeTag.FIELD, this.nullifierOffset);
-    const nullifier = machineState.memory.getAs<Fr>(this.nullifierOffset);
+    const nullifier = machineState.memory.get(this.nullifierOffset).toFr();
 
     journal.writeNullifier(nullifier);
 
@@ -65,8 +63,7 @@ export class EmitUnencryptedLog extends Instruction {
 
     // Check log tags are all fields
     Instruction.checkTagsRange(machineState, TypeTag.FIELD, this.logOffset, this.logSize);
-
-    const log = machineState.memory.getSliceAs<Fr>(this.logOffset, this.logSize);
+    const log = machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
 
     journal.writeLog(log);
 
@@ -89,8 +86,7 @@ export class SendL2ToL1Message extends Instruction {
 
     // Check log tags are all fields
     Instruction.checkTagsRange(machineState, TypeTag.FIELD, this.msgOffset, this.msgSize);
-
-    const msg = machineState.memory.getSliceAs<Fr>(this.msgOffset, this.msgSize);
+    const msg = machineState.memory.getSlice(this.msgOffset, this.msgSize).map(f => f.toFr());
 
     journal.writeLog(msg);
 

@@ -25,7 +25,8 @@ describe('Accrued Substate', () => {
     await new EmitNoteHash(0).execute(machineState, journal);
 
     const journalState = journal.flush();
-    expect(journalState.newNoteHashes).toEqual([value]);
+    const expected = [value.toFr()];
+    expect(journalState.newNoteHashes).toEqual(expected);
   });
 
   it('Should append a new nullifier correctly', async () => {
@@ -35,7 +36,8 @@ describe('Accrued Substate', () => {
     await new EmitNullifier(0).execute(machineState, journal);
 
     const journalState = journal.flush();
-    expect(journalState.newNullifiers).toEqual([value]);
+    const expected = [value.toFr()];
+    expect(journalState.newNullifiers).toEqual(expected);
   });
 
   it('Should append unencrypted logs correctly', async () => {
@@ -49,7 +51,8 @@ describe('Accrued Substate', () => {
     await new EmitUnencryptedLog(startOffset, length).execute(machineState, journal);
 
     const journalState = journal.flush();
-    expect(journalState.newLogs).toEqual([values]);
+    const expected = values.map(v => v.toFr());
+    expect(journalState.newLogs).toEqual([expected]);
   });
 
   it('Should append l1 to l2 messages correctly', async () => {
@@ -63,7 +66,8 @@ describe('Accrued Substate', () => {
     await new SendL2ToL1Message(startOffset, length).execute(machineState, journal);
 
     const journalState = journal.flush();
-    expect(journalState.newLogs).toEqual([values]);
+    const expected = values.map(v => v.toFr());
+    expect(journalState.newLogs).toEqual([expected]);
   });
 
   it('All substate instructions should fail within a static call', async () => {
