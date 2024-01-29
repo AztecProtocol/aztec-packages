@@ -22,8 +22,8 @@ export class AvmContext {
   /** Manages mutable state during execution - (caching, fetching) */
   private journal: AvmJournal;
 
-  constructor(interpreter: AvmInterpreter, executionEnvironment: AvmExecutionEnvironment, journal: AvmJournal) {
-    this.interpreter = interpreter;
+  constructor(executionEnvironment: AvmExecutionEnvironment, journal: AvmJournal) {
+    this.interpreter = AvmInterpreter.getInstance();
     this.executionEnvironment = executionEnvironment;
     this.journal = journal;
   }
@@ -61,15 +61,15 @@ export class AvmContext {
    */
   public newWithForkedState(): AvmContext {
     const forkedState = AvmJournal.branchParent(this.journal);
-    return new AvmContext(this.interpreter, this.executionEnvironment, forkedState);
+    return new AvmContext(this.executionEnvironment, forkedState);
   }
 
   /**
    * Create a new forked avm context - for external calls
    */
-  public static newWithForkedState(interpreter: AvmInterpreter, executionEnvironment: AvmExecutionEnvironment, journal: AvmJournal): AvmContext {
+  public static newWithForkedState(executionEnvironment: AvmExecutionEnvironment, journal: AvmJournal): AvmContext {
     const forkedState = AvmJournal.branchParent(journal);
-    return new AvmContext(interpreter, executionEnvironment, forkedState);
+    return new AvmContext(executionEnvironment, forkedState);
   }
 
   /**
@@ -86,13 +86,12 @@ export class AvmContext {
   public static prepExternalCallContext(
     address: AztecAddress,
     calldata: Fr[],
-    interpreter: AvmInterpreter,
     executionEnvironment: AvmExecutionEnvironment,
     journal: AvmJournal,
   ): AvmContext {
     const newExecutionEnvironment = executionEnvironment.newCall(address, calldata);
     const forkedState = AvmJournal.branchParent(journal);
-    return new AvmContext(interpreter, newExecutionEnvironment, forkedState);
+    return new AvmContext(newExecutionEnvironment, forkedState);
   }
 
   /**
@@ -109,13 +108,12 @@ export class AvmContext {
   public static prepExternalStaticCallContext(
     address: AztecAddress,
     calldata: Fr[],
-    interpreter: AvmInterpreter,
     executionEnvironment: AvmExecutionEnvironment,
     journal: AvmJournal,
   ): AvmContext {
     const newExecutionEnvironment = executionEnvironment.newStaticCall(address, calldata);
     const forkedState = AvmJournal.branchParent(journal);
-    return new AvmContext(interpreter, newExecutionEnvironment, forkedState);
+    return new AvmContext(newExecutionEnvironment, forkedState);
   }
 
   /**

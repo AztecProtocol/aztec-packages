@@ -28,7 +28,7 @@ describe('interpreter', () => {
     ];
 
     const machineState = new AvmMachineState(initExecutionEnvironment({ calldata }));
-    const interpreter = new AvmInterpreter();
+    const interpreter = AvmInterpreter.getInstance();
     const avmReturnData = await interpreter.run(machineState, journal, instructions);
 
     expect(avmReturnData.reverted).toBe(false);
@@ -44,7 +44,7 @@ describe('interpreter', () => {
     const instructions: Instruction[] = [new Jump(invalidJumpDestination)];
 
     const machineState = new AvmMachineState(initExecutionEnvironment({ calldata }));
-    const interpreter = new AvmInterpreter();
+    const interpreter = AvmInterpreter.getInstance();
 
     const avmReturnData = await interpreter.run(machineState, journal, instructions);
 

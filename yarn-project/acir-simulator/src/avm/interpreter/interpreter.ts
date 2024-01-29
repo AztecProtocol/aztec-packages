@@ -11,13 +11,27 @@ import { Instruction } from '../opcodes/index.js';
  * Executes an Avm context
  */
 export class AvmInterpreter {
+  private static instance: AvmInterpreter;
+
+  public static getInstance(): AvmInterpreter {
+    if (!AvmInterpreter.instance) {
+      AvmInterpreter.instance = new AvmInterpreter();
+    }
+
+    return AvmInterpreter.instance;
+  }
+
   /**
    * Run the avm
    * @returns bool - successful execution will return true
    *               - reverted execution will return false
    *               - any other panic will throw
    */
-  async run(machineState: AvmMachineState, journal: AvmJournal, instructions: Instruction[] = []): Promise<AvmMessageCallResult> {
+  async run(
+    machineState: AvmMachineState,
+    journal: AvmJournal,
+    instructions: Instruction[] = [],
+  ): Promise<AvmMessageCallResult> {
     assert(instructions.length > 0);
 
     try {
@@ -25,7 +39,7 @@ export class AvmInterpreter {
         const instruction = instructions[machineState.pc];
         assert(!!instruction); // This should never happen
 
-        await instruction.execute(machineState, journal, this);
+        await instruction.execute(machineState, journal);
 
         if (machineState.pc >= instructions.length) {
           throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
