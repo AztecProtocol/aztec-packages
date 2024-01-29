@@ -59,16 +59,6 @@ class GoblinBench : public benchmark::Fixture {
     }
 };
 
-#define ARGS                                                                                                           \
-    Arg(GoblinBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                 \
-        ->Arg(1 << 0)                                                                                                  \
-        ->Arg(1 << 1)                                                                                                  \
-        ->Arg(1 << 2)                                                                                                  \
-        ->Arg(1 << 3)                                                                                                  \
-        ->Arg(1 << 4)                                                                                                  \
-        ->Arg(1 << 5)                                                                                                  \
-        ->Arg(1 << 6)
-
 /**
  * @brief Benchmark the full Goblin IVC protocol
  *
@@ -80,14 +70,8 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
         perform_goblin_accumulation_rounds(state);
 
         // Construct proofs for ECCVM and Translator
-        proof = goblin.prove();
+        goblin.prove();
     }
-
-    // Verify the final UGH proof
-    honk::GoblinUltraVerifier ultra_verifier{ kernel_accum.verification_key };
-    ultra_verifier.verify_proof(kernel_accum.proof);
-    // Verify the goblin proof (eccvm, translator, merge)
-    goblin.verify(proof);
 }
 
 /**
@@ -133,7 +117,16 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
     }
 }
 
-// Register the benchmark
+#define ARGS                                                                                                           \
+    Arg(GoblinBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                 \
+        ->Arg(1 << 0)                                                                                                  \
+        ->Arg(1 << 1)                                                                                                  \
+        ->Arg(1 << 2)                                                                                                  \
+        ->Arg(1 << 3)                                                                                                  \
+        ->Arg(1 << 4)                                                                                                  \
+        ->Arg(1 << 5)                                                                                                  \
+        ->Arg(1 << 6)
+
 BENCHMARK_REGISTER_F(GoblinBench, GoblinFull)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(GoblinBench, GoblinAccumulate)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(GoblinBench, GoblinECCVMProve)->Unit(benchmark::kMillisecond)->ARGS;
