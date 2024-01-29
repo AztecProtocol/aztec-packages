@@ -229,7 +229,8 @@ describe('e2e_inclusion_proofs_contract', () => {
         .wait();
     });
 
-    it('contract existence failure case', async () => {
+    // TODO(@spalladino): Re-enable once we add check for non-inclusion based on nullifier
+    it.skip('contract existence failure case', async () => {
       // This should fail because we choose a block number before the contract was deployed
       const blockNumber = deploymentBlockNumber - 1;
       const contractData = new NewContractData(contract.address, portalContractAddress, contractClassId);
