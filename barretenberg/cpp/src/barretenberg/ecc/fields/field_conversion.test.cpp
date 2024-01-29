@@ -7,7 +7,7 @@ class FieldConversionTest : public ::testing::Test {
   public:
     template <typename T> void check_conversion(T x)
     {
-        size_t len = bb::field_conversion::calc_num_frs<T>();
+        size_t len = bb::field_conversion::calc_num_bn254_frs<T>();
         auto frs = bb::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::field_conversion::convert_from_bn254_frs<T>(frs);
