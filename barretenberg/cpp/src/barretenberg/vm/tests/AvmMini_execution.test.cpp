@@ -260,7 +260,7 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
 
-    // Expected PC sequence during execution
+    // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
 
     for (size_t i = 0; i < 6; i++) {
@@ -270,6 +270,86 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
     // Find the first row enabling the addition selector.
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == 1; });
     EXPECT_EQ(row->avmMini_ic, 345567789);
+
+    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+}
+
+// Positive test with some nested internall calls
+// We use the following functions (internal calls):
+// F1: ADD(2,3,2)  M[2] = M[2] + M[3]
+// F2: MUL(2,3,2)  M[2] = M[2] * M[3]
+// G: F1 SET(17,3) F2  where SET(17,3) means M[3] = 17
+// MAIN: SET(4,2) SET(7,3) G
+// Whole execution should compute: (4 + 7) * 17 = 187
+// Bytecode layout: SET(4,2) SET(7,3) INTERNAL_CALL_G RETURN BYTECODE(F2) BYTECODE(F1) BYTECODE(G)
+//                     0         1            2          3         4           6            8
+// BYTECODE(F1): ADD(2,3,2) INTERNAL_RETURN
+// BYTECODE(F2): MUL(2,3,2) INTERNAL_RETURN
+// BYTECODE(G): INTERNAL_CALL(6) SET(17,3) INTERNAL_CALL(4) INTERNAL_RETURN
+TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
+{
+    auto internalCallHex = [](std::string const& dst_offset) {
+        return "25"
+               "000000" +
+               dst_offset;
+    };
+
+    auto setHex = [](std::string const& val, std::string const& dst_offset) {
+        return "2701" // SET U8
+               + val + "000000" + dst_offset;
+    };
+
+    const std::string tag_address_arguments = "01"        // U8
+                                              "00000002"  // addr a 2
+                                              "00000003"  // addr b 3
+                                              "00000002"; // addr c 2
+
+    const std::string return_hex = "34"        // RETURN
+                                   "00000000"  // ret offset 0
+                                   "00000000"; // ret size 0
+
+    const std::string internal_ret_hex = "26";
+    const std::string add_hex = "00";
+    const std::string mul_hex = "02";
+
+    const std::string bytecode_f1 = add_hex + tag_address_arguments + internal_ret_hex;
+    const std::string bytecode_f2 = mul_hex + tag_address_arguments + internal_ret_hex;
+    const std::string bytecode_g =
+        internalCallHex("06") + setHex("11", "03") + internalCallHex("04") + internal_ret_hex;
+
+    std::string bytecode_hex = setHex("04", "02") + setHex("07", "03") + internalCallHex("08") + return_hex +
+                               bytecode_f2 + bytecode_f1 + bytecode_g;
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Execution::parse(bytecode);
+
+    EXPECT_EQ(instructions.size(), 12);
+
+    // Expected sequence of opcodes
+    std::vector<OpCode> const opcode_sequence{ OpCode::SET,          OpCode::SET,
+                                               OpCode::INTERNALCALL, OpCode::RETURN,
+                                               OpCode::MUL,          OpCode::INTERNALRETURN,
+                                               OpCode::ADD,          OpCode::INTERNALRETURN,
+                                               OpCode::INTERNALCALL, OpCode::SET,
+                                               OpCode::INTERNALCALL, OpCode::INTERNALRETURN };
+
+    for (size_t i = 0; i < 12; i++) {
+        EXPECT_EQ(instructions.at(i).op_code, opcode_sequence.at(i));
+    }
+
+    auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
+
+    // Expected sequence of PCs during execution
+    std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };
+
+    for (size_t i = 0; i < 6; i++) {
+        EXPECT_EQ(trace.at(i + 1).avmMini_pc, pc_sequence.at(i));
+    }
+
+    // Find the first row enabling the multiplication selector.
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == 1; });
+    EXPECT_EQ(row->avmMini_ic, 187);
+    EXPECT_EQ(row->avmMini_pc, 4);
 
     gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
 }
@@ -324,7 +404,7 @@ TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{ 13, 156 });
 
-    // Expected PC sequence during execution
+    // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 3, 4 };
 
     for (size_t i = 0; i < 4; i++) {
