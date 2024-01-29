@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { AvmMachineState } from '../avm_machine_state.js';
 import { IntegralValue } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
@@ -14,9 +12,7 @@ export class Return extends Instruction {
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const returnData = machineState.memory
-      .getSlice(this.returnOffset, this.copySize)
-      .map(word => new Fr(word.toBigInt()));
+    const returnData = machineState.memory.getSlice(this.returnOffset, this.copySize).map(word => word.toFr());
 
     machineState.setReturnData(returnData);
 
@@ -33,7 +29,9 @@ export class Revert extends Instruction {
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const returnData = machineState.readMemoryChunk(this.returnOffset, this.returnOffset + this.retSize);
+    const returnData = machineState.memory
+      .getSlice(this.returnOffset, this.returnOffset + this.retSize)
+      .map(word => word.toFr());
     machineState.setReturnData(returnData);
 
     this.revert(machineState);
