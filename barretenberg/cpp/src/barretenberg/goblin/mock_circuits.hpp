@@ -89,17 +89,22 @@ class GoblinMockCircuits {
      * realistically to efforts to parallelize circuit construction.
      *
      * @param builder
+     * @param large_flag If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
      */
-    static void construct_mock_function_circuit(GoblinUltraBuilder& builder)
+    static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large_flag = false)
     {
-        // WORKTODO: decide what to put here and how best to control circuit size
-        stdlib::generate_sha256_test_circuit(builder, /*num_iterations=*/1);
-        stdlib::generate_ecdsa_verification_test_circuit(builder, /*num_iterations=*/1);
-        stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, /*num_iterations=*/1);
-        construct_arithmetic_circuit(builder, 1 << 4);
+        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
+        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
+        const size_t NUM_ITERATIONS_LARGE = 8;  // results in circuit size 2^19
+        const size_t NUM_ITERATIONS_MEDIUM = 1; // results in circuit size 2^17
+        const size_t NUM_ITERATIONS = large_flag ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
-        // WORKTODO: its not clear whether goblin ops will be supported for function circuits initially but for UGH can
-        // only be used if some op gates are included so for now we'll assume each function circuit has some.
+        stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);                         // min gates: ~39k
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~41k
+        stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS); // min gates: ~29k
+
+        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently UGH
+        // can only be used if some op gates are included so for now we'll assume each function circuit has some.
         construct_goblin_ecc_op_circuit(builder);
     }
 
@@ -161,8 +166,9 @@ class GoblinMockCircuits {
 
     /**
      * @brief Construct a mock kernel circuit
-     * @details This circuit contains (1) some basic/arbitrary arithmetic gates, (2) recursive verification of a
-     * function circuit proof, and optionally (3) recursive verification of a previous kernel circuit proof
+     * @details This circuit contains (1) some arbitrary operations representing general kernel logic, (2) recursive
+     * verification of a function circuit proof, and optionally (3) recursive verification of a previous kernel circuit
+     * proof. The arbitrary kernel logic is structured to bring the final dyadic circuit size of the kernel to 2^17.
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Pairing point aggregation not implemented
      * @param builder
@@ -173,8 +179,11 @@ class GoblinMockCircuits {
                                               const KernelInput& function_accum,
                                               const KernelInput& prev_kernel_accum)
     {
-        // Generic operations e.g. state updates (just arith gates for now)
-        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 4);
+        // Add operations representing general kernel logic e.g. state updates.
+        const size_t NUM_MERKLE_CHECKS = 30;
+        const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
 
         // Execute recursive aggregation of function proof
         RecursiveVerifier verifier1{ &builder, function_accum.verification_key };

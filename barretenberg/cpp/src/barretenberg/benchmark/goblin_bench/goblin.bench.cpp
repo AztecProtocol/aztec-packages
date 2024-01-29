@@ -33,7 +33,9 @@ class GoblinBench : public benchmark::Fixture {
     /**
      * @brief Perform a specified number of function circuit accumulation rounds
      * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists of
-     * the generation of two circuits, two UGH proofs and two Merge proofs.
+     * the generation of two circuits, two UGH proofs and two Merge proofs. To match the sizes called out in the spec
+     * (https://github.com/AztecProtocol/aztec-packages/blob/master/yellow-paper/docs/cryptography/performance-targets.md)
+     * we set the size of the function circuit to be 2^17 except for the first one which is 2^19.
      *
      * @param state
      */
@@ -44,7 +46,8 @@ class GoblinBench : public benchmark::Fixture {
 
             // Construct and accumulate a mock function circuit
             GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
-            GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+            // On the first iteration construct a "large" function circuit (2^19), otherwise medium (2^17)
+            GoblinMockCircuits::construct_mock_function_circuit(function_circuit, /*large_flag=*/circuit_idx == 0);
             auto function_accum = goblin.accumulate(function_circuit);
 
             // Construct and accumulate the mock kernel circuit
@@ -55,9 +58,6 @@ class GoblinBench : public benchmark::Fixture {
         }
     }
 };
-
-// Number of function circuits to accumulate (based on Zacs target numbers)
-// static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
 
 #define ARGS                                                                                                           \
     Arg(GoblinBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                 \
