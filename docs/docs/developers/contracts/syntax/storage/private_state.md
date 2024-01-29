@@ -32,9 +32,11 @@ Unlike public state variables, which can be arbitrary types, private state varia
 
 Notes are the fundamental elements in the private world.
 
-A note should conform to the following interface:
+A note should implement the following traits:
 
 #include_code NoteInterface /yarn-project/aztec-nr/aztec/src/note/note_interface.nr rust
+#include_code Serialize<N> /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr#L48-L50 rust
+#include_code Deserialize<N> /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr#L52-L54 rust
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
@@ -66,7 +68,7 @@ Interestingly, if a developer requires a private state to be modifiable by users
 
 Singleton is a private state variable that is unique in a way. When a Singleton is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
 
-Like for public state, we define the struct to have context, a storage slot and `note_interface` specifying how the note should be constructed and manipulated. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr).
+Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr).
 
 An example of singleton usage in the account contracts is keeping track of public keys. The `Singleton` is added to the `Storage` struct as follows:
 
@@ -74,7 +76,7 @@ An example of singleton usage in the account contracts is keeping track of publi
 
 ### `new`
 
-As part of the initialization of the `Storage` struct, the `Singleton` is created as follows, here at the specified storage slot and with the `NoteInterface` for `CardNote`.
+As part of the initialization of the `Storage` struct, the `Singleton` is created as follows at the specified storage slot.
 
 #include_code start_vars_singleton /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
