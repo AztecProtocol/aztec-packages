@@ -2,7 +2,6 @@ import {
   AuthWitness,
   AztecNode,
   CompleteAddress,
-  INITIAL_L2_BLOCK_NUM,
   MerkleTreeId,
   NullifierMembershipWitness,
   PublicDataWitness,
