@@ -43,11 +43,6 @@ impl Deserialize<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
             header: NoteHeader::empty()
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; PUBLIC_KEY_NOTE_LEN] {
-        [0; PUBLIC_KEY_NOTE_LEN]
-    }
 }
 
 impl NoteInterface for PublicKeyNote {

@@ -46,11 +46,6 @@ impl Deserialize<AZTEC_ADDRESS_SERIALIZED_LEN> for AztecAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_SERIALIZED_LEN]) -> Self {
         AztecAddress::from_field(fields[0])
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; AZTEC_ADDRESS_SERIALIZED_LEN] {
-        [0; AZTEC_ADDRESS_SERIALIZED_LEN]
-    }
 }
 
 impl AztecAddress {
@@ -126,11 +121,6 @@ impl Deserialize<ETH_ADDRESS_SERIALIZED_LEN> for EthAddress {
         Self {
             inner: fields[0]
         }
-    }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; ETH_ADDRESS_SERIALIZED_LEN] {
-        [0; ETH_ADDRESS_SERIALIZED_LEN]
     }
 }
 

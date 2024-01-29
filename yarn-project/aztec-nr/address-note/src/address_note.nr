@@ -46,11 +46,6 @@ impl Deserialize<ADDRESS_NOTE_LEN> for AddressNote {
             header: NoteHeader::empty(),
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; ADDRESS_NOTE_LEN] {
-        [0; ADDRESS_NOTE_LEN]
-    }
 }
 
 impl NoteInterface for AddressNote {

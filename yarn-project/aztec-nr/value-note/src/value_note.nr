@@ -44,11 +44,6 @@ impl Deserialize<VALUE_NOTE_LEN> for ValueNote {
             header: NoteHeader::empty(),
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; 3] {
-        [0; 3]
-    }
 }
 
 impl NoteInterface for ValueNote {

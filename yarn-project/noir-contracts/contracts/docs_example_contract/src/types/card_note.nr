@@ -56,11 +56,6 @@ impl Deserialize<CARD_NOTE_LEN> for CardNote {
             header: NoteHeader::empty(),
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; CARD_NOTE_LEN] {
-        [0; CARD_NOTE_LEN]
-    }
 }
 
 impl NoteInterface for CardNote {

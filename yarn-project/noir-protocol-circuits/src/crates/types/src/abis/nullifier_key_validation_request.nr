@@ -48,10 +48,6 @@ impl Deserialize<NULLIFIER_KEY_VALIDATION_REQUEST_SERIALIZED_LEN> for NullifierK
             secret_key: GrumpkinPrivateKey::new(fields[2], fields[3]),
         }
     }
-
-    fn _deserialized_length_hint() -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_SERIALIZED_LEN] {
-        [0; NULLIFIER_KEY_VALIDATION_REQUEST_SERIALIZED_LEN]
-    }
 }
 
 impl NullifierKeyValidationRequest {
@@ -107,10 +103,6 @@ impl Deserialize<NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_SERIALIZED_LEN> for Nu
             secret_key: GrumpkinPrivateKey::new(fields[2], fields[3]),
             contract_address: AztecAddress::from_field(fields[4]),
         }
-    }
-
-    fn _deserialized_length_hint() -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_SERIALIZED_LEN] {
-        [0; NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_SERIALIZED_LEN]
     }
 }
 

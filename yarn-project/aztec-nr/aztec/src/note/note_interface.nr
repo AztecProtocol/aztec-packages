@@ -1,6 +1,7 @@
 use crate::context::PrivateContext;
 use crate::note::note_header::NoteHeader;
 
+// docs:start:note_interface
 trait NoteInterface {
     fn compute_note_hash(self) -> Field;
 
@@ -14,4 +15,5 @@ trait NoteInterface {
 
     fn broadcast(self, context: &mut PrivateContext, slot: Field) -> ();
 }
+// docs:end:note_interface
 

@@ -39,9 +39,4 @@ impl Deserialize<ASSET_SERIALIZED_LEN> for Asset {
             oracle: AztecAddress::from_field(fields[3])
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; ASSET_SERIALIZED_LEN] {
-        [0; ASSET_SERIALIZED_LEN]
-    }
 }

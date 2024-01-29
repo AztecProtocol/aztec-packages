@@ -45,13 +45,14 @@ impl ToField for Field {
     }
 }
 
+// docs:start:serialize
 trait Serialize<N> {
     fn serialize(self) -> [Field; N];
 }
+// docs:end:serialize
 
+// docs:start:deserialize
 trait Deserialize<N> {
     fn deserialize(fields: [Field; N]) -> Self;
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; N];
 }
+// docs:end:deserialize

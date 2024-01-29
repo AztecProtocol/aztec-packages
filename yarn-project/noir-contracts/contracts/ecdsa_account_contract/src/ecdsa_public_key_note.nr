@@ -72,11 +72,6 @@ impl Deserialize<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
         EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
-        [0; ECDSA_PUBLIC_KEY_NOTE_LEN]
-    }
 }
 
 impl NoteInterface for EcdsaPublicKeyNote {

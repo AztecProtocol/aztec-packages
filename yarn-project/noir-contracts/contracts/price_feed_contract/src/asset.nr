@@ -16,9 +16,4 @@ impl Deserialize<ASSET_SERIALIZED_LEN> for Asset {
     fn deserialize(fields: [Field; ASSET_SERIALIZED_LEN]) -> Asset {
         Asset { price: fields[0] as u120 }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; ASSET_SERIALIZED_LEN] {
-        [0; ASSET_SERIALIZED_LEN]
-    }
 }

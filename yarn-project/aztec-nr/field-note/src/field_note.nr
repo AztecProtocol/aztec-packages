@@ -31,11 +31,6 @@ impl Deserialize<FIELD_NOTE_LEN> for FieldNote {
             header: NoteHeader::empty(),
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; 1] {
-        [0; 1]
-    }
 }
 
 impl NoteInterface for FieldNote {
