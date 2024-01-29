@@ -98,9 +98,9 @@ class GoblinMockCircuits {
         const size_t NUM_ITERATIONS_MEDIUM = 1; // results in circuit size 2^17
         const size_t NUM_ITERATIONS = large_flag ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
-        stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);                         // min gates: ~39k
-        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~41k
-        stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS); // min gates: ~29k
+        stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS);  // min gates: ~29k
 
         // Note: its not clear whether goblin ops will be supported for function circuits initially but currently UGH
         // can only be used if some op gates are included so for now we'll assume each function circuit has some.
@@ -181,7 +181,7 @@ class GoblinMockCircuits {
         // Add operations representing general kernel logic e.g. state updates.
         const size_t NUM_MERKLE_CHECKS = 30;
         const size_t NUM_ECDSA_VERIFICATIONS = 1;
-        stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
 
         // Execute recursive aggregation of function proof

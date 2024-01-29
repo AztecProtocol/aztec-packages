@@ -47,51 +47,6 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     }
 }
 
-/**
- * @brief Generate test circuit with specified number of sha256 hashes
- *
- * @param builder
- * @param num_iterations
- */
-template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
-{
-    stdlib::generate_sha256_test_circuit(builder, num_iterations);
-}
-
-// WORKTODO: just get rid of these pass-throughs and call the mock circuit methods directly in ultra bench
-/**
- * @brief Generate test circuit with specified number of keccak hashes
- *
- * @param builder
- * @param num_iterations
- */
-template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
-{
-    stdlib::keccak<Builder>::generate_test_circuit(builder, num_iterations);
-}
-
-/**
- * @brief Generate test circuit with specified number of ecdsa verifications
- *
- * @param builder
- * @param num_iterations
- */
-template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations)
-{
-    stdlib::generate_ecdsa_verification_test_circuit(builder, num_iterations);
-}
-
-/**
- * @brief Generate test circuit with specified number of merkle membership checks
- *
- * @param builder
- * @param num_iterations
- */
-template <typename Builder> void generate_merkle_membership_test_circuit(Builder& builder, size_t num_iterations)
-{
-    stdlib::merkle_tree::generate_merkle_membership_test_circuit(builder, num_iterations);
-}
-
 // ultrahonk
 inline honk::UltraProver get_prover(honk::UltraComposer& composer,
                                     void (*test_circuit_function)(honk::UltraComposer::CircuitBuilder&, size_t),

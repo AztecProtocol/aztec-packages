@@ -316,6 +316,9 @@ void batch_update_membership(field_t<Builder> const& new_root,
         new_root, rollup_root, old_root, old_path, zero_subtree_root, start_index.decompose_into_bits(), height, msg);
 }
 
+} // namespace bb::stdlib::merkle_tree
+
+namespace bb::stdlib {
 /**
  * @brief Generate a simple merkle tree membership circuit for testing purposes
  *
@@ -349,5 +352,4 @@ template <typename Builder> static void generate_merkle_membership_test_circuit(
             root_ct, merkle_tree::create_witness_hash_path(builder, merkle_tree.get_hash_path(idx)), value_ct, idx_ct);
     }
 }
-
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::stdlib

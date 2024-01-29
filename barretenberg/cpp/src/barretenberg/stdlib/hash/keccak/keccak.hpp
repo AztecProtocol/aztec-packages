@@ -199,8 +199,8 @@ template <typename Builder> class keccak {
     static std::array<field_ct, NUM_KECCAK_LANES> extended_2_normal(keccak_state& internal);
     static byte_array_ct sponge_squeeze_for_permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> lanes,
                                                                Builder* context);
-
-    static void generate_test_circuit(Builder& builder, size_t num_iterations);
 };
+
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations);
 
 } // namespace bb::stdlib

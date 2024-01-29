@@ -896,7 +896,7 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
  * @param builder
  * @param num_iterations number of hashes to perform
  */
-template <typename Builder> void keccak<Builder>::generate_test_circuit(Builder& builder, size_t num_iterations)
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
 {
     std::string in = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
 
@@ -908,5 +908,7 @@ template <typename Builder> void keccak<Builder>::generate_test_circuit(Builder&
 
 template class keccak<bb::UltraCircuitBuilder>;
 template class keccak<bb::GoblinUltraCircuitBuilder>;
+template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
+template void generate_keccak_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
 
 } // namespace bb::stdlib
