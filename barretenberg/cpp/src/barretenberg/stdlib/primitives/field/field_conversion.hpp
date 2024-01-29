@@ -11,7 +11,7 @@ template <typename Builder> using fr = field_t<Builder>;
 template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 
-static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
+static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 68;
 
 template <typename Builder>
 std::array<fr<Builder>, 2> decompose_bn254_fr_to_two_limbs(Builder& builder, const fr<Builder>& f)
@@ -21,8 +21,8 @@ std::array<fr<Builder>, 2> decompose_bn254_fr_to_two_limbs(Builder& builder, con
         (uint256_t(1) << NUM_CONVERSION_LIMB_BITS) - 1; // split bn254_fr into two 64 bit limbs
     constexpr uint256_t shift = (uint256_t(1) << NUM_CONVERSION_LIMB_BITS);
     const uint256_t value = f.get_value();
-    const uint64_t low_val = static_cast<uint64_t>(value & LIMB_MASK);
-    const uint64_t hi_val = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
+    const uint256_t low_val = static_cast<uint256_t>(value & LIMB_MASK);
+    const uint256_t hi_val = static_cast<uint256_t>(value >> NUM_CONVERSION_LIMB_BITS);
 
     fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
     fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
@@ -88,8 +88,8 @@ fq<Builder> convert_challenge(Builder& builder, const fr<Builder>& f, fq<Builder
     // split f into low_bits_in and high_bits_in
     constexpr uint256_t LIMB_MASK = shift - 1; // mask for upper 128 bits
     const uint256_t value = f;
-    const uint64_t low_val = static_cast<uint64_t>(value & LIMB_MASK);
-    const uint64_t hi_val = static_cast<uint64_t>(value >> NUM_CONVERSION_TWO_LIMB_BITS);
+    const uint256_t low_val = static_cast<uint256_t>(value & LIMB_MASK);
+    const uint256_t hi_val = static_cast<uint256_t>(value >> NUM_CONVERSION_TWO_LIMB_BITS);
 
     fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
     fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
@@ -216,10 +216,13 @@ template <typename Builder, typename T> T convert_challenge(Builder& builder, co
 
 template <typename Builder> std::array<fr<Builder>, 2> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
 {
-    static const fr<Builder> shift(static_cast<uint256_t>(1) << NUM_CONVERSION_LIMB_BITS);
+    fr<Builder> shift(static_cast<uint256_t>(1) << NUM_CONVERSION_LIMB_BITS); // TODO (maybe this should be 68???)
     std::array<fr<Builder>, 2> result;
-    result[0] = input.binary_basis_limbs[0] + (input.binary_basis_limbs[1] * shift);
-    result[1] = input.binary_basis_limbs[2] + (input.binary_basis_limbs[3] * shift);
+    result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
+    result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);
+    auto tmp1 = result[0].get_value();
+    auto tmp2 = result[1].get_value();
+    tmp1 + tmp2;
     return result;
 }
 /**
