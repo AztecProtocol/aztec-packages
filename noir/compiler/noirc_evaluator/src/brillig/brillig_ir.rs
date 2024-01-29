@@ -715,7 +715,7 @@ impl BrilligContext {
     /// Emits a stop instruction
     pub(crate) fn stop_instruction(&mut self) {
         self.debug_show.stop_instruction();
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset: 0 });
+        self.push_opcode(BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 });
     }
 
     /// Returns a register which holds the value of a constant

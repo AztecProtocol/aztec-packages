@@ -138,6 +138,7 @@ pub enum BrilligOpcode {
     /// Stop execution, returning data after the offset
     Stop {
         return_data_offset: usize,
+        return_data_size: usize,
     },
 }
 

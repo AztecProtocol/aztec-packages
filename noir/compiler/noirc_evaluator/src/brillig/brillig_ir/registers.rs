@@ -1,5 +1,7 @@
 use acvm::acir::brillig::MemoryAddress;
 
+use crate::brillig::brillig_ir::entry_point::MAX_STACK_SIZE;
+
 use super::ReservedRegisters;
 
 /// Every brillig stack frame/call context has its own view of register space.
@@ -66,6 +68,7 @@ impl BrilligRegistersContext {
         // Otherwise, move to our latest register.
         let register = MemoryAddress::from(self.next_free_register_index);
         self.next_free_register_index += 1;
+        assert!(self.next_free_register_index < MAX_STACK_SIZE, "Stack overflow");
         register
     }
 

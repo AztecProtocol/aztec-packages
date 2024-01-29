@@ -39,6 +39,7 @@ pub type ErrorCallStack = Vec<usize>;
 pub enum VMStatus {
     Finished {
         return_data_offset: usize,
+        return_data_size: usize,
     },
     InProgress,
     Failure {
@@ -118,8 +119,8 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
     }
 
     /// Sets the current status of the VM to Finished (completed execution).
-    fn finish(&mut self, return_data_offset: usize) -> VMStatus {
-        self.status(VMStatus::Finished { return_data_offset })
+    fn finish(&mut self, return_data_offset: usize, return_data_size: usize) -> VMStatus {
+        self.status(VMStatus::Finished { return_data_offset, return_data_size })
     }
 
     /// Sets the status of the VM to `ForeignCallWait`.
@@ -294,7 +295,9 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 self.increment_program_counter()
             }
             Opcode::Trap => self.fail("explicit trap hit in brillig".to_string()),
-            Opcode::Stop { return_data_offset } => self.finish(*return_data_offset),
+            Opcode::Stop { return_data_offset, return_data_size } => {
+                self.finish(*return_data_offset, *return_data_size)
+            }
             Opcode::Load { destination: destination_register, source_pointer } => {
                 // Convert our source_pointer to an address
                 let source = self.memory.read_ref(*source_pointer);
@@ -345,7 +348,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         assert!(self.program_counter < self.bytecode.len());
         self.program_counter = value;
         if self.program_counter >= self.bytecode.len() {
-            self.status = VMStatus::Finished { return_data_offset: 0 };
+            self.status = VMStatus::Finished { return_data_offset: 0, return_data_size: 0 };
         }
         self.status.clone()
     }

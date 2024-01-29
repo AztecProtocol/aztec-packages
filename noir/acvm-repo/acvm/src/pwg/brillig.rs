@@ -165,8 +165,8 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         // Finish the Brillig execution by writing the outputs to the witness map
         let vm_status = self.vm.get_status();
         match vm_status {
-            VMStatus::Finished { return_data_offset } => {
-                self.write_brillig_outputs(witness, return_data_offset, brillig)?;
+            VMStatus::Finished { return_data_offset, return_data_size } => {
+                self.write_brillig_outputs(witness, return_data_offset, return_data_size, brillig)?;
                 Ok(())
             }
             _ => panic!("Brillig VM has not completed execution"),
@@ -177,6 +177,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         &self,
         witness_map: &mut WitnessMap,
         return_data_offset: usize,
+        return_data_size: usize,
         brillig: &Brillig,
     ) -> Result<(), OpcodeResolutionError> {
         // Write VM execution results into the witness map
@@ -198,6 +199,10 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                 }
             }
         }
+        assert!(
+            current_ret_data_idx == return_data_offset + return_data_size,
+            "Brillig VM did not write the expected number of return values"
+        );
         Ok(())
     }
 
