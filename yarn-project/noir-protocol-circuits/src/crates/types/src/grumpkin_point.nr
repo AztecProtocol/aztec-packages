@@ -1,4 +1,5 @@
 use crate::traits::{Serialize, Deserialize};
+use dep::std::cmp::Eq;
 
 global GRUMPKIN_POINT_SERIALIZED_LEN: Field = 2;
 
@@ -13,6 +14,12 @@ impl Serialize<GRUMPKIN_POINT_SERIALIZED_LEN> for GrumpkinPoint {
     }
 }
 
+impl Eq for GrumpkinPoint {
+    fn eq(self, point: GrumpkinPoint) -> bool {
+        (point.x == self.x) & (point.y == self.y)
+    }
+}
+
 impl GrumpkinPoint {
     pub fn new(x: Field, y: Field) -> Self {
         Self { x, y }
@@ -23,6 +30,10 @@ impl GrumpkinPoint {
             x: 0,
             y: 0,
         }
+    }
+
+    pub fn is_zero(self) -> bool {
+        (self.x == 0) & (self.y == 0)
     }
 
     // TODO(David): Would be quite careful here as (0,0) is not a point

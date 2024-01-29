@@ -215,23 +215,6 @@ pub(crate) fn convert_black_box_call(
                 )
             }
         }
-        BlackBoxFunc::EmbeddedCurveDouble => {
-            if let (
-                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y)],
-                [BrilligVariable::BrilligArray(result_array)],
-            ) = (function_arguments, function_results)
-            {
-                brillig_context.black_box_op_instruction(BlackBoxOp::EmbeddedCurveDouble {
-                    input1_x: *input1_x,
-                    input1_y: *input1_y,
-                    result: result_array.to_heap_array(),
-                });
-            } else {
-                unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
-                )
-            }
-        }
         BlackBoxFunc::AND => {
             unreachable!("ICE: `BlackBoxFunc::AND` calls should be transformed into a `BinaryOp`")
         }
@@ -343,6 +326,37 @@ pub(crate) fn convert_black_box_call(
                 unreachable!(
                     "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
                 )
+            }
+        }
+        BlackBoxFunc::Poseidon2Permutation => {
+            if let (
+                [message, BrilligVariable::Simple(state_len)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                let message_vector = convert_array_or_vector(brillig_context, message, bb_func);
+                brillig_context.black_box_op_instruction(BlackBoxOp::Poseidon2Permutation {
+                    message: message_vector.to_heap_vector(),
+                    output: result_array.to_heap_array(),
+                    len: *state_len,
+                });
+            } else {
+                unreachable!("ICE: Poseidon2Permutation expects one array argument, a length and one array result")
+            }
+        }
+        BlackBoxFunc::Sha256Compression => {
+            if let ([message, hash_values], [BrilligVariable::BrilligArray(result_array)]) =
+                (function_arguments, function_results)
+            {
+                let message_vector = convert_array_or_vector(brillig_context, message, bb_func);
+                let hash_vector = convert_array_or_vector(brillig_context, hash_values, bb_func);
+                brillig_context.black_box_op_instruction(BlackBoxOp::Sha256Compression {
+                    input: message_vector.to_heap_vector(),
+                    hash_values: hash_vector.to_heap_vector(),
+                    output: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!("ICE: Sha256Compression expects two array argument, one array result")
             }
         }
     }

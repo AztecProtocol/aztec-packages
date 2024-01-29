@@ -122,6 +122,13 @@ pub(super) fn transform_internal(
                     | acir::circuit::opcodes::BlackBoxFuncCall::Blake3 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::BigIntToLeBytes {
                         outputs, ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Poseidon2Permutation {
+                        outputs,
+                        ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Sha256Compression {
+                        outputs, ..
                     } => {
                         for witness in outputs {
                             transformer.mark_solvable(*witness);
@@ -133,10 +140,6 @@ pub(super) fn transform_internal(
                     }
                     | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveAdd {
                         outputs, ..
-                    }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveDouble {
-                        outputs,
-                        ..
                     }
                     | acir::circuit::opcodes::BlackBoxFuncCall::PedersenCommitment {
                         outputs,
