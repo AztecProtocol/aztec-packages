@@ -1,11 +1,12 @@
-/* eslint-disable  @typescript-eslint/no-explicit-any */
 import { decompressSync as gunzip } from 'fflate';
 import { acirToUint8Array } from './serialize.js';
 import { Backend, CompiledCircuit, ProofData } from '@noir-lang/types';
 import { BackendOptions } from './types.js';
 import { deflattenPublicInputs, flattenPublicInputsAsArray } from './public_inputs.js';
+import { type Barretenberg } from '@aztec/bb.js';
 
 export { publicInputsToWitnessMap } from './public_inputs.js';
+
 // This is the number of bytes in a UltraPlonk proof
 // minus the public inputs.
 const numBytesInProofWithoutPublicInputs: number = 2144;
@@ -15,12 +16,14 @@ export class BarretenbergBackend implements Backend {
   // have to initialize `api` and `acirComposer` in the constructor.
   // These are initialized asynchronously in the `init` function,
   // constructors cannot be asynchronous which is why we do this.
-  private api: any;
+
+  private api!: Barretenberg;
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   private acirComposer: any;
   private acirUncompressedBytecode: Uint8Array;
 
   constructor(
-    private acirCircuit: CompiledCircuit,
+    acirCircuit: CompiledCircuit,
     private options: BackendOptions = { threads: 1 },
   ) {
     const acirBytecodeBase64 = acirCircuit.bytecode;
@@ -30,8 +33,6 @@ export class BarretenbergBackend implements Backend {
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      //@ts-ignore
       const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
       const api = await Barretenberg.new({ threads: this.options.threads });
 
@@ -46,7 +47,7 @@ export class BarretenbergBackend implements Backend {
     }
   }
 
-  /** @ignore */
+  /** @description Generates a proof */
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
     await this.instantiate();
     const proofWithPublicInputs = await this.api.acirCreateProof(
@@ -64,17 +65,16 @@ export class BarretenbergBackend implements Backend {
     return { proof, publicInputs };
   }
 
-  // Generates artifacts that will be passed to a circuit that will verify this proof.
-  //
-  // Instead of passing the proof and verification key as a byte array, we pass them
-  // as fields which makes it cheaper to verify in a circuit.
-  //
-  // The proof that is passed here will have been created using a circuit
-  // that has the #[recursive] attribute on its `main` method.
-  //
-  // The number of public inputs denotes how many public inputs are in the inner proof.
-
   /**
+   * Generates artifacts that will be passed to a circuit that will verify this proof.
+   *
+   * Instead of passing the proof and verification key as a byte array, we pass them
+   * as fields which makes it cheaper to verify in a circuit.
+   *
+   * The proof that is passed here will have been created using a circuit
+   * that has the #[recursive] attribute on its `main` method.
+   *
+   * The number of public inputs denotes how many public inputs are in the inner proof.
    *
    * @example
    * ```typescript
@@ -109,7 +109,7 @@ export class BarretenbergBackend implements Backend {
     };
   }
 
-  /** @ignore */
+  /** @description Verifies a proof */
   async verifyProof(proofData: ProofData): Promise<boolean> {
     const proof = reconstructProofWithPublicInputs(proofData);
     await this.instantiate();

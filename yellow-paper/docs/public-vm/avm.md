@@ -70,7 +70,7 @@ ExecutionEnvironment {
     storageAddress: AztecAddress,
     origin: AztecAddress,
     sender: AztecAddress,
-    portal: AztecAddress,
+    portal: EthAddress,
     feePerL1Gas: field,
     feePerL2Gas: field,
     feePerDaGas: field,
@@ -249,7 +249,7 @@ results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+i
 
 An exceptional halt is not explicitly triggered by an instruction but instead occurs when an exceptional condition is met.
 
-When an exceptional halt occurs, the context is flagged as consuming all off its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
+When an exceptional halt occurs, the context is flagged as consuming all of its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
 
 ```
 machineState.l1GasLeft = 0
