@@ -58,7 +58,6 @@ contract CardGame {
         games: Map<Field, PublicState<Game>>,
     }
 
-
     #[aztec(private)]
     fn constructor() {}
 

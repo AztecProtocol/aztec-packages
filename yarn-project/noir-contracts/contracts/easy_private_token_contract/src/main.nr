@@ -22,7 +22,7 @@ contract EasyPrivateToken {
     struct Storage {
         balances: Map<AztecAddress, EasyPrivateUint>,
     }
-    
+
     /**
      * initialize the contract's initial state variables.
      */
