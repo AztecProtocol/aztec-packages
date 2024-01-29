@@ -136,7 +136,7 @@ export class AvmJournal {
     mergeContractMaps(this.parentJournal.storageWrites, this.storageWrites);
   }
 
-  /** 
+  /**
    * Access the current state of the journal
    *
    * @returns a JournalData object

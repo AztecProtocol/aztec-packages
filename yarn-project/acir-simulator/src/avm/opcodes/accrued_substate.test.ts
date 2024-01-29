@@ -1,12 +1,12 @@
 import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmJournal } from '../journal/journal.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
-import { Field } from '../avm_memory_types.js';
 
 describe('Accrued Substate', () => {
   let journal: AvmJournal;

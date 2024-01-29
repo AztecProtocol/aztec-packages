@@ -1,9 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
+
 import { AvmMachineState } from '../avm_machine_state.js';
+import { TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
 import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
-import { TypeTag } from '../avm_memory_types.js';
 
 export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
@@ -63,7 +64,7 @@ export class EmitUnencryptedLog extends Instruction {
     }
 
     // Check log tags are all fields
-    const offsets = Array.from({length: this.logSize}, (_, i) => this.logOffset + i);
+    const offsets = Array.from({ length: this.logSize }, (_, i) => this.logOffset + i);
     Instruction.checkTags(machineState, TypeTag.FIELD, ...offsets);
 
     const log = machineState.memory.getSliceAs<Fr>(this.logOffset, this.logSize);
@@ -88,7 +89,7 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     // Check log tags are all fields
-    const offsets = Array.from({length: this.msgSize}, (_, i) => this.msgOffset + i);
+    const offsets = Array.from({ length: this.msgSize }, (_, i) => this.msgOffset + i);
     Instruction.checkTags(machineState, TypeTag.FIELD, ...offsets);
 
     const msg = machineState.memory.getSliceAs<Fr>(this.msgOffset, this.msgSize);
