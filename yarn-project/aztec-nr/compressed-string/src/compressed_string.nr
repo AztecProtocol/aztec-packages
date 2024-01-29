@@ -20,11 +20,6 @@ impl Deserialize<1> for FieldCompressedString {
   fn deserialize(input: [Field; 1]) -> Self {
     Self { value: input[0] }
   }
-
-  // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-  fn _deserialized_length_hint() -> [Field; 1] {
-    [0; 1]
-  }
 }
 
 impl FieldCompressedString{

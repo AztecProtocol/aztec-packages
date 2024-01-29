@@ -75,8 +75,6 @@ pub fn get_note<Note, N>(
     context: &mut PrivateContext,
     storage_slot: Field
 ) -> Note where Note: NoteInterface + Deserialize<N> {
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    let _deserialized_length_hint: [Field; N] = Note::_deserialized_length_hint();
     let note = get_note_internal(storage_slot);
 
     check_note_header(*context, storage_slot, note);

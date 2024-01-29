@@ -112,8 +112,6 @@ impl<Note> Singleton<Note> {
 
     // docs:start:view_note
     unconstrained pub fn view_note<N>(self) -> Note where Note: NoteInterface + Deserialize<N> {
-        // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-        let _deserialized_length_hint: [Field; N] = Note::_deserialized_length_hint();
         let options = NoteViewerOptions::new().set_limit(1);
         view_notes(self.storage_slot, options)[0].unwrap()
     }

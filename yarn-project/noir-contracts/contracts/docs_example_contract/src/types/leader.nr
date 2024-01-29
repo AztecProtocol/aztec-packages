@@ -15,10 +15,6 @@ impl Deserialize<LEADER_SERIALIZED_LEN> for Leader {
     fn deserialize(fields: [Field; LEADER_SERIALIZED_LEN]) -> Self {
         Leader { account: AztecAddress::from_field(fields[0]), points: fields[1] as u8 }
     }
-
-    fn _deserialized_length_hint() -> [Field; LEADER_SERIALIZED_LEN] {
-        [0; LEADER_SERIALIZED_LEN]
-    }
 }
 
 impl Serialize<LEADER_SERIALIZED_LEN> for Leader {

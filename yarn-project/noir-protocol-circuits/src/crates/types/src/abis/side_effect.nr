@@ -53,11 +53,6 @@ impl Deserialize<2> for SideEffect {
             counter: values[1] as u32,
         }
     }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; 2] {
-        [0; 2]
-    }
 }
 
 impl SideEffect {
@@ -118,11 +113,6 @@ impl Deserialize<3> for SideEffectLinkedToNoteHash {
             note_hash: values[1],
             counter: values[2] as u32,
         }
-    }
-
-    // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-    fn _deserialized_length_hint() -> [Field; 3] {
-        [0; 3]
     }
 }
 

@@ -29,11 +29,6 @@ impl Deserialize<3> for Leaf {
   fn deserialize(serialized: [Field; 3]) -> Leaf {
       Leaf { next_change: serialized[0], before: serialized[1], after: serialized[2] }
   }
-
-  // TODO: Remove this once https://github.com/noir-lang/noir/issues/4088 is fixed
-  fn _deserialized_length_hint() -> [Field; 3] {
-    [0; 3]
-  }
 }
 
 // Subset of the MembershipProof that is needed for the slow update.
@@ -116,7 +111,7 @@ impl<N,M> SlowMap<N,M> {
   }
 
   pub fn read_root(self: Self) -> Leaf {
-    let fields = storage_read(self.storage_slot, Leaf::_deserialized_length_hint());
+    let fields = storage_read(self.storage_slot);
     Leaf::deserialize(fields)
   }
 
@@ -147,7 +142,7 @@ impl<N,M> SlowMap<N,M> {
   // docs:start:read_leaf_at
   pub fn read_leaf_at(self: Self, key: Field) -> Leaf {
     let derived_storage_slot = pedersen_hash([self.storage_slot, key]);
-    let fields = storage_read(derived_storage_slot, Leaf::_deserialized_length_hint());
+    let fields = storage_read(derived_storage_slot);
     Leaf::deserialize(fields)
   }
   // docs:end:read_leaf_at
