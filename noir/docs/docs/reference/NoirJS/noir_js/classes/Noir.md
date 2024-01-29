@@ -72,10 +72,10 @@ async execute(inputs)
 
 ***
 
-### generateFinalProof()
+### generateProof()
 
 ```ts
-generateFinalProof(inputs, foreignCallHandler?): Promise<ProofData>
+generateProof(inputs, foreignCallHandler?): Promise<ProofData>
 ```
 
 #### Parameters
@@ -96,15 +96,15 @@ Generates a witness and a proof given an object as input.
 #### Example
 
 ```typescript
-async generateFinalProof(input)
+async generateProof(input)
 ```
 
 ***
 
-### verifyFinalProof()
+### verifyProof()
 
 ```ts
-verifyFinalProof(proofData): Promise<boolean>
+verifyProof(proofData): Promise<boolean>
 ```
 
 #### Parameters
@@ -124,7 +124,7 @@ Instantiates the verification key and verifies a proof.
 #### Example
 
 ```typescript
-async verifyFinalProof(proof)
+async verifyProof(proof)
 ```
 
 ***

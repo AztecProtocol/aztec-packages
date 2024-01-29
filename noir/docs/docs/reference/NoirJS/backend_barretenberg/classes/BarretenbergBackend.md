@@ -45,17 +45,17 @@ Destroys the backend
 
 ***
 
-### generateFinalProof()
+### generateProof()
 
 ```ts
-generateFinalProof(decompressedWitness): Promise<ProofData>
+generateProof(compressedWitness): Promise<ProofData>
 ```
 
 #### Parameters
 
 | Parameter | Type |
 | :------ | :------ |
-| `decompressedWitness` | `Uint8Array` |
+| `compressedWitness` | `Uint8Array` |
 
 #### Returns
 
@@ -63,47 +63,29 @@ generateFinalProof(decompressedWitness): Promise<ProofData>
 
 #### Implementation of
 
-[`Backend`](../interfaces/Backend.md).[`generateFinalProof`](../interfaces/Backend.md#generatefinalproof)
+[`Backend`](../interfaces/Backend.md).[`generateProof`](../interfaces/Backend.md#generateproof)
 
 #### Description
 
-Generates a final proof (not meant to be verified in another circuit)
+Generates a proof
 
 ***
 
-### generateIntermediateProof()
+### generateRecursiveProofArtifacts()
 
 ```ts
-generateIntermediateProof(witness): Promise<ProofData>
+generateRecursiveProofArtifacts(proofData, numOfPublicInputs): Promise<object>
 ```
 
-#### Parameters
+Generates artifacts that will be passed to a circuit that will verify this proof.
 
-| Parameter | Type |
-| :------ | :------ |
-| `witness` | `Uint8Array` |
+Instead of passing the proof and verification key as a byte array, we pass them
+as fields which makes it cheaper to verify in a circuit.
 
-#### Returns
+The proof that is passed here will have been created using a circuit
+that has the #[recursive] attribute on its `main` method.
 
-`Promise`\<[`ProofData`](../type-aliases/ProofData.md)\>
-
-#### Implementation of
-
-[`Backend`](../interfaces/Backend.md).[`generateIntermediateProof`](../interfaces/Backend.md#generateintermediateproof)
-
-#### Example
-
-```typescript
-const intermediateProof = await backend.generateIntermediateProof(witness);
-```
-
-***
-
-### generateIntermediateProofArtifacts()
-
-```ts
-generateIntermediateProofArtifacts(proofData, numOfPublicInputs): Promise<object>
-```
+The number of public inputs denotes how many public inputs are in the inner proof.
 
 #### Parameters
 
@@ -118,20 +100,20 @@ generateIntermediateProofArtifacts(proofData, numOfPublicInputs): Promise<object
 
 #### Implementation of
 
-[`Backend`](../interfaces/Backend.md).[`generateIntermediateProofArtifacts`](../interfaces/Backend.md#generateintermediateproofartifacts)
+[`Backend`](../interfaces/Backend.md).[`generateRecursiveProofArtifacts`](../interfaces/Backend.md#generaterecursiveproofartifacts)
 
 #### Example
 
 ```typescript
-const artifacts = await backend.generateIntermediateProofArtifacts(proof, numOfPublicInputs);
+const artifacts = await backend.generateRecursiveProofArtifacts(proof, numOfPublicInputs);
 ```
 
 ***
 
-### verifyFinalProof()
+### verifyProof()
 
 ```ts
-verifyFinalProof(proofData): Promise<boolean>
+verifyProof(proofData): Promise<boolean>
 ```
 
 #### Parameters
@@ -146,39 +128,11 @@ verifyFinalProof(proofData): Promise<boolean>
 
 #### Implementation of
 
-[`Backend`](../interfaces/Backend.md).[`verifyFinalProof`](../interfaces/Backend.md#verifyfinalproof)
+[`Backend`](../interfaces/Backend.md).[`verifyProof`](../interfaces/Backend.md#verifyproof)
 
 #### Description
 
-Verifies a final proof
-
-***
-
-### verifyIntermediateProof()
-
-```ts
-verifyIntermediateProof(proofData): Promise<boolean>
-```
-
-#### Parameters
-
-| Parameter | Type |
-| :------ | :------ |
-| `proofData` | [`ProofData`](../type-aliases/ProofData.md) |
-
-#### Returns
-
-`Promise`\<`boolean`\>
-
-#### Implementation of
-
-[`Backend`](../interfaces/Backend.md).[`verifyIntermediateProof`](../interfaces/Backend.md#verifyintermediateproof)
-
-#### Example
-
-```typescript
-const isValidIntermediate = await backend.verifyIntermediateProof(proof);
-```
+Verifies a proof
 
 ***
 

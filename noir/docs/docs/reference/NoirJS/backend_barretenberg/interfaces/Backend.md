@@ -18,10 +18,10 @@ Destroys the backend
 
 ***
 
-### generateFinalProof()
+### generateProof()
 
 ```ts
-generateFinalProof(decompressedWitness): Promise<ProofData>
+generateProof(decompressedWitness): Promise<ProofData>
 ```
 
 #### Parameters
@@ -36,36 +36,14 @@ generateFinalProof(decompressedWitness): Promise<ProofData>
 
 #### Description
 
-Generates a final proof (not meant to be verified in another circuit)
+Generates a proof
 
 ***
 
-### generateIntermediateProof()
+### generateRecursiveProofArtifacts()
 
 ```ts
-generateIntermediateProof(decompressedWitness): Promise<ProofData>
-```
-
-#### Parameters
-
-| Parameter | Type |
-| :------ | :------ |
-| `decompressedWitness` | `Uint8Array` |
-
-#### Returns
-
-`Promise`\<[`ProofData`](../type-aliases/ProofData.md)\>
-
-#### Description
-
-Generates an intermediate proof (meant to be verified in another circuit)
-
-***
-
-### generateIntermediateProofArtifacts()
-
-```ts
-generateIntermediateProofArtifacts(proofData, numOfPublicInputs): Promise<object>
+generateRecursiveProofArtifacts(proofData, numOfPublicInputs): Promise<object>
 ```
 
 #### Parameters
@@ -85,10 +63,10 @@ Retrieves the artifacts from a proof in the Field format
 
 ***
 
-### verifyFinalProof()
+### verifyProof()
 
 ```ts
-verifyFinalProof(proofData): Promise<boolean>
+verifyProof(proofData): Promise<boolean>
 ```
 
 #### Parameters
@@ -103,29 +81,7 @@ verifyFinalProof(proofData): Promise<boolean>
 
 #### Description
 
-Verifies a final proof
-
-***
-
-### verifyIntermediateProof()
-
-```ts
-verifyIntermediateProof(proofData): Promise<boolean>
-```
-
-#### Parameters
-
-| Parameter | Type |
-| :------ | :------ |
-| `proofData` | [`ProofData`](../type-aliases/ProofData.md) |
-
-#### Returns
-
-`Promise`\<`boolean`\>
-
-#### Description
-
-Verifies an intermediate proof
+Verifies a proof
 
 ***
 
