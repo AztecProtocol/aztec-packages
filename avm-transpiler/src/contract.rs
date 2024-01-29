@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use acvm::acir::circuit::Circuit;
 use noirc_driver::ContractFunctionType;
 
-use crate::acir_brillig_utils::{acir_to_brillig, print_brillig};
 use crate::transpile::brillig_to_avm;
+use crate::utils::acir_to_brillig;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)] // omit Acir/Avm tag for these objects in json
@@ -22,7 +22,6 @@ pub struct TranspiledContract {
     pub functions: Vec<AvmOrAcirContractFunction>,
     pub events: serde_json::Value,
     pub file_map: serde_json::Value,
-    // TODO: missing in json?
     //pub warnings: serde_json::Value,
 }
 
@@ -33,7 +32,6 @@ pub struct CompiledAcirContract {
     pub functions: Vec<AcirContractFunction>,
     pub events: serde_json::Value,
     pub file_map: serde_json::Value,
-    // TODO: missing in json?
     //pub warnings: serde_json::Value,
 }
 
@@ -41,22 +39,21 @@ impl From<CompiledAcirContract> for TranspiledContract {
     fn from(contract: CompiledAcirContract) -> Self {
         let mut functions = Vec::new();
         for function in contract.functions {
-            // TODO: once Open tag == avm: if function.function_type == Open
+            // TODO(4269): once functions are tagged for transpilation to AVM, check tag
             let re = Regex::new(r"avm_.*$").unwrap();
             if function.function_type == ContractFunctionType::Unconstrained
                 && re.is_match(function.name.as_str())
             {
+                // TODO: only print if verbose
                 println!(
                     "Transpiling AVM function {} on contract {}",
                     function.name, contract.name
                 );
-                let acir_circuit = function.bytecode.clone();
-
                 // Extract Brillig Opcodes from acir
+                let acir_circuit = function.bytecode.clone();
                 let brillig = acir_to_brillig(&acir_circuit.opcodes);
-                print_brillig(&brillig);
 
-                // Transpile
+                // Transpile to AVM
                 let avm_bytecode = brillig_to_avm(&brillig);
 
                 // Push modified function entry to ABI
@@ -80,7 +77,6 @@ impl From<CompiledAcirContract> for TranspiledContract {
             functions,
             events: contract.events,
             file_map: contract.file_map,
-            // TODO: missing in json?
             //warnings: contract.warnings,
         }
     }

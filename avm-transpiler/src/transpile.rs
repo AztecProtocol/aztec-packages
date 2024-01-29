@@ -7,45 +7,22 @@ use crate::opcodes::{
     AvmInstruction, AvmOpcode, AvmOperand, AvmTypeTag, FIRST_OPERAND_INDIRECT,
     ZEROTH_OPERAND_INDIRECT,
 };
+use crate::utils::{print_avm_program, print_brillig_program};
 
-// Map Brillig register indices directly to AVM memory offsets
-// Map Brillig memory to AVM memory, but offset by a constant
+/// Map Brillig register indices directly to AVM memory offsets
+/// Map Brillig memory to AVM memory, but offset by a constant
 const MEMORY_START: u32 = 1024;
 const POINTER_TO_MEMORY: u32 = 2048;
-const SCRATCH_START: u32 = 2049;
-
-// Compute an array that maps each Brillig pc to an AVM pc.
-// This must be done before transpiling to properly transpile jump destinations.
-// This is necessary for two reasons:
-// 1. The transpiler injects `initial_offset` instructions at the beginning of the program.
-// 2. Some brillig instructions (_e.g._ Stop, or certain ForeignCalls) map to multiple AVM instructions
-// args:
-//     initial_offset: how many AVM instructions were inserted at the start of the program
-//     brillig: the Brillig program
-// returns: an array where each index is a Brillig pc,
-//     and each value is the corresponding AVM pc.
-fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<usize> {
-    let mut pc_map = Vec::new();
-    pc_map.resize(brillig.bytecode.len(), 0);
-    pc_map[0] = initial_offset;
-    for i in 0..brillig.bytecode.len() - 1 {
-        let num_avm_instrs_for_this_brillig_instr = match &brillig.bytecode[i] {
-            BrilligOpcode::Load { .. } => 2,
-            BrilligOpcode::Store { .. } => 2,
-            _ => 1,
-        };
-        // next Brillig pc will map to an AVM pc offset by the
-        // number of AVM instructions generated for this Brillig one
-        pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
-    }
-    pc_map
-}
+/// Some instructions require a word to use as a scratchpad
+const SCRATCH_WORD: u32 = 2049;
 
 pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
+    // TODO: only print if VERY verbose
+    print_brillig_program(&brillig);
+
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
 
-    // Copy args to "memory"
-    // M[0:args.len] = CALLDATA[0:args.len]
+    // Copy args from calldata to "memory"
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::CALLDATACOPY,
         operands: vec![
@@ -73,9 +50,10 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     });
 
     // Map Brillig pcs to AVM pcs considering these initial instructions
-    // and any other Brilling instructions that map to >1 AVM instruction
+    // and any other Brillig instructions that map to >1 AVM instruction
     let brillig_pcs_to_avm_pcs = map_brillig_pcs_to_avm_pcs(avm_instrs.len(), brillig);
 
+    // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in &brillig.bytecode {
         match brillig_instr {
             BrilligOpcode::BinaryFieldOp {
@@ -95,6 +73,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                         brillig_instr
                     ),
                 };
+                // TODO(4268): set in_tag to `field`
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     operands: vec![
@@ -136,7 +115,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                         brillig_instr
                     ),
                 };
-                // TODO: bit-size -> type tag
+                // TODO(4268): support u8..u128 and use in_tag
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     operands: vec![
@@ -186,8 +165,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     opcode: AvmOpcode::SET,
                     dst_tag: Some(AvmTypeTag::UINT32),
                     operands: vec![
-                        // TODO: support u8..u128 and use dst_tag
-                        // (value can actually be u8, u16, u32, u64, u128)
+                        // TODO(4267): support u8..u128 and use dst_tag
                         AvmOperand::U32 {
                             value: value.to_usize() as u32,
                         },
@@ -223,7 +201,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 // So, we transpile to a MOV with indirect addressing for src (s0)
                 // But we offset all Brillig "memory" to avoid collisions with registers since in the AVM everything is memory
                 // (via ADD and a scratchpad memory word)
-                let src_ptr_after_mem_offset = SCRATCH_START;
+                let src_ptr_after_mem_offset = SCRATCH_WORD;
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::ADD,
                     operands: vec![
@@ -262,7 +240,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 // So, we transpile to a MOV with indirect addressing for dst (d0)
                 // But we offset all Brillig "memory" to avoid collisions with registers since in the AVM everything is memory
                 // (via ADD and a scratchpad memory word)
-                let dst_ptr_after_mem_offset = SCRATCH_START;
+                let dst_ptr_after_mem_offset = SCRATCH_WORD;
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::ADD,
                     operands: vec![
@@ -309,7 +287,8 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 ..Default::default()
             }),
             BrilligOpcode::Stop {} => {
-                // TODO: is outputs[0] (start of returndata) always "2"? Seems so....
+                // TODO(4215): Fix once returndata is a construct in Brillig.
+                // outputs[0] seems to always be 2?
                 let ret_offset = 2;
                 let ret_size = brillig.outputs.len() as u32;
                 avm_instrs.push(AvmInstruction {
@@ -322,7 +301,8 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 });
             }
             BrilligOpcode::Trap {} => {
-                // TODO: is outputs[0] (start of returndata) always "2"? Seems so....
+                // TODO(4215): Fix once returndata is a construct in Brillig.
+                // outputs[0] seems to always be 2?
                 let ret_offset = 2;
                 let ret_size = brillig.outputs.len() as u32;
                 avm_instrs.push(AvmInstruction {
@@ -341,13 +321,41 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
         }
     }
 
-    println!("Printing all AVM instructions!");
+    // TODO: only print if VERY verbose
+    print_avm_program(&avm_instrs);
+
+    // Constructing bytecode from instructions
     let mut bytecode = Vec::new();
     for i in 0..avm_instrs.len() {
-        let instr = &avm_instrs[i];
-        println!("PC:{0}: {1}", i, instr.to_string());
-        let mut instr_bytes = instr.to_bytes();
+        let mut instr_bytes = avm_instrs[i].to_bytes();
         bytecode.append(&mut instr_bytes);
     }
     bytecode
+}
+
+/// Compute an array that maps each Brillig pc to an AVM pc.
+/// This must be done before transpiling to properly transpile jump destinations.
+/// This is necessary for two reasons:
+/// 1. The transpiler injects `initial_offset` instructions at the beginning of the program.
+/// 2. Some brillig instructions (_e.g._ Stop, or certain ForeignCalls) map to multiple AVM instructions
+/// args:
+///     initial_offset: how many AVM instructions were inserted at the start of the program
+///     brillig: the Brillig program
+/// returns: an array where each index is a Brillig pc,
+///     and each value is the corresponding AVM pc.
+fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<usize> {
+    let mut pc_map = Vec::new();
+    pc_map.resize(brillig.bytecode.len(), 0);
+    pc_map[0] = initial_offset;
+    for i in 0..brillig.bytecode.len() - 1 {
+        let num_avm_instrs_for_this_brillig_instr = match &brillig.bytecode[i] {
+            BrilligOpcode::Load { .. } => 2,
+            BrilligOpcode::Store { .. } => 2,
+            _ => 1,
+        };
+        // next Brillig pc will map to an AVM pc offset by the
+        // number of AVM instructions generated for this Brillig one
+        pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
+    }
+    pc_map
 }

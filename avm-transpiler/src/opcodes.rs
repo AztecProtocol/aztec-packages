@@ -1,6 +1,4 @@
-/**
- * All AVM opcodes
- */
+/// All AVM opcodes
 #[derive(Copy, Clone)]
 pub enum AvmOpcode {
     // Compute
@@ -206,10 +204,8 @@ impl AvmOperand {
     }
 }
 
-/**
- * A simple representation of an AVM instruction for the purpose
- * of generating an AVM bytecode from Brillig.
- */
+/// A simple representation of an AVM instruction for the purpose
+/// of generating an AVM bytecode from Brillig.
 pub struct AvmInstruction {
     pub opcode: AvmOpcode,
     pub indirect: Option<u8>, // bit field (0: direct, 1: indirect) - 0th bit is 0th offset arg, etc
@@ -241,7 +237,7 @@ impl AvmInstruction {
             bytes.push(indirect);
         }
         if let Some(dst_tag) = self.dst_tag {
-            // FIXME: should be u8! Update when TS updates.
+            // TODO(4271): make 8 bits when TS supports deserialization of 8 bit flags
             //bytes.push(dst_tag as u8);
             bytes.extend_from_slice(&(dst_tag as u32).to_be_bytes());
         }
@@ -255,7 +251,7 @@ impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
             opcode: AvmOpcode::ADD,
-            // TODO: default to Some(0), since all instructions have indirect flag except jumps
+            // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
             indirect: None,
             dst_tag: None,
             operands: vec![],

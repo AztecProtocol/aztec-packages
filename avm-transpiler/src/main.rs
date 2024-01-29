@@ -2,10 +2,10 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-mod acir_brillig_utils;
 mod contract;
 mod opcodes;
 mod transpile;
+mod utils;
 
 use contract::{CompiledAcirContract, TranspiledContract};
 
