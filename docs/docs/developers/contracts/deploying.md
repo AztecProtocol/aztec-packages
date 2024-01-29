@@ -1,3 +1,7 @@
+---
+title: How to deploy a contract
+---
+
 # Deploying contracts
 
 Once you have [compiled](./compiling.md) your contracts you can proceed to deploying them using the aztec-cli or using aztec.js which is a Typescript client to interact with the sandbox.

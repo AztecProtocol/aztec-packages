@@ -1,4 +1,6 @@
-# Compiling contracts
+---
+title: How to compile a contract
+---
 
 Once you have written a [contract](../contracts/main.md) in Aztec.nr, you will need to compile it into an [artifact](./artifacts.md) in order to use it.
 

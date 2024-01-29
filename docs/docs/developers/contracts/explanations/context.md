@@ -1,7 +1,5 @@
 ---
 title: Function Context
-description: Documentation of Aztec's Private and Public execution contexts
-hide_table_of_contents: false
 ---
 
 import Image from "@theme/IdealImage";
@@ -22,7 +20,7 @@ On this page, you'll learn
 - Elements like return values, read requests, new commitments, and nullifiers in transaction processing
 - Differences between the private and public contexts, especially the unique features and variables in the public context
 
-## Two context's one API
+## Two contexts, one API
 The `Aztec` blockchain contains two environments [public and private](../../../learn/concepts/hybrid_state/main.md). 
 - Private, for private transactions taking place on user's devices.
 - Public, for public transactions taking place on the network's sequencers.

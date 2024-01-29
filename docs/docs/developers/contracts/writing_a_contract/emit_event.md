@@ -1,5 +1,5 @@
 ---
-title: Events
+title: Emit an event
 ---
 
 Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.
@@ -10,9 +10,11 @@ Aztec events are currently represented as raw data and are not ABI encoded.
 ABI encoded events are a feature that will be added in the future.
 :::
 
-Unlike on Ethereum, there are 2 types of events supported by Aztec: encrypted and unencrypted.
+Unlike on Ethereum, there are 2 types of events supported by Aztec: [encrypted](#encrypted-events) and [unencrypted](#unencrypted-events).
 
 ## Encrypted Events
+
+### Register a recipient
 
 Encrypted events can only be emitted by private functions and are encrypted using a public key of a recipient.
 For this reason it is necessary to register a recipient in the Private Execution Environment (PXE) before encrypting the events for them.
@@ -61,15 +63,19 @@ In the future we will allow emitting arbitrary information.
 (If you currently emit arbitrary information, PXE will fail to decrypt, process and store this data, so it will not be queryable).
 :::
 
+### Import library
+
 To emit encrypted logs first import the `emit_encrypted_log` utility function which wraps an [oracle](./functions.md#oracle-functions):
 
 #include_code encrypted_import /yarn-project/aztec-nr/address-note/src/address_note.nr rust
 
-Then you can call the function:
+### Call emit_encrypted_log
+
+After importing, you can call the function:
 
 #include_code encrypted /yarn-project/aztec-nr/address-note/src/address_note.nr rust
 
-### Processing Encrypted Events
+### Successfully process the encrypted event
 
 One of the functions of the PXE is constantly loading encrypted logs from the `AztecNode` and decrypting them.
 When new encrypted logs are obtained, the PXE will try to decrypt them using the private encryption key of all the accounts registered inside PXE.
@@ -98,13 +104,19 @@ They can be emitted by both public and private functions.
 - Unencrypted events are currently **NOT** linked to the contract emitting them, so it is practically a [`debug_log`](./functions.md#a-few-useful-inbuilt-oracles).
 :::
 
+### Import library
+
 To emit unencrypted logs first import the `emit_unencrypted_log` utility function inside your contract:
 
 #include_code unencrypted_import /yarn-project/noir-contracts/contracts/test_contract/src/main.nr rust
 
-Then you can call the function:
+### Call emit_unencrypted_log
+
+After importing, you can call the function:
 
 #include_code emit_unencrypted /yarn-project/noir-contracts/contracts/test_contract/src/main.nr rust
+
+### Querying the unencrypted event
 
 Once emitted, unencrypted events are stored in AztecNode and can be queried by anyone:
 <Tabs groupId="events">

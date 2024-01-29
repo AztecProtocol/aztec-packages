@@ -1,13 +1,8 @@
 ---
-title: Portals
-description: Documentation of Aztec's Portals and Cross-chain communication.
+title: Communicating with L1
 ---
 
-## What is a portal
-
-A portal is the point of contact between L1 and a specific contract on Aztec. For applications such as token bridges, this is the point where the tokens are held on L1 while used in L2.
-
-As outlined in [Communication](../../../learn/concepts/communication/cross_chain_calls.md), an Aztec L2 contract is linked to _ONE_ L1 address at time of deployment (specified by the developer). This L1 address is the only address that can send messages to that specific L2 contract, and the only address that can receive messages sent from the L2 contract to L1. Note, that a portal don't actually need to be a contract, it could be any address on L1. We say that an Aztec contract is attached to a portal.
+Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../learn/concepts/communication/cross_chain_calls.md).
 
 ## Passing data to the rollup
 
@@ -99,17 +94,6 @@ When the transaction is included in a rollup block the message will be inserted 
 As noted earlier, the portal contract should check that the sender is as expected. In the example below, we support only one sender contract (stored in `l2TokenAddress`) so we can just pass it as the sender, that way we will only be able to consume messages from that contract. If multiple senders are supported, you could use a have `mapping(address => bool) allowed` and check that `allowed[msg.sender]` is `true`.
 
 #include_code token_portal_withdraw l1-contracts/test/portals/TokenPortal.sol solidity
-
-## How to deploy a contract with a portal
-
-- Deploy to L1 using Viem, Foundry or your preferred tool;
-- Deploy to L2 passing in the address of the L1 portal as its portal contract;
-  ```typescript
-  const deploymentTx = Contract.deploy(wallet).send({
-    portalContract: tokenPortalAddress,
-  });
-  ```
-- Initialize l1 with l2 address for access control.
 
 ## Considerations
 

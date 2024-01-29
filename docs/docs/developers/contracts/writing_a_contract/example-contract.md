@@ -1,5 +1,5 @@
 ---
-title: Example Aztec.nr Contract
+title: What a contract looks like
 ---
 
 ## Example Aztec.nr Contract
