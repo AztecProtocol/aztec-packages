@@ -470,7 +470,7 @@ mod tests {
                     destinations: vec![],
                     inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
                 },
-                BrilligOpcode::Stop,
+                BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
             ],
             predicate: None,
         };
@@ -553,7 +553,7 @@ mod tests {
                     lhs: MemoryAddress::from(0),
                     rhs: MemoryAddress::from(1),
                 },
-                BrilligOpcode::Stop,
+                BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 1 },
             ],
             predicate: None,
         };
@@ -611,14 +611,22 @@ mod tests {
             Opcode::Brillig(Brillig {
                 inputs: vec![],
                 outputs: vec![],
-                bytecode: vec![BrilligOpcode::Stop, BrilligOpcode::Stop, BrilligOpcode::Stop],
+                bytecode: vec![
+                    BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
+                    BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
+                    BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
+                ],
                 predicate: None,
             }),
             Opcode::MemoryInit { block_id: BlockId(0), init: vec![] },
             Opcode::Brillig(Brillig {
                 inputs: vec![],
                 outputs: vec![],
-                bytecode: vec![BrilligOpcode::Stop, BrilligOpcode::Stop, BrilligOpcode::Stop],
+                bytecode: vec![
+                    BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
+                    BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
+                    BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
+                ],
                 predicate: None,
             }),
             Opcode::AssertZero(Expression::default()),

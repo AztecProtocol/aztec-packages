@@ -426,7 +426,9 @@ mod tests {
         context.return_instruction(&[array_value]);
 
         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-        let (vm, return_data_offset) = create_and_run_vm(calldata.clone(), &bytecode);
+        let (vm, return_data_offset, return_data_size) =
+            create_and_run_vm(calldata.clone(), &bytecode);
+        assert_eq!(return_data_size, 1, "Return data size is incorrect");
         assert_eq!(vm.get_memory()[return_data_offset], Value::from(1_usize));
     }
 
@@ -462,12 +464,14 @@ mod tests {
         context.return_instruction(&brillig_array.extract_registers());
 
         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-        let (vm, return_data_pointer) = create_and_run_vm(flattened_array.clone(), &bytecode);
+        let (vm, return_data_pointer, return_data_size) =
+            create_and_run_vm(flattened_array.clone(), &bytecode);
         let memory = vm.get_memory();
 
         assert_eq!(
             memory[return_data_pointer..(return_data_pointer + flattened_array.len())],
             flattened_array
         );
+        assert_eq!(return_data_size, flattened_array.len());
     }
 }

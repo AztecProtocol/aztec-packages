@@ -22,7 +22,6 @@ pub use acir::brillig;
 mod arithmetic;
 mod black_box;
 mod memory;
-mod registers;
 
 use acvm_blackbox_solver::{BlackBoxFunctionSolver, BlackBoxResolutionError};
 use arithmetic::{evaluate_binary_bigint_op, evaluate_binary_field_op};
@@ -30,7 +29,6 @@ use black_box::evaluate_black_box;
 
 pub use memory::Memory;
 use num_bigint::BigUint;
-pub use registers::Registers;
 
 /// The error call stack contains the opcode indexes of the call stack at the time of failure, plus the index of the opcode that failed.
 pub type ErrorCallStack = Vec<usize>;
@@ -486,7 +484,7 @@ mod tests {
         // After processing a single opcode, we should have
         // the vm status as finished since there is only one opcode
         let status = vm.process_opcode();
-        assert_eq!(status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         // The register at index `2` should have the value of 3 since we had an
         // add opcode
@@ -539,7 +537,7 @@ mod tests {
         assert_eq!(status, VMStatus::InProgress);
 
         let status = vm.process_opcode();
-        assert_eq!(status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
     }
 
     #[test]
@@ -632,7 +630,7 @@ mod tests {
         assert_eq!(status, VMStatus::InProgress);
 
         let status = vm.process_opcode();
-        assert_eq!(status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         let VM { memory, .. } = vm;
 
@@ -723,7 +721,7 @@ mod tests {
         assert_eq!(lt_value, Value::from(true));
 
         let status = vm.process_opcode();
-        assert_eq!(status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         let lte_value = vm.memory.read(MemoryAddress::from(2));
         assert_eq!(lte_value, Value::from(true));
@@ -1046,7 +1044,7 @@ mod tests {
         brillig_execute(&mut vm);
 
         // Check that VM finished once resumed
-        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         // Check result register
         let result_value = vm.memory.read(r_result);
@@ -1111,7 +1109,7 @@ mod tests {
         brillig_execute(&mut vm);
 
         // Check that VM finished once resumed
-        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         // Check result in memory
         let result_values = vm.memory.read_slice(MemoryAddress(2), 4).to_vec();
@@ -1194,7 +1192,7 @@ mod tests {
         brillig_execute(&mut vm);
 
         // Check that VM finished once resumed
-        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         // Check result in memory
         let result_values = vm
@@ -1262,7 +1260,7 @@ mod tests {
         brillig_execute(&mut vm);
 
         // Check that VM finished once resumed
-        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         // Check initial memory still in place
         let initial_values = vm.memory.read_slice(MemoryAddress(2), 4).to_vec();
@@ -1346,7 +1344,7 @@ mod tests {
         brillig_execute(&mut vm);
 
         // Check that VM finished once resumed
-        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0 });
+        assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
         // Check result in memory
         let result_values = vm.memory.read_slice(MemoryAddress(0), 4).to_vec();

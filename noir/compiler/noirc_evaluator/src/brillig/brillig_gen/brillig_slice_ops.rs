@@ -423,9 +423,9 @@ mod tests {
             context.return_instruction(&[target_vector.pointer, target_vector.rc]);
 
             let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-            let (vm, return_data_offset) =
+            let (vm, return_data_offset, return_data_size) =
                 create_and_run_vm(array.into_iter().chain(vec![item_to_push]).collect(), &bytecode);
-
+            assert_eq!(return_data_size, expected_return.len());
             assert_eq!(
                 vm.get_memory()[return_data_offset..(return_data_offset + expected_return.len())],
                 expected_return
@@ -514,7 +514,9 @@ mod tests {
             let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
             let expected_return: Vec<_> =
                 expected_return_array.into_iter().chain(vec![expected_return_item]).collect();
-            let (vm, return_data_offset) = create_and_run_vm(array.clone(), &bytecode);
+            let (vm, return_data_offset, return_data_size) =
+                create_and_run_vm(array.clone(), &bytecode);
+            assert_eq!(return_data_size, expected_return.len());
 
             assert_eq!(
                 vm.get_memory()[return_data_offset..(return_data_offset + expected_return.len())],
@@ -587,7 +589,8 @@ mod tests {
             let calldata = array.into_iter().chain(vec![item]).chain(vec![index]).collect();
 
             let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-            let (vm, return_data_offset) = create_and_run_vm(calldata, &bytecode);
+            let (vm, return_data_offset, return_data_size) = create_and_run_vm(calldata, &bytecode);
+            assert_eq!(return_data_size, expected_return.len());
 
             assert_eq!(
                 vm.get_memory()[return_data_offset..(return_data_offset + expected_return.len())],
@@ -700,10 +703,11 @@ mod tests {
             let calldata: Vec<_> = array.into_iter().chain(vec![index]).collect();
 
             let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-            let (vm, return_data_offset) = create_and_run_vm(calldata, &bytecode);
+            let (vm, return_data_offset, return_data_size) = create_and_run_vm(calldata, &bytecode);
 
             let expected_return: Vec<_> =
                 expected_array.into_iter().chain(vec![expected_removed_item]).collect();
+            assert_eq!(return_data_size, expected_return.len());
 
             assert_eq!(
                 vm.get_memory()[return_data_offset..(return_data_offset + expected_return.len())],

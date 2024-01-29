@@ -71,6 +71,7 @@ fn inversion_brillig_oracle_equivalence() {
                 destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(1))],
                 inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
             },
+            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 3 },
         ],
         predicate: None,
     };
@@ -202,6 +203,7 @@ fn double_inversion_brillig_oracle() {
                 destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(3))],
                 inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(2))],
             },
+            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 5 },
         ],
         predicate: None,
     };
@@ -332,6 +334,7 @@ fn oracle_dependent_execution() {
                 destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(3))],
                 inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(2))],
             },
+            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 4 },
         ],
         predicate: None,
     };
@@ -539,7 +542,7 @@ fn unsatisfied_opcode_resolved_brillig() {
         BrilligOpcode::JumpIf { condition: MemoryAddress::from(2), location: location_of_stop };
 
     let trap_opcode = BrilligOpcode::Trap;
-    let stop_opcode = BrilligOpcode::Stop { return_data_offset: 0 };
+    let stop_opcode = BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 };
 
     let brillig_opcode = Opcode::Brillig(Brillig {
         inputs: vec![
