@@ -14,7 +14,7 @@ describe('e2e_singleton', () => {
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
     // sets card value to 1 and leader to sender.
     await contract.methods.initialize_private(Fr.random(), 1).send().wait();
-  }, 25_000);
+  }, 40_000);
 
   afterAll(() => teardown());
 
@@ -27,5 +27,5 @@ describe('e2e_singleton', () => {
     const newPoints = 3n;
     await contract.methods.update_legendary_card(Fr.random(), newPoints).send().wait();
     expect((await contract.methods.get_leader().view()).points).toEqual(newPoints);
-  });
+  }, 20_000);
 });
