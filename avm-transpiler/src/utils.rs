@@ -1,7 +1,7 @@
 use acvm::acir::circuit::brillig::Brillig;
 use acvm::acir::circuit::Opcode;
 
-use crate::opcodes::AvmInstruction;
+use crate::instructions::AvmInstruction;
 
 /// Extract the Brillig program from its ACIR wrapper instruction.
 /// An Noir unconstrained function compiles to one ACIR instruction

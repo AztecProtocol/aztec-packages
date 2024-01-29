@@ -1,4 +1,5 @@
-/// All AVM opcodes
+/// All AVM opcodes.
+/// Keep updated with TS and yellow paper!
 #[derive(Copy, Clone)]
 pub enum AvmOpcode {
     // Compute
@@ -162,99 +163,6 @@ impl AvmOpcode {
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
             AvmOpcode::POSEIDON => "POSEIDON",
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub enum AvmTypeTag {
-    UNINITIALIZED,
-    UINT8,
-    UINT16,
-    UINT32,
-    UINT64,
-    UINT128,
-    FIELD,
-    INVALID,
-}
-
-pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
-pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
-pub const ZEROTH_FIRST_OPERANDS_INDIRECT: u8 = 0b00000011;
-
-pub enum AvmOperand {
-    U32 { value: u32 },
-    U64 { value: u64 },
-    U128 { value: u128 },
-}
-impl AvmOperand {
-    pub fn to_string(&self) -> String {
-        match self {
-            AvmOperand::U32 { value } => format!(" U32:{}", value),
-            AvmOperand::U64 { value } => format!(" U64:{}", value),
-            AvmOperand::U128 { value } => format!("U128:{}", value),
-        }
-    }
-    pub fn to_be_bytes(&self) -> Vec<u8> {
-        match self {
-            AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),
-            AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
-            AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
-        }
-    }
-}
-
-/// A simple representation of an AVM instruction for the purpose
-/// of generating an AVM bytecode from Brillig.
-pub struct AvmInstruction {
-    pub opcode: AvmOpcode,
-    pub indirect: Option<u8>, // bit field (0: direct, 1: indirect) - 0th bit is 0th offset arg, etc
-    pub dst_tag: Option<AvmTypeTag>,
-    pub operands: Vec<AvmOperand>,
-}
-impl AvmInstruction {
-    pub fn to_string(&self) -> String {
-        let mut out_str = format!("opcode {}", self.opcode.name());
-        if let Some(indirect) = self.indirect {
-            out_str += format!(", indirect: {}", indirect).as_str();
-        }
-        if let Some(dst_tag) = self.dst_tag {
-            out_str += format!(", dst_tag: {}", dst_tag as u8).as_str();
-        }
-        if self.operands.len() > 0 {
-            out_str += ", operands: [";
-            for operand in &self.operands {
-                out_str += format!("{}, ", operand.to_string()).as_str();
-            }
-            out_str += "]";
-        }
-        out_str
-    }
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.push(self.opcode as u8);
-        if let Some(indirect) = self.indirect {
-            bytes.push(indirect);
-        }
-        if let Some(dst_tag) = self.dst_tag {
-            // TODO(4271): make 8 bits when TS supports deserialization of 8 bit flags
-            //bytes.push(dst_tag as u8);
-            bytes.extend_from_slice(&(dst_tag as u32).to_be_bytes());
-        }
-        for operand in &self.operands {
-            bytes.extend_from_slice(&operand.to_be_bytes());
-        }
-        bytes
-    }
-}
-impl Default for AvmInstruction {
-    fn default() -> Self {
-        AvmInstruction {
-            opcode: AvmOpcode::ADD,
-            // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
-            indirect: None,
-            dst_tag: None,
-            operands: vec![],
         }
     }
 }

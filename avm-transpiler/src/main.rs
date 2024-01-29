@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 mod contract;
+mod instructions;
 mod opcodes;
 mod transpile;
 mod utils;

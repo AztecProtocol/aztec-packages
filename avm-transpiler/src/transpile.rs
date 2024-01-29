@@ -3,10 +3,10 @@ use acvm::acir::circuit::brillig::Brillig;
 
 use acvm::brillig_vm::brillig::{BinaryFieldOp, BinaryIntOp};
 
-use crate::opcodes::{
-    AvmInstruction, AvmOpcode, AvmOperand, AvmTypeTag, FIRST_OPERAND_INDIRECT,
-    ZEROTH_OPERAND_INDIRECT,
+use crate::instructions::{
+    AvmInstruction, AvmOperand, AvmTypeTag, FIRST_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
+use crate::opcodes::AvmOpcode;
 use crate::utils::{print_avm_program, print_brillig_program};
 
 /// Map Brillig register indices directly to AVM memory offsets
