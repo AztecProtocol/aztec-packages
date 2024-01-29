@@ -21,7 +21,7 @@ struct PrivateKernelInputsInit {
 impl PrivateKernelInputsInit {
     fn initialize_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         public_inputs.constants = CombinedConstantData {
-            header: self.private_call.call_stack_item.public_inputs.header,
+            header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
         };
     }

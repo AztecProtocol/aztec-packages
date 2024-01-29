@@ -27,7 +27,7 @@ fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
     AppendOnlyTreeSnapshot::empty()
 }
 
-global BLOCK_HEADER = Header {
+global HEADER = Header {
     last_archive: empty_append_only_tree(),
     body_hash: [0; NUM_FIELDS_PER_SHA256],
     state: StateReference {

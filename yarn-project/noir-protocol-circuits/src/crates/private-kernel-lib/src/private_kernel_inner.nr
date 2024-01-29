@@ -22,7 +22,7 @@ impl PrivateKernelInputsInner {
     }
 
     fn validate_contract_tree_root(self) {
-        let purported_contract_tree_root = self.private_call.call_stack_item.public_inputs.header.state.partial.contract_tree.root;
+        let purported_contract_tree_root = self.private_call.call_stack_item.public_inputs.historical_header.state.partial.contract_tree.root;
         let previous_kernel_contract_tree_root = self.previous_kernel.public_inputs.constants.header.state.partial.contract_tree.root;
 
         assert(purported_contract_tree_root == previous_kernel_contract_tree_root, "purported_contract_tree_root does not match previous_kernel_contract_tree_root");

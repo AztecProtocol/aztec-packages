@@ -96,7 +96,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * L2 block header.
      */
-    public header: Header,
+    public historicalHeader: Header,
     /**
      * Deployment data of contracts being deployed in this kernel iteration.
      */
@@ -199,7 +199,7 @@ export class PrivateCircuitPublicInputs {
       isZeroArray(this.unencryptedLogsHash) &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.header.isEmpty() &&
+      this.historicalHeader.isEmpty() &&
       this.contractDeploymentData.isEmpty() &&
       this.chainId.isZero() &&
       this.version.isZero()
@@ -228,7 +228,7 @@ export class PrivateCircuitPublicInputs {
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
-      fields.header,
+      fields.historicalHeader,
       fields.contractDeploymentData,
       fields.chainId,
       fields.version,

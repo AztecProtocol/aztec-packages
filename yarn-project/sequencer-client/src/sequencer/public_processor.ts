@@ -309,7 +309,7 @@ export class PublicProcessor {
       publicCallStackHashes,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      header: this.header,
+      historicalHeader: this.header,
     });
   }
 

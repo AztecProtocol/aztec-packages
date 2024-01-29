@@ -20,7 +20,7 @@ unconstrained pub fn get_header_internal(block_number: u32) -> Header {
 pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
     // 1) Get block number corresponding to the last_archive root in the header
     // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous block
-    let last_archive_block_number = (context.header.global_variables.block_number - 1) as u32;
+    let last_archive_block_number = (context.historical_header.global_variables.block_number - 1) as u32;
 
     // 2) Check that the last archive block number is more than or equal to the block number we want to prove against
     // We could not perform the proof otherwise because the last archive root from the header would not "contain"
@@ -40,7 +40,8 @@ pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
 
     // 6) Check that the block is in the archive (i.e. the witness is valid)
     assert(
-        context.header.last_archive.root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed"
+        context.historical_header.last_archive.root
+        == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed"
     );
 
     // 7) Return the block header

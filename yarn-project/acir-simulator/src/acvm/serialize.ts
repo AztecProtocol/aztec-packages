@@ -149,7 +149,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),
 
-    ...toACVMHeader(publicInputs.header),
+    ...toACVMHeader(publicInputs.historicalHeader),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
 

@@ -41,7 +41,7 @@ impl PublicGlobalVariables {
 // docs:start:private-context-inputs
 struct PrivateContextInputs {
     call_context : CallContext,
-    header: Header,
+    historical_header: Header,
     contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
 }
@@ -51,7 +51,7 @@ struct PrivateContextInputs {
 // docs:start:public-context-inputs
 struct PublicContextInputs {
     call_context: CallContext,
-    header: Header,
+    historical_header: Header,
 
     public_global_variables: PublicGlobalVariables,
 }

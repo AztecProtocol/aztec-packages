@@ -57,7 +57,7 @@ impl PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
             end,
-            header: fixtures::BLOCK_HEADER,
+            header: fixtures::HEADER,
             tx_context,
             is_private: true,
             proof: Proof {},

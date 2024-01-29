@@ -200,7 +200,7 @@ export class PublicCircuitPublicInputs {
     /**
      * L2 block header of the block preceding the block in which this tx is included.
      */
-    public header: Header,
+    public historicalHeader: Header,
     /**
      * Address of the prover.
      */
@@ -255,7 +255,7 @@ export class PublicCircuitPublicInputs {
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.header.isEmpty() &&
+      this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero()
     );
   }
@@ -278,7 +278,7 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.unencryptedLogsHash,
       fields.unencryptedLogPreimagesLength,
-      fields.header,
+      fields.historicalHeader,
       fields.proverAddress,
     ] as const;
   }
