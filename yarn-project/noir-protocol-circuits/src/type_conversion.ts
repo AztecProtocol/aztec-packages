@@ -74,7 +74,7 @@ import {
   StateDiffHints,
   StateReference,
   TxContext,
-  TxRequest
+  TxRequest,
 } from '@aztec/circuits.js';
 import { Tuple, from2Fields, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 

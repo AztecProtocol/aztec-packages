@@ -45,14 +45,10 @@ describe('Private kernel', () => {
     // We check that the test data is for a contract deployment
     expect(kernelInputs.txRequest.txContext.isContractDeploymentTx).toBe(true);
 
-  //   expect(kernelOutputs).toMatchSnapshot();
-  // });
+    const kernelOutputs = await executeInit(kernelInputs);
 
-  // Taken from e2e_nested_contract => performs nested calls => first ordering
-  // it('Executes private kernel ordering after a deployment', async () => {
-  //   const contractAddress = AztecAddress.fromString(
-  //     '0x25e2c017f5da1f994401e61d26be435e3cfa26efee784c6b4e947f7651bd4104',
-  //   );
+    expect(kernelOutputs).toMatchSnapshot();
+  });
 
   // Taken from e2e_nested_contract => performs nested calls => last inner
   // To regenerate fixture data run the following on the yarn-project/e2e folder
@@ -60,9 +56,14 @@ describe('Private kernel', () => {
   it('Executes private kernel inner for a nested call', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
-    const kernelOutputs = await executeInner(kernelInputs);
+    const filepath = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      './fixtures/nested-call-private-kernel-inner.hex',
+    );
+    const serialized = Buffer.from(readFileSync(filepath).toString(), 'hex');
+    const kernelInputs = PrivateKernelInputsInner.fromBuffer(serialized);
 
-//     const kernelOutputs = await executeInner(kernelInputs);
+    const kernelOutputs = await executeInner(kernelInputs);
 
     expect(kernelOutputs).toMatchSnapshot();
   });

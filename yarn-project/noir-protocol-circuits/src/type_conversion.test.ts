@@ -6,10 +6,10 @@ import {
   FunctionData,
   FunctionSelector,
   Point,
-  TxContext
+  TxContext,
 } from '@aztec/circuits.js';
-
 import { makeHeader } from '@aztec/circuits.js/factories';
+
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
