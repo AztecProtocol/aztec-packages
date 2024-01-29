@@ -72,9 +72,7 @@ unconstrained_functions_artifact_leaves = artifact.unconstrained_functions.map(f
 )
 unconstrained_functions_artifact_tree_root = merkleize(unconstrained_functions_artifact_leaves)
 
-version = 1
 artifact_hash = sha256(
-  version, 
   private_functions_artifact_tree_root,
   unconstrained_functions_artifact_tree_root, 
   artifact_metadata,
@@ -85,7 +83,19 @@ For the artifact hash merkleization and hashing is done using sha256, since it i
 
 Bytecode for private functions is a mix of ACIR and Brillig, whereas unconstrained function bytecode is Brillig exclusively, as described on the [bytecode section](../bytecode/index.md).
 
-The artifact metadata listed can be used to store compiler version, commitments to source code, and any other metadata emitted by the compiler.
+The metadata hash for each function is suggested to be computed as the sha256 of all JSON-serialized fields in the function struct of the compilation artifact, except for bytecode and debug symbols. The metadata is JSON-serialized using no spaces, and sorting ascending all keys in objects before serializing them.
+
+```
+function_metadata = omit(function, "bytecode", "debug_symbols")
+function_metadata_hash = sha256(json_serialize(function_metadata))
+```
+
+The artifact metadata stores all data that is not contained within the contract functions and is not debug specific. This includes the compiler version identifier, events interface, and name. Metadata is JSON-serialized in the same fashion as the function metadata.
+
+```
+artifact_metadata = omit(artifact, "functions", "file_map")
+artifact_metadata_hash = sha256(json_serialize(artifact_metadata))
+```
 
 ## Canonical Contract Class Registerer
 
