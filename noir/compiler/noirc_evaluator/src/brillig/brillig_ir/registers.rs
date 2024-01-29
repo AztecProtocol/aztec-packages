@@ -55,6 +55,7 @@ impl BrilligRegistersContext {
         } else {
             // If it couldn't yet be, expand the register space.
             self.next_free_register_index = index + 1;
+            assert!(self.next_free_register_index < MAX_STACK_SIZE, "Stack too deep");
         }
     }
 
@@ -68,7 +69,7 @@ impl BrilligRegistersContext {
         // Otherwise, move to our latest register.
         let register = MemoryAddress::from(self.next_free_register_index);
         self.next_free_register_index += 1;
-        assert!(self.next_free_register_index < MAX_STACK_SIZE, "Stack overflow");
+        assert!(self.next_free_register_index < MAX_STACK_SIZE, "Stack too deep");
         register
     }
 

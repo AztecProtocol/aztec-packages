@@ -133,6 +133,7 @@ impl BrilligContext {
         // debug_show handled by allocate_array_instruction
         let size_register = self.make_constant(size.into());
         self.allocate_array_instruction(pointer_register, size_register);
+        self.deallocate_register(size_register);
     }
 
     /// Allocates an array of size contained in size_register and stores the
@@ -184,6 +185,7 @@ impl BrilligContext {
             ReservedRegisters::stack_pointer(),
             BinaryIntOp::Add,
         );
+        self.deallocate_register(size_register);
     }
 
     pub(crate) fn allocate_simple_reference_instruction(

@@ -10,7 +10,7 @@ use acvm::{
     brillig_vm::brillig::BinaryIntOp,
 };
 
-pub(crate) const MAX_STACK_SIZE: usize = 2_usize.pow(16);
+pub(crate) const MAX_STACK_SIZE: usize = 1024;
 
 impl BrilligContext {
     /// Creates an entry point artifact that will jump to the function label provided.
@@ -173,20 +173,21 @@ impl BrilligContext {
                         self.const_instruction(rc, 1_usize.into());
 
                         self.allocate_array_reference_instruction(reference);
-                        self.store_variable_instruction(
-                            reference,
-                            BrilligVariable::BrilligArray(BrilligArray {
-                                pointer: deflattened_nested_array_pointer,
-                                size: nested_array_item_type.len() * nested_array_item_count,
-                                rc,
-                            }),
-                        );
+                        let array_variable = BrilligVariable::BrilligArray(BrilligArray {
+                            pointer: deflattened_nested_array_pointer,
+                            size: nested_array_item_type.len() * nested_array_item_count,
+                            rc,
+                        });
+                        self.store_variable_instruction(reference, array_variable);
 
                         self.array_set(deflattened_array_pointer, target_index, reference);
 
                         self.deallocate_register(nested_array_pointer);
                         self.deallocate_register(reference);
-                        self.deallocate_register(rc);
+                        array_variable
+                            .extract_registers()
+                            .into_iter()
+                            .for_each(|register| self.deallocate_register(register));
 
                         source_offset += BrilligContext::flattened_size(subitem);
                     }
