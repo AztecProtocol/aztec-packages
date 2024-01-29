@@ -47,7 +47,7 @@ jobs:
         run: |
           cd barretenberg/cpp
 
-          cmake --preset default -DCMAKE_CXX_FLAGS="-stdlib=libc++" -DCMAKE_BUILD_TYPE=RelWithAssert -DTARGET_ARCH=westmere
+          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert -DTARGET_ARCH=westmere
           cmake --build --preset default --target bb
 
       - name: Install noirup
