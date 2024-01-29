@@ -185,7 +185,9 @@ template <typename Curve> class IPA {
                        const OpeningClaim<Curve>& opening_claim,
                        const std::shared_ptr<NativeTranscript>& transcript)
     {
-        auto poly_degree = static_cast<uint32_t>(transcript->template receive_from_prover<Fr>("IPA:poly_degree"));
+        auto poly_degree = static_cast<uint64_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
+            "IPA:poly_degree")); // note this is base field because this is a uint64_t, which should map to a bb::fr,
+                                 // not a grumpkin::fr
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
 
