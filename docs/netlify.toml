@@ -56,7 +56,7 @@
 
 [[redirects]]
     from = "/dev_docs/getting_started/cli"
-    to = "/dev_docs/cli/main"
+    to = "/dev_docs/sandbox/main"
 
 [[redirects]]
     from = "/dev_docs/getting_started/noir_contracts"
@@ -188,11 +188,11 @@
 
 [[redirects]]
     from = "/dev_docs/getting_started/blank_box"
-    to = "/dev_docs/cli/blank_box"
+    to = "/dev_docs/sandox/blank_box"
 
 [[redirects]]
     from = "/dev_docs/getting_started/updating"
-    to = "/dev_docs/cli/updating"
+    to = "/dev_docs/sandbox/updating"
 
 [[redirects]]
     from = "/dev_docs/sandbox_errors/main"
