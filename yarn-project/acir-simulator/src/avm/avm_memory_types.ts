@@ -8,6 +8,9 @@ export abstract class MemoryValue {
   public abstract mul(rhs: MemoryValue): MemoryValue;
   public abstract div(rhs: MemoryValue): MemoryValue;
 
+  public abstract equals(rhs: MemoryValue): boolean;
+  public abstract lt(rhs: MemoryValue): boolean;
+
   // We need this to be able to build an instance of the subclasses.
   public abstract build(n: bigint): MemoryValue;
 
@@ -90,6 +93,16 @@ abstract class UnsignedInteger extends IntegralValue {
 
   public not(): UnsignedInteger {
     return this.build(~this.n & this.bitmask);
+  }
+
+  public equals(rhs: UnsignedInteger): boolean {
+    assert(this.bits == rhs.bits);
+    return this.n === rhs.n;
+  }
+
+  public lt(rhs: UnsignedInteger): boolean {
+    assert(this.bits == rhs.bits);
+    return this.n < rhs.n;
   }
 
   public toBigInt(): bigint {
@@ -176,6 +189,14 @@ export class Field extends MemoryValue {
     return new Field(this.rep.div(rhs.rep));
   }
 
+  public equals(rhs: Field): boolean {
+    return this.rep.equals(rhs.rep);
+  }
+
+  public lt(rhs: Field): boolean {
+    return this.rep.lt(rhs.rep);
+  }
+
   public toBigInt(): bigint {
     return this.rep.toBigInt();
   }
@@ -207,8 +228,8 @@ export class TaggedMemory {
 
   public getAs<T>(offset: number): T {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    const e = this._mem[offset];
-    return <T>e;
+    const word = this._mem[offset];
+    return word as T;
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
@@ -261,6 +282,7 @@ export class TaggedMemory {
 
   // Truncates the value to fit the type.
   public static integralFromTag(v: bigint, tag: TypeTag): IntegralValue {
+    v = BigInt(v); // FIXME: not sure why this cast is needed, but this errors otherwise
     switch (tag) {
       case TypeTag.UINT8:
         return new Uint8(v & ((1n << 8n) - 1n));
