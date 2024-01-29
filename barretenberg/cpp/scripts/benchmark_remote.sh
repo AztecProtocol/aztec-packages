@@ -17,6 +17,6 @@ cmake --preset clang16
 cmake --build --preset clang16 --target $BENCHMARK
 
 cd build
-scp $BB_SSH_KEY ./bin/goblin_bench $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build
+scp $BB_SSH_KEY ./bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build
 ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_CPP_PATH/build ; ./goblin_bench"
+  "cd $BB_SSH_CPP_PATH/build ; ./$BENCHMARK"
