@@ -157,7 +157,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
 }
 
 template <class VerifierInstances>
-bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<FF> fold_data)
+bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::vector<FF>& fold_data)
 {
     prepare_for_folding(fold_data);
 

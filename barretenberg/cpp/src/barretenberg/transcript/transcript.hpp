@@ -240,15 +240,18 @@ class BaseTranscript {
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges; i++) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/741): Optimize this by truncating hash to 128
+            // bits or by splitting hash into 2 challenges.
+            /*
             auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
             Fr field_element_buffer = next_challenge_buffer;
-            // copy half of the hash to lower 128 bits of challenge
-            // Note: because of how read() from buffers to fields works (in field_declarations.hpp),
-            // we use the later half of the buffer
+            // copy half of the hash to lower 128 bits of challenge Note: because of how read() from buffers to fields
+            works (in field_declarations.hpp), we use the later half of the buffer
             // std::copy_n(next_challenge_buffer.begin(),
-            //             HASH_OUTPUT_SIZE / 2,
-            //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
-            challenges[i] = static_cast<uint256_t>(field_element_buffer);
+                        HASH_OUTPUT_SIZE / 2,
+                        field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
+            */
+            challenges[i] = static_cast<uint256_t>(get_next_challenge_buffer());
         }
 
         // Prepare for next round.
@@ -272,8 +275,6 @@ class BaseTranscript {
      */
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
-        static_cast<void>(label);
-        static_cast<void>(element);
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
@@ -305,7 +306,6 @@ class BaseTranscript {
 
         BaseTranscript::consume_prover_element_frs(label, element_frs);
 
-        // T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
         auto element = bb::field_conversion::convert_from_bn254_frs<T>(element_frs);
 
 #ifdef LOG_INTERACTIONS
@@ -358,7 +358,6 @@ class BaseTranscript {
     void print() { manifest.print(); }
 };
 
-// might be useless now
 /**
  * @brief Convert an array of uint256_t's to an array of field elements
  * @details The syntax `std::array<Fr, 2> [a, b] = transcript.get_challenges("a", "b")` is unfortunately not allowed

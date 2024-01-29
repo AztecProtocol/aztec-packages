@@ -74,7 +74,9 @@ WASM_EXPORT void acir_goblin_accumulate(in_ptr acir_composer_ptr,
 
     acir_composer->create_circuit(constraint_system, witness);
     auto proof = acir_composer->accumulate();
-    auto proof_data_buf = to_buffer<true>(proof);
+    auto proof_data_buf = to_buffer<true /* set include_size to true */>(
+        proof); // template parameter needs to be set so that deserialization from buffer, which reads the size at the
+                // beginning can be done properly
     *out = to_heap_buffer(proof_data_buf);
 }
 
