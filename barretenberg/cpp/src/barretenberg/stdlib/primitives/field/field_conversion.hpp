@@ -233,41 +233,41 @@ template <typename Builder> std::array<fr<Builder>, 2> convert_grumpkin_fr_to_bn
  * @tparam T
  * @return constexpr size_t
  */
-template <typename T> constexpr size_t calc_num_frs();
+template <typename T> constexpr size_t calc_num_bn254_frs();
 
-template <typename Builder> constexpr size_t calc_num_frs(fr<Builder>* /*unused*/)
+template <typename Builder> constexpr size_t calc_num_bn254_frs(fr<Builder>* /*unused*/)
 {
     return 1;
 }
 
-template <typename Builder> constexpr size_t calc_num_frs(fq<Builder>* /*unused*/)
+template <typename Builder> constexpr size_t calc_num_bn254_frs(fq<Builder>* /*unused*/)
 {
     return 2;
 }
 
-template <typename Builder> constexpr size_t calc_num_frs(bn254_element<Builder>* /*unused*/)
+template <typename Builder> constexpr size_t calc_num_bn254_frs(bn254_element<Builder>* /*unused*/)
 {
-    return 2 * calc_num_frs<fq<Builder>>();
+    return 2 * calc_num_bn254_frs<fq<Builder>>();
 }
 
-// constexpr size_t calc_num_frs(curve::Grumpkin::AffineElement* /*unused*/)
+// constexpr size_t calc_num_bn254_frs(curve::Grumpkin::AffineElement* /*unused*/)
 // {
-//     return 2 * calc_num_frs<typename stdlib::grumpkin<Builder>::BaseField>();
+//     return 2 * calc_num_bn254_frs<typename stdlib::grumpkin<Builder>::BaseField>();
 // }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_frs(std::array<T, N>* /*unused*/)
+template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(std::array<T, N>* /*unused*/)
 {
-    return N * calc_num_frs<T>();
+    return N * calc_num_bn254_frs<T>();
 }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_frs(bb::Univariate<T, N>* /*unused*/)
+template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(bb::Univariate<T, N>* /*unused*/)
 {
-    return N * calc_num_frs<T>();
+    return N * calc_num_bn254_frs<T>();
 }
 
-template <typename T> constexpr size_t calc_num_frs()
+template <typename T> constexpr size_t calc_num_bn254_frs()
 {
-    return calc_num_frs(static_cast<T*>(nullptr));
+    return calc_num_bn254_frs(static_cast<T*>(nullptr));
 }
 
 /**

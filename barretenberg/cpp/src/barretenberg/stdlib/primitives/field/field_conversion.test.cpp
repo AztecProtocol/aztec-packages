@@ -11,7 +11,7 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
   public:
     template <typename T> void check_conversion(Builder& builder, T x)
     {
-        size_t len = bb::stdlib::field_conversion::calc_num_frs<T>();
+        size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
@@ -20,7 +20,7 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
 
     template <typename T> void check_conversion_iterable(Builder& builder, T x)
     {
-        size_t len = bb::stdlib::field_conversion::calc_num_frs<T>();
+        size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);

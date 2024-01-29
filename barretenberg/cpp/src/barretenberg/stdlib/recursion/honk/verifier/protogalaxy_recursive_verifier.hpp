@@ -4,8 +4,8 @@
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
@@ -21,6 +21,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
+    using Transcript = bb::honk::BaseTranscript<bb::honk::StdlibTranscriptParams<Builder>>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -29,7 +30,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     CommitmentLabels commitment_labels;
 
     Builder* builder;
-    std::shared_ptr<Transcript<Builder>> transcript;
+    std::shared_ptr<Transcript> transcript;
 
     explicit ProtoGalaxyRecursiveVerifier_(Builder* builder)
         : instances(VerifierInstances())

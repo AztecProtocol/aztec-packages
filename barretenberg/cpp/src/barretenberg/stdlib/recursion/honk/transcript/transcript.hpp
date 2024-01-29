@@ -76,7 +76,7 @@ template <typename Builder> class Transcript {
     field_ct get_challenge(const std::string& label)
     {
         // Compute the indicated challenge from the native transcript
-        auto native_challenge = native_transcript.get_challenge(label);
+        auto native_challenge = native_transcript.get_challenge<field_ct>(label);
 
         // TODO(1351): Stdlib hashing here...
 
