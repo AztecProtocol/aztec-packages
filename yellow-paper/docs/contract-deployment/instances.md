@@ -28,7 +28,7 @@ The structure of a contract instance is defined as:
 
 ### Versioning
 
-Contract instances have a `version` field that identifies the schema of the instance, allowing for changes to the struct in future versions of the protocol, same as the contract class [version](./classed.md#versioning).
+Contract instances have a `version` field that identifies the schema of the instance, allowing for changes to the struct in future versions of the protocol, same as the contract class [version](./classes.md#versioning).
 
 ### Address
 
