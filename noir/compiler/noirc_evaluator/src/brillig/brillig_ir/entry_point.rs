@@ -5,10 +5,7 @@ use super::{
     registers::BrilligRegistersContext,
     BrilligContext, ReservedRegisters,
 };
-use acvm::{
-    acir::brillig::{MemoryAddress, Opcode as BrilligOpcode},
-    brillig_vm::brillig::BinaryIntOp,
-};
+use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
 
 pub(crate) const MAX_STACK_SIZE: usize = 1024;
 
@@ -28,25 +25,31 @@ impl BrilligContext {
             debug_show: DebugShow::new(false),
         };
 
-        context.entry_point_instruction(arguments);
+        context.entry_point_instruction(&arguments, &return_parameters);
 
         context.add_external_call_instruction(target_function);
 
-        context.exit_point_instruction(return_parameters);
+        context.exit_point_instruction(&arguments, &return_parameters);
         context.artifact()
     }
 
     /// Adds the instructions needed to handle entry point parameters
     /// The runtime will leave the parameters in calldata.
     /// Arrays will be passed flattened.
-    fn entry_point_instruction(&mut self, arguments: Vec<BrilligParameter>) {
+    fn entry_point_instruction(
+        &mut self,
+        arguments: &[BrilligParameter],
+        return_parameters: &[BrilligParameter],
+    ) {
         let calldata_size =
             arguments.iter().fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
-
-        // Set initial value of stack pointer
+        let return_data_size = return_parameters
+            .iter()
+            .fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
+        // Set initial value of stack pointer: MAX_STACK_SIZE + calldata_size + return_data_size
         self.push_opcode(BrilligOpcode::Const {
             destination: ReservedRegisters::stack_pointer(),
-            value: (calldata_size + MAX_STACK_SIZE).into(),
+            value: (MAX_STACK_SIZE + calldata_size + return_data_size).into(),
         });
 
         // Copy calldata
@@ -96,7 +99,7 @@ impl BrilligContext {
             {
                 if item_type.iter().any(|param| !matches!(param, BrilligParameter::Simple)) {
                     let deflattened_address =
-                        self.deflatten_array(&item_type, array.size, array.pointer);
+                        self.deflatten_array(item_type, array.size, array.pointer);
                     self.mov_instruction(array.pointer, deflattened_address);
                     array.size = item_type.len() * item_count;
                     self.deallocate_register(deflattened_address);
@@ -208,7 +211,11 @@ impl BrilligContext {
     /// The runtime expects the results in the first `n` registers.
     /// Arrays are expected to be returned as pointers to the first element with all the nested arrays flattened.
     /// However, the function called returns variables (that have extra data) and the returned arrays are deflattened.
-    fn exit_point_instruction(&mut self, return_parameters: Vec<BrilligParameter>) {
+    fn exit_point_instruction(
+        &mut self,
+        arguments: &[BrilligParameter],
+        return_parameters: &[BrilligParameter],
+    ) {
         // First, we allocate the registers that hold the returned variables from the function call.
         self.set_allocated_registers(vec![]);
         let returned_variables: Vec<_> = return_parameters
@@ -227,49 +234,46 @@ impl BrilligContext {
             .collect();
 
         // Now, we deflatten the return data
+        let calldata_size =
+            arguments.iter().fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
         let return_data_size = return_parameters
             .iter()
             .fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
-        assert!(return_data_size <= MAX_STACK_SIZE, "Return data too large");
 
-        let return_data_pointer = self.allocate_register();
-        self.allocate_fixed_length_array(return_data_pointer, return_data_size);
-        let return_data_cursor = self.allocate_register();
-        self.mov_instruction(return_data_cursor, return_data_pointer);
+        let return_data_offset = calldata_size + MAX_STACK_SIZE;
+        let mut return_data_index = return_data_offset;
 
         for (return_param, returned_variable) in return_parameters.iter().zip(&returned_variables) {
             match return_param {
                 BrilligParameter::Simple => {
-                    self.store_instruction(
-                        return_data_cursor,
+                    self.mov_instruction(
+                        MemoryAddress(return_data_index),
                         returned_variable.extract_register(),
                     );
-                    self.usize_op_in_place(return_data_cursor, BinaryIntOp::Add, 1);
+                    return_data_index += 1;
                 }
                 BrilligParameter::Array(item_type, item_count) => {
                     let returned_pointer = returned_variable.extract_array().pointer;
+                    let pointer_to_return_data = self.make_constant(return_data_index.into());
 
                     if item_type.iter().any(|item| !matches!(item, BrilligParameter::Simple)) {
                         self.flatten_array(
                             item_type,
                             *item_count,
-                            return_data_cursor,
+                            pointer_to_return_data,
                             returned_pointer,
                         );
                     } else {
                         let item_count = self.make_constant((*item_count * item_type.len()).into());
                         self.copy_array_instruction(
                             returned_pointer,
-                            return_data_cursor,
+                            pointer_to_return_data,
                             item_count,
                         );
                         self.deallocate_register(item_count);
                     }
-                    self.usize_op_in_place(
-                        return_data_cursor,
-                        BinaryIntOp::Add,
-                        BrilligContext::flattened_size(return_param),
-                    );
+                    self.deallocate_register(pointer_to_return_data);
+                    return_data_index += BrilligContext::flattened_size(return_param);
                 }
                 BrilligParameter::Slice(..) => {
                     unreachable!("ICE: Cannot return slices from brillig entrypoints")
@@ -277,20 +281,7 @@ impl BrilligContext {
             }
         }
 
-        for i in 0..return_data_size {
-            let final_return_data_pointer = MemoryAddress::from(i + MAX_STACK_SIZE);
-            self.load_instruction(final_return_data_pointer, return_data_pointer);
-            self.usize_op_in_place(
-                return_data_pointer,
-                acvm::brillig_vm::brillig::BinaryIntOp::Add,
-                1_usize,
-            );
-        }
-
-        self.push_opcode(BrilligOpcode::Stop {
-            return_data_offset: MAX_STACK_SIZE,
-            return_data_size,
-        });
+        self.push_opcode(BrilligOpcode::Stop { return_data_offset, return_data_size });
     }
 
     // Flattens an array by recursively copying nested arrays and regular items.

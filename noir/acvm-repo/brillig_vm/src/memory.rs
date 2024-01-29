@@ -1,4 +1,4 @@
-use acir::brillig::MemoryAddress;
+use acir::{brillig::MemoryAddress, FieldElement};
 
 use crate::Value;
 
@@ -33,7 +33,7 @@ impl Memory {
         // Calculate new memory size
         let new_size = std::cmp::max(self.inner.len(), ptr.to_usize() + values.len());
         // Expand memory to new size with default values if needed
-        self.inner.resize(new_size, Value::from(0_usize));
+        self.inner.resize(new_size, Value::from(FieldElement::zero()));
 
         self.inner[ptr.to_usize()..(ptr.to_usize() + values.len())].copy_from_slice(values);
     }
