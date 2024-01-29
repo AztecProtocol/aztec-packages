@@ -95,6 +95,14 @@ export class Header {
     );
   }
 
+  /**
+   * Serializes this instance into a string.
+   * @returns Encoded string.
+   */
+  public toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
   static fromString(str: string): Header {
     const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
     return Header.fromBuffer(buffer);
