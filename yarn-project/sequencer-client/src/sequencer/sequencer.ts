@@ -139,20 +139,23 @@ export class Sequencer {
       }
       this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
-      // TODO(benesjan): remove this call and replace the value with the value from the block header?
-      const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+      const prevHeader = (await this.l2BlockSource.getBlock(-1))?.header;
+      const newBlockNumber =
+        (prevHeader === undefined
+          ? await this.l2BlockSource.getBlockNumber()
+          : Number(prevHeader.globalVariables.blockNumber.toBigInt())) + 1;
 
       /**
        * We'll call this function before running expensive operations to avoid wasted work.
        */
       const assertBlockHeight = async () => {
         const currentBlockNumber = await this.l2BlockSource.getBlockNumber();
-        if (currentBlockNumber + 1 !== blockNumber) {
+        if (currentBlockNumber + 1 !== newBlockNumber) {
           throw new Error('New block was emitted while building block');
         }
       };
 
-      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(newBlockNumber));
 
       // Filter out invalid txs
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
@@ -161,11 +164,8 @@ export class Sequencer {
         return;
       }
 
-      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
+      this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
-
-      // TODO(benesjan): is this correct? Should we add a check that all the tree roots are really empty?
-      const prevHeader = (await this.l2BlockSource.getBlock(-1))?.header;
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
