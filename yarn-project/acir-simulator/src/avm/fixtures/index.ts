@@ -69,7 +69,7 @@ export interface GlobalVariablesOverrides {
 }
 
 /**
- * Create an empty instance of the Execution Environment where all values are zero, unless overriden in the overrides object
+ * Create an empty instance of the Global Variables where all values are zero, unless overriden in the overrides object
  */
 export function initGlobalVariables(overrides?: GlobalVariablesOverrides): GlobalVariables {
   return new GlobalVariables(
