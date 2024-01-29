@@ -335,6 +335,7 @@ An address is computed as the hash of the following fields:
 | Field | Type | Description |
 |----------|----------|----------|
 | `salt` | `Field` | User-generated pseudorandom value for uniqueness. |
+| `deployer` | `AztecAddress` | Optional address of the deployer of the contract. |
 | `contract_class_id` | `Field` | Identifier of the contract class for this instance. |
 | `initialization_hash` | `Field` | Hash of the selector and arguments to the constructor. |
 | `portal_contract_address` | `EthereumAddress` | Address of the L1 portal contract, zero if none. |
@@ -353,7 +354,7 @@ We may remove the `portal_contract_address` as a first-class citizen.
 The hashing scheme for the address should then ensure that checks that are more frequent can be done cheaply, and that data shared out of band is kept manageable. We define the hash to be computed as follows:
 
 ```
-salted_initialization_hash = pedersen([salt, initialization_hash, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
+salted_initialization_hash = pedersen([salt, initialization_hash, deployer as Field, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
 partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
 address = pedersen([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
 ```

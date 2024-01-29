@@ -18,14 +18,13 @@ The structure of a contract instance is defined as:
 |----------|----------|----------|
 | `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract instance struct. |
 | `salt` | `Field` | User-generated pseudorandom value for uniqueness. |
+| `deployer` | `AztecAddress` | Optional address of the deployer of the contract. |
 | `contract_class_id` | `Field` | Identifier of the contract class for this instance. |
 | `initialization_hash` | `Field` | Hash of the selector and arguments to the constructor. |
 | `portal_contract_address` | `EthereumAddress` | Optional address of the L1 portal contract. |
 | `public_keys_hash` | `Field` | Optional hash of the struct of public keys used for encryption and nullifying by this contract. |
 
 <!-- Note: Always ensure the spec above matches the one described in Addresses and Keys. -->
-
-Note the absence of a deployer field. This is because the deployer address is optionally mixed into the `salt` as part of the deployment logic, implemented by the `ContractInstanceDeployer` as described below.
 
 ## Address
 
@@ -61,12 +60,19 @@ The Deployment Nullifier is defined as the address of the contract being deploye
 
 Only in this state public function calls are valid. The Public Kernel Circuit validates that the Deployment Nullifier has been emitted by the `ContractInstanceDeployer` as part of its checks. Note that this requires hardcoding the address of an application-level contract in a protocol circuit.
 
+## Deployer
+
+The `deployer` address of a contract instance is used to restrict who can initialize the contract (ie call its constructor) and who can publicly deploy it. Note that neither of these checks are enforced by the protocol: the initialization is checked by the constructor itself, and the deployment by the `ContractInstanceDeployer`. Furthermore, a contract class may choose to not enforce this restriction by removing the check from the constructor.
+
+The `deployer` address can be set to zero to signal that anyone can initialize or publicly deploy an instance.
+
 ## Constructors
 
 Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and a contract may have more than a single constructor. A contract must ensure the following requirements are met:
 
 - A contract may be initialized at most once
 - A contract must be initialized using the method and arguments defined in its address preimage
+- A contract must be initialized by its `deployer` (if it's non-zero)
 - All functions that depend on contract initialization cannot be invoked until the contract is initialized
 
 These checks are embedded in the application circuits themselves. The constructor emits an Initialization Nullifier when it is invoked, which prevents it from being called more than once. The constructor code must also check that its own selector and the arguments for the call match the ones in the address preimage, which are supplied via an oracle call.
@@ -80,7 +86,7 @@ Removing constructors from the protocol itself simplifies the kernel circuit, an
 A new contract instance can be _Publicly Deployed_ by calling a `deploy` function in a canonical `ContractInstanceDeployer` contract. This function receives the arguments for a `ContractInstance` struct as described [above](#contractinstance-structure):
 
 - Validates the referenced `contract_class_id` exists. This can be done via either a call to the `ClassRegisterer` contract, or by directly reading the corresponding nullifier.
-- Mixes in the `msg_sender` with the user-provided `salt` by hashing them together, ensuring that the deployment is unique for the requester. Alternatively, the deployment can be made independent from the requester, in which case the deployer mixes in its own address into the salt. This allows counterfactual deployments where any party can deploy to a given address.
+- Set `deployer` to zero or `msg_sender` depending on whether the `universal_deploy` flag is set.
 - Computes the resulting `new_contract_address`.
 - Emits the resulting address as the Deployment Nullifier to signal the public deployment, so callers can prove that the contract has or has not been publicly deployed.
 - Either verifies that the instance has been already initialized by reading its Initialization Nullifier, or executes a call into the resulting address to initialize it and then checks the Initialization Nullifier. Note that it is still necessary to check the Initialization Nullifier in the latter case since the Deployer has no guarantee that the function call corresponded to a constructor that effectively initialized the contract.
@@ -90,7 +96,7 @@ The pseudocode for the process described above is the following:
 
 ```
 function deploy (
-  user_salt: Field, 
+  salt: Field, 
   contract_class_id: Field, 
   initialization_hash: Field, 
   portal_contract_address: Field, 
@@ -102,10 +108,9 @@ function deploy (
   assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
   assert is_valid_eth_address(portal_contract_address)
   
-  deployer = if universal_deploy then this.address else msg_sender
-  salt = pedersen([user_salt, this.address], GENERATOR__ADDRESS_SALT)
+  deployer = if universal_deploy then zero else msg_sender
   version = 1
-  address = compute_address(version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+  address = compute_address(version, salt, deployer, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
 
   emit_nullifier(address)
   if constructor_selector then call(address, constructor_selector, constructor_args)
