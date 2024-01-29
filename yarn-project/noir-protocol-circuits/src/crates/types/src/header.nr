@@ -26,12 +26,14 @@ use crate::{
     },
 };
 
+// docs:start:header
 struct Header {
     last_archive: AppendOnlyTreeSnapshot,
     body_hash: [Field; NUM_FIELDS_PER_SHA256],
     state: StateReference,
     global_variables: GlobalVariables,
 }
+// docs:end:header
 
 impl Header {
 
