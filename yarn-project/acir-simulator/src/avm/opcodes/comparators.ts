@@ -7,7 +7,7 @@ export class Eq extends Instruction {
   static type: string = 'EQ';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number, private inTag: TypeTag) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
@@ -29,7 +29,7 @@ export class Lt extends Instruction {
   static type: string = 'Lt';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number, private inTag: TypeTag) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
@@ -51,7 +51,7 @@ export class Lte extends Instruction {
   static type: string = 'LTE';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number, private inTag: TypeTag) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 

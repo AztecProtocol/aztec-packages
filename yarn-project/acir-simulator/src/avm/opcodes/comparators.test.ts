@@ -21,9 +21,9 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Uint32(1), new Uint32(2), new Uint32(3), new Uint32(1)]);
 
       [
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.UINT32),
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11, TypeTag.UINT32),
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12, TypeTag.UINT32),
+        new Eq(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
+        new Eq(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11),
+        new Eq(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12),
       ].forEach(i => i.execute(machineState, journal));
 
       const actual = machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
@@ -34,9 +34,9 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(3), new Field(1)]);
 
       [
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.FIELD),
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11, TypeTag.FIELD),
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12, TypeTag.FIELD),
+        new Eq(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
+        new Eq(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11),
+        new Eq(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12),
       ].forEach(i => i.execute(machineState, journal));
 
       const actual = machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
@@ -47,10 +47,10 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
       const ops = [
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.FIELD),
-        new Eq(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10, TypeTag.UINT32),
-        new Eq(/*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10, TypeTag.UINT16),
-        new Eq(/*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.UINT16),
+        new Eq(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
+        new Eq(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Eq(TypeTag.UINT16, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Eq(TypeTag.UINT16, /*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10),
       ];
 
       for (const o of ops) {
@@ -64,9 +64,9 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Uint32(1), new Uint32(2), new Uint32(0)]);
 
       [
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10, TypeTag.UINT32),
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11, TypeTag.UINT32),
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12, TypeTag.UINT32),
+        new Lt(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
+        new Lt(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
+        new Lt(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
       ].forEach(i => i.execute(machineState, journal));
 
       const actual = machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
@@ -77,9 +77,9 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(0)]);
 
       [
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10, TypeTag.FIELD),
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11, TypeTag.FIELD),
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12, TypeTag.FIELD),
+        new Lt(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
+        new Lt(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
+        new Lt(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
       ].forEach(i => i.execute(machineState, journal));
 
       const actual = machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
@@ -90,10 +90,10 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
       const ops = [
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.FIELD),
-        new Lt(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10, TypeTag.UINT32),
-        new Lt(/*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10, TypeTag.UINT16),
-        new Lt(/*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.UINT16),
+        new Lt(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
+        new Lt(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Lt(TypeTag.UINT16, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Lt(TypeTag.UINT16, /*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10),
       ];
 
       for (const o of ops) {
@@ -107,9 +107,9 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Uint32(1), new Uint32(2), new Uint32(0)]);
 
       [
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10, TypeTag.UINT32),
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11, TypeTag.UINT32),
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12, TypeTag.UINT32),
+        new Lte(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
+        new Lte(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
+        new Lte(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
       ].forEach(i => i.execute(machineState, journal));
 
       const actual = machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
@@ -120,9 +120,9 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(0)]);
 
       [
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10, TypeTag.FIELD),
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11, TypeTag.FIELD),
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12, TypeTag.FIELD),
+        new Lte(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
+        new Lte(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
+        new Lte(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
       ].forEach(i => i.execute(machineState, journal));
 
       const actual = machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
@@ -133,10 +133,10 @@ describe('Comparators', () => {
       machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
       const ops = [
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.FIELD),
-        new Lte(/*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10, TypeTag.UINT32),
-        new Lte(/*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10, TypeTag.UINT16),
-        new Lte(/*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10, TypeTag.UINT16),
+        new Lte(TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
+        new Lte(TypeTag.UINT32, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Lte(TypeTag.UINT16, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Lte(TypeTag.UINT16, /*aOffset=*/ 1, /*bOffset=*/ 1, /*dstOffset=*/ 10),
       ];
 
       for (const o of ops) {
