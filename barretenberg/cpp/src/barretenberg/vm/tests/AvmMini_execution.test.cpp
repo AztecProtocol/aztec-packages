@@ -10,6 +10,24 @@
 #include <string>
 #include <utility>
 
+namespace {
+void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
+                            std::vector<Row>&& trace,
+                            std::vector<FF> const& calldata)
+{
+    auto circuit_builder = AvmMiniCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    EXPECT_TRUE(circuit_builder.check_circuit());
+
+    auto composer = honk::AvmMiniComposer();
+    auto verifier = composer.create_verifier(circuit_builder);
+
+    auto proof = avm_trace::Execution::run_and_prove(bytecode, calldata);
+
+    EXPECT_TRUE(verifier.verify_proof(proof));
+}
+} // namespace
+
 namespace tests_avm {
 using namespace avm_trace;
 using bb::utils::hex_to_bytes;
@@ -61,17 +79,8 @@ TEST_F(AvmMiniExecutionTests, basicAddReturn)
     EXPECT_EQ(instructions.at(1).operands.at(0), 0);
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
-    auto trace_verif = trace;
-    validate_trace_proof(std::move(trace));
 
-    auto circuit_builder = AvmMiniCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace_verif));
-    auto composer = honk::AvmMiniComposer();
-    auto verifier = composer.create_verifier(circuit_builder);
-
-    auto proof = Execution::run_and_prove(bytecode, std::vector<FF>{});
-
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
 }
 
 // Positive test for SET and SUB opcodes
@@ -126,17 +135,7 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == 1; });
     EXPECT_EQ(row->avmMini_ic, 10000); // 47123 - 37123 = 10000
 
-    auto trace_verif = trace;
-    validate_trace_proof(std::move(trace));
-
-    auto circuit_builder = AvmMiniCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace_verif));
-    auto composer = honk::AvmMiniComposer();
-    auto verifier = composer.create_verifier(circuit_builder);
-
-    auto proof = Execution::run_and_prove(bytecode, std::vector<FF>{});
-
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
 }
 
 // Positive test for multiple MUL opcodes
@@ -209,17 +208,7 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
         trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == 1 && r.avmMini_pc == 13; });
     EXPECT_EQ(row->avmMini_ic, 244140625); // 5^12 = 244140625
 
-    auto trace_verif = trace;
-    validate_trace_proof(std::move(trace));
-
-    auto circuit_builder = AvmMiniCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace_verif));
-    auto composer = honk::AvmMiniComposer();
-    auto verifier = composer.create_verifier(circuit_builder);
-
-    auto proof = Execution::run_and_prove(bytecode, std::vector<FF>{});
-
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
 }
 
 // Positive test about a single internal_call and internal_return
@@ -271,28 +260,87 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
 
-    // Find the first row enabling the addition selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == 1; });
-    EXPECT_EQ(row->avmMini_ic, 345567789);
-
-    auto trace_verif = trace;
-    validate_trace_proof(std::move(trace));
-
     // Expected PC sequence during execution
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
 
     for (size_t i = 0; i < 6; i++) {
-        EXPECT_EQ(trace_verif.at(i + 1).avmMini_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).avmMini_pc, pc_sequence.at(i));
     }
 
-    auto circuit_builder = AvmMiniCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace_verif));
-    auto composer = honk::AvmMiniComposer();
-    auto verifier = composer.create_verifier(circuit_builder);
+    // Find the first row enabling the addition selector.
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == 1; });
+    EXPECT_EQ(row->avmMini_ic, 345567789);
 
-    auto proof = Execution::run_and_prove(bytecode, std::vector<FF>{});
+    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+}
 
-    EXPECT_TRUE(verifier.verify_proof(proof));
+// Positive test with JUMP and CALLDATACOPY
+// We test bytecode which first invoke CALLDATACOPY on a FF array of two values.
+// Then, a JUMP call skips a SUB opcode to land to a DIV operation and RETURN.
+// Calldata: [13, 156]
+// Bytecode layout: CALLDATACOPY  JUMP  SUB  DIV  RETURN
+//                        0         1    2    3     4
+TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
+{
+    std::string bytecode_hex = "1F"       // CALLDATACOPY 31 (no in_tag)
+                               "00000000" // cd_offset
+                               "00000002" // copy_size
+                               "0000000A" // dst_offset // M[10] = 13, M[11] = 156
+                               "23"       // JUMP 35
+                               "00000003" // jmp_dest (DIV located at 3)
+                               "01"       // SUB
+                               "06"       // FF
+                               "0000000B" // addr 11
+                               "0000000A" // addr 10
+                               "00000001" // addr c 1 (If executed would be 156 - 13 = 143)
+                               "03"       // DIV
+                               "06"       // FF
+                               "0000000B" // addr 11
+                               "0000000A" // addr 10
+                               "00000001" // addr c 1 (156 / 13 = 12)
+                               "34"       // RETURN
+                               "00000000" // ret offset 0
+                               "00000000" // ret size 0
+        ;
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Execution::parse(bytecode);
+
+    EXPECT_EQ(instructions.size(), 5);
+
+    // We test parsing steps for CALLDATACOPY and JUMP.
+
+    // CALLDATACOPY
+    EXPECT_EQ(instructions.at(0).op_code, OpCode::CALLDATACOPY);
+    EXPECT_EQ(instructions.at(0).operands.size(), 3);
+    EXPECT_EQ(instructions.at(0).operands.at(0), 0);
+    EXPECT_EQ(instructions.at(0).operands.at(1), 2);
+    EXPECT_EQ(instructions.at(0).operands.at(2), 10);
+
+    // JUMP
+    EXPECT_EQ(instructions.at(1).op_code, OpCode::JUMP);
+    EXPECT_EQ(instructions.at(1).operands.size(), 1);
+    EXPECT_EQ(instructions.at(1).operands.at(0), 3);
+
+    auto trace = Execution::gen_trace(instructions, std::vector<FF>{ 13, 156 });
+
+    // Expected PC sequence during execution
+    std::vector<FF> pc_sequence{ 0, 1, 3, 4 };
+
+    for (size_t i = 0; i < 4; i++) {
+        EXPECT_EQ(trace.at(i + 1).avmMini_pc, pc_sequence.at(i));
+    }
+
+    // Find the first row enabling the division selector.
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_div == 1; });
+    EXPECT_EQ(row->avmMini_ic, 12);
+
+    // Find the first row enabling the subtraction selector.
+    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == 1; });
+    // It must have failed as subtraction was "jumped over".
+    EXPECT_EQ(row, trace.end());
+
+    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{ 13, 156 });
 }
 
 // Negative test detecting an invalid opcode byte.
