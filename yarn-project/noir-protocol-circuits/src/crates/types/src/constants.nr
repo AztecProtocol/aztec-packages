@@ -102,9 +102,8 @@ global HEADER_LENGTH: Field = 18; // 2 for last_archive, 2 for body hash, 10 for
 global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
-// In other words, if the structure/size of the public inputs of a function call changes then we
-// should change this constant as well as the offsets in private_call_stack_item.nr
-// TODO(benesjan): Didn't find any offsets in call_stack_item.nr is this ^ still relevant
+// In other words, if the structure/size of the public inputs of a function call changes then we should change this
+// constant as well CALL_PRIVATE_FUNCTION_RETURN_SIZE and PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 200;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 3;
 global CONTRACT_STORAGE_READ_LENGTH: Field = 2;

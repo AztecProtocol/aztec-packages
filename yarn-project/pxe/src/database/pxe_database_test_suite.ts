@@ -1,6 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM, NoteFilter, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress } from '@aztec/circuits.js';
-import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
+import { makeHeader } from '@aztec/circuits.js/factories';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts/Benchmarking';
 import { SerializableContractInstance } from '@aztec/types/contracts';

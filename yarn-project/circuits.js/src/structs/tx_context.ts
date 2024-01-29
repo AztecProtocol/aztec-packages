@@ -106,6 +106,7 @@ export class TxContext {
      * Contract deployment data.
      */
     public contractDeploymentData: ContractDeploymentData,
+    // TODO(#4256): The following two fields are most likely redundant now and should be removed.
     /**
      * Chain ID of the transaction. Here for replay protection.
      */
