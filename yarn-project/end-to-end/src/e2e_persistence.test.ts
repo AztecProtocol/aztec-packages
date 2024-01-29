@@ -197,7 +197,7 @@ describe('Aztec persistence', () => {
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
       const contract = await TokenContract.at(contractAddress, wallet);
       await expect(contract.methods.balance_of_private(ownerAddress.address).view()).rejects.toThrowError(
-        /Unknown contract/,
+        /has not been registered/,
       );
     });
 
