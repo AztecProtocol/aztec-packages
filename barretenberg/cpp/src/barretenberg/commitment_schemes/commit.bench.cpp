@@ -15,17 +15,11 @@ std::shared_ptr<honk::pcs::CommitmentKey<Curve>> create_commitment_key(const siz
         static_assert(std::same_as<Curve, curve::Grumpkin>);
         srs_path = "../srs_db/grumpkin";
     }
-    // auto crs_factory = std::make_shared<bb::srs::factories::FileCrsFactory<Curve>>(srs_path, num_points);
-    std::vector<g1::affine_element> points;
-    for (int i = 0; i < 1000; i++) {
-        points.push_back(g1::affine_element::random_element());
-    }
-    auto crs_factory = std::make_shared<bb::srs::factories::MemBn254CrsFactory>(
-        points, g2::affine_element{ fq::random_element(), fq::random_element() });
+    auto crs_factory = std::make_shared<bb::srs::factories::FileCrsFactory<Curve>>(srs_path, num_points);
     return std::make_shared<honk::pcs::CommitmentKey<Curve>>(num_points, crs_factory);
 }
 
-constexpr size_t MAX_LOG_NUM_POINTS = 20;
+constexpr size_t MAX_LOG_NUM_POINTS = 24;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
 
 auto key = create_commitment_key<curve::BN254>(MAX_NUM_POINTS);
