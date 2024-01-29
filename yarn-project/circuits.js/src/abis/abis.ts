@@ -537,8 +537,6 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     input.unencryptedLogPreimagesLength.toBuffer(),
     ...(input.historicalHeader.toFieldArray().map(fr => fr.toBuffer()) as Buffer[]),
     computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
-    input.chainId.toBuffer(),
-    input.version.toBuffer(),
   ];
   if (toHash.length != PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
     throw new Error(

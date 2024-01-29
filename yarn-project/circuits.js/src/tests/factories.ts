@@ -728,8 +728,6 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
-    chainId: fr(seed + 0x1400),
-    version: fr(seed + 0x1500),
   });
 }
 

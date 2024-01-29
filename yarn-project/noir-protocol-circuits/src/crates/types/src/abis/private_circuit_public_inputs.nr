@@ -88,8 +88,6 @@ impl Hash for PrivateCircuitPublicInputs {
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.historical_header.serialize());
         fields.push(self.contract_deployment_data.hash());
-        fields.push(self.chain_id);
-        fields.push(self.version);
 
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH, "Incorrect number of input fields when hashing PrivateCircuitPublicInputs");
 
@@ -123,8 +121,6 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.historical_header.serialize());
         fields.push_array(self.contract_deployment_data.serialize());
-        fields.push(self.chain_id);
-        fields.push(self.version);
 
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 

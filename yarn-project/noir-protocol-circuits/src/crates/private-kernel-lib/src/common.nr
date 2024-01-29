@@ -270,9 +270,9 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         if msg_is_zero == false {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(
                 storage_contract_address,
-                private_call_public_inputs.version,
+                private_call_public_inputs.header.global_variables.version,
                 portal_contract_address,
-                private_call_public_inputs.chain_id,
+                private_call_public_inputs.header.global_variables.chain_id,
                 new_l2_to_l1_msgs[i]
             );
             new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)

@@ -111,9 +111,6 @@ export function extractPrivateCircuitPublicInputs(
     EthAddress.fromField(witnessReader.readField()),
   );
 
-  const chainId = witnessReader.readField();
-  const version = witnessReader.readField();
-
   return new PrivateCircuitPublicInputs(
     callContext,
     argsHash,
@@ -132,8 +129,6 @@ export function extractPrivateCircuitPublicInputs(
     unencryptedLogPreimagesLength,
     header,
     contractDeploymentData,
-    chainId,
-    version,
   );
 }
 

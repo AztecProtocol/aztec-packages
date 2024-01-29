@@ -77,4 +77,13 @@ export class GlobalVariables {
   isEmpty(): boolean {
     return this.chainId.isZero() && this.version.isZero() && this.blockNumber.isZero() && this.timestamp.isZero();
   }
+
+  equals(other: GlobalVariables): boolean {
+    return (
+      this.chainId.equals(other.chainId) &&
+      this.version.equals(other.version) &&
+      this.blockNumber.equals(other.blockNumber) &&
+      this.timestamp.equals(other.timestamp)
+    );
+  }
 }

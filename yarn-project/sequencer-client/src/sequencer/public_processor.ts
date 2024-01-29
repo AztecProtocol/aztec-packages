@@ -72,11 +72,16 @@ export class PublicProcessorFactory {
    * Creates a new instance of a PublicProcessor.
    * @param prevHeader - The header of the previous block.
    * @param globalVariables - The global variables for the block being processed.
-   * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
   public async create(prevHeader: Header | undefined, globalVariables: GlobalVariables): Promise<PublicProcessor> {
-    prevHeader = prevHeader ?? (await buildInitialHeader(this.merkleTree));
+    prevHeader = prevHeader ?? (await buildInitialHeader(this.merkleTree, globalVariables));
+
+    if (prevHeader && !prevHeader.globalVariables.equals(globalVariables)) {
+      throw new Error(
+        `Global variables mismatch: expected ${prevHeader.globalVariables.toString()}, got ${globalVariables.toString()}`,
+      );
+    }
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
@@ -87,7 +92,6 @@ export class PublicProcessorFactory {
       publicExecutor,
       new RealPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
-      globalVariables,
       prevHeader,
       publicContractsDB,
       worldStatePublicDB,
@@ -105,7 +109,6 @@ export class PublicProcessor {
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
     protected publicProver: PublicProver,
-    protected globalVariables: GlobalVariables,
     protected header: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
@@ -153,8 +156,7 @@ export class PublicProcessor {
    * @returns A processed tx with empty data.
    */
   public makeEmptyProcessedTx(): Promise<ProcessedTx> {
-    const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.header, chainId, version);
+    return makeEmptyProcessedTx(this.header);
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
@@ -210,7 +212,7 @@ export class PublicProcessor {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-        const result = isExecutionRequest ? await this.publicExecutor.simulate(current, this.globalVariables) : current;
+        const result = isExecutionRequest ? await this.publicExecutor.simulate(current, this.header.globalVariables) : current;
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
         this.log(

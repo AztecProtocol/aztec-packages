@@ -123,7 +123,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const makeEmptyProcessedTx = async () => {
     const header = await buildInitialHeader(builderDb);
-    return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(header);
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs

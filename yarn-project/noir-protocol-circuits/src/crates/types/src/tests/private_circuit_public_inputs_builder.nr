@@ -52,9 +52,6 @@ struct PrivateCircuitPublicInputsBuilder {
     historical_header: Header,
 
     contract_deployment_data: ContractDeploymentData,
-
-    chain_id: Field,
-    version: Field,
 }
 
 impl PrivateCircuitPublicInputsBuilder {
@@ -102,8 +99,6 @@ impl PrivateCircuitPublicInputsBuilder {
         public_inputs.args_hash = args_hash;
         public_inputs.contract_deployment_data = contract_deployment_data;
         public_inputs.historical_header = fixtures::HEADER;
-        public_inputs.chain_id = 0;
-        public_inputs.version = 1;
 
         public_inputs
     }
@@ -134,9 +129,6 @@ impl PrivateCircuitPublicInputsBuilder {
             historical_header: self.historical_header,
 
             contract_deployment_data: self.contract_deployment_data,
-
-            chain_id: self.chain_id,
-            version: self.version,
         }
     }
 }

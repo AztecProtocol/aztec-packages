@@ -152,9 +152,6 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...toACVMHeader(publicInputs.historicalHeader),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
-
-    toACVMField(publicInputs.chainId),
-    toACVMField(publicInputs.version),
   ];
 }
 

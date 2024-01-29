@@ -159,7 +159,7 @@ impl PrivateContext {
         let encrypted_log_preimages_length = 0;
         let unencrypted_log_preimages_length = 0;
 
-        let priv_circuit_pub_inputs = PrivateCircuitPublicInputs {
+        PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
@@ -177,10 +177,7 @@ impl PrivateContext {
             unencrypted_log_preimages_length: unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             contract_deployment_data: self.inputs.contract_deployment_data,
-            chain_id: self.inputs.private_global_variables.chain_id,
-            version: self.inputs.private_global_variables.version,
-        };
-        priv_circuit_pub_inputs
+        }
     }
 
     pub fn push_read_request(&mut self, read_request: Field) {
@@ -350,8 +347,6 @@ impl PrivateContext {
                     contract_address_salt : reader.read(),
                     portal_contract_address : EthAddress::from_field(reader.read()),
                 },
-                chain_id: reader.read(),
-                version: reader.read(),
             },
             is_execution_request: reader.read() as bool,
         };

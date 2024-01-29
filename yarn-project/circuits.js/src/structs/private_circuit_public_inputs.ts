@@ -101,15 +101,6 @@ export class PrivateCircuitPublicInputs {
      * Deployment data of contracts being deployed in this kernel iteration.
      */
     public contractDeploymentData: ContractDeploymentData,
-    // TODO(#4256): Nuke the following 2 values --> they are in header now.
-    /**
-     * Chain Id of the instance.
-     */
-    public chainId: Fr,
-    /**
-     * Version of the instance.
-     */
-    public version: Fr,
   ) {}
 
   /**
@@ -146,8 +137,6 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Header),
       reader.readObject(ContractDeploymentData),
-      reader.readObject(Fr),
-      reader.readObject(Fr),
     );
   }
 
@@ -174,8 +163,6 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Header.empty(),
       ContractDeploymentData.empty(),
-      Fr.ZERO,
-      Fr.ZERO,
     );
   }
 
@@ -200,9 +187,7 @@ export class PrivateCircuitPublicInputs {
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
-      this.contractDeploymentData.isEmpty() &&
-      this.chainId.isZero() &&
-      this.version.isZero()
+      this.contractDeploymentData.isEmpty()
     );
   }
 
@@ -230,8 +215,6 @@ export class PrivateCircuitPublicInputs {
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
       fields.contractDeploymentData,
-      fields.chainId,
-      fields.version,
     ] as const;
   }
   /**

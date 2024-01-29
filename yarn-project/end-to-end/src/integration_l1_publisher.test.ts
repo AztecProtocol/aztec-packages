@@ -153,9 +153,8 @@ describe('L1Publisher integration', () => {
     prevHeader = await buildInitialHeader(builderDb);
   }, 100_000);
 
-  const makeEmptyProcessedTx = async () => {
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
-    return tx;
+  const makeEmptyProcessedTx = () => {
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader);
   };
 
   const makeBloatedProcessedTx = async (seed = 0x1) => {
