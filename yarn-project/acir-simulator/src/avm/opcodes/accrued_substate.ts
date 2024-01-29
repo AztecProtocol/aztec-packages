@@ -1,7 +1,9 @@
+import { Fr } from '@aztec/foundation/fields';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmJournal } from '../journal/journal.js';
 import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
+import { TypeTag } from '../avm_memory_types.js';
 
 export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
@@ -16,7 +18,8 @@ export class EmitNoteHash extends Instruction {
       throw new StaticCallStorageAlterError();
     }
 
-    const noteHash = machineState.readMemory(this.noteHashOffset);
+    Instruction.checkTags(machineState, TypeTag.FIELD, this.noteHashOffset);
+    const noteHash = machineState.memory.getAs<Fr>(this.noteHashOffset);
 
     journal.writeNoteHash(noteHash);
 
@@ -37,7 +40,8 @@ export class EmitNullifier extends Instruction {
       throw new StaticCallStorageAlterError();
     }
 
-    const nullifier = machineState.readMemory(this.nullifierOffset);
+    Instruction.checkTags(machineState, TypeTag.FIELD, this.nullifierOffset);
+    const nullifier = machineState.memory.getAs<Fr>(this.nullifierOffset);
 
     journal.writeNullifier(nullifier);
 
@@ -58,7 +62,11 @@ export class EmitUnencryptedLog extends Instruction {
       throw new StaticCallStorageAlterError();
     }
 
-    const log = machineState.readMemoryChunk(this.logOffset, this.logSize);
+    // Check log tags are all fields
+    const offsets = Array.from({length: this.logSize}, (_, i) => this.logOffset + i);
+    Instruction.checkTags(machineState, TypeTag.FIELD, ...offsets);
+
+    const log = machineState.memory.getSliceAs<Fr>(this.logOffset, this.logSize);
 
     journal.writeLog(log);
 
@@ -79,7 +87,11 @@ export class SendL2ToL1Message extends Instruction {
       throw new StaticCallStorageAlterError();
     }
 
-    const msg = machineState.readMemoryChunk(this.msgOffset, this.msgSize);
+    // Check log tags are all fields
+    const offsets = Array.from({length: this.msgSize}, (_, i) => this.msgOffset + i);
+    Instruction.checkTags(machineState, TypeTag.FIELD, ...offsets);
+
+    const msg = machineState.memory.getSliceAs<Fr>(this.msgOffset, this.msgSize);
 
     journal.writeLog(msg);
 

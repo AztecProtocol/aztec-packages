@@ -237,6 +237,11 @@ export class TaggedMemory {
     return this._mem.slice(offset, offset + size);
   }
 
+  public getSliceAs<T>(offset: number, size: number): T[] {
+    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    return this._mem.slice(offset, offset + size) as T[];
+  }
+
   public getSliceTags(offset: number, size: number): TypeTag[] {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size).map(TaggedMemory.getTag);

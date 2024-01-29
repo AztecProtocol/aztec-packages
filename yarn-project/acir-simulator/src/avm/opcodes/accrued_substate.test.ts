@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -8,20 +6,21 @@ import { HostStorage } from '../journal/host_storage.js';
 import { AvmJournal } from '../journal/journal.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
+import { Field } from '../avm_memory_types.js';
 
 describe('Accrued Substate', () => {
   let journal: AvmJournal;
   let machineState: AvmMachineState;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     const hostStorage = mock<HostStorage>();
     journal = new AvmJournal(hostStorage);
     machineState = new AvmMachineState(initExecutionEnvironment());
   });
 
   it('Should append a new note hash correctly', async () => {
-    const value = new Fr(69n);
-    machineState.writeMemory(0, value);
+    const value = new Field(69n);
+    machineState.memory.set(0, value);
 
     await new EmitNoteHash(0).execute(machineState, journal);
 
@@ -30,8 +29,8 @@ describe('Accrued Substate', () => {
   });
 
   it('Should append a new nullifier correctly', async () => {
-    const value = new Fr(69n);
-    machineState.writeMemory(0, value);
+    const value = new Field(69n);
+    machineState.memory.set(0, value);
 
     await new EmitNullifier(0).execute(machineState, journal);
 
@@ -41,10 +40,11 @@ describe('Accrued Substate', () => {
 
   it('Should append unencrypted logs correctly', async () => {
     const startOffset = 0;
-    const length = 2;
 
-    const values = [new Fr(69n), new Fr(420n)];
-    machineState.writeMemoryChunk(0, values);
+    const values = [new Field(69n), new Field(420n), new Field(Field.MODULUS - 1n)];
+    machineState.memory.setSlice(0, values);
+
+    const length = values.length;
 
     await new EmitUnencryptedLog(startOffset, length).execute(machineState, journal);
 
@@ -54,10 +54,11 @@ describe('Accrued Substate', () => {
 
   it('Should append l1 to l2 messages correctly', async () => {
     const startOffset = 0;
-    const length = 2;
 
-    const values = [new Fr(69n), new Fr(420n)];
-    machineState.writeMemoryChunk(0, values);
+    const values = [new Field(69n), new Field(420n), new Field(Field.MODULUS - 1n)];
+    machineState.memory.setSlice(0, values);
+
+    const length = values.length;
 
     await new SendL2ToL1Message(startOffset, length).execute(machineState, journal);
 

@@ -37,7 +37,7 @@ export class AvmJournal {
   private newNullifiers: Fr[] = [];
 
   // New Substate
-  private newL1Message: Fr[][] = [];
+  private newL1Messages: Fr[][] = [];
   private newLogs: Fr[][] = [];
 
   // contract address -> key -> value
@@ -106,7 +106,7 @@ export class AvmJournal {
   }
 
   public writeL1Message(message: Fr[]) {
-    this.newL1Message.push(message);
+    this.newL1Messages.push(message);
   }
 
   public writeNullifier(nullifier: Fr) {
@@ -127,26 +127,25 @@ export class AvmJournal {
       throw new RootJournalCannotBeMerged();
     }
 
-    const incomingFlush = this.flush();
-
     // Merge UTXOs
-    this.parentJournal.newNoteHashes = this.parentJournal.newNoteHashes.concat(incomingFlush.newNoteHashes);
-    this.parentJournal.newL1Message = this.parentJournal.newL1Message.concat(incomingFlush.newL1Messages);
-    this.parentJournal.newNullifiers = this.parentJournal.newNullifiers.concat(incomingFlush.newNullifiers);
+    this.parentJournal.newNoteHashes = this.parentJournal.newNoteHashes.concat(this.newNoteHashes);
+    this.parentJournal.newL1Messages = this.parentJournal.newL1Messages.concat(this.newL1Messages);
+    this.parentJournal.newNullifiers = this.parentJournal.newNullifiers.concat(this.newNullifiers);
 
     // Merge Public State
-    mergeContractMaps(this.parentJournal.storageWrites, incomingFlush.storageWrites);
+    mergeContractMaps(this.parentJournal.storageWrites, this.storageWrites);
   }
 
-  /** Access the current state of the journal
+  /** 
+   * Access the current state of the journal
    *
-   * @returns a JournalData object that can be used to write to the storage
+   * @returns a JournalData object
    */
   public flush(): JournalData {
     return {
       newNoteHashes: this.newNoteHashes,
       newNullifiers: this.newNullifiers,
-      newL1Messages: this.newL1Message,
+      newL1Messages: this.newL1Messages,
       newLogs: this.newLogs,
       storageWrites: this.storageWrites,
     };
