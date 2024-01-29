@@ -26,7 +26,11 @@ The structure of a contract instance is defined as:
 
 <!-- Note: Always ensure the spec above matches the one described in Addresses and Keys. -->
 
-## Address
+### Versioning
+
+Contract instances have a `version` field that identifies the schema of the instance, allowing for changes to the struct in future versions of the protocol, same as the contract class [version](./classed.md#versioning).
+
+### Address
 
 The address of the contract instance is computed as the hash of the elements in the structure above, as defined in [the addresses and keys section](../addresses-and-keys/specification.md#address). This computation is deterministic, which allows any user to precompute the expected deployment address of their contract, including account contracts.
 
@@ -40,13 +44,15 @@ The instance has not yet been initialized, meaning its constructor has not been 
 
 All public function calls to an Uninitialized address _must_ fail, since the Contract Class for it is not known to the network. If the Class is not known to the network, then an Aztec Node, whether it is the elected sequencer or a full node following the chain, may not be able to execute the bytecode for a public function call, which is undesirable. The failing of public function calls to Uninitialized addresses is enforced by having the Public Kernel Circuit check that the Deployment Nullifier for the instance has been emitted.
 
+This state allows using a contract privately before it has been initialized or deployed, which is used in [diversified and stealth accounts](../addresses-and-keys/diversified-and-stealth.md).
+
 ### Initialized
 
 An instance is Initialized when a constructor for the instance has been invoked, and the constructor has emitted the instance's Initialization Nullifier. All private functions that require the contract to be initialized by checking the existence of the Initialization Nullifier can now be called by any user who knows the address preimage.
 
 The Initialization Nullifier is defined as the contract address itself. Note that the nullifier later gets [siloed by the Private Kernel Circuit](../circuits/private-kernel-tail.md#siloing-values) before it gets broadcasted in a transaction.
 
-In this state, public functions must still fail, for the same reason as for Uninitialized instances.
+In this state, public functions must still fail, for the same reason as for Uninitialized instances. This state then allows using a contract privately before it has been publicly deployed, which is useful for working on private contracts between a small set of parties.
 
 :::warning
 It may be the case that it is not possible to read a nullifier in the same transaction that it was emitted due to protocol limitations. That would lead to a contract not being callable in the same transaction as it is initialized. To work around this, we can emit an Initialization Commitment along with the Initialization Nullifier, which _can_ be read in the same transaction as it is emitted. If needed, the Initialization Commitment is defined exactly as the Initialization Nullifier.
