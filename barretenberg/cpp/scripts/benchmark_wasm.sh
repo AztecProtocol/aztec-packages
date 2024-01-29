@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 
-BENCHMARK=${1:-commit_bench}
+BENCHMARK=${1:-goblin_bench}
 
 # Move above script dir.
 cd $(dirname $0)/..

@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
+# This script automates the process of benchmarking WASM on a remote EC2 instance.
+# Prerequisites:
+# 1. Define the following environment variables:
+#    - BB_SSH_KEY: SSH key for EC2 instance, e.g., '-i key.pem'
+#    - BB_SSH_INSTANCE: EC2 instance URL
+#    - BB_SSH_CPP_PATH: Path to barretenberg/cpp in a cloned repository on the EC2 instance
 set -eu
 
-BENCHMARK=${1:-commit_bench}
+BENCHMARK=${1:-goblin_bench}
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -11,6 +17,6 @@ cmake --preset wasm-bench
 cmake --build --preset wasm-bench --target $BENCHMARK
 
 cd build-wasm-bench
-scp $BB_SSH_KEY ./bin/commit_bench $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-bench
+scp $BB_SSH_KEY ./bin/goblin_bench $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-bench
 ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_SCP_PATH/build-wasm-bench ; /home/ubuntu/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y ./bin/commit_bench"
+  "cd $BB_SSH_CPP_PATH/build-wasm-bench ; /home/ubuntu/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y ./goblin_bench"
