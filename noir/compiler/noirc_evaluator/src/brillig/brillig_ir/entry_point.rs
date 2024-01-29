@@ -248,22 +248,22 @@ impl BrilligContext {
                 BrilligParameter::Array(item_type, item_count) => {
                     let returned_pointer = returned_variable.extract_array().pointer;
 
-                    // if item_type.iter().any(|item| !matches!(item, BrilligParameter::Simple)) {
-                    self.flatten_array(
-                        item_type,
-                        *item_count,
-                        return_data_cursor,
-                        returned_pointer,
-                    );
-                    // } else {
-                    //     let item_count = self.make_constant((*item_count).into());
-                    //     self.copy_array_instruction(
-                    //         returned_pointer,
-                    //         return_data_cursor,
-                    //         item_count,
-                    //     );
-                    //     self.deallocate_register(item_count);
-                    // }
+                    if item_type.iter().any(|item| !matches!(item, BrilligParameter::Simple)) {
+                        self.flatten_array(
+                            item_type,
+                            *item_count,
+                            return_data_cursor,
+                            returned_pointer,
+                        );
+                    } else {
+                        let item_count = self.make_constant((*item_count * item_type.len()).into());
+                        self.copy_array_instruction(
+                            returned_pointer,
+                            return_data_cursor,
+                            item_count,
+                        );
+                        self.deallocate_register(item_count);
+                    }
                     self.usize_op_in_place(
                         return_data_cursor,
                         BinaryIntOp::Add,
