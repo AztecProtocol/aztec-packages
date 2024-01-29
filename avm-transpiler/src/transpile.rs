@@ -227,6 +227,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     bytecode
 }
 
+// 
 //use acvm::acir::brillig::Opcode as BrilligOpcode;
 //use acvm::acir::circuit::brillig::Brillig;
 //
