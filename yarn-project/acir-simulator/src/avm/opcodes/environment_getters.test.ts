@@ -33,7 +33,7 @@ describe('Environment getters instructions', () => {
     machineState = new AvmMachineState(initExecutionEnvironment({ [key]: value }));
 
     await instruction.execute(machineState, journal);
-    const actual = machineState.memory.get(0);
+    const actual = machineState.memory.get(0).toFr();
     expect(actual).toEqual(value);
   };
 
@@ -84,7 +84,7 @@ describe('Environment getters instructions', () => {
       machineState = new AvmMachineState(initExecutionEnvironment({ globals }));
 
       await instruction.execute(machineState, journal);
-      const actual = machineState.memory.get(0);
+      const actual = machineState.memory.get(0).toFr();
       expect(actual).toEqual(value);
     };
 
