@@ -235,54 +235,37 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The current state reference
    */
-  public async getStateReference(includeUncommitted: boolean): Promise<StateReference> {
-    const roots = (await this.synchronize(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)))).map(root =>
-      Fr.fromBuffer(root),
-    );
-    const numLeaves = await this.synchronize(() => Promise.resolve(this._getAllTreeNumLeaves(includeUncommitted)));
+  public getStateReference(includeUncommitted: boolean): Promise<StateReference> {
+    const getAppendOnlyTreeSnapshot = (treeId: MerkleTreeId) => {
+      const tree = this.trees[treeId] as AppendOnlyTree;
+      return new AppendOnlyTreeSnapshot(
+        Fr.fromBuffer(tree.getRoot(includeUncommitted)),
+        Number(tree.getNumLeaves(includeUncommitted)),
+      );
+    };
 
-    return new StateReference(
-      new AppendOnlyTreeSnapshot(roots[3], numLeaves[3]),
+    const state = new StateReference(
+      getAppendOnlyTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
       new PartialStateReference(
-        new AppendOnlyTreeSnapshot(roots[0], numLeaves[0]),
-        new AppendOnlyTreeSnapshot(roots[1], numLeaves[1]),
-        new AppendOnlyTreeSnapshot(roots[2], numLeaves[2]),
-        new AppendOnlyTreeSnapshot(roots[4], numLeaves[4]),
+        getAppendOnlyTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
+        getAppendOnlyTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
+        getAppendOnlyTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
+        getAppendOnlyTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
       ),
     );
+    return Promise.resolve(state);
   }
 
   private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
-    const roots = (await this._getAllTreeRoots(includeUncommitted)).map(root => Fr.fromBuffer(root));
-    return computeBlockHash(globalsHash, roots[0], roots[1], roots[2], roots[3], roots[4]);
-  }
-
-  // TODO(benesjan): This is ugly. Try nuking it.
-  private _getAllTreeRoots(includeUncommitted: boolean): Promise<Buffer[]> {
-    const roots = [
-      MerkleTreeId.NOTE_HASH_TREE,
-      MerkleTreeId.NULLIFIER_TREE,
-      MerkleTreeId.CONTRACT_TREE,
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      MerkleTreeId.ARCHIVE,
-    ].map(tree => this.trees[tree].getRoot(includeUncommitted));
-
-    return Promise.resolve(roots);
-  }
-
-  // TODO(benesjan): This is ugly. Try nuking it.
-  private _getAllTreeNumLeaves(includeUncommitted: boolean): Promise<number[]> {
-    const sizes = [
-      MerkleTreeId.NOTE_HASH_TREE,
-      MerkleTreeId.NULLIFIER_TREE,
-      MerkleTreeId.CONTRACT_TREE,
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      MerkleTreeId.ARCHIVE,
-    ].map(tree => Number(this.trees[tree].getNumLeaves(includeUncommitted)));
-
-    return Promise.resolve(sizes);
+    const state = await this.getStateReference(includeUncommitted);
+    return computeBlockHash(
+      globalsHash,
+      state.partial.noteHashTree.root,
+      state.partial.nullifierTree.root,
+      state.partial.contractTree.root,
+      state.l1ToL2MessageTree.root,
+      state.partial.publicDataTree.root,
+    );
   }
 
   /**
