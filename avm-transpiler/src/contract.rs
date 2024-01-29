@@ -6,7 +6,7 @@ use acvm::acir::circuit::Circuit;
 use noirc_driver::ContractFunctionType;
 
 use crate::transpile::brillig_to_avm;
-use crate::utils::acir_to_brillig;
+use crate::utils::extract_brillig_from_acir;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)] // omit Acir/Avm tag for these objects in json
@@ -51,7 +51,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
                 );
                 // Extract Brillig Opcodes from acir
                 let acir_circuit = function.bytecode.clone();
-                let brillig = acir_to_brillig(&acir_circuit.opcodes);
+                let brillig = extract_brillig_from_acir(&acir_circuit.opcodes);
 
                 // Transpile to AVM
                 let avm_bytecode = brillig_to_avm(&brillig);
