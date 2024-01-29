@@ -182,7 +182,7 @@ class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = bb::field_conversion::calc_num_frs<T>();
+        constexpr size_t element_fr_size = bb::field_conversion::calc_num_254_frs<T>();
         ASSERT(offset + element_fr_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
@@ -297,7 +297,7 @@ class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        constexpr size_t element_size = bb::field_conversion::calc_num_frs<T>(); // TODO: need to change calculation
+        constexpr size_t element_size = bb::field_conversion::calc_num_254_frs<T>();
         ASSERT(num_frs_read + element_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);

@@ -3,27 +3,8 @@
 
 namespace bb::field_conversion {
 
-static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
-
-/**
- * @brief Decomposes a bb::fr into two 64-bit limbs. Helper function for
- * convert_barretenberg_frs_to_grumpkin_fr.
- *
- * @param field_val
- * @return std::array<uint64_t, 2>
- */
-std::array<uint64_t, 2> decompose_bn254_fr_to_two_limbs(const bb::fr& field_val)
-{
-    ASSERT(uint256_t(field_val) < (uint256_t(1) << (2 * NUM_CONVERSION_LIMB_BITS))); // should be 128 bits or less
-    constexpr uint256_t LIMB_MASK =
-        (uint256_t(1) << NUM_CONVERSION_LIMB_BITS) - 1; // split bn254_fr into two 64 bit limbs
-    const uint256_t value = field_val;
-    const uint64_t low = static_cast<uint64_t>(value & LIMB_MASK);
-    const uint64_t hi = static_cast<uint64_t>(value >> NUM_CONVERSION_LIMB_BITS);
-    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_CONVERSION_LIMB_BITS) == value);
-
-    return std::array<uint64_t, 2>{ low, hi };
-}
+static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 68; // set to be 68 because bigfield has 68 bit limbs
+static constexpr uint64_t TOTAL_BITS = 254;
 
 /**
  * @brief Converts 2 bb::fr elements to grumpkin::fr
@@ -36,16 +17,12 @@ std::array<uint64_t, 2> decompose_bn254_fr_to_two_limbs(const bb::fr& field_val)
 grumpkin::fr convert_bn254_frs_to_grumpkin_fr(const bb::fr& low_bits_in, const bb::fr& high_bits_in)
 {
     // TODO: figure out can_overflow, maximum_bitlength in stdlib version
-    ASSERT(uint256_t(low_bits_in) < (uint256_t(1) << (NUM_CONVERSION_LIMB_BITS * 2)));
-    ASSERT(uint256_t(high_bits_in) < (uint256_t(1) << (NUM_CONVERSION_LIMB_BITS * 2)));
-    auto low_bit_decomp = decompose_bn254_fr_to_two_limbs(low_bits_in);
-    uint256_t tmp;
-    tmp.data[0] = low_bit_decomp[0];
-    tmp.data[1] = low_bit_decomp[1];
-    auto high_bit_decomp = decompose_bn254_fr_to_two_limbs(high_bits_in);
-    tmp.data[2] = high_bit_decomp[0];
-    tmp.data[3] = high_bit_decomp[1];
-    grumpkin::fr result(tmp);
+    // Combines the two elements into one uint256_t, and then convert that to a grumpkin::fr
+    ASSERT(uint256_t(low_bits_in) < (uint256_t(1) << (NUM_CONVERSION_LIMB_BITS * 2))); // lower 136 bits
+    ASSERT(uint256_t(high_bits_in) <
+           (uint256_t(1) << (TOTAL_BITS - NUM_CONVERSION_LIMB_BITS * 2))); // upper 254-136 bits
+    uint256_t value = uint256_t(low_bits_in) + (uint256_t(high_bits_in) << (NUM_CONVERSION_LIMB_BITS * 2));
+    grumpkin::fr result(value);
     return result;
 }
 
@@ -58,10 +35,16 @@ grumpkin::fr convert_bn254_frs_to_grumpkin_fr(const bb::fr& low_bits_in, const b
  */
 std::array<bb::fr, 2> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& input)
 {
-    auto tmp = static_cast<uint256_t>(input);
+    // Goal is to slice up the 64 bit limbs of grumpkin::fr/uint256_t to mirror the 68 bit limbs of bigfield
+    // We accomplish this by dividing the grumpkin::fr's value into two 68*2=136 bit pieces.
+    constexpr uint64_t LOWER_BITS = 2 * NUM_CONVERSION_LIMB_BITS;
+    constexpr uint256_t LOWER_MASK = (uint256_t(1) << LOWER_BITS) - 1;
+    auto value = uint256_t(input);
+    ASSERT(value < (uint256_t(1) << TOTAL_BITS));
     std::array<bb::fr, 2> result;
-    result[0] = static_cast<uint256_t>(tmp.data[0]) + (static_cast<uint256_t>(tmp.data[1]) << NUM_CONVERSION_LIMB_BITS);
-    result[1] = static_cast<uint256_t>(tmp.data[2]) + (static_cast<uint256_t>(tmp.data[3]) << NUM_CONVERSION_LIMB_BITS);
+    result[0] = static_cast<uint256_t>(value & LOWER_MASK);
+    result[1] = static_cast<uint256_t>(value >> LOWER_BITS);
+    ASSERT(static_cast<uint256_t>(result[1]) < (uint256_t(1) << (TOTAL_BITS - LOWER_BITS)));
     return result;
 }
 
