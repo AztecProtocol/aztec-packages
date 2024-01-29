@@ -18,13 +18,15 @@ unconstrained pub fn get_header_internal(block_number: u32) -> Header {
 }
 
 pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
-    // 1) Get block number corresponding to block header inside context
-    let header_block_number = context.header.global_variables.block_number as u32;
+    // 1) Get block number corresponding to the last_archive root in the header
+    // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous block
+    let last_archive_block_number = (context.header.global_variables.block_number - 1) as u32;
 
-    // 2) Check that the header block number is more than or equal to the block number we want to prove against
-    // We could not perform the proof otherwise because the archive root from the header would not "contain" the header we want to prove against
+    // 2) Check that the last archive block number is more than or equal to the block number we want to prove against
+    // We could not perform the proof otherwise because the last archive root from the header would not "contain"
+    // the header we want to prove against
     assert(
-        header_block_number >= block_number, "Header block number is smaller than the block number we want to prove against"
+        last_archive_block_number >= block_number, "Last archive block number is smaller than the block number we want to prove against"
     );
 
     // 3) Get the header of a given block from oracle
@@ -34,7 +36,7 @@ pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
     let block_hash = header.block_hash();
 
     // 5) Get the membership witness of the block in the archive
-    let witness = get_archive_membership_witness(header_block_number, block_hash);
+    let witness = get_archive_membership_witness(last_archive_block_number, block_hash);
 
     // 6) Check that the block is in the archive (i.e. the witness is valid)
     assert(
