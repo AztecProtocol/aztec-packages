@@ -15,7 +15,7 @@ pub fn acir_to_brillig(opcodes: &Vec<Opcode>) -> &Brillig {
 
 pub fn print_brillig(brillig: &Brillig) {
     println!("Inputs: {:?}", brillig.inputs);
-    for i in 0..brillig.bytecode.len() {//  instr in &brillig.bytecode {
+    for i in 0..brillig.bytecode.len() {
         let instr = &brillig.bytecode[i];
         println!("PC:{0} {1:?}", i, instr);
     }

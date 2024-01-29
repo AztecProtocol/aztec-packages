@@ -3,84 +3,84 @@
  */
 #[derive(Copy, Clone)]
 pub enum AvmOpcode {
-  // Compute
-  // Compute - Arithmetic
-  ADD,
-  SUB,
-  MUL,
-  DIV,
-  // Compute - Comparators
-  EQ,
-  LT,
-  LTE,
-  // Compute - Bitwise
-  AND,
-  OR,
-  XOR,
-  NOT,
-  SHL,
-  SHR,
-  // Compute - Type Conversions
-  CAST,
+    // Compute
+    // Compute - Arithmetic
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    // Compute - Comparators
+    EQ,
+    LT,
+    LTE,
+    // Compute - Bitwise
+    AND,
+    OR,
+    XOR,
+    NOT,
+    SHL,
+    SHR,
+    // Compute - Type Conversions
+    CAST,
 
-  // Execution Environment
-  ADDRESS,
-  STORAGEADDRESS,
-  ORIGIN,
-  SENDER,
-  PORTAL,
-  FEEPERL1GAS,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
-  CONTRACTCALLDEPTH,
-  // Execution Environment - Globals
-  CHAINID,
-  VERSION,
-  BLOCKNUMBER,
-  TIMESTAMP,
-  COINBASE,
-  BLOCKL1GASLIMIT,
-  BLOCKL2GASLIMIT,
-  BLOCKDAGASLIMIT,
-  // Execution Environment - Calldata
-  CALLDATACOPY,
+    // Execution Environment
+    ADDRESS,
+    STORAGEADDRESS,
+    ORIGIN,
+    SENDER,
+    PORTAL,
+    FEEPERL1GAS,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
+    CONTRACTCALLDEPTH,
+    // Execution Environment - Globals
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    COINBASE,
+    BLOCKL1GASLIMIT,
+    BLOCKL2GASLIMIT,
+    BLOCKDAGASLIMIT,
+    // Execution Environment - Calldata
+    CALLDATACOPY,
 
-  // Machine State
-  // Machine State - Gas
-  L1GASLEFT,
-  L2GASLEFT,
-  DAGASLEFT,
-  // Machine State - Internal Control Flow
-  JUMP,
-  JUMPI,
-  INTERNALCALL,
-  INTERNALRETURN,
-  // Machine State - Memory
-  SET,
-  MOV,
-  CMOV,
+    // Machine State
+    // Machine State - Gas
+    L1GASLEFT,
+    L2GASLEFT,
+    DAGASLEFT,
+    // Machine State - Internal Control Flow
+    JUMP,
+    JUMPI,
+    INTERNALCALL,
+    INTERNALRETURN,
+    // Machine State - Memory
+    SET,
+    MOV,
+    CMOV,
 
-  // World State
-  BLOCKHEADERBYNUMBER,
-  SLOAD, // Public Storage
-  SSTORE, // Public Storage
-  READL1TOL2MSG, // Messages
-  SENDL2TOL1MSG, // Messages
-  EMITNOTEHASH, // Notes & Nullifiers
-  EMITNULLIFIER, // Notes & Nullifiers
+    // World State
+    BLOCKHEADERBYNUMBER,
+    SLOAD,         // Public Storage
+    SSTORE,        // Public Storage
+    READL1TOL2MSG, // Messages
+    SENDL2TOL1MSG, // Messages
+    EMITNOTEHASH,  // Notes & Nullifiers
+    EMITNULLIFIER, // Notes & Nullifiers
 
-  // Accrued Substate
-  EMITUNENCRYPTEDLOG,
+    // Accrued Substate
+    EMITUNENCRYPTEDLOG,
 
-  // Control Flow - Contract Calls
-  CALL,
-  STATICCALL,
-  RETURN,
-  REVERT,
+    // Control Flow - Contract Calls
+    CALL,
+    STATICCALL,
+    RETURN,
+    REVERT,
 
-  // Gadgets
-  KECCAK,
-  POSEIDON,
+    // Gadgets
+    KECCAK,
+    POSEIDON,
 }
 
 impl AvmOpcode {
@@ -145,7 +145,7 @@ impl AvmOpcode {
 
             // World State
             AvmOpcode::BLOCKHEADERBYNUMBER => "BLOCKHEADERBYNUMBER",
-            AvmOpcode::SLOAD => "SLOAD", // Public Storage
+            AvmOpcode::SLOAD => "SLOAD",   // Public Storage
             AvmOpcode::SSTORE => "SSTORE", // Public Storage
             AvmOpcode::READL1TOL2MSG => "READL1TOL2MSG", // Messages
             AvmOpcode::SENDL2TOL1MSG => "SENDL2TOL1MSG", // Messages
@@ -178,22 +178,16 @@ pub enum AvmTypeTag {
     UINT128,
     FIELD,
     INVALID,
-  }
+}
 
 pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
 pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
 pub const ZEROTH_FIRST_OPERANDS_INDIRECT: u8 = 0b00000011;
 
 pub enum AvmOperand {
-    U32 {
-        value: u32,
-    },
-    U64 {
-        value: u64,
-    },
-    U128 {
-        value: u128
-    },
+    U32 { value: u32 },
+    U64 { value: u64 },
+    U128 { value: u128 },
 }
 impl AvmOperand {
     pub fn to_string(&self) -> String {
@@ -212,6 +206,10 @@ impl AvmOperand {
     }
 }
 
+/**
+ * A simple representation of an AVM instruction for the purpose
+ * of generating an AVM bytecode from Brillig.
+ */
 pub struct AvmInstruction {
     pub opcode: AvmOpcode,
     pub indirect: Option<u8>, // bit field (0: direct, 1: indirect) - 0th bit is 0th offset arg, etc

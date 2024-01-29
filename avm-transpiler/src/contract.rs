@@ -46,7 +46,10 @@ impl From<CompiledAcirContract> for TranspiledContract {
             if function.function_type == ContractFunctionType::Unconstrained
                 && re.is_match(function.name.as_str())
             {
-                println!("Transpiling AVM function {} on contract {}", function.name, contract.name);
+                println!(
+                    "Transpiling AVM function {} on contract {}",
+                    function.name, contract.name
+                );
                 let acir_circuit = function.bytecode.clone();
 
                 // Extract Brillig Opcodes from acir
