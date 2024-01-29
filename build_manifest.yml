@@ -214,3 +214,5 @@ yellow-paper:
 avm-transpiler:
   buildDir: .
   dockerfile: avm-transpiler/Dockerfile
+  rebuildPatterns:
+    - ^avm-transpiler/
