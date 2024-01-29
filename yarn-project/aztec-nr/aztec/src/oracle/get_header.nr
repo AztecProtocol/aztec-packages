@@ -9,14 +9,6 @@ use crate::{
     oracle::get_membership_witness::get_archive_membership_witness,
 };
 
-// TODO(#3564) - Nuke this oracle and Inject the number directly to context
-#[oracle(getNullifierRootBlockNumber)]
-fn get_nullifier_root_block_number_oracle(_nullifier_tree_root: Field) -> Field {}
-
-unconstrained pub fn get_nullifier_root_block_number(nullifier_tree_root: Field) -> u32 {
-    get_nullifier_root_block_number_oracle(nullifier_tree_root) as u32
-}
-
 #[oracle(getHeader)]
 fn get_header_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
@@ -27,16 +19,15 @@ unconstrained pub fn get_header_internal(block_number: u32) -> Header {
 
 pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
     // 1) Get block number corresponding to block header inside context
-    // Using nullifier tree root to get the block header block number because that changes in every block (every tx emits a nullifier).
-    let header_block_number = get_nullifier_root_block_number(context.header.state.partial.nullifier_tree.root);
+    let header_block_number = context.header.global_variables.block_number as u32;
 
-    // 2) Check that the block header block number is more than or equal to the block number we want to prove against
-    // We could not perform the proof otherwise because the archive root from the header would not "contain" the block we want to prove against
+    // 2) Check that the header block number is more than or equal to the block number we want to prove against
+    // We could not perform the proof otherwise because the archive root from the header would not "contain" the header we want to prove against
     assert(
-        header_block_number >= block_number, "Block header block number is smaller than the block number we want to prove against"
+        header_block_number >= block_number, "Header block number is smaller than the block number we want to prove against"
     );
 
-    // 3) Get block header of a given block from oracle
+    // 3) Get the header of a given block from oracle
     let header = get_header_internal(block_number);
 
     // 4) Compute the block hash from the block header
