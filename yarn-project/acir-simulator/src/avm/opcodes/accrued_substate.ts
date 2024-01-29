@@ -64,8 +64,7 @@ export class EmitUnencryptedLog extends Instruction {
     }
 
     // Check log tags are all fields
-    const offsets = Array.from({ length: this.logSize }, (_, i) => this.logOffset + i);
-    Instruction.checkTags(machineState, TypeTag.FIELD, ...offsets);
+    Instruction.checkTagsRange(machineState, TypeTag.FIELD, this.logOffset, this.logSize);
 
     const log = machineState.memory.getSliceAs<Fr>(this.logOffset, this.logSize);
 
@@ -89,8 +88,7 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     // Check log tags are all fields
-    const offsets = Array.from({ length: this.msgSize }, (_, i) => this.msgOffset + i);
-    Instruction.checkTags(machineState, TypeTag.FIELD, ...offsets);
+    Instruction.checkTagsRange(machineState, TypeTag.FIELD, this.msgOffset, this.msgSize);
 
     const msg = machineState.memory.getSliceAs<Fr>(this.msgOffset, this.msgSize);
 
