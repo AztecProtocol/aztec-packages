@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { AvmMessageCallResult } from './avm_message_call_result.js';
-import { AvmInterpreter, AvmInterpreterError } from './interpreter/index.js';
+import { AvmInterpreterError, interpretAvm } from './interpreter/index.js';
 import { AvmJournal } from './journal/journal.js';
 import { decodeBytecode } from './opcodes/decode_bytecode.js';
 import { Instruction } from './opcodes/index.js';
@@ -15,15 +15,12 @@ import { Instruction } from './opcodes/index.js';
  * It stores a state manager
  */
 export class AvmContext {
-  /** A reference to the avm interpreter, required to run calls */
-  private interpreter: AvmInterpreter;
   /** Contains constant variables provided by the kernel */
   private executionEnvironment: AvmExecutionEnvironment;
   /** Manages mutable state during execution - (caching, fetching) */
   private journal: AvmJournal;
 
   constructor(executionEnvironment: AvmExecutionEnvironment, journal: AvmJournal) {
-    this.interpreter = AvmInterpreter.getInstance();
     this.executionEnvironment = executionEnvironment;
     this.journal = journal;
   }
@@ -53,7 +50,7 @@ export class AvmContext {
     const instructions: Instruction[] = decodeBytecode(bytecode);
 
     const machineState = new AvmMachineState(this.executionEnvironment);
-    return this.interpreter.run(machineState, this.journal, instructions);
+    return interpretAvm(machineState, this.journal, instructions);
   }
 
   /**

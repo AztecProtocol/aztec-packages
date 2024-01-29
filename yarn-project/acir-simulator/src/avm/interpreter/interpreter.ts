@@ -6,61 +6,44 @@ import { AvmJournal } from '../journal/index.js';
 import { Instruction } from '../opcodes/index.js';
 
 /**
- * Avm Interpreter
- *
- * Executes an Avm context
+ * Run the avm
+ * @returns bool - successful execution will return true
+ *               - reverted execution will return false
+ *               - any other panic will throw
  */
-export class AvmInterpreter {
-  private static instance: AvmInterpreter;
+export async function interpretAvm(
+  machineState: AvmMachineState,
+  journal: AvmJournal,
+  instructions: Instruction[] = [],
+): Promise<AvmMessageCallResult> {
+  assert(instructions.length > 0);
 
-  public static getInstance(): AvmInterpreter {
-    if (!AvmInterpreter.instance) {
-      AvmInterpreter.instance = new AvmInterpreter();
+  try {
+    while (!machineState.halted) {
+      const instruction = instructions[machineState.pc];
+      assert(!!instruction); // This should never happen
+
+      await instruction.execute(machineState, journal);
+
+      if (machineState.pc >= instructions.length) {
+        throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
+      }
     }
 
-    return AvmInterpreter.instance;
-  }
-
-  /**
-   * Run the avm
-   * @returns bool - successful execution will return true
-   *               - reverted execution will return false
-   *               - any other panic will throw
-   */
-  async run(
-    machineState: AvmMachineState,
-    journal: AvmJournal,
-    instructions: Instruction[] = [],
-  ): Promise<AvmMessageCallResult> {
-    assert(instructions.length > 0);
-
-    try {
-      while (!machineState.halted) {
-        const instruction = instructions[machineState.pc];
-        assert(!!instruction); // This should never happen
-
-        await instruction.execute(machineState, journal);
-
-        if (machineState.pc >= instructions.length) {
-          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
-        }
-      }
-
-      const returnData = machineState.getReturnData();
-      if (machineState.reverted) {
-        return AvmMessageCallResult.revert(returnData);
-      }
-
-      return AvmMessageCallResult.success(returnData);
-    } catch (_e) {
-      if (!(_e instanceof AvmInterpreterError)) {
-        throw _e;
-      }
-
-      const revertReason: AvmInterpreterError = _e;
-      const revertData = machineState.getReturnData();
-      return AvmMessageCallResult.revert(revertData, revertReason);
+    const returnData = machineState.getReturnData();
+    if (machineState.reverted) {
+      return AvmMessageCallResult.revert(returnData);
     }
+
+    return AvmMessageCallResult.success(returnData);
+  } catch (_e) {
+    if (!(_e instanceof AvmInterpreterError)) {
+      throw _e;
+    }
+
+    const revertReason: AvmInterpreterError = _e;
+    const revertData = machineState.getReturnData();
+    return AvmMessageCallResult.revert(revertData, revertReason);
   }
 }
 

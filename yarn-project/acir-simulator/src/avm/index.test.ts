@@ -4,7 +4,7 @@ import { mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from './avm_machine_state.js';
 import { initExecutionEnvironment } from './fixtures/index.js';
-import { AvmInterpreter } from './interpreter/interpreter.js';
+import { interpretAvm } from './interpreter/interpreter.js';
 import { AvmJournal } from './journal/journal.js';
 import { decodeBytecode } from './opcodes/decode_bytecode.js';
 import { encodeToBytecode } from './opcodes/encode_to_bytecode.js';
@@ -30,8 +30,7 @@ describe('avm', () => {
 
     // Execute instructions
     const context = new AvmMachineState(initExecutionEnvironment({ calldata }));
-    const interpreter = AvmInterpreter.getInstance();
-    const avmReturnData = await interpreter.run(context, journal, instructions);
+    const avmReturnData = await interpretAvm(context, journal, instructions);
 
     expect(avmReturnData.reverted).toBe(false);
 
