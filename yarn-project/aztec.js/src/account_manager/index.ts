@@ -19,7 +19,7 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
  */
 export class AccountManager {
   /** Deployment salt for the account contract. */
-  public readonly salt?: Fr;
+  public readonly salt: Fr;
 
   // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
   private completeAddress?: CompleteAddress;
@@ -31,13 +31,9 @@ export class AccountManager {
     private pxe: PXE,
     private encryptionPrivateKey: GrumpkinPrivateKey,
     private accountContract: AccountContract,
-    saltOrAddress?: Salt | CompleteAddress,
+    salt?: Salt,
   ) {
-    if (saltOrAddress instanceof CompleteAddress) {
-      this.completeAddress = saltOrAddress;
-    } else {
-      this.salt = saltOrAddress ? new Fr(saltOrAddress) : Fr.random();
-    }
+    this.salt = salt ? new Fr(salt) : Fr.random();
   }
 
   protected getEncryptionPublicKey() {
@@ -83,7 +79,7 @@ export class AccountManager {
       this.instance = getContractInstanceFromDeployParams(
         this.accountContract.getContractArtifact(),
         this.accountContract.getDeploymentArgs(),
-        this.salt!,
+        this.salt,
         encryptionPublicKey,
         portalAddress,
       );
@@ -98,7 +94,7 @@ export class AccountManager {
    */
   public async getWallet(): Promise<AccountWalletWithPrivateKey> {
     const entrypoint = await this.getAccount();
-    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.encryptionPrivateKey);
+    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.encryptionPrivateKey, this.salt);
   }
 
   /**

@@ -8,6 +8,7 @@ import {
   computeMessageSecretHash,
   waitForAccountSynch,
 } from '@aztec/aztec.js';
+import { Salt } from '@aztec/aztec.js/account';
 import { AztecAddress, CompleteAddress, Fq, Fr } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { TokenContract } from '@aztec/noir-contracts/Token';
@@ -37,6 +38,7 @@ describe('Aztec persistence', () => {
   let contractAddress: AztecAddress;
   let ownerPrivateKey: Fq;
   let ownerAddress: CompleteAddress;
+  let ownerSalt: Salt;
 
   // a directory where data will be persisted by components
   // passing this through to the Node or PXE will control whether they use persisted data or not
@@ -57,6 +59,7 @@ describe('Aztec persistence', () => {
     ownerPrivateKey = Fq.random();
     const ownerWallet = await getUnsafeSchnorrAccount(initialContext.pxe, ownerPrivateKey, Fr.ZERO).waitDeploy();
     ownerAddress = ownerWallet.getCompleteAddress();
+    ownerSalt = ownerWallet.salt;
 
     const deployer = TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), 'Test token', 'TEST', 2);
     await deployer.simulate({});
@@ -234,7 +237,7 @@ describe('Aztec persistence', () => {
         },
       ]);
 
-      const ownerAccount = getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerAddress);
+      const ownerAccount = getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerSalt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
       const contract = await TokenContract.at(contractAddress, ownerWallet);
@@ -267,7 +270,7 @@ describe('Aztec persistence', () => {
         },
       ]);
 
-      const ownerAccount = getUnsafeSchnorrAccount(temporaryContext.pxe, ownerPrivateKey, ownerAddress);
+      const ownerAccount = getUnsafeSchnorrAccount(temporaryContext.pxe, ownerPrivateKey, ownerSalt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
 

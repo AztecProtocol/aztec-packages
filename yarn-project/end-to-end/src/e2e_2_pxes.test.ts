@@ -259,7 +259,7 @@ describe('e2e_2_pxes', () => {
     const wallet = await account.waitDeploy();
 
     await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, privateKey, completeAddress);
+    const accountOnB = getUnsafeSchnorrAccount(pxeB, privateKey, account.salt);
     const walletOnB = await accountOnB.getWallet();
 
     // need to register first otherwise the new PXE won't know about the account
@@ -319,7 +319,7 @@ describe('e2e_2_pxes', () => {
     const sharedWalletOnA = await sharedAccountOnA.waitDeploy();
     await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
 
-    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedPrivateKey, sharedAccountAddress);
+    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedPrivateKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 
