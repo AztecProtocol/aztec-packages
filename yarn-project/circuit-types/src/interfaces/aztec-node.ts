@@ -7,7 +7,6 @@ import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L2Block } from '../l2_block.js';
 import { L2Tx } from '../l2_tx.js';
 import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
-import { MerkleTreeId } from '../merkle_tree_id.js';
 import { Tx, TxHash } from '../tx/index.js';
 import { SequencerConfig } from './configs.js';
 import { StateInfoProvider } from './state_info_provider.js';
@@ -118,12 +117,6 @@ export interface AztecNode extends StateInfoProvider {
    * @returns Storage value at the given contract slot.
    */
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
-
-  /**
-   * Returns the current committed roots for the data trees.
-   * @returns The current committed roots for the data trees.
-   */
-  getTreeRoots(): Promise<Record<MerkleTreeId, Fr>>;
 
   /**
    * Returns the currently committed block header.

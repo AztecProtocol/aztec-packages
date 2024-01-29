@@ -526,34 +526,6 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the current committed roots for the data trees.
-   * @returns The current committed roots for the data trees.
-   */
-  // TODO(benesjan): nuke this
-  public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
-    const committedDb = await this.#getWorldState('latest');
-    const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
-
-    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessageTree, archive, publicDataTree] = await Promise.all([
-      getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
-      getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-      getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-      getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      getTreeRoot(MerkleTreeId.ARCHIVE),
-      getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-    ]);
-
-    return {
-      [MerkleTreeId.CONTRACT_TREE]: contractTree,
-      [MerkleTreeId.NOTE_HASH_TREE]: noteHashTree,
-      [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: l1ToL2MessageTree,
-      [MerkleTreeId.ARCHIVE]: archive,
-    };
-  }
-
-  /**
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
