@@ -2,31 +2,38 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';
 
-export interface MemoryValue {
-  add(rhs: MemoryValue): MemoryValue;
-  sub(rhs: MemoryValue): MemoryValue;
-  mul(rhs: MemoryValue): MemoryValue;
-  div(rhs: MemoryValue): MemoryValue;
+export abstract class MemoryValue {
+  public abstract add(rhs: MemoryValue): MemoryValue;
+  public abstract sub(rhs: MemoryValue): MemoryValue;
+  public abstract mul(rhs: MemoryValue): MemoryValue;
+  public abstract div(rhs: MemoryValue): MemoryValue;
+
+  public abstract equals(rhs: MemoryValue): boolean;
+  public abstract lt(rhs: MemoryValue): boolean;
+
+  // We need this to be able to build an instance of the subclasses.
+  public abstract build(n: bigint): MemoryValue;
 
   // Use sparingly.
-  toBigInt(): bigint;
+  public abstract toBigInt(): bigint;
 }
 
-export interface IntegralValue extends MemoryValue {
-  shl(rhs: IntegralValue): IntegralValue;
-  shr(rhs: IntegralValue): IntegralValue;
-  and(rhs: IntegralValue): IntegralValue;
-  or(rhs: IntegralValue): IntegralValue;
-  xor(rhs: IntegralValue): IntegralValue;
-  not(): IntegralValue;
+export abstract class IntegralValue extends MemoryValue {
+  public abstract shl(rhs: IntegralValue): IntegralValue;
+  public abstract shr(rhs: IntegralValue): IntegralValue;
+  public abstract and(rhs: IntegralValue): IntegralValue;
+  public abstract or(rhs: IntegralValue): IntegralValue;
+  public abstract xor(rhs: IntegralValue): IntegralValue;
+  public abstract not(): IntegralValue;
 }
 
 // TODO: Optimize calculation of mod, etc. Can only do once per class?
-abstract class UnsignedInteger implements IntegralValue {
+abstract class UnsignedInteger extends IntegralValue {
   private readonly bitmask: bigint;
   private readonly mod: bigint;
 
   protected constructor(private n: bigint, private bits: bigint) {
+    super();
     assert(bits > 0);
     // x % 2^n == x & (2^n - 1)
     this.mod = 1n << bits;
@@ -34,9 +41,7 @@ abstract class UnsignedInteger implements IntegralValue {
     assert(n < this.mod);
   }
 
-  // We need this to be able to build an instance of the subclass
-  // and not of type UnsignedInteger.
-  protected abstract build(n: bigint): UnsignedInteger;
+  public abstract build(n: bigint): UnsignedInteger;
 
   public add(rhs: UnsignedInteger): UnsignedInteger {
     assert(this.bits == rhs.bits);
@@ -90,12 +95,18 @@ abstract class UnsignedInteger implements IntegralValue {
     return this.build(~this.n & this.bitmask);
   }
 
-  public toBigInt(): bigint {
-    return this.n;
+  public equals(rhs: UnsignedInteger): boolean {
+    assert(this.bits == rhs.bits);
+    return this.n === rhs.n;
   }
 
-  public equals(rhs: UnsignedInteger) {
-    return this.bits == rhs.bits && this.toBigInt() == rhs.toBigInt();
+  public lt(rhs: UnsignedInteger): boolean {
+    assert(this.bits == rhs.bits);
+    return this.n < rhs.n;
+  }
+
+  public toBigInt(): bigint {
+    return this.n;
   }
 }
 
@@ -104,7 +115,7 @@ export class Uint8 extends UnsignedInteger {
     super(BigInt(n), 8n);
   }
 
-  protected build(n: bigint): Uint8 {
+  public build(n: bigint): Uint8 {
     return new Uint8(n);
   }
 }
@@ -114,7 +125,7 @@ export class Uint16 extends UnsignedInteger {
     super(BigInt(n), 16n);
   }
 
-  protected build(n: bigint): Uint16 {
+  public build(n: bigint): Uint16 {
     return new Uint16(n);
   }
 }
@@ -124,7 +135,7 @@ export class Uint32 extends UnsignedInteger {
     super(BigInt(n), 32n);
   }
 
-  protected build(n: bigint): Uint32 {
+  public build(n: bigint): Uint32 {
     return new Uint32(n);
   }
 }
@@ -134,7 +145,7 @@ export class Uint64 extends UnsignedInteger {
     super(BigInt(n), 64n);
   }
 
-  protected build(n: bigint): Uint64 {
+  public build(n: bigint): Uint64 {
     return new Uint64(n);
   }
 }
@@ -144,17 +155,22 @@ export class Uint128 extends UnsignedInteger {
     super(BigInt(n), 128n);
   }
 
-  protected build(n: bigint): Uint128 {
+  public build(n: bigint): Uint128 {
     return new Uint128(n);
   }
 }
 
-export class Field implements MemoryValue {
+export class Field extends MemoryValue {
   public static readonly MODULUS: bigint = Fr.MODULUS;
   private readonly rep: Fr;
 
   constructor(v: number | bigint | Fr) {
+    super();
     this.rep = new Fr(v);
+  }
+
+  public build(n: bigint): Field {
+    return new Field(n);
   }
 
   public add(rhs: Field): Field {
@@ -171,6 +187,14 @@ export class Field implements MemoryValue {
 
   public div(rhs: Field): Field {
     return new Field(this.rep.div(rhs.rep));
+  }
+
+  public equals(rhs: Field): boolean {
+    return this.rep.equals(rhs.rep);
+  }
+
+  public lt(rhs: Field): boolean {
+    return this.rep.lt(rhs.rep);
   }
 
   public toBigInt(): bigint {
@@ -204,8 +228,8 @@ export class TaggedMemory {
 
   public getAs<T>(offset: number): T {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    const e = this._mem[offset];
-    return <T>e;
+    const word = this._mem[offset];
+    return word as T;
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
@@ -258,6 +282,7 @@ export class TaggedMemory {
 
   // Truncates the value to fit the type.
   public static integralFromTag(v: bigint, tag: TypeTag): IntegralValue {
+    v = BigInt(v); // FIXME: not sure why this cast is needed, but this errors otherwise
     switch (tag) {
       case TypeTag.UINT8:
         return new Uint8(v & ((1n << 8n) - 1n));
