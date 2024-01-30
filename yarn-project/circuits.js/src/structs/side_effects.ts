@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * Essential members and functions of all SideEffect variants
@@ -12,7 +12,7 @@ export interface SideEffectType {
   /** Convert to a buffer */
   toBuffer(): Buffer;
   /** Convert to a field array */
-  toFieldArray(): Fr[];
+  toFields(): Fr[];
   /** Are all of the fields of the SideEffect zero? */
   isEmpty(): boolean;
 }
@@ -45,8 +45,13 @@ export class SideEffect implements SideEffectType {
    * Convert to an array of fields.
    * @returns The array of fields.
    */
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [this.value, this.counter];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): SideEffect {
+    const reader = FieldReader.asReader(fields);
+    return new SideEffect(reader.readField(), reader.readField());
   }
 
   /**
@@ -108,8 +113,13 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * Convert to an array of fields.
    * @returns The array of fields.
    */
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [this.value, this.noteHash, this.counter];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): SideEffectLinkedToNoteHash {
+    const reader = FieldReader.asReader(fields);
+    return new SideEffectLinkedToNoteHash(reader.readField(), reader.readField(), reader.readField());
   }
 
   /**

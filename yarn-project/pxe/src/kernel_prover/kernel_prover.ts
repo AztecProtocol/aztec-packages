@@ -4,14 +4,17 @@ import {
   CONTRACT_TREE_HEIGHT,
   CallRequest,
   Fr,
+  GrumpkinScalar,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PHASE_TRANSITIONS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
+  NullifierKeyValidationRequestContext,
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputsInit,
@@ -139,6 +142,7 @@ export class KernelProver {
 
       if (firstIteration) {
         const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
@@ -194,6 +198,10 @@ export class KernelProver {
       sortedCommitments,
     );
 
+    const masterNullifierSecretKeys = await this.getMasterNullifierSecretKeys(
+      output.publicInputs.endAppLogic.nullifierKeyValidationRequests,
+    );
+
     const privateInputs = new PrivateKernelInputsOrdering(
       previousKernelData,
       sortedPhaseWatermarks,
@@ -204,7 +212,9 @@ export class KernelProver {
       sortedNullifiers,
       sortedNullifiersIndexes,
       nullifierCommitmentHints,
+      masterNullifierSecretKeys,
     );
+    pushTestData('private-kernel-inputs-ordering', privateInputs);
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
@@ -368,5 +378,22 @@ export class KernelProver {
       }
     }
     return hints;
+  }
+
+  private async getMasterNullifierSecretKeys(
+    nullifierKeyValidationRequests: Tuple<
+      NullifierKeyValidationRequestContext,
+      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    >,
+  ) {
+    const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
+    for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
+      const request = nullifierKeyValidationRequests[i];
+      if (request.isEmpty()) {
+        break;
+      }
+      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
+    }
+    return keys;
   }
 }

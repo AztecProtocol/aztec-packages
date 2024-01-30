@@ -6,9 +6,9 @@
 #include <unordered_set>
 
 using namespace bb;
-using namespace crypto;
+using namespace bb::crypto;
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 {
@@ -540,4 +540,4 @@ template <typename FF> bool GoblinUltraCircuitBuilder_<FF>::check_circuit()
 }
 
 template class GoblinUltraCircuitBuilder_<bb::fr>;
-} // namespace proof_system
+} // namespace bb

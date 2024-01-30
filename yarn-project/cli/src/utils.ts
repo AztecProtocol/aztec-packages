@@ -4,6 +4,7 @@ import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum'
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { NoirPackageConfig } from '@aztec/foundation/noir';
+import { AvailabilityOracleAbi, AvailabilityOracleBytecode } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
@@ -61,7 +62,9 @@ export async function deployAztecContracts(
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
-  const account = !privateKey ? mnemonicToAccount(mnemonic!) : privateKeyToAccount(`0x${privateKey}`);
+  const account = !privateKey
+    ? mnemonicToAccount(mnemonic!)
+    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrl, apiKey);
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractDeploymentEmitter: {
@@ -79,6 +82,10 @@ export async function deployAztecContracts(
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
+    },
+    availabilityOracle: {
+      contractAbi: AvailabilityOracleAbi,
+      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,

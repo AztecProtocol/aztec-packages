@@ -5,9 +5,9 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
-namespace proof_system {
+namespace bb {
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
 
@@ -44,7 +44,7 @@ TEST(ultra_circuit_constructor, create_gates_from_plookup_accumulators)
 
     UltraCircuitBuilder circuit_builder = UltraCircuitBuilder();
 
-    bb::fr input_value = fr::random_element();
+    fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -648,7 +648,7 @@ TEST(ultra_circuit_constructor, non_native_field_multiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    proof_system::non_native_field_witnesses<fr> inputs{
+    non_native_field_witnesses<fr> inputs{
         a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
     };
     const auto [lo_1_idx, hi_1_idx] = circuit_constructor.evaluate_non_native_field_multiplication(inputs);
@@ -849,4 +849,4 @@ TEST(ultra_circuit_constructor, check_circuit_showcase)
     EXPECT_EQ(circuit_constructor.check_circuit(), true);
 }
 
-} // namespace proof_system
+} // namespace bb

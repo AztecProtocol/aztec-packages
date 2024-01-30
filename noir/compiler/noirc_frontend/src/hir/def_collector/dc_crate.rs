@@ -460,7 +460,7 @@ fn type_check_functions(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn check_methods_signatures(
     resolver: &mut Resolver,
-    impl_methods: &Vec<(FileId, FuncId)>,
+    impl_methods: &[(FileId, FuncId)],
     trait_id: TraitId,
     trait_name_span: Span,
     // These are the generics on the trait itself from the impl.
@@ -491,7 +491,7 @@ pub(crate) fn check_methods_signatures(
     }
 
     // We also need to bind the traits generics to the trait's generics on the impl
-    for ((_, generic), binding) in the_trait.generics.iter().zip(trait_generics) {
+    for (generic, binding) in the_trait.generics.iter().zip(trait_generics) {
         generic.bind(binding);
     }
 
@@ -599,7 +599,7 @@ pub(crate) fn check_methods_signatures(
     the_trait.set_methods(trait_methods);
     the_trait.self_type_typevar.unbind(the_trait.self_type_typevar_id);
 
-    for (old_id, generic) in &the_trait.generics {
-        generic.unbind(*old_id);
+    for generic in &the_trait.generics {
+        generic.unbind(generic.id());
     }
 }

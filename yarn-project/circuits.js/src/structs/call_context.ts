@@ -2,7 +2,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 /**
@@ -123,6 +123,20 @@ export class CallContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readNumber(),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): CallContext {
+    const reader = FieldReader.asReader(fields);
+    return new CallContext(
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readField(),
+      reader.readObject(FunctionSelector),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readU32(),
     );
   }
 

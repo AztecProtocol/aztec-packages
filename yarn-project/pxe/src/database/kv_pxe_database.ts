@@ -1,7 +1,11 @@
 import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { ContractArtifact } from '@aztec/foundation/abi';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecArray, AztecKVStore, AztecMap, AztecMultiMap, AztecSingleton } from '@aztec/kv-store';
+import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
+import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
@@ -27,40 +31,71 @@ export class KVPxeDatabase implements PxeDatabase {
   #authWitnesses: AztecMap<string, Buffer[]>;
   #capsules: AztecArray<Buffer[]>;
   #contracts: AztecMap<string, Buffer>;
-  #notes: AztecArray<Buffer>;
-  #nullifiedNotes: AztecMap<number, boolean>;
-  #notesByContract: AztecMultiMap<string, number>;
-  #notesByStorageSlot: AztecMultiMap<string, number>;
-  #notesByTxHash: AztecMultiMap<string, number>;
-  #notesByOwner: AztecMultiMap<string, number>;
-  #deferredNotes: AztecArray<Buffer>;
+  #notes: AztecMap<string, Buffer>;
+  #nullifierToNoteId: AztecMap<string, string>;
+  #notesByContract: AztecMultiMap<string, string>;
+  #notesByStorageSlot: AztecMultiMap<string, string>;
+  #notesByTxHash: AztecMultiMap<string, string>;
+  #notesByOwner: AztecMultiMap<string, string>;
+  #deferredNotes: AztecArray<Buffer | null>;
   #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
+  #contractArtifacts: AztecMap<string, Buffer>;
+  #contractInstances: AztecMap<string, Buffer>;
   #db: AztecKVStore;
 
-  constructor(db: AztecKVStore) {
+  constructor(private db: AztecKVStore) {
     this.#db = db;
 
-    this.#addresses = db.createArray('addresses');
-    this.#addressIndex = db.createMap('address_index');
+    this.#addresses = db.openArray('addresses');
+    this.#addressIndex = db.openMap('address_index');
 
-    this.#authWitnesses = db.createMap('auth_witnesses');
-    this.#capsules = db.createArray('capsules');
-    this.#contracts = db.createMap('contracts');
+    this.#authWitnesses = db.openMap('auth_witnesses');
+    this.#capsules = db.openArray('capsules');
+    this.#contracts = db.openMap('contracts');
 
-    this.#synchronizedBlock = db.createSingleton('block_header');
-    this.#syncedBlockPerPublicKey = db.createMap('synced_block_per_public_key');
+    this.#contractArtifacts = db.openMap('contract_artifacts');
+    this.#contractInstances = db.openMap('contracts_instances');
+    this.#notesByOwner = db.openMultiMap('notes_by_owner');
 
-    this.#notes = db.createArray('notes');
-    this.#nullifiedNotes = db.createMap('nullified_notes');
+    this.#synchronizedBlock = db.openSingleton('block_header');
+    this.#syncedBlockPerPublicKey = db.openMap('synced_block_per_public_key');
 
-    this.#notesByContract = db.createMultiMap('notes_by_contract');
-    this.#notesByStorageSlot = db.createMultiMap('notes_by_storage_slot');
-    this.#notesByTxHash = db.createMultiMap('notes_by_tx_hash');
-    this.#notesByOwner = db.createMultiMap('notes_by_owner');
+    this.#notes = db.openMap('notes');
+    this.#nullifierToNoteId = db.openMap('nullifier_to_note');
+    this.#notesByContract = db.openMultiMap('notes_by_contract');
+    this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
+    this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
 
-    this.#deferredNotes = db.createArray('deferred_notes');
-    this.#deferredNotesByContract = db.createMultiMap('deferred_notes_by_contract');
+    this.#notesByContract = db.openMultiMap('notes_by_contract');
+    this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
+    this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
+    this.#notesByOwner = db.openMultiMap('notes_by_owner');
+
+    this.#deferredNotes = db.openArray('deferred_notes');
+    this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
+  }
+
+  public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
+    await this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract));
+  }
+
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    const contract = this.#contractArtifacts.get(id.toString());
+    // TODO(@spalladino): AztecMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
+    return Promise.resolve(contract && contractArtifactFromBuffer(Buffer.from(contract)));
+  }
+
+  async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
+    await this.#contractInstances.set(
+      contract.address.toString(),
+      new SerializableContractInstance(contract).toBuffer(),
+    );
+  }
+
+  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const contract = this.#contractInstances.get(address.toString());
+    return Promise.resolve(contract && SerializableContractInstance.fromBuffer(contract).withAddress(address));
   }
 
   async addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void> {
@@ -88,17 +123,22 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.addNotes([note]);
   }
 
-  async addNotes(notes: NoteDao[]): Promise<void> {
-    const newLength = await this.#notes.push(...notes.map(note => note.toBuffer()));
-    for (const [index, note] of notes.entries()) {
-      const noteId = newLength - notes.length + index;
-      await Promise.all([
-        this.#notesByContract.set(note.contractAddress.toString(), noteId),
-        this.#notesByStorageSlot.set(note.storageSlot.toString(), noteId),
-        this.#notesByTxHash.set(note.txHash.toString(), noteId),
-        this.#notesByOwner.set(note.publicKey.toString(), noteId),
-      ]);
-    }
+  addNotes(notes: NoteDao[]): Promise<void> {
+    return this.db.transaction(() => {
+      for (const dao of notes) {
+        // store notes by their index in the notes hash tree
+        // this provides the uniqueness we need to store individual notes
+        // and should also return notes in the order that they were created.
+        // Had we stored them by their nullifier, they would be returned in random order
+        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+        void this.#notes.set(noteIndex, dao.toBuffer());
+        void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
+        void this.#notesByContract.set(dao.contractAddress.toString(), noteIndex);
+        void this.#notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
+        void this.#notesByTxHash.set(dao.txHash.toString(), noteIndex);
+        void this.#notesByOwner.set(dao.publicKey.toString(), noteIndex);
+      }
+    });
   }
 
   async addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void> {
@@ -129,11 +169,6 @@ export class KVPxeDatabase implements PxeDatabase {
    * Removes all deferred notes for a given contract address.
    * @param contractAddress - the contract address to remove deferred notes for
    * @returns an array of the removed deferred notes
-   *
-   * @remarks We only remove indices from the deferred notes by contract map, but not the actual deferred notes.
-   * This is safe because our only getter for deferred notes is by contract address.
-   * If we should add a more general getter, we will need a delete vector for deferred notes as well,
-   * analogous to this.#nullifiedNotes.
    */
   removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
     return this.#db.transaction(() => {
@@ -149,25 +184,16 @@ export class KVPxeDatabase implements PxeDatabase {
         }
 
         void this.#deferredNotesByContract.deleteValue(contractAddress.toString(), index);
+        void this.#deferredNotes.setAt(index, null);
       }
 
       return deferredNotes;
     });
   }
 
-  *#getAllNonNullifiedNotes(): IterableIterator<NoteDao> {
-    for (const [index, serialized] of this.#notes.entries()) {
-      if (this.#nullifiedNotes.has(index)) {
-        continue;
-      }
-
-      yield NoteDao.fromBuffer(serialized);
-    }
-  }
-
-  async getNotes(filter: NoteFilter): Promise<NoteDao[]> {
+  #getNotes(filter: NoteFilter = {}): NoteDao[] {
     const publicKey: PublicKey | undefined = filter.owner
-      ? (await this.getCompleteAddress(filter.owner))?.publicKey
+      ? this.#getCompleteAddress(filter.owner)?.publicKey
       : undefined;
 
     const initialNoteIds = publicKey
@@ -178,15 +204,11 @@ export class KVPxeDatabase implements PxeDatabase {
       ? this.#notesByContract.getValues(filter.contractAddress.toString())
       : filter.storageSlot
       ? this.#notesByStorageSlot.getValues(filter.storageSlot.toString())
-      : undefined;
-
-    if (!initialNoteIds) {
-      return Array.from(this.#getAllNonNullifiedNotes());
-    }
+      : this.#notes.keys();
 
     const result: NoteDao[] = [];
     for (const noteId of initialNoteIds) {
-      const serializedNote = this.#notes.at(noteId);
+      const serializedNote = this.#notes.get(noteId);
       if (!serializedNote) {
         continue;
       }
@@ -214,26 +236,46 @@ export class KVPxeDatabase implements PxeDatabase {
     return result;
   }
 
+  getNotes(filter: NoteFilter): Promise<NoteDao[]> {
+    return Promise.resolve(this.#getNotes(filter));
+  }
+
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
-    const nullifierSet = new Set(nullifiers.map(n => n.toString()));
+
     return this.#db.transaction(() => {
-      const notesIds = this.#notesByOwner.getValues(account.toString());
       const nullifiedNotes: NoteDao[] = [];
 
-      for (const noteId of notesIds) {
-        const note = NoteDao.fromBuffer(this.#notes.at(noteId)!);
-        if (nullifierSet.has(note.siloedNullifier.toString())) {
-          nullifiedNotes.push(note);
-
-          void this.#nullifiedNotes.set(noteId, true);
-          void this.#notesByOwner.deleteValue(account.toString(), noteId);
-          void this.#notesByTxHash.deleteValue(note.txHash.toString(), noteId);
-          void this.#notesByContract.deleteValue(note.contractAddress.toString(), noteId);
-          void this.#notesByStorageSlot.deleteValue(note.storageSlot.toString(), noteId);
+      for (const nullifier of nullifiers) {
+        const noteIndex = this.#nullifierToNoteId.get(nullifier.toString());
+        if (!noteIndex) {
+          continue;
         }
+
+        const noteBuffer = noteIndex ? this.#notes.get(noteIndex) : undefined;
+
+        if (!noteBuffer) {
+          // note doesn't exist. Maybe it got nullified already
+          continue;
+        }
+
+        const note = NoteDao.fromBuffer(noteBuffer);
+        if (!note.publicKey.equals(account)) {
+          // tried to nullify someone else's note
+          continue;
+        }
+
+        nullifiedNotes.push(note);
+
+        void this.#notes.delete(noteIndex);
+        void this.#notesByOwner.deleteValue(account.toString(), noteIndex);
+        void this.#notesByTxHash.deleteValue(note.txHash.toString(), noteIndex);
+        void this.#notesByContract.deleteValue(note.contractAddress.toString(), noteIndex);
+        void this.#notesByStorageSlot.deleteValue(note.storageSlot.toString(), noteIndex);
+
+        void this.#nullifierToNoteId.delete(nullifier.toString());
       }
 
       return nullifiedNotes;
@@ -320,14 +362,18 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
+  #getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
     const index = this.#addressIndex.get(address.toString());
     if (typeof index === 'undefined') {
-      return Promise.resolve(undefined);
+      return undefined;
     }
 
     const value = this.#addresses.at(index);
-    return Promise.resolve(value ? CompleteAddress.fromBuffer(value) : undefined);
+    return value ? CompleteAddress.fromBuffer(value) : undefined;
+  }
+
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    return Promise.resolve(this.#getCompleteAddress(address));
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
@@ -343,7 +389,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   estimateSize(): number {
-    const notesSize = Array.from(this.#getAllNonNullifiedNotes()).reduce((sum, note) => sum + note.getSize(), 0);
+    const notesSize = Array.from(this.#getNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
     const authWitsSize = Array.from(this.#authWitnesses.values()).reduce(
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
       0,

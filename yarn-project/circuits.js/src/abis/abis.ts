@@ -191,9 +191,6 @@ export function computeCompleteAddress(
   );
 }
 
-/**
- *
- */
 function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructorHash: Fr) {
   return Fr.fromBuffer(
     pedersenHash(
@@ -451,9 +448,6 @@ export function computeTxHash(txRequest: TxRequest): Fr {
   );
 }
 
-/**
- *
- */
 function computeFunctionDataHash(functionData: FunctionData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -468,9 +462,6 @@ function computeFunctionDataHash(functionData: FunctionData): Fr {
   );
 }
 
-/**
- *
- */
 function computeTxContextHash(txContext: TxContext): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -487,9 +478,6 @@ function computeTxContextHash(txContext: TxContext): Fr {
   );
 }
 
-/**
- *
- */
 function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -506,9 +494,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   );
 }
 
-/**
- *
- */
 function computeCallContextHash(input: CallContext) {
   return pedersenHash(
     [
@@ -529,7 +514,7 @@ function computeCallContextHash(input: CallContext) {
 function flattenSideEffects(sideEffects: SideEffectType[]): Buffer[] {
   const arr: Buffer[] = [];
   for (const sideEffect of sideEffects) {
-    for (const field of sideEffect.toFieldArray()) {
+    for (const field of sideEffect.toFields()) {
       arr.push(field.toBuffer());
     }
   }
@@ -594,9 +579,6 @@ export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackI
   );
 }
 
-/**
- *
- */
 function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
   return pedersenHash(
     [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
@@ -604,22 +586,14 @@ function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateReq
   );
 }
 
-/**
- *
- */
 function computeContractStorageReadsHash(input: ContractStorageRead) {
   return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
 }
-/**
- *
- */
+
 export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
 }
 
-/**
- *
- */
 export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
   return pedersenHash(
     [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
@@ -627,9 +601,6 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
   );
 }
 
-/**
- *
- */
 export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),

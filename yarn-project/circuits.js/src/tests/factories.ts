@@ -33,6 +33,8 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -42,6 +44,8 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PHASE_TRANSITIONS_PER_CALL,
   MAX_PHASE_TRANSITIONS_PER_TX,
@@ -64,6 +68,8 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NullifierKeyValidationRequest,
+  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
   OptionallyRevealedData,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
@@ -175,6 +181,28 @@ export function makeSelector(seed: number): FunctionSelector {
 }
 
 /**
+ * Creates arbitrary NullifierKeyValidationRequest from the given seed.
+ * @param seed - The seed to use for generating the NullifierKeyValidationRequest.
+ * @returns A NullifierKeyValidationRequest.
+ */
+function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
+  return new NullifierKeyValidationRequest(makePoint(seed), makeGrumpkinPrivateKey(seed + 2));
+}
+
+/**
+ * Creates arbitrary NullifierKeyValidationRequestContext from the given seed.
+ * @param seed - The seed to use for generating the NullifierKeyValidationRequestContext.
+ * @returns A NullifierKeyValidationRequestContext.
+ */
+function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyValidationRequestContext {
+  return new NullifierKeyValidationRequestContext(
+    makePoint(seed),
+    makeGrumpkinPrivateKey(seed + 2),
+    makeAztecAddress(seed + 4),
+  );
+}
+
+/**
  * Creates arbitrary public data update request.
  * @param seed - The seed to use for generating the public data update request.
  * @returns A public data update request.
@@ -237,7 +265,12 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     tupleGenerator(MAX_PHASE_TRANSITIONS_PER_TX, sideEffectFromNumber, seed + 0x40),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
+    tupleGenerator(
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      makeNullifierKeyValidationRequestContext,
+      seed + 0x100,
+    ),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x120),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
@@ -480,6 +513,15 @@ export function makePoint(seed = 1): Point {
 }
 
 /**
+ * Creates an arbitrary grumpkin private key.
+ * @param seed - Seed to generate the values.
+ * @returns A GrumpkinPrivateKey.
+ */
+export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+  return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
+}
+
+/**
  * Makes arbitrary previous kernel data.
  * @param seed - The seed to use for generating the previous kernel data.
  * @param kernelPublicInputs - The kernel public inputs to use for generating the previous kernel data.
@@ -700,21 +742,26 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     phaseWatermarks: makeTuple(MAX_PHASE_TRANSITIONS_PER_CALL, sideEffectFromNumber, seed + 0x300),
-    readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x400),
-    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x500),
-    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x600),
-    privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
-    publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x800),
-    newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
-    endSideEffectCounter: fr(seed + 0x950),
-    encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
-    unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xb00),
-    encryptedLogPreimagesLength: fr(seed + 0xc00),
-    unencryptedLogPreimagesLength: fr(seed + 0xd00),
-    blockHeader: makeBlockHeader(seed + 0xe00),
-    contractDeploymentData: makeContractDeploymentData(seed + 0x1400),
-    chainId: fr(seed + 0x1500),
-    version: fr(seed + 0x1600),
+    readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
+    nullifierKeyValidationRequests: makeTuple(
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+      makeNullifierKeyValidationRequest,
+      seed + 0x300,
+    ),
+    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x400),
+    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x500),
+    privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
+    publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
+    newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
+    endSideEffectCounter: fr(seed + 0x850),
+    encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
+    unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
+    encryptedLogPreimagesLength: fr(seed + 0xb00),
+    unencryptedLogPreimagesLength: fr(seed + 0xc00),
+    blockHeader: makeBlockHeader(seed + 0xd00),
+    contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
+    chainId: fr(seed + 0x1400),
+    version: fr(seed + 0x1500),
   });
 }
 

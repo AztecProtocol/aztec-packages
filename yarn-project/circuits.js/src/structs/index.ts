@@ -19,6 +19,7 @@ export * from './kernel/public_inputs_final.js';
 export * from './kernel/public_kernel.js';
 export * from './membership_witness.js';
 export * from './partial_state_reference.js';
+export * from './nullifier_key_validation_request.js';
 export * from './private_circuit_public_inputs.js';
 export * from './proof.js';
 export * from './public_call_request.js';

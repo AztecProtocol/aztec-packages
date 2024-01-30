@@ -1,14 +1,4 @@
-#include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
-#include "barretenberg/vm/generated/AvmMini_composer.hpp"
-#include "barretenberg/vm/generated/AvmMini_prover.hpp"
-#include "barretenberg/vm/generated/AvmMini_verifier.hpp"
-#include "helpers.test.hpp"
-
-#include <cstddef>
-#include <cstdint>
-#include <gtest/gtest.h>
-#include <string>
-#include <vector>
+#include "AvmMini_common.test.hpp"
 
 namespace tests_avm {
 using namespace avm_trace;
@@ -21,7 +11,7 @@ class AvmMiniControlFlowTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory("../srs_db/ignition");
         trace_builder = AvmMiniTraceBuilder(); // Clean instance for every run.
     };
 };

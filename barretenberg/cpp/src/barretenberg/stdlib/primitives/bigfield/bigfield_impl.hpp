@@ -9,10 +9,7 @@
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
 
-using namespace bb;
-
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context)
@@ -2023,7 +2020,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         };
         field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-        proof_system::non_native_field_witnesses<bb::fr> witnesses{
+        bb::non_native_field_witnesses<bb::fr> witnesses{
             {
                 left.binary_basis_limbs[0].element.normalize().witness_index,
                 left.binary_basis_limbs[1].element.normalize().witness_index,
@@ -2363,7 +2360,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             }
 
             if (i > 0) {
-                proof_system::non_native_field_witnesses<bb::fr> mul_witnesses = {
+                bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
                     {
                         left[i].binary_basis_limbs[0].element.normalize().witness_index,
                         left[i].binary_basis_limbs[1].element.normalize().witness_index,
@@ -2459,7 +2456,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         };
         field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-        proof_system::non_native_field_witnesses<bb::fr> witnesses{
+        bb::non_native_field_witnesses<bb::fr> witnesses{
             {
                 left[0].binary_basis_limbs[0].element.normalize().witness_index,
                 left[0].binary_basis_limbs[1].element.normalize().witness_index,
@@ -2937,5 +2934,4 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
     return std::pair<bool, size_t>(false, num_quotient_bits);
 }
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

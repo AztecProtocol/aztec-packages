@@ -1,4 +1,4 @@
-#include "barretenberg/benchmark/ultra_bench/benchmark_utilities.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
@@ -19,10 +19,10 @@
 // #define GET_PER_ROW_TIME
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 #ifdef GET_PER_ROW_TIME
 constexpr size_t LARGE_DOMAIN_SIZE = 4;
@@ -39,7 +39,7 @@ BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto inner_composer = plonk::UltraComposer();
     auto builder = typename plonk::UltraComposer::CircuitBuilder();
-    bench_utils::generate_basic_arithmetic_circuit(builder, 16);
+    bb::mock_proofs::generate_basic_arithmetic_circuit(builder, 16);
     UltraProver inner_prover = inner_composer.create_prover(builder);
 #ifdef GET_PER_ROW_TIME
     if (!(inner_prover.key->circuit_size == WIDGET_BENCH_TEST_CIRCUIT_SIZE)) {
@@ -113,4 +113,4 @@ BENCHMARK(accumulate_contribution<ProverGenPermSortWidget<ultra_settings>>);
 BENCHMARK(accumulate_contribution<ProverEllipticWidget<ultra_settings>>);
 BENCHMARK(accumulate_contribution<ProverPlookupAuxiliaryWidget<ultra_settings>>);
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

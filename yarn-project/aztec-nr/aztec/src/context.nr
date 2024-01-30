@@ -1,3 +1,22 @@
+use crate::{
+    abi::{
+        PrivateContextInputs,
+        PublicContextInputs,
+    },
+    key::nullifier_key::validate_nullifier_key_against_address,
+    messaging::process_l1_to_l2_message,
+    oracle::{
+        arguments,
+        call_private_function::call_private_function_internal,
+        public_call::call_public_function_internal,
+        enqueue_public_function_call::enqueue_public_function_call_internal,
+        context::get_portal_address,
+        get_block_header::get_block_header,
+        nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
+    },
+    types::vec::BoundedVec,
+    utils::Reader,
+};
 use dep::protocol_types::{
     abis::{
         block_header::BlockHeader,
@@ -5,6 +24,7 @@ use dep::protocol_types::{
         fee_limits::FeeLimits,
         function_data::FunctionData,
         function_selector::FunctionSelector,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         call_stack_item::PrivateCallStackItem,
@@ -25,6 +45,7 @@ use dep::protocol_types::{
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
@@ -33,37 +54,16 @@ use dep::protocol_types::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
-    hash::hash_args,
     grumpkin_point::GrumpkinPoint,
+    grumpkin_private_key::GrumpkinPrivateKey,
+    hash::hash_args,
+};
+use dep::std::{
+    option::Option,
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
 // use dep::std::collections::vec::Vec;
-
-use crate::abi::{
-    PrivateContextInputs,
-    PublicContextInputs,
-};
-
-// l1 to l2 messaging
-use crate::messaging::process_l1_to_l2_message;
-
-use crate::types::{
-    vec::BoundedVec,
-};
-
-use crate::utils::Reader;
-
-use crate::oracle::{
-    arguments,
-    call_private_function::call_private_function_internal,
-    public_call::call_public_function_internal,
-    enqueue_public_function_call::enqueue_public_function_call_internal,
-    context::get_portal_address,
-    get_block_header::get_block_header,
-};
-
-use dep::std::option::Option;
 
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateContext {
@@ -77,6 +77,7 @@ struct PrivateContext {
     phase_watermarks: BoundedVec<SideEffect, MAX_PHASE_TRANSITIONS_PER_CALL>,
 
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -93,6 +94,7 @@ struct PrivateContext {
     // unencrypted_logs_preimages: Vec<Field>,
 
     fee_limits: FeeLimits,
+    nullifier_key: Option<NullifierKeyPair>,
 }
 
 impl PrivateContext {
@@ -110,6 +112,7 @@ impl PrivateContext {
             phase_watermarks: phase_watermarks,
 
             read_requests: BoundedVec::new(SideEffect::empty()),
+            nullifier_key_validation_requests: BoundedVec::new(NullifierKeyValidationRequest::empty()),
 
             new_commitments: BoundedVec::new(SideEffect::empty()),
             new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
@@ -127,6 +130,7 @@ impl PrivateContext {
             // TODO(fees) grab this from the inputs
             fee_limits: FeeLimits::empty(),
 
+            nullifier_key: Option::none(),
         }
     }
 
@@ -173,6 +177,7 @@ impl PrivateContext {
             return_values: self.return_values.storage,
             phase_watermarks: self.phase_watermarks.storage,
             read_requests: self.read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
@@ -226,6 +231,24 @@ impl PrivateContext {
         };
         self.new_nullifiers.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    pub fn request_nullifier_secret_key(&mut self, account: AztecAddress) -> GrumpkinPrivateKey {
+        let key_pair = if self.nullifier_key.is_none() {
+            let key_pair = get_nullifier_key_pair(account);
+            validate_nullifier_key_against_address(account, key_pair.public_key);
+            let request = NullifierKeyValidationRequest { public_key: key_pair.public_key, secret_key: key_pair.secret_key };
+            self.nullifier_key_validation_requests.push(request);
+            self.nullifier_key = Option::some(key_pair);
+            key_pair
+        } else {
+            let key_pair = self.nullifier_key.unwrap_unchecked();
+            // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
+            assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
+            assert(key_pair.account == account, "Cannot query nullifier key for more than one account per call");
+            key_pair
+        };
+        key_pair.secret_key
     }
 
     // docs:start:context_message_portal
@@ -322,6 +345,7 @@ impl PrivateContext {
                 return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
                 phase_watermarks: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_PHASE_TRANSITIONS_PER_CALL]),
                 read_requests: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
+                nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialise, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
                 new_commitments: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
                 new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialise, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
                 private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),

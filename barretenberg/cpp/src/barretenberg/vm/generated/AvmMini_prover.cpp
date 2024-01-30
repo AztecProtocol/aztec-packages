@@ -11,7 +11,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 using Flavor = honk::flavor::AvmMiniFlavor;
 
@@ -29,13 +29,12 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     , commitment_key(commitment_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
-        ASSERT(proof_system::flavor_get_label(prover_polynomials, prover_poly) ==
-               proof_system::flavor_get_label(*key, key_poly));
+        ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) == bb::flavor_get_label(*key, key_poly));
         prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
-        ASSERT(proof_system::flavor_get_label(prover_polynomials, prover_poly) ==
-               proof_system::flavor_get_label(*key, key_poly) + "_shift");
+        ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) ==
+               bb::flavor_get_label(*key, key_poly) + "_shift");
         prover_poly = key_poly.shifted();
     }
 }
@@ -73,8 +72,10 @@ void AvmMiniProver::execute_relation_check_rounds()
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
+
     FF alpha = transcript->get_challenge("Sumcheck:alpha");
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -130,4 +131,4 @@ plonk::proof& AvmMiniProver::construct_proof()
     return export_proof();
 }
 
-} // namespace proof_system::honk
+} // namespace bb::honk

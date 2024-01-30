@@ -24,6 +24,8 @@ import {
   FunctionData,
   FunctionSelector,
   GlobalVariables,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
   Header,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -31,6 +33,7 @@ import {
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PHASE_TRANSITIONS_PER_CALL,
   MAX_PHASE_TRANSITIONS_PER_TX,
@@ -44,6 +47,8 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NullifierKeyValidationRequest,
+  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
   OptionallyRevealedData,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -90,12 +95,15 @@ import {
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
+  GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   NewContractData as NewContractDataNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
+  NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
+  NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
   OptionallyRevealedData as OptionallyRevealedDataNoir,
   PrivateCallData as PrivateCallDataNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
@@ -181,9 +189,6 @@ export function mapNumberFromNoir(number: NoirField): number {
   return Number(Fr.fromString(number).toBigInt());
 }
 
-/**
- *
- */
 export function mapNumberToNoir(number: number): NoirField {
   return new Fr(BigInt(number)).toString();
 }
@@ -207,6 +212,27 @@ export function mapPointToNoir(point: Point): NoirPoint {
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
   return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
+}
+
+/**
+ * Maps a GrumpkinPrivateKey to a noir GrumpkinPrivateKey.
+ * @param privateKey - The GrumpkinPrivateKey.
+ * @returns The noir GrumpkinPrivateKey.
+ */
+export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): GrumpkinPrivateKeyNoir {
+  return {
+    high: mapFieldToNoir(privateKey.high),
+    low: mapFieldToNoir(privateKey.low),
+  };
+}
+
+/**
+ * Maps a noir GrumpkinPrivateKey to a GrumpkinPrivateKey.
+ * @param privateKey - The noir GrumpkinPrivateKey.
+ * @returns The GrumpkinPrivateKey.
+ */
+export function mapGrumpkinPrivateKeyFromNoir(privateKey: GrumpkinPrivateKeyNoir): GrumpkinPrivateKey {
+  return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.high), mapFieldFromNoir(privateKey.low));
 }
 
 /**
@@ -457,7 +483,7 @@ export function mapCallerContextToNoir(callerContext: CallerContext): CallerCont
 }
 
 /**
- * Maps a noit call request to a call request.
+ * Maps a noir call request to a call request.
  * @param callRequest - The noir call request.
  * @returns The call request.
  */
@@ -538,6 +564,64 @@ export function mapSideEffectLinkedFromNoir(
 }
 
 /**
+ * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
+ * @param request - The NullifierKeyValidationRequest.
+ * @returns The noir NullifierKeyValidationRequest.
+ */
+export function mapNullifierKeyValidationRequestToNoir(
+  request: NullifierKeyValidationRequest,
+): NullifierKeyValidationRequestNoir {
+  return {
+    public_key: mapPointToNoir(request.publicKey),
+    secret_key: mapGrumpkinPrivateKeyToNoir(request.secretKey),
+  };
+}
+
+/**
+ * Maps a noir NullifierKeyValidationRequest to NullifierKeyValidationRequest.
+ * @param request - The noir NullifierKeyValidationRequest.
+ * @returns The TS NullifierKeyValidationRequest.
+ */
+export function mapNullifierKeyValidationRequestFromNoir(
+  request: NullifierKeyValidationRequestNoir,
+): NullifierKeyValidationRequest {
+  return new NullifierKeyValidationRequest(
+    mapPointFromNoir(request.public_key),
+    mapGrumpkinPrivateKeyFromNoir(request.secret_key),
+  );
+}
+
+/**
+ * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
+ * @param request - The NullifierKeyValidationRequest.
+ * @returns The noir NullifierKeyValidationRequest.
+ */
+export function mapNullifierKeyValidationRequestContextToNoir(
+  request: NullifierKeyValidationRequestContext,
+): NullifierKeyValidationRequestContextNoir {
+  return {
+    public_key: mapPointToNoir(request.publicKey),
+    secret_key: mapGrumpkinPrivateKeyToNoir(request.secretKey),
+    contract_address: mapAztecAddressToNoir(request.contractAddress),
+  };
+}
+
+/**
+ * Maps a noir NullifierKeyValidationRequestContext to NullifierKeyValidationRequestContext.
+ * @param request - The noir NullifierKeyValidationRequestContext.
+ * @returns The TS NullifierKeyValidationRequestContext.
+ */
+export function mapNullifierKeyValidationRequestContextFromNoir(
+  request: NullifierKeyValidationRequestContextNoir,
+): NullifierKeyValidationRequestContext {
+  return new NullifierKeyValidationRequestContext(
+    mapPointFromNoir(request.public_key),
+    mapGrumpkinPrivateKeyFromNoir(request.secret_key),
+    mapAztecAddressFromNoir(request.contract_address),
+  );
+}
+
+/**
  * Maps a block header to a noir block header.
  * @param blockHeader - The block header.
  * @returns The noir block header.
@@ -587,6 +671,10 @@ export function mapPrivateCircuitPublicInputsToNoir(
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
     phase_watermarks: mapTuple(privateCircuitPublicInputs.phaseWatermarks, mapSideEffectToNoir),
     read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
+    nullifier_key_validation_requests: mapTuple(
+      privateCircuitPublicInputs.nullifierKeyValidationRequests,
+      mapNullifierKeyValidationRequestToNoir,
+    ),
     new_commitments: mapTuple(privateCircuitPublicInputs.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack_hashes: mapTuple(privateCircuitPublicInputs.privateCallStackHashes, mapFieldToNoir),
@@ -845,6 +933,11 @@ export function mapCombinedAccumulatedDataFromNoir(
   return new CombinedAccumulatedData(
     mapTupleFromNoir(combinedAccumulatedData.phase_watermarks, MAX_PHASE_TRANSITIONS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.nullifier_key_validation_requests,
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      mapNullifierKeyValidationRequestContextFromNoir,
+    ),
     mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -926,6 +1019,10 @@ export function mapCombinedAccumulatedDataToNoir(
   return {
     phase_watermarks: mapTuple(combinedAccumulatedData.phaseWatermarks, mapSideEffectToNoir),
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
+    nullifier_key_validation_requests: mapTuple(
+      combinedAccumulatedData.nullifierKeyValidationRequests,
+      mapNullifierKeyValidationRequestContextToNoir,
+    ),
     new_commitments: mapTuple(combinedAccumulatedData.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack: mapTuple(combinedAccumulatedData.privateCallStack, mapCallRequestToNoir),
@@ -1081,6 +1178,7 @@ export function mapPrivateKernelInputsOrderingToNoir(
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapSideEffectLinkedToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
+    master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
 }
 

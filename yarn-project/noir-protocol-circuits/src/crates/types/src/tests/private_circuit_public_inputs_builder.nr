@@ -3,6 +3,7 @@ use crate::{
         call_context::CallContext,
         complete_address::CompleteAddress,
         block_header::BlockHeader,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
@@ -16,6 +17,7 @@ use crate::{
 };
 use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PHASE_TRANSITIONS_PER_CALL,
@@ -35,6 +37,7 @@ struct PrivateCircuitPublicInputsBuilder {
     phase_watermarks: BoundedVec<SideEffect, MAX_PHASE_TRANSITIONS_PER_CALL>,
 
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -117,6 +120,7 @@ impl PrivateCircuitPublicInputsBuilder {
             phase_watermarks: self.phase_watermarks.storage,
 
             read_requests: self.read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,

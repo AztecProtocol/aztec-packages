@@ -25,6 +25,7 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
   uint256 internal constant MAX_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_PHASE_TRANSITIONS_PER_CALL = 3;
+  uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 1;
   uint256 internal constant MAX_NEW_COMMITMENTS_PER_TX = 64;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
@@ -35,6 +36,7 @@ library Constants {
   uint256 internal constant MAX_NEW_CONTRACTS_PER_TX = 1;
   uint256 internal constant MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX = 4;
   uint256 internal constant MAX_READ_REQUESTS_PER_TX = 128;
+  uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX = 4;
   uint256 internal constant NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
   uint256 internal constant NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
   uint256 internal constant MAX_PHASE_TRANSITIONS_PER_TX = 3;
@@ -67,7 +69,7 @@ library Constants {
   uint256 internal constant PHASE_APPLICATION_LOGIC = 2;
   uint256 internal constant PHASE_FEE_DISTRIBUTION = 3;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 8;
-  uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 26;
+  uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 25;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;
   uint256 internal constant MAX_NOTES_PER_PAGE = 10;
@@ -81,7 +83,7 @@ library Constants {
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 190;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
-  uint256 internal constant CALL_PRIVATE_FUNCTION_RETURN_SIZE = 201;
+  uint256 internal constant CALL_PRIVATE_FUNCTION_RETURN_SIZE = 205;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH = 87;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH = 183;
   uint256 internal constant COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

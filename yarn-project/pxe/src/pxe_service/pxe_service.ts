@@ -44,6 +44,9 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
+  createContractClassFromArtifact,
+  getArtifactHash,
+  getContractClassId,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
@@ -52,6 +55,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
@@ -209,12 +213,35 @@ export class PXEService implements PXE {
   public async addContracts(contracts: DeployedContract[]) {
     const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
+    await this.addArtifactsAndInstancesFromDeployedContracts(contracts);
     for (const contract of contractDaos) {
       const contractAztecAddress = contract.completeAddress.address;
       const portalInfo =
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
       this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
       await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
+    }
+  }
+
+  private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
+    for (const contract of contracts) {
+      const artifact = contract.artifact;
+      const artifactHash = getArtifactHash(artifact);
+      const contractClassId = getContractClassId(createContractClassFromArtifact({ ...artifact, artifactHash }));
+
+      // TODO: Properly derive this from the DeployedContract once we update address calculation
+      const contractInstance: ContractInstanceWithAddress = {
+        version: 1,
+        salt: Fr.ZERO,
+        contractClassId,
+        initializationHash: Fr.ZERO,
+        portalContractAddress: contract.portalContract,
+        publicKeysHash: contract.completeAddress.publicKey.x,
+        address: contract.completeAddress.address,
+      };
+
+      await this.db.addContractArtifact(contractClassId, artifact);
+      await this.db.addContractInstance(contractInstance);
     }
   }
 
@@ -462,7 +489,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -614,7 +641,7 @@ export class PXEService implements PXE {
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest);
 
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
