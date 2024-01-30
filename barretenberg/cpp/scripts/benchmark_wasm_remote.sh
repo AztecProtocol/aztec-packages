@@ -16,6 +16,8 @@ cd $(dirname $0)/..
 cmake --preset wasm-bench
 cmake --build --preset wasm-bench --target $BENCHMARK
 
+source scripts/_benchmark_remote_lock.sh
+
 cd build-wasm-bench
 scp $BB_SSH_KEY ./bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-bench
 ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
