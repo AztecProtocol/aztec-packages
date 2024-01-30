@@ -24,7 +24,7 @@ export class ViewDataOracle extends TypedOracle {
   constructor(
     protected readonly contractAddress: AztecAddress,
     /** Data required to reconstruct the block hash, it contains historical roots. */
-    protected readonly header: Header,
+    protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
