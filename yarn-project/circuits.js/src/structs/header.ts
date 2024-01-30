@@ -1,7 +1,8 @@
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, from2Fields, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
 
-import { HEADER_LENGTH } from '../constants.gen.js';
+import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
 import { GlobalVariables } from './global_variables.js';
 import { PartialStateReference } from './partial_state_reference.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
@@ -106,5 +107,14 @@ export class Header {
   static fromString(str: string): Header {
     const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
     return Header.fromBuffer(buffer);
+  }
+
+  hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFieldArray().map(f => f.toBuffer()),
+        GeneratorIndex.BLOCK_HASH,
+      ),
+    );
   }
 }
