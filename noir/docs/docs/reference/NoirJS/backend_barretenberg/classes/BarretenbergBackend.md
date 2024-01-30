@@ -51,6 +51,9 @@ Destroys the backend
 generateProof(compressedWitness): Promise<ProofData>
 ```
 
+Generate a final proof. This is the proof for the circuit which will verify
+intermediate proofs and or can be seen as the proof created for regular circuits.
+
 #### Parameters
 
 | Parameter | Type |
