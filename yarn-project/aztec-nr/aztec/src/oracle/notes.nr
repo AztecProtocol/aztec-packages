@@ -5,7 +5,10 @@ use crate::note::{
 };
 use crate::utils::arr_copy_slice;
 
-use dep::protocol_types::address::AztecAddress;
+use dep::protocol_types::{
+    address::AztecAddress,
+    traits::Deserialize
+};
 
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(_storage_slot: Field, _serialized_note: [Field; N], _inner_note_hash: Field) -> Field {}
@@ -32,6 +35,7 @@ fn get_notes_oracle<N, S>(
     _sort_order: [u2; N],
     _limit: u32,
     _offset: u32,
+    _status: u2,
     _return_size: u32,
     _placeholder_fields: [Field; S]
 ) -> [Field; S] {}
@@ -46,6 +50,7 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     sort_order: [u2; N],
     limit: u32,
     offset: u32,
+    status: u2,
     mut placeholder_fields: [Field; S]
 ) -> [Field; S] {
     let return_size = placeholder_fields.len() as u32;
@@ -59,6 +64,7 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
         sort_order,
         limit,
         offset,
+        status,
         return_size,
         placeholder_fields
     )
@@ -66,7 +72,6 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
 
 unconstrained pub fn get_notes<Note, N, M, S, NS>(
     storage_slot: Field,
-    note_interface: NoteInterface<Note, N>,
     num_selects: u8,
     select_by: [u8; M],
     select_values: [Field; M],
@@ -75,9 +80,11 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
     sort_order: [u2; M],
     limit: u32,
     offset: u32,
+    status: u2,
     mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
-    placeholder_fields: [Field; NS] // TODO: Remove it and use `limit` to initialize the note array.
-) -> [Option<Note>; S] {
+    placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
+    _placeholder_note_length: [Field; N] // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
+) -> [Option<Note>; S] where Note: NoteInterface + Deserialize<N> {
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -88,12 +95,11 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
         sort_order,
         limit,
         offset,
+        status,
         placeholder_fields
     );
     let num_notes = fields[0] as u32;
     let contract_address = AztecAddress::from_field(fields[1]);
-    let deserialize = note_interface.deserialize;
-    let set_header = note_interface.set_header;
     for i in 0..placeholder_opt_notes.len() {
         if i as u32 < num_notes {
             // lengths named as per typescript.
@@ -104,8 +110,9 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
             let is_transient = fields[read_offset + 1] as bool;
             let header = NoteHeader { contract_address, nonce, storage_slot, is_transient };
             let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
-            let mut note = deserialize(serialized_note);
-            set_header(&mut note, header);
+            let mut note = Note::deserialize(serialized_note);
+            // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
+            Note::set_header(&mut note, header);
             placeholder_opt_notes[i] = Option::some(note);
         };
     }

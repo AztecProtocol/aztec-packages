@@ -3,11 +3,12 @@ import {
   KeyStore,
   L2Block,
   MerkleTreeId,
+  NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
   StateInfoProvider,
 } from '@aztec/circuit-types';
-import { AztecAddress, BlockHeader, CompleteAddress, EthAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, EthAddress, Fr, FunctionSelector, Header } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -59,8 +60,12 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
+    const noteDaos = await this.db.getNotes({
+      contractAddress,
+      storageSlot,
+      status,
+    });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
@@ -186,10 +191,10 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a BlockHeader object.
+   * @returns A Promise that resolves to a Header object.
    */
-  getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+  getHeader(): Promise<Header> {
+    return Promise.resolve(this.db.getHeader());
   }
 
   /**
