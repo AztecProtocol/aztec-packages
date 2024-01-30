@@ -30,7 +30,7 @@ pub fn prove_contract_inclusion(
     context: PrivateContext
 ) -> AztecAddress {
     // 1) Get block header from oracle and ensure that the block is included in the archive.
-    // let block_header = context.get_block_header(block_number);
+    // let block_header = context.get_header.at(block_number);
 
     // 2) Compute the contract address
     let contract_address = AztecAddress::compute_from_public_key(
@@ -55,7 +55,7 @@ pub fn prove_contract_inclusion(
     //
     // 6) Prove that the leaf is in the contract tree
     // assert(
-    //     block_header.contract_tree_root
+    //     block_header.partial.contract_tree.root
     //     == compute_merkle_root(contract_leaf, witness.index, witness.path), "Proving contract inclusion failed"
     // );
     //

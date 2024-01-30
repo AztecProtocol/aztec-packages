@@ -379,7 +379,7 @@ pub fn contract_logic(
             private_call.contract_leaf_membership_witness.sibling_path
         );
 
-        let purported_contract_tree_root = private_call.call_stack_item.public_inputs.block_header.contract_tree_root();
+        let purported_contract_tree_root = private_call.call_stack_item.public_inputs.historical_header.state.partial.contract_tree.root;
         // TODO(@spalladino): Re-enable this check using contract classes:
         // - Compute the function_leaf
         // - Compute the function_tree_root using the sibling path
