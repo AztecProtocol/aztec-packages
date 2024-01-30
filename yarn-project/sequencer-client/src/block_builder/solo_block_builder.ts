@@ -43,10 +43,7 @@ import {
   VerificationKey,
 } from '@aztec/circuits.js';
 import {
-  computeBlockHash,
-  computeBlockHashWithGlobals,
   computeContractLeaf,
-  computeGlobalsHash,
 } from '@aztec/circuits.js/abis';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
@@ -279,43 +276,11 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    const globalVariablesHash = computeGlobalsHash(left[0].constants.globalVariables);
-    await this.db.updateLatestGlobalVariablesHash(globalVariablesHash);
     await this.db.updateArchive(globalVariablesHash);
 
     await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
-  }
-
-  async updateArchive(globalVariables: GlobalVariables) {
-    // Calculate the block hash and add it to the historical block hashes tree
-    const blockHash = await this.calculateBlockHash(globalVariables);
-    await this.db.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
-  }
-
-  protected async calculateBlockHash(globals: GlobalVariables) {
-    const [noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
-      await Promise.all(
-        [
-          MerkleTreeId.NOTE_HASH_TREE,
-          MerkleTreeId.NULLIFIER_TREE,
-          MerkleTreeId.CONTRACT_TREE,
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-        ].map(tree => this.getTreeSnapshot(tree)),
-      )
-    ).map(r => r.root);
-
-    const blockHash = computeBlockHashWithGlobals(
-      globals,
-      noteHashTreeRoot,
-      nullifierTreeRoot,
-      contractTreeRoot,
-      l1ToL2MessageTreeRoot,
-      publicDataTreeRoot,
-    );
-    return blockHash;
   }
 
   protected async validatePartialState(partialState: PartialStateReference) {

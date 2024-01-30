@@ -212,14 +212,6 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Gets the global variables hash from the previous block
-   * @param includeUncommitted - Indicates whether to include uncommitted data.
-   */
-  public async getLatestGlobalVariablesHash(includeUncommitted: boolean): Promise<Fr> {
-    return await this.synchronize(() => this._getGlobalVariablesHash(includeUncommitted));
-  }
-
-  /**
    * Gets the tree info for the specified tree.
    * @param treeId - Id of the tree to get information from.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
@@ -253,19 +245,6 @@ export class MerkleTrees implements MerkleTreeDb {
       ),
     );
     return Promise.resolve(state);
-  }
-
-  // TODO(#3941)
-  private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
-    const state = await this.getStateReference(includeUncommitted);
-    return computeBlockHash(
-      globalsHash,
-      state.partial.noteHashTree.root,
-      state.partial.nullifierTree.root,
-      state.partial.contractTree.root,
-      state.l1ToL2MessageTree.root,
-      state.partial.publicDataTree.root,
-    );
   }
 
   /**
@@ -604,12 +583,11 @@ export class MerkleTrees implements MerkleTreeDb {
         );
       }
 
-      // Sync and add the block to the blocks tree
-      const globalVariablesHash = computeGlobalsHash(l2Block.header.globalVariables);
+      // Sync and add header hash to archive tree
       await this._updateLatestGlobalVariablesHash(globalVariablesHash);
-      this.log(`Synced global variables with hash ${globalVariablesHash}`);
+      this.log(`Synced global variables ${l2Block.header.globalVariables.toJSON()}`);
 
-      const blockHash = await this._getCurrentBlockHash(globalVariablesHash, true);
+      const blockHash = l2Block.header.hash();
       await this._appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
 
       await this._commit();

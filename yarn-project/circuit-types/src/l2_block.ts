@@ -443,6 +443,7 @@ export class L2Block {
   /**
    * Returns the block's hash.
    * @returns The block's hash.
+   * TODO: rename this as hash and make it return this.header.hash()
    */
   public getBlockHash(): Buffer {
     if (!this.blockHash) {

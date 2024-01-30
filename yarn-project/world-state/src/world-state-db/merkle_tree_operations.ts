@@ -128,11 +128,6 @@ export interface MerkleTreeOperations {
   updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void>;
 
   /**
-   * Gets the global variables hash from the previous block
-   */
-  getLatestGlobalVariablesHash(): Promise<Fr>;
-
-  /**
    * Batch insert multiple leaves into the tree.
    * @param leaves - Leaves to insert into the tree.
    * @param treeId - The tree on which to insert.

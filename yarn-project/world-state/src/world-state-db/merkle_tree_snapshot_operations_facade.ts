@@ -34,10 +34,6 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return tree.findLeafIndex(value);
   }
 
-  getLatestGlobalVariablesHash(): Promise<Fr> {
-    return Promise.reject(new Error('not implemented'));
-  }
-
   async getLeafPreimage(
     treeId: MerkleTreeId.NULLIFIER_TREE,
     index: bigint,

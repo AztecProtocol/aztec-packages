@@ -6,6 +6,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
  *
  * TODO(#4148) Proper genesis state. If the state is empty, we allow anything for now.
  */
+// TODO: replaced this with the function implemented on MerkleTrees class
 export async function buildInitialHeader(db: MerkleTreeOperations) {
   const state = await db.getStateReference();
   return new Header(AppendOnlyTreeSnapshot.empty(), Buffer.alloc(32, 0), state, GlobalVariables.empty());

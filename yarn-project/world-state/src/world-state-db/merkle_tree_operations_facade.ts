@@ -143,13 +143,6 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Gets the global variables hash from the previous block
-   */
-  public getLatestGlobalVariablesHash(): Promise<Fr> {
-    return this.trees.getLatestGlobalVariablesHash(this.includeUncommitted);
-  }
-
-  /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
    * @param block - The L2 block to handle.
    * @returns Whether the block handled was produced by this same node.
