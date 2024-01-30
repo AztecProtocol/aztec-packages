@@ -3,6 +3,7 @@ import {
   AztecAddress,
   CompleteAddress,
   ContractDeploymentData,
+  FeeLimits,
   FunctionData,
   TxContext,
   getContractDeploymentInfo,
@@ -11,7 +12,6 @@ import { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foun
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { FeeLimits } from '../../../circuits.js/src/structs/fee_limits.js';
 import { Wallet } from '../account/index.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 import { type Contract } from './contract.js';
