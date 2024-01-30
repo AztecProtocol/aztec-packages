@@ -90,7 +90,6 @@ export async function makeProcessedTx(
 export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): Promise<ProcessedTx> {
   const emptyKernelOutput = PublicKernelPublicInputs.empty();
   emptyKernelOutput.constants.header = header;
-  // TODO(#4256): The following two fields are most likely redundant now and should be removed.
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   const emptyProof = makeEmptyProof();
