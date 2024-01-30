@@ -298,26 +298,89 @@ const sidebars = {
         id: "developers/contracts/main",
       },
       items: [
-        "developers/contracts/setup",
-        "developers/contracts/compiling",
-        "developers/contracts/deploying",
         {
           label: "Writing Contracts",
           type: "category",
           items: [
-            "developers/contracts/writing_a_contract/example_contract",
-            "developers/contracts/writing_a_contract/layout",
-            "developers/contracts/writing_a_contract/write_constructor",
-            "developers/contracts/writing_a_contract/emit_event",
-            "developers/contracts/writing_a_contract/call_functions",
-            "developers/contracts/writing_a_contract/communicate_with_portal",
-            "developers/contracts/writing_a_contract/slow_updates_tree",
-            "developers/contracts/writing_a_contract/write_accounts_contract",
-            "developers/contracts/writing_a_contract/how_to_prove_history",
+            "developers/contracts/setup",
+            "developers/contracts/compiling",
+            "developers/contracts/deploying",
+            {
+              label: "Functions and Constructors",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/writing_a_contract/functions/main",
+              },
+              items: [
+                "developers/contracts/writing_a_contract/functions/context",
+                "developers/contracts/writing_a_contract/functions/call_functions",
+                "developers/contracts/writing_a_contract/functions/write_constructor",
+              ],
+            },
+            {
+              label: "Storage",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/writing_a_contract/storage/main",
+              },
+              items: [
+                "developers/contracts/writing_a_contract/storage/define_storage",
+              ],
+            },
+            {
+              label: "Accounts and Account Contracts",
+              type: "category",
+              items: [
+                "developers/contracts/writing_a_contract/accounts/write_accounts_contract",
+              ],
+            },
+            {
+              label: "Events",
+              type: "category",
+              items: [
+                "developers/contracts/writing_a_contract/events/emit_event",
+              ],
+            },
+            {
+              label: "Oracles",
+              type: "category",
+              items: [
+                "developers/contracts/writing_a_contract/oracles/inbuilt_oracles",
+                "developers/contracts/writing_a_contract/oracles/pop_capsule",
+              ],
+            },
+            {
+              label: "Historical Data",
+              type: "category",
+              items: [
+                {
+                  label: "Slow Updates Tree",
+                  type: "category",
+                  link: {
+                    type: "doc",
+                    id: "developers/contracts/writing_a_contract/historical_data/slow_updates_tree/main",
+                  },
+                  items: [
+                    "developers/contracts/writing_a_contract/historical_data/slow_updates_tree/implement_slow_updates",
+                  ],
+                },
+                {
+                  label: "Historical Blockchain Data (Archive Tree)",
+                  type: "category",
+                  link: {
+                    type: "doc",
+                    id: "developers/contracts/writing_a_contract/historical_data/slow_updates_tree/main",
+                  },
+                  items: [
+                    "developers/contracts/writing_a_contract/historical_data/archive_tree/how_to_prove_history",
+                  ],
+                },
+              ],
+            },
           ],
         },
-        "developers/contracts/compiling",
-        "developers/contracts/deploying",
         "developers/contracts/artifacts",
         {
           label: "Testing Contracts",
@@ -328,23 +391,6 @@ const sidebars = {
           },
           items: [
             "developers/contracts/testing_a_contract/cheat_codes",
-                     ],
-        },
-        {
-          label: "Explanations",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "developers/contracts/explanations/main",
-          },
-          items: [
-            "developers/contracts/explanations/functions",
-            "developers/contracts/explanations/context",
-            "developers/contracts/explanations/artifacts",
-            "developers/contracts/explanations/storage",
-            "developers/contracts/explanations/oracles",
-            "developers/contracts/explanations/portals",
-            "developers/contracts/explanations/slow_updates_tree",
                      ],
         },
         {
@@ -446,6 +492,11 @@ const sidebars = {
       label: "API Reference",
       type: "category",
       items: [
+        {
+          label: "Private Execution Environment (PXE)",
+          type: "doc",
+          id: "apis/pxe/interfaces/PXE",
+        },
         {
           label: "Aztec.js",
           type: "category",

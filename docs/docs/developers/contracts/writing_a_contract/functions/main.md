@@ -68,13 +68,13 @@ It is not possible to call public functions from within a constructor. Beware th
 
 A public function is executed by the sequencer and has access to a state model that is very similar to that of the EVM and Ethereum. Even though they work in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
 
-To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.mdx#public-context) available within your current function's execution scope.
+To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.md#public-context) available within your current function's execution scope.
 
 #include_code set_minter /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ## `Private` Functions
 
-As alluded to earlier, a private function operates on private information, and is executed by the user. To tell the compiler that this is the kind of function we are creating annotate it with the `#[aztec(private)]` attribute. This will make the [private context](./context.mdx#private-context-broken-down) available within your current function's execution scope.
+As alluded to earlier, a private function operates on private information, and is executed by the user. To tell the compiler that this is the kind of function we are creating annotate it with the `#[aztec(private)]` attribute. This will make the [private context](./context.md#private-context-broken-down) available within your current function's execution scope.
 
 #include_code redeem_shield /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -294,7 +294,7 @@ Inside the kernel circuits, the inputs to functions are reduced to a single valu
 **Creating the function's context.**
 #include_code context-example-context /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Each Aztec function has access to a [context](./context.mdx) object. This object although ergonomically a global variable, is local. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+Each Aztec function has access to a [context](./context.md) object. This object although ergonomically a global variable, is local. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
 #include_code context-example-context-return /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
