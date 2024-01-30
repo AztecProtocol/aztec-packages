@@ -167,22 +167,22 @@ describe('e2e_note_getter', () => {
 
     async function assertNoteIsReturned(storageSlot: number, expectedValue: number, activeOrNullified: boolean) {
       const viewNotesResult = await contract.methods.call_view_notes(storageSlot, activeOrNullified).view();
-      const getNoteResult = await callGetNote(storageSlot, activeOrNullified);
+      const getNotesResult = await callGetNotes(storageSlot, activeOrNullified);
 
-      expect(viewNotesResult).toEqual(getNoteResult);
+      expect(viewNotesResult).toEqual(getNotesResult);
       expect(viewNotesResult).toEqual(BigInt(expectedValue));
     }
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).view()).rejects.toThrow('is_some');
-      await expect(contract.methods.call_get_note(storageSlot, activeOrNullified).send().wait()).rejects.toThrow(
+      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).send().wait()).rejects.toThrow(
         'is_some',
       );
     }
 
-    async function callGetNote(storageSlot: number, activeOrNullified: boolean): Promise<bigint> {
+    async function callGetNotes(storageSlot: number, activeOrNullified: boolean): Promise<bigint> {
       // call_get_notes exposes the return value via an event since we cannot use view() with it.
-      const tx = contract.methods.call_get_note(storageSlot, activeOrNullified).send();
+      const tx = contract.methods.call_get_notes(storageSlot, activeOrNullified).send();
       await tx.wait();
 
       const logs = (await tx.getUnencryptedLogs()).logs;

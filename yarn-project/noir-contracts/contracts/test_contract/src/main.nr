@@ -103,7 +103,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn call_get_note(storage_slot: Field, active_or_nullified: bool) {
+    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) {
         assert(storage_slot != 1, "storage slot 1 is reserved for example_constant");
 
         let mut options = NoteGetterOptions::new();
