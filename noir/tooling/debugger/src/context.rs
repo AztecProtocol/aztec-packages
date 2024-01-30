@@ -352,16 +352,6 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         acir_index < opcodes.len() && matches!(opcodes[acir_index], Opcode::Brillig(..))
     }
 
-    // pub(super) fn get_brillig_registers(&self) -> Option<&Registers> {
-    //     self.brillig_solver.as_ref().map(|solver| solver.get_registers())
-    // }
-
-    // pub(super) fn set_brillig_register(&mut self, register_index: usize, value: FieldElement) {
-    //     if let Some(solver) = self.brillig_solver.as_mut() {
-    //         solver.set_register(register_index, value.into());
-    //     }
-    // }
-
     pub(super) fn get_brillig_memory(&self) -> Option<&[Value]> {
         self.brillig_solver.as_ref().map(|solver| solver.get_memory())
     }
