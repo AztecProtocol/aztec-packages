@@ -1,5 +1,5 @@
-import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { ContractDao, MerkleTreeId, NoteFilter, NoteStatus, PublicKey } from '@aztec/circuit-types';
+import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -11,32 +11,27 @@ import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
-/** Serialized structure of a block header */
-type SynchronizedBlock = {
-  /** The tree roots when the block was created */
-  roots: Record<MerkleTreeId, string>;
-  /** The hash of the global variables */
-  globalVariablesHash: string;
-  /** The block number */
-  blockNumber: number;
-};
-
 /**
  * A PXE database backed by LMDB.
  */
 export class KVPxeDatabase implements PxeDatabase {
-  #synchronizedBlock: AztecSingleton<SynchronizedBlock>;
+  #synchronizedBlock: AztecSingleton<Buffer>;
   #addresses: AztecArray<Buffer>;
   #addressIndex: AztecMap<string, number>;
   #authWitnesses: AztecMap<string, Buffer[]>;
   #capsules: AztecArray<Buffer[]>;
   #contracts: AztecMap<string, Buffer>;
   #notes: AztecMap<string, Buffer>;
+  #nullifiedNotes: AztecMap<string, Buffer>;
   #nullifierToNoteId: AztecMap<string, string>;
   #notesByContract: AztecMultiMap<string, string>;
   #notesByStorageSlot: AztecMultiMap<string, string>;
   #notesByTxHash: AztecMultiMap<string, string>;
   #notesByOwner: AztecMultiMap<string, string>;
+  #nullifiedNotesByContract: AztecMultiMap<string, string>;
+  #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
+  #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
+  #nullifiedNotesByOwner: AztecMultiMap<string, string>;
   #deferredNotes: AztecArray<Buffer | null>;
   #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
@@ -56,21 +51,23 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#contractArtifacts = db.openMap('contract_artifacts');
     this.#contractInstances = db.openMap('contracts_instances');
-    this.#notesByOwner = db.openMultiMap('notes_by_owner');
 
-    this.#synchronizedBlock = db.openSingleton('block_header');
+    this.#synchronizedBlock = db.openSingleton('header');
     this.#syncedBlockPerPublicKey = db.openMap('synced_block_per_public_key');
 
     this.#notes = db.openMap('notes');
+    this.#nullifiedNotes = db.openMap('nullified_notes');
     this.#nullifierToNoteId = db.openMap('nullifier_to_note');
-    this.#notesByContract = db.openMultiMap('notes_by_contract');
-    this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
-    this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
 
     this.#notesByContract = db.openMultiMap('notes_by_contract');
     this.#notesByStorageSlot = db.openMultiMap('notes_by_storage_slot');
     this.#notesByTxHash = db.openMultiMap('notes_by_tx_hash');
     this.#notesByOwner = db.openMultiMap('notes_by_owner');
+
+    this.#nullifiedNotesByContract = db.openMultiMap('nullified_notes_by_contract');
+    this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
+    this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
+    this.#nullifiedNotesByOwner = db.openMultiMap('nullified_notes_by_owner');
 
     this.#deferredNotes = db.openArray('deferred_notes');
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
@@ -191,46 +188,70 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  #getNotes(filter: NoteFilter = {}): NoteDao[] {
+  #getNotes(filter: NoteFilter): NoteDao[] {
     const publicKey: PublicKey | undefined = filter.owner
       ? this.#getCompleteAddress(filter.owner)?.publicKey
       : undefined;
 
-    const initialNoteIds = publicKey
-      ? this.#notesByOwner.getValues(publicKey.toString())
-      : filter.txHash
-      ? this.#notesByTxHash.getValues(filter.txHash.toString())
-      : filter.contractAddress
-      ? this.#notesByContract.getValues(filter.contractAddress.toString())
-      : filter.storageSlot
-      ? this.#notesByStorageSlot.getValues(filter.storageSlot.toString())
-      : this.#notes.keys();
+    filter.status = filter.status ?? NoteStatus.ACTIVE;
+
+    const candidateNoteSources = [];
+
+    candidateNoteSources.push({
+      ids: publicKey
+        ? this.#notesByOwner.getValues(publicKey.toString())
+        : filter.txHash
+        ? this.#notesByTxHash.getValues(filter.txHash.toString())
+        : filter.contractAddress
+        ? this.#notesByContract.getValues(filter.contractAddress.toString())
+        : filter.storageSlot
+        ? this.#notesByStorageSlot.getValues(filter.storageSlot.toString())
+        : this.#notes.keys(),
+      notes: this.#notes,
+    });
+
+    if (filter.status == NoteStatus.ACTIVE_OR_NULLIFIED) {
+      candidateNoteSources.push({
+        ids: publicKey
+          ? this.#nullifiedNotesByOwner.getValues(publicKey.toString())
+          : filter.txHash
+          ? this.#nullifiedNotesByTxHash.getValues(filter.txHash.toString())
+          : filter.contractAddress
+          ? this.#nullifiedNotesByContract.getValues(filter.contractAddress.toString())
+          : filter.storageSlot
+          ? this.#nullifiedNotesByStorageSlot.getValues(filter.storageSlot.toString())
+          : this.#nullifiedNotes.keys(),
+        notes: this.#nullifiedNotes,
+      });
+    }
 
     const result: NoteDao[] = [];
-    for (const noteId of initialNoteIds) {
-      const serializedNote = this.#notes.get(noteId);
-      if (!serializedNote) {
-        continue;
-      }
+    for (const { ids, notes } of candidateNoteSources) {
+      for (const id of ids) {
+        const serializedNote = notes.get(id);
+        if (!serializedNote) {
+          continue;
+        }
 
-      const note = NoteDao.fromBuffer(serializedNote);
-      if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
-        continue;
-      }
+        const note = NoteDao.fromBuffer(serializedNote);
+        if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
+          continue;
+        }
 
-      if (filter.txHash && !note.txHash.equals(filter.txHash)) {
-        continue;
-      }
+        if (filter.txHash && !note.txHash.equals(filter.txHash)) {
+          continue;
+        }
 
-      if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
-        continue;
-      }
+        if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
+          continue;
+        }
 
-      if (publicKey && !note.publicKey.equals(publicKey)) {
-        continue;
-      }
+        if (publicKey && !note.publicKey.equals(publicKey)) {
+          continue;
+        }
 
-      result.push(note);
+        result.push(note);
+      }
     }
 
     return result;
@@ -275,6 +296,12 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notesByContract.deleteValue(note.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlot.deleteValue(note.storageSlot.toString(), noteIndex);
 
+        void this.#nullifiedNotes.set(noteIndex, note.toBuffer());
+        void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
+        void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
+        void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
+        void this.#nullifiedNotesByOwner.set(note.publicKey.toString(), noteIndex);
+
         void this.#nullifierToNoteId.delete(nullifier.toString());
       }
 
@@ -282,59 +309,26 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  getTreeRoots(): Record<MerkleTreeId, Fr> {
-    const roots = this.#synchronizedBlock.get()?.roots;
-    if (!roots) {
-      throw new Error(`Tree roots not set`);
-    }
-
-    return {
-      [MerkleTreeId.ARCHIVE]: Fr.fromString(roots[MerkleTreeId.ARCHIVE]),
-      [MerkleTreeId.CONTRACT_TREE]: Fr.fromString(roots[MerkleTreeId.CONTRACT_TREE].toString()),
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr.fromString(roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].toString()),
-      [MerkleTreeId.NOTE_HASH_TREE]: Fr.fromString(roots[MerkleTreeId.NOTE_HASH_TREE].toString()),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.fromString(roots[MerkleTreeId.PUBLIC_DATA_TREE].toString()),
-      [MerkleTreeId.NULLIFIER_TREE]: Fr.fromString(roots[MerkleTreeId.NULLIFIER_TREE].toString()),
-    };
-  }
-
-  async setBlockData(blockNumber: number, blockHeader: BlockHeader): Promise<void> {
-    await this.#synchronizedBlock.set({
-      blockNumber,
-      globalVariablesHash: blockHeader.globalVariablesHash.toString(),
-      roots: {
-        [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot.toString(),
-        [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot.toString(),
-        [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot.toString(),
-        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: blockHeader.l1ToL2MessageTreeRoot.toString(),
-        [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot.toString(),
-        [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot.toString(),
-      },
-    });
+  async setHeader(header: Header): Promise<void> {
+    await this.#synchronizedBlock.set(header.toBuffer());
   }
 
   getBlockNumber(): number | undefined {
-    return this.#synchronizedBlock.get()?.blockNumber;
-  }
-
-  getBlockHeader(): BlockHeader {
-    const value = this.#synchronizedBlock.get();
-    if (!value) {
-      throw new Error(`Block header not set`);
+    const headerBuffer = this.#synchronizedBlock.get();
+    if (!headerBuffer) {
+      return undefined;
     }
 
-    const blockHeader = new BlockHeader(
-      Fr.fromString(value.roots[MerkleTreeId.NOTE_HASH_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.NULLIFIER_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.CONTRACT_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.ARCHIVE]),
-      Fr.ZERO, // todo: private kernel vk tree root
-      Fr.fromString(value.roots[MerkleTreeId.PUBLIC_DATA_TREE]),
-      Fr.fromString(value.globalVariablesHash),
-    );
+    return Number(Header.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
+  }
 
-    return blockHeader;
+  getHeader(): Header {
+    const headerBuffer = this.#synchronizedBlock.get();
+    if (!headerBuffer) {
+      throw new Error(`Header not set`);
+    }
+
+    return Header.fromBuffer(headerBuffer);
   }
 
   addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
