@@ -42,9 +42,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
 } from '@aztec/circuits.js';
-import {
-  computeContractLeaf,
-} from '@aztec/circuits.js/abis';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';

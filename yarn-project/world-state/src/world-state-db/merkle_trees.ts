@@ -5,6 +5,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
+  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
@@ -19,7 +20,6 @@ import {
   PublicDataTreeLeafPreimage,
   StateReference,
 } from '@aztec/circuits.js';
-import { Committable } from '@aztec/foundation/committable';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
@@ -43,18 +43,6 @@ import { HandleL2BlockResult, IndexedTreeId, MerkleTreeOperations, TreeInfo } fr
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
 /**
- * Data necessary to reinitialize the merkle trees from Db.
- */
-interface FromDbOptions {
-  /**
-   * The global variables hash from the last block.
-   */
-  globalVariablesHash: Fr;
-}
-
-const LAST_GLOBAL_VARS_HASH = 'lastGlobalVarsHash';
-
-/**
  * The nullifier tree is an indexed tree.
  */
 class NullifierTree extends StandardIndexedTree {
@@ -72,27 +60,26 @@ class PublicDataTree extends StandardIndexedTree {
   }
 }
 
+const FROM_DB_FLAG = 'FROM_DB';
+
 /**
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
-  private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
 
-  #globalVariablesHash: AztecSingleton<Buffer>;
+  fromDb: AztecSingleton<boolean>;
 
   constructor(private store: AztecKVStore, private log = createDebugLogger('aztec:merkle_trees')) {
-    this.latestGlobalVariablesHash = new Committable(Fr.ZERO);
-    this.#globalVariablesHash = store.openSingleton(LAST_GLOBAL_VARS_HASH);
+    this.fromDb = store.openSingleton(FROM_DB_FLAG);
   }
 
   /**
    * initializes the collection of Merkle Trees.
-   * @param fromDbOptions - Options to initialize the trees from the database.
+   * @param fromDb - Whether to initialize the trees from the db.
    */
-  public async init(fromDbOptions?: FromDbOptions) {
-    const fromDb = fromDbOptions !== undefined;
+  public async init(fromDb = false) {
     const initializeTree = fromDb ? loadTree : newTree;
 
     const hasher = new Pedersen();
@@ -144,17 +131,14 @@ export class MerkleTrees implements MerkleTreeDb {
 
     this.jobQueue.start();
 
-    // The first leaf in the blocks tree contains the empty roots of the other trees and empty global variables.
     if (!fromDb) {
-      const initialGlobalVariablesHash = computeGlobalsHash(GlobalVariables.empty());
-      await this._updateLatestGlobalVariablesHash(initialGlobalVariablesHash);
-      await this._updateArchive(initialGlobalVariablesHash, true);
-      await this._commit();
-    } else {
-      await this._updateLatestGlobalVariablesHash(fromDbOptions.globalVariablesHash);
-      // make the restored global variables hash and tree roots current
-      await this._commit();
+      // We are not initializing from db so we need to populate the first leaf of the archive tree which is a hash of
+      // the initial header.
+      const initialHeder = await this.buildInitialHeader(true);
+      await this.#updateArchive(initialHeder, true);
     }
+
+    await this._commit();
   }
 
   /**
@@ -164,10 +148,15 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public static async new(store: AztecKVStore) {
     const merkleTrees = new MerkleTrees(store);
-    const globalVariablesHash = store.openSingleton<Buffer>(LAST_GLOBAL_VARS_HASH);
-    const val = globalVariablesHash.get();
-    await merkleTrees.init(val ? { globalVariablesHash: Fr.fromBuffer(val) } : undefined);
+    const fromDbFlag = store.openSingleton<boolean>(FROM_DB_FLAG);
+    const val = fromDbFlag.get();
+    await merkleTrees.init(val);
     return merkleTrees;
+  }
+
+  public async buildInitialHeader(includeUncommitted: boolean): Promise<Header> {
+    const state = await this.getStateReference(includeUncommitted);
+    return new Header(AppendOnlyTreeSnapshot.empty(), Buffer.alloc(32, 0), state, GlobalVariables.empty());
   }
 
   /**
@@ -196,19 +185,11 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, NOTE_HASH_TREE_ROOTS_TREE, L1_TO_L2_MESSAGE_TREE_ROOTS_TREE)
    * the current roots of the corresponding trees (CONTRACT_TREE, NOTE_HASH_TREE, L1_TO_L2_MESSAGE_TREE).
-   * @param globalsHash - The current global variables hash.
+   * @param header - The header to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateArchive(globalsHash: Fr, includeUncommitted: boolean) {
-    await this.synchronize(() => this._updateArchive(globalsHash, includeUncommitted));
-  }
-
-  /**
-   * Updates the latest global variables hash
-   * @param globalVariablesHash - The latest global variables hash
-   */
-  public async updateLatestGlobalVariablesHash(globalVariablesHash: Fr) {
-    return await this.synchronize(() => this._updateLatestGlobalVariablesHash(globalVariablesHash));
+  public async updateArchive(header: Header, includeUncommitted: boolean) {
+    await this.synchronize(() => this.#updateArchive(header, includeUncommitted));
   }
 
   /**
@@ -419,17 +400,15 @@ export class MerkleTrees implements MerkleTreeDb {
     return await this.jobQueue.put(fn);
   }
 
-  private _updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
-    this.latestGlobalVariablesHash.set(globalVariablesHash);
-    return Promise.resolve();
-  }
+  async #updateArchive(header: Header, includeUncommitted: boolean) {
+    const state = await this.getStateReference(includeUncommitted);
+    // TODO: StateReference.equals
+    // TODO: Is this even needed here?
+    if (state.toBuffer().equals(header.state.toBuffer())) {
+      throw new Error('State in header does not match current state');
+    }
 
-  private _getGlobalVariablesHash(includeUncommitted: boolean): Promise<Fr> {
-    return Promise.resolve(this.latestGlobalVariablesHash.get(includeUncommitted));
-  }
-
-  private async _updateArchive(globalsHash: Fr, includeUncommitted: boolean) {
-    const blockHash = await this._getCurrentBlockHash(globalsHash, includeUncommitted);
+    const blockHash = header.hash();
     await this._appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   }
 
@@ -503,8 +482,7 @@ export class MerkleTrees implements MerkleTreeDb {
     for (const tree of this.trees) {
       await tree.commit();
     }
-    this.latestGlobalVariablesHash.commit();
-    await this.#globalVariablesHash.set(this.latestGlobalVariablesHash.get().toBuffer());
+    await this.fromDb.set(true);
   }
 
   /**
@@ -515,7 +493,6 @@ export class MerkleTrees implements MerkleTreeDb {
     for (const tree of this.trees) {
       await tree.rollback();
     }
-    this.latestGlobalVariablesHash.rollback();
   }
 
   public getSnapshot(blockNumber: number) {
@@ -583,12 +560,8 @@ export class MerkleTrees implements MerkleTreeDb {
         );
       }
 
-      // Sync and add header hash to archive tree
-      await this._updateLatestGlobalVariablesHash(globalVariablesHash);
-      this.log(`Synced global variables ${l2Block.header.globalVariables.toJSON()}`);
-
-      const blockHash = l2Block.header.hash();
-      await this._appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
+      // The last thing remaining is to update the archive
+      await this.#updateArchive(l2Block.header, true);
 
       await this._commit();
     }
