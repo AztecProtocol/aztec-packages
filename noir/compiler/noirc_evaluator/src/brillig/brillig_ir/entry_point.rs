@@ -41,11 +41,9 @@ impl BrilligContext {
         arguments: &[BrilligParameter],
         return_parameters: &[BrilligParameter],
     ) {
-        let calldata_size =
-            arguments.iter().fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
-        let return_data_size = return_parameters
-            .iter()
-            .fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
+        let calldata_size = BrilligContext::flattened_tuple_size(arguments);
+        let return_data_size = BrilligContext::flattened_tuple_size(return_parameters);
+
         // Set initial value of stack pointer: MAX_STACK_SIZE + calldata_size + return_data_size
         self.push_opcode(BrilligOpcode::Const {
             destination: ReservedRegisters::stack_pointer(),
@@ -97,7 +95,7 @@ impl BrilligContext {
                 BrilligParameter::Array(item_type, item_count),
             ) = (argument_variable, argument)
             {
-                if item_type.iter().any(|param| !matches!(param, BrilligParameter::Simple)) {
+                if BrilligContext::has_nested_arrays(item_type) {
                     let deflattened_address =
                         self.deflatten_array(item_type, array.size, array.pointer);
                     self.mov_instruction(array.pointer, deflattened_address);
@@ -122,6 +120,16 @@ impl BrilligContext {
         }
     }
 
+    /// Computes the size of a parameter if it was flattened
+    fn flattened_tuple_size(tuple: &[BrilligParameter]) -> usize {
+        tuple.iter().map(BrilligContext::flattened_size).sum()
+    }
+
+    /// Computes the size of a parameter if it was flattened
+    fn has_nested_arrays(tuple: &[BrilligParameter]) -> bool {
+        tuple.iter().any(|param| !matches!(param, BrilligParameter::Simple))
+    }
+
     /// Deflatten an array by recursively allocating nested arrays and copying the plain values.
     /// Returns the pointer to the deflattened items.
     fn deflatten_array(
@@ -130,13 +138,12 @@ impl BrilligContext {
         item_count: usize,
         flattened_array_pointer: MemoryAddress,
     ) -> MemoryAddress {
-        if item_type.iter().any(|param| !matches!(param, BrilligParameter::Simple)) {
+        if BrilligContext::has_nested_arrays(item_type) {
             let movement_register = self.allocate_register();
             let deflattened_array_pointer = self.allocate_register();
 
             let target_item_size = item_type.len();
-            let source_item_size: usize =
-                item_type.iter().map(BrilligContext::flattened_size).sum();
+            let source_item_size = BrilligContext::flattened_tuple_size(item_type);
 
             self.allocate_fixed_length_array(
                 deflattened_array_pointer,
@@ -229,8 +236,8 @@ impl BrilligContext {
     }
 
     /// Adds the instructions needed to handle return parameters
-    /// The runtime expects the results in the first `n` registers.
-    /// Arrays are expected to be returned as pointers to the first element with all the nested arrays flattened.
+    /// The runtime expects the results in a contiguous memory region.
+    /// Arrays are expected to be returned with all the nested arrays flattened.
     /// However, the function called returns variables (that have extra data) and the returned arrays are deflattened.
     fn exit_point_instruction(
         &mut self,
@@ -255,13 +262,11 @@ impl BrilligContext {
             .collect();
 
         // Now, we deflatten the return data
-        let calldata_size =
-            arguments.iter().fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
-        let return_data_size = return_parameters
-            .iter()
-            .fold(0, |acc, param| acc + BrilligContext::flattened_size(param));
+        let calldata_size = BrilligContext::flattened_tuple_size(arguments);
+        let return_data_size = BrilligContext::flattened_tuple_size(return_parameters);
 
-        let return_data_offset = calldata_size + MAX_STACK_SIZE;
+        // Return data has a reserved space after calldata
+        let return_data_offset = MAX_STACK_SIZE + calldata_size;
         let mut return_data_index = return_data_offset;
 
         for (return_param, returned_variable) in return_parameters.iter().zip(&returned_variables) {
@@ -277,22 +282,13 @@ impl BrilligContext {
                     let returned_pointer = returned_variable.extract_array().pointer;
                     let pointer_to_return_data = self.make_constant(return_data_index.into());
 
-                    if item_type.iter().any(|item| !matches!(item, BrilligParameter::Simple)) {
-                        self.flatten_array(
-                            item_type,
-                            *item_count,
-                            pointer_to_return_data,
-                            returned_pointer,
-                        );
-                    } else {
-                        let item_count = self.make_constant((*item_count * item_type.len()).into());
-                        self.copy_array_instruction(
-                            returned_pointer,
-                            pointer_to_return_data,
-                            item_count,
-                        );
-                        self.deallocate_register(item_count);
-                    }
+                    self.flatten_array(
+                        item_type,
+                        *item_count,
+                        pointer_to_return_data,
+                        returned_pointer,
+                    );
+
                     self.deallocate_register(pointer_to_return_data);
                     return_data_index += BrilligContext::flattened_size(return_param);
                 }
@@ -313,7 +309,7 @@ impl BrilligContext {
         flattened_array_pointer: MemoryAddress,
         deflattened_array_pointer: MemoryAddress,
     ) {
-        if item_type.iter().any(|item| !matches!(item, BrilligParameter::Simple)) {
+        if BrilligContext::has_nested_arrays(item_type) {
             let movement_register = self.allocate_register();
 
             let source_item_size = item_type.len();
