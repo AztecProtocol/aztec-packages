@@ -2,7 +2,7 @@
 title: Functions
 ---
 
-Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they can interact with other contracts and the blockchain, or **private** for internal contract use. 
+Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../../../learn/concepts/pxe/main.md). Read more about how private functions work [here](./inner_workings.md#private-functions).
 
 For a more practical guide of using multiple types of functions, follow the [token tutorial](../../../tutorials/writing_token_contract.md).
 
@@ -17,3 +17,4 @@ Explore this section to learn:
 - How [constructors](./constructor.md) work and remain private
 - [Calling functions from within the same smart contract and from different contracts](./calling_functions.md), including calling private functions from private functions, public from public, and even private from public
 - [Oracles](./oracles) and how Aztec smart contracts might use them
+- [How functions work under the hood](./inner_workings.md)

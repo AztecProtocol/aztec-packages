@@ -2,7 +2,9 @@
 title: Visibility
 ---
 
-In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`.
+In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`. This page explains these types of visibility.
+
+For a practical guide of using multiple types of data and function visibility,follow the [token tutorial](../../../tutorials/writing_token_contract.md). 
 
 ### Data Visibility
 
@@ -20,4 +22,4 @@ A good place to use `internal` is when you want a private function to be able to
 Note that non-internal functions could be used directly as an entry-point, which currently means that the `msg_sender` would be `0`, so for now, using address `0` as a burn address is not recommended.
 :::
 
-For a practical guide of using multiple types of data visibility and `internal` functions,follow the [token tutorial](../../../tutorials/writing_token_contract.md). 
+To understand how visibility works under the hood, check out the [Inner Workings page](./inner_workings.md).

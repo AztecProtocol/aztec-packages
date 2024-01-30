@@ -4,6 +4,8 @@ title: Inner Workings of Functions
 
 Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract and what the attributes are really doing.
 
+To get a more practical understanding about functions, read [the rest of this section](./main.md).
+
 ## Private functions
 
 Aztec.nr uses an attribute system to annotate a function's type. Annotating a function with the `#[aztec(private)]` attribute tells the framework that this is a private function that will be executed on a users device. The compiler will create a circuit to define this function.

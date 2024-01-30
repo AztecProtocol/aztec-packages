@@ -296,19 +296,6 @@ const sidebars = {
             },
             "developers/contracts/syntax/events",
             {
-              label: "Storage",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "developers/contracts/syntax/storage/main",
-              },
-              items: [
-                "developers/contracts/syntax/storage/public_state",
-                "developers/contracts/syntax/storage/private_state",
-                "developers/contracts/syntax/storage/storage_slots",
-              ],
-            },
-            {
               label: "Functions",
               type: "category",
               link: {
@@ -316,8 +303,8 @@ const sidebars = {
                 id: "developers/contracts/syntax/functions/main",
               },
               items: [
-                "developers/contracts/syntax/functions/visibility",
                 "developers/contracts/syntax/functions/public_private_unconstrained",
+                "developers/contracts/syntax/functions/visibility",
                 "developers/contracts/syntax/functions/constructor",
                 "developers/contracts/syntax/functions/calling_functions",
                 "developers/contracts/syntax/functions/oracles",
