@@ -78,9 +78,7 @@ An example of singleton usage in the account contracts is keeping track of publi
 
 ### `new`
 
-As part of the initialization of the `Storage` struct, the `Singleton` is created as follows at the specified storage slot.
-
-#include_code start_vars_singleton /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+As part of the initialization of the `Storage` struct, the `Singleton` is created at the specified storage slot.
 
 ### `initialize`
 
@@ -138,9 +136,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 ### `new`
 
-As part of the initialization of the `Storage` struct, the `Singleton` is created as follows, here at storage slot 1 and with the `NoteInterface` for `PublicKeyNote`.
-
-#include_code storage_init /yarn-project/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+As part of the initialization of the `Storage` struct, the `Singleton` is created.
 
 ### `initialize`
 
