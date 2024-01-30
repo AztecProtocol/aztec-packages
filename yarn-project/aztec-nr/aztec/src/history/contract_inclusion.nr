@@ -31,7 +31,7 @@ pub fn prove_contract_inclusion(
     context: PrivateContext
 ) -> AztecAddress {
     // 1) Get block header from oracle and ensure that the block is included in the archive.
-    let header = context.get_header(block_number);
+    let header = context.get_header_at(block_number);
 
     // 2) Compute the contract address
     let contract_address = CompleteAddress::compute(

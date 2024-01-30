@@ -16,7 +16,7 @@ pub fn prove_note_commitment_inclusion(
     context: PrivateContext
 ) {
     // 1) Get block header from oracle and ensure that the block is included in the archive.
-    let header = context.get_header(block_number);
+    let header = context.get_header_at(block_number);
 
     // 2) Get the membership witness of the note in the note hash tree
     let witness = get_note_hash_membership_witness(block_number, note_commitment);

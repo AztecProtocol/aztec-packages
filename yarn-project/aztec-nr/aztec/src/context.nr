@@ -11,7 +11,7 @@ use crate::{
         public_call::call_public_function_internal,
         enqueue_public_function_call::enqueue_public_function_call_internal,
         context::get_portal_address,
-        get_header::get_header,
+        header::get_header_at,
         nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
     },
     types::vec::BoundedVec,
@@ -148,8 +148,13 @@ impl PrivateContext {
         self.inputs.call_context.function_selector
     }
 
-    pub fn get_header(self, block_number: u32) -> Header {
-        get_header(block_number, self)
+    // Returns the header of a block whose state is used during private execution
+    pub fn get_header(self) -> Header {
+        self.historical_header
+    }
+
+    pub fn get_header_at(self, block_number: u32) -> Header {
+        get_header_at(block_number, self)
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {

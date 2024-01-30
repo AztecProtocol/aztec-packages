@@ -10,14 +10,14 @@ use crate::{
 };
 
 #[oracle(getHeader)]
-fn get_header_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
+fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
-unconstrained pub fn get_header_internal(block_number: u32) -> Header {
-    let header = get_header_oracle(block_number);
+unconstrained pub fn get_header_at_internal(block_number: u32) -> Header {
+    let header = get_header_at_oracle(block_number);
     Header::deserialize(header)
 }
 
-pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
+pub fn get_header_at(block_number: u32, context: PrivateContext) -> Header {
     // 1) Get block number corresponding to the last_archive root in the header
     // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous block
     let last_archive_block_number = (context.historical_header.global_variables.block_number - 1) as u32;
@@ -30,7 +30,7 @@ pub fn get_header(block_number: u32, context: PrivateContext) -> Header {
     );
 
     // 3) Get the header of a given block from oracle
-    let header = get_header_internal(block_number);
+    let header = get_header_at_internal(block_number);
 
     // 4) Compute the block hash from the block header
     let block_hash = header.block_hash();

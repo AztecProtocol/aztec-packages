@@ -11,7 +11,7 @@ pub fn prove_nullifier_inclusion(
     context: PrivateContext
 ) {
     // 1) Get block header from oracle and ensure that the block hash is included in the archive.
-    let header = context.get_header(block_number);
+    let header = context.get_header_at(block_number);
 
     // 2) Get the membership witness of the nullifier
     let witness = get_nullifier_membership_witness(block_number, nullifier);

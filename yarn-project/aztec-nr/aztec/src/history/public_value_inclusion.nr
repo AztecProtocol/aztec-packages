@@ -22,7 +22,7 @@ pub fn prove_public_value_inclusion(
     context: PrivateContext
 ) {
     // 1) Get block header from oracle and ensure that the block hash is included in the archive.
-    let header = context.get_header(block_number);
+    let header = context.get_header_at(block_number);
 
     // 2) Compute the leaf slot by siloing the storage slot with our own address
     let public_value_leaf_slot = pedersen_hash(
