@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Uploads to S3 the contents of the log file mounted on the end-to-end container,
 # which contains log entries with an associated event and metrics for it.
@@ -17,7 +17,7 @@ if [ ! -d "$LOG_FOLDER" ] || [ -z "$(ls -A "$LOG_FOLDER")" ]; then
   exit 0
 fi
 
-# Duplicated in scripts/ci/assemble_e2e_benchmark.sh
+# Paths used in scripts/ci/assemble_e2e_benchmark.sh
 if [ "${BRANCH:-}" = "master" ]; then
   TARGET_FOLDER="logs-v1/master/$COMMIT_HASH/"
 elif [ -n "${PULL_REQUEST:-}" ]; then

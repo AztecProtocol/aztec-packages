@@ -7,13 +7,11 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace sha256_plookup {
+namespace bb::stdlib::sha256_plookup {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 namespace internal {
 
@@ -362,10 +360,8 @@ template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_
     std::vector<field_pt> output(rolling_hash.begin(), rolling_hash.end());
     return packed_byte_array<Builder>(output, 4);
 }
-#define SHA256_PLOOKUP(circuit_type)                                                                                   \
-    packed_byte_array<circuit_type> sha256(const packed_byte_array<circuit_type>& input)
 
-INSTANTIATE_STDLIB_ULTRA_METHOD(SHA256_PLOOKUP)
-} // namespace sha256_plookup
-} // namespace stdlib
-} // namespace proof_system::plonk
+template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
+template packed_byte_array<bb::GoblinUltraCircuitBuilder> sha256(
+    const packed_byte_array<bb::GoblinUltraCircuitBuilder>& input);
+} // namespace bb::stdlib::sha256_plookup

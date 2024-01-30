@@ -16,8 +16,8 @@ import {
   generatePublicKey,
   getContractDeploymentInfo,
 } from '@aztec/aztec.js';
-import { EscrowContractArtifact } from '@aztec/noir-contracts/artifacts';
-import { EscrowContract, TokenContract } from '@aztec/noir-contracts/types';
+import { EscrowContract, EscrowContractArtifact } from '@aztec/noir-contracts/Escrow';
+import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { setup } from './fixtures/utils.js';
 
@@ -64,7 +64,7 @@ describe('e2e_escrow_contract', () => {
     logger(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract
-    token = await TokenContract.deploy(wallet, owner).send().deployed();
+    token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
     const mintAmount = 100n;
     const secret = Fr.random();

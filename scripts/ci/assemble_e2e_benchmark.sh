@@ -1,5 +1,5 @@
-#!/bin/bash
-# Grabs the log files uploaded in yarn-project/end-to-end/scripts/upload_logs_to_s3.sh
+#!/usr/bin/env bash
+# Grabs the log files uploaded in build-system/scripts/upload_logs_to_s3
 # that contain representative benchmarks, extracts whatever metrics are interesting,
 # and assembles a single file that shows the current state of the repository.
 
@@ -14,7 +14,7 @@ BASE_COMMIT_HASH=""
 BENCHMARK_FILE_JSON="${BENCH_FOLDER}/benchmark.json"
 BASE_BENCHMARK_FILE_JSON="${BENCH_FOLDER}/base-benchmark.json"
 
-# Adapted from yarn-project/end-to-end/scripts/upload_logs_to_s3.sh
+# Paths from build-system/scripts/upload_logs_to_s3
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
   LOG_SOURCE_FOLDER="logs-v1/master/$COMMIT_HASH"
   BENCHMARK_TARGET_FILE="benchmarks-v1/master/$COMMIT_HASH.json"
@@ -70,7 +70,7 @@ if [ -n "${BENCHMARK_LATEST_FILE:-}" ]; then
   aws s3 cp $BENCHMARK_FILE_JSON "s3://${BUCKET_NAME}/${BENCHMARK_LATEST_FILE}"
 fi
 
-# If on a pull request, get the data from the most recent commit on master where it's available, 
+# If on a pull request, get the data from the most recent commit on master where it's available,
 # generate a markdown comment, and post it on the pull request
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   MASTER_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
@@ -88,11 +88,9 @@ if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   done
   set -e
 
-  if [ -z "${BASE_COMMIT_HASH:-}" ]; then 
+  if [ -z "${BASE_COMMIT_HASH:-}" ]; then
     echo "No base commit data found"
   fi
 
   (yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-comment && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
 fi
-
-

@@ -1,16 +1,17 @@
 use dep::aztec::{
+    protocol_types::address::AztecAddress,
     context::Context,
     note::note_getter_options::NoteGetterOptions,
     state_vars::set::Set,
 };
 use dep::value_note::{
     filter::filter_notes_min_sum,
-    value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN},
+    value_note::ValueNote,
 };
 
 struct EasyPrivateUint {
     context: Context,
-    set: Set<ValueNote, VALUE_NOTE_LEN>,
+    set: Set<ValueNote>,
     storage_slot: Field,
 }
 
@@ -22,8 +23,7 @@ impl EasyPrivateUint {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         let set = Set {
             context,
-            storage_slot,
-            note_interface: ValueNoteMethods,
+            storage_slot
         };
         EasyPrivateUint {
             context,
@@ -33,7 +33,7 @@ impl EasyPrivateUint {
     }
 
     // Very similar to `value_note::utils::increment`.
-    pub fn add(self, addend: u120, owner: Field) {
+    pub fn add(self, addend: u120, owner: AztecAddress) {
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner);
 
@@ -44,7 +44,7 @@ impl EasyPrivateUint {
     }
 
     // Very similar to `value_note::utils::decrement`.
-    pub fn sub(self, subtrahend: u120, owner: Field) {
+    pub fn sub(self, subtrahend: u120, owner: AztecAddress) {
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let maybe_notes = self.set.get_notes(options);
@@ -57,7 +57,7 @@ impl EasyPrivateUint {
 
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(note.owner == owner);
+                assert(note.owner.eq(owner));
 
                 // Removes the note from the owner's set of notes.
                 // docs:start:remove

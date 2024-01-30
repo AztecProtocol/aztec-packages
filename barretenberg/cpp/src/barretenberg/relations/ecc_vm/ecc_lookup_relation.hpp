@@ -7,7 +7,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb::honk::sumcheck {
 
 template <typename FF_> class ECCVMLookupRelationImpl {
   public:
@@ -24,11 +24,20 @@ template <typename FF_> class ECCVMLookupRelationImpl {
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
-    template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
+    template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
 
     {
         return (row.msm_add == 1) || (row.msm_skew == 1) || (row.precompute_select == 1);
     }
+
+    /**
+     * @brief Get the inverse lookup polynomial
+     *
+     * @tparam AllEntities
+     * @param in
+     * @return auto&
+     */
+    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
 
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
@@ -238,4 +247,4 @@ template <typename FF_> class ECCVMLookupRelationImpl {
 
 template <typename FF> using ECCVMLookupRelation = Relation<ECCVMLookupRelationImpl<FF>>;
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb::honk::sumcheck

@@ -18,15 +18,16 @@
     "skipLibCheck": true
   },
   "references": [
+    { "path": "accounts/tsconfig.json" },
     { "path": "acir-simulator/tsconfig.json" },
     { "path": "archiver/tsconfig.json" },
     { "path": "aztec-faucet/tsconfig.json" },
     { "path": "aztec.js/tsconfig.json" },
     { "path": "aztec-node/tsconfig.json" },
     { "path": "pxe/tsconfig.json" },
-    { "path": "aztec-sandbox/tsconfig.json" },
-    { "path": "canary/tsconfig.json" },
+    { "path": "aztec/tsconfig.json" },
     { "path": "circuits.js/tsconfig.json" },
+    { "path": "circuit-types/tsconfig.json" },
     { "path": "cli/tsconfig.json" },
     { "path": "end-to-end/tsconfig.json" },
     { "path": "foundation/tsconfig.json" },
@@ -42,9 +43,6 @@
     { "path": "sequencer-client/tsconfig.json" },
     { "path": "types/tsconfig.json" },
     { "path": "world-state/tsconfig.json" },
-    { "path": "boxes/token/tsconfig.json" },
-    { "path": "boxes/blank/tsconfig.json" },
-    { "path": "boxes/blank-react/tsconfig.json" },
     { "path": "scripts/tsconfig.json" }
   ],
   "files": ["./@types/jest/index.d.ts"]

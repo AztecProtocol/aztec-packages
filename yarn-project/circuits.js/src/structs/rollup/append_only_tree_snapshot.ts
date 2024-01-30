@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { STRING_ENCODING, UInt32 } from '../shared.js';
 
 /**
@@ -31,6 +30,10 @@ export class AppendOnlyTreeSnapshot {
     return serializeToBuffer(this.root, this.nextAvailableLeafIndex);
   }
 
+  toFieldArray(): Fr[] {
+    return [this.root, new Fr(this.nextAvailableLeafIndex)];
+  }
+
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);
   }
@@ -46,5 +49,9 @@ export class AppendOnlyTreeSnapshot {
 
   static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
+  }
+
+  isEmpty(): boolean {
+    return this.root.isZero() && this.nextAvailableLeafIndex === 0;
   }
 }

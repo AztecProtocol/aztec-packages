@@ -4,8 +4,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup {
-namespace keccak_tables {
+namespace bb::plookup::keccak_tables {
 
 /**
  * @brief Generate the plookup tables used for the RHO round of the Keccak hash algorithm
@@ -40,7 +39,7 @@ namespace keccak_tables {
  *
  * We need multiple Rho tables in order to efficiently range-constrain our input slices.
  *
- * The maximum number of bits we can accomodate in this lookup table is MAXIMUM_MULTITABLE_BITS (assume this is 8)
+ * The maximum number of bits we can accommodate in this lookup table is MAXIMUM_MULTITABLE_BITS (assume this is 8)
  * For example take a left-rotation by 1 bit. The right-slice will be a 63-bit integer.
  * 63 does not evenly divide 8. i.e. an 8-bit table cannot correctly range-constrain the input slice and we would need
  * additional range constraints.
@@ -49,7 +48,7 @@ namespace keccak_tables {
  * We can stitch together a lookup table sequence that correctly range constrains the left/right slices for any of our
  * 25 rotation values
  *
- * @tparam TABLE_BITS The number of bits each lookup table can accomodate
+ * @tparam TABLE_BITS The number of bits each lookup table can accommodate
  * @tparam LANE_INDEX Required by get_rho_output_table to produce the correct MultiTable
  */
 template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
@@ -83,9 +82,9 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
      * Used by the Plookup code to precompute lookup tables and generate witness values
      *
      * @param key (first element = table input. Second element is unused as this lookup does not have 2 keys per value)
-     * @return std::array<barretenberg::fr, 2> table output (normalized input and normalized input / 11^TABLE_BITS - 1)
+     * @return std::array<bb::fr, 2> table output (normalized input and normalized input / 11^TABLE_BITS - 1)
      */
-    static std::array<barretenberg::fr, 2> get_rho_renormalization_values(const std::array<uint64_t, 2> key)
+    static std::array<bb::fr, 2> get_rho_renormalization_values(const std::array<uint64_t, 2> key)
     {
         uint64_t accumulator = 0;
         uint64_t input = key[0];
@@ -100,7 +99,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
             base_shift *= BASE;
         }
 
-        return { barretenberg::fr(accumulator), barretenberg::fr(accumulator / divisor) };
+        return { bb::fr(accumulator), bb::fr(accumulator / divisor) };
     }
 
     /**
@@ -186,9 +185,9 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
         table.get_values_from_key = &get_rho_renormalization_values;
 
         uint64_t step_size = numeric::pow64(static_cast<uint64_t>(BASE), TABLE_BITS);
-        table.column_1_step_size = barretenberg::fr(step_size);
-        table.column_2_step_size = barretenberg::fr(step_size);
-        table.column_3_step_size = barretenberg::fr(0);
+        table.column_1_step_size = bb::fr(step_size);
+        table.column_2_step_size = bb::fr(step_size);
+        table.column_3_step_size = bb::fr(0);
         return table;
     }
 
@@ -246,7 +245,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
         table.column_3_step_sizes.push_back(1);
 
         // generate table selector values for the 'right' slice
-        barretenberg::constexpr_for<0, num_right_tables, 1>([&]<size_t i> {
+        bb::constexpr_for<0, num_right_tables, 1>([&]<size_t i> {
             constexpr size_t num_bits_processed = (i * MAXIMUM_MULTITABLE_BITS);
             constexpr size_t bit_slice = (num_bits_processed + MAXIMUM_MULTITABLE_BITS > right_bits)
                                              ? right_bits % MAXIMUM_MULTITABLE_BITS
@@ -269,7 +268,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
         });
 
         // generate table selector values for the 'left' slice
-        barretenberg::constexpr_for<0, num_left_tables, 1>([&]<size_t i> {
+        bb::constexpr_for<0, num_left_tables, 1>([&]<size_t i> {
             constexpr size_t num_bits_processed = (i * MAXIMUM_MULTITABLE_BITS);
 
             constexpr size_t bit_slice = (num_bits_processed + MAXIMUM_MULTITABLE_BITS > left_bits)
@@ -292,5 +291,4 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
     }
 };
 
-} // namespace keccak_tables
-} // namespace plookup
+} // namespace bb::plookup::keccak_tables

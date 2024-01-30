@@ -1,16 +1,23 @@
+use std::path::PathBuf;
+
 use acvm::acir::native_types::WitnessMap;
+use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 
 use nargo::artifacts::debug::DebugArtifact;
 use nargo::constants::PROVER_INPUT_FILE;
+use nargo::ops::compile_program;
 use nargo::package::Package;
+use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_abi::input_parser::{Format, InputValue};
 use noirc_abi::InputMap;
-use noirc_driver::{CompileOptions, CompiledProgram, NOIR_ARTIFACT_VERSION_STRING};
+use noirc_driver::{
+    file_manager_with_stdlib, CompileOptions, CompiledProgram, NOIR_ARTIFACT_VERSION_STRING,
+};
 use noirc_frontend::graph::CrateName;
 
-use super::compile_cmd::compile_bin_package;
+use super::compile_cmd::report_errors;
 use super::fs::{inputs::read_inputs_from_file, witness::save_witness_to_dir};
 use super::NargoConfig;
 use crate::backends::Backend;
@@ -47,7 +54,14 @@ pub(crate) fn run(
         Some(NOIR_ARTIFACT_VERSION_STRING.to_string()),
     )?;
     let target_dir = &workspace.target_directory_path();
-    let (np_language, opcode_support) = backend.get_backend_info()?;
+    let expression_width = args
+        .compile_options
+        .expression_width
+        .unwrap_or_else(|| backend.get_backend_info_or_default());
+
+    let mut workspace_file_manager = file_manager_with_stdlib(std::path::Path::new(""));
+    insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
+    let parsed_files = parse_all(&workspace_file_manager);
 
     let Some(package) = workspace.into_iter().find(|p| p.is_binary()) else {
         println!(
@@ -56,35 +70,59 @@ pub(crate) fn run(
         return Ok(());
     };
 
-    let compiled_program = compile_bin_package(
-        &workspace,
+    let compilation_result = compile_program(
+        &workspace_file_manager,
+        &parsed_files,
         package,
         &args.compile_options,
-        np_language,
-        &opcode_support,
+        None,
+    );
+
+    let compiled_program = report_errors(
+        compilation_result,
+        &workspace_file_manager,
+        args.compile_options.deny_warnings,
+        args.compile_options.silence_warnings,
     )?;
 
-    println!("[{}] Starting debugger", package.name);
-    let (return_value, solved_witness) =
-        debug_program_and_decode(compiled_program, package, &args.prover_name)?;
+    let compiled_program = nargo::ops::transform_program(compiled_program, expression_width);
 
-    if let Some(solved_witness) = solved_witness {
-        println!("[{}] Circuit witness successfully solved", package.name);
+    run_async(package, compiled_program, &args.prover_name, &args.witness_name, target_dir)
+}
 
-        if let Some(return_value) = return_value {
-            println!("[{}] Circuit output: {return_value:?}", package.name);
+fn run_async(
+    package: &Package,
+    program: CompiledProgram,
+    prover_name: &str,
+    witness_name: &Option<String>,
+    target_dir: &PathBuf,
+) -> Result<(), CliError> {
+    use tokio::runtime::Builder;
+    let runtime = Builder::new_current_thread().enable_all().build().unwrap();
+
+    runtime.block_on(async {
+        println!("[{}] Starting debugger", package.name);
+        let (return_value, solved_witness) =
+            debug_program_and_decode(program, package, prover_name)?;
+
+        if let Some(solved_witness) = solved_witness {
+            println!("[{}] Circuit witness successfully solved", package.name);
+
+            if let Some(return_value) = return_value {
+                println!("[{}] Circuit output: {return_value:?}", package.name);
+            }
+
+            if let Some(witness_name) = witness_name {
+                let witness_path = save_witness_to_dir(solved_witness, witness_name, target_dir)?;
+
+                println!("[{}] Witness saved to {}", package.name, witness_path.display());
+            }
+        } else {
+            println!("Debugger execution halted.");
         }
 
-        if let Some(witness_name) = &args.witness_name {
-            let witness_path = save_witness_to_dir(solved_witness, witness_name, target_dir)?;
-
-            println!("[{}] Witness saved to {}", package.name, witness_path.display());
-        }
-    } else {
-        println!("Debugger execution halted.");
-    }
-
-    Ok(())
+        Ok(())
+    })
 }
 
 fn debug_program_and_decode(
@@ -111,8 +149,7 @@ pub(crate) fn debug_program(
     compiled_program: &CompiledProgram,
     inputs_map: &InputMap,
 ) -> Result<Option<WitnessMap>, CliError> {
-    #[allow(deprecated)]
-    let blackbox_solver = barretenberg_blackbox_solver::BarretenbergSolver::new();
+    let blackbox_solver = Bn254BlackBoxSolver::new();
 
     let initial_witness = compiled_program.abi.encode(inputs_map, None)?;
 

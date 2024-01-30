@@ -8,7 +8,7 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 // We won't compile this class with honk::flavor::Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
@@ -23,33 +23,35 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = barretenberg::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations;
 
   public:
-    explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit ECCVMProver_(const std::shared_ptr<ProvingKey>& input_key,
+                          const std::shared_ptr<PCSCommitmentKey>& commitment_key,
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    void execute_preamble_round();
-    void execute_wire_commitments_round();
-    void execute_log_derivative_commitments_round();
-    void execute_grand_product_computation_round();
-    void execute_relation_check_rounds();
-    void execute_univariatization_round();
-    void execute_pcs_evaluation_round();
-    void execute_shplonk_batched_quotient_round();
-    void execute_shplonk_partial_evaluation_round();
-    void execute_final_pcs_round();
-    void execute_transcript_consistency_univariate_opening_round();
+    BBERG_PROFILE void execute_preamble_round();
+    BBERG_PROFILE void execute_wire_commitments_round();
+    BBERG_PROFILE void execute_log_derivative_commitments_round();
+    BBERG_PROFILE void execute_grand_product_computation_round();
+    BBERG_PROFILE void execute_relation_check_rounds();
+    BBERG_PROFILE void execute_univariatization_round();
+    BBERG_PROFILE void execute_pcs_evaluation_round();
+    BBERG_PROFILE void execute_shplonk_batched_quotient_round();
+    BBERG_PROFILE void execute_shplonk_partial_evaluation_round();
+    BBERG_PROFILE void execute_final_pcs_round();
+    BBERG_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    Transcript transcript;
+    std::shared_ptr<Transcript> transcript;
 
     TranslationEvaluations translation_evaluations;
 
     std::vector<FF> public_inputs;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
 
@@ -67,6 +69,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     Polynomial quotient_W;
 
     FF evaluation_challenge_x;
+    FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
@@ -80,6 +83,4 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     plonk::proof proof;
 };
 
-extern template class ECCVMProver_<honk::flavor::ECCVM>;
-
-} // namespace proof_system::honk
+} // namespace bb::honk

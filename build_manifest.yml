@@ -1,3 +1,52 @@
+noir:
+  buildDir: noir
+  rebuildPatterns:
+    - ^noir/Dockerfile
+    - ^noir/acvm-repo
+    - ^noir/compiler
+    - ^noir/aztec_macros
+    - ^noir/noir_stdlib
+    - ^noir/tooling/backend_interface
+    - ^noir/tooling/bb_abstraction_leaks
+    - ^noir/tooling/debugger
+    - ^noir/tooling/lsp
+    - ^noir/tooling/nargo
+    - ^noir/tooling/nargo_cli
+    - ^noir/tooling/nargo_toml
+    - ^noir/tooling/nargo_fmt
+    - ^noir/tooling/noirc_abi
+  multiarch: host
+
+noir-packages:
+  buildDir: noir
+  dockerfile: Dockerfile.packages
+  rebuildPatterns:
+    - ^noir/Dockerfile.packages
+    - ^noir/.yarn
+    - ^noir/.yarnrc.yml
+    - ^noir/package.json
+    - ^noir/yarn.lock
+    - ^noir/acvm-repo
+    - ^noir/compiler
+    - ^noir/aztec_macros
+    - ^noir/noir_stdlib
+    - ^noir/tooling/noir_codegen
+    - ^noir/tooling/noir_js
+    - ^noir/tooling/noir_js_backend_barretenberg
+    - ^noir/tooling/noir_js_types
+    - ^noir/tooling/noirc_abi
+    - ^noir/tooling/noirc_abi_wasm
+
+noir-compile-acir-tests:
+  buildDir: noir/test_programs
+  # Awkward. Maybe change dockerfile paths to be absolute.
+  dockerfile: ../../barretenberg/acir_tests/Dockerfile.noir_acir_tests
+  rebuildPatterns:
+    - ^noir/test_programs
+    - ^barretenberg/acir_tests/Dockerfile.noir_acir_tests
+  dependencies:
+    - noir
+
 barretenberg-x86_64-linux-clang:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
@@ -38,6 +87,7 @@ barretenberg-acir-tests-bb:
   dockerfile: Dockerfile.bb
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
+    - noir-compile-acir-tests
 
 barretenberg-acir-tests-bb-sol:
   buildDir: barretenberg/acir_tests
@@ -45,15 +95,31 @@ barretenberg-acir-tests-bb-sol:
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
     - barretenberg-x86_64-linux-clang-sol
+    - noir-compile-acir-tests
 
 barretenberg-acir-tests-bb.js:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb.js
   dependencies:
     - bb.js
+    - noir-compile-acir-tests
+
+barretenberg-bench:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.bench
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+
+barretenberg-docs:
+  buildDir: barretenberg/cpp
+  dockerfile: docs/Dockerfile
 
 l1-contracts:
   buildDir: l1-contracts
+
+boxes-files:
+  buildDir: boxes
+  dockerfile: Dockerfile.files
 
 yarn-project-base:
   buildDir: yarn-project
@@ -66,63 +132,53 @@ yarn-project-base:
     - bb.js
     - noir
     - noir-packages
+    - boxes-files
 
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
-    - ^yarn-project/Dockerfile
+    - ^yarn-project/Dockerfile$
+    - ^yarn-project/cli/aztec-cli
   dependencies:
     - yarn-project-base
 
-aztec-sandbox:
+yarn-project-prod:
   buildDir: yarn-project
-  projectDir: yarn-project/aztec-sandbox
+  dockerfile: Dockerfile.prod
+  rebuildPatterns:
+    - ^yarn-project/Dockerfile.prod
   dependencies:
     - yarn-project
+  multiarch: buildx
+
+aztec:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec
+  dependencies:
+    - yarn-project-prod
+  multiarch: buildx
 
 aztec-faucet:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-faucet
   dependencies:
-    - yarn-project
+    - yarn-project-prod
 
 cli:
   buildDir: yarn-project
   projectDir: yarn-project/cli
   dependencies:
-    - yarn-project
+    - yarn-project-prod
+  multiarch: buildx
 
-boxes-blank-react:
-  buildDir: yarn-project
-  projectDir: yarn-project/boxes/blank-react
+boxes:
+  buildDir: boxes
   dependencies:
-    - aztec-sandbox
-
-boxes-blank:
-  buildDir: yarn-project
-  projectDir: yarn-project/boxes/blank
-  dependencies:
-    - aztec-sandbox
-
-boxes-token:
-  buildDir: yarn-project
-  projectDir: yarn-project/boxes/token
-  dependencies:
-    - aztec-sandbox
-
-canary-build:
-  buildDir: yarn-project
-  projectDir: yarn-project/canary
-  dockerfile: Dockerfile.build
-  dependencies:
-    - yarn-project
-
-canary:
-  buildDir: yarn-project
-  projectDir: yarn-project/canary
-  dependencies:
-    - yarn-project
+    - aztec
+    - noir
+  runDependencies:
+    - aztec
 
 end-to-end:
   buildDir: yarn-project
@@ -130,7 +186,7 @@ end-to-end:
   dependencies:
     - yarn-project
   runDependencies:
-    - aztec-sandbox
+    - aztec
 
 mainnet-fork:
   buildDir: iac/mainnet-fork
@@ -145,14 +201,11 @@ docs:
     - ^.*.hpp$
     - ^.*.ts$
     - ^.release-please-manifest.json$
-    - ^.*/noir-version.json$
     - ^.*.nr$
   dependencies:
     - yarn-project
 
-noir:
-  buildDir: noir
-
-noir-packages:
-  buildDir: noir
-  dockerfile: Dockerfile.packages
+yellow-paper:
+  buildDir: yellow-paper
+  rebuildPatterns:
+    - ^yellow-paper/

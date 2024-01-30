@@ -4,12 +4,12 @@
 
 #include <gtest/gtest.h>
 
-namespace proof_system::honk::pcs::zeromorph {
+namespace bb::honk::pcs::zeromorph {
 
 template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
   public:
     using Fr = typename Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
@@ -37,12 +37,10 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
      */
     bool execute_zeromorph_protocol(size_t NUM_UNSHIFTED, size_t NUM_SHIFTED)
     {
-        bool verified = false;
-
         size_t N = 16;
         size_t log_N = numeric::get_msb(N);
 
-        auto u_challenge = this->random_evaluation_point(log_N);
+        std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
 
         // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
         std::vector<Polynomial> f_polynomials; // unshifted polynomials
@@ -77,7 +75,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
         }
 
         // Initialize an empty BaseTranscript
-        auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+        auto prover_transcript = BaseTranscript::prover_init_empty();
 
         // Execute Prover protocol
         ZeroMorphProver::prove(f_polynomials,
@@ -88,16 +86,16 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
                                this->commitment_key,
                                prover_transcript);
 
-        auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
         auto pairing_points = ZeroMorphVerifier::verify(
             f_commitments, g_commitments, v_evaluations, w_evaluations, u_challenge, verifier_transcript);
 
-        verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
+        bool verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
         // The prover and verifier manifests should agree
-        EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
+        EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 
         return verified;
     }
@@ -106,7 +104,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
 template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentTest<Curve> {
   public:
     using Fr = typename Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
@@ -223,19 +221,8 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
         }
 
         // Initialize an empty BaseTranscript
-        auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+        auto prover_transcript = BaseTranscript::prover_init_empty();
 
-        std::vector<std::span<Fr>> concatenated_polynomials_views;
-        for (auto& poly : concatenated_polynomials) {
-            concatenated_polynomials_views.emplace_back(poly);
-        }
-
-        std::vector<std::vector<std::span<Fr>>> concatenation_groups_views(concatenation_groups.size());
-        for (auto [group_of_polys, group_of_views] : zip_view(concatenation_groups, concatenation_groups_views)) {
-            for (auto& poly : group_of_polys) {
-                group_of_views.emplace_back(poly);
-            }
-        }
         // Execute Prover protocol
         ZeroMorphProver::prove(f_polynomials, // unshifted
                                g_polynomials, // to-be-shifted
@@ -244,11 +231,11 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                u_challenge,
                                this->commitment_key,
                                prover_transcript,
-                               concatenated_polynomials_views,
+                               concatenated_polynomials,
                                c_evaluations,
-                               concatenation_groups_views);
+                               to_vector_of_ref_vectors(concatenation_groups));
 
-        auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
         auto pairing_points = ZeroMorphVerifier::verify(f_commitments, // unshifted
@@ -257,13 +244,13 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                                         w_evaluations, // shifted
                                                         u_challenge,
                                                         verifier_transcript,
-                                                        concatenation_groups_commitments,
+                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                         c_evaluations);
 
         verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
         // The prover and verifier manifests should agree
-        EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
+        EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 
         return verified;
     }
@@ -286,7 +273,7 @@ TYPED_TEST(ZeroMorphTest, QuotientConstruction)
     // Define some useful type aliases
     using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     // Define size parameters
     size_t N = 16;
@@ -333,7 +320,7 @@ TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
     // Define some useful type aliases
     using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     const size_t N = 8;
 
@@ -377,7 +364,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
     // Define some useful type aliases
     using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     const size_t N = 8;
 
@@ -459,7 +446,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     // Define some useful type aliases
     using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     const size_t N = 8;
     size_t log_N = numeric::get_msb(N);
@@ -545,4 +532,4 @@ TYPED_TEST(ZeroMorphWithConcatenationTest, ProveAndVerify)
     auto verified = this->execute_zeromorph_protocol(num_unshifted, num_shifted, num_concatenated);
     EXPECT_TRUE(verified);
 }
-} // namespace proof_system::honk::pcs::zeromorph
+} // namespace bb::honk::pcs::zeromorph

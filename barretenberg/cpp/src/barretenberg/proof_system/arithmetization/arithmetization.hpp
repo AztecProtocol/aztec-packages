@@ -37,7 +37,7 @@ template <typename FF_> class Standard {
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t NUM_SELECTORS = 5;
     using FF = FF_;
-    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
     std::vector<SelectorType> selectors;
 
@@ -46,6 +46,12 @@ template <typename FF_> class Standard {
     SelectorType& q_2() { return selectors[2]; };
     SelectorType& q_3() { return selectors[3]; };
     SelectorType& q_c() { return selectors[4]; };
+
+    const SelectorType& q_m() const { return selectors[0]; };
+    const SelectorType& q_1() const { return selectors[1]; };
+    const SelectorType& q_2() const { return selectors[2]; };
+    const SelectorType& q_3() const { return selectors[3]; };
+    const SelectorType& q_c() const { return selectors[4]; };
 
     Standard()
         : selectors(NUM_SELECTORS)
@@ -69,7 +75,7 @@ template <typename FF_> class Ultra {
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
-    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
@@ -86,6 +92,18 @@ template <typename FF_> class Ultra {
     SelectorType& q_elliptic() { return selectors[8]; };
     SelectorType& q_aux() { return selectors[9]; };
     SelectorType& q_lookup_type() { return selectors[10]; };
+
+    const SelectorType& q_m() const { return selectors[0]; };
+    const SelectorType& q_c() const { return selectors[1]; };
+    const SelectorType& q_1() const { return selectors[2]; };
+    const SelectorType& q_2() const { return selectors[3]; };
+    const SelectorType& q_3() const { return selectors[4]; };
+    const SelectorType& q_4() const { return selectors[5]; };
+    const SelectorType& q_arith() const { return selectors[6]; };
+    const SelectorType& q_sort() const { return selectors[7]; };
+    const SelectorType& q_elliptic() const { return selectors[8]; };
+    const SelectorType& q_aux() const { return selectors[9]; };
+    const SelectorType& q_lookup_type() const { return selectors[10]; };
 
     const auto& get() const { return selectors; };
 
@@ -118,9 +136,9 @@ template <typename FF_> class Ultra {
 template <typename FF_> class UltraHonk {
   public:
     static constexpr size_t NUM_WIRES = 4;
-    static constexpr size_t NUM_SELECTORS = 12;
+    static constexpr size_t NUM_SELECTORS = 14;
     using FF = FF_;
-    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
@@ -137,7 +155,24 @@ template <typename FF_> class UltraHonk {
     SelectorType& q_elliptic() { return selectors[8]; };
     SelectorType& q_aux() { return selectors[9]; };
     SelectorType& q_lookup_type() { return selectors[10]; };
-    SelectorType& q_busread() { return this->selectors[11]; };
+    SelectorType& q_busread() { return selectors[11]; };
+    SelectorType& q_poseidon2_external() { return this->selectors[12]; };
+    SelectorType& q_poseidon2_internal() { return this->selectors[13]; };
+
+    const SelectorType& q_m() const { return selectors[0]; };
+    const SelectorType& q_c() const { return selectors[1]; };
+    const SelectorType& q_1() const { return selectors[2]; };
+    const SelectorType& q_2() const { return selectors[3]; };
+    const SelectorType& q_3() const { return selectors[4]; };
+    const SelectorType& q_4() const { return selectors[5]; };
+    const SelectorType& q_arith() const { return selectors[6]; };
+    const SelectorType& q_sort() const { return selectors[7]; };
+    const SelectorType& q_elliptic() const { return selectors[8]; };
+    const SelectorType& q_aux() const { return selectors[9]; };
+    const SelectorType& q_lookup_type() const { return selectors[10]; };
+    const SelectorType& q_busread() const { return selectors[11]; };
+    const SelectorType& q_poseidon2_external() const { return this->selectors[12]; };
+    const SelectorType& q_poseidon2_internal() const { return this->selectors[13]; };
 
     const auto& get() const { return selectors; };
 
@@ -154,7 +189,12 @@ template <typename FF_> class UltraHonk {
      * Ultra arithmetization
      *
      */
-    void pad_additional() { q_busread().emplace_back(0); };
+    void pad_additional()
+    {
+        q_busread().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    };
 
     // Note: Unused. Needed only for consistency with Ultra arith (which is used by Plonk)
     inline static const std::vector<std::string> selector_names = {};

@@ -7,21 +7,19 @@
  * simplify the codebase.
  */
 
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/ecc/curves/bn254/pairing.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 #include <cstddef>
 #include <memory>
 #include <string_view>
 
-namespace proof_system::honk::pcs {
+namespace bb::honk::pcs {
 
 /**
  * @brief CommitmentKey object over a pairing group 𝔾₁.
@@ -46,13 +44,14 @@ template <class Curve> class CommitmentKey {
      * @param path
      *
      */
-    CommitmentKey(const size_t num_points, std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
+    CommitmentKey(const size_t num_points,
+                  std::shared_ptr<bb::srs::factories::CrsFactory<Curve>> crs_factory = bb::srs::get_crs_factory())
         : pippenger_runtime_state(num_points)
         , srs(crs_factory->get_prover_crs(num_points))
     {}
 
     // Note: This constructor is used only by Plonk; For Honk the srs is extracted by the CommitmentKey
-    CommitmentKey(const size_t num_points, std::shared_ptr<barretenberg::srs::factories::ProverCrs<Curve>> prover_crs)
+    CommitmentKey(const size_t num_points, std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> prover_crs)
         : pippenger_runtime_state(num_points)
         , srs(prover_crs)
     {}
@@ -67,12 +66,12 @@ template <class Curve> class CommitmentKey {
     {
         const size_t degree = polynomial.size();
         ASSERT(degree <= srs->get_monomial_size());
-        return barretenberg::scalar_multiplication::pippenger_unsafe<Curve>(
+        return bb::scalar_multiplication::pippenger_unsafe<Curve>(
             const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);
     };
 
-    barretenberg::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
-    std::shared_ptr<barretenberg::srs::factories::ProverCrs<Curve>> srs;
+    bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
+    std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> srs;
 };
 
-} // namespace proof_system::honk::pcs
+} // namespace bb::honk::pcs

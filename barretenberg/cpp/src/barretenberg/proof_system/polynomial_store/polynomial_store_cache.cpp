@@ -1,6 +1,6 @@
 #include "./polynomial_store_cache.hpp"
 
-namespace proof_system {
+namespace bb {
 
 PolynomialStoreCache::PolynomialStoreCache()
     : max_cache_size_(40)
@@ -31,7 +31,7 @@ PolynomialStoreCache::Polynomial PolynomialStoreCache::get(std::string const& ke
     auto it = cache_.find(key);
     if (it != cache_.end()) {
         // info("cache get hit ", key);
-        return it->second.clone();
+        return it->second.share();
     }
 
     // info("cache get miss ", key);
@@ -52,4 +52,4 @@ void PolynomialStoreCache::purge_until_free()
     }
 }
 
-} // namespace proof_system
+} // namespace bb

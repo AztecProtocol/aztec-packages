@@ -2,13 +2,13 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -17,6 +17,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -29,7 +30,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 /**
  * @brief The recursive counterpart to the "native" Ultra flavor.
@@ -48,11 +49,12 @@ namespace proof_system::honk::flavor {
 template <typename BuilderType> class UltraRecursive_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
-    using Curve = plonk::stdlib::bn254<CircuitBuilder>;
+    using Curve = stdlib::bn254<CircuitBuilder>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
     using CommitmentHandle = typename Curve::Element;
     using FF = typename Curve::ScalarField;
+    using NativeVerificationKey = flavor::Ultra::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
@@ -66,108 +68,108 @@ template <typename BuilderType> class UltraRecursive_ {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-                                 proof_system::UltraPermutationRelation<FF>,
-                                 proof_system::LookupRelation<FF>,
-                                 proof_system::GenPermSortRelation<FF>,
-                                 proof_system::EllipticRelation<FF>,
-                                 proof_system::AuxiliaryRelation<FF>>;
+    using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
+                                 bb::UltraPermutationRelation<FF>,
+                                 bb::LookupRelation<FF>,
+                                 bb::GenPermSortRelation<FF>,
+                                 bb::EllipticRelation<FF>,
+                                 bb::AuxiliaryRelation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
+    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+
+    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
+    // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
+    // combiner) too much.
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:
-    template <typename DataType, typename HandleType>
+    template <typename DataType>
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+    class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        DataType q_m;            // column 0
-        DataType q_c;            // column 1
-        DataType q_l;            // column 2
-        DataType q_r;            // column 3
-        DataType q_o;            // column 4
-        DataType q_4;            // column 5
-        DataType q_arith;        // column 6
-        DataType q_sort;         // column 7
-        DataType q_elliptic;     // column 8
-        DataType q_aux;          // column 9
-        DataType q_lookup;       // column 10
-        DataType sigma_1;        // column 11
-        DataType sigma_2;        // column 12
-        DataType sigma_3;        // column 13
-        DataType sigma_4;        // column 14
-        DataType id_1;           // column 15
-        DataType id_2;           // column 16
-        DataType id_3;           // column 17
-        DataType id_4;           // column 18
-        DataType table_1;        // column 19
-        DataType table_2;        // column 20
-        DataType table_3;        // column 21
-        DataType table_4;        // column 22
-        DataType lagrange_first; // column 23
-        DataType lagrange_last;  // column 24
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_m,            // column 0
+                              q_c,            // column 1
+                              q_l,            // column 2
+                              q_r,            // column 3
+                              q_o,            // column 4
+                              q_4,            // column 5
+                              q_arith,        // column 6
+                              q_sort,         // column 7
+                              q_elliptic,     // column 8
+                              q_aux,          // column 9
+                              q_lookup,       // column 10
+                              sigma_1,        // column 11
+                              sigma_2,        // column 12
+                              sigma_3,        // column 13
+                              sigma_4,        // column 14
+                              id_1,           // column 15
+                              id_2,           // column 16
+                              id_3,           // column 17
+                              id_4,           // column 18
+                              table_1,        // column 19
+                              table_2,        // column 20
+                              table_3,        // column 21
+                              table_4,        // column 22
+                              lagrange_first, // column 23
+                              lagrange_last); // column 24
 
-        std::vector<HandleType> get_selectors() override
+        RefVector<DataType> get_selectors()
         {
             return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
         };
-        std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
+        RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
 
-        std::vector<HandleType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+        RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
     };
 
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
-    template <typename DataType, typename HandleType>
-    class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
+    template <typename DataType> class WitnessEntities {
       public:
-        DataType w_l;          // column 0
-        DataType w_r;          // column 1
-        DataType w_o;          // column 2
-        DataType w_4;          // column 3
-        DataType sorted_1;     // column 4
-        DataType sorted_2;     // column 5
-        DataType sorted_3;     // column 6
-        DataType sorted_4;     // column 7
-        DataType sorted_accum; // column 8
-        DataType z_perm;       // column 9
-        DataType z_lookup;     // column 10
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l,          // column 0
+                              w_r,          // column 1
+                              w_o,          // column 2
+                              w_4,          // column 3
+                              sorted_accum, // column 4
+                              z_perm,       // column 5
+                              z_lookup      // column 6
 
-        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
-                            &w_l,
-                            &w_r,
-                            &w_o,
-                            &w_4,
-                            &sorted_1,
-                            &sorted_2,
-                            &sorted_3,
-                            &sorted_4,
-                            &sorted_accum,
-                            &z_perm,
-                            &z_lookup, )
+        );
 
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
-        // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
+        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
     };
+
+  public:
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
 
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
@@ -178,114 +180,81 @@ template <typename BuilderType> class UltraRecursive_ {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
+    template <typename DataType> class AllEntities {
       public:
-        DataType q_c;                // column 0
-        DataType q_l;                // column 1
-        DataType q_r;                // column 2
-        DataType q_o;                // column 3
-        DataType q_4;                // column 4
-        DataType q_m;                // column 5
-        DataType q_arith;            // column 6
-        DataType q_sort;             // column 7
-        DataType q_elliptic;         // column 8
-        DataType q_aux;              // column 9
-        DataType q_lookup;           // column 10
-        DataType sigma_1;            // column 11
-        DataType sigma_2;            // column 12
-        DataType sigma_3;            // column 13
-        DataType sigma_4;            // column 14
-        DataType id_1;               // column 15
-        DataType id_2;               // column 16
-        DataType id_3;               // column 17
-        DataType id_4;               // column 18
-        DataType table_1;            // column 19
-        DataType table_2;            // column 20
-        DataType table_3;            // column 21
-        DataType table_4;            // column 22
-        DataType lagrange_first;     // column 23
-        DataType lagrange_last;      // column 24
-        DataType w_l;                // column 25
-        DataType w_r;                // column 26
-        DataType w_o;                // column 27
-        DataType w_4;                // column 28
-        DataType sorted_accum;       // column 29
-        DataType z_perm;             // column 30
-        DataType z_lookup;           // column 31
-        DataType table_1_shift;      // column 32
-        DataType table_2_shift;      // column 33
-        DataType table_3_shift;      // column 34
-        DataType table_4_shift;      // column 35
-        DataType w_l_shift;          // column 36
-        DataType w_r_shift;          // column 37
-        DataType w_o_shift;          // column 38
-        DataType w_4_shift;          // column 39
-        DataType sorted_accum_shift; // column 40
-        DataType z_perm_shift;       // column 41
-        DataType z_lookup_shift;     // column 42
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_c,                // column 0
+                              q_l,                // column 1
+                              q_r,                // column 2
+                              q_o,                // column 3
+                              q_4,                // column 4
+                              q_m,                // column 5
+                              q_arith,            // column 6
+                              q_sort,             // column 7
+                              q_elliptic,         // column 8
+                              q_aux,              // column 9
+                              q_lookup,           // column 10
+                              sigma_1,            // column 11
+                              sigma_2,            // column 12
+                              sigma_3,            // column 13
+                              sigma_4,            // column 14
+                              id_1,               // column 15
+                              id_2,               // column 16
+                              id_3,               // column 17
+                              id_4,               // column 18
+                              table_1,            // column 19
+                              table_2,            // column 20
+                              table_3,            // column 21
+                              table_4,            // column 22
+                              lagrange_first,     // column 23
+                              lagrange_last,      // column 24
+                              w_l,                // column 25
+                              w_r,                // column 26
+                              w_o,                // column 27
+                              w_4,                // column 28
+                              sorted_accum,       // column 29
+                              z_perm,             // column 30
+                              z_lookup,           // column 31
+                              table_1_shift,      // column 32
+                              table_2_shift,      // column 33
+                              table_3_shift,      // column 34
+                              table_4_shift,      // column 35
+                              w_l_shift,          // column 36
+                              w_r_shift,          // column 37
+                              w_o_shift,          // column 38
+                              w_4_shift,          // column 39
+                              sorted_accum_shift, // column 40
+                              z_perm_shift,       // column 41
+                              z_lookup_shift      // column 42
+        );
 
-        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
-                            &q_c,
-                            &q_l,
-                            &q_r,
-                            &q_o,
-                            &q_4,
-                            &q_m,
-                            &q_arith,
-                            &q_sort,
-                            &q_elliptic,
-                            &q_aux,
-                            &q_lookup,
-                            &sigma_1,
-                            &sigma_2,
-                            &sigma_3,
-                            &sigma_4,
-                            &id_1,
-                            &id_2,
-                            &id_3,
-                            &id_4,
-                            &table_1,
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &lagrange_first,
-                            &lagrange_last,
-                            &w_l,
-                            &w_r,
-                            &w_o,
-                            &w_4,
-                            &sorted_accum,
-                            &z_perm,
-                            &z_lookup,
-                            &table_1_shift,
-                            &table_2_shift,
-                            &table_3_shift,
-                            &table_4_shift,
-                            &w_l_shift,
-                            &w_r_shift,
-                            &w_o_shift,
-                            &w_4_shift,
-                            &sorted_accum_shift,
-                            &z_perm_shift,
-                            &z_lookup_shift)
-
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
-        std::vector<HandleType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
-            return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
+            return { q_m,           q_c,   q_l,      q_r,     q_o,     q_4,          q_arith, q_sort,
                      q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
                      id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
                      lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
 
             };
         };
-        std::vector<HandleType> get_to_be_shifted() override
+        RefVector<DataType> get_precomputed()
+        {
+            return { q_m,          q_c,   q_l,      q_r,     q_o,     q_4,     q_arith, q_sort,
+                     q_elliptic,   q_aux, q_lookup, sigma_1, sigma_2, sigma_3, sigma_4, id_1,
+                     id_2,         id_3,  id_4,     table_1, table_2, table_3, table_4, lagrange_first,
+                     lagrange_last
+
+            };
+        }
+
+        RefVector<DataType> get_witness() { return { w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup }; };
+        RefVector<DataType> get_to_be_shifted()
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
         };
-        std::vector<HandleType> get_shifted() override
+        RefVector<DataType> get_shifted()
         {
             return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
@@ -301,18 +270,25 @@ template <typename BuilderType> class UltraRecursive_ {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+        {
+            this->circuit_size = circuit_size;
+            this->log_circuit_size = numeric::get_msb(circuit_size);
+            this->num_public_inputs = num_public_inputs;
+        };
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-        VerificationKey(CircuitBuilder* builder, auto native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size,
-                                                                                  native_key->num_public_inputs)
+        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
+            this->circuit_size = native_key->circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = native_key->num_public_inputs;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -345,9 +321,9 @@ template <typename BuilderType> class UltraRecursive_ {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
@@ -358,7 +334,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * has, however, been useful during debugging to have these labels available.
      *
      */
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       public:
         CommitmentLabels()
         {
@@ -370,38 +346,38 @@ template <typename BuilderType> class UltraRecursive_ {
             this->z_lookup = "Z_LOOKUP";
             this->sorted_accum = "SORTED_ACCUM";
 
-            // The ones beginning with "__" are only used for debugging
-            this->q_c = "__Q_C";
-            this->q_l = "__Q_L";
-            this->q_r = "__Q_R";
-            this->q_o = "__Q_O";
-            this->q_4 = "__Q_4";
-            this->q_m = "__Q_M";
-            this->q_arith = "__Q_ARITH";
-            this->q_sort = "__Q_SORT";
-            this->q_elliptic = "__Q_ELLIPTIC";
-            this->q_aux = "__Q_AUX";
-            this->q_lookup = "__Q_LOOKUP";
-            this->sigma_1 = "__SIGMA_1";
-            this->sigma_2 = "__SIGMA_2";
-            this->sigma_3 = "__SIGMA_3";
-            this->sigma_4 = "__SIGMA_4";
-            this->id_1 = "__ID_1";
-            this->id_2 = "__ID_2";
-            this->id_3 = "__ID_3";
-            this->id_4 = "__ID_4";
-            this->table_1 = "__TABLE_1";
-            this->table_2 = "__TABLE_2";
-            this->table_3 = "__TABLE_3";
-            this->table_4 = "__TABLE_4";
-            this->lagrange_first = "__LAGRANGE_FIRST";
-            this->lagrange_last = "__LAGRANGE_LAST";
+            this->q_c = "Q_C";
+            this->q_l = "Q_L";
+            this->q_r = "Q_R";
+            this->q_o = "Q_O";
+            this->q_4 = "Q_4";
+            this->q_m = "Q_M";
+            this->q_arith = "Q_ARITH";
+            this->q_sort = "Q_SORT";
+            this->q_elliptic = "Q_ELLIPTIC";
+            this->q_aux = "Q_AUX";
+            this->q_lookup = "Q_LOOKUP";
+            this->sigma_1 = "SIGMA_1";
+            this->sigma_2 = "SIGMA_2";
+            this->sigma_3 = "SIGMA_3";
+            this->sigma_4 = "SIGMA_4";
+            this->id_1 = "ID_1";
+            this->id_2 = "ID_2";
+            this->id_3 = "ID_3";
+            this->id_4 = "ID_4";
+            this->table_1 = "TABLE_1";
+            this->table_2 = "TABLE_2";
+            this->table_3 = "TABLE_3";
+            this->table_4 = "TABLE_4";
+            this->lagrange_first = "LAGRANGE_FIRST";
+            this->lagrange_last = "LAGRANGE_LAST";
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+    class VerifierCommitments : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
+                            const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
         {
             this->q_m = verification_key->q_m;
             this->q_l = verification_key->q_l;
@@ -428,130 +404,21 @@ template <typename BuilderType> class UltraRecursive_ {
             this->table_4 = verification_key->table_4;
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
+
+            if (witness_commitments.has_value()) {
+                auto commitments = witness_commitments.value();
+                this->w_l = commitments.w_l;
+                this->w_r = commitments.w_r;
+                this->w_o = commitments.w_o;
+                this->sorted_accum = commitments.sorted_accum;
+                this->w_4 = commitments.w_4;
+                this->z_perm = commitments.z_perm;
+                this->z_lookup = commitments.z_lookup;
+            }
         }
     };
 
-    /**
-     * @brief Derived class that defines proof structure for UltraRecursive proofs, as well as supporting functions.
-     *
-     */
-    class Transcript : public BaseTranscript<FF> {
-      public:
-        // Transcript objects defined as public member variables for easy access and modification
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
-        std::vector<FF> public_inputs;
-        Commitment w_l_comm;
-        Commitment w_r_comm;
-        Commitment w_o_comm;
-        Commitment sorted_accum_comm;
-        Commitment w_4_comm;
-        Commitment z_perm_comm;
-        Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
-        Commitment zm_pi_comm;
-
-        Transcript() = default;
-
-        // Used by verifier to initialize the transcript
-        Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
-        {}
-
-        static Transcript prover_init_empty()
-        {
-            Transcript transcript;
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript.send_to_verifier("Init", init);
-            return transcript;
-        };
-
-        static Transcript verifier_init_empty(const Transcript& transcript)
-        {
-            Transcript verifier_transcript{ transcript.proof_data };
-            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
-            return verifier_transcript;
-        };
-
-        /**
-         * @brief Takes a FULL UltraRecursive proof and deserializes it into the public member variables that compose
-         * the structure. Must be called in order to access the structure of the proof.
-         *
-         */
-        void deserialize_full_transcript() override
-        {
-            // take current proof and put them into the struct
-            size_t num_bytes_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            size_t log_n = numeric::get_msb(circuit_size);
-
-            public_input_size = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            w_l_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(
-                    deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-        }
-        /**
-         * @brief Serializes the structure variables into a FULL UltraRecursive proof. Should be called only if
-         * deserialize_full_transcript() was called and some transcript variable was modified.
-         *
-         */
-        void serialize_full_transcript() override
-        {
-            size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
-            BaseTranscript<FF>::proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            size_t log_n = numeric::get_msb(circuit_size);
-            serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(public_input_size, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(pub_inputs_offset, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], BaseTranscript<FF>::proof_data);
-            }
-            serialize_to_buffer(w_l_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(w_r_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(w_o_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(sorted_accum_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(w_4_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(z_perm_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(z_lookup_comm, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
-            }
-            serialize_to_buffer(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(zm_cq_comms[i], BaseTranscript<FF>::proof_data);
-            }
-            serialize_to_buffer(zm_cq_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(zm_pi_comm, BaseTranscript<FF>::proof_data);
-
-            // sanity check to make sure we generate the same length of proof as before.
-            ASSERT(BaseTranscript<FF>::proof_data.size() == old_proof_length);
-        }
-    };
+    using Transcript = bb::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

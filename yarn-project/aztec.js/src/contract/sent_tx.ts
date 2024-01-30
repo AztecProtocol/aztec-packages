@@ -1,8 +1,6 @@
-import { FieldsOf, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
-
-import every from 'lodash.every';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -66,34 +64,7 @@ export class SentTx {
     }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.MINED) {
-      // ############## Temporary code start ##############
-      // A few logs placed here temporarily to help me (@benesjan) debug an issue with intermittent failure of
-      // 2 pixies test.
-      // https://github.com/AztecProtocol/aztec-packages/issues/3357
-      // For whatever reason (according to logs) the tx which appears here as dropped seems to be correctly included
-      // in a block and the block built and submitted on-chain. I will try to fetch the latest block here and see
-      // which txs it contains to check if the block source used here has the relevant block. If it doesn't then
-      // the test is probably misconfigured and an incorrect block source is used (pxe pointing to a different aztec
-      // node or smt like that) or there is some bigger issue with block sync somewhere.
-      const blockNum = await this.pxe.getBlockNumber();
-      const block = await this.pxe.getBlock(blockNum);
-      if (block) {
-        const txHashes = [];
-        for (let txIndex = 0; txIndex < block!.numberOfTxs; txIndex++) {
-          const txHash = block!.newNullifiers[MAX_NEW_NULLIFIERS_PER_TX * txIndex];
-          txHashes.push(txHash.toString());
-        }
-        throw new Error(
-          `Transaction ${await this.getTxHash()} was ${
-            receipt.status
-          }.\nTx hashes of txs included in the last synced block ${block?.number} are: ${txHashes}`,
-        );
-      } else {
-        throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}. Block ${blockNum} not found.`);
-      }
-      // ############## Temporary code end ##############
-
-      // throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
+      throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
@@ -153,7 +124,7 @@ export class SentTx {
         // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
         const { blocks, notes } = await this.pxe.getSyncStatus();
         const targetBlock = txReceipt.blockNumber!;
-        const areNotesSynced = blocks >= targetBlock && every(notes, block => block >= targetBlock);
+        const areNotesSynced = blocks >= targetBlock && Object.values(notes).every(block => block >= targetBlock);
         return areNotesSynced ? txReceipt : undefined;
       },
       'isMined',

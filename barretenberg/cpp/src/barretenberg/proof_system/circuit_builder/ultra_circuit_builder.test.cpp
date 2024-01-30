@@ -2,21 +2,49 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
-namespace proof_system {
+namespace bb {
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
+
+TEST(ultra_circuit_constructor, copy_constructor)
+{
+    UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+
+    for (size_t i = 0; i < 16; ++i) {
+        for (size_t j = 0; j < 16; ++j) {
+            uint64_t left = static_cast<uint64_t>(j);
+            uint64_t right = static_cast<uint64_t>(i);
+            uint32_t left_idx = circuit_constructor.add_variable(fr(left));
+            uint32_t right_idx = circuit_constructor.add_variable(fr(right));
+            uint32_t result_idx = circuit_constructor.add_variable(fr(left ^ right));
+
+            uint32_t add_idx =
+                circuit_constructor.add_variable(fr(left) + fr(right) + circuit_constructor.get_variable(result_idx));
+            circuit_constructor.create_big_add_gate(
+                { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+        }
+    }
+
+    bool result = circuit_constructor.check_circuit();
+    EXPECT_EQ(result, true);
+
+    UltraCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
+
+    EXPECT_EQ(duplicate_circuit_constructor.get_num_gates(), circuit_constructor.get_num_gates());
+    EXPECT_TRUE(duplicate_circuit_constructor.check_circuit());
+}
 
 TEST(ultra_circuit_constructor, create_gates_from_plookup_accumulators)
 {
 
     UltraCircuitBuilder circuit_builder = UltraCircuitBuilder();
 
-    barretenberg::fr input_value = fr::random_element();
+    fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -112,9 +140,9 @@ TEST(ultra_circuit_constructor, test_elliptic_gate)
     typedef grumpkin::g1::element element;
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
-    affine_element p1 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 0);
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
 
-    affine_element p2 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 1);
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 1);
     affine_element p3(element(p1) + element(p2));
 
     uint32_t x1 = circuit_constructor.add_variable(p1.x);
@@ -143,7 +171,7 @@ TEST(ultra_circuit_constructor, test_elliptic_double_gate)
     typedef grumpkin::g1::element element;
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
-    affine_element p1 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 0);
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
     affine_element p3(element(p1).dbl());
 
     uint32_t x1 = circuit_constructor.add_variable(p1.x);
@@ -620,7 +648,7 @@ TEST(ultra_circuit_constructor, non_native_field_multiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    proof_system::non_native_field_witnesses<fr> inputs{
+    non_native_field_witnesses<fr> inputs{
         a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
     };
     const auto [lo_1_idx, hi_1_idx] = circuit_constructor.evaluate_non_native_field_multiplication(inputs);
@@ -742,6 +770,12 @@ TEST(ultra_circuit_constructor, ram)
     EXPECT_EQ(result, true);
 
     EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+
+    // Test the builder copy constructor for a circuit with RAM gates
+    UltraCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
+
+    EXPECT_EQ(duplicate_circuit_constructor.get_num_gates(), circuit_constructor.get_num_gates());
+    EXPECT_TRUE(duplicate_circuit_constructor.check_circuit());
 }
 
 TEST(ultra_circuit_constructor, range_checks_on_duplicates)
@@ -815,4 +849,4 @@ TEST(ultra_circuit_constructor, check_circuit_showcase)
     EXPECT_EQ(circuit_constructor.check_circuit(), true);
 }
 
-} // namespace proof_system
+} // namespace bb

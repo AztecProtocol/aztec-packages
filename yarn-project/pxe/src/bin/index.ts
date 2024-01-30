@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --no-warnings
+import { createAztecNodeClient } from '@aztec/circuit-types';
+import { init } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { createAztecNodeClient } from '@aztec/types';
 
 import { getPXEServiceConfig } from '../config/index.js';
 import { startPXEHttpServer } from '../pxe_http/index.js';
@@ -15,6 +16,8 @@ const logger = createDebugLogger('aztec:pxe_service');
  */
 async function main() {
   logger.info(`Setting up PXE...`);
+
+  await init();
 
   const pxeConfig = getPXEServiceConfig();
   const nodeRpcClient = createAztecNodeClient(AZTEC_NODE_URL);

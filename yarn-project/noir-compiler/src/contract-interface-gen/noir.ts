@@ -7,12 +7,10 @@ import {
   FunctionType,
   StructType,
 } from '@aztec/foundation/abi';
+import { times } from '@aztec/foundation/collection';
 
 import camelCase from 'lodash.camelcase';
 import capitalize from 'lodash.capitalize';
-import compact from 'lodash.compact';
-import times from 'lodash.times';
-import upperFirst from 'lodash.upperfirst';
 
 /**
  * Returns whether this function type corresponds to a private call.
@@ -32,7 +30,7 @@ function isPrivateCall(functionType: FunctionType) {
 function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
   return `
-    context.${callMethod}(self.address, 0x${selector.toString()}, serialized_args)`;
+    context.${callMethod}(self.address, FunctionSelector::from_field(0x${selector.toString()}), serialized_args)`;
 }
 
 /**
@@ -41,7 +39,8 @@ function generateCallStatement(selector: FunctionSelector, functionType: Functio
  * @returns A capitalized camelcase string.
  */
 function toPascalCase(str: string) {
-  return upperFirst(camelCase(str));
+  const camel = camelCase(str);
+  return camel[0].toUpperCase() + camel.slice(1);
 }
 
 /**
@@ -167,7 +166,11 @@ ${callStatement}
 function generateStaticImports() {
   return `use dep::std;
 use dep::aztec::context::{ PrivateContext, PublicContext };
-use dep::aztec::constants_gen::RETURN_VALUES_LENGTH;`;
+use dep::protocol_types::{
+  address::AztecAddress,
+  abis::function_selector::FunctionSelector,
+  constants::RETURN_VALUES_LENGTH,
+};`;
 }
 
 /**
@@ -189,7 +192,7 @@ function generateContractStructName(contractName: string, kind: 'private' | 'pub
 function generateContractInterfaceStruct(contractName: string, kind: 'private' | 'public') {
   return `// Interface for calling ${contractName} functions from a ${kind} context
 struct ${generateContractStructName(contractName, kind)} {
-  address: Field,
+  address: AztecAddress,
 }
 `;
 }
@@ -203,7 +206,7 @@ struct ${generateContractStructName(contractName, kind)} {
  */
 function generateContractInterfaceImpl(contractName: string, kind: 'private' | 'public', functions: string[]) {
   return `impl ${generateContractStructName(contractName, kind)} {
-  pub fn at(address: Field) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
       Self {
           address,
       }
@@ -277,10 +280,8 @@ ${contractImpl}
  */
 export function generateNoirContractInterface(artifact: ContractArtifact) {
   // We don't allow calling a constructor, internal fns, or unconstrained fns from other contracts
-  const methods = compact(
-    artifact.functions.filter(
-      f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
-    ),
+  const methods = artifact.functions.filter(
+    f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
   );
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const privateContractStruct = generateContractStruct(artifact.name, 'private', methods);

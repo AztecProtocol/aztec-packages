@@ -17,12 +17,10 @@
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using witness_ct = stdlib::witness_t<Builder>;
 
-namespace stdlib_cycle_group_tests {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
@@ -47,7 +45,7 @@ template <class Builder> class CycleGroupTest : public ::testing::Test {
     };
 };
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
 
 TYPED_TEST(CycleGroupTest, TestDbl)
@@ -568,5 +566,3 @@ TYPED_TEST(CycleGroupTest, TestMul)
     EXPECT_EQ(proof_result, true);
 }
 #pragma GCC diagnostic pop
-
-} // namespace stdlib_cycle_group_tests

@@ -7,7 +7,7 @@
 #include <string>
 #include <sys/stat.h>
 
-namespace barretenberg::srs {
+namespace bb::srs {
 /**
  * @brief The manifest structure holds the header of a transcript file
  *
@@ -316,7 +316,8 @@ template <typename Curve> class IO {
                        degree,
                        ". Is your srs large enough? Either run bootstrap.sh to download the transcript.dat "
                        "files to `srs_db/ignition/`, or you might need to download extra transcript.dat files "
-                       "by editing `srs_db/download_ignition.sh` (but be careful, as this suggests you've "
+                       "by editing `srs_db/download_ignition.sh` or in the case of grumpkin points, use "
+                       " `grumpkin_srs_gen` (but be careful, as this suggests you've "
                        "just changed a circuit to exceed a new 'power of two' boundary)."));
         }
     }
@@ -426,4 +427,4 @@ template <typename Curve> class IO {
     }
 };
 
-} // namespace barretenberg::srs
+} // namespace bb::srs

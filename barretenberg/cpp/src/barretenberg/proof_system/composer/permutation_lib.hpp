@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
@@ -23,7 +24,7 @@
 
 // TODO(Cody): very little code is shared; should split this up into plonk/honk files.
 
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief cycle_node represents the index of a value of the circuit.
@@ -64,7 +65,7 @@ namespace {
  * @brief Compute all CyclicPermutations of the circuit. Each CyclicPermutation represents the indices of the values in
  * the witness wires that must have the same value.    using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
  *
  * @tparam program_width Program width
  *
@@ -280,7 +281,7 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
  */
 template <typename Flavor>
 void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
-    std::vector<typename Flavor::PolynomialHandle> permutation_polynomials, // sigma or ID poly
+    const RefVector<typename Flavor::Polynomial>& permutation_polynomials, // sigma or ID poly
     std::array<std::vector<permutation_subgroup_element>, Flavor::NUM_WIRES>& permutation_mappings,
     typename Flavor::ProvingKey* proving_key)
 {
@@ -323,9 +324,9 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
  * @param small_domain The domain we base our polynomial in.
  *
  * */
-inline void compute_standard_plonk_lagrange_polynomial(barretenberg::polynomial& output,
+inline void compute_standard_plonk_lagrange_polynomial(bb::polynomial& output,
                                                        const std::vector<permutation_subgroup_element>& permutation,
-                                                       const barretenberg::evaluation_domain& small_domain)
+                                                       const bb::evaluation_domain& small_domain)
 {
     if (output.size() < permutation.size()) {
         throw_or_abort("Permutation polynomial size is insufficient to store permutations.");
@@ -337,7 +338,7 @@ inline void compute_standard_plonk_lagrange_polynomial(barretenberg::polynomial&
     // 1 = right
     // 2 = output
     ASSERT(small_domain.log2_size > 1);
-    const barretenberg::fr* roots = small_domain.get_round_roots()[small_domain.log2_size - 2];
+    const bb::fr* roots = small_domain.get_round_roots()[small_domain.log2_size - 2];
     const size_t root_size = small_domain.size >> 1UL;
     const size_t log2_root_size = static_cast<size_t>(numeric::get_msb(root_size));
 
@@ -346,7 +347,7 @@ inline void compute_standard_plonk_lagrange_polynomial(barretenberg::polynomial&
     // `permutation[i]` will specify the 'index' that this wire value will map to.
     // Here, 'index' refers to an element of our subgroup H.
     // We can almost use `permutation[i]` to directly index our `roots` array, which contains our subgroup elements.
-    // We first have to accomodate for the fact that `roots` only contains *half* of our subgroup elements. This is
+    // We first have to accommodate for the fact that `roots` only contains *half* of our subgroup elements. This is
     // because ω^{n/2} = -ω and we don't want to perform redundant work computing roots of unity.
 
     size_t raw_idx = permutation[i].row_index;
@@ -376,14 +377,14 @@ inline void compute_standard_plonk_lagrange_polynomial(barretenberg::polynomial&
         // As per the paper which modifies plonk to include the public inputs in a permutation argument, the permutation
         // `σ` is modified to `σ'`, where `σ'` maps all public inputs to a set of l distinct ζ elements which are
         // disjoint from H ∪ k1·H ∪ k2·H.
-        output[i] *= barretenberg::fr::external_coset_generator();
+        output[i] *= bb::fr::external_coset_generator();
     } else if (permutation[i].is_tag) {
-        output[i] *= barretenberg::fr::tag_coset_generator();
+        output[i] *= bb::fr::tag_coset_generator();
     } else {
         {
             const uint32_t column_index = permutation[i].column_index;
             if (column_index > 0) {
-                output[i] *= barretenberg::fr::coset_generator(column_index - 1);
+                output[i] *= bb::fr::coset_generator(column_index - 1);
             }
         }
     }
@@ -406,9 +407,9 @@ void compute_plonk_permutation_lagrange_polynomials_from_mapping(
 {
     for (size_t i = 0; i < program_width; i++) {
         std::string index = std::to_string(i + 1);
-        barretenberg::polynomial polynomial_lagrange(key->circuit_size);
+        bb::polynomial polynomial_lagrange(key->circuit_size);
         compute_standard_plonk_lagrange_polynomial(polynomial_lagrange, mappings[i], key->small_domain);
-        key->polynomial_store.put(label + "_" + index + "_lagrange", std::move(polynomial_lagrange));
+        key->polynomial_store.put(label + "_" + index + "_lagrange", polynomial_lagrange.share());
     }
 }
 
@@ -431,16 +432,16 @@ void compute_monomial_and_coset_fft_polynomials_from_lagrange(std::string label,
         // Construct permutation polynomials in lagrange base
         auto sigma_polynomial_lagrange = key->polynomial_store.get(prefix + "_lagrange");
         // Compute permutation polynomial monomial form
-        barretenberg::polynomial sigma_polynomial(key->circuit_size);
-        barretenberg::polynomial_arithmetic::ifft(
-            (barretenberg::fr*)&sigma_polynomial_lagrange[0], &sigma_polynomial[0], key->small_domain);
+        bb::polynomial sigma_polynomial(key->circuit_size);
+        bb::polynomial_arithmetic::ifft(
+            (bb::fr*)&sigma_polynomial_lagrange[0], &sigma_polynomial[0], key->small_domain);
 
         // Compute permutation polynomial coset FFT form
-        barretenberg::polynomial sigma_fft(sigma_polynomial, key->large_domain.size);
+        bb::polynomial sigma_fft(sigma_polynomial, key->large_domain.size);
         sigma_fft.coset_fft(key->large_domain);
 
-        key->polynomial_store.put(prefix, std::move(sigma_polynomial));
-        key->polynomial_store.put(prefix + "_fft", std::move(sigma_fft));
+        key->polynomial_store.put(prefix, sigma_polynomial.share());
+        key->polynomial_store.put(prefix + "_fft", sigma_fft.share());
     }
 }
 
@@ -469,16 +470,16 @@ void compute_standard_plonk_sigma_permutations(const typename Flavor::CircuitBui
  *
  * @param key Proving key where we will save the polynomials
  */
-template <typename Flavor> inline void compute_first_and_last_lagrange_polynomials(auto proving_key)
+template <typename Flavor> inline void compute_first_and_last_lagrange_polynomials(const auto& proving_key)
 {
     const size_t n = proving_key->circuit_size;
     typename Flavor::Polynomial lagrange_polynomial_0(n);
     typename Flavor::Polynomial lagrange_polynomial_n_min_1(n);
     lagrange_polynomial_0[0] = 1;
-    proving_key->lagrange_first = lagrange_polynomial_0;
+    proving_key->lagrange_first = lagrange_polynomial_0.share();
 
     lagrange_polynomial_n_min_1[n - 1] = 1;
-    proving_key->lagrange_last = lagrange_polynomial_n_min_1;
+    proving_key->lagrange_last = lagrange_polynomial_n_min_1.share();
 }
 
 /**
@@ -526,4 +527,4 @@ void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitB
         proving_key->get_id_polynomials(), mapping.ids, proving_key);
 }
 
-} // namespace proof_system
+} // namespace bb

@@ -1,14 +1,23 @@
-use crate::constants_gen::{
-    L1_TO_L2_MESSAGE_LENGTH,
-    GENERATOR_INDEX__NULLIFIER,
-    GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET,
+use dep::protocol_types::{
+    address::{
+        AztecAddress,
+        EthAddress,
+    },
+    constants::{
+        L1_TO_L2_MESSAGE_LENGTH,
+        GENERATOR_INDEX__NULLIFIER,
+        GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET,
+    },
+    hash::{
+        pedersen_hash,
+        sha256_to_field,
+    },
 };
-use crate::hash::{sha256_to_field, pedersen_hash};
 
 struct L1ToL2Message {
-    sender: Field,
+    sender: EthAddress,
     chainId: Field,
-    recipient: Field,
+    recipient: AztecAddress,
     version: Field,
     content: Field,
     secret: Field,
@@ -25,9 +34,9 @@ impl L1ToL2Message {
         tree_index: Field
     ) -> L1ToL2Message {
         L1ToL2Message {
-            sender: fields[0],
+            sender: EthAddress::from_field(fields[0]),
             chainId: fields[1],
-            recipient: fields[2],
+            recipient: AztecAddress::from_field(fields[2]),
             version: fields[3],
             content: fields[4],
             secret: secret,
@@ -40,14 +49,14 @@ impl L1ToL2Message {
 
     pub fn validate_message_secret(self: Self) {
         let recomputed_hash = pedersen_hash([self.secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET);
-        assert(self.secret_hash == recomputed_hash);
+        assert(self.secret_hash == recomputed_hash, "Invalid message secret");
     }
 
-    fn message_hash(self: Self) -> Field {
+    fn hash(self: Self) -> Field {
         let mut hash_bytes: [u8; 256] = [0; 256];
-        let sender_bytes = self.sender.to_be_bytes(32);
+        let sender_bytes = self.sender.to_field().to_be_bytes(32);
         let chainId_bytes = self.chainId.to_be_bytes(32);
-        let recipient_bytes = self.recipient.to_be_bytes(32);
+        let recipient_bytes = self.recipient.to_field().to_be_bytes(32);
         let version_bytes = self.version.to_be_bytes(32);
         let content_bytes = self.content.to_be_bytes(32);
         let secret_hash_bytes = self.secret_hash.to_be_bytes(32);
@@ -72,7 +81,7 @@ impl L1ToL2Message {
     // The nullifier of a l1 to l2 message is the hash of the message salted with the secret and tree index
     // docs:start:l1_to_l2_message_compute_nullifier
     pub fn compute_nullifier(self: Self) -> Field {
-        let message_hash = self.message_hash();
+        let message_hash = self.hash();
         pedersen_hash([message_hash, self.secret, self.tree_index], GENERATOR_INDEX__NULLIFIER)
     }
     // docs:end:l1_to_l2_message_compute_nullifier

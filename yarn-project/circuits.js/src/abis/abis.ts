@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -28,12 +28,13 @@ import {
   PrivateCircuitPublicInputs,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
   VerificationKey,
 } from '../structs/index.js';
 import { PublicKey } from '../types/index.js';
-import { boolToBuffer } from '../utils/serialize.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
 /**
@@ -116,10 +117,18 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   );
 }
 
-// The "zero leaf" of the function tree is the hash of 5 zero fields.
-// TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
-const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
-const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+let functionTreeRootCalculator: MerkleTreeCalculator | undefined;
+/**
+ * The "zero leaf" of the function tree is the hash of 5 zero fields.
+ * TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
+ */
+function getFunctionTreeRootCalculator() {
+  if (!functionTreeRootCalculator) {
+    const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
+    functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+  }
+  return functionTreeRootCalculator;
+}
 
 /**
  * Computes a function tree from function leaves.
@@ -128,7 +137,9 @@ const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT
  */
 export function computeFunctionTree(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return functionTreeRootCalculator.computeTree(leaves).map(b => Fr.fromBuffer(b));
+  return getFunctionTreeRootCalculator()
+    .computeTree(leaves)
+    .map(b => Fr.fromBuffer(b));
 }
 
 /**
@@ -138,7 +149,7 @@ export function computeFunctionTree(fnLeaves: Fr[]) {
  */
 export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(leaves));
+  return Fr.fromBuffer(getFunctionTreeRootCalculator().computeTreeRoot(leaves));
 }
 
 /**
@@ -179,9 +190,6 @@ export function computeCompleteAddress(
   );
 }
 
-/**
- *
- */
 function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructorHash: Fr) {
   return Fr.fromBuffer(
     pedersenHash(
@@ -268,6 +276,7 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
+// TODO(#3941)
 export function computeBlockHashWithGlobals(
   globals: GlobalVariables,
   noteHashTreeRoot: Fr,
@@ -296,6 +305,7 @@ export function computeBlockHashWithGlobals(
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
+// TODO(#3941): nuke this and replace with `Header.hash()`
 export function computeBlockHash(
   globalsHash: Fr,
   noteHashTreeRoot: Fr,
@@ -323,6 +333,8 @@ export function computeBlockHash(
  * Computes the globals hash given the globals.
  * @param globals - The global variables to put into the block hash.
  * @returns The globals hash.
+ * TODO: move this to GlobalVariables?
+ * TODO(#3941) Investigate whether to nuke this once #3941 is done.
  */
 export function computeGlobalsHash(globals: GlobalVariables): Fr {
   return Fr.fromBuffer(
@@ -355,7 +367,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeIndex(contractAddress: AztecAddress, storageSlot: Fr): Fr {
+export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
   return Fr.fromBuffer(
     pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
   );
@@ -437,9 +449,6 @@ export function computeTxHash(txRequest: TxRequest): Fr {
   );
 }
 
-/**
- *
- */
 function computeFunctionDataHash(functionData: FunctionData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -454,9 +463,6 @@ function computeFunctionDataHash(functionData: FunctionData): Fr {
   );
 }
 
-/**
- *
- */
 function computeTxContextHash(txContext: TxContext): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -473,9 +479,6 @@ function computeTxContextHash(txContext: TxContext): Fr {
   );
 }
 
-/**
- *
- */
 function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -492,9 +495,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   );
 }
 
-/**
- *
- */
 function computeCallContextHash(input: CallContext) {
   return pedersenHash(
     [
@@ -505,44 +505,46 @@ function computeCallContextHash(input: CallContext) {
       boolToBuffer(input.isDelegateCall, 32),
       boolToBuffer(input.isStaticCall, 32),
       boolToBuffer(input.isContractDeployment, 32),
+      numToUInt32BE(input.startSideEffectCounter, 32),
     ],
     GeneratorIndex.CALL_CONTEXT,
   );
 }
 
-/**
- *
- */
 function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),
     ...input.returnValues.map(fr => fr.toBuffer()),
-    ...input.readRequests.map(fr => fr.toBuffer()),
-    ...input.pendingReadRequests.map(fr => fr.toBuffer()),
-    ...input.newCommitments.map(fr => fr.toBuffer()),
-    ...input.newNullifiers.map(fr => fr.toBuffer()),
-    ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
+    ...input.readRequests
+      .map(rr => rr.toFields())
+      .flat()
+      .map(fr => fr.toBuffer()),
+    ...input.newCommitments
+      .map(n => n.toFields())
+      .flat()
+      .map(fr => fr.toBuffer()),
+    ...input.newNullifiers
+      .map(n => n.toFields())
+      .flat()
+      .map(fr => fr.toBuffer()),
     ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
+    input.endSideEffectCounter.toBuffer(),
     ...input.encryptedLogsHash.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.encryptedLogPreimagesLength.toBuffer(),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    input.historicBlockData.noteHashTreeRoot.toBuffer(),
-    input.historicBlockData.nullifierTreeRoot.toBuffer(),
-    input.historicBlockData.contractTreeRoot.toBuffer(),
-    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
-    input.historicBlockData.blocksTreeRoot.toBuffer(),
-    input.historicBlockData.publicDataTreeRoot.toBuffer(),
-    input.historicBlockData.globalVariablesHash.toBuffer(),
+    ...(input.historicalHeader.toFieldArray().map(fr => fr.toBuffer()) as Buffer[]),
     computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
     input.chainId.toBuffer(),
     input.version.toBuffer(),
   ];
   if (toHash.length != PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
-    throw new Error('Incorrect number of input fields when hashing PrivateCircuitPublicInputs');
+    throw new Error(
+      `Incorrect number of input fields when hashing PrivateCircuitPublicInputs ${toHash.length}, ${PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH}`,
+    );
   }
   return pedersenHash(toHash, GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS);
 }
@@ -565,9 +567,6 @@ export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackI
   );
 }
 
-/**
- *
- */
 function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
   return pedersenHash(
     [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
@@ -575,17 +574,22 @@ function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateReq
   );
 }
 
-/**
- *
- */
 function computeContractStorageReadsHash(input: ContractStorageRead) {
   return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
 }
 
-/**
- *
- */
-function computePublicInputsHash(input: PublicCircuitPublicInputs) {
+export function computeCommitmentsHash(input: SideEffect) {
+  return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
+}
+
+export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
+  return pedersenHash(
+    [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
+    GeneratorIndex.SIDE_EFFECT,
+  );
+}
+
+export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),
@@ -593,18 +597,12 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
     ...input.contractStorageReads.map(computeContractStorageReadsHash),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
-    ...input.newCommitments.map(fr => fr.toBuffer()),
-    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.newCommitments.map(computeCommitmentsHash),
+    ...input.newNullifiers.map(computeNullifierHash),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    input.historicBlockData.noteHashTreeRoot.toBuffer(),
-    input.historicBlockData.nullifierTreeRoot.toBuffer(),
-    input.historicBlockData.contractTreeRoot.toBuffer(),
-    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
-    input.historicBlockData.blocksTreeRoot.toBuffer(),
-    input.historicBlockData.publicDataTreeRoot.toBuffer(),
-    input.historicBlockData.globalVariablesHash.toBuffer(),
+    ...input.historicalHeader.toFieldArray().map(fr => fr.toBuffer()),
     input.proverAddress.toBuffer(),
   ];
   if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {

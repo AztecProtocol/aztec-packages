@@ -1,4 +1,4 @@
-import { Tx, TxHash } from '@aztec/types';
+import { Tx, TxHash } from '@aztec/circuit-types';
 
 /**
  * Interface of a transaction pool. The pool includes tx requests and is kept up-to-date by a P2P client.
@@ -21,7 +21,7 @@ export interface TxPool {
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
    */
-  deleteTxs(txHashes: TxHash[]): void;
+  deleteTxs(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Gets all transactions currently in the tx pool.

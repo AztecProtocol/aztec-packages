@@ -1,12 +1,11 @@
 #include "../../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 template <typename Builder, typename Native>
 uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator&(const uint_plookup& other) const
@@ -286,7 +285,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
     }
     uint_plookup<Builder, Native> result(ctx);
     // result.accumulators.resize(num_accumulators());
-    field_t<Builder> scaling_factor(context, barretenberg::fr(1ULL << bits_per_limb));
+    field_t<Builder> scaling_factor(context, bb::fr(1ULL << bits_per_limb));
 
     // N.B. THIS LOOP ONLY WORKS IF THE LOGIC TABLE SLICE SIZE IS HALF THAT OF `bits_per_limb`
     for (size_t i = 0; i < num_accumulators(); ++i) {
@@ -326,10 +325,13 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
     return result;
 }
 
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
+template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

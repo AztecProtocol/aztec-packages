@@ -1,4 +1,4 @@
-import { SiblingPath } from '@aztec/types';
+import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Defines the interface for a source of sibling paths.
@@ -48,5 +48,13 @@ export interface MerkleTree extends SiblingPathSource {
    * @param index - The index of the leaf value to be returned.
    * @param includeUncommitted - Set to true to include uncommitted updates in the data set.
    */
-  getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined>;
+  getLeafValue(index: bigint, includeUncommitted: boolean): Buffer | undefined;
+
+  /**
+   * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
+   * @param leaf - The leaf value to look for.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The index of the first leaf found with a given value (undefined if not found).
+   */
+  findLeafIndex(leaf: Buffer, includeUncommitted: boolean): bigint | undefined;
 }

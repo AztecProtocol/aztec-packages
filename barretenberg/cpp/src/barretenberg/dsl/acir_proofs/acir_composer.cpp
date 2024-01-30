@@ -2,13 +2,12 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/types.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "contract.hpp"
 
 namespace acir_proofs {
 
@@ -17,50 +16,36 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     , verbose_(verbose)
 {}
 
-void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
+/**
+ * @brief Populate acir_composer-owned builder with circuit generated from constraint system and an optional witness
+ *
+ * @tparam Builder
+ * @param constraint_system
+ * @param witness
+ */
+template <typename Builder>
+void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system, WitnessVector const& witness)
 {
-    if (builder_.get_num_gates() > 1) {
-        return;
-    }
     vinfo("building circuit...");
-    builder_ = acir_format::create_circuit(constraint_system, size_hint_);
-    exact_circuit_size_ = builder_.get_num_gates();
-    total_circuit_size_ = builder_.get_total_circuit_size();
-    circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
-    size_hint_ = circuit_subgroup_size_;
+    builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
 }
 
-std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
-    acir_format::acir_format& constraint_system)
+std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key()
 {
-    create_circuit(constraint_system);
     acir_format::Composer composer;
     vinfo("computing proving key...");
     proving_key_ = composer.compute_proving_key(builder_);
     return proving_key_;
 }
 
-std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
-                                                acir_format::WitnessVector& witness,
-                                                bool is_recursive)
+std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
 {
-    vinfo("building circuit with witness...");
-    builder_ = acir_format::Builder(size_hint_);
-    create_circuit_with_witness(builder_, constraint_system, witness);
-    vinfo("gates: ", builder_.get_total_circuit_size());
+    if (!proving_key_) {
+        throw_or_abort("Must compute proving key before constructing proof.");
+    }
 
-    auto composer = [&]() {
-        if (proving_key_) {
-            return acir_format::Composer(proving_key_, nullptr);
-        }
-
-        acir_format::Composer composer;
-        vinfo("computing proving key...");
-        proving_key_ = composer.compute_proving_key(builder_);
-        vinfo("done.");
-        return composer;
-    }();
+    acir_format::Composer composer(proving_key_, nullptr);
 
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
@@ -75,7 +60,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     return proof;
 }
 
-std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verification_key()
+std::shared_ptr<bb::plonk::verification_key> AcirComposer::init_verification_key()
 {
     if (!proving_key_) {
         throw_or_abort("Compute proving key first.");
@@ -87,10 +72,10 @@ std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verifi
     return verification_key_;
 }
 
-void AcirComposer::load_verification_key(proof_system::plonk::verification_key_data&& data)
+void AcirComposer::load_verification_key(bb::plonk::verification_key_data&& data)
 {
-    verification_key_ = std::make_shared<proof_system::plonk::verification_key>(
-        std::move(data), srs::get_crs_factory()->get_verifier_crs());
+    verification_key_ =
+        std::make_shared<bb::plonk::verification_key>(std::move(data), srs::get_crs_factory()->get_verifier_crs());
 }
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
@@ -106,6 +91,16 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
+    // TODO: We could get rid of this, if we made the Noir program specify whether something should be
+    // TODO: created with the recursive setting or not. ie:
+    //
+    // #[recursive_friendly]
+    // fn main() {}
+    // would put in the ACIR that we want this to be recursion friendly with a flag maybe and the backend
+    // would set the is_recursive flag to be true.
+    // This would eliminate the need for nargo to have a --recursive flag
+    //
+    // End result is that we may just be able to get it off of builder_, like builder_.is_recursive_friendly
     if (is_recursive) {
         auto verifier = composer.create_verifier(builder_);
         return verifier.verify_proof({ proof });
@@ -119,10 +114,12 @@ std::string AcirComposer::get_solidity_verifier()
 {
     std::ostringstream stream;
     output_vk_sol(stream, verification_key_, "UltraVerificationKey");
-    return stream.str();
+    return stream.str() + CONTRACT_SOURCE;
 }
 
 /**
+ * TODO: We should change this to return a proof without public inputs, since that is what std::verify_proof
+ * TODO: takes.
  * @brief Takes in a proof buffer and converts into a vector of field elements.
  *        The Recursion opcode requires the proof serialized as a vector of witnesses.
  *        Use this method to get the witness values!
@@ -130,8 +127,8 @@ std::string AcirComposer::get_solidity_verifier()
  * @param proof
  * @param num_inner_public_inputs - number of public inputs on the proof being serialized
  */
-std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& proof,
-                                                                        size_t num_inner_public_inputs)
+std::vector<bb::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& proof,
+                                                              size_t num_inner_public_inputs)
 {
     transcript::StandardTranscript transcript(proof,
                                               acir_format::Composer::create_manifest(num_inner_public_inputs),
@@ -147,9 +144,12 @@ std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vec
  *        Use this method to get the witness values!
  *        The composer should already have a verification key initialized.
  */
-std::vector<barretenberg::fr> AcirComposer::serialize_verification_key_into_fields()
+std::vector<bb::fr> AcirComposer::serialize_verification_key_into_fields()
 {
     return acir_format::export_key_in_recursion_format(verification_key_);
 }
+
+template void AcirComposer::create_circuit<UltraCircuitBuilder>(acir_format::AcirFormat& constraint_system,
+                                                                WitnessVector const& witness);
 
 } // namespace acir_proofs

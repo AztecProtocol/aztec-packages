@@ -1,4 +1,4 @@
-import { GlobalVariables, HistoricBlockData } from '@aztec/circuits.js';
+import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Oracle, acvm, extractCallStack, extractPublicCircuitPublicInputs } from '../acvm/index.js';
@@ -47,8 +47,8 @@ export async function executePublicFunction(
   } = extractPublicCircuitPublicInputs(partialWitness, acir);
 
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
-  const newCommitments = newCommitmentsPadded.filter(v => !v.isZero());
-  const newNullifiers = newNullifiersPadded.filter(v => !v.isZero());
+  const newCommitments = newCommitmentsPadded.filter(v => !v.isEmpty());
+  const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
 
   const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
   log(
@@ -81,7 +81,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private readonly blockData: HistoricBlockData,
+    private readonly header: Header,
   ) {}
 
   /**
@@ -105,7 +105,7 @@ export class PublicExecutor {
 
     const context = new PublicExecutionContext(
       execution,
-      this.blockData,
+      this.header,
       globalVariables,
       packedArgs,
       sideEffectCounter,

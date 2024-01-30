@@ -1,8 +1,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "ram_table.hpp"
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief A dynamic array of field elements
@@ -47,8 +46,4 @@ template <typename Builder> class DynamicArray {
     field_pt _length = 0;
     mutable ram_table<Builder> _inner_table;
 };
-
-EXTERN_STDLIB_ULTRA_TYPE(DynamicArray);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

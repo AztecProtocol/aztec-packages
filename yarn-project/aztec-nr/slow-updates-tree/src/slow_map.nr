@@ -1,7 +1,6 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
-use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use dep::aztec::oracle::storage::{storage_read, storage_write};
-
+use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
 use dep::std::hash::pedersen_hash;
 use dep::std::merkle::compute_merkle_root;
 use dep::std::option::Option;
@@ -20,20 +19,15 @@ struct Leaf {
   after: Field,
 }
 
-fn serialize_leaf(leaf: Leaf) -> [Field; 3] {
-    [leaf.next_change, leaf.before, leaf.after]
-}
-
-fn deserialize_leaf(serialized: [Field; 3]) -> Leaf {
-    Leaf { next_change: serialized[0], before: serialized[1], after: serialized[2] }
-}
-
-impl Leaf {
-  fn serialize(self: Self) -> [Field; 3] {
-    serialize_leaf(self)
+impl Serialize<3> for Leaf {
+  fn serialize(leaf: Leaf) -> [Field; 3] {
+      [leaf.next_change, leaf.before, leaf.after]
   }
-   fn deserialize(serialized: [Field; 3]) -> Self {
-    deserialize_leaf(serialized)
+}
+
+impl Deserialize<3> for Leaf {
+  fn deserialize(serialized: [Field; 3]) -> Leaf {
+      Leaf { next_change: serialized[0], before: serialized[1], after: serialized[2] }
   }
 }
 
@@ -43,6 +37,7 @@ struct SlowUpdateInner<N> {
   sibling_path: [Field; N],
 }
 
+// docs:start:slow_update_proof
 // The slow update proof. Containing two merkle paths
 // One for the before and one for the after trees.
 // M = 2 * N + 4
@@ -52,6 +47,7 @@ struct SlowUpdateProof<N, M> {
   before: SlowUpdateInner<N>,
   after: SlowUpdateInner<N>,
 }
+// docs:end:slow_update_proof
 
 pub fn deserialize_slow_update_proof<N, M>(serialized: [Field; M]) -> SlowUpdateProof<N, M> {
     SlowUpdateProof::deserialize(serialized)
@@ -115,7 +111,8 @@ impl<N,M> SlowMap<N,M> {
   }
 
   pub fn read_root(self: Self) -> Leaf {
-    storage_read(self.storage_slot, deserialize_leaf)
+    let fields = storage_read(self.storage_slot);
+    Leaf::deserialize(fields)
   }
 
   // Beware that the initial root could include much state that is not shown by the public storage!
@@ -142,11 +139,15 @@ impl<N,M> SlowMap<N,M> {
     }
   }
 
+  // docs:start:read_leaf_at
   pub fn read_leaf_at(self: Self, key: Field) -> Leaf {
     let derived_storage_slot = pedersen_hash([self.storage_slot, key]);
-    storage_read(derived_storage_slot, deserialize_leaf)
+    let fields = storage_read(derived_storage_slot);
+    Leaf::deserialize(fields)
   }
+  // docs:end:read_leaf_at
 
+  // docs:start:read_at
   // Reads the "CURRENT" value of the leaf
   pub fn read_at(self: Self, key: Field) -> Field {
     let time = self.context.public.unwrap().timestamp() as u120;
@@ -157,6 +158,7 @@ impl<N,M> SlowMap<N,M> {
       leaf.after
     }
   }
+  // docs:end:read_at
 
   // Will update values in the "AFTER" tree
   // - updates the leaf and root to follow current values, moving from after to before if 

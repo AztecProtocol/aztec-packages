@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace barretenberg::group_elements {
+namespace bb::group_elements {
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
 template <typename Fq, typename Fr, typename Params> class alignas(64) affine_element {
@@ -20,9 +20,9 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
 
     constexpr affine_element(const Fq& a, const Fq& b) noexcept;
 
-    constexpr affine_element(const affine_element& other) noexcept;
+    constexpr affine_element(const affine_element& other) noexcept = default;
 
-    constexpr affine_element(affine_element&& other) noexcept;
+    constexpr affine_element(affine_element&& other) noexcept = default;
 
     static constexpr affine_element one() noexcept { return { Params::one_x, Params::one_y }; };
 
@@ -52,9 +52,9 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
               typename CompileTimeEnabled = std::enable_if_t<(BaseField::modulus >> 255) == uint256_t(1), void>>
     static constexpr std::array<affine_element, 2> from_compressed_unsafe(const uint256_t& compressed) noexcept;
 
-    constexpr affine_element& operator=(const affine_element& other) noexcept;
+    constexpr affine_element& operator=(const affine_element& other) noexcept = default;
 
-    constexpr affine_element& operator=(affine_element&& other) noexcept;
+    constexpr affine_element& operator=(affine_element&& other) noexcept = default;
 
     constexpr affine_element operator+(const affine_element& other) const noexcept;
 
@@ -77,7 +77,7 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      *
      * @return A randomly chosen point on the curve
      */
-    static affine_element random_element(numeric::random::Engine* engine = nullptr) noexcept;
+    static affine_element random_element(numeric::RNG* engine = nullptr) noexcept;
     static constexpr affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
         requires SupportsHashToCurve<Params>;
 
@@ -91,8 +91,8 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
     /**
      * @brief Serialize the point to the given buffer
      *
-     * @details We support serializing the point at infinity for curves defined over a barretenberg::field (i.e., a
-     * native field of prime order) and for points of barretenberg::g2.
+     * @details We support serializing the point at infinity for curves defined over a bb::field (i.e., a
+     * native field of prime order) and for points of bb::g2.
      *
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      *
@@ -120,8 +120,8 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      *
      * @return Deserialized point
      *
-     * @details We support serializing the point at infinity for curves defined over a barretenberg::field (i.e., a
-     * native field of prime order) and for points of barretenberg::g2.
+     * @details We support serializing the point at infinity for curves defined over a bb::field (i.e., a
+     * native field of prime order) and for points of bb::g2.
      *
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      */
@@ -184,6 +184,6 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
     // for serialization: update with new fields
     MSGPACK_FIELDS(x, y);
 };
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements
 
 #include "./affine_element_impl.hpp"

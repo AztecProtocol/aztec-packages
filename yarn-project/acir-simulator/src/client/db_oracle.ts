@@ -1,20 +1,20 @@
-import { CompleteAddress, GrumpkinPrivateKey, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
-import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
+import { L2Block, MerkleTreeId, NoteStatus, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
+import { CompleteAddress, Header } from '@aztec/circuits.js';
+import { FunctionArtifactWithDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { NoteData } from '../acvm/index.js';
-import { CommitmentsDB } from '../public/index.js';
+import { KeyPair, NoteData } from '../acvm/index.js';
+import { CommitmentsDB } from '../public/db.js';
 
 /**
- * A function artifact with optional debug metadata
+ * Error thrown when a contract is not found in the database.
  */
-export interface FunctionArtifactWithDebugMetadata extends FunctionArtifact {
-  /**
-   * Debug metadata for the function.
-   */
-  debug?: FunctionDebugMetadata;
+export class ContractNotFoundError extends Error {
+  constructor(contractAddress: string) {
+    super(`DB has no contract with address ${contractAddress}`);
+  }
 }
 
 /**
@@ -43,16 +43,16 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve the secret key associated with a specific public key.
+   * Retrieve the nullifier key pair associated with a specific account.
    * The function only allows access to the secret keys of the transaction creator,
-   * and throws an error if the address does not match the public key address of the key pair.
+   * and throws an error if the address does not match the account address of the key pair.
    *
-   * @param contractAddress - The contract address. Ignored here. But we might want to return different keys for different contracts.
-   * @param pubKey - The public key of an account.
-   * @returns A Promise that resolves to the secret key.
-   * @throws An Error if the input address does not match the public key address of the key pair.
+   * @param accountAddress - The account address.
+   * @param contractAddress - The contract address.
+   * @returns A Promise that resolves to the nullifier key pair.
+   * @throws An Error if the input address does not match the account address of the key pair.
    */
-  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey>;
+  getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
@@ -61,9 +61,10 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @param contractAddress - The AztecAddress instance representing the contract address.
    * @param storageSlot - The Fr instance representing the storage slot of the notes.
+   * @param status - The status of notes to fetch.
    * @returns A Promise that resolves to an array of note data.
    */
-  getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteData[]>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus): Promise<NoteData[]>;
 
   /**
    * Retrieve the artifact information of a specific function within a contract.
@@ -108,10 +109,67 @@ export interface DBOracle extends CommitmentsDB {
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
-   * Retrieve the databases view of the Historic Block Data object.
-   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   * Retrieve the databases view of the Block Header object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a HistoricBlockData object.
+   * @returns A Promise that resolves to a Header object.
    */
-  getHistoricBlockData(): Promise<HistoricBlockData>;
+  getHeader(): Promise<Header>;
+
+  /**
+   * Fetch the index of the leaf in the respective tree
+   * @param blockNumber - The block number at which to get the leaf index.
+   * @param treeId - The id of the tree to search.
+   * @param leafValue - The leaf value buffer.
+   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
+   */
+  findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Fetch the sibling path of the leaf in the respective tree
+   * @param blockNumber - The block number at which to get the sibling path.
+   * @param treeId - The id of the tree to search.
+   * @param leafIndex - The index of the leaf.
+   * @returns - The sibling path of the leaf.
+   */
+  getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+
+  /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+
+  /**
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
+   */
+  getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+
+  /**
+   * Returns a witness for a given slot of the public data tree at a given block.
+   * @param blockNumber - The block number at which to get the witness.
+   * @param leafSlot - The slot of the public data in the public data tree.
+   */
+  getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+
+  /**
+   * Fetch a block corresponding to the given block number.
+   * @param blockNumber - The block number of a block to fetch.
+   * @returns - The block corresponding to the given block number. Undefined if it does not exist.
+   */
+  getBlock(blockNumber: number): Promise<L2Block | undefined>;
+
+  /**
+   * Fetches the current block number.
+   * @returns The block number.
+   */
+  getBlockNumber(): Promise<number>;
 }

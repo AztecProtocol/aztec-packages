@@ -1,8 +1,8 @@
+import { Note, PXE } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Note, PXE } from '@aztec/types';
 
 import fs from 'fs';
 
@@ -280,9 +280,6 @@ export class AztecCheatCodes {
    */
   public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
     const storageValue = await this.pxe.getPublicStorageAt(who, new Fr(slot));
-    if (storageValue === undefined) {
-      throw new Error(`Storage slot ${slot} not found`);
-    }
     return storageValue;
   }
 

@@ -3,23 +3,11 @@
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
 
-namespace barretenberg::group_elements {
+namespace bb::group_elements {
 template <class Fq, class Fr, class T>
 constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& a, const Fq& b) noexcept
     : x(a)
     , y(b)
-{}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>::affine_element(const affine_element& other) noexcept
-    : x(other.x)
-    , y(other.y)
-{}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>::affine_element(affine_element&& other) noexcept
-    : x(other.x)
-    , y(other.y)
 {}
 
 template <class Fq, class Fr, class T>
@@ -78,25 +66,6 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator+(
     const affine_element<Fq, Fr, T>& other) const noexcept
 {
     return affine_element(element<Fq, Fr, T>(*this) + element<Fq, Fr, T>(other));
-}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>& affine_element<Fq, Fr, T>::operator=(const affine_element& other) noexcept
-{
-    if (this == &other) {
-        return *this;
-    }
-    x = other.x;
-    y = other.y;
-    return *this;
-}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>& affine_element<Fq, Fr, T>::operator=(affine_element&& other) noexcept
-{
-    x = other.x;
-    y = other.y;
-    return *this;
 }
 
 template <class Fq, class Fr, class T>
@@ -294,10 +263,10 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(con
 }
 
 template <typename Fq, typename Fr, typename T>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::random::Engine* engine) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::RNG* engine) noexcept
 {
     if (engine == nullptr) {
-        engine = &numeric::random::get_engine();
+        engine = &numeric::get_randomness();
     }
 
     Fq x;
@@ -318,4 +287,4 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::ran
     return affine_element<Fq, Fr, T>(x, y);
 }
 
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements

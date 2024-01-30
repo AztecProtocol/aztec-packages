@@ -8,22 +8,25 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <UltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
-    explicit UltraProver_(std::shared_ptr<Instance>);
+    explicit UltraProver_(const std::shared_ptr<Instance>&,
+                          const std::shared_ptr<CommitmentKey>&,
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
     BBERG_PROFILE void execute_preamble_round();
     BBERG_PROFILE void execute_wire_commitments_round();
     BBERG_PROFILE void execute_sorted_list_accumulator_round();
@@ -35,18 +38,15 @@ template <UltraFlavor Flavor> class UltraProver_ {
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    Transcript transcript;
+    std::shared_ptr<Instance> instance;
 
-    std::vector<FF> public_inputs;
-    size_t pub_inputs_offset;
+    std::shared_ptr<Transcript> transcript;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     CommitmentLabels commitment_labels;
 
     Polynomial quotient_W;
-
-    std::shared_ptr<Instance> instance;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
 
@@ -58,9 +58,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     plonk::proof proof;
 };
 
-extern template class UltraProver_<honk::flavor::Ultra>;
-extern template class UltraProver_<honk::flavor::GoblinUltra>;
-
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
+using GoblinUltraProver = UltraProver_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

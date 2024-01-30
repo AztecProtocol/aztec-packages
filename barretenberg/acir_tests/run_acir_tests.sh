@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
@@ -29,6 +29,7 @@ fi
 
 export BIN CRS_PATH VERBOSE BRANCH
 
+# copy the gzipped acir test data from noir/test_programs to barretenberg/acir_tests
 ./clone_test_vectors.sh
 
 cd acir_tests
@@ -80,8 +81,8 @@ else
     # If parallel flag is set, run in parallel
     if [ -n "${PARALLEL:-}" ]; then
       test $TEST_NAME &
-    else 
-      test $TEST_NAME 
+    else
+      test $TEST_NAME
     fi
   done
 fi

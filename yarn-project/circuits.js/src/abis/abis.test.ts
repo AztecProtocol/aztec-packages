@@ -1,4 +1,4 @@
-import times from 'lodash.times';
+import { times } from '@aztec/foundation/collection';
 
 import {
   AztecAddress,
@@ -8,6 +8,10 @@ import {
   FunctionSelector,
   GlobalVariables,
   NewContractData,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
 } from '../index.js';
 import {
   makeAztecAddress,
@@ -21,6 +25,7 @@ import {
 import {
   computeBlockHashWithGlobals,
   computeCommitmentNonce,
+  computeCommitmentsHash,
   computeCompleteAddress,
   computeContractAddressFromPartial,
   computeContractLeaf,
@@ -28,10 +33,12 @@ import {
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeGlobalsHash,
+  computeNullifierHash,
   computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
-  computePublicDataTreeIndex,
+  computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
+  computePublicInputsHash,
   computeSecretMessageHash,
   computeTxHash,
   computeUniqueCommitment,
@@ -165,10 +172,10 @@ describe('abis', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes public data tree index', () => {
+  it('computes public data tree leaf slot', () => {
     const contractAddress = makeAztecAddress();
     const value = new Fr(3n);
-    const res = computePublicDataTreeIndex(contractAddress, value);
+    const res = computePublicDataTreeLeafSlot(contractAddress, value);
     expect(res).toMatchSnapshot();
   });
 
@@ -224,5 +231,54 @@ describe('abis', () => {
     const value = new Fr(8n);
     const hash = computeSecretMessageHash(value);
     expect(hash).toMatchSnapshot();
+  });
+
+  it('Computes an empty nullifier hash ', () => {
+    const emptyNull = SideEffectLinkedToNoteHash.empty();
+
+    const emptyHash = Fr.fromBuffer(computeNullifierHash(emptyNull)).toString();
+    expect(emptyHash).toMatchSnapshot();
+  });
+
+  it('Computes an empty sideeffect hash ', () => {
+    const emptySideEffect = SideEffect.empty();
+    const emptyHash = Fr.fromBuffer(computeCommitmentsHash(emptySideEffect)).toString();
+    expect(emptyHash).toMatchSnapshot();
+  });
+
+  it('Computes an empty public inputs hash ', () => {
+    const publicInputs = PublicCircuitPublicInputs.empty();
+    const emptyHash = computePublicInputsHash(publicInputs);
+
+    expect(Fr.fromBuffer(emptyHash).toString()).toMatchSnapshot();
+  });
+
+  it('Computes a callstack item request hash', () => {
+    const callStack = PublicCallStackItem.empty();
+
+    callStack.contractAddress = AztecAddress.fromField(new Fr(1));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.isExecutionRequest = true;
+    callStack.publicInputs.newCommitments[0] = new SideEffect(new Fr(1), new Fr(0));
+
+    const hash = callStack.hash();
+    expect(hash.toString()).toMatchSnapshot();
+
+    // Value used in compute_call_stack_item_hash test in noir circuits
+    // console.log("hash", hash.toString());
+  });
+
+  it('Computes a callstack item hash', () => {
+    const callStack = PublicCallStackItem.empty();
+
+    callStack.contractAddress = AztecAddress.fromField(new Fr(1));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.publicInputs.newCommitments[0] = new SideEffect(new Fr(1), new Fr(0));
+
+    const hash = callStack.hash();
+    expect(hash.toString()).toMatchSnapshot();
+
+    // Value used in compute_call_stack_item_request_hash test in noir circuits
+    // console.log("hash", hash.toString());
   });
 });

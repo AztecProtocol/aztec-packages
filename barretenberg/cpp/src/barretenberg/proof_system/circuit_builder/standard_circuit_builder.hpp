@@ -7,7 +7,7 @@
 #include "circuit_builder_base.hpp"
 #include <array>
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase<FF> {
   public:
@@ -23,21 +23,31 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
 
-    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
+    std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
     Arithmetization selectors;
 
-    using WireVector = std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>;
-    using SelectorVector = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using WireVector = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using SelectorVector = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l = std::get<0>(wires);
-    WireVector& w_r = std::get<1>(wires);
-    WireVector& w_o = std::get<2>(wires);
+    WireVector& w_l() { return std::get<0>(wires); };
+    WireVector& w_r() { return std::get<1>(wires); };
+    WireVector& w_o() { return std::get<2>(wires); };
 
-    SelectorVector& q_m = this->selectors.q_m();
-    SelectorVector& q_1 = this->selectors.q_1();
-    SelectorVector& q_2 = this->selectors.q_2();
-    SelectorVector& q_3 = this->selectors.q_3();
-    SelectorVector& q_c = this->selectors.q_c();
+    const WireVector& w_l() const { return std::get<0>(wires); };
+    const WireVector& w_r() const { return std::get<1>(wires); };
+    const WireVector& w_o() const { return std::get<2>(wires); };
+
+    SelectorVector& q_m() { return this->selectors.q_m(); };
+    SelectorVector& q_1() { return this->selectors.q_1(); };
+    SelectorVector& q_2() { return this->selectors.q_2(); };
+    SelectorVector& q_3() { return this->selectors.q_3(); };
+    SelectorVector& q_c() { return this->selectors.q_c(); };
+
+    const SelectorVector& q_m() const { return this->selectors.q_m(); };
+    const SelectorVector& q_1() const { return this->selectors.q_1(); };
+    const SelectorVector& q_2() const { return this->selectors.q_2(); };
+    const SelectorVector& q_3() const { return this->selectors.q_3(); };
+    const SelectorVector& q_c() const { return this->selectors.q_c(); };
 
     static constexpr size_t UINT_LOG2_BASE = 2;
 
@@ -50,9 +60,9 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
         : CircuitBuilderBase<FF>(size_hint)
     {
         selectors.reserve(size_hint);
-        w_l.reserve(size_hint);
-        w_r.reserve(size_hint);
-        w_o.reserve(size_hint);
+        w_l().reserve(size_hint);
+        w_r().reserve(size_hint);
+        w_o().reserve(size_hint);
         // To effieciently constrain wires to zero, we set the first value of w_1 to be 0, and use copy constraints for
         // all future zero values.
         // (#216)(Adrian): This should be done in a constant way, maybe by initializing the constant_variable_indices
@@ -136,8 +146,6 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     } circuit_schema;
 };
 
-extern template class StandardCircuitBuilder_<barretenberg::fr>;
-extern template class StandardCircuitBuilder_<grumpkin::fr>;
-using StandardCircuitBuilder = StandardCircuitBuilder_<barretenberg::fr>;
+using StandardCircuitBuilder = StandardCircuitBuilder_<bb::fr>;
 using StandardGrumpkinCircuitBuilder = StandardCircuitBuilder_<grumpkin::fr>;
-} // namespace proof_system
+} // namespace bb

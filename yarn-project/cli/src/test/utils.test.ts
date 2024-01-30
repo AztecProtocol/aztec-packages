@@ -1,11 +1,12 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
-import { CompleteAddress, PXE } from '@aztec/types';
+import { CompleteAddress, PXE } from '@aztec/circuit-types';
 
 import { InvalidArgumentError } from 'commander';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { encodeArgs } from '../encoding.js';
-import { getTxSender, parseSaltFromHexString, stripLeadingHex } from '../utils.js';
+import { parseSaltFromHexString } from '../parse_args.js';
+import { getTxSender, stripLeadingHex } from '../utils.js';
 import { mockContractArtifact } from './mocks.js';
 
 describe('CLI Utils', () => {

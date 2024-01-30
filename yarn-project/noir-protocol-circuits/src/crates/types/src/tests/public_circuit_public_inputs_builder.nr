@@ -1,25 +1,26 @@
 use crate::{
     abis::{
         call_context::CallContext,
-        historical_block_data::HistoricalBlockData,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    address::Address,
+    address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
-    hash::NUM_FIELDS_PER_SHA256,
+    header::Header,
     tests::fixtures,
     utils::bounded_vec::BoundedVec,
 };
-use dep::aztec::constants_gen::{
+use crate::constants::{
     MAX_NEW_COMMITMENTS_PER_CALL,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    NUM_FIELDS_PER_SHA256,
     RETURN_VALUES_LENGTH,
 };
 
@@ -30,20 +31,20 @@ struct PublicCircuitPublicInputsBuilder {
     contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    historical_block_data: HistoricalBlockData,
-    prover_address: Address,
+    historical_header: Header,
+    prover_address: AztecAddress,
 }
 
 impl PublicCircuitPublicInputsBuilder {
     pub fn new() -> Self {
         let mut public_inputs: PublicCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
         public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
-        public_inputs.historical_block_data = fixtures::HISTORICAL_BLOCK_DATA;
+        public_inputs.historical_header = fixtures::HEADER;
         public_inputs
     }
 
@@ -60,7 +61,7 @@ impl PublicCircuitPublicInputsBuilder {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            historical_block_data: self.historical_block_data,
+            historical_header: self.historical_header,
             prover_address: self.prover_address,
         }
     }

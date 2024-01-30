@@ -11,7 +11,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
+import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts';
 
 import { jest } from '@jest/globals';
 
@@ -58,14 +58,18 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying collateral asset feed contract...`);
-      const receipt = await waitForSuccess(TokenContract.deploy(wallet, accounts[0]).send());
+      const receipt = await waitForSuccess(
+        TokenContract.deploy(wallet, accounts[0], 'TokenName', 'TokenSymbol', 18).send(),
+      );
       logger(`Collateral asset deployed to ${receipt.contractAddress}`);
       collateralAsset = await TokenContract.at(receipt.contractAddress!, wallet);
     }
 
     {
       logger(`Deploying stable coin contract...`);
-      const receipt = await waitForSuccess(TokenContract.deploy(wallet, accounts[0]).send());
+      const receipt = await waitForSuccess(
+        TokenContract.deploy(wallet, accounts[0], 'TokenName', 'TokenSymbol', 18).send(),
+      );
       logger(`Stable coin asset deployed to ${receipt.contractAddress}`);
       stableCoin = await TokenContract.at(receipt.contractAddress!, wallet);
     }
@@ -89,7 +93,7 @@ describe('e2e_lending_contract', () => {
 
     lendingAccount = new LendingAccount(accounts[0].address, new Fr(42));
 
-    // Also specified in `noir-contracts/src/contracts/lending_contract/src/main.nr`
+    // Also specified in `noir-contracts/contracts/lending_contract/src/main.nr`
     const rate = 1268391679n;
     lendingSim = new LendingSimulator(
       cc,
@@ -245,18 +249,6 @@ describe('e2e_lending_contract', () => {
           .deposit_public(depositAmount, nonce, lendingAccount.address, collateralAsset.address)
           .send(),
       );
-    });
-    describe('failure cases', () => {
-      it('calling internal _deposit function directly', async () => {
-        // Try to call the internal `_deposit` function directly
-        // This should:
-        // - not change any storage values.
-        // - fail
-
-        await expect(
-          lendingContract.methods._deposit(lendingAccount.address.toField(), 42n, collateralAsset.address).simulate(),
-        ).rejects.toThrow();
-      });
     });
   });
 

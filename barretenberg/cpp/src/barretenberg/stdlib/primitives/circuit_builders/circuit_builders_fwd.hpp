@@ -9,60 +9,25 @@ construction in stdlib and contains macros for explicit instantiation.
 #pragma once
 #include <concepts>
 
-namespace proof_system::honk {
-namespace flavor {
+namespace bb::honk::flavor {
 class Standard;
 class Ultra;
-} // namespace flavor
-} // namespace proof_system::honk
+} // namespace bb::honk::flavor
 
-namespace barretenberg {
+namespace bb {
 class Bn254FrParams;
 class Bn254FqParams;
 template <class Params> struct alignas(32) field;
-} // namespace barretenberg
+} // namespace bb
 namespace arithmetization {
 template <typename FF_> class Ultra;
 } // namespace arithmetization
-namespace proof_system {
+namespace bb {
 template <class FF> class StandardCircuitBuilder_;
-using StandardCircuitBuilder = StandardCircuitBuilder_<barretenberg::field<barretenberg::Bn254FrParams>>;
-using StandardGrumpkinCircuitBuilder = StandardCircuitBuilder_<barretenberg::field<barretenberg::Bn254FqParams>>;
+using StandardCircuitBuilder = StandardCircuitBuilder_<bb::field<bb::Bn254FrParams>>;
+using StandardGrumpkinCircuitBuilder = StandardCircuitBuilder_<bb::field<bb::Bn254FqParams>>;
 template <class Arithmetization> class UltraCircuitBuilder_;
-using UltraCircuitBuilder =
-    UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::field<barretenberg::Bn254FrParams>>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<bb::field<bb::Bn254FrParams>>>;
 template <class FF> class GoblinUltraCircuitBuilder_;
-using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::field<barretenberg::Bn254FrParams>>;
-} // namespace proof_system
-
-#define EXTERN_STDLIB_TYPE(stdlib_type)                                                                                \
-    extern template class stdlib_type<proof_system::StandardCircuitBuilder>;                                           \
-    extern template class stdlib_type<proof_system::UltraCircuitBuilder>;                                              \
-    extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder>;
-
-#define EXTERN_STDLIB_METHOD(stdlib_method)                                                                            \
-    extern template stdlib_method(proof_system::StandardCircuitBuilder);                                               \
-    extern template stdlib_method(proof_system::UltraCircuitBuilder);                                                  \
-    extern template stdlib_method(proof_system::GoblinUltraCircuitBuilder);
-
-#define EXTERN_STDLIB_TYPE_VA(stdlib_type, ...)                                                                        \
-    extern template class stdlib_type<proof_system::StandardCircuitBuilder, __VA_ARGS__>;                              \
-    extern template class stdlib_type<proof_system::UltraCircuitBuilder, __VA_ARGS__>;                                 \
-    extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder, __VA_ARGS__>;
-
-#define EXTERN_STDLIB_BASIC_TYPE(stdlib_type) extern template class stdlib_type<proof_system::StandardCircuitBuilder>;
-
-#define EXTERN_STDLIB_BASIC_TYPE_VA(stdlib_type, ...)                                                                  \
-    extern template class stdlib_type<proof_system::StandardCircuitBuilder, __VA_ARGS__>;
-
-#define EXTERN_STDLIB_ULTRA_TYPE(stdlib_type)                                                                          \
-    extern template class stdlib_type<proof_system::UltraCircuitBuilder>;                                              \
-    extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder>;
-
-#define EXTERN_STDLIB_ULTRA_TYPE_VA(stdlib_type, ...)                                                                  \
-    extern template class stdlib_type<proof_system::UltraCircuitBuilder, __VA_ARGS__>;                                 \
-    extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder, __VA_ARGS__>;
-
-#define EXTERN_STDLIB_ULTRA_METHOD(stdlib_method)                                                                      \
-    extern template stdlib_method(proof_system::UltraCircuitBuilder);                                                  \
-    extern template stdlib_method(proof_system::GoblinUltraCircuitBuilder);
+using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<bb::field<bb::Bn254FrParams>>;
+} // namespace bb

@@ -4,9 +4,7 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace ecdsa {
+namespace bb::stdlib {
 
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
@@ -22,9 +20,9 @@ namespace ecdsa {
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
-                                 const G1& public_key,
-                                 const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& message,
+                                       const G1& public_key,
+                                       const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = message.get_context() ? message.get_context() : public_key.x.context;
 
@@ -88,7 +86,7 @@ bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
     // TODO(Cody): Having Plookup should not determine which curve is used.
     // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
     // other curves)
-    if constexpr (HasPlookup<Builder> && Curve::type == proof_system::CurveType::SECP256K1) {
+    if constexpr (HasPlookup<Builder> && Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
         result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
@@ -132,9 +130,9 @@ bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
-                                                            const G1& public_key,
-                                                            const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
+                                                                  const G1& public_key,
+                                                                  const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
 
@@ -163,7 +161,7 @@ bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_a
     G1 result;
     // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
     // other curves)
-    if constexpr (HasPlookup<Builder> && Curve::type == proof_system::CurveType::SECP256K1) {
+    if constexpr (HasPlookup<Builder> && Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
         result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
@@ -212,16 +210,15 @@ bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_a
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature_noassert(const stdlib::byte_array<Builder>& message,
-                                          const G1& public_key,
-                                          const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder>& message,
+                                                const G1& public_key,
+                                                const ecdsa_signature<Builder>& sig)
 {
     stdlib::byte_array<Builder> hashed_message =
         static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
 
-    return verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+    return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
+        hashed_message, public_key, sig);
 }
 
-} // namespace ecdsa
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

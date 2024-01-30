@@ -5,10 +5,10 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  HistoricBlockData,
   Point,
   TxContext,
 } from '@aztec/circuits.js';
+import { makeHeader } from '@aztec/circuits.js/factories';
 
 import {
   mapAztecAddressFromNoir,
@@ -23,8 +23,8 @@ import {
   mapFunctionDataToNoir,
   mapFunctionSelectorFromNoir,
   mapFunctionSelectorToNoir,
-  mapHistoricalBlockDataFromNoir,
-  mapHistoricalBlockDataToNoir,
+  mapHeaderFromNoir,
+  mapHeaderToNoir,
   mapPointFromNoir,
   mapPointToNoir,
   mapTxContextFromNoir,
@@ -85,20 +85,9 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       expect(mapFunctionDataFromNoir(mapFunctionDataToNoir(functionData))).toEqual(functionData);
     });
 
-    it('should map historical block data', () => {
-      const historicalBlockData = new HistoricBlockData(
-        new Fr(35n),
-        new Fr(36n),
-        new Fr(37n),
-        new Fr(38n),
-        new Fr(39n),
-        new Fr(40n),
-        new Fr(41n),
-        new Fr(42n),
-      );
-      expect(mapHistoricalBlockDataFromNoir(mapHistoricalBlockDataToNoir(historicalBlockData))).toEqual(
-        historicalBlockData,
-      );
+    it('should map block header', () => {
+      const header = makeHeader(35, undefined);
+      expect(mapHeaderFromNoir(mapHeaderToNoir(header))).toEqual(header);
     });
   });
 });

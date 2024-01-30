@@ -31,8 +31,16 @@ export class BufferReader {
    * @param bufferOrReader - A Buffer or BufferReader to initialize the BufferReader.
    * @returns An instance of BufferReader.
    */
-  public static asReader(bufferOrReader: Buffer | BufferReader) {
-    return Buffer.isBuffer(bufferOrReader) ? new BufferReader(bufferOrReader) : bufferOrReader;
+  public static asReader(bufferOrReader: Uint8Array | Buffer | BufferReader): BufferReader {
+    if (bufferOrReader instanceof BufferReader) {
+      return bufferOrReader;
+    }
+
+    const buf = Buffer.isBuffer(bufferOrReader)
+      ? bufferOrReader
+      : Buffer.from(bufferOrReader.buffer, bufferOrReader.byteOffset, bufferOrReader.byteLength);
+
+    return new BufferReader(buf);
   }
 
   /**
@@ -47,6 +55,16 @@ export class BufferReader {
   }
 
   /**
+   * Reads `count` 32-bit unsigned integers from the buffer at the current index position.
+   * @param count - The number of 32-bit unsigned integers to read.
+   * @returns An array of 32-bit unsigned integers.
+   */
+  public readNumbers<N extends number>(count: N): Tuple<number, N> {
+    const result = Array.from({ length: count }, () => this.readNumber());
+    return result as Tuple<number, N>;
+  }
+
+  /**
    * Reads a 16-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 2 bytes after reading the number.
    *
@@ -55,6 +73,17 @@ export class BufferReader {
   public readUInt16(): number {
     this.index += 2;
     return this.buffer.readUInt16BE(this.index - 2);
+  }
+
+  /**
+   * Reads a 8-bit unsigned integer from the buffer at the current index position.
+   * Updates the index position by 1 byte after reading the number.
+   *
+   * @returns The read 8 bit value.
+   */
+  public readUInt8(): number {
+    this.index += 1;
+    return this.buffer.readUInt8(this.index - 1);
   }
 
   /**

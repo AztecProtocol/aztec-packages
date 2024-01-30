@@ -14,9 +14,7 @@
 #include "barretenberg/stdlib/recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/recursion/verifier/program_settings.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace recursion {
+namespace bb::stdlib::recursion {
 
 template <typename Builder> struct lagrange_evaluations {
     field_t<Builder> l_start;
@@ -41,7 +39,7 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
         const std::string label(item.commitment_label);
         const std::string poly_label(item.polynomial_label);
         switch (item.source) {
-        case PolynomialSource::WITNESS: {
+        case plonk::PolynomialSource::WITNESS: {
             // get_circuit_group_element validates that the point produced lies on the curve
             const auto element = transcript.get_circuit_group_element(label);
             ASSERT(element.get_value().on_curve());
@@ -52,8 +50,8 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
             kate_g1_elements.insert({ label, element });
             break;
         }
-        case PolynomialSource::SELECTOR:
-        case PolynomialSource::PERMUTATION: {
+        case plonk::PolynomialSource::SELECTOR:
+        case plonk::PolynomialSource::PERMUTATION: {
             const auto element = key->commitments.at(label);
             // TODO: with user-defined circuits, we will need verify that the point
             // lies on the curve with constraints
@@ -67,7 +65,7 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
             kate_g1_elements.insert({ label, element });
             break;
         }
-        case PolynomialSource::OTHER: {
+        case plonk::PolynomialSource::OTHER: {
             break;
         }
         }
@@ -99,7 +97,7 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
     fr_ct u = transcript.get_challenge_field_element("separator", 0);
 
     fr_ct batch_evaluation =
-        proof_system::plonk::compute_kate_batch_evaluation<fr_ct, Transcript, program_settings>(key, transcript);
+        bb::plonk::compute_kate_batch_evaluation<fr_ct, Transcript, program_settings>(key, transcript);
     batch_opening_scalar = -batch_evaluation;
 
     kate_g1_elements.insert({ "PI_Z_OMEGA", PI_Z_OMEGA });
@@ -429,6 +427,4 @@ aggregation_state<bn254<typename Flavor::CircuitBuilder>> verify_proof(
         context, key, manifest, proof, previous_output);
 }
 
-} // namespace recursion
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::recursion

@@ -1,5 +1,5 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { randomBytes } from '../crypto/index.js';
+import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
@@ -41,8 +41,13 @@ abstract class BaseField {
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
     if (value instanceof Buffer) {
+      if (value.length > BaseField.SIZE_IN_BYTES) {
+        throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
+      }
       this.asBuffer =
-        value.length === 32 ? value : Buffer.concat([Buffer.alloc(BaseField.SIZE_IN_BYTES - value.length), value]);
+        value.length === BaseField.SIZE_IN_BYTES
+          ? value
+          : Buffer.concat([Buffer.alloc(BaseField.SIZE_IN_BYTES - value.length), value]);
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
@@ -99,12 +104,16 @@ abstract class BaseField {
     return this.toBuffer().equals(rhs.toBuffer());
   }
 
+  lt(rhs: BaseField): boolean {
+    return this.toBigInt() < rhs.toBigInt();
+  }
+
   isZero(): boolean {
     return this.toBuffer().equals(ZERO_BUFFER);
   }
 
   toFriendlyJSON(): string {
-    return `0x${this.toBigInt().toString()}`;
+    return this.toString();
   }
 
   toField() {
@@ -187,6 +196,30 @@ export class Fr extends BaseField {
   static fromString(buf: string) {
     return fromString(buf, Fr);
   }
+
+  /** Arithmetic */
+
+  add(rhs: Fr) {
+    return new Fr((this.toBigInt() + rhs.toBigInt()) % Fr.MODULUS);
+  }
+
+  sub(rhs: Fr) {
+    const result = this.toBigInt() - rhs.toBigInt();
+    return new Fr(result < 0 ? result + Fr.MODULUS : result);
+  }
+
+  mul(rhs: Fr) {
+    return new Fr((this.toBigInt() * rhs.toBigInt()) % Fr.MODULUS);
+  }
+
+  div(rhs: Fr) {
+    if (rhs.isZero()) {
+      throw new Error('Division by zero');
+    }
+
+    const bInv = modInverse(rhs.toBigInt());
+    return this.mul(bInv);
+  }
 }
 
 /**
@@ -244,6 +277,33 @@ export class Fq extends BaseField {
 
   static fromHighLow(high: Fr, low: Fr): Fq {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
+  }
+}
+
+// Beware: Performance bottleneck below
+
+/**
+ * Find the modular inverse of a given element, for BN254 Fr.
+ */
+function modInverse(b: bigint) {
+  const [gcd, x, _] = extendedEuclidean(b, Fr.MODULUS);
+  if (gcd != 1n) {
+    throw Error('Inverse does not exist');
+  }
+  // Add modulus to ensure positive
+  return new Fr(x + Fr.MODULUS);
+}
+
+/**
+ * The extended Euclidean algorithm can be used to find the multiplicative inverse of a field element
+ * This is used to perform field division.
+ */
+function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint] {
+  if (a == 0n) {
+    return [modulus, 0n, 1n];
+  } else {
+    const [gcd, x, y] = extendedEuclidean(modulus % a, a);
+    return [gcd, y - (modulus / a) * x, x];
   }
 }
 

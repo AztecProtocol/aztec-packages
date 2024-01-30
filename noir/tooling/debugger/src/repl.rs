@@ -9,12 +9,7 @@ use nargo::{artifacts::debug::DebugArtifact, ops::DefaultForeignCallExecutor, Na
 use easy_repl::{command, CommandStatus, Repl};
 use std::cell::RefCell;
 
-use codespan_reporting::files::Files;
-use noirc_errors::Location;
-
-use owo_colors::OwoColorize;
-
-use std::ops::Range;
+use crate::source_code_printer::print_source_code_location;
 
 pub struct ReplDebugger<'a, B: BlackBoxFunctionSolver> {
     context: DebugContext<'a, B>,
@@ -37,7 +32,7 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
             circuit,
             debug_artifact,
             initial_witness.clone(),
-            Box::new(DefaultForeignCallExecutor::new(true)),
+            Box::new(DefaultForeignCallExecutor::new(true, None)),
         );
         Self {
             context,
@@ -58,7 +53,15 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
             Some(location) => {
                 match location {
                     OpcodeLocation::Acir(ip) => {
-                        println!("At opcode {}: {}", ip, opcodes[ip])
+                        // Default Brillig display is too bloated for this context,
+                        // so we limit it to denoting it's the start of a Brillig
+                        // block. The user can still use the `opcodes` command to
+                        // take a look at the whole block.
+                        let opcode_summary = match opcodes[ip] {
+                            Opcode::Brillig(..) => "BRILLIG: ...".into(),
+                            _ => format!("{}", opcodes[ip]),
+                        };
+                        println!("At opcode {}: {}", ip, opcode_summary);
                     }
                     OpcodeLocation::Brillig { acir_index, brillig_index } => {
                         let Opcode::Brillig(ref brillig) = opcodes[acir_index] else {
@@ -70,73 +73,8 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
                         );
                     }
                 }
-                self.show_source_code_location(&location);
-            }
-        }
-    }
 
-    fn print_location_path(&self, loc: Location) {
-        let line_number = self.debug_artifact.location_line_number(loc).unwrap();
-        let column_number = self.debug_artifact.location_column_number(loc).unwrap();
-
-        println!(
-            "At {}:{line_number}:{column_number}",
-            self.debug_artifact.name(loc.file).unwrap()
-        );
-    }
-
-    fn show_source_code_location(&self, location: &OpcodeLocation) {
-        let locations = self.debug_artifact.debug_symbols[0].opcode_location(location);
-        let Some(locations) = locations else { return };
-        for loc in locations {
-            self.print_location_path(loc);
-
-            let loc_line_index = self.debug_artifact.location_line_index(loc).unwrap();
-
-            // How many lines before or after the location's line we
-            // print
-            let context_lines = 5;
-
-            let first_line_to_print =
-                if loc_line_index < context_lines { 0 } else { loc_line_index - context_lines };
-
-            let last_line_index = self.debug_artifact.last_line_index(loc).unwrap();
-            let last_line_to_print = std::cmp::min(loc_line_index + context_lines, last_line_index);
-
-            let source = self.debug_artifact.location_source_code(loc).unwrap();
-            for (current_line_index, line) in source.lines().enumerate() {
-                let current_line_number = current_line_index + 1;
-
-                if current_line_index < first_line_to_print {
-                    // Ignore lines before range starts
-                    continue;
-                } else if current_line_index == first_line_to_print && current_line_index > 0 {
-                    // Denote that there's more lines before but we're not showing them
-                    print_line_of_ellipsis(current_line_index);
-                }
-
-                if current_line_index > last_line_to_print {
-                    // Denote that there's more lines after but we're not showing them,
-                    // and stop printing
-                    print_line_of_ellipsis(current_line_number);
-                    break;
-                }
-
-                if current_line_index == loc_line_index {
-                    // Highlight current location
-                    let Range { start: loc_start, end: loc_end } =
-                        self.debug_artifact.location_in_line(loc).unwrap();
-                    println!(
-                        "{:>3} {:2} {}{}{}",
-                        current_line_number,
-                        "->",
-                        &line[0..loc_start].to_string().dimmed(),
-                        &line[loc_start..loc_end],
-                        &line[loc_end..].to_string().dimmed()
-                    );
-                } else {
-                    print_dimmed_line(current_line_number, line);
-                }
+                print_source_code_location(self.debug_artifact, &location);
             }
         }
     }
@@ -278,7 +216,7 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
             self.circuit,
             self.debug_artifact,
             self.initial_witness.clone(),
-            Box::new(DefaultForeignCallExecutor::new(true)),
+            Box::new(DefaultForeignCallExecutor::new(true, None)),
         );
         for opcode_location in breakpoints {
             self.context.add_breakpoint(opcode_location);
@@ -311,37 +249,6 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
         let witness = Witness::from(index);
         _ = self.context.overwrite_witness(witness, field_value);
         println!("_{} = {value}", index);
-    }
-
-    pub fn show_brillig_registers(&self) {
-        if !self.context.is_executing_brillig() {
-            println!("Not executing a Brillig block");
-            return;
-        }
-
-        let Some(registers) = self.context.get_brillig_registers() else {
-            // this can happen when just entering the Brillig block since ACVM
-            // would have not initialized the Brillig VM yet; in fact, the
-            // Brillig code may be skipped altogether
-            println!("Brillig VM registers not available");
-            return;
-        };
-
-        for (index, value) in registers.inner.iter().enumerate() {
-            println!("{index} = {}", value.to_field());
-        }
-    }
-
-    pub fn set_brillig_register(&mut self, index: usize, value: String) {
-        let Some(field_value) = FieldElement::try_from_str(&value) else {
-            println!("Invalid value: {value}");
-            return;
-        };
-        if !self.context.is_executing_brillig() {
-            println!("Not executing a Brillig block");
-            return;
-        }
-        self.context.set_brillig_register(index, field_value);
     }
 
     pub fn show_brillig_memory(&self) {
@@ -382,14 +289,6 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
     fn finalize(self) -> WitnessMap {
         self.context.finalize()
     }
-}
-
-fn print_line_of_ellipsis(line_number: usize) {
-    println!("{}", format!("{:>3} {}", line_number, "...").dimmed());
-}
-
-fn print_dimmed_line(line_number: usize, line: &str) {
-    println!("{}", format!("{:>3} {:2} {}", line_number, "", line).dimmed());
 }
 
 pub fn run<B: BlackBoxFunctionSolver>(
@@ -511,26 +410,6 @@ pub fn run<B: BlackBoxFunctionSolver>(
                 "update a witness with the given value",
                 (index: u32, value: String) => |index, value| {
                     ref_context.borrow_mut().update_witness(index, value);
-                    Ok(CommandStatus::Done)
-                }
-            },
-        )
-        .add(
-            "registers",
-            command! {
-                "show Brillig registers (valid when executing a Brillig block)",
-                () => || {
-                    ref_context.borrow().show_brillig_registers();
-                    Ok(CommandStatus::Done)
-                }
-            },
-        )
-        .add(
-            "regset",
-            command! {
-                "update a Brillig register with the given value",
-                (index: usize, value: String) => |index, value| {
-                    ref_context.borrow_mut().set_brillig_register(index, value);
                     Ok(CommandStatus::Done)
                 }
             },

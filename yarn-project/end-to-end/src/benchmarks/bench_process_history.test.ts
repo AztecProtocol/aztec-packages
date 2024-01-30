@@ -1,12 +1,12 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { Fr, GrumpkinScalar, INITIAL_L2_BLOCK_NUM, elapsed, sleep } from '@aztec/aztec.js';
-import { BenchmarkingContract } from '@aztec/noir-contracts/types';
-import { SequencerClient } from '@aztec/sequencer-client';
+import { AztecAddress, Fr, GrumpkinScalar, INITIAL_L2_BLOCK_NUM, elapsed, sleep } from '@aztec/aztec.js';
 import {
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
   NodeSyncedChainHistoryStats,
-} from '@aztec/types/stats';
+} from '@aztec/circuit-types/stats';
+import { BenchmarkingContract } from '@aztec/noir-contracts/Benchmarking';
+import { SequencerClient } from '@aztec/sequencer-client';
 
 import { EndToEndContext } from '../fixtures/utils.js';
 import {
@@ -43,7 +43,7 @@ describe('benchmarks/process_history', () => {
         // Send enough txs to move the chain to the next block number checkpoint
         const txCount = (chainLength - lastBlock) * BLOCK_SIZE;
         const sentTxs = await sendTxs(txCount, context, contract);
-        await sentTxs[sentTxs.length - 1].wait({ timeout: 5 * 60_000 });
+        await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 5 * 60_000 })));
         await sleep(100);
 
         // Create a new node and measure how much time it takes it to sync
@@ -52,7 +52,9 @@ describe('benchmarks/process_history', () => {
         const nodeConfig: AztecNodeConfig = { ...context.config, disableSequencer: true, dataDirectory };
         const [nodeSyncTime, node] = await elapsed(async () => {
           const node = await AztecNodeService.createAndSync(nodeConfig);
-          await node.getTreeRoots();
+          // call getPublicStorageAt (which calls #getWorldState, which calls #syncWorldState) to force a sync with
+          // world state to ensure the node has caught up
+          await node.getPublicStorageAt(AztecAddress.random(), Fr.random());
           return node;
         });
 

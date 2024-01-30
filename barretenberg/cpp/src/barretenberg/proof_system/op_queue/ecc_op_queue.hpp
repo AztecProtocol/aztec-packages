@@ -3,7 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_builder_types.hpp"
 
-namespace proof_system {
+namespace bb {
 
 enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
 
@@ -26,7 +26,7 @@ class ECCOpQueue {
     Point accumulator = point_at_infinity;
 
   public:
-    using ECCVMOperation = proof_system_eccvm::VMOperation<Curve::Group>;
+    using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
     std::vector<ECCVMOperation> raw_ops;
     std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
 
@@ -103,11 +103,10 @@ class ECCOpQueue {
     {
         // Add a single row of data to the op queue and commit to each column as [1] * FF(data)
         std::array<Point, 4> mock_op_queue_commitments;
-        size_t idx = 0;
-        for (auto& entry : this->ultra_ops) {
+        for (size_t idx = 0; idx < 4; idx++) {
             auto mock_data = Fr::random_element();
-            entry.emplace_back(mock_data);
-            mock_op_queue_commitments[idx++] = Point::one() * mock_data;
+            this->ultra_ops[idx].emplace_back(mock_data);
+            mock_op_queue_commitments[idx] = Point::one() * mock_data;
         }
         // Set some internal data based on the size of the op queue data
         this->set_size_data();
@@ -210,4 +209,4 @@ class ECCOpQueue {
     }
 };
 
-} // namespace proof_system
+} // namespace bb

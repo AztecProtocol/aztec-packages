@@ -64,6 +64,9 @@
  */
 
 #pragma once
+#include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/std_array.hpp"
+#include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -73,65 +76,18 @@
 #include <concepts>
 #include <vector>
 
-namespace proof_system::honk::flavor {
-
-#define DEFINE_POINTER_VIEW(ExpectedSize, ...)                                                                         \
-    [[nodiscard]] auto pointer_view()                                                                                  \
-    {                                                                                                                  \
-        std::array view{ __VA_ARGS__ };                                                                                \
-        static_assert(view.size() == ExpectedSize,                                                                     \
-                      "Expected array size to match given size (first parameter) in DEFINE_POINTER_VIEW");             \
-        return view;                                                                                                   \
-    }                                                                                                                  \
-    [[nodiscard]] auto pointer_view() const                                                                            \
-    {                                                                                                                  \
-        std::array view{ __VA_ARGS__ };                                                                                \
-        static_assert(view.size() == ExpectedSize,                                                                     \
-                      "Expected array size to match given size (first parameter) in DEFINE_POINTER_VIEW");             \
-        return view;                                                                                                   \
-    }
-
-/**
- * @brief Base data class template, a wrapper for std::array, from which every flavor class ultimately derives.
- *
- * @tparam T The underlying data type stored in the array
- * @tparam HandleType The type that will be used to
- * @tparam NUM_ENTITIES The size of the underlying array.
- */
-template <typename DataType, typename HandleType, size_t NUM_ENTITIES> class Entities_ {
-  public:
-    virtual ~Entities_() = default;
-
-    constexpr size_t size() { return NUM_ENTITIES; };
-};
+namespace bb::honk::flavor {
 
 /**
  * @brief Base class template containing circuit-specifying data.
  *
  */
-template <typename DataType_, typename HandleType, size_t NUM_PRECOMPUTED_ENTITIES>
-class PrecomputedEntities_ : public Entities_<DataType_, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+class PrecomputedEntitiesBase {
   public:
-    using DataType = DataType_;
-
     size_t circuit_size;
     size_t log_circuit_size;
     size_t num_public_inputs;
     CircuitType circuit_type; // TODO(#392)
-
-    virtual std::vector<HandleType> get_selectors() = 0;
-    virtual std::vector<HandleType> get_sigma_polynomials() = 0;
-    virtual std::vector<HandleType> get_id_polynomials() = 0;
-};
-
-/**
- * @brief Base class template containing witness (wires and derived witnesses).
- * @details Shifts are not included here since they do not occupy their own memory.
- */
-template <typename DataType, typename HandleType, size_t NUM_WITNESS_ENTITIES>
-class WitnessEntities_ : public Entities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
-  public:
-    virtual std::vector<HandleType> get_wires() = 0;
 };
 
 /**
@@ -149,23 +105,30 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
 
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    barretenberg::EvaluationDomain<FF> evaluation_domain;
+    bb::EvaluationDomain<FF> evaluation_domain;
 
-    auto precomputed_polynomials_pointer_view() { return PrecomputedPolynomials::pointer_view(); }
+    std::vector<std::string> get_labels() const
+    {
+        return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());
+    }
+    // This order matters! must match get_unshifted in entity classes
+    RefVector<Polynomial> get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
+    RefVector<Polynomial> get_witness_polynomials() { return WitnessPolynomials::get_all(); }
+    RefVector<Polynomial> get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
-        this->evaluation_domain = barretenberg::EvaluationDomain<FF>(circuit_size, circuit_size);
+        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
         PrecomputedPolynomials::circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto* poly : PrecomputedPolynomials::pointer_view()) {
-            *poly = Polynomial(circuit_size);
+        for (auto& poly : PrecomputedPolynomials::get_all()) {
+            poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto* poly : WitnessPolynomials::pointer_view()) {
-            *poly = Polynomial(circuit_size);
+        for (auto& poly : WitnessPolynomials::get_all()) {
+            poly = Polynomial(circuit_size);
         }
     };
 };
@@ -186,27 +149,10 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
     };
 };
 
-/**
- * @brief Base class containing all entities (or handles on these) in one place.
- *
- * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
- */
-template <typename DataType, typename HandleType, size_t NUM_ALL_ENTITIES>
-class AllEntities_ : public Entities_<DataType, DataType, NUM_ALL_ENTITIES> {
-  public:
-    virtual std::vector<HandleType> get_wires() = 0;
-    virtual std::vector<HandleType> get_unshifted() = 0;
-    virtual std::vector<HandleType> get_to_be_shifted() = 0;
-    virtual std::vector<HandleType> get_shifted() = 0;
-
-    // Because of how Gemini is written, is importat to put the polynomials out in this order.
-    std::vector<HandleType> get_unshifted_then_shifted()
-    {
-        std::vector<HandleType> result{ get_unshifted() };
-        std::vector<HandleType> shifted{ get_shifted() };
-        result.insert(result.end(), shifted.begin(), shifted.end());
-        return result;
-    };
+// Because of how Gemini is written, is importat to put the polynomials out in this order.
+auto get_unshifted_then_shifted(const auto& all_entities)
+{
+    return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
 /**
@@ -309,25 +255,25 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
     }
 }
 
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor
 
 // Forward declare honk flavors
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 class Ultra;
 class ECCVM;
 class GoblinUltra;
 template <typename BuilderType> class UltraRecursive_;
 template <typename BuilderType> class GoblinUltraRecursive_;
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor
 
 // Forward declare plonk flavors
-namespace proof_system::plonk::flavor {
+namespace bb::plonk::flavor {
 class Standard;
 class Ultra;
-} // namespace proof_system::plonk::flavor
+} // namespace bb::plonk::flavor
 
 // Establish concepts for testing flavor attributes
-namespace proof_system {
+namespace bb {
 /**
  * @brief Test whether a type T lies in a list of types ...U.
  *
@@ -347,20 +293,37 @@ concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltr
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra,
-                                    honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
+                                    honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>,
                                     honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
 template <typename T> 
 concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 
                                        honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 
-                                       honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
+                                       honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>,
                                        honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
+
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, honk::flavor::Ultra, 
+                                                           honk::flavor::GoblinUltra, 
+                                                           honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 
+                                                           honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 
+                                                           honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
+                                                           honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
 template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
+template <typename Container, typename Element>
+inline std::string flavor_get_label(Container&& container, const Element& element) {
+    for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {
+        if (&data == &element) {
+            return label;
+        }
+    }
+    return "(unknown label)";
+}
+
 // clang-format on
-} // namespace proof_system
+} // namespace bb

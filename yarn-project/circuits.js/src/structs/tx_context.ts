@@ -1,7 +1,7 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf, PublicKey } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { PublicKey } from '../index.js';
 import { AztecAddress, EthAddress, Fr, Point } from './index.js';
 
 /**
@@ -85,6 +85,7 @@ export class TxContext {
   constructor(
     /**
      * Whether this is a fee paying tx. If not other tx in a bundle will pay the fee.
+     * TODO(#3417): Remove fee and rebate payment fields.
      */
     public isFeePaymentTx: boolean,
     /**

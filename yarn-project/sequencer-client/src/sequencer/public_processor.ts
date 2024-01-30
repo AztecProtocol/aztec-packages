@@ -7,6 +7,8 @@ import {
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/acir-simulator';
+import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   CallRequest,
@@ -15,7 +17,7 @@ import {
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
-  HistoricBlockData,
+  Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -36,23 +38,25 @@ import {
   PublicKernelInputs,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
-import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
+import { Timer } from '@aztec/foundation/timer';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
-import { getVerificationKeys } from '../index.js';
+import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getHistoricBlockData } from './utils.js';
+import { buildInitialHeader } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -66,27 +70,28 @@ export class PublicProcessorFactory {
 
   /**
    * Creates a new instance of a PublicProcessor.
-   * @param prevGlobalVariables - The global variables for the previous block, used to calculate the prev global variables hash.
+   * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
    * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
   public async create(
-    prevGlobalVariables: GlobalVariables,
+    historicalHeader: Header | undefined,
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
-    const blockData = await getHistoricBlockData(this.merkleTree, prevGlobalVariables);
+    historicalHeader = historicalHeader ?? (await buildInitialHeader(this.merkleTree));
+
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
-    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, blockData);
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, historicalHeader);
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,
       new RealPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       globalVariables,
-      blockData,
+      historicalHeader,
       publicContractsDB,
       worldStatePublicDB,
     );
@@ -104,7 +109,7 @@ export class PublicProcessor {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
-    protected blockData: HistoricBlockData,
+    protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
 
@@ -152,17 +157,28 @@ export class PublicProcessor {
    */
   public makeEmptyProcessedTx(): Promise<ProcessedTx> {
     const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.blockData, chainId, version);
+    return makeEmptyProcessedTx(this.historicalHeader, chainId, version);
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
     if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
+      const timer = new Timer();
+
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
-      return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+      const processedTransaction = await makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+      this.log(`Processed public part of ${tx.data.end.newNullifiers[0]}`, {
+        eventName: 'tx-sequencer-processing',
+        duration: timer.ms(),
+        publicDataUpdateRequests:
+          processedTransaction.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
+        ...tx.getStats(),
+      } satisfies TxSequencerProcessingStats);
+
+      return processedTransaction;
     } else {
       return makeProcessedTx(tx);
     }
@@ -217,6 +233,9 @@ export class PublicProcessor {
       this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
 
+    // TODO(#3675): This should be done in a public kernel circuit
+    this.removeRedundantPublicDataWrites(kernelOutput);
+
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
@@ -259,7 +278,7 @@ export class PublicProcessor {
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+    this.historicalHeader.state.partial.publicDataTree.root = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const publicCallStackHashes = padArrayEnd(
@@ -276,8 +295,8 @@ export class PublicProcessor {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
+      newCommitments: padArrayEnd(result.newCommitments, SideEffect.empty(), MAX_NEW_COMMITMENTS_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(
@@ -293,7 +312,7 @@ export class PublicProcessor {
       publicCallStackHashes,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      historicBlockData: this.blockData,
+      historicalHeader: this.historicalHeader,
     });
   }
 
@@ -364,7 +383,7 @@ export class PublicProcessor {
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const readsAreEqual = simPublicDataReads.reduce(
       (accum, read) =>
-        accum && !!publicDataReads.find(item => item.leafIndex.equals(read.leafIndex) && item.value.equals(read.value)),
+        accum && !!publicDataReads.find(item => item.leafSlot.equals(read.leafSlot) && item.value.equals(read.value)),
       true,
     );
     const updatesAreEqual = simPublicDataUpdateRequests.reduce(
@@ -372,7 +391,7 @@ export class PublicProcessor {
         accum &&
         !!publicDataUpdateRequests.find(
           item =>
-            item.leafIndex.equals(update.leafIndex) &&
+            item.leafSlot.equals(update.leafSlot) &&
             item.oldValue.equals(update.oldValue) &&
             item.newValue.equals(update.newValue),
         ),
@@ -399,11 +418,11 @@ export class PublicProcessor {
     // most recently processed top/enqueued call.
     const numTotalReadsInKernel = arrayNonEmptyLength(
       publicInputs.end.publicDataReads,
-      f => f.leafIndex.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
+      f => f.leafSlot.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
     );
     const numTotalUpdatesInKernel = arrayNonEmptyLength(
       publicInputs.end.publicDataUpdateRequests,
-      f => f.leafIndex.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
+      f => f.leafSlot.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
     );
     const numReadsBeforeThisEnqueuedCall = numTotalReadsInKernel - simPublicDataReads.length;
     const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataUpdateRequests.length;
@@ -426,6 +445,24 @@ export class PublicProcessor {
         ...publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
         ...simPublicDataUpdateRequests,
       ],
+      PublicDataUpdateRequest.empty(),
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+  }
+
+  private removeRedundantPublicDataWrites(publicInputs: KernelCircuitPublicInputs) {
+    const lastWritesMap = new Map();
+    for (const write of publicInputs.end.publicDataUpdateRequests) {
+      const key = write.leafSlot.toString();
+      lastWritesMap.set(key, write);
+    }
+
+    const lastWrites = publicInputs.end.publicDataUpdateRequests.filter(
+      write => lastWritesMap.get(write.leafSlot.toString()) === write,
+    );
+
+    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
+      lastWrites,
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );

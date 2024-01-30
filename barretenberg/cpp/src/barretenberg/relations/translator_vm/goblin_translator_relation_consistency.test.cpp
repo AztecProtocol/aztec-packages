@@ -14,9 +14,7 @@
 #include "barretenberg/flavor/goblin_translator.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system;
-
-namespace proof_system::ultra_relation_consistency_tests {
+using namespace bb;
 
 using Flavor = honk::flavor::GoblinTranslator;
 using FF = typename Flavor::FF;
@@ -25,8 +23,8 @@ using InputElements = typename Flavor::AllValues;
 InputElements get_random_input()
 {
     InputElements result;
-    for (FF* element : result.pointer_view()) {
-        *element = FF::random_element();
+    for (FF& element : result.get_all()) {
+        element = FF::random_element();
     }
     return result;
 }
@@ -35,9 +33,9 @@ InputElements get_special_input() // use non-random values
 {
     InputElements result;
     FF idx = 0;
-    for (FF* element : result.pointer_view()) {
+    for (FF& element : result.get_all()) {
         idx += FF(1);
-        *element = idx;
+        element = idx;
     }
     return result;
 }
@@ -947,5 +945,3 @@ TEST_F(GoblinTranslatorRelationConsistency, NonNativeFieldRelation)
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
 };
-
-} // namespace proof_system::ultra_relation_consistency_tests

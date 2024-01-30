@@ -1,4 +1,5 @@
-import { keccak256String, randomBytes } from '../crypto/index.js';
+import { keccak256String } from '../crypto/keccak/index.js';
+import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../fields/index.js';
 import { BufferReader } from '../serialize/index.js';
 
@@ -231,7 +232,7 @@ export class EthAddress {
    */
   static fromBuffer(buffer: Buffer | BufferReader): EthAddress {
     const reader = BufferReader.asReader(buffer);
-    return new EthAddress(reader.readBuffer());
+    return new EthAddress(reader.readBytes(32));
   }
 
   /**

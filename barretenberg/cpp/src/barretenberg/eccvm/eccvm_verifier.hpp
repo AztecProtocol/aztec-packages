@@ -3,7 +3,7 @@
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor> class ECCVMVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -12,12 +12,12 @@ template <typename Flavor> class ECCVMVerifier_ {
     using Transcript = typename Flavor::Transcript;
 
   public:
-    explicit ECCVMVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
-    ECCVMVerifier_(std::shared_ptr<VerificationKey> key,
+    explicit ECCVMVerifier_(const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
+    ECCVMVerifier_(const std::shared_ptr<VerificationKey>& key,
                    std::map<std::string, Commitment> commitments,
                    std::map<std::string, FF> pcs_fr_elements,
-                   std::shared_ptr<VerifierCommitmentKey> pcs_verification_key,
-                   Transcript& transcript)
+                   const std::shared_ptr<VerifierCommitmentKey>& pcs_verification_key,
+                   const std::shared_ptr<Transcript>& transcript)
         : key(std::move(key))
         , commitments(std::move(commitments))
         , pcs_fr_elements(std::move(pcs_fr_elements))
@@ -36,10 +36,9 @@ template <typename Flavor> class ECCVMVerifier_ {
     std::map<std::string, Commitment> commitments;
     std::map<std::string, FF> pcs_fr_elements;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    Transcript transcript;
+    std::shared_ptr<Transcript> transcript;
 };
 
-extern template class ECCVMVerifier_<honk::flavor::ECCVM>;
 using ECCVMVerifierGrumpkin = ECCVMVerifier_<honk::flavor::ECCVM>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

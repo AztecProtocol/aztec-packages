@@ -1,16 +1,15 @@
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor>
-ECCVMVerifier_<Flavor>::ECCVMVerifier_(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
 {}
 
@@ -49,12 +48,12 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = Transcript{ proof.proof_data };
+    transcript = std::make_shared<Transcript>(proof.proof_data);
 
-    auto commitments = VerifierCommitments(key, transcript);
-    auto commitment_labels = CommitmentLabels();
+    VerifierCommitments commitments{ key };
+    CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
+    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
 
     if (circuit_size != key->circuit_size) {
         return false;
@@ -62,7 +61,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     // Utility for extracting commitments from transcript
     const auto receive_commitment = [&](const std::string& label) {
-        return transcript.template receive_from_prover<Commitment>(label);
+        return transcript->template receive_from_prover<Commitment>(label);
     };
 
     // Get commitments to VM wires
@@ -142,7 +141,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.lookup_read_counts_1 = receive_commitment(commitment_labels.lookup_read_counts_1);
 
     // Get challenge for sorted list batching and wire four memory records
-    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    auto [beta, gamma] = challenges_to_field_elements<FF>(transcript->get_challenges("beta", "gamma"));
+
     relation_parameters.gamma = gamma;
     auto beta_sqr = beta * beta;
     relation_parameters.beta = beta;
@@ -157,10 +157,16 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.z_perm = receive_commitment(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-    auto alpha = transcript.get_challenge("alpha");
+    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+
     auto [multivariate_challenge, purported_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, transcript);
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
@@ -176,7 +182,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     auto batched_commitment_to_be_shifted = GroupElement::zero();
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     // Compute powers of batching challenge rho
-    FF rho = transcript.get_challenge("rho");
+    FF rho = transcript->get_challenge("rho");
     std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Compute batched multivariate evaluation
@@ -194,11 +200,12 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
+        // TODO(@zac-williamson)(https://github.com/AztecProtocol/barretenberg/issues/820) ensure ECCVM polynomial
+        // commitments are never points at infinity
         if (commitment.y != 0) {
             batched_commitment_unshifted += commitment * rhos[commitment_idx];
         } else {
-            info("point at infinity (unshifted)");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/820)
         }
         ++commitment_idx;
     }
@@ -209,7 +216,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         if (commitment.y != 0) {
             batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
         } else {
-            info("point at infinity (to be shifted)");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/820)
         }
         ++commitment_idx;
     }
@@ -235,7 +242,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     {
         auto hack_commitment = receive_commitment("Translation:hack_commitment");
 
-        FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
+        FF evaluation_challenge_x = transcript->get_challenge("Translation:evaluation_challenge_x");
 
         // Construct arrays of commitments and evaluations to be batched
         const size_t NUM_UNIVARIATES = 6;
@@ -244,24 +251,25 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
             commitments.transcript_z1, commitments.transcript_z2, hack_commitment
         };
         std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
-            transcript.template receive_from_prover<FF>("Translation:op"),
-            transcript.template receive_from_prover<FF>("Translation:Px"),
-            transcript.template receive_from_prover<FF>("Translation:Py"),
-            transcript.template receive_from_prover<FF>("Translation:z1"),
-            transcript.template receive_from_prover<FF>("Translation:z2"),
-            transcript.template receive_from_prover<FF>("Translation:hack_evaluation")
+            transcript->template receive_from_prover<FF>("Translation:op"),
+            transcript->template receive_from_prover<FF>("Translation:Px"),
+            transcript->template receive_from_prover<FF>("Translation:Py"),
+            transcript->template receive_from_prover<FF>("Translation:z1"),
+            transcript->template receive_from_prover<FF>("Translation:z2"),
+            transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
         };
 
-        FF batching_challenge = transcript.get_challenge("Translation:batching_challenge");
+        // Get another challenge for batching the univariate claims
+        FF ipa_batching_challenge = transcript->get_challenge("Translation:ipa_batching_challenge");
 
-        // Constuct batched commitment and batched evaluation
+        // Construct batched commitment and batched evaluation
         auto batched_commitment = transcript_commitments[0];
         auto batched_transcript_eval = transcript_evaluations[0];
-        auto batching_scalar = batching_challenge;
+        auto batching_scalar = ipa_batching_challenge;
         for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
             batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
             batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
-            batching_scalar *= batching_challenge;
+            batching_scalar *= ipa_batching_challenge;
         }
 
         // Construct and verify batched opening claim
@@ -275,4 +283,4 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

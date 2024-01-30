@@ -12,13 +12,12 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/utility/utility.hpp"
 
-// Note: this namespace will be sensible once stdlib is moved out of the plonk namespace
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
   public:
     using field_ct = field_t<Builder>;
-    using FF = barretenberg::fr;
-    using BaseTranscript = proof_system::honk::BaseTranscript<FF>;
+    using FF = bb::fr;
+    using BaseTranscript = bb::honk::BaseTranscript;
     using StdlibTypes = utility::StdlibTypesUtility<Builder>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = BaseTranscript::HASH_OUTPUT_SIZE;
@@ -49,7 +48,7 @@ template <typename Builder> class Transcript {
     {
         // Compute the indicated challenges from the native transcript
         constexpr size_t num_challenges = sizeof...(Strings);
-        std::array<FF, num_challenges> native_challenges{};
+        std::array<uint256_t, num_challenges> native_challenges{};
         native_challenges = native_transcript.get_challenges(labels...);
 
         /*
@@ -60,7 +59,7 @@ template <typename Builder> class Transcript {
          */
         std::array<field_ct, num_challenges> challenges;
         for (size_t i = 0; i < num_challenges; ++i) {
-            challenges[i] = field_ct::from_witness(builder, native_challenges[i]);
+            challenges[i] = field_ct::from_witness(builder, static_cast<FF>(native_challenges[i]));
         }
 
         return challenges;
@@ -101,4 +100,4 @@ template <typename Builder> class Transcript {
         return StdlibTypes::from_witness(builder, element);
     }
 };
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

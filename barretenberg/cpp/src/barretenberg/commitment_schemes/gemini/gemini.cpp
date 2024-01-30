@@ -42,7 +42,7 @@
  * The verifier is able to computed the simulated commitments to A₀₊(X) and A₀₋(X)
  * since they are linear-combinations of the commitments [fⱼ] and [gⱼ].
  */
-namespace proof_system::honk::pcs::gemini {
+namespace bb::honk::pcs::gemini {
 
 /**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
@@ -53,10 +53,8 @@ namespace proof_system::honk::pcs::gemini {
  * @return std::vector<Polynomial>
  */
 template <typename Curve>
-std::vector<typename barretenberg::Polynomial<typename Curve::ScalarField>> GeminiProver_<
-    Curve>::compute_gemini_polynomials(std::span<const Fr> mle_opening_point,
-                                       Polynomial&& batched_unshifted,
-                                       Polynomial&& batched_to_be_shifted)
+std::vector<typename bb::Polynomial<typename Curve::ScalarField>> GeminiProver_<Curve>::compute_gemini_polynomials(
+    std::span<const Fr> mle_opening_point, Polynomial&& batched_unshifted, Polynomial&& batched_to_be_shifted)
 {
     const size_t num_variables = mle_opening_point.size(); // m
 
@@ -77,7 +75,7 @@ std::vector<typename barretenberg::Polynomial<typename Curve::ScalarField>> Gemi
     Polynomial& batched_G = gemini_polynomials.emplace_back(std::move(batched_to_be_shifted));
     constexpr size_t offset_to_folded = 2; // Offset because of F an G
     // A₀(X) = F(X) + G↺(X) = F(X) + G(X)/X.
-    Polynomial A_0(batched_F);
+    Polynomial A_0 = batched_F;
     A_0 += batched_G.shifted();
 
     // Allocate everything before parallel computation
@@ -190,4 +188,4 @@ ProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
 
 template class GeminiProver_<curve::BN254>;
 template class GeminiProver_<curve::Grumpkin>;
-}; // namespace proof_system::honk::pcs::gemini
+}; // namespace bb::honk::pcs::gemini

@@ -5,13 +5,14 @@
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 class AvmMiniVerifier {
     using Flavor = honk::flavor::AvmMiniFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using Transcript = Flavor::Transcript;
 
   public:
     explicit AvmMiniVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
@@ -26,7 +27,7 @@ class AvmMiniVerifier {
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    BaseTranscript<FF> transcript;
+    std::shared_ptr<Transcript> transcript;
 };
 
-} // namespace proof_system::honk
+} // namespace bb::honk

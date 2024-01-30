@@ -1,4 +1,5 @@
 import { Fr } from '../fields/index.js';
+import { FieldReader } from '../serialize/index.js';
 
 /**
  * AztecAddress represents a 32-byte address in the Aztec Protocol.
@@ -10,13 +11,18 @@ import { Fr } from '../fields/index.js';
 export class AztecAddress extends Fr {
   constructor(buffer: Buffer) {
     if (buffer.length !== 32) {
-      throw new Error(`Invalid length ${buffer.length}.`);
+      throw new Error(`Invalid AztecAddress length ${buffer.length}.`);
     }
     super(buffer);
   }
 
   static fromField(fr: Fr) {
     return new AztecAddress(fr.toBuffer());
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return AztecAddress.fromField(reader.readField());
   }
 
   static fromBigInt(value: bigint) {

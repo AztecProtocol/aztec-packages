@@ -13,12 +13,16 @@ import {
   getContractDeploymentInfo,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
 import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
+import { mnemonicToAccount } from 'viem/accounts';
+
+import { MNEMONIC } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
 const NUM_TXS_PER_NODE = 2;
@@ -55,7 +59,7 @@ describe('e2e_p2p_network', () => {
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
-      const node = await createNode(i + 1 + BOOT_NODE_TCP_PORT, bootstrapNodeAddress);
+      const node = await createNode(i + 1 + BOOT_NODE_TCP_PORT, bootstrapNodeAddress, i);
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
     }
@@ -97,7 +101,7 @@ describe('e2e_p2p_network', () => {
 
       // TODO: the following config options are not applicable to bootstrap nodes
       p2pBlockCheckIntervalMS: 1000,
-      l2QueueSize: 1,
+      p2pL2QueueSize: 1,
       transactionProtocol: '',
       bootstrapNodes: [''],
     };
@@ -107,7 +111,13 @@ describe('e2e_p2p_network', () => {
   };
 
   // creates a P2P enabled instance of Aztec Node Service
-  const createNode = async (tcpListenPort: number, bootstrapNode: string) => {
+  const createNode = async (tcpListenPort: number, bootstrapNode: string, publisherAddressIndex: number) => {
+    // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
+    // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
+    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: publisherAddressIndex + 1 });
+    const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
+    config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+
     const newConfig: AztecNodeConfig = {
       ...config,
       tcpListenPort,
@@ -150,7 +160,7 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const rpcConfig = getRpcConfig();
-    const pxeService = await createPXEService(node, rpcConfig, {}, true);
+    const pxeService = await createPXEService(node, rpcConfig, true);
 
     const keyPair = ConstantKeyPair.random(new Grumpkin());
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(keyPair.getPrivateKey(), Fr.random());

@@ -3,7 +3,7 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 class GoblinTranslatorVerifier {
   public:
     using Flavor = honk::flavor::GoblinTranslator;
@@ -12,7 +12,8 @@ class GoblinTranslatorVerifier {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using TranslationEvaluations = barretenberg::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations;
+    using Transcript = typename Flavor::Transcript;
 
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
@@ -20,10 +21,11 @@ class GoblinTranslatorVerifier {
     std::map<std::string, Commitment> commitments;
     std::map<std::string, FF> pcs_fr_elements;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    BaseTranscript<FF> transcript;
+    std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
 
-    explicit GoblinTranslatorVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
+    GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr,
+                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept;
     GoblinTranslatorVerifier(const GoblinTranslatorVerifier& other) = delete;
     GoblinTranslatorVerifier& operator=(const GoblinTranslatorVerifier& other) = delete;
@@ -36,4 +38,4 @@ class GoblinTranslatorVerifier {
     bool verify_proof(const plonk::proof& proof);
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
-} // namespace proof_system::honk
+} // namespace bb::honk

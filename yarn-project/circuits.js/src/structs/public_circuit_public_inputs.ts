@@ -1,7 +1,9 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -12,10 +14,8 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
-import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData } from './index.js';
+import { Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 
 /**
  * Contract storage read operation on a specific contract.
@@ -179,11 +179,11 @@ export class PublicCircuitPublicInputs {
     /**
      * New commitments created within a public execution call
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * New L2 to L1 messages generated during the call.
      */
@@ -198,9 +198,10 @@ export class PublicCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Root of the commitment trees when the call started.
+     * Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
+     * previous to the one in which the tx is included.
      */
-    public historicBlockData: HistoricBlockData,
+    public historicalHeader: Header,
     /**
      * Address of the prover.
      */
@@ -228,17 +229,20 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.ZERO,
-      HistoricBlockData.empty(),
+      Header.empty(),
       AztecAddress.ZERO,
     );
   }
 
   isEmpty() {
+    const isSideEffectArrayEmpty = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isEmpty());
+    const isSideEffectLinkedArrayEmpty = (arr: SideEffectLinkedToNoteHash[]) =>
+      isArrayEmpty(arr, item => item.isEmpty());
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
@@ -247,12 +251,12 @@ export class PublicCircuitPublicInputs {
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
-      isFrArrayEmpty(this.newCommitments) &&
-      isFrArrayEmpty(this.newNullifiers) &&
+      isSideEffectArrayEmpty(this.newCommitments) &&
+      isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicBlockData.isEmpty() &&
+      this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero()
     );
   }
@@ -275,7 +279,7 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.unencryptedLogsHash,
       fields.unencryptedLogPreimagesLength,
-      fields.historicBlockData,
+      fields.historicalHeader,
       fields.proverAddress,
     ] as const;
   }

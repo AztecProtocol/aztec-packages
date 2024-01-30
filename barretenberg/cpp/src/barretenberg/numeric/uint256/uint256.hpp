@@ -14,12 +14,13 @@
 #include "../uint128/uint128.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include <concepts>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 
-namespace numeric {
+namespace bb::numeric {
 
 class alignas(32) uint256_t {
   public:
@@ -91,7 +92,7 @@ class alignas(32) uint256_t {
 
     explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
 
-    template <typename T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
+    template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
 
     [[nodiscard]] constexpr bool get_bit(uint64_t bit_index) const;
     [[nodiscard]] constexpr uint64_t get_msb() const;
@@ -241,10 +242,10 @@ template <typename B> inline void write(B& it, uint256_t const& value)
     write(it, value.data[0]);
 }
 
-} // namespace numeric
+} // namespace bb::numeric
 
 #include "./uint256_impl.hpp"
 
 // disable linter errors; we want to expose a global uint256_t type to mimic uint64_t, uint32_t etc
 // NOLINTNEXTLINE(tidymisc-unused-using-decls, google-global-names-in-headers, misc-unused-using-decls)
-using numeric::uint256_t;
+using bb::numeric::uint256_t;

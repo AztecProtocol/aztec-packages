@@ -21,7 +21,8 @@ import {
   TokenPortalAbi,
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, getFunctionSelector } from 'viem';
 
@@ -85,7 +86,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet, owner).send();
+  const deployTx = TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send();
 
   // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
   const deployReceipt = await deployTx.wait();
@@ -103,7 +104,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if ((await bridge.methods.token().view()) !== token.address.toBigInt()) {
+  if (!(await bridge.methods.token().view()).equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 

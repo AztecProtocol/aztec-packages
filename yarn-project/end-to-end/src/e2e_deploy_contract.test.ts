@@ -12,7 +12,8 @@ import {
   getContractDeploymentInfo,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { TestContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact } from '@aztec/noir-contracts/Test';
+import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
 import { setup } from './fixtures/utils.js';
@@ -144,8 +145,18 @@ describe('e2e_deploy_contract', () => {
     try {
       // This test requires at least another good transaction to go through in the same block as the bad one.
       // I deployed the same contract again but it could really be any valid transaction here.
-      const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.random());
-      const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.ZERO);
+      const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(
+        AztecAddress.random(),
+        'TokenName',
+        'TKN',
+        18,
+      );
+      const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(
+        AztecAddress.ZERO,
+        'TokenName',
+        'TKN',
+        18,
+      );
 
       await Promise.all([
         goodDeploy.simulate({ skipPublicSimulation: true }),

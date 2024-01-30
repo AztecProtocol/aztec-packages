@@ -11,6 +11,7 @@ import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 // docs:end:content_hash_sol_import
 
+// docs:start:init
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
@@ -23,6 +24,7 @@ contract TokenPortal {
     underlying = IERC20(_underlying);
     l2TokenAddress = _l2TokenAddress;
   }
+  // docs:end:init
 
   // docs:start:deposit_public
   /**

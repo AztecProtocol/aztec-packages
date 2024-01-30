@@ -3,8 +3,9 @@
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 
+use acvm::ExpressionWidth;
 use clap::Args;
-use fm::FileId;
+use fm::{FileId, FileManager};
 use iter_extended::vecmap;
 use noirc_abi::{AbiParameter, AbiType, ContractEvent};
 use noirc_errors::{CustomDiagnostic, FileDiagnostic};
@@ -13,15 +14,17 @@ use noirc_evaluator::errors::RuntimeError;
 use noirc_frontend::graph::{CrateId, CrateName};
 use noirc_frontend::hir::def_map::{Contract, CrateDefMap};
 use noirc_frontend::hir::Context;
+use noirc_frontend::macros_api::MacroProcessor;
 use noirc_frontend::monomorphization::monomorphize;
 use noirc_frontend::node_interner::FuncId;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
+use tracing::info;
 
 mod abi_gen;
 mod contract;
 mod debug;
 mod program;
+mod stdlib;
 
 use debug::filter_relevant_files;
 
@@ -40,8 +43,16 @@ pub const NOIRC_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const NOIR_ARTIFACT_VERSION_STRING: &str =
     concat!(env!("CARGO_PKG_VERSION"), "+", env!("GIT_COMMIT"));
 
-#[derive(Args, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Args, Clone, Debug, Default)]
 pub struct CompileOptions {
+    /// Override the expression width requested by the backend.
+    #[arg(long, value_parser = parse_expression_width)]
+    pub expression_width: Option<ExpressionWidth>,
+
+    /// Force a full recompilation.
+    #[arg(long = "force")]
+    pub force_compile: bool,
+
     /// Emit debug information for the intermediate SSA IR
     #[arg(long, hide = true)]
     pub show_ssa: bool,
@@ -60,6 +71,28 @@ pub struct CompileOptions {
     /// Suppress warnings
     #[arg(long, conflicts_with = "deny_warnings")]
     pub silence_warnings: bool,
+
+    /// Output ACIR gzipped bytecode instead of the JSON artefact
+    #[arg(long, hide = true)]
+    pub only_acir: bool,
+
+    /// Disables the builtin macros being used in the compiler
+    #[arg(long, hide = true)]
+    pub disable_macros: bool,
+
+    /// Outputs the monomorphized IR to stdout for debugging
+    #[arg(long, hide = true)]
+    pub show_monomorphized: bool,
+}
+
+fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {
+    use std::io::{Error, ErrorKind};
+
+    let width = input
+        .parse::<usize>()
+        .map_err(|err| Error::new(ErrorKind::InvalidInput, err.to_string()))?;
+
+    Ok(ExpressionWidth::from(width))
 }
 
 /// Helper type used to signify where only warnings are expected in file diagnostics
@@ -71,13 +104,44 @@ pub type ErrorsAndWarnings = Vec<FileDiagnostic>;
 /// Helper type for connecting a compilation artifact to the errors or warnings which were produced during compilation.
 pub type CompilationResult<T> = Result<(T, Warnings), ErrorsAndWarnings>;
 
+/// Helper method to return a file manager instance with the stdlib already added
+///
+/// TODO: This should become the canonical way to create a file manager and
+/// TODO if we use a File manager trait, we can move file manager into this crate
+/// TODO as a module
+pub fn file_manager_with_stdlib(root: &Path) -> FileManager {
+    let mut file_manager = FileManager::new(root);
+
+    add_stdlib_source_to_file_manager(&mut file_manager);
+
+    file_manager
+}
+
+/// Adds the source code for the stdlib into the file manager
+fn add_stdlib_source_to_file_manager(file_manager: &mut FileManager) {
+    // Add the stdlib contents to the file manager, since every package automatically has a dependency
+    // on the stdlib. For other dependencies, we read the package.Dependencies file to add their file
+    // contents to the file manager. However since the dependency on the stdlib is implicit, we need
+    // to manually add it here.
+    let stdlib_paths_with_source = stdlib::stdlib_paths_with_source();
+    for (path, source) in stdlib_paths_with_source {
+        file_manager.add_file_with_source_canonical_path(Path::new(&path), source);
+    }
+}
+
 /// Adds the file from the file system at `Path` to the crate graph as a root file
+///
+/// Note: This methods adds the stdlib as a dependency to the crate.
+/// This assumes that the stdlib has already been added to the file manager.
 pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
     let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
-    let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
+    let std_file_id = context
+        .file_manager
+        .name_to_id(path_to_std_lib_file)
+        .expect("stdlib file id is expected to be present");
     let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
 
-    let root_file_id = context.file_manager.add_file(file_name).unwrap();
+    let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
 
     let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
 
@@ -88,7 +152,10 @@ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
 
 // Adds the file from the file system at `Path` to the crate graph
 pub fn prepare_dependency(context: &mut Context, file_name: &Path) -> CrateId {
-    let root_file_id = context.file_manager.add_file(file_name).unwrap();
+    let root_file_id = context
+        .file_manager
+        .name_to_id(file_name.to_path_buf())
+        .unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
 
     let crate_id = context.crate_graph.add_crate(root_file_id);
 
@@ -116,13 +183,21 @@ pub fn add_dep(
 ///
 /// This returns a (possibly empty) vector of any warnings found on success.
 /// On error, this returns a non-empty vector of warnings and error messages, with at least one error.
+#[tracing::instrument(level = "trace", skip(context))]
 pub fn check_crate(
     context: &mut Context,
     crate_id: CrateId,
     deny_warnings: bool,
+    disable_macros: bool,
 ) -> CompilationResult<()> {
+    let macros: Vec<&dyn MacroProcessor> = if disable_macros {
+        vec![]
+    } else {
+        vec![&aztec_macros::AztecMacro as &dyn MacroProcessor]
+    };
+
     let mut errors = vec![];
-    let diagnostics = CrateDefMap::collect_defs(crate_id, context);
+    let diagnostics = CrateDefMap::collect_defs(crate_id, context, macros);
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
         let diagnostic: CustomDiagnostic = error.into();
         diagnostic.in_file(file_id)
@@ -153,9 +228,9 @@ pub fn compile_main(
     crate_id: CrateId,
     options: &CompileOptions,
     cached_program: Option<CompiledProgram>,
-    force_compile: bool,
 ) -> CompilationResult<CompiledProgram> {
-    let (_, mut warnings) = check_crate(context, crate_id, options.deny_warnings)?;
+    let (_, mut warnings) =
+        check_crate(context, crate_id, options.deny_warnings, options.disable_macros)?;
 
     let main = context.get_main_function(&crate_id).ok_or_else(|| {
         // TODO(#2155): This error might be a better to exist in Nargo
@@ -166,8 +241,9 @@ pub fn compile_main(
         vec![err]
     })?;
 
-    let compiled_program = compile_no_check(context, options, main, cached_program, force_compile)
-        .map_err(FileDiagnostic::from)?;
+    let compiled_program =
+        compile_no_check(context, options, main, cached_program, options.force_compile)
+            .map_err(FileDiagnostic::from)?;
     let compilation_warnings = vecmap(compiled_program.warnings.clone(), FileDiagnostic::from);
     if options.deny_warnings && !compilation_warnings.is_empty() {
         return Err(compilation_warnings);
@@ -188,7 +264,8 @@ pub fn compile_contract(
     crate_id: CrateId,
     options: &CompileOptions,
 ) -> CompilationResult<CompiledContract> {
-    let (_, warnings) = check_crate(context, crate_id, options.deny_warnings)?;
+    let (_, warnings) =
+        check_crate(context, crate_id, options.deny_warnings, options.disable_macros)?;
 
     // TODO: We probably want to error if contracts is empty
     let contracts = context.get_all_contracts(&crate_id);
@@ -320,6 +397,7 @@ fn compile_contract_inner(
 /// Compile the current crate using `main_function` as the entrypoint.
 ///
 /// This function assumes [`check_crate`] is called beforehand.
+#[tracing::instrument(level = "trace", skip_all, fields(function_name = context.function_name(&main_function)))]
 pub fn compile_no_check(
     context: &Context,
     options: &CompileOptions,
@@ -331,6 +409,9 @@ pub fn compile_no_check(
 
     let hash = fxhash::hash64(&program);
     let hashes_match = cached_program.as_ref().map_or(false, |program| program.hash == hash);
+    if options.show_monomorphized {
+        println!("{program}");
+    }
 
     // If user has specified that they want to see intermediate steps printed then we should
     // force compilation even if the program hasn't changed.
@@ -338,13 +419,15 @@ pub fn compile_no_check(
         force_compile || options.print_acir || options.show_brillig || options.show_ssa;
 
     if !force_compile && hashes_match {
+        info!("Program matches existing artifact, returning early");
         return Ok(cached_program.expect("cache must exist for hashes to match"));
     }
-
+    let visibility = program.return_visibility;
     let (circuit, debug, input_witnesses, return_witnesses, warnings) =
         create_circuit(program, options.show_ssa, options.show_brillig)?;
 
-    let abi = abi_gen::gen_abi(context, &main_function, input_witnesses, return_witnesses);
+    let abi =
+        abi_gen::gen_abi(context, &main_function, input_witnesses, return_witnesses, visibility);
     let file_map = filter_relevant_files(&[debug.clone()], &context.file_manager);
 
     Ok(CompiledProgram {

@@ -1,10 +1,10 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/proof_system/polynomial_store/polynomial_store.hpp"
+
 #include <memory>
 
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief Construct selector polynomials from circuit selector information and put into polynomial cache
@@ -31,17 +31,18 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
         gate_offset += num_ecc_op_gates;
         const size_t op_gate_offset = zero_row_offset;
         // The op gate selector is simply the indicator on the domain [offset, num_ecc_op_gates + offset - 1]
-        barretenberg::polynomial ecc_op_selector(proving_key->circuit_size);
+        bb::polynomial ecc_op_selector(proving_key->circuit_size);
         for (size_t i = 0; i < num_ecc_op_gates; ++i) {
             ecc_op_selector[i + op_gate_offset] = 1;
         }
-        proving_key->lagrange_ecc_op = ecc_op_selector;
+        proving_key->lagrange_ecc_op = ecc_op_selector.share();
     }
 
     // TODO(#398): Loose coupling here! Would rather build up pk from arithmetization
     if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto [poly_ptr, selector_values] :
-             zip_view(proving_key->precomputed_polynomials_pointer_view(), circuit_constructor.selectors.get())) {
+        for (auto [poly, selector_values] : zip_view(ZipAllowDifferentSizes::FLAG,
+                                                     proving_key->get_precomputed_polynomials(),
+                                                     circuit_constructor.selectors.get())) {
             ASSERT(proving_key->circuit_size >= selector_values.size());
 
             // Copy the selector values for all gates, keeping the rows at which we store public inputs as 0.
@@ -50,7 +51,7 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
             for (size_t i = 0; i < selector_values.size(); ++i) {
                 selector_poly_lagrange[i + gate_offset] = selector_values[i];
             }
-            *poly_ptr = selector_poly_lagrange;
+            poly = selector_poly_lagrange.share();
         }
     } else if constexpr (IsPlonkFlavor<Flavor>) {
         size_t selector_idx = 0;
@@ -144,4 +145,4 @@ std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base(
     }
     return wire_polynomials;
 }
-} // namespace proof_system
+} // namespace bb

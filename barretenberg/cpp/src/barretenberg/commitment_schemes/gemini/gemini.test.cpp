@@ -7,14 +7,17 @@
 #include <gtest/gtest.h>
 #include <span>
 
-namespace proof_system::honk::pcs::gemini {
+using namespace bb;
+using namespace bb::honk;
+using namespace bb::honk::pcs;
+using namespace bb::honk::pcs::gemini;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
-    using Polynomial = typename barretenberg::Polynomial<Fr>;
+    using Polynomial = typename bb::Polynomial<Fr>;
 
   public:
     void execute_gemini_and_verify_claims(size_t log_n,
@@ -25,7 +28,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
                                           std::vector<GroupElement> multilinear_commitments,
                                           std::vector<GroupElement> multilinear_commitments_to_be_shifted)
     {
-        auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+        auto prover_transcript = BaseTranscript::prover_init_empty();
 
         const Fr rho = Fr::random_element();
 
@@ -62,10 +65,10 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         for (size_t l = 0; l < log_n - 1; ++l) {
             std::string label = "FOLD_" + std::to_string(l + 1);
             auto commitment = this->ck()->commit(gemini_polynomials[l + 2]);
-            prover_transcript.send_to_verifier(label, commitment);
+            prover_transcript->send_to_verifier(label, commitment);
         }
 
-        const Fr r_challenge = prover_transcript.get_challenge("Gemini:r");
+        const Fr r_challenge = prover_transcript->get_challenge("Gemini:r");
 
         auto prover_output = GeminiProver::compute_fold_polynomial_evaluations(
             multilinear_evaluation_point, std::move(gemini_polynomials), r_challenge);
@@ -73,13 +76,13 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         for (size_t l = 0; l < log_n; ++l) {
             std::string label = "Gemini:a_" + std::to_string(l);
             const auto& evaluation = prover_output.opening_pairs[l + 1].evaluation;
-            prover_transcript.send_to_verifier(label, evaluation);
+            prover_transcript->send_to_verifier(label, evaluation);
         }
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
         this->verify_batch_opening_pair(prover_output.opening_pairs, prover_output.witnesses);
 
-        auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 
         // Compute:
         // - Single opening pair: {r, \hat{a}_0}
@@ -237,5 +240,3 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
                                            multilinear_commitments,
                                            multilinear_commitments_to_be_shifted);
 }
-
-} // namespace proof_system::honk::pcs::gemini

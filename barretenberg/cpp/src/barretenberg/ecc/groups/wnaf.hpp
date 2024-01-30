@@ -4,10 +4,10 @@
 #include <iostream>
 
 // NOLINTBEGIN(readability-implicit-bool-conversion)
-namespace barretenberg::wnaf {
+namespace bb::wnaf {
 constexpr size_t SCALAR_BITS = 127;
 
-#define WNAF_SIZE(x) ((barretenberg::wnaf::SCALAR_BITS + (x)-1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
+#define WNAF_SIZE(x) ((bb::wnaf::SCALAR_BITS + (x)-1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
 
 constexpr size_t get_optimal_bucket_width(const size_t num_points)
 {
@@ -239,12 +239,12 @@ inline uint64_t get_num_scalar_bits(const uint64_t* scalar)
  *
  * N.B. IN OUR STDLIB ALGORITHMS THE SKEW VALUE REPRESENTS AN ADDITION NOT A SUBTRACTION (i.e. we add +1 at the end of
  * the scalar mul algo we don't sub 1) (this is to eliminate situations which could produce the point at infinity as an
- * output as our circuit logic cannot accomodate this edge case).
+ * output as our circuit logic cannot accommodate this edge case).
  *
  * Credits: Zac W.
  *
  * @param scalar Pointer to the 128-bit non-montgomery scalar that is supposed to be transformed into wnaf
- * @param wnaf Pointer to output array that needs to accomodate enough 64-bit WNAF entries
+ * @param wnaf Pointer to output array that needs to accommodate enough 64-bit WNAF entries
  * @param skew_map Reference to output skew value, which if true shows that the point should be added once at the end of
  * computation
  * @param wnaf_round_counts Pointer to output array specifying the number of points participating in each round
@@ -495,6 +495,6 @@ inline void fixed_wnaf_with_restricted_first_slice(uint64_t* scalar,
 //     uint64_t previous = get_wnaf_bits_const<wnaf_bits, 0>(scalar) + (uint64_t)skew_map;
 //     std::array<uint32_t, WNAF_SIZE(wnaf_bits)> result;
 // }
-} // namespace barretenberg::wnaf
+} // namespace bb::wnaf
 
 // NOLINTEND(readability-implicit-bool-conversion)

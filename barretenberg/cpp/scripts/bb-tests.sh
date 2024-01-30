@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script runs all test suites that have not been broken out into their own jobs for parallelisation.
 # Might be better to list exclusions here rather than inclusions as risky to maintain.
 set -eu
@@ -18,6 +18,7 @@ TESTS=(
   crypto_ecdsa_tests
   crypto_pedersen_commitment_tests
   crypto_pedersen_hash_tests
+  crypto_poseidon2_tests
   crypto_schnorr_tests
   crypto_sha256_tests
   dsl_tests
@@ -37,13 +38,14 @@ TESTS=(
   transcript_tests
   translator_vm_tests
   ultra_honk_tests
+  vm_tests
 )
 TESTS_STR="${TESTS[@]}"
 
 docker run --rm -t $IMAGE_URI /bin/sh -c "\
   set -xe; \
   cd /usr/src/barretenberg/cpp; \
-  (cd srs_db && ./download_ignition.sh 1); \
+  srs_db/download_ignition.sh 1; \
+  srs_db/download_grumpkin.sh; \
   cd build; \
-  ./bin/grumpkin_srs_gen 1048576; \
   for BIN in $TESTS_STR; do ./bin/\$BIN; done"

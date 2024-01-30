@@ -3,16 +3,15 @@
 #include "AvmMini_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/honk/proof_system/lookup_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 using Flavor = honk::flavor::AvmMiniFlavor;
 
@@ -29,44 +28,15 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     : key(input_key)
     , commitment_key(commitment_key)
 {
-    // TODO: take every polynomial and assign it to the key!!
-
-    prover_polynomials.avmMini_clk = key->avmMini_clk;
-    prover_polynomials.avmMini_positive = key->avmMini_positive;
-    prover_polynomials.avmMini_first = key->avmMini_first;
-    prover_polynomials.avmMini_subop = key->avmMini_subop;
-    prover_polynomials.avmMini_ia = key->avmMini_ia;
-    prover_polynomials.avmMini_ib = key->avmMini_ib;
-    prover_polynomials.avmMini_ic = key->avmMini_ic;
-    prover_polynomials.avmMini_mem_op_a = key->avmMini_mem_op_a;
-    prover_polynomials.avmMini_mem_op_b = key->avmMini_mem_op_b;
-    prover_polynomials.avmMini_mem_op_c = key->avmMini_mem_op_c;
-    prover_polynomials.avmMini_rwa = key->avmMini_rwa;
-    prover_polynomials.avmMini_rwb = key->avmMini_rwb;
-    prover_polynomials.avmMini_rwc = key->avmMini_rwc;
-    prover_polynomials.avmMini_mem_idx_a = key->avmMini_mem_idx_a;
-    prover_polynomials.avmMini_mem_idx_b = key->avmMini_mem_idx_b;
-    prover_polynomials.avmMini_mem_idx_c = key->avmMini_mem_idx_c;
-    prover_polynomials.avmMini_last = key->avmMini_last;
-    prover_polynomials.avmMini_m_clk = key->avmMini_m_clk;
-    prover_polynomials.avmMini_m_sub_clk = key->avmMini_m_sub_clk;
-    prover_polynomials.avmMini_m_addr = key->avmMini_m_addr;
-    prover_polynomials.avmMini_m_val = key->avmMini_m_val;
-    prover_polynomials.avmMini_m_lastAccess = key->avmMini_m_lastAccess;
-    prover_polynomials.avmMini_m_rw = key->avmMini_m_rw;
-
-    prover_polynomials.avmMini_m_val = key->avmMini_m_val;
-    prover_polynomials.avmMini_m_val_shift = key->avmMini_m_val.shifted();
-
-    prover_polynomials.avmMini_m_addr = key->avmMini_m_addr;
-    prover_polynomials.avmMini_m_addr_shift = key->avmMini_m_addr.shifted();
-
-    prover_polynomials.avmMini_m_rw = key->avmMini_m_rw;
-    prover_polynomials.avmMini_m_rw_shift = key->avmMini_m_rw.shifted();
-
-    // prover_polynomials.lookup_inverses = key->lookup_inverses;
-    // key->z_perm = Polynomial(key->circuit_size);
-    // prover_polynomials.z_perm = key->z_perm;
+    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
+        ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) == bb::flavor_get_label(*key, key_poly));
+        prover_poly = key_poly.share();
+    }
+    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
+        ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) ==
+               bb::flavor_get_label(*key, key_poly) + "_shift");
+        prover_poly = key_poly.shifted();
+    }
 }
 
 /**
@@ -77,7 +47,7 @@ void AvmMiniProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
-    transcript.send_to_verifier("circuit_size", circuit_size);
+    transcript->send_to_verifier("circuit_size", circuit_size);
 }
 
 /**
@@ -89,7 +59,7 @@ void AvmMiniProver::execute_wire_commitments_round()
     auto wire_polys = key->get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript.send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
     }
 }
 
@@ -102,9 +72,14 @@ void AvmMiniProver::execute_relation_check_rounds()
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
-    auto alpha = transcript.get_challenge("alpha");
 
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha);
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha, gate_challenges);
 }
 
 /**
@@ -125,7 +100,7 @@ void AvmMiniProver::execute_zeromorph_rounds()
 
 plonk::proof& AvmMiniProver::export_proof()
 {
-    proof.proof_data = transcript.proof_data;
+    proof.proof_data = transcript->proof_data;
     return proof;
 }
 
@@ -156,4 +131,4 @@ plonk::proof& AvmMiniProver::construct_proof()
     return export_proof();
 }
 
-} // namespace proof_system::honk
+} // namespace bb::honk

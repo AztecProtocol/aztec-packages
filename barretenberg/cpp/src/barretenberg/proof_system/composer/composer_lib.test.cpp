@@ -6,7 +6,7 @@
 #include <array>
 #include <gtest/gtest.h>
 
-namespace proof_system::test_composer_lib {
+using namespace bb;
 
 class ComposerLibTests : public ::testing::Test {
   protected:
@@ -14,7 +14,7 @@ class ComposerLibTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     Flavor::CircuitBuilder circuit_constructor;
     Flavor::ProvingKey proving_key = []() {
-        auto crs_factory = barretenberg::srs::factories::CrsFactory<curve::BN254>();
+        auto crs_factory = srs::factories::CrsFactory<bb::curve::BN254>();
         auto crs = crs_factory.get_prover_crs(4);
         return Flavor::ProvingKey(/*circuit_size=*/8, /*num_public_inputs=*/0);
     }();
@@ -22,11 +22,11 @@ class ComposerLibTests : public ::testing::Test {
 
 TEST_F(ComposerLibTests, ConstructSelectors)
 {
-    circuit_constructor.q_m = { 1, 2, 3, 4 };
-    circuit_constructor.q_1 = { 5, 6, 7, 8 };
-    circuit_constructor.q_2 = { 9, 10, 11, 12 };
-    circuit_constructor.q_3 = { 13, 14, 15, 16 };
-    circuit_constructor.q_c = { 17, 18, 19, 20 };
+    circuit_constructor.q_m() = { 1, 2, 3, 4 };
+    circuit_constructor.q_1() = { 5, 6, 7, 8 };
+    circuit_constructor.q_2() = { 9, 10, 11, 12 };
+    circuit_constructor.q_3() = { 13, 14, 15, 16 };
+    circuit_constructor.q_c() = { 17, 18, 19, 20 };
 
     construct_selector_polynomials<Flavor>(circuit_constructor, &proving_key);
     size_t offset = 0;
@@ -59,5 +59,3 @@ TEST_F(ComposerLibTests, ConstructSelectors)
     EXPECT_EQ(proving_key.q_c[2 + offset], 19);
     EXPECT_EQ(proving_key.q_c[3 + offset], 20);
 }
-
-} // namespace proof_system::test_composer_lib

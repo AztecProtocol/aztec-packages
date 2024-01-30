@@ -2,7 +2,7 @@
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
@@ -10,17 +10,19 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
     using Instance = ProverInstance_<Flavor>;
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // The extended length here is the length of a composition of polynomials.
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
-    using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
-    using AlphaType = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
+    using RelationParameters = bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
+    using RelationSeparator = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
     ArrayType _data;
     RelationParameters relation_parameters;
-    AlphaType alpha;
+    RelationSeparator alphas;
+    std::vector<FF> next_gate_challenges;
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
@@ -54,17 +56,16 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      */
     std::vector<Univariate<FF, NUM>> row_to_univariates(size_t row_idx) const
     {
-        auto instance_polynomial_views = get_polynomial_pointer_views();
+        auto insts_prover_polynomials_views = get_polynomials_views();
         std::vector<Univariate<FF, NUM>> results;
-        // Initialize to our amount of columns
-        results.resize(instance_polynomial_views[0].size());
+        // Set the size corresponding to the number of rows in the execution trace
+        results.resize(insts_prover_polynomials_views[0].size());
         size_t instance_idx = 0;
-        // Iterate instances
-        for (auto& pointer_view : instance_polynomial_views) {
-            // Iterate columns
-            for (auto [result, poly_ptr] : zip_view(results, pointer_view)) {
-                // Assign row for each instance
-                result.evaluations[instance_idx] = (*poly_ptr)[row_idx];
+        // Iterate over the prover polynomials' views corresponding to each instance
+        for (auto& get_all : insts_prover_polynomials_views) {
+            // Iterate over all columns in the trace execution of an instance and extract their value at row_idx.
+            for (auto [result, poly_ptr] : zip_view(results, get_all)) {
+                result.evaluations[instance_idx] = poly_ptr[row_idx];
             }
             instance_idx++;
         }
@@ -72,15 +73,16 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     }
 
   private:
-    auto get_polynomial_pointer_views() const
+    // Returns a vector containing pointer views to the prover polynomials corresponding to each instance.
+    auto get_polynomials_views() const
     {
-        // As a practical measure, get the first instance's pointer view to deduce the vector type
-        std::vector pointer_views{ _data[0]->prover_polynomials.pointer_view() };
+        // As a practical measure, get the first instance's view to deduce the vector type
+        std::vector get_alls{ _data[0]->prover_polynomials.get_all() };
         // complete the views, starting from the second item
         for (size_t i = 1; i < NUM; i++) {
-            pointer_views.push_back(_data[i]->prover_polynomials.pointer_view());
+            get_alls.push_back(_data[i]->prover_polynomials.get_all());
         }
-        return pointer_views;
+        return get_alls;
     }
 };
 
@@ -97,14 +99,10 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    VerifierInstances_(std::vector<std::shared_ptr<VerificationKey>> vks)
+
+    VerifierInstances_()
     {
-        ASSERT(vks.size() == NUM);
-        for (size_t idx = 0; idx < vks.size(); idx++) {
-            Instance inst;
-            inst.verification_key = std::move(vks[idx]);
-            _data[idx] = std::make_unique<Instance>(inst);
-        }
+        std::generate(_data.begin(), _data.end(), []() { return std::make_unique<Instance>(); });
     };
 };
-} // namespace proof_system::honk
+} // namespace bb::honk

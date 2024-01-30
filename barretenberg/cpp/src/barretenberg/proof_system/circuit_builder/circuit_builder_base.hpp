@@ -8,14 +8,13 @@
 
 #include <unordered_map>
 
-namespace proof_system {
+namespace bb {
 static constexpr uint32_t DUMMY_TAG = 0;
 
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve =
-        std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
 
@@ -347,11 +346,15 @@ template <typename FF_> class CircuitBuilderBase {
 
         for (const auto& idx : proof_output_witness_indices) {
             set_public_input(idx);
+            // Why is it adding the size of the public input instead of the idx?
             recursive_proof_public_input_indices.push_back((uint32_t)(public_inputs.size() - 1));
         }
     }
 
     /**
+     * TODO: We can remove this and use `add_recursive_proof` once my question has been addressed
+     * TODO: using `add_recursive_proof` also means that we will need to remove the cde which is
+     * TODO: adding the public_inputs
      * @brief Update recursive_proof_public_input_indices with existing public inputs that represent a recursive proof
      *
      * @param proof_output_witness_indices
@@ -379,7 +382,7 @@ template <typename FF_> class CircuitBuilderBase {
     }
 };
 
-} // namespace proof_system
+} // namespace bb
 
 // TODO(#217)(Cody): This will need updating based on the approach we take to ensure no multivariate is zero.
 /**
