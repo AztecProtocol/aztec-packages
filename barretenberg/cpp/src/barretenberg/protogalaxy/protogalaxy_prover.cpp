@@ -69,7 +69,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
                                      instance->witness_commitments.z_lookup);
     };
 
-    const auto folding_round = [&](std::shared_ptr<Instance>& instance) {
+    const auto vk_folding_round = [&](std::shared_ptr<Instance>& instance) {
         for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
             instance->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
         }
@@ -83,7 +83,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     wire_commitments_round(instance);
     sorted_accumulators_round(instance);
     grand_products_round(instance);
-    folding_round(instance);
+    vk_folding_round(instance);
 }
 
 template <class ProverInstances>
@@ -292,39 +292,55 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
-    prepare_for_folding();
-    FF delta = transcript->get_challenge("delta");
+    const auto preparation_rounds = [&]() { prepare_for_folding(); };
 
-    auto accumulator = get_accumulator();
-    auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
+    std::shared_ptr<Instance> accumulator;
+    Polynomial<FF> perturbator;
+    std::vector<FF> deltas; // WORKTODO: might resize? prob not?
+    const auto compute_perturbator_round = [&]() {
+        accumulator = get_accumulator();
+        FF delta = transcript->get_challenge("delta");
+        deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
+        perturbator = compute_perturbator(accumulator, deltas);
+        for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
+            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
+        }
+    };
 
-    auto perturbator = compute_perturbator(accumulator, deltas);
-    for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
-        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
-    }
-    auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
-    instances.next_gate_challenges =
-        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-    combine_relation_parameters(instances);
-    combine_alpha(instances);
-    auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
-    auto combiner = compute_combiner(instances, pow_polynomial);
+    Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> combiner_quotient;
+    FF compressed_perturbator;
+    const auto compute_combiner_quotient_round = [&]() {
+        auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
+        instances.next_gate_challenges =
+            update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+        combine_relation_parameters(instances);
+        combine_alpha(instances);
+        auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
+        auto combiner = compute_combiner(instances, pow_polynomial);
 
-    auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
-    auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
+        compressed_perturbator = perturbator.evaluate(perturbator_challenge);
+        combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
 
-    for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
-        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
-    }
-    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
+        for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
+            transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
+        }
+    };
 
-    FoldingResult<Flavor> res;
-    auto next_accumulator =
-        compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
-    res.folding_data = transcript->proof_data;
-    res.accumulator = next_accumulator;
+    FoldingResult<Flavor> result;
+    const auto compute_next_accumulator_rounds = [&]() {
+        FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
+        std::shared_ptr<Instance> next_accumulator =
+            compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
+        result.folding_data = transcript->proof_data;
+        result.accumulator = next_accumulator;
+    };
 
-    return res;
+    preparation_rounds();
+    compute_perturbator_round();
+    compute_combiner_quotient_round();
+    compute_next_accumulator_rounds();
+
+    return result;
 }
 
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
