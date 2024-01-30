@@ -16,6 +16,7 @@ mod ec;
 mod unsafe;
 mod collections;
 mod compat;
+mod convert;
 mod option;
 mod string;
 mod test;
@@ -24,6 +25,7 @@ mod ops;
 mod default;
 mod prelude;
 mod uint128;
+mod bigint;
 
 // Oracle calls are required to be wrapped in an unconstrained function
 // Thus, the only argument to the `println` oracle is expected to always be an ident

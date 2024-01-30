@@ -49,10 +49,10 @@ import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { times } from '@aztec/foundation/collection';
 import { to2Fields } from '@aztec/foundation/serialize';
+import { AztecLmdbStore } from '@aztec/kv-store';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
@@ -63,7 +63,7 @@ import {
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
-import { getBlockHeader } from '../sequencer/utils.js';
+import { buildInitialHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
@@ -96,8 +96,8 @@ describe('sequencer/solo_block_builder', () => {
     blockNumber = 3;
     globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
 
-    builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
-    expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
+    builderDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
+    expectsDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
     vks = getVerificationKeys();
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
@@ -109,7 +109,8 @@ describe('sequencer/solo_block_builder', () => {
     // Create mock outputs for simulator
     baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs(0, globalVariables);
     baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs(0, globalVariables);
-    rootRollupOutput = makeRootRollupPublicInputs(0, globalVariables);
+    rootRollupOutput = makeRootRollupPublicInputs(0);
+    rootRollupOutput.header.globalVariables = globalVariables;
 
     // Set up mocks
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);
@@ -121,8 +122,8 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicalTreeRoots = await getBlockHeader(builderDb);
-    return makeEmptyProcessedTxFromHistoricalTreeRoots(historicalTreeRoots, chainId, version);
+    const header = await buildInitialHeader(builderDb);
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
@@ -190,7 +191,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.blockHeader = await getBlockHeader(expectsDb);
+    kernelOutput.constants.historicalHeader = await buildInitialHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -296,7 +297,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
+      kernelOutput.constants.historicalHeader = await buildInitialHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -364,7 +365,7 @@ describe('sequencer/solo_block_builder', () => {
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
-    }, 10_000);
+    }, 30_000);
 
     it('builds a mixed L2 block', async () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)

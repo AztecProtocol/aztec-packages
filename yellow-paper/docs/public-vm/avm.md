@@ -70,7 +70,7 @@ ExecutionEnvironment {
     storageAddress: AztecAddress,
     origin: AztecAddress,
     sender: AztecAddress,
-    portal: AztecAddress,
+    portal: EthAddress,
     feePerL1Gas: field,
     feePerL2Gas: field,
     feePerDaGas: field,
@@ -118,7 +118,7 @@ A context's world state interface is defined as follows:
 ```
 WorldState {
     contracts: AztecAddress => {bytecode, portalAddress}, // read-only from within AVM
-    blockHeaders: Vector<BlockHeader>,                    // read-only from within AVM
+    blockHeaders: Vector<Header>,                    // read-only from within AVM
     publicStorage: (AztecAddress, field) => value,        // read/write
     l1ToL2Messages: field => message,                     // read-only from within AVM
     l2ToL1Messages: Vector<[field; <msg-length>]>,        // append-only (no reads) from within AVM
@@ -137,7 +137,7 @@ WorldState {
 ```
 Journal {
     nestedCalls: Vector<(AztecAddress, boolean)>,
-    blockHeaderReads: Vector<(field, BlockHeader)>,
+    blockHeaderReads: Vector<(field, Header)>,
     publicStorageAccesses: Vector<StorageReadContext | StorageWriteContext>,
     l1ToL2MessageReads: Vector<(L1toL2MessageContext, [field; <msg-length>])>,
     newL2ToL1Messages: Vector<(L2toL1MessageContext, [field; <msg-length>])>,
@@ -249,7 +249,7 @@ results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+i
 
 An exceptional halt is not explicitly triggered by an instruction but instead occurs when an exceptional condition is met.
 
-When an exceptional halt occurs, the context is flagged as consuming all off its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
+When an exceptional halt occurs, the context is flagged as consuming all of its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
 
 ```
 machineState.l1GasLeft = 0

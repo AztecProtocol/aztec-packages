@@ -2,12 +2,13 @@ use crate::{
     abis::{
         call_context::CallContext,
         complete_address::CompleteAddress,
-        block_header::BlockHeader,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::{compute_constructor_hash, hash_args},
+    header::Header,
     tests::{
         fixtures,
         testing_harness::build_contract_deployment_data,
@@ -16,6 +17,7 @@ use crate::{
 };
 use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -32,6 +34,7 @@ struct PrivateCircuitPublicInputsBuilder {
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -46,7 +49,7 @@ struct PrivateCircuitPublicInputsBuilder {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    block_header: BlockHeader,
+    historical_header: Header,
 
     contract_deployment_data: ContractDeploymentData,
 
@@ -98,7 +101,7 @@ impl PrivateCircuitPublicInputsBuilder {
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
         public_inputs.contract_deployment_data = contract_deployment_data;
-        public_inputs.block_header = fixtures::BLOCK_HEADER;
+        public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
 
@@ -112,6 +115,7 @@ impl PrivateCircuitPublicInputsBuilder {
             return_values: self.return_values.storage,
 
             read_requests: self.read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
@@ -127,7 +131,7 @@ impl PrivateCircuitPublicInputsBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
 
-            block_header: self.block_header,
+            historical_header: self.historical_header,
 
             contract_deployment_data: self.contract_deployment_data,
 
