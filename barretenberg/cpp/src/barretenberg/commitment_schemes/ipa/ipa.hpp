@@ -40,7 +40,7 @@ template <typename Curve> class IPA {
     {
         ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
         auto poly_degree = static_cast<size_t>(polynomial.size());
-        transcript->send_to_verifier("IPA:poly_degree", static_cast<uint64_t>(poly_degree));
+        transcript->send_to_verifier("IPA:poly_degree", static_cast<uint32_t>(poly_degree));
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
         // Checks poly_degree is greater than zero and a power of two
@@ -185,9 +185,9 @@ template <typename Curve> class IPA {
                        const OpeningClaim<Curve>& opening_claim,
                        const std::shared_ptr<NativeTranscript>& transcript)
     {
-        auto poly_degree = static_cast<uint64_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree")); // note this is base field because this is a uint64_t, which should map to a bb::fr,
-                                 // not a grumpkin::fr
+        auto poly_degree = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
+            "IPA:poly_degree")); // note this is base field because this is a uint32_t, which should map to a bb::fr,
+                                 // not a grumpkin::fr, which is a BaseField element for Grumpkin
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
 

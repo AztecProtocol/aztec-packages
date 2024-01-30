@@ -606,7 +606,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
         // the rest are only for Grumpkin
-        uint64_t ipa_poly_degree;
+        uint32_t ipa_poly_degree;
         std::vector<Commitment> ipa_l_comms;
         std::vector<Commitment> ipa_r_comms;
         FF ipa_a_0_eval;
@@ -797,7 +797,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                 kzg_w_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read);
             } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
-                ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint64_t>(
+                ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(
                     NativeTranscript::proof_data, num_frs_read);
                 auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
                 for (size_t i = 0; i < log_poly_degree; ++i) {
