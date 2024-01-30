@@ -674,7 +674,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                          auto& witness_values,
                          const std::vector<uint32_t>& public_inputs,
                          size_t varnum,
-                         bool recursive)
+                         bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
         selectors.reserve(size_hint);
