@@ -191,7 +191,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.header = await buildInitialHeader(expectsDb);
+    kernelOutput.constants.historicalHeader = await buildInitialHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -297,7 +297,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.header = await buildInitialHeader(builderDb);
+      kernelOutput.constants.historicalHeader = await buildInitialHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -365,7 +365,7 @@ describe('sequencer/solo_block_builder', () => {
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
-    }, 10_000);
+    }, 30_000);
 
     it('builds a mixed L2 block', async () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)

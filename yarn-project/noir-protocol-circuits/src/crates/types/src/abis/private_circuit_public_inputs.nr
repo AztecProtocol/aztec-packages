@@ -24,7 +24,7 @@ use crate::constants::{
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
         GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
 };
-use crate::traits::Hash;
+use crate::traits::{Hash, Serialize, Deserialize};
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
@@ -50,11 +50,14 @@ struct PrivateCircuitPublicInputs {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    // Header of the block the transaction is executing against (not the block the transaction is included in).
+    // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
     contract_deployment_data: ContractDeploymentData,
 
+    // Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
+    // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
+    // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     chain_id: Field,
     version: Field,
 }
@@ -95,7 +98,7 @@ impl Hash for PrivateCircuitPublicInputs {
     }
 }
 
-impl PrivateCircuitPublicInputs {
+impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields.extend_from_array(self.call_context.serialize());
