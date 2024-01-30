@@ -91,7 +91,7 @@ template <typename Builder> struct StdlibTranscriptParams {
     using Proof = std::vector<Fr>;
     static inline Fr hash(const std::vector<Fr>& data)
     {
-        if constexpr (false /* std::is_same_v<Builder, GoblinUltraCircuitBuilder> */) {
+        if constexpr (std::is_same_v<Builder, GoblinUltraCircuitBuilder>) {
             assert(!data.empty() && data[0].get_context() != nullptr);
             Builder* builder = data[0].get_context();
             return stdlib::poseidon2<Builder>::hash(*builder, data);
@@ -440,7 +440,7 @@ static bb::honk::StdlibProof<Builder> convert_proof_to_witness(Builder* builder,
 {
     bb::honk::StdlibProof<Builder> result;
     for (const auto& element : proof) {
-        result.push_back(bb::stdlib::field_t<Builder>(builder, element));
+        result.push_back(bb::stdlib::witness_t<Builder>(builder, element));
     }
     return result;
 }
