@@ -2,7 +2,7 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { BufferCursor } from '../buffer_cursor.js';
 import { AvmJournal } from '../journal/index.js';
 import { Instruction } from './instruction.js';
-import { Opcode, OperandPair, OperandType, deserialize, serialize } from './serialization.js';
+import { Opcode, OperandPair, OperandType, deserialize, serialize } from './instruction_serialization.js';
 
 export class Add extends Instruction {
   static readonly type: string = 'ADD';

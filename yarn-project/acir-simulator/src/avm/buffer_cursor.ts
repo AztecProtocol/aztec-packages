@@ -6,15 +6,15 @@ import { strict as assert } from 'assert';
 export class BufferCursor {
   constructor(private _buffer: Buffer, private _position: number = 0) {}
 
-  public get position(): number {
+  public position(): number {
     return this._position;
   }
 
-  public get eof(): boolean {
+  public eof(): boolean {
     return this._position === this._buffer.length;
   }
 
-  public get buffer(): Buffer {
+  public buffer(): Buffer {
     return this._buffer;
   }
 
