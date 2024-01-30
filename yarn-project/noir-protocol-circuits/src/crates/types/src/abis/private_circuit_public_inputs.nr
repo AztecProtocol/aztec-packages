@@ -56,6 +56,9 @@ struct PrivateCircuitPublicInputs {
 
     contract_deployment_data: ContractDeploymentData,
 
+    // Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
+    // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
+    // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     chain_id: Field,
     version: Field,
 }
