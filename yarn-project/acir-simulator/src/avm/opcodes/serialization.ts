@@ -9,19 +9,21 @@ export enum OperandType {
 
 export type OperandPair = [(c: any) => any, OperandType];
 
-function readBigUintBE(buf: Buffer, totalBytes: number): bigint {
+function readBigUint128BE(this: Buffer): bigint {
+  const totalBytes = 16;
   let ret: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {
-    ret |= BigInt(buf.readUint8());
-    ret <<= 1n;
+    ret <<= 8n;
+    ret |= BigInt(this.readUint8(i));
   }
   return ret;
 }
 
-function writeBigUintBE(buf: Buffer, value: bigint, totalBytes: number): void {
-  for (let i = totalBytes - 1; i >= 0; --i) {
-    buf.writeUint8(Number(value & 0xFFn));
-    value >>= 1n;
+function writeBigUint128BE(this: Buffer, value: bigint): void {
+  const totalBytes = 16;
+  for (let offset = totalBytes - 1; offset >= 0; --offset) {
+    this.writeUint8(Number(value & 0xffn), offset);
+    value >>= 8n;
   }
 }
 
@@ -30,8 +32,7 @@ const operandSpec: Map<OperandType, [number, () => any, (value: any) => any]> = 
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
   [OperandType.UINT64, [8, Buffer.prototype.readBigUInt64BE, Buffer.prototype.writeBigUint64BE]],
-  [OperandType.UINT128, [16, readBigUintBE.bind(16), writeBigUintBE.bind(16)]], // FIXME: binds first not last argument
-  [OperandType.FIELD, [32, readBigUintBE.bind(32), writeBigUintBE.bind(32)]], // FIXME: binds first not last argument
+  [OperandType.UINT128, [16, readBigUint128BE, writeBigUint128BE]],
 ]);
 
 export function deserialize(buf: Buffer, operands: OperandPair[]): any[] {
@@ -48,7 +49,7 @@ export function deserialize(buf: Buffer, operands: OperandPair[]): any[] {
 }
 
 export function serialize(operands: OperandPair[], cls: any): Buffer {
-  const chunks: Buffer[] = []
+  const chunks: Buffer[] = [];
 
   for (const op of operands) {
     const [opGetter, opType] = op;

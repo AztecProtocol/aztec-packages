@@ -50,7 +50,6 @@ describe('Arithmetic Instructions', () => {
         /*bOffset=*/ 0x23456789,
         /*dstOffset=*/ 0x3456789a,
       );
-      console.log(inst);
 
       const expected = Buffer.from([
         // indirect
