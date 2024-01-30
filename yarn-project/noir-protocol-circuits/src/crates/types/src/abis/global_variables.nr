@@ -45,6 +45,7 @@ impl Eq for GlobalVariables {
     }
 }
 
+// TODO(#3941) This is only used in Header.block_hash() --> Nuke it once that func is updated
 impl Hash for GlobalVariables {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_hash_with_separator([

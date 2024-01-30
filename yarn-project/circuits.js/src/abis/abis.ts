@@ -334,6 +334,7 @@ export function computeBlockHash(
  * @param globals - The global variables to put into the block hash.
  * @returns The globals hash.
  * TODO: move this to GlobalVariables?
+ * TODO(#3941) Investigate whether to nuke this once #3941 is done.
  */
 export function computeGlobalsHash(globals: GlobalVariables): Fr {
   return Fr.fromBuffer(
