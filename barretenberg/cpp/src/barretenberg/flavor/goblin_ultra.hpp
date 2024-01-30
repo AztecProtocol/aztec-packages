@@ -498,7 +498,7 @@ class GoblinUltra {
             this->ecc_op_wire_2 = witness_commitments.ecc_op_wire_2;
             this->ecc_op_wire_3 = witness_commitments.ecc_op_wire_3;
             this->calldata = witness_commitments.calldata;
-            this->calldata = witness_commitments.calldata_read_counts;
+            this->calldata_read_counts = witness_commitments.calldata_read_counts;
             this->lookup_inverses = witness_commitments.lookup_inverses;
         }
     };

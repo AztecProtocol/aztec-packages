@@ -332,7 +332,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return batch_over_relations(univariate_accumulators, instances.alphas);
     }
 
-    // This we get rid of!!
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                                                     const CombinedRelationSeparator& alpha)
     {
@@ -341,7 +340,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         auto result = std::get<0>(std::get<0>(univariate_accumulators))
                           .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
         size_t idx = 0;
-        auto scale_and_sum = [&]<size_t outer_idx, size_t>(auto& element) {
+        auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
             extended *= alpha[idx];
             result += extended;
