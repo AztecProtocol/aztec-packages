@@ -251,12 +251,10 @@ describe('e2e_inclusion_proofs_contract', () => {
   });
 
   const getRandomBlockNumberSinceDeployment = async () => {
-    const currentBlockNumber = await pxe.getBlockNumber();
-    return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - deploymentBlockNumber));
+    return deploymentBlockNumber + Math.floor(Math.random() * ((await pxe.getBlockNumber()) - deploymentBlockNumber));
   };
 
   const getRandomBlockNumber = async () => {
-    const currentBlockNumber = await pxe.getBlockNumber();
-    return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - INITIAL_L2_BLOCK_NUM));
+    return deploymentBlockNumber + Math.floor(Math.random() * ((await pxe.getBlockNumber()) - INITIAL_L2_BLOCK_NUM));
   };
 });
