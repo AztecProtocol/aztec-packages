@@ -1,10 +1,10 @@
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/circuit-types';
+import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, NoteStatus, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
-  BlockHeader,
   CallContext,
   ContractDeploymentData,
   FunctionData,
   FunctionSelector,
+  Header,
   PublicCallRequest,
   ReadRequestMembershipWitness,
   SideEffect,
@@ -19,9 +19,9 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
   NoteData,
-  toACVMBlockHeader,
   toACVMCallContext,
   toACVMContractDeploymentData,
+  toACVMHeader,
   toACVMWitness,
 } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
@@ -64,8 +64,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
-    /** Data required to reconstruct the block hash, it contains historical roots. */
-    protected readonly blockHeader: BlockHeader,
+    /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
+    protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     private readonly packedArgsCache: PackedArgsCache,
@@ -74,7 +74,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly curve: Grumpkin,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
-    super(contractAddress, blockHeader, authWitnesses, db, undefined, log);
+    super(contractAddress, authWitnesses, db, undefined, log);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -97,7 +97,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const fields = [
       ...toACVMCallContext(this.callContext),
-      ...toACVMBlockHeader(this.blockHeader),
+      ...toACVMHeader(this.historicalHeader),
       ...toACVMContractDeploymentData(contractDeploymentData),
 
       this.txContext.chainId,
@@ -185,10 +185,12 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
    * @param selectValues - The values to match.
+   * @param selectComparators - The comparators to match by.
    * @param sortBy - An array of indices of the fields to sort.
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
    * @param offset - The starting index for pagination.
+   * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
   public async getNotes(
@@ -196,20 +198,24 @@ export class ClientExecutionContext extends ViewDataOracle {
     numSelects: number,
     selectBy: number[],
     selectValues: Fr[],
+    selectComparators: number[],
     sortBy: number[],
     sortOrder: number[],
     limit: number,
     offset: number,
+    status: NoteStatus,
   ): Promise<NoteData[]> {
     // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
-    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot);
+    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
-      selects: selectBy.slice(0, numSelects).map((index, i) => ({ index, value: selectValues[i] })),
+      selects: selectBy
+        .slice(0, numSelects)
+        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
       sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
       limit,
       offset,
@@ -337,7 +343,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       argsHash,
       derivedTxContext,
       derivedCallContext,
-      this.blockHeader,
+      this.historicalHeader,
       this.authWitnesses,
       this.packedArgsCache,
       this.noteCache,

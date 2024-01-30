@@ -1,69 +1,49 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { strict as assert } from 'assert';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmMessageCallResult } from '../avm_message_call_result.js';
-import { AvmStateManager } from '../avm_state_manager.js';
+import { AvmJournal } from '../journal/index.js';
 import { Instruction } from '../opcodes/index.js';
 
 /**
- * Avm Interpreter
- *
- * Executes an Avm context
+ * Run the avm
+ * @returns bool - successful execution will return true
+ *               - reverted execution will return false
+ *               - any other panic will throw
  */
-export class AvmInterpreter {
-  private instructions: Instruction[] = [];
-  private machineState: AvmMachineState;
-  private stateManager: AvmStateManager;
+export async function executeAvm(
+  machineState: AvmMachineState,
+  journal: AvmJournal,
+  instructions: Instruction[] = [],
+): Promise<AvmMessageCallResult> {
+  assert(instructions.length > 0);
 
-  constructor(machineState: AvmMachineState, stateManager: AvmStateManager, instructions: Instruction[]) {
-    this.machineState = machineState;
-    this.stateManager = stateManager;
-    this.instructions = instructions;
-  }
+  try {
+    while (!machineState.halted) {
+      const instruction = instructions[machineState.pc];
+      assert(!!instruction); // This should never happen
 
-  /**
-   * Run the avm
-   * @returns bool - successful execution will return true
-   *               - reverted execution will return false
-   *               - any other panic will throw
-   */
-  run(): AvmMessageCallResult {
-    assert(this.instructions.length > 0);
+      await instruction.execute(machineState, journal);
 
-    try {
-      while (!this.machineState.halted) {
-        const instruction = this.instructions[this.machineState.pc];
-        assert(!!instruction); // This should never happen
-
-        instruction.execute(this.machineState, this.stateManager);
-
-        if (this.machineState.pc >= this.instructions.length) {
-          throw new InvalidProgramCounterError(this.machineState.pc, /*max=*/ this.instructions.length);
-        }
+      if (machineState.pc >= instructions.length) {
+        throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
       }
-
-      const returnData = this.machineState.getReturnData();
-      return AvmMessageCallResult.success(returnData);
-    } catch (_e) {
-      if (!(_e instanceof AvmInterpreterError)) {
-        throw _e;
-      }
-
-      const revertReason: AvmInterpreterError = _e;
-      const revertData = this.machineState.getReturnData();
-      return AvmMessageCallResult.revert(revertData, revertReason);
     }
-  }
 
-  /**
-   * Get the return data from avm execution
-   * TODO: this should fail if the code has not been executed
-   *  - maybe move the return in run into a variable and track it
-   */
-  returnData(): Fr[] {
-    return this.machineState.getReturnData();
+    const returnData = machineState.getReturnData();
+    if (machineState.reverted) {
+      return AvmMessageCallResult.revert(returnData);
+    }
+
+    return AvmMessageCallResult.success(returnData);
+  } catch (_e) {
+    if (!(_e instanceof AvmInterpreterError)) {
+      throw _e;
+    }
+
+    const revertReason: AvmInterpreterError = _e;
+    const revertData = machineState.getReturnData();
+    return AvmMessageCallResult.revert(revertData, revertReason);
   }
 }
 
@@ -71,8 +51,8 @@ export class AvmInterpreter {
  * Avm-specific errors should derive from this
  */
 export abstract class AvmInterpreterError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, ...rest: any[]) {
+    super(message, ...rest);
     this.name = 'AvmInterpreterError';
   }
 }

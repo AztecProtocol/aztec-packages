@@ -1,14 +1,17 @@
 import { L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
-  BlockHeader,
+  AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
   FunctionData,
+  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
+  PartialStateReference,
   PublicCallRequest,
+  StateReference,
   TxContext,
   computeNullifierSecretKey,
   computeSiloedNullifierSecretKey,
@@ -37,6 +40,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FieldsOf } from '@aztec/foundation/types';
+import { AztecLmdbStore } from '@aztec/kv-store';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
@@ -50,8 +54,6 @@ import {
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
-import { default as levelup } from 'levelup';
-import { type MemDown, default as memdown } from 'memdown';
 import { getFunctionSelector } from 'viem';
 
 import { KeyPair } from '../acvm/index.js';
@@ -62,13 +64,11 @@ import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
 
-const createMemDown = () => (memdown as any)() as MemDown<any, any>;
-
 describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
 
-  let blockHeader = BlockHeader.empty();
+  let header = Header.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -136,18 +136,40 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown tree ${name}`);
     }
     if (!trees[name]) {
-      const db = levelup(createMemDown());
+      const db = await AztecLmdbStore.openTmp();
       const pedersen = new Pedersen();
       trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
-    await trees[name].appendLeaves(leaves.map(l => l.toBuffer()));
+    const tree = trees[name];
 
-    // Update root.
-    const newRoot = trees[name].getRoot(true);
-    const prevRoots = blockHeader.toBuffer();
-    const rootIndex = name === 'noteHash' ? 0 : 32 * 3;
-    const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
-    blockHeader = BlockHeader.fromBuffer(newRoots);
+    await tree.appendLeaves(leaves.map(l => l.toBuffer()));
+
+    // Create a new snapshot.
+    const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
+
+    if (name === 'noteHash') {
+      header = new Header(
+        header.lastArchive,
+        header.bodyHash,
+        new StateReference(
+          header.state.l1ToL2MessageTree,
+          new PartialStateReference(
+            newSnap,
+            header.state.partial.nullifierTree,
+            header.state.partial.contractTree,
+            header.state.partial.publicDataTree,
+          ),
+        ),
+        header.globalVariables,
+      );
+    } else {
+      header = new Header(
+        header.lastArchive,
+        header.bodyHash,
+        new StateReference(newSnap, header.state.partial),
+        header.globalVariables,
+      );
+    }
 
     return trees[name];
   };
@@ -194,7 +216,7 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address ${accountAddress}`);
     });
-    oracle.getBlockHeader.mockResolvedValue(blockHeader);
+    oracle.getHeader.mockResolvedValue(header);
 
     acirSimulator = new AcirSimulator(oracle);
   });
@@ -537,7 +559,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         const result = await runSimulator({
           contractAddress,
@@ -564,7 +586,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -604,7 +626,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -625,7 +647,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -645,7 +667,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -665,7 +687,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -686,7 +708,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -707,7 +729,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(blockHeader);
+        oracle.getHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({

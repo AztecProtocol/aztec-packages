@@ -21,7 +21,7 @@ export class TestKeyStore implements KeyStore {
   #keys: AztecMap<string, Buffer>;
 
   constructor(private curve: Grumpkin, database: AztecKVStore) {
-    this.#keys = database.createMap('key_store');
+    this.#keys = database.openMap('key_store');
   }
 
   public async addAccount(privKey: GrumpkinPrivateKey): Promise<PublicKey> {
@@ -51,6 +51,20 @@ export class TestKeyStore implements KeyStore {
     return computeNullifierSecretKey(privateKey);
   }
 
+  public async getNullifierSecretKeyFromPublicKey(nullifierPubKey: PublicKey) {
+    const accounts = await this.getAccounts();
+    for (let i = 0; i < accounts.length; ++i) {
+      const accountPublicKey = accounts[i];
+      const privateKey = await this.getAccountPrivateKey(accountPublicKey);
+      const secretKey = computeNullifierSecretKey(privateKey);
+      const publicKey = derivePublicKey(secretKey);
+      if (publicKey.equals(nullifierPubKey)) {
+        return secretKey;
+      }
+    }
+    throw new Error('Unknown nullifier public key.');
+  }
+
   public async getNullifierPublicKey(pubKey: PublicKey) {
     const secretKey = await this.getNullifierSecretKey(pubKey);
     return derivePublicKey(secretKey);
@@ -73,7 +87,7 @@ export class TestKeyStore implements KeyStore {
     const privKey = this.#keys.get(pubKey.toString());
     if (!privKey) {
       throw new Error(
-        'Unknown account.\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#could-not-process-note-because-of-error-unknown-account-skipping-note',
+        'Unknown account.\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#could-not-process-note-because-of-error-unknown-account-skipping-note',
       );
     }
     return ConstantKeyPair.fromPrivateKey(this.curve, GrumpkinScalar.fromBuffer(privKey));

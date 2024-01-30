@@ -7,14 +7,12 @@ import { HostStorage } from './host_storage.js';
  * Data held within the journal
  */
 export type JournalData = {
-  /** - */
-  newCommitments: Fr[];
-  /** - */
-  newL1Messages: Fr[];
-  /** - */
+  newNoteHashes: Fr[];
   newNullifiers: Fr[];
+  newL1Messages: Fr[][];
+  newLogs: Fr[][];
   /** contract address -\> key -\> value */
-  storageWrites: Map<Fr, Map<Fr, Fr>>;
+  storageWrites: Map<bigint, Map<bigint, Fr>>;
 };
 
 /**
@@ -32,18 +30,18 @@ export class AvmJournal {
   // Reading state - must be tracked for vm execution
   // contract address -> key -> value
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3999)
-  private storageReads: Map<Fr, Map<Fr, Fr>> = new Map();
+  private storageReads: Map<bigint, Map<bigint, Fr>> = new Map();
 
   // New written state
-  private newCommitments: Fr[] = [];
+  private newNoteHashes: Fr[] = [];
   private newNullifiers: Fr[] = [];
-  private newL1Message: Fr[] = [];
 
-  // New Substrate
+  // New Substate
+  private newL1Messages: Fr[][] = [];
   private newLogs: Fr[][] = [];
 
   // contract address -> key -> value
-  private storageWrites: Map<Fr, Map<Fr, Fr>> = new Map();
+  private storageWrites: Map<bigint, Map<bigint, Fr>> = new Map();
 
   private parentJournal: AvmJournal | undefined;
 
@@ -76,12 +74,12 @@ export class AvmJournal {
    * @param value -
    */
   public writeStorage(contractAddress: Fr, key: Fr, value: Fr) {
-    let contractMap = this.storageWrites.get(contractAddress);
+    let contractMap = this.storageWrites.get(contractAddress.toBigInt());
     if (!contractMap) {
       contractMap = new Map();
-      this.storageWrites.set(contractAddress, contractMap);
+      this.storageWrites.set(contractAddress.toBigInt(), contractMap);
     }
-    contractMap.set(key, value);
+    contractMap.set(key.toBigInt(), value);
   }
 
   /**
@@ -93,7 +91,7 @@ export class AvmJournal {
    * @returns current value
    */
   public readStorage(contractAddress: Fr, key: Fr): Promise<Fr> {
-    const cachedValue = this.storageWrites.get(contractAddress)?.get(key);
+    const cachedValue = this.storageWrites.get(contractAddress.toBigInt())?.get(key.toBigInt());
     if (cachedValue) {
       return Promise.resolve(cachedValue);
     }
@@ -103,25 +101,20 @@ export class AvmJournal {
     return this.hostStorage.publicStateDb.storageRead(contractAddress, key);
   }
 
-  /** -
-   * @param commitment -
-   */
-  public writeCommitment(commitment: Fr) {
-    this.newCommitments.push(commitment);
+  public writeNoteHash(noteHash: Fr) {
+    this.newNoteHashes.push(noteHash);
   }
 
-  /** -
-   * @param message -
-   */
-  public writeL1Message(message: Fr) {
-    this.newL1Message.push(message);
+  public writeL1Message(message: Fr[]) {
+    this.newL1Messages.push(message);
   }
 
-  /** -
-   * @param nullifier -
-   */
   public writeNullifier(nullifier: Fr) {
     this.newNullifiers.push(nullifier);
+  }
+
+  public writeLog(log: Fr[]) {
+    this.newLogs.push(log);
   }
 
   /**
@@ -134,26 +127,26 @@ export class AvmJournal {
       throw new RootJournalCannotBeMerged();
     }
 
-    const incomingFlush = this.flush();
-
     // Merge UTXOs
-    this.parentJournal.newCommitments = this.parentJournal.newCommitments.concat(incomingFlush.newCommitments);
-    this.parentJournal.newL1Message = this.parentJournal.newL1Message.concat(incomingFlush.newL1Messages);
-    this.parentJournal.newNullifiers = this.parentJournal.newNullifiers.concat(incomingFlush.newNullifiers);
+    this.parentJournal.newNoteHashes = this.parentJournal.newNoteHashes.concat(this.newNoteHashes);
+    this.parentJournal.newL1Messages = this.parentJournal.newL1Messages.concat(this.newL1Messages);
+    this.parentJournal.newNullifiers = this.parentJournal.newNullifiers.concat(this.newNullifiers);
 
     // Merge Public State
-    mergeContractMaps(this.parentJournal.storageWrites, incomingFlush.storageWrites);
+    mergeContractMaps(this.parentJournal.storageWrites, this.storageWrites);
   }
 
-  /** Access the current state of the journal
+  /**
+   * Access the current state of the journal
    *
-   * @returns a JournalData object that can be used to write to the storage
+   * @returns a JournalData object
    */
   public flush(): JournalData {
     return {
-      newCommitments: this.newCommitments,
-      newL1Messages: this.newL1Message,
+      newNoteHashes: this.newNoteHashes,
       newNullifiers: this.newNullifiers,
+      newL1Messages: this.newL1Messages,
+      newLogs: this.newLogs,
       storageWrites: this.storageWrites,
     };
   }
@@ -168,7 +161,7 @@ export class AvmJournal {
  * @param hostMap - The map to be merged into
  * @param childMap - The map to be merged from
  */
-function mergeContractMaps(hostMap: Map<Fr, Map<Fr, Fr>>, childMap: Map<Fr, Map<Fr, Fr>>) {
+function mergeContractMaps(hostMap: Map<bigint, Map<bigint, Fr>>, childMap: Map<bigint, Map<bigint, Fr>>) {
   for (const [key, value] of childMap) {
     const map1Value = hostMap.get(key);
     if (!map1Value) {
@@ -184,7 +177,7 @@ function mergeContractMaps(hostMap: Map<Fr, Map<Fr, Fr>>, childMap: Map<Fr, Map<
  * @param hostMap - The map to be merge into
  * @param childMap - The map to be merged from
  */
-function mergeStorageMaps(hostMap: Map<Fr, Fr>, childMap: Map<Fr, Fr>) {
+function mergeStorageMaps(hostMap: Map<bigint, Fr>, childMap: Map<bigint, Fr>) {
   for (const [key, value] of childMap) {
     hostMap.set(key, value);
   }

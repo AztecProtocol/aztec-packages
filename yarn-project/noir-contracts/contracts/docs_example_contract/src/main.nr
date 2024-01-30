@@ -18,31 +18,37 @@ contract DocsExample {
         address::AztecAddress,
     };
     use dep::aztec::{
+        oracle::{
+            debug_log::debug_log_format,
+        },
         note::{
             note_header::NoteHeader,
+            note_getter_options::{NoteGetterOptions, Comparator},
+            note_viewer_options::{NoteViewerOptions},
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton},
+        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{
-        card_note::{CardNote, CardNoteMethods, CARD_NOTE_LEN},
-        leader::{Leader, LeaderSerializationMethods, LEADER_SERIALIZED_LEN},
+        card_note::{CardNote, CARD_NOTE_LEN},
+        leader::Leader,
     };
 
     struct Storage {
         // Shows how to create a custom struct in Public
-        leader: PublicState<Leader, LEADER_SERIALIZED_LEN>,
+        leader: PublicState<Leader>,
         // docs:start:storage-singleton-declaration
-        legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
+        legendary_card: Singleton<CardNote>,
         // docs:end:storage-singleton-declaration
         // just used for docs example to show how to create a singleton map. 
         // docs:start:storage-map-singleton-declaration
-        profiles: Map<AztecAddress, Singleton<CardNote, CARD_NOTE_LEN>>,
+        profiles: Map<AztecAddress, Singleton<CardNote>>,
         // docs:end:storage-map-singleton-declaration
-        imm_singleton: ImmutableSingleton<CardNote, CARD_NOTE_LEN>,
+        test: Set<CardNote>,
+        imm_singleton: ImmutableSingleton<CardNote>,
     }
 
     impl Storage {
@@ -50,11 +56,10 @@ contract DocsExample {
             Storage {
                 leader: PublicState::new(
                     context,
-                    1,
-                    LeaderSerializationMethods,
+                    1
                 ),
                 // docs:start:start_vars_singleton
-                legendary_card: Singleton::new(context, 2, CardNoteMethods),
+                legendary_card: Singleton::new(context, 2),
                 // docs:end:start_vars_singleton
                 // just used for docs example (not for game play):
                 // docs:start:state_vars-MapSingleton
@@ -62,11 +67,12 @@ contract DocsExample {
                     context,
                     3,
                     |context, slot| {
-                        Singleton::new(context, slot, CardNoteMethods)
+                        Singleton::new(context, slot)
                     },
                 ),
                 // docs:end:state_vars-MapSingleton
-                imm_singleton: ImmutableSingleton::new(context, 4, CardNoteMethods),
+                test: Set::new(context, 4),
+                imm_singleton: ImmutableSingleton::new(context, 4),
             }
         }
     }
@@ -87,6 +93,29 @@ contract DocsExample {
         // create and broadcast note
         storage.legendary_card.initialize(&mut legendary_card, true);
     }
+
+    #[aztec(private)]
+    fn insert_notes(amounts: [u8; 10]) {
+        for i in 0..amounts.len() {
+            let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
+            storage.test.insert(&mut note, true);
+        }
+    }
+
+    #[aztec(private)]
+    fn insert_note(amount: u8, randomness: Field) {
+        let mut note = CardNote::new(amount, randomness, context.msg_sender());
+        storage.test.insert(&mut note, true);
+    }
+
+    // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
+    unconstrained fn read_note(amount: Field, comparator: u3) -> pub [Option<CardNote>; 10] {
+        let options = NoteViewerOptions::new().select(0, amount, Option::some(comparator));
+        let notes = storage.test.view_notes(options);
+
+        notes
+    }
+    // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
     #[aztec(private)]
     fn update_legendary_card(randomness: Field, points: u8) {
@@ -137,9 +166,11 @@ contract DocsExample {
         storage.legendary_card.view_note()
     }
 
+    // docs:start:singleton_is_initialized
     unconstrained fn is_legendary_initialized() -> pub bool {
         storage.legendary_card.is_initialized()
     }
+    // docs:end:singleton_is_initialized
 
     unconstrained fn get_imm_card() -> pub CardNote {
         storage.imm_singleton.view_note()
@@ -157,7 +188,7 @@ contract DocsExample {
         serialized_note: [Field; CARD_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(CardNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(CardNote::deserialize, note_header, serialized_note)
     }
 
     /// Macro equivalence section

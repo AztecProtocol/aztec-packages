@@ -138,7 +138,8 @@ impl GeneratedAcir {
         &mut self,
         func_name: BlackBoxFunc,
         inputs: &[Vec<FunctionInput>],
-        constants: Vec<FieldElement>,
+        constant_inputs: Vec<FieldElement>,
+        constant_outputs: Vec<FieldElement>,
         output_count: usize,
     ) -> Result<Vec<Witness>, InternalError> {
         let input_count = inputs.iter().fold(0usize, |sum, val| sum + val.len());
@@ -176,12 +177,12 @@ impl GeneratedAcir {
             BlackBoxFunc::PedersenCommitment => BlackBoxFuncCall::PedersenCommitment {
                 inputs: inputs[0].clone(),
                 outputs: (outputs[0], outputs[1]),
-                domain_separator: constants[0].to_u128() as u32,
+                domain_separator: constant_inputs[0].to_u128() as u32,
             },
             BlackBoxFunc::PedersenHash => BlackBoxFuncCall::PedersenHash {
                 inputs: inputs[0].clone(),
                 output: outputs[0],
-                domain_separator: constants[0].to_u128() as u32,
+                domain_separator: constant_inputs[0].to_u128() as u32,
             },
             BlackBoxFunc::EcdsaSecp256k1 => {
                 BlackBoxFuncCall::EcdsaSecp256k1 {
@@ -219,11 +220,6 @@ impl GeneratedAcir {
                 input2_y: inputs[3][0],
                 outputs: (outputs[0], outputs[1]),
             },
-            BlackBoxFunc::EmbeddedCurveDouble => BlackBoxFuncCall::EmbeddedCurveDouble {
-                input_x: inputs[0][0],
-                input_y: inputs[1][0],
-                outputs: (outputs[0], outputs[1]),
-            },
             BlackBoxFunc::Keccak256 => {
                 let var_message_size = match inputs.to_vec().pop() {
                     Some(var_message_size) => var_message_size[0],
@@ -252,33 +248,44 @@ impl GeneratedAcir {
                 key_hash: inputs[3][0],
             },
             BlackBoxFunc::BigIntAdd => BlackBoxFuncCall::BigIntAdd {
-                lhs: constants[0].to_u128() as u32,
-                rhs: constants[1].to_u128() as u32,
-                output: constants[2].to_u128() as u32,
+                lhs: constant_inputs[0].to_u128() as u32,
+                rhs: constant_inputs[1].to_u128() as u32,
+                output: constant_outputs[0].to_u128() as u32,
             },
             BlackBoxFunc::BigIntNeg => BlackBoxFuncCall::BigIntNeg {
-                lhs: constants[0].to_u128() as u32,
-                rhs: constants[1].to_u128() as u32,
-                output: constants[2].to_u128() as u32,
+                lhs: constant_inputs[0].to_u128() as u32,
+                rhs: constant_inputs[1].to_u128() as u32,
+                output: constant_outputs[0].to_u128() as u32,
             },
             BlackBoxFunc::BigIntMul => BlackBoxFuncCall::BigIntMul {
-                lhs: constants[0].to_u128() as u32,
-                rhs: constants[1].to_u128() as u32,
-                output: constants[2].to_u128() as u32,
+                lhs: constant_inputs[0].to_u128() as u32,
+                rhs: constant_inputs[1].to_u128() as u32,
+                output: constant_outputs[0].to_u128() as u32,
             },
             BlackBoxFunc::BigIntDiv => BlackBoxFuncCall::BigIntDiv {
-                lhs: constants[0].to_u128() as u32,
-                rhs: constants[1].to_u128() as u32,
-                output: constants[2].to_u128() as u32,
+                lhs: constant_inputs[0].to_u128() as u32,
+                rhs: constant_inputs[1].to_u128() as u32,
+                output: constant_outputs[0].to_u128() as u32,
             },
             BlackBoxFunc::BigIntFromLeBytes => BlackBoxFuncCall::BigIntFromLeBytes {
                 inputs: inputs[0].clone(),
-                modulus: vecmap(constants, |c| c.to_u128() as u8),
-                output: todo!(),
+                modulus: vecmap(constant_inputs, |c| c.to_u128() as u8),
+                output: constant_outputs[0].to_u128() as u32,
             },
-            BlackBoxFunc::BigIntToLeBytes => {
-                BlackBoxFuncCall::BigIntToLeBytes { input: constants[0].to_u128() as u32, outputs }
-            }
+            BlackBoxFunc::BigIntToLeBytes => BlackBoxFuncCall::BigIntToLeBytes {
+                input: constant_inputs[0].to_u128() as u32,
+                outputs,
+            },
+            BlackBoxFunc::Poseidon2Permutation => BlackBoxFuncCall::Poseidon2Permutation {
+                inputs: inputs[0].clone(),
+                outputs,
+                len: constant_inputs[0].to_u128() as u32,
+            },
+            BlackBoxFunc::Sha256Compression => BlackBoxFuncCall::Sha256Compression {
+                inputs: inputs[0].clone(),
+                hash_values: inputs[1].clone(),
+                outputs,
+            },
         };
 
         self.push_opcode(AcirOpcode::BlackBoxFuncCall(black_box_func_call));
@@ -612,7 +619,11 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         | BlackBoxFunc::PedersenHash => None,
 
         BlackBoxFunc::Keccakf1600 => Some(25),
+        // The permutation takes a fixed number of inputs, but the inputs length depends on the proving system implementation.
+        BlackBoxFunc::Poseidon2Permutation => None,
 
+        // SHA256 compression requires 16 u32s as input message and 8 u32s for the hash state.
+        BlackBoxFunc::Sha256Compression => Some(24),
         // Can only apply a range constraint to one
         // witness at a time.
         BlackBoxFunc::RANGE => Some(1),
@@ -633,19 +644,15 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         // Addition over the embedded curve: input are coordinates (x1,y1) and (x2,y2) of the Grumpkin points
         BlackBoxFunc::EmbeddedCurveAdd => Some(4),
 
-        // Doubling over the embedded curve: input is (x,y) coordinate of the point.
-        BlackBoxFunc::EmbeddedCurveDouble => Some(2),
-
-        // Big integer operations take in 2 inputs
+        // Big integer operations take in 0 inputs. They use constants for their inputs.
         BlackBoxFunc::BigIntAdd
         | BlackBoxFunc::BigIntNeg
         | BlackBoxFunc::BigIntMul
-        | BlackBoxFunc::BigIntDiv => Some(2),
+        | BlackBoxFunc::BigIntDiv
+        | BlackBoxFunc::BigIntToLeBytes => Some(0),
 
         // FromLeBytes takes a variable array of bytes as input
         BlackBoxFunc::BigIntFromLeBytes => None,
-        // ToLeBytes takes a single big integer as input
-        BlackBoxFunc::BigIntToLeBytes => Some(1),
     }
 }
 
@@ -664,7 +671,10 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         | BlackBoxFunc::Blake3 => Some(32),
 
         BlackBoxFunc::Keccakf1600 => Some(25),
+        // The permutation returns a fixed number of outputs, equals to the inputs length which depends on the proving system implementation.
+        BlackBoxFunc::Poseidon2Permutation => None,
 
+        BlackBoxFunc::Sha256Compression => Some(8),
         // Pedersen commitment returns a point
         BlackBoxFunc::PedersenCommitment => Some(2),
 
@@ -682,16 +692,14 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
 
         // Output of operations over the embedded curve
         // will be 2 field elements representing the point.
-        BlackBoxFunc::FixedBaseScalarMul
-        | BlackBoxFunc::EmbeddedCurveAdd
-        | BlackBoxFunc::EmbeddedCurveDouble => Some(2),
+        BlackBoxFunc::FixedBaseScalarMul | BlackBoxFunc::EmbeddedCurveAdd => Some(2),
 
         // Big integer operations return a big integer
         BlackBoxFunc::BigIntAdd
         | BlackBoxFunc::BigIntNeg
         | BlackBoxFunc::BigIntMul
         | BlackBoxFunc::BigIntDiv
-        | BlackBoxFunc::BigIntFromLeBytes => Some(1),
+        | BlackBoxFunc::BigIntFromLeBytes => Some(0),
 
         // ToLeBytes returns a variable array of bytes
         BlackBoxFunc::BigIntToLeBytes => None,
@@ -752,5 +760,5 @@ fn intrinsics_check_outputs(name: BlackBoxFunc, output_count: usize) {
         None => return,
     };
 
-    assert_eq!(expected_num_outputs,output_count,"Tried to call black box function {name} with {output_count} inputs, but this function's definition requires {expected_num_outputs} inputs");
+    assert_eq!(expected_num_outputs,output_count,"Tried to call black box function {name} with {output_count} outputs, but this function's definition requires {expected_num_outputs} outputs");
 }
