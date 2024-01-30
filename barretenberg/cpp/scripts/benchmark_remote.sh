@@ -8,6 +8,7 @@
 set -eu
 
 BENCHMARK=${1:-goblin_bench}
+COMMAND=${2:-./$BENCHMARK}
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -24,4 +25,4 @@ source scripts/_benchmark_remote_lock.sh
 cd build
 scp $BB_SSH_KEY ./bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build
 ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_CPP_PATH/build ; ./$BENCHMARK"
+  "cd $BB_SSH_CPP_PATH/build ; $COMMAND"
