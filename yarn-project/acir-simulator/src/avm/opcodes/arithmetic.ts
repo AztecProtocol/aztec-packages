@@ -1,13 +1,15 @@
 import { AvmMachineState } from '../avm_machine_state.js';
+import { BufferCursor } from '../buffer_cursor.js';
 import { AvmJournal } from '../journal/index.js';
 import { Instruction } from './instruction.js';
-import { OperandPair, OperandType, deserialize, serialize } from './serialization.js';
+import { Opcode, OperandPair, OperandType, deserialize, serialize } from './serialization.js';
 
 export class Add extends Instruction {
   static readonly type: string = 'ADD';
-  static readonly numberOfOperands = 3;
+  static readonly opcode = Opcode.ADD;
 
-  private static readonly operands: OperandPair[] = [
+  // Instruction wire format without opcode.
+  private static readonly wireFormat: OperandPair[] = [
     [(c: Add) => c.indirect, OperandType.UINT8],
     [(c: Add) => c.inTag, OperandType.UINT8],
     [(c: Add) => c.aOffset, OperandType.UINT32],
@@ -25,13 +27,13 @@ export class Add extends Instruction {
     super();
   }
 
-  public static deserialize(buf: Buffer): Add {
-    const args = deserialize(buf, Add.operands) as ConstructorParameters<typeof Add>;
+  public static deserialize(buf: BufferCursor): Add {
+    const args = deserialize(buf, Add.wireFormat) as ConstructorParameters<typeof Add>;
     return new Add(...args);
   }
 
   public serialize(): Buffer {
-    return serialize(Add.operands, this);
+    return serialize(Add.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -46,10 +48,25 @@ export class Add extends Instruction {
 }
 
 export class Sub extends Instruction {
-  static type: string = 'SUB';
-  static numberOfOperands = 3;
+  static readonly type: string = 'SUB';
+  static readonly opcode = Opcode.SUB;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
+  // Instruction wire format without opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(c: Sub) => c.indirect, OperandType.UINT8],
+    [(c: Sub) => c.inTag, OperandType.UINT8],
+    [(c: Sub) => c.aOffset, OperandType.UINT32],
+    [(c: Sub) => c.bOffset, OperandType.UINT32],
+    [(c: Sub) => c.dstOffset, OperandType.UINT32],
+  ];
+
+  constructor(
+    private indirect: number,
+    private inTag: number,
+    private aOffset: number,
+    private bOffset: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 
@@ -61,6 +78,15 @@ export class Sub extends Instruction {
     machineState.memory.set(this.dstOffset, dest);
 
     this.incrementPc(machineState);
+  }
+
+  public static deserialize(buf: BufferCursor): Sub {
+    const args = deserialize(buf, Sub.wireFormat) as ConstructorParameters<typeof Sub>;
+    return new Sub(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(Sub.wireFormat, this);
   }
 }
 
