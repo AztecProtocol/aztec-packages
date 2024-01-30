@@ -78,7 +78,7 @@ describe('External Calls', () => {
       expect(retValue).toEqual([new Field(1n), new Field(2n)]);
 
       // Check that the storage call has been merged into the parent journal
-      const { storageWrites } = journal.flush();
+      const { currentStorageValue: storageWrites } = journal.flush();
       expect(storageWrites.size).toEqual(1);
 
       const nestedContractWrites = storageWrites.get(addr.toBigInt());

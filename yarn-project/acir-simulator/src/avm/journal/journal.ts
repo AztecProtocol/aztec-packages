@@ -3,11 +3,13 @@ import { Fr } from '@aztec/foundation/fields';
 import { RootJournalCannotBeMerged } from './errors.js';
 import { HostStorage } from './host_storage.js';
 
-type StorageWriteMap = Map<bigint, Fr>;
-type ContractWriteMap = Map<bigint, StorageWriteMap>;
+// Keeps track of the current value
+type StorageValueMap = Map<bigint, Fr>;
+type ContractValueMap = Map<bigint, StorageValueMap>;
 
-type StorageReadMap = Map<bigint, Array<Fr>>;
-type ContractReadMap = Map<bigint, StorageReadMap>;
+// Keeps track of all previous values
+type StorageJournalMap = Map<bigint, Array<Fr>>;
+type ContractJournalMap = Map<bigint, StorageJournalMap>;
 
 /**
  * Data held within the journal
@@ -18,9 +20,12 @@ export type JournalData = {
   newL1Messages: Fr[][];
   newLogs: Fr[][];
   /** contract address -\> key -\> value */
-  storageWrites: ContractWriteMap;
+  currentStorageValue: ContractValueMap;
+
   /** contract address -\> key -\> value[] (stored in order of access) */
-  storageReads: ContractReadMap;
+  storageWrites: ContractJournalMap;
+  /** contract address -\> key -\> value[] (stored in order of access) */
+  storageReads: ContractJournalMap;
 };
 
 /**
@@ -37,7 +42,8 @@ export class AvmJournal {
 
   // Reading state - must be tracked for vm execution
   // contract address -> key -> value[] (array stored in order of reads)
-  private storageReads: Map<bigint, Map<bigint, Array<Fr>>> = new Map();
+  private storageReads: ContractJournalMap = new Map();
+  private storageWrites: ContractJournalMap = new Map();
 
   // New written state
   private newNoteHashes: Fr[] = [];
@@ -47,8 +53,9 @@ export class AvmJournal {
   private newL1Messages: Fr[][] = [];
   private newLogs: Fr[][] = [];
 
+  // TODO: maybe i dont really want to use these aliases?????????????????
   // contract address -> key -> value
-  private storageWrites: Map<bigint, Map<bigint, Fr>> = new Map();
+  private currentStorageValue: ContractValueMap = new Map();
 
   private parentJournal: AvmJournal | undefined;
 
@@ -81,12 +88,15 @@ export class AvmJournal {
    * @param value -
    */
   public writeStorage(contractAddress: Fr, key: Fr, value: Fr) {
-    let contractMap = this.storageWrites.get(contractAddress.toBigInt());
+    let contractMap = this.currentStorageValue.get(contractAddress.toBigInt());
     if (!contractMap) {
       contractMap = new Map();
-      this.storageWrites.set(contractAddress.toBigInt(), contractMap);
+      this.currentStorageValue.set(contractAddress.toBigInt(), contractMap);
     }
     contractMap.set(key.toBigInt(), value);
+    
+    // We want to keep track of all performed writes in the journal
+    this.journalWrite(contractAddress, key, value);
   }
 
   /**
@@ -103,7 +113,7 @@ export class AvmJournal {
     // - Finally we try the host storage ( a trip to the database )
 
     // Do not early return as we want to keep track of reads in this.storageReads
-    let value = this.storageWrites.get(contractAddress.toBigInt())?.get(key.toBigInt());
+    let value = this.currentStorageValue.get(contractAddress.toBigInt())?.get(key.toBigInt());
     if (!value && this.parentJournal) {
       value = await this.parentJournal?.readStorage(contractAddress, key);
     }
@@ -123,8 +133,8 @@ export class AvmJournal {
    * @param key -
    * @param value -
    */
-  journalRead(contractAddress: Fr, key: Fr, value: Fr): void {
-    let contractMap = this.storageReads.get(contractAddress.toBigInt());
+  journalUpdate(map: ContractJournalMap, contractAddress: Fr, key: Fr, value: Fr): void {
+    let contractMap = map.get(contractAddress.toBigInt());
     if (!contractMap) {
       contractMap = new Map<bigint, Array<Fr>>();
       this.storageReads.set(contractAddress.toBigInt(), contractMap);
@@ -137,6 +147,11 @@ export class AvmJournal {
     }
     accessArray.push(value);
   }
+
+  // Create an instance of journalUpdate that appends to the read array
+  private journalRead = this.journalUpdate.bind(this, this.storageReads); 
+  // Create an instance of journalUpdate that appends to the writes array
+  private journalWrite = this.journalUpdate.bind(this, this.storageWrites); 
 
   public writeNoteHash(noteHash: Fr) {
     this.newNoteHashes.push(noteHash);
@@ -171,8 +186,11 @@ export class AvmJournal {
     this.parentJournal.newLogs = this.parentJournal.newLogs.concat(this.newLogs);
 
     // Merge Public State
-    mergeContractWriteMaps(this.parentJournal.storageWrites, this.storageWrites);
-    mergeContractReadMaps(this.parentJournal.storageReads, this.storageReads);
+    mergeCurrentValueMaps(this.parentJournal.currentStorageValue, this.currentStorageValue);
+
+    // Merge storage read and write journals
+    mergeContractJournalMaps(this.parentJournal.storageReads, this.storageReads);
+    mergeContractJournalMaps(this.parentJournal.storageWrites, this.storageWrites);
   }
 
   /**
@@ -186,8 +204,9 @@ export class AvmJournal {
       newNullifiers: this.newNullifiers,
       newL1Messages: this.newL1Messages,
       newLogs: this.newLogs,
-      storageWrites: this.storageWrites,
+      currentStorageValue: this.currentStorageValue,
       storageReads: this.storageReads,
+      storageWrites: this.storageWrites,
     };
   }
 }
@@ -201,7 +220,7 @@ export class AvmJournal {
  * @param hostMap - The map to be merged into
  * @param childMap - The map to be merged from
  */
-function mergeContractWriteMaps(hostMap: ContractWriteMap, childMap: ContractWriteMap) {
+function mergeCurrentValueMaps(hostMap: ContractValueMap, childMap: ContractValueMap) {
   for (const [key, value] of childMap) {
     const map1Value = hostMap.get(key);
     if (!map1Value) {
@@ -216,7 +235,7 @@ function mergeContractWriteMaps(hostMap: ContractWriteMap, childMap: ContractWri
  * @param hostMap - The map to be merge into
  * @param childMap - The map to be merged from
  */
-function mergeStorageWriteMaps(hostMap: StorageWriteMap, childMap: StorageWriteMap) {
+function mergeStorageWriteMaps(hostMap: StorageValueMap, childMap: StorageValueMap) {
   for (const [key, value] of childMap) {
     hostMap.set(key, value);
   }
@@ -229,7 +248,7 @@ function mergeStorageWriteMaps(hostMap: StorageWriteMap, childMap: StorageWriteM
  * @param hostMap - The map to be merged into
  * @param childMap - The map to be merged from
  */
-function mergeContractReadMaps(hostMap: ContractReadMap, childMap: ContractReadMap) {
+function mergeContractJournalMaps(hostMap: ContractJournalMap, childMap: ContractJournalMap) {
   for (const [key, value] of childMap) {
     const map1Value = hostMap.get(key);
     if (!map1Value) {
@@ -244,7 +263,7 @@ function mergeContractReadMaps(hostMap: ContractReadMap, childMap: ContractReadM
  * @param hostMap - The map to be merge into
  * @param childMap - The map to be merged from
  */
-function mergeStorageReadMaps(hostMap: StorageReadMap, childMap: StorageReadMap) {
+function mergeStorageReadMaps(hostMap: StorageJournalMap, childMap: StorageJournalMap) {
   for (const [key, value] of childMap) {
     const readArr = hostMap.get(key);
     if (!readArr) {
