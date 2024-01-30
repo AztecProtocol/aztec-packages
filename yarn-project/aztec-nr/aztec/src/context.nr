@@ -338,13 +338,7 @@ impl PrivateContext {
                 unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
                 encrypted_log_preimages_length: reader.read(),
                 unencrypted_log_preimages_length: reader.read(),
-                historical_header: Header{
-                    // Must match order in `private_circuit_public_inputs.nr`
-                    last_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-                    body_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
-                    state: reader.read_struct(StateReference::deserialize),
-                    global_variables: reader.read_struct(GlobalVariables::deserialize),
-                },
+                historical_header: reader.read_struct(Header::deserialize),
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: GrumpkinPoint {
                       x: reader.read(), 
