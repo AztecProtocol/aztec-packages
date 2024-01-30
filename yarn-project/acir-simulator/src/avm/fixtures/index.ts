@@ -7,40 +7,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 
 /**
- * An interface that allows to override the default values of the AvmExecutionEnvironment
- */
-export interface AvmExecutionEnvironmentOverrides {
-  address?: AztecAddress;
-
-  storageAddress?: AztecAddress;
-
-  origin?: AztecAddress;
-
-  sender?: AztecAddress;
-
-  portal?: EthAddress;
-
-  feePerL1Gas?: Fr;
-
-  feePerL2Gas?: Fr;
-
-  feePerDaGas?: Fr;
-
-  contractCallDepth?: Fr;
-
-  globals?: GlobalVariables;
-
-  isStaticCall?: boolean;
-
-  isDelegateCall?: boolean;
-
-  calldata?: Fr[];
-}
-
-/**
  * Create an empty instance of the Execution Environment where all values are zero, unless overriden in the overrides object
  */
-export function initExecutionEnvironment(overrides?: AvmExecutionEnvironmentOverrides): AvmExecutionEnvironment {
+export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.storageAddress ?? AztecAddress.zero(),
@@ -55,5 +24,17 @@ export function initExecutionEnvironment(overrides?: AvmExecutionEnvironmentOver
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
+  );
+}
+
+/**
+ * Create an empty instance of the Execution Environment where all values are zero, unless overriden in the overrides object
+ */
+export function initGlobalVariables(overrides?: Partial<GlobalVariables>): GlobalVariables {
+  return new GlobalVariables(
+    overrides?.chainId ?? Fr.zero(),
+    overrides?.version ?? Fr.zero(),
+    overrides?.blockNumber ?? Fr.zero(),
+    overrides?.timestamp ?? Fr.zero(),
   );
 }
