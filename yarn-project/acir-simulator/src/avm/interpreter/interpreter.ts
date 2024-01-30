@@ -11,7 +11,7 @@ import { Instruction } from '../opcodes/index.js';
  *               - reverted execution will return false
  *               - any other panic will throw
  */
-export async function interpretAvm(
+export async function executeAvm(
   machineState: AvmMachineState,
   journal: AvmJournal,
   instructions: Instruction[] = [],
