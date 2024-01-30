@@ -29,7 +29,11 @@ impl MacroProcessor for AztecMacro {
         transform(ast, crate_id, context)
     }
 
-    fn process_typed_ast(&self, crate_id: &CrateId, context: &mut HirContext) {
+    fn process_typed_ast(
+        &self,
+        crate_id: &CrateId,
+        context: &mut HirContext,
+    ) -> Result<(), (MacroError, FileId)> {
         transform_hir(crate_id, context)
     }
 }
@@ -252,9 +256,9 @@ fn transform(
 //
 
 /// Completes the Hir with data gathered from type resolution
-fn transform_hir(crate_id: &CrateId, context: &mut HirContext) {
+fn transform_hir(crate_id: &CrateId, context: &mut HirContext) -> Result<(), (MacroError, FileId)> {
     transform_events(crate_id, context);
-    assign_storage_slots(crate_id, context).unwrap();
+    assign_storage_slots(crate_id, context).map_err(|(err, file_id)| (err.into(), file_id))
 }
 
 /// Includes an import to the aztec library if it has not been included yet
@@ -422,52 +426,44 @@ fn transform_module(
     Ok(has_transformed_module)
 }
 
+/// Auxiliary function to generate constructors in the storage struct for Maps, using
+/// the Storage struct definition as a reference. Supports nesting.
 fn generate_map_field_constructor(typ: UnresolvedTypeData) -> Result<Expression, AztecMacroError> {
     match &typ {
         UnresolvedTypeData::Named(path, generics) => {
             let mut new_path = path.clone().to_owned();
             new_path.segments.push(ident("new"));
             match path.segments.last().unwrap().0.contents.as_str() {
-                "Map" => {
-                    println!(
-                        "nesting! {} - {:?}",
-                        new_path,
-                        generics.iter().cloned().last().unwrap().typ
-                    );
-                    Ok(call(
-                        variable_path(new_path),
-                        vec![
-                            variable("context"),
-                            variable("slot"),
-                            expression(ExpressionKind::Lambda(Box::new(Lambda {
-                                parameters: vec![
-                                    (
-                                        Pattern::Identifier(ident("context")),
-                                        make_type(UnresolvedTypeData::Named(
-                                            chained_path!("aztec", "context", "Context"),
-                                            vec![],
-                                        )),
-                                    ),
-                                    (
-                                        Pattern::Identifier(ident("slot")),
-                                        make_type(UnresolvedTypeData::FieldElement),
-                                    ),
-                                ],
-                                return_type: UnresolvedType {
-                                    typ: UnresolvedTypeData::Unspecified,
-                                    span: Some(Span::default()),
-                                },
-                                body: generate_map_field_constructor(
-                                    generics.iter().cloned().last().unwrap().typ,
-                                )?,
-                            }))),
-                        ],
-                    ))
-                }
-                _ => {
-                    println!("Generating args - {}", new_path);
-                    Ok(call(variable_path(new_path), vec![variable("context"), variable("slot")]))
-                }
+                "Map" => Ok(call(
+                    variable_path(new_path),
+                    vec![
+                        variable("context"),
+                        variable("slot"),
+                        expression(ExpressionKind::Lambda(Box::new(Lambda {
+                            parameters: vec![
+                                (
+                                    Pattern::Identifier(ident("context")),
+                                    make_type(UnresolvedTypeData::Named(
+                                        chained_path!("aztec", "context", "Context"),
+                                        vec![],
+                                    )),
+                                ),
+                                (
+                                    Pattern::Identifier(ident("slot")),
+                                    make_type(UnresolvedTypeData::FieldElement),
+                                ),
+                            ],
+                            return_type: UnresolvedType {
+                                typ: UnresolvedTypeData::Unspecified,
+                                span: Some(Span::default()),
+                            },
+                            body: generate_map_field_constructor(
+                                generics.iter().cloned().last().unwrap().typ,
+                            )?,
+                        }))),
+                    ],
+                )),
+                _ => Ok(call(variable_path(new_path), vec![variable("context"), variable("slot")])),
             }
         }
         _ => {
@@ -479,6 +475,8 @@ fn generate_map_field_constructor(typ: UnresolvedTypeData) -> Result<Expression,
     }
 }
 
+/// Auxiliary function to generate the storage constructor for a given field, using
+/// the Storage definition as a reference. Supports nesting.
 fn generate_storage_field_constructor(
     field: (Ident, UnresolvedType),
 ) -> Result<(Ident, Expression), AztecMacroError> {
@@ -551,6 +549,35 @@ fn generate_storage_field_constructor(
     Ok(field_constructor)
 }
 
+// Generates the Storage implementation block from the Storage struct definition if it does not exist
+/// From:
+///
+/// struct Storage {
+///     a_map: Map<Field, SomeStoragePrimitive<ASerializableType>>,
+///     a_nested_map: Map<Field, Map<Field, SomeStoragePrimitive<ASerializableType>>>,
+///     a_field: SomeStoragePrimitive<ASerializableType>,
+/// }
+///
+/// To:
+///
+/// impl Storage {
+///    fn init(context: Context) -> Self {
+///        Storage {
+///             a_map: Map::new(context, 0, |context, slot| {
+///                 SomeStoragePrimitive::new(context, slot)
+///             }),
+///             a_nested_map: Map::new(context, 0, |context, slot| {
+///                 Map::new(context, slot, |context, slot| {
+///                     SomeStoragePrimitive::new(context, slot)
+///                })
+///            }),
+///            a_field: SomeStoragePrimitive::new(context, 0),
+///         }
+///    }
+/// }
+///
+/// Storage slots are generated as 0 and will be populated using the information from the HIR
+/// at a later stage.
 fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), AztecMacroError> {
     let definition =
         module.types.iter().find(|r#struct| r#struct.name.0.contents == "Storage").unwrap();
@@ -760,15 +787,22 @@ fn transform_events(crate_id: &CrateId, context: &mut HirContext) {
     }
 }
 
+/// Obtains the serialized length of a type that implements the Serialize trait.
 fn get_serialized_length(
     serialize_traits: &Vec<TraitId>,
     typ: &Type,
     interner: &NodeInterner,
 ) -> Result<u64, AztecMacroError> {
-    let stored_in_state = match typ {
-        Type::Struct(_, generics) => Ok(generics[0].clone()),
+    let maybe_stored_in_state = match typ {
+        Type::Struct(_, generics) => Ok(generics.get(0)),
         _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
             secondary_message: Some("State storage variable must be a struct".to_string()),
+        }),
+    }?;
+    let stored_in_state = match maybe_stored_in_state {
+        Some(stored_in_state) => Ok(stored_in_state),
+        None => Err(AztecMacroError::CouldNotAssignStorageSlots {
+            secondary_message: Some("State storage variable must be generic".to_string()),
         }),
     }?;
     let trait_impl_kind = serialize_traits
@@ -798,10 +832,12 @@ fn get_serialized_length(
     }
 }
 
+/// Assigns storage slots to the storage struct fields based on the serialized length of the types. This automatic assignment
+/// will only trigger if the assigned storage slot is invalid (0 as generated by generate_storage_implementation)
 fn assign_storage_slots(
     crate_id: &CrateId,
     context: &mut HirContext,
-) -> Result<(), AztecMacroError> {
+) -> Result<(), (AztecMacroError, FileId)> {
     let serialize_traits: Vec<_> = collect_traits(context)
         .iter()
         .filter(|trait_id| {
@@ -813,6 +849,7 @@ fn assign_storage_slots(
     for struct_id in collect_crate_structs(crate_id, context) {
         let interner: &mut NodeInterner = context.def_interner.borrow_mut();
         let r#struct = interner.get_struct(struct_id);
+        let file_id = r#struct.borrow().location.file;
         if r#struct.borrow().name.0.contents == "Storage" && r#struct.borrow().id.krate().is_root()
         {
             let init_id = interner
@@ -822,17 +859,21 @@ fn assign_storage_slots(
                     "init",
                     false,
                 )
-                .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some(
-                        "Storage struct must have an init function".to_string(),
-                    ),
-                })?;
+                .ok_or((
+                    AztecMacroError::CouldNotAssignStorageSlots {
+                        secondary_message: Some(
+                            "Storage struct must have an init function".to_string(),
+                        ),
+                    },
+                    file_id,
+                ))?;
             let init_function = interner.function(&init_id).block(interner);
-            let init_function_statement_id = init_function.statements().first().ok_or(
+            let init_function_statement_id = init_function.statements().first().ok_or((
                 AztecMacroError::CouldNotAssignStorageSlots {
                     secondary_message: Some("Init storage statement not found".to_string()),
                 },
-            )?;
+                file_id,
+            ))?;
             let storage_constructor_statement = interner.statement(init_function_statement_id);
 
             let storage_constructor_expression = match storage_constructor_statement {
@@ -841,19 +882,22 @@ fn assign_storage_slots(
                         HirExpression::Constructor(hir_constructor_expression) => {
                             Ok(hir_constructor_expression)
                         }
-                        _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
+                        _ => Err((AztecMacroError::CouldNotAssignStorageSlots {
                             secondary_message: Some(
                                 "Storage constructor statement must be a constructor expression"
                                     .to_string(),
                             ),
-                        }),
+                        }, file_id))
                     }
                 }
-                _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some(
-                        "Storage constructor statement must be an expression".to_string(),
-                    ),
-                }),
+                _ => Err((
+                    AztecMacroError::CouldNotAssignStorageSlots {
+                        secondary_message: Some(
+                            "Storage constructor statement must be an expression".to_string(),
+                        ),
+                    },
+                    file_id,
+                )),
             }?;
 
             let mut storage_slot: u64 = 1;
@@ -862,12 +906,15 @@ fn assign_storage_slots(
                 let (_, field_type) = fields.get(index).unwrap();
                 let new_call_expression = match interner.expression(expr_id) {
                     HirExpression::Call(hir_call_expression) => Ok(hir_call_expression),
-                    _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
-                        secondary_message: Some(
-                            "Storage field initialization expression is not a call expression"
-                                .to_string(),
-                        ),
-                    }),
+                    _ => Err((
+                        AztecMacroError::CouldNotAssignStorageSlots {
+                            secondary_message: Some(
+                                "Storage field initialization expression is not a call expression"
+                                    .to_string(),
+                            ),
+                        },
+                        file_id,
+                    )),
                 }?;
 
                 let slot_arg_expression = interner.expression(&new_call_expression.arguments[1]);
@@ -876,12 +923,15 @@ fn assign_storage_slots(
                     HirExpression::Literal(HirLiteral::Integer(slot, _)) => {
                         Ok(slot.borrow().to_u128())
                     }
-                    _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
-                        secondary_message: Some(
-                            "Storage slot argument expression must be a literal integer"
-                                .to_string(),
-                        ),
-                    }),
+                    _ => Err((
+                        AztecMacroError::CouldNotAssignStorageSlots {
+                            secondary_message: Some(
+                                "Storage slot argument expression must be a literal integer"
+                                    .to_string(),
+                            ),
+                        },
+                        file_id,
+                    )),
                 }?;
 
                 if current_storage_slot != 0 {
@@ -889,7 +939,8 @@ fn assign_storage_slots(
                 }
 
                 let type_serialized_len =
-                    get_serialized_length(&serialize_traits, field_type, interner)?;
+                    get_serialized_length(&serialize_traits, field_type, interner)
+                        .map_err(|err| (err.into(), file_id))?;
                 interner.update_expression(new_call_expression.arguments[1], |expr| {
                     *expr = HirExpression::Literal(HirLiteral::Integer(
                         FieldElement::from(u128::from(storage_slot)),
