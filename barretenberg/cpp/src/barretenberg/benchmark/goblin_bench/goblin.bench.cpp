@@ -149,3 +149,5 @@ BENCHMARK_REGISTER_F(GoblinBench, GoblinECCVMProve)->Unit(benchmark::kMillisecon
 BENCHMARK_REGISTER_F(GoblinBench, GoblinTranslatorProve)->Unit(benchmark::kMillisecond)->ARGS;
 
 } // namespace
+
+BENCHMARK_MAIN();
