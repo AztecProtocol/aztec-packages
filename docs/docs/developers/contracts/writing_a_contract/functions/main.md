@@ -19,7 +19,7 @@ In Aztec there are multiple different types of visibility that can be applied to
 
 ### Data Visibility
 
-Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../learn/concepts/communication/public_private_calls/main.md).
+Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../../learn/concepts/communication/public_private_calls/main.md).
 
 In the following sections, we are going to see how these two "types" co-exists and interact.
 
@@ -108,14 +108,14 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 `Aztec.nr` has a module dedicated to its oracles. If you are interested, you can view them by following the link below:
 #include_code oracles-module /yarn-project/aztec-nr/aztec/src/oracle.nr rust
 
-You can learn how to use oracles in your smart contracts [here](../syntax/oracles.md).
+You can learn how to use oracles in your smart contracts [here](../functions/main.md#oracle-functions).
 
 ## Calling functions from other functions
 
 ### Private -> Private
 
-In Aztec Private to Private function calls are handled by the [private kernel circuit](../../../learn/concepts/circuits/kernels/private_kernel.md), and take place on the user's device.
-Behind the scenes, the `Private Execution Environment (PXE)` (the beating heart of Aztec that runs in your wallet) will execute all of the functions in the desired order "simulating" them in sequence. For example, a very common use-case of Private to Private interaction is calling another private function from an `account contract` (Account contracts are a general concept, more information about them can be found [here](../../wallets/writing_an_account_contract.md)).
+In Aztec Private to Private function calls are handled by the [private kernel circuit](../../../../learn/concepts/circuits/kernels/private_kernel.md), and take place on the user's device.
+Behind the scenes, the `Private Execution Environment (PXE)` (the beating heart of Aztec that runs in your wallet) will execute all of the functions in the desired order "simulating" them in sequence. For example, a very common use-case of Private to Private interaction is calling another private function from an `account contract` (Account contracts are a general concept, more information about them can be found [here](../../writing_a_contract/accounts/write_accounts_contract.md)).
 
 Take, for example, the following call stack:
 
@@ -203,7 +203,7 @@ Calling a public function from another public function is quite similar to what 
 
 ### Private -> Public
 
-As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../learn/concepts/communication/public_private_calls/main.md)).
+As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../../learn/concepts/communication/public_private_calls/main.md)).
 
 Private function execution takes place on the users device, where it keeps track of any public function calls that have been made. Whenever private execution completes, and a kernel proof is produced, the transaction sent to the network will include all of the public calls that were dispatched.
 When the sequencer receives the messages, it will take over and execute the public parts of the transaction.
@@ -249,7 +249,7 @@ Below, we go more into depth of what is happening under the hood when you create
 
 Aztec.nr uses an attribute system to annotate a function's type. Annotating a function with the `#[aztec(private)]` attribute tells the framework that this will be a private function that will be executed on a users device. Thus the compiler will create a circuit to define this function.
 
-However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../../learn/concepts/circuits/kernels/private_kernel.md).
+However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../../../learn/concepts/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -263,12 +263,12 @@ To help illustrate how this interacts with the internals of Aztec and its kernel
 
 #### The expansion broken down?
 
-Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../../learn/concepts/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
+Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../../../learn/concepts/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
 
 **Receiving context from the kernel.**
 #include_code context-example-inputs /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../../learn/concepts/circuits/kernels/private_kernel.md). The kernel circuit forwards information to each app circuit. This information then becomes part of the private context.
+Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../../../learn/concepts/circuits/kernels/private_kernel.md). The kernel circuit forwards information to each app circuit. This information then becomes part of the private context.
 For example, within each circuit we can access some global variables. To access them we can call `context.chain_id()`. The value of this chain ID comes from the values passed into the circuit from the kernel.
 
 The kernel can then check that all of the values passed to each circuit in a function call are the same.

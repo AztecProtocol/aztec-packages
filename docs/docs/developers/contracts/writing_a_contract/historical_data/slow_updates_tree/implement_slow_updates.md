@@ -2,7 +2,7 @@
 title: Implement a Slow Updates Tree
 ---
 
-To learn more about the Slow Updates Tree, go [here](../explanations/slow_updates_tree.md)
+To learn more about the Slow Updates Tree, go [here](./main.md)
 
 1. Copy the *SlowTree.nr* example and its dependencies, found [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/contracts/slow_tree_contract). Replace the constants with whatever you like and deploy it to your sandbox
 2. Copy the *SlowMap interface* for easy interaction with your deployed SlowTree. Find it [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/token_blacklist_contract/src/interfaces.nr)
@@ -30,7 +30,7 @@ To learn more about the Slow Updates Tree, go [here](../explanations/slow_update
 
 #include_code get_public yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-View the [reference](slow_updates_tree.md#reference) for more information.
+View the [reference](../../../references/slow_updates_tree.md) for more information.
 
 ## Exploring an example integration through a **`TokenBlacklist`** Smart Contract
 

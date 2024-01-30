@@ -65,7 +65,7 @@ In the future we will allow emitting arbitrary information.
 
 ### Import library
 
-To emit encrypted logs first import the `emit_encrypted_log` utility function which wraps an [oracle](./functions.md#oracle-functions):
+To emit encrypted logs first import the `emit_encrypted_log` utility function which wraps an [oracle](../functions/main.md#oracle-functions):
 
 #include_code encrypted_import /yarn-project/aztec-nr/address-note/src/address_note.nr rust
 
@@ -101,7 +101,7 @@ They can be emitted by both public and private functions.
 
 :::danger
 - Emitting unencrypted events from private function is a significant privacy leak and it should be considered by the developer whether it is acceptable.
-- Unencrypted events are currently **NOT** linked to the contract emitting them, so it is practically a [`debug_log`](./functions.md#a-few-useful-inbuilt-oracles).
+- Unencrypted events are currently **NOT** linked to the contract emitting them, so it is practically a [`debug_log`](../functions/main.md#a-few-useful-inbuilt-oracles).
 :::
 
 ### Import library

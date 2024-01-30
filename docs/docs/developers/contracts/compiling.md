@@ -12,7 +12,7 @@ We'll also cover how to generate a helper [TypeScript interface](#typescript-int
 
 To compile a contract using the Aztec's build of nargo.
 
-Run the `aztec-nargo compile` command within your [contract project folder](./layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
+Run the `aztec-nargo compile` command within your [contract project folder](./writing_a_contract/layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
 
 ```bash
 aztec-nargo compile
@@ -219,7 +219,7 @@ At the moment, the compiler generates these interfaces from already compiled ABI
 
 ## Next steps
 
-Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../developers/sandbox/references/cli-commands.md#deploying-a-token-contract) and [interact](../../developers/sandbox/guides/cli-commands.md#sending-a-transaction) with them.
+Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../sandbox/references/cli-commands.md#deploying-a-token-contract) and [interact](../sandbox/references/cli-commands.md#calling-an-unconstrained-view-function) with them.
 
 import Disclaimer from "../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>

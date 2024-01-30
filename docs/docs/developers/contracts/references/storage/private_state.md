@@ -10,7 +10,7 @@ For a higher level overview of the state model in Aztec, see the [hybrid state m
 
 In contrast to public state, private state is persistent state that is **not** visible to the whole world. Depending on the logic of the smart contract, a private state variable's current value will only be known to one entity, or a closed group of entities.
 
-The value of a private state variable can either be shared via an [encrypted log](../events.md#encrypted-events), or offchain via web2, or completely offline: it's up to the app developer.
+The value of a private state variable can either be shared via an [encrypted log](../../writing_a_contract/events/emit_event.md#encrypted-events), or offchain via web2, or completely offline: it's up to the app developer.
 
 Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_transaction_output)-based model. That is, a private state's current value is represented as one or many [notes](#notes). Each note is stored as an individual leaf in a utxo-based merkle tree: the [private state tree](../../../../learn/concepts/storage/trees/main.md).
 
@@ -180,7 +180,7 @@ Set is used for managing a collection of notes. All notes in a Set are of the sa
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec-nr/aztec/src/state_vars/set.nr).
 
-And can be added to the `Storage` struct as follows. Here adding a set for a custom note, the TransparentNote (useful for [public -> private communication](../functions.md#public---private)).
+And can be added to the `Storage` struct as follows. Here adding a set for a custom note, the TransparentNote (useful for [public -> private communication](../../writing_a_contract/functions/main.mdpublic---private)).
 
 #include_code storage_pending_shields /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -196,7 +196,7 @@ We can initialize the set as follows:
 
 Allows us to modify the storage by inserting a note into the set.
 
-A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an [encrypted log](../events.md#encrypted-events), or offchain via web2, or completely offline.
+A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an [encrypted log](../../writing_a_contract/events/emit_event.md#encrypted-events), or offchain via web2, or completely offline.
 
 #include_code insert /yarn-project/aztec-nr/easy-private-state/src/easy_private_state.nr rust
 
@@ -244,7 +244,7 @@ This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essenti
 
 ### NoteGetterOptions
 
-`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](../functions.md#oracle-functions). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
+`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](../../writing_a_contract/functions/main.md#oracle-functions). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec-nr/aztec/src/note/note_getter_options.nr).
 

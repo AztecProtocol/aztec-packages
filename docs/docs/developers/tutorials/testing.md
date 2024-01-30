@@ -148,7 +148,7 @@ In the near future, transactions where a public function call fails will get min
 
 We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().view()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
 
-To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/syntax/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](./../testing/cheat_codes.md) utility class:
+To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/writing_a_contract/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../contracts/testing_a_contract/cheat_codes.md) utility class:
 
 #include_code calc-slot /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -170,7 +170,7 @@ We can query the Private eXecution Environment (PXE) for all notes encrypted for
 
 ### Logs
 
-Last but not least, we can check the logs of [events](../contracts/syntax/events.md) emitted by our contracts. Contracts in Aztec can emit both [encrypted](../contracts/syntax/events.md#encrypted-events) and [unencrypted](../contracts/syntax/events.md#unencrypted-events) events.
+Last but not least, we can check the logs of [events](../contracts/writing_a_contract/events/emit_event.md) emitted by our contracts. Contracts in Aztec can emit both [encrypted](../contracts/writing_a_contract/events/emit_event.md#encrypted-events) and [unencrypted](../contracts/writing_a_contract/events/emit_event.md#unencrypted-events) events.
 
 :::info
 At the time of this writing, only unencrypted events can be queried directly. Encrypted events are always assumed to be encrypted notes.
@@ -184,7 +184,7 @@ We can query the PXE for the unencrypted logs emitted in the block where our tra
 
 ## Cheats
 
-The [`CheatCodes`](./../testing/cheat_codes.md) class, which we used for [calculating the storage slot above](#state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
+The [`CheatCodes`](../contracts/testing_a_contract/cheat_codes.md) class, which we used for [calculating the storage slot above](#state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
 
 ### Set next block timestamp
 

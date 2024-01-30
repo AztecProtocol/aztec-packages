@@ -8,7 +8,7 @@ import Image from "@theme/IdealImage";
 
 ## What is the context
 
-The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../../learn/concepts/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of it's side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
+The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../../../learn/concepts/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of it's side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
 
 Behind the scenes, Aztec.nr will pass data the kernel needs to and from a circuit, this is abstracted away from the developer. In an developer's eyes; the context is a useful structure that allows access and mutate the state of the `Aztec` blockchain.
 
@@ -21,7 +21,7 @@ On this page, you'll learn
 - Differences between the private and public contexts, especially the unique features and variables in the public context
 
 ## Two contexts, one API
-The `Aztec` blockchain contains two environments [public and private](../../../learn/concepts/hybrid_state/main.md). 
+The `Aztec` blockchain contains two environments [public and private](../../../../learn/concepts/hybrid_state/main.md). 
 - Private, for private transactions taking place on user's devices.
 - Public, for public transactions taking place on the network's sequencers.
 
@@ -62,7 +62,7 @@ The call context contains information about the current call being made:
    - This value is the address of the current context's contract address. This value will be the value of the current contract that is being executed except for when the current call is a delegate call (Warning: This is yet to be implemented). In this case the value will be that of the sending contract.
 
 3. Portal Contract Address
-   - This value stores the current contract's linked [portal contract](../portals/main.md) address. As a quick recap, this value is the value of the contracts related ethereum l1 contract address, and will be the recipient of any messages that are created by this contract.
+   - This value stores the current contract's linked [portal contract](../portals/portals.md) address. As a quick recap, this value is the value of the contracts related ethereum l1 contract address, and will be the recipient of any messages that are created by this contract.
 4. Flags
    - Furthermore there are a series of flags that are stored within the application context:
      - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.

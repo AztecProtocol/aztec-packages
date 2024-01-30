@@ -2,16 +2,11 @@
 title: Slow Updates Tree
 ---
 
-Slow Updates Tree is a data structure that allows for historical public data to be accessed in both private and public domains. Read the high level overview in the [Communication section](../../../learn/concepts/communication/public_private_calls/slow_updates_tree.md).
+Slow Updates Tree is a data structure that allows for historical public data to be accessed in both private and public domains. Read the high level overview in the [Communication section](../../../../../learn/concepts/communication/public_private_calls/slow_updates_tree.md). This page explains the components involved.
+
+If you want to integrate it in your contract, follow this [guide](../slow_updates_tree/implement_slow_updates.md).
 
 The slow updates tree works by having a current tree and a pending tree, and replacing the current tree with the pending tree after an epoch has passed. Public functions can read directly from the current tree, and private functions can perform a membership proof that values are part of a commitment to the current state of the tree.
-
-On this page you will learn:
-
-1. [The components involved in using the slow updates tree](slow_updates_tree.md#components-involved-in-implementing-a-slow-updates-tree)
-2. [How you can integrate it into your own smart contract](slow_updates_tree.md#how-to-integrate-a-slow-updates-tree)
-3. [An example of a token blacklisting contract that uses the slow updates tree](slow_updates_tree.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract)
-4. [Interface Reference](slow_updates_tree.md#reference)
 
 # Components involved in implementing a slow updates tree
 

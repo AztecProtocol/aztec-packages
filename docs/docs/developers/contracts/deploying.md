@@ -88,7 +88,7 @@ Its arguments are `PXE` client and contract constructor arguments.
 
 Additionally the `.send()` method can have a few optional arguments too, which are specified in an optional object:
 
-- `portalContract?: EthAddress`: The L1 portal address to link the contract to. See the section on [Portals to learn more about them](./portals/main.md).
+- `portalContract?: EthAddress`: The L1 portal address to link the contract to. See the section on [Portals to learn more about them](./writing_a_contract/portals/portals.md).
 - `contractAddressSalt?: Fr`: A salt which is one of the inputs when computing a contract address of the contract to be deployed.
   By default is set to a random value.
   Set it, if you need a deterministic contract address (same functionality as Ethereum's `CREATE2` opcode).

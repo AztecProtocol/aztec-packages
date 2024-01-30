@@ -80,7 +80,7 @@ Context gives us access to the environment information such as `msg.sender`. We 
 
 `map::Map`
 
-Map is a private state variable that functions like a dictionary, relating Fields to other state variables. You can learn more about it [here](../contracts/syntax/main.md).
+Map is a private state variable that functions like a dictionary, relating Fields to other state variables.
 
 `value_note`
 
@@ -114,7 +114,7 @@ Let’s create a `constructor` method to run on deployment that assigns an initi
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
-We have annotated this and other functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs. Learn more about functions and annotations [here](../contracts/syntax/functions.md).
+We have annotated this and other functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs. Learn more about functions and annotations [here](../contracts/writing_a_contract/functions/main.md).
 
 ## Incrementing our counter
 

@@ -4,7 +4,7 @@ title: Storage
 
 Smart contracts rely on storage, acting as the persistent memory on the blockchain. In Aztec, because of its hybrid, privacy-first architecture, the management of this storage is more complex than other blockchains like Ethereum.
 
-You control this storage in Aztec using the `Storage` struct. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain. Learn how to define storage [here](../writing_a_contract/define_storage.md).
+You control this storage in Aztec using the `Storage` struct. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain. Learn how to define storage [here](./define_storage.md).
 
 These state variables come in two forms: public and private. Public variables are visible to anyone, and private variables remain hidden within the contract.
 

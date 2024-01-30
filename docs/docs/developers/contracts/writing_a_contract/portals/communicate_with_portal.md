@@ -2,11 +2,11 @@
 title: Communicating with L1
 ---
 
-Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../learn/concepts/communication/cross_chain_calls.md).
+Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../../learn/concepts/communication/cross_chain_calls.md).
 
 ## Passing data to the rollup
 
-Whether it is tokens or other information being passed to the rollup, the portal should use the [`Inbox`](./inbox.md) to do it.
+Whether it is tokens or other information being passed to the rollup, the portal should use the `Inbox` to do it.
 
 The `Inbox` can be seen as a mailbox to the rollup, portals put messages into the box, and the sequencers then decide which of these message they want to include in their blocks (each message has a fee attached to it, so there is a fee market here).
 

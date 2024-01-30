@@ -4,9 +4,9 @@ title: Define contract storage
 
 On this page, you will learn how to define storage in your smart contract.
 
-To learn more about how storage works in Aztec, read [the concepts](../../../learn/concepts/storage/storage_slots.md).
+To learn more about how storage works in Aztec, read [the concepts](../../../../learn/concepts/storage/storage_slots.md).
 
-[See the storage reference](../references/storage/main.md).
+[See the storage reference](../../references/storage/main.md).
 
 :::info
 The struct **must** be called `Storage` for the Aztec.nr library to properly handle it (this will be relaxed in the future).
@@ -20,7 +20,7 @@ struct Storage {
 ```
 
 :::danger
-If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [encrypted events](../events.md#processing-encrypted-events) for more.
+If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [encrypted events](../events/emit_event.md#successfully-process-the-encrypted-event) for more.
 
 If you don't yet have any private state variables defined you can use this placeholder function:
 
