@@ -31,7 +31,7 @@ describe('Synchronizer', () => {
   });
 
   it('sets header from aztec node on initial sync', async () => {
-    aztecNode.getBlockNumber.mockResolvedValue(3);
+    aztecNode.getBlockNumber.mockResolvedValue(initialSyncBlockNumber);
     aztecNode.getHeader.mockResolvedValue(headerBlock3);
 
     await synchronizer.initialSync();
