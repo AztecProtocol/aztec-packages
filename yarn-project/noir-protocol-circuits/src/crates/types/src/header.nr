@@ -87,7 +87,7 @@ impl Header {
 impl Empty for Header {
     fn empty() -> Self {
         Self {
-            last_archive: AppendOnlyTreeSnapshot::empty(),
+            last_archive: AppendOnlyTreeSnapshot::zero(),
             body_hash: [0; NUM_FIELDS_PER_SHA256],
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
