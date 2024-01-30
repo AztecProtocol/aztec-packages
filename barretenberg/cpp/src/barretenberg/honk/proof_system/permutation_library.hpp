@@ -190,7 +190,7 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
     // Resulting concatenated polynomials
     auto targets = proving_key->get_concatenated_constraints();
 
-    // Targets have to be full-sized polynomials. We can comput the mini circuit size from them by dividing by
+    // Targets have to be full-sized polynomials. We can compute the mini circuit size from them by dividing by
     // concatenation index
     const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_INDEX;
     ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX == targets[0].size());
