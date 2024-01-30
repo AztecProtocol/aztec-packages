@@ -220,11 +220,16 @@ export enum TypeTag {
 
 // TODO: Consider automatic conversion when getting undefined values.
 export class TaggedMemory {
-  static readonly MAX_MEMORY_SIZE = 1n << 32n;
+  // FIXME: memory should be 2^32, but TS doesn't allow for arrays that big.
+  static readonly MAX_MEMORY_SIZE = Number(1n << 31n); // 1n << 32n
   private _mem: MemoryValue[];
 
   constructor() {
     this._mem = [];
+    // The following two lines basically initialize a sparse array of length MAX_MEMORY_SIZE.
+    // All entries will be undefined afterwards.
+    this._mem[TaggedMemory.MAX_MEMORY_SIZE] = new Field(0);
+    this._mem.splice(TaggedMemory.MAX_MEMORY_SIZE, 1);
   }
 
   public get(offset: number): MemoryValue {

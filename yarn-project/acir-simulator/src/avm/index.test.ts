@@ -53,8 +53,7 @@ describe('avm', () => {
 
       // Execute instructions
       const context = new AvmMachineState(initExecutionEnvironment({ calldata }));
-      const interpreter = new AvmInterpreter(context, journal, instructions);
-      const avmReturnData = await interpreter.run();
+      const avmReturnData = await executeAvm(context, journal, instructions);
 
       expect(avmReturnData.reverted).toBe(false);
 
