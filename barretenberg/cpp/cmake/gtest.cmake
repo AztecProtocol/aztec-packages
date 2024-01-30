@@ -11,8 +11,6 @@ FetchContent_Declare(
 
 set(BUILD_GMOCK OFF CACHE BOOL "Build with gMock disabled")
 set(INSTALL_GTEST OFF CACHE BOOL "gTest installation disabled")
-# # TODO only in wasm?
-# set(gtest_disable_pthreads OFF CACHE BOOL "gTest pthreads disabled")
 
 FetchContent_MakeAvailable(GTest)
 
