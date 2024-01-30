@@ -211,7 +211,6 @@ template <typename TranscriptParams> class BaseTranscript {
         Fr base_hash = TranscriptParams::hash(full_buffer);
 
         Fr new_challenge = base_hash;
-        // std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenge;

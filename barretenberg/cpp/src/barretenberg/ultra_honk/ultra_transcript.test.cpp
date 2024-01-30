@@ -37,8 +37,7 @@ class UltraTranscriptTests : public ::testing::Test {
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
         // Size of types is number of bb::frs needed to represent the types
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<Flavor::Curve::BaseField>();
-        size_t frs_per_G = 2 * frs_per_Fq;
+        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
         size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
