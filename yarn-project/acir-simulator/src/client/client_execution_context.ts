@@ -74,7 +74,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly curve: Grumpkin,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
-    super(contractAddress, historicalHeader, authWitnesses, db, undefined, log);
+    super(contractAddress, authWitnesses, db, undefined, log);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
