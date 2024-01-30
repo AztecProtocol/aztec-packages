@@ -256,6 +256,7 @@ export class MerkleTrees implements MerkleTreeDb {
     return Promise.resolve(state);
   }
 
+  // TODO(#3941)
   private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
     const state = await this.getStateReference(includeUncommitted);
     return computeBlockHash(

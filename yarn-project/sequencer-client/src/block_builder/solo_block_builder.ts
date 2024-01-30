@@ -493,6 +493,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
     const header = tx.data.constants.header;
+    // TODO(#3941)
     const blockHash = computeBlockHash(
       computeGlobalsHash(header.globalVariables),
       header.state.partial.noteHashTree.root,
