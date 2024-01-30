@@ -11,7 +11,7 @@ use dep::protocol_types::{
 };
 use crate::context::PrivateContext;
 use crate::note::{
-    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator},
+    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus},
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_or_nullify,
@@ -97,8 +97,7 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
         let opt_note = opt_notes[i];
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
-            // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
-            let fields: [Field; N] = note.serialize();
+            let fields = note.serialize();
             check_note_header(*context, storage_slot, note);
             check_note_fields(fields, options.selects);
             if i != 0 {
@@ -134,6 +133,7 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where N
         [],
         1, // limit
         0, // offset
+        NoteStatus.ACTIVE,
         placeholder_note,
         placeholder_fields,
         placeholder_note_length
@@ -158,6 +158,7 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
         sort_order,
         options.limit,
         options.offset,
+        options.status,
         placeholder_opt_notes,
         placeholder_fields,
         placeholder_note_length
@@ -186,6 +187,7 @@ unconstrained pub fn view_notes<Note, N>(
         sort_order,
         options.limit,
         options.offset,
+        options.status,
         placeholder_opt_notes,
         placeholder_fields,
         placeholder_note_length
