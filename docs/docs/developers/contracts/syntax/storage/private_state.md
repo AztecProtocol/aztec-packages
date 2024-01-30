@@ -304,6 +304,8 @@ This method sets the offset value, which determines where to start retrieving no
 
 #### Examples
 
+##### Example 1
+
 The following code snippet creates an instance of `NoteGetterOptions`, which has been configured to find the cards that belong to `account_address`. The returned cards are sorted by their points in descending order, and the first `offset` cards with the highest points are skipped.
 
 #include_code state_vars-NoteGetterOptionsSelectSortOffset /yarn-project/noir-contracts/contracts/docs_example_contract/src/options.nr rust
@@ -335,3 +337,14 @@ One thing to remember is, `filter` will be applied on the notes after they are p
 The limit is `MAX_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
 
 #include_code state_vars-NoteGetterOptionsPickOne /yarn-project/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+
+##### Example 2
+
+An example of how we can use a Comparator to select notes when calling a Noir contract from aztec.js is below.
+
+#include_code state_vars-NoteGetterOptionsComparatorExampleTs /yarn-project/end-to-end/src/e2e_note_getter.test.ts typescript
+
+In this example, we use the above typescript code to invoke a call to our Noir contract below. This Noir contract function takes an input to match with, and a comparator to use when fetching and selecting notes from storage.
+
+#include_code state_vars-NoteGetterOptionsComparatorExampleNoir /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+
