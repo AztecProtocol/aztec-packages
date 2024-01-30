@@ -15,7 +15,6 @@ export class AvmMachineState {
 
   private returnData: Fr[];
 
-  /** - */
   public readonly memory: TaggedMemory;
 
   /**
@@ -24,15 +23,18 @@ export class AvmMachineState {
    */
   public internalCallStack: number[];
 
-  /** - */
   public pc: number;
-  /** - */
+
   public callStack: number[];
 
   /**
    * If an instruction triggers a halt, then it ends execution of the VM
    */
   public halted: boolean;
+  /**
+   * Signifies if the execution has reverted ( due to a revert instruction )
+   */
+  public reverted: boolean;
 
   /**
    * Create a new avm context
@@ -47,6 +49,7 @@ export class AvmMachineState {
     this.callStack = [];
 
     this.halted = false;
+    this.reverted = false;
 
     this.executionEnvironment = executionEnvironment;
   }
@@ -60,7 +63,6 @@ export class AvmMachineState {
     Object.freeze(returnData);
   }
 
-  /** - */
   public getReturnData(): Fr[] {
     return this.returnData;
   }
