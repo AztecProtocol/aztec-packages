@@ -130,81 +130,102 @@ impl BrilligContext {
         item_count: usize,
         flattened_array_pointer: MemoryAddress,
     ) -> MemoryAddress {
-        let movement_register = self.allocate_register();
-        let deflattened_array_pointer = self.allocate_register();
+        if item_type.iter().any(|param| !matches!(param, BrilligParameter::Simple)) {
+            let movement_register = self.allocate_register();
+            let deflattened_array_pointer = self.allocate_register();
 
-        let target_item_size = item_type.len();
-        let source_item_size: usize = item_type.iter().map(BrilligContext::flattened_size).sum();
+            let target_item_size = item_type.len();
+            let source_item_size: usize =
+                item_type.iter().map(BrilligContext::flattened_size).sum();
 
-        self.allocate_fixed_length_array(deflattened_array_pointer, item_count * target_item_size);
+            self.allocate_fixed_length_array(
+                deflattened_array_pointer,
+                item_count * target_item_size,
+            );
 
-        for item_index in 0..item_count {
-            let source_item_base_index = item_index * source_item_size;
-            let target_item_base_index = item_index * target_item_size;
+            for item_index in 0..item_count {
+                let source_item_base_index = item_index * source_item_size;
+                let target_item_base_index = item_index * target_item_size;
 
-            let mut source_offset = 0;
+                let mut source_offset = 0;
 
-            for (subitem_index, subitem) in item_type.iter().enumerate() {
-                let source_index =
-                    self.make_constant((source_item_base_index + source_offset).into());
+                for (subitem_index, subitem) in item_type.iter().enumerate() {
+                    let source_index =
+                        self.make_constant((source_item_base_index + source_offset).into());
 
-                let target_index =
-                    self.make_constant((target_item_base_index + subitem_index).into());
+                    let target_index =
+                        self.make_constant((target_item_base_index + subitem_index).into());
 
-                match subitem {
-                    BrilligParameter::Simple => {
-                        self.array_get(flattened_array_pointer, source_index, movement_register);
-                        self.array_set(deflattened_array_pointer, target_index, movement_register);
-                        source_offset += 1;
-                    }
-                    BrilligParameter::Array(nested_array_item_type, nested_array_item_count) => {
-                        let nested_array_pointer = self.allocate_register();
-                        self.mov_instruction(nested_array_pointer, flattened_array_pointer);
-                        self.memory_op(
-                            nested_array_pointer,
-                            source_index,
-                            nested_array_pointer,
-                            acvm::brillig_vm::brillig::BinaryIntOp::Add,
-                        );
-                        let deflattened_nested_array_pointer = self.deflatten_array(
+                    match subitem {
+                        BrilligParameter::Simple => {
+                            self.array_get(
+                                flattened_array_pointer,
+                                source_index,
+                                movement_register,
+                            );
+                            self.array_set(
+                                deflattened_array_pointer,
+                                target_index,
+                                movement_register,
+                            );
+                            source_offset += 1;
+                        }
+                        BrilligParameter::Array(
                             nested_array_item_type,
-                            *nested_array_item_count,
-                            nested_array_pointer,
-                        );
-                        let reference = self.allocate_register();
-                        let rc = self.allocate_register();
-                        self.const_instruction(rc, 1_usize.into());
+                            nested_array_item_count,
+                        ) => {
+                            let nested_array_pointer = self.allocate_register();
+                            self.mov_instruction(nested_array_pointer, flattened_array_pointer);
+                            self.memory_op(
+                                nested_array_pointer,
+                                source_index,
+                                nested_array_pointer,
+                                acvm::brillig_vm::brillig::BinaryIntOp::Add,
+                            );
+                            let deflattened_nested_array_pointer = self.deflatten_array(
+                                nested_array_item_type,
+                                *nested_array_item_count,
+                                nested_array_pointer,
+                            );
+                            let reference = self.allocate_register();
+                            let rc = self.allocate_register();
+                            self.const_instruction(rc, 1_usize.into());
 
-                        self.allocate_array_reference_instruction(reference);
-                        let array_variable = BrilligVariable::BrilligArray(BrilligArray {
-                            pointer: deflattened_nested_array_pointer,
-                            size: nested_array_item_type.len() * nested_array_item_count,
-                            rc,
-                        });
-                        self.store_variable_instruction(reference, array_variable);
+                            self.allocate_array_reference_instruction(reference);
+                            let array_variable = BrilligVariable::BrilligArray(BrilligArray {
+                                pointer: deflattened_nested_array_pointer,
+                                size: nested_array_item_type.len() * nested_array_item_count,
+                                rc,
+                            });
+                            self.store_variable_instruction(reference, array_variable);
 
-                        self.array_set(deflattened_array_pointer, target_index, reference);
+                            self.array_set(deflattened_array_pointer, target_index, reference);
 
-                        self.deallocate_register(nested_array_pointer);
-                        self.deallocate_register(reference);
-                        array_variable
-                            .extract_registers()
-                            .into_iter()
-                            .for_each(|register| self.deallocate_register(register));
+                            self.deallocate_register(nested_array_pointer);
+                            self.deallocate_register(reference);
+                            array_variable
+                                .extract_registers()
+                                .into_iter()
+                                .for_each(|register| self.deallocate_register(register));
 
-                        source_offset += BrilligContext::flattened_size(subitem);
+                            source_offset += BrilligContext::flattened_size(subitem);
+                        }
+                        BrilligParameter::Slice(..) => unreachable!("ICE: Cannot deflatten slices"),
                     }
-                    BrilligParameter::Slice(..) => unreachable!("ICE: Cannot deflatten slices"),
+
+                    self.deallocate_register(source_index);
+                    self.deallocate_register(target_index);
                 }
-
-                self.deallocate_register(source_index);
-                self.deallocate_register(target_index);
             }
+
+            self.deallocate_register(movement_register);
+
+            deflattened_array_pointer
+        } else {
+            let deflattened_array_pointer = self.allocate_register();
+            self.mov_instruction(deflattened_array_pointer, flattened_array_pointer);
+            deflattened_array_pointer
         }
-
-        self.deallocate_register(movement_register);
-
-        deflattened_array_pointer
     }
 
     /// Adds the instructions needed to handle return parameters
@@ -292,87 +313,110 @@ impl BrilligContext {
         flattened_array_pointer: MemoryAddress,
         deflattened_array_pointer: MemoryAddress,
     ) {
-        let movement_register = self.allocate_register();
+        if item_type.iter().any(|item| !matches!(item, BrilligParameter::Simple)) {
+            let movement_register = self.allocate_register();
 
-        let source_item_size = item_type.len();
-        let target_item_size: usize = item_type.iter().map(BrilligContext::flattened_size).sum();
+            let source_item_size = item_type.len();
+            let target_item_size: usize =
+                item_type.iter().map(BrilligContext::flattened_size).sum();
 
-        for item_index in 0..item_count {
-            let source_item_base_index = item_index * source_item_size;
-            let target_item_base_index = item_index * target_item_size;
+            for item_index in 0..item_count {
+                let source_item_base_index = item_index * source_item_size;
+                let target_item_base_index = item_index * target_item_size;
 
-            let mut target_offset = 0;
+                let mut target_offset = 0;
 
-            for (subitem_index, subitem) in item_type.iter().enumerate() {
-                let source_index =
-                    self.make_constant((source_item_base_index + subitem_index).into());
-                let target_index =
-                    self.make_constant((target_item_base_index + target_offset).into());
+                for (subitem_index, subitem) in item_type.iter().enumerate() {
+                    let source_index =
+                        self.make_constant((source_item_base_index + subitem_index).into());
+                    let target_index =
+                        self.make_constant((target_item_base_index + target_offset).into());
 
-                match subitem {
-                    BrilligParameter::Simple => {
-                        self.array_get(deflattened_array_pointer, source_index, movement_register);
-                        self.array_set(flattened_array_pointer, target_index, movement_register);
-                        target_offset += 1;
-                    }
-                    BrilligParameter::Array(nested_array_item_type, nested_array_item_count) => {
-                        let nested_array_reference = self.allocate_register();
-                        self.array_get(
-                            deflattened_array_pointer,
-                            source_index,
-                            nested_array_reference,
-                        );
-
-                        let nested_array_variable = BrilligVariable::BrilligArray(BrilligArray {
-                            pointer: self.allocate_register(),
-                            size: nested_array_item_type.len() * nested_array_item_count,
-                            rc: self.allocate_register(),
-                        });
-
-                        self.load_variable_instruction(
-                            nested_array_variable,
-                            nested_array_reference,
-                        );
-
-                        let flattened_nested_array_pointer = self.allocate_register();
-
-                        self.mov_instruction(
-                            flattened_nested_array_pointer,
-                            flattened_array_pointer,
-                        );
-
-                        self.memory_op(
-                            flattened_nested_array_pointer,
-                            target_index,
-                            flattened_nested_array_pointer,
-                            acvm::brillig_vm::brillig::BinaryIntOp::Add,
-                        );
-
-                        self.flatten_array(
+                    match subitem {
+                        BrilligParameter::Simple => {
+                            self.array_get(
+                                deflattened_array_pointer,
+                                source_index,
+                                movement_register,
+                            );
+                            self.array_set(
+                                flattened_array_pointer,
+                                target_index,
+                                movement_register,
+                            );
+                            target_offset += 1;
+                        }
+                        BrilligParameter::Array(
                             nested_array_item_type,
-                            *nested_array_item_count,
-                            flattened_nested_array_pointer,
-                            nested_array_variable.extract_array().pointer,
-                        );
+                            nested_array_item_count,
+                        ) => {
+                            let nested_array_reference = self.allocate_register();
+                            self.array_get(
+                                deflattened_array_pointer,
+                                source_index,
+                                nested_array_reference,
+                            );
 
-                        self.deallocate_register(nested_array_reference);
-                        self.deallocate_register(flattened_nested_array_pointer);
-                        nested_array_variable
-                            .extract_registers()
-                            .into_iter()
-                            .for_each(|register| self.deallocate_register(register));
+                            let nested_array_variable =
+                                BrilligVariable::BrilligArray(BrilligArray {
+                                    pointer: self.allocate_register(),
+                                    size: nested_array_item_type.len() * nested_array_item_count,
+                                    rc: self.allocate_register(),
+                                });
 
-                        target_offset += BrilligContext::flattened_size(subitem);
+                            self.load_variable_instruction(
+                                nested_array_variable,
+                                nested_array_reference,
+                            );
+
+                            let flattened_nested_array_pointer = self.allocate_register();
+
+                            self.mov_instruction(
+                                flattened_nested_array_pointer,
+                                flattened_array_pointer,
+                            );
+
+                            self.memory_op(
+                                flattened_nested_array_pointer,
+                                target_index,
+                                flattened_nested_array_pointer,
+                                acvm::brillig_vm::brillig::BinaryIntOp::Add,
+                            );
+
+                            self.flatten_array(
+                                nested_array_item_type,
+                                *nested_array_item_count,
+                                flattened_nested_array_pointer,
+                                nested_array_variable.extract_array().pointer,
+                            );
+
+                            self.deallocate_register(nested_array_reference);
+                            self.deallocate_register(flattened_nested_array_pointer);
+                            nested_array_variable
+                                .extract_registers()
+                                .into_iter()
+                                .for_each(|register| self.deallocate_register(register));
+
+                            target_offset += BrilligContext::flattened_size(subitem);
+                        }
+                        BrilligParameter::Slice(..) => unreachable!("ICE: Cannot flatten slices"),
                     }
-                    BrilligParameter::Slice(..) => unreachable!("ICE: Cannot flatten slices"),
+
+                    self.deallocate_register(source_index);
+                    self.deallocate_register(target_index);
                 }
-
-                self.deallocate_register(source_index);
-                self.deallocate_register(target_index);
             }
-        }
 
-        self.deallocate_register(movement_register);
+            self.deallocate_register(movement_register);
+        } else {
+            let item_count = self.make_constant((item_count * item_type.len()).into());
+            self.copy_array_instruction(
+                deflattened_array_pointer,
+                flattened_array_pointer,
+                item_count,
+            );
+            self.deallocate_register(item_count);
+        }
     }
 }
 

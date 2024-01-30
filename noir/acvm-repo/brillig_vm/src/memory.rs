@@ -25,16 +25,20 @@ impl Memory {
 
     /// Sets the value at pointer `ptr` to `value`
     pub fn write(&mut self, ptr: MemoryAddress, value: Value) {
-        self.write_slice(ptr, &[value]);
+        self.resize_to_fit(ptr.to_usize() + 1);
+        self.inner[ptr.to_usize()] = value;
+    }
+
+    fn resize_to_fit(&mut self, size: usize) {
+        // Calculate new memory size
+        let new_size = std::cmp::max(self.inner.len(), size);
+        // Expand memory to new size with default values if needed
+        self.inner.resize(new_size, Value::from(FieldElement::zero()));
     }
 
     /// Sets the values after pointer `ptr` to `values`
     pub fn write_slice(&mut self, ptr: MemoryAddress, values: &[Value]) {
-        // Calculate new memory size
-        let new_size = std::cmp::max(self.inner.len(), ptr.to_usize() + values.len());
-        // Expand memory to new size with default values if needed
-        self.inner.resize(new_size, Value::from(FieldElement::zero()));
-
+        self.resize_to_fit(ptr.to_usize() + values.len());
         self.inner[ptr.to_usize()..(ptr.to_usize() + values.len())].copy_from_slice(values);
     }
 
