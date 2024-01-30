@@ -61,7 +61,7 @@ struct NoteStatusEnum {
 global NoteStatus = NoteStatusEnum {
     ACTIVE: 1,
     ACTIVE_OR_NULLIFIED: 2,
-    // TODO 4208: add 'NULLIFIED'
+    // TODO 4217: add 'NULLIFIED'
 };
 
 fn return_all_notes<Note, N>(

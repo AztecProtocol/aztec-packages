@@ -8,7 +8,7 @@ import { TxHash } from '../index.js';
 export enum NoteStatus {
   ACTIVE = 1,
   ACTIVE_OR_NULLIFIED = 2,
-  // TODO 4208: add 'NULLIFIED'
+  // TODO 4217: add 'NULLIFIED'
 }
 
 /**
