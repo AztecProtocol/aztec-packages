@@ -279,10 +279,10 @@ void AvmMiniTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag i
  * @param dst_offset The starting index of memory where calldata will be copied to.
  * @param call_data_mem The vector containing calldata.
  */
-void AvmMiniTraceBuilder::call_data_copy(uint32_t cd_offset,
-                                         uint32_t copy_size,
-                                         uint32_t dst_offset,
-                                         std::vector<FF> const& call_data_mem)
+void AvmMiniTraceBuilder::calldata_copy(uint32_t cd_offset,
+                                        uint32_t copy_size,
+                                        uint32_t dst_offset,
+                                        std::vector<FF> const& call_data_mem)
 {
     // We parallelize storing memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
@@ -375,6 +375,11 @@ void AvmMiniTraceBuilder::call_data_copy(uint32_t cd_offset,
  */
 std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
 {
+    if (ret_size == 0) {
+        halt();
+        return std::vector<FF>{};
+    }
+
     // We parallelize loading memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
     // register Ia) relative to ret_offset:
@@ -447,6 +452,7 @@ std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret
             pos = ret_size;
         }
     }
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
     return returnMem;
 }
 
@@ -466,6 +472,8 @@ void AvmMiniTraceBuilder::halt()
         .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_halt = FF(1),
     });
+
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
 }
 
 /**

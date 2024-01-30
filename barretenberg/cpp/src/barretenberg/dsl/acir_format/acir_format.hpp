@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -18,7 +19,7 @@
 
 namespace acir_format {
 
-struct acir_format {
+struct AcirFormat {
     // The number of witnesses in the circuit
     uint32_t varnum;
 
@@ -39,8 +40,9 @@ struct acir_format {
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
-    std::vector<EcDouble> ec_double_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
+    std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
+    std::vector<BigIntOperation> bigint_operations;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
@@ -67,19 +69,22 @@ struct acir_format {
                    pedersen_constraints,
                    pedersen_hash_constraints,
                    fixed_base_scalar_mul_constraints,
+                   ec_add_constraints,
                    recursion_constraints,
                    constraints,
-                   block_constraints);
+                   block_constraints,
+                   bigint_from_le_bytes_constraints,
+                   bigint_operations);
 
-    friend bool operator==(acir_format const& lhs, acir_format const& rhs) = default;
+    friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
 template <typename Builder = UltraCircuitBuilder>
-Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});
+Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});
 
 template <typename Builder>
-void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments);
+void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments);
 
 } // namespace acir_format

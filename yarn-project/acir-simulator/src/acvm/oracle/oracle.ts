@@ -167,6 +167,7 @@ export class Oracle {
     [numSelects]: ACVMField[],
     selectBy: ACVMField[],
     selectValues: ACVMField[],
+    selectComparators: ACVMField[],
     sortBy: ACVMField[],
     sortOrder: ACVMField[],
     [limit]: ACVMField[],
@@ -178,6 +179,7 @@ export class Oracle {
       +numSelects,
       selectBy.map(s => +s),
       selectValues.map(fromACVMField),
+      selectComparators.map(s => +s),
       sortBy.map(s => +s),
       sortOrder.map(s => +s),
       +limit,
@@ -232,8 +234,8 @@ export class Oracle {
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
-    const { root, ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
-    return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
+    const { ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
+    return toAcvmL1ToL2MessageLoadOracleInputs(message);
   }
 
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {

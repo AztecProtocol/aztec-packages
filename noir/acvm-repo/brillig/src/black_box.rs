@@ -6,15 +6,30 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlackBoxOp {
     /// Calculates the SHA256 hash of the inputs.
-    Sha256 { message: HeapVector, output: HeapArray },
+    Sha256 {
+        message: HeapVector,
+        output: HeapArray,
+    },
     /// Calculates the Blake2s hash of the inputs.
-    Blake2s { message: HeapVector, output: HeapArray },
+    Blake2s {
+        message: HeapVector,
+        output: HeapArray,
+    },
     /// Calculates the Blake3 hash of the inputs.
-    Blake3 { message: HeapVector, output: HeapArray },
+    Blake3 {
+        message: HeapVector,
+        output: HeapArray,
+    },
     /// Calculates the Keccak256 hash of the inputs.
-    Keccak256 { message: HeapVector, output: HeapArray },
+    Keccak256 {
+        message: HeapVector,
+        output: HeapArray,
+    },
     /// Keccak Permutation function of 1600 width
-    Keccakf1600 { message: HeapVector, output: HeapArray },
+    Keccakf1600 {
+        message: HeapVector,
+        output: HeapArray,
+    },
     /// Verifies a ECDSA signature over the secp256k1 curve.
     EcdsaSecp256k1 {
         hashed_msg: HeapVector,
@@ -40,11 +55,23 @@ pub enum BlackBoxOp {
         result: MemoryAddress,
     },
     /// Calculates a Pedersen commitment to the inputs.
-    PedersenCommitment { inputs: HeapVector, domain_separator: MemoryAddress, output: HeapArray },
+    PedersenCommitment {
+        inputs: HeapVector,
+        domain_separator: MemoryAddress,
+        output: HeapArray,
+    },
     /// Calculates a Pedersen hash to the inputs.
-    PedersenHash { inputs: HeapVector, domain_separator: MemoryAddress, output: MemoryAddress },
+    PedersenHash {
+        inputs: HeapVector,
+        domain_separator: MemoryAddress,
+        output: MemoryAddress,
+    },
     /// Performs scalar multiplication over the embedded curve.
-    FixedBaseScalarMul { low: MemoryAddress, high: MemoryAddress, result: HeapArray },
+    FixedBaseScalarMul {
+        low: MemoryAddress,
+        high: MemoryAddress,
+        result: HeapArray,
+    },
     /// Performs addition over the embedded curve.
     EmbeddedCurveAdd {
         input1_x: MemoryAddress,
@@ -53,6 +80,43 @@ pub enum BlackBoxOp {
         input2_y: MemoryAddress,
         result: HeapArray,
     },
-    /// Performs point doubling over the embedded curve.
-    EmbeddedCurveDouble { input1_x: MemoryAddress, input1_y: MemoryAddress, result: HeapArray },
+    BigIntAdd {
+        lhs: MemoryAddress,
+        rhs: MemoryAddress,
+        output: MemoryAddress,
+    },
+    BigIntNeg {
+        lhs: MemoryAddress,
+        rhs: MemoryAddress,
+        output: MemoryAddress,
+    },
+    BigIntMul {
+        lhs: MemoryAddress,
+        rhs: MemoryAddress,
+        output: MemoryAddress,
+    },
+    BigIntDiv {
+        lhs: MemoryAddress,
+        rhs: MemoryAddress,
+        output: MemoryAddress,
+    },
+    BigIntFromLeBytes {
+        inputs: HeapVector,
+        modulus: HeapVector,
+        output: MemoryAddress,
+    },
+    BigIntToLeBytes {
+        input: MemoryAddress,
+        output: HeapVector,
+    },
+    Poseidon2Permutation {
+        message: HeapVector,
+        output: HeapArray,
+        len: MemoryAddress,
+    },
+    Sha256Compression {
+        input: HeapVector,
+        hash_values: HeapVector,
+        output: HeapArray,
+    },
 }

@@ -4,6 +4,7 @@
 
 using namespace numeric;
 namespace {
+using namespace tests_avm;
 
 void common_validate_arithmetic_op(Row const& main_row,
                                    Row const& alu_row,
@@ -34,7 +35,7 @@ void common_validate_arithmetic_op(Row const& main_row,
     // Check the instruction tag
     EXPECT_EQ(main_row.avmMini_in_tag, FF(static_cast<uint32_t>(tag)));
 
-    // Check that intermediate rgiesters are correctly copied in Alu trace
+    // Check that intermediate registers are correctly copied in Alu trace
     EXPECT_EQ(alu_row.aluChip_alu_ia, a);
     EXPECT_EQ(alu_row.aluChip_alu_ib, b);
     EXPECT_EQ(alu_row.aluChip_alu_ic, c);
@@ -140,7 +141,7 @@ std::vector<Row> gen_mutated_trace_add(FF const& a, FF const& b, FF const& c_mut
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_add == FF(1); };
-    tests_avm::mutate_ic_in_trace(trace, select_row, c_mutated, true);
+    mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
     return trace;
 }
@@ -158,7 +159,7 @@ std::vector<Row> gen_mutated_trace_sub(FF const& a, FF const& b, FF const& c_mut
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_sub == FF(1); };
-    tests_avm::mutate_ic_in_trace(trace, select_row, c_mutated, true);
+    mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
     return trace;
 }
@@ -176,7 +177,7 @@ std::vector<Row> gen_mutated_trace_mul(FF const& a, FF const& b, FF const& c_mut
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_mul == FF(1); };
-    tests_avm::mutate_ic_in_trace(trace, select_row, c_mutated, true);
+    mutate_ic_in_trace(trace, select_row, c_mutated, true);
 
     return trace;
 }
@@ -194,7 +195,7 @@ class AvmMiniArithmeticTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory("../srs_db/ignition");
         trace_builder = AvmMiniTraceBuilder(); // Clean instance for every run.
     };
 };
@@ -245,7 +246,7 @@ class AvmMiniArithmeticNegativeTestsU128 : public AvmMiniArithmeticTests {};
 TEST_F(AvmMiniArithmeticTestsFF, addition)
 {
     // trace_builder
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
+    trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
 
     //                             Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.add(0, 1, 4, AvmMemoryTag::FF); // [37,4,11,0,41,0,....]
@@ -264,7 +265,7 @@ TEST_F(AvmMiniArithmeticTestsFF, addition)
 // Test on basic subtraction over finite field type.
 TEST_F(AvmMiniArithmeticTestsFF, subtraction)
 {
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
+    trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
 
     //                             Memory layout:    [8,4,17,0,0,0,....]
     trace_builder.sub(2, 0, 1, AvmMemoryTag::FF); // [8,9,17,0,0,0....]
@@ -283,7 +284,7 @@ TEST_F(AvmMiniArithmeticTestsFF, subtraction)
 // Test on basic multiplication over finite field type.
 TEST_F(AvmMiniArithmeticTestsFF, multiplication)
 {
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
+    trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
 
     //                             Memory layout:    [5,0,20,0,0,0,....]
     trace_builder.mul(2, 0, 1, AvmMemoryTag::FF); // [5,100,20,0,0,0....]
@@ -303,7 +304,7 @@ TEST_F(AvmMiniArithmeticTestsFF, multiplication)
 // Test on multiplication by zero over finite field type.
 TEST_F(AvmMiniArithmeticTestsFF, multiplicationByZero)
 {
-    trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 127 });
+    trace_builder.calldata_copy(0, 1, 0, std::vector<FF>{ 127 });
 
     //                             Memory layout:    [127,0,0,0,0,0,....]
     trace_builder.mul(0, 1, 2, AvmMemoryTag::FF); // [127,0,0,0,0,0....]
@@ -323,7 +324,7 @@ TEST_F(AvmMiniArithmeticTestsFF, multiplicationByZero)
 // Test on basic division over finite field type.
 TEST_F(AvmMiniArithmeticTestsFF, division)
 {
-    trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
+    trace_builder.calldata_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::FF); // [15,315,21,0,0,0....]
@@ -346,7 +347,7 @@ TEST_F(AvmMiniArithmeticTestsFF, division)
 // Test on division with zero numerator over finite field type.
 TEST_F(AvmMiniArithmeticTestsFF, divisionNumeratorZero)
 {
-    trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 15 });
+    trace_builder.calldata_copy(0, 1, 0, std::vector<FF>{ 15 });
 
     //                             Memory layout:    [15,0,0,0,0,0,....]
     trace_builder.div(1, 0, 0, AvmMemoryTag::FF); // [0,0,0,0,0,0....]
@@ -370,7 +371,7 @@ TEST_F(AvmMiniArithmeticTestsFF, divisionNumeratorZero)
 // We check that the operator error flag is raised.
 TEST_F(AvmMiniArithmeticTestsFF, divisionByZeroError)
 {
-    trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 15 });
+    trace_builder.calldata_copy(0, 1, 0, std::vector<FF>{ 15 });
 
     //                             Memory layout:    [15,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2, AvmMemoryTag::FF); // [15,0,0,0,0,0....]
@@ -420,7 +421,7 @@ TEST_F(AvmMiniArithmeticTestsFF, divisionZeroByZeroError)
 // No check on the evaluation is performed here.
 TEST_F(AvmMiniArithmeticTestsFF, mixedOperationsWithError)
 {
-    trace_builder.call_data_copy(0, 3, 2, std::vector<FF>{ 45, 23, 12 });
+    trace_builder.calldata_copy(0, 3, 2, std::vector<FF>{ 45, 23, 12 });
 
     //                             Memory layout:    [0,0,45,23,12,0,0,0,....]
     trace_builder.add(2, 3, 4, AvmMemoryTag::FF); // [0,0,45,23,68,0,0,0,....]
@@ -1398,7 +1399,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, multiplication)
 // Test on basic incorrect division over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionFF)
 {
-    trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
+    trace_builder.calldata_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::FF); // [15,315,21,0,0,0....]
@@ -1415,7 +1416,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionFF)
 // in the trace.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionNoZeroButError)
 {
-    trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
+    trace_builder.calldata_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::FF); // [15,315,21,0,0,0....]
@@ -1441,7 +1442,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionNoZeroButError)
 // Test with division by zero occurs and no error is raised (remove error flag)
 TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionByZeroNoError)
 {
-    trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 15 });
+    trace_builder.calldata_copy(0, 1, 0, std::vector<FF>{ 15 });
 
     //                             Memory layout:    [15,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2, AvmMemoryTag::FF); // [15,0,0,0,0,0....]
@@ -1478,7 +1479,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionZeroByZeroNoError)
 // the addition, subtraction, multiplication.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
 {
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
+    trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
 
     //                             Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.add(0, 1, 4, AvmMemoryTag::FF); // [37,4,11,0,41,0,....]
@@ -1496,7 +1497,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
 
     trace_builder.reset();
 
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
+    trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
 
     //                             Memory layout:    [8,4,17,0,0,0,....]
     trace_builder.sub(2, 0, 1, AvmMemoryTag::FF); // [8,9,17,0,0,0....]
@@ -1513,7 +1514,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
 
     trace_builder.reset();
 
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
+    trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
 
     //                             Memory layout:    [5,0,20,0,0,0,....]
     trace_builder.mul(2, 0, 1, AvmMemoryTag::FF); // [5,100,20,0,0,0....]

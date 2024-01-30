@@ -1,127 +1,128 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { AvmMachineState } from '../avm_machine_state.js';
-import { AvmStateManager } from '../avm_state_manager.js';
+import { IntegralValue, TypeTag } from '../avm_memory_types.js';
+import { AvmJournal } from '../journal/index.js';
 import { Instruction } from './instruction.js';
 
-/** - */
 export class And extends Instruction {
   static type: string = 'AND';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() & b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
+
+    const res = a.and(b);
+    machineState.memory.set(this.dstOffset, res);
 
     this.incrementPc(machineState);
   }
 }
 
-/** - */
 export class Or extends Instruction {
   static type: string = 'OR';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() | b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
+
+    const res = a.or(b);
+    machineState.memory.set(this.dstOffset, res);
 
     this.incrementPc(machineState);
   }
 }
 
-/** - */
 export class Xor extends Instruction {
   static type: string = 'XOR';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() ^ b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
+
+    const res = a.xor(b);
+    machineState.memory.set(this.dstOffset, res);
 
     this.incrementPc(machineState);
   }
 }
 
-/** - */
 export class Not extends Instruction {
   static type: string = 'NOT';
   static numberOfOperands = 2;
 
-  constructor(private aOffset: number, private destOffset: number) {
+  constructor(private inTag: TypeTag, private aOffset: number, private dstOffset: number) {
     super();
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset);
 
-    // TODO: hack -> Bitwise operations should not occur over field elements
-    // It should only work over integers
-    const result = ~a.toBigInt();
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
 
-    const dest = new Fr(result < 0 ? Fr.MODULUS + /* using a + as result is -ve*/ result : result);
-    machineState.writeMemory(this.destOffset, dest);
+    const res = a.not();
+    machineState.memory.set(this.dstOffset, res);
 
     this.incrementPc(machineState);
   }
 }
 
-/** -*/
 export class Shl extends Instruction {
   static type: string = 'SHL';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() << b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
+
+    const res = a.shl(b);
+    machineState.memory.set(this.dstOffset, res);
 
     this.incrementPc(machineState);
   }
 }
 
-/** -*/
 export class Shr extends Instruction {
   static type: string = 'SHR';
   static numberOfOperands = 3;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
+  constructor(private inTag: TypeTag, private aOffset: number, private bOffset: number, private dstOffset: number) {
     super();
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() >> b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.getAs<IntegralValue>(this.aOffset);
+    const b = machineState.memory.getAs<IntegralValue>(this.bOffset);
+
+    const res = a.shr(b);
+    machineState.memory.set(this.dstOffset, res);
 
     this.incrementPc(machineState);
   }
