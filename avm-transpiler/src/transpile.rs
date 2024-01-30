@@ -9,6 +9,7 @@ use crate::instructions::{
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program};
 
+/// Transpile a Brillig program to AVM bytecode
 pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     dbg_print_brillig_program(&brillig);
 
