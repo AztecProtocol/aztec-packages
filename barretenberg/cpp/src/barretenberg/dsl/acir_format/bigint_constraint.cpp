@@ -46,9 +46,6 @@ ModulusId modulus_param_to_id(ModulusParam param)
     return ModulusId::UNKNOWN;
 }
 
-template class DSLBigInts<UltraCircuitBuilder>;
-template class DSLBigInts<GoblinUltraCircuitBuilder>;
-
 template void create_bigint_operations_constraint<UltraCircuitBuilder>(const BigIntOperation& input,
                                                                        DSLBigInts<UltraCircuitBuilder>& dsl_bigint);
 template void create_bigint_operations_constraint<GoblinUltraCircuitBuilder>(
@@ -255,9 +252,6 @@ void create_bigint_operations_constraint(const BigIntOperation& input, DSLBigInt
     }
     }
 }
-// DSLBigInts<UltraCircuitBuilder>;
-
-// template DSLBigInts<GoblinUltraCircuitBuilder>& DSLBigInts<GoblinUltraCircuitBuilder>::get();
 
 template <typename Builder>
 void create_bigint_from_le_bytes_constraint(Builder& builder,

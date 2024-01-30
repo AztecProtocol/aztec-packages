@@ -72,7 +72,7 @@ template <typename Builder> class DSLBigInts {
     std::map<uint32_t, big_secp256r1_fr> m_secp256r1_fr;
 
   public:
-    DSLBigInts();
+    DSLBigInts() = default;
 
     ModulusId get_modulus_id(uint32_t bigint_id)
     {
@@ -174,7 +174,7 @@ template <typename Builder> class DSLBigInts {
 template <typename Builder>
 void create_bigint_from_le_bytes_constraint(Builder& builder,
                                             const BigIntFromLeBytes& input,
-                                            DSLBigInts<Builder> dsl_bigints);
+                                            DSLBigInts<Builder>& dsl_bigints);
 template <typename Builder> void create_bigint_to_le_bytes_constraint(Builder& builder, const BigIntToLeBytes& input);
 
 template <typename Builder>
