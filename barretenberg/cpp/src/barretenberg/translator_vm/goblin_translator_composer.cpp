@@ -40,7 +40,7 @@ void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& c
 
     // The actual circuit size is several times bigger than the trace in the builder, because we use concatenation to
     // bring the degree of relations down, while extending the length.
-    dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_INDEX;
+    dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
 }
 
 /**
