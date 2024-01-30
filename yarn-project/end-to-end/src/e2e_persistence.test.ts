@@ -195,10 +195,7 @@ describe('Aztec persistence', () => {
       await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
-      const contract = await TokenContract.at(contractAddress, wallet);
-      await expect(contract.methods.balance_of_private(ownerAddress.address).view()).rejects.toThrowError(
-        /has not been registered/,
-      );
+      await expect(TokenContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
 
     it("pxe does not have owner's private notes", async () => {
