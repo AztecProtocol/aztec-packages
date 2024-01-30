@@ -94,8 +94,8 @@ class GoblinMockCircuits {
     {
         // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
         // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
-        const size_t NUM_ITERATIONS_LARGE = 8;  // results in circuit size 2^19
-        const size_t NUM_ITERATIONS_MEDIUM = 1; // results in circuit size 2^17
+        const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates)
+        const size_t NUM_ITERATIONS_MEDIUM = 3; // results in circuit size 2^17 (124843 gates)
         const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
         stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
@@ -178,11 +178,14 @@ class GoblinMockCircuits {
                                               const KernelInput& function_accum,
                                               const KernelInput& prev_kernel_accum)
     {
-        // Add operations representing general kernel logic e.g. state updates.
-        const size_t NUM_MERKLE_CHECKS = 30;
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
+        // kernel "full" within the dyadic size 2^17 (130914 gates)
+        const size_t NUM_MERKLE_CHECKS = 45;
         const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
         // Execute recursive aggregation of function proof
         RecursiveVerifier verifier1{ &builder, function_accum.verification_key };

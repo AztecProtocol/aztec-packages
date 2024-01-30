@@ -14,20 +14,15 @@ namespace {
 
 class GoblinBench : public benchmark::Fixture {
   public:
-    Goblin goblin;
     Goblin::AccumulationOutput kernel_accum;
-    Goblin::Proof proof;
 
-    // Number of function circuits to accumulate (based on Zacs target numbers)
+    // Number of function circuits to accumulate(based on Zacs target numbers)
     static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
         bb::srs::init_crs_factory("../srs_db/ignition");
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/723): Simply populate the OpQueue with some data
-        // and corresponding commitments so the merge protocol has "prev" data into which it can accumulate
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
     }
 
     /**
@@ -39,7 +34,7 @@ class GoblinBench : public benchmark::Fixture {
      *
      * @param state
      */
-    void perform_goblin_accumulation_rounds(State& state)
+    void perform_goblin_accumulation_rounds(State& state, Goblin& goblin)
     {
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
@@ -65,9 +60,15 @@ class GoblinBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
 {
+    Goblin goblin;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723): Simply populate the OpQueue with some data
+    // and corresponding commitments so the merge protocol has "prev" data into which it can accumulate
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
     for (auto _ : state) {
         // Perform a specified number of iterations of function/kernel accumulation
-        perform_goblin_accumulation_rounds(state);
+        perform_goblin_accumulation_rounds(state, goblin);
 
         // Construct proofs for ECCVM and Translator
         goblin.prove();
@@ -80,9 +81,14 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
 {
+    Goblin goblin;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
     // Perform a specified number of iterations of function/kernel accumulation
     for (auto _ : state) {
-        perform_goblin_accumulation_rounds(state);
+        perform_goblin_accumulation_rounds(state, goblin);
     }
 }
 
@@ -92,8 +98,13 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
 {
+    Goblin goblin;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
     // Perform a specified number of iterations of function/kernel accumulation
-    perform_goblin_accumulation_rounds(state);
+    perform_goblin_accumulation_rounds(state, goblin);
 
     // Prove ECCVM only
     for (auto _ : state) {
@@ -107,8 +118,13 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
 {
+    Goblin goblin;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
     // Perform a specified number of iterations of function/kernel accumulation
-    perform_goblin_accumulation_rounds(state);
+    perform_goblin_accumulation_rounds(state, goblin);
 
     // Prove ECCVM (unmeasured) and Translator (measured)
     goblin.prove_eccvm();
