@@ -47,6 +47,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { constraint },
         .block_constraints = {},
@@ -159,6 +160,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = { expr_a, expr_b, expr_c, expr_d },
                                   .block_constraints = {} };
@@ -223,6 +225,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = { poly_triple{
                                       .a = schnorr_constraint.result,
@@ -315,6 +318,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { poly_triple{
             .a = schnorr_constraint.result,
@@ -426,6 +430,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { dummy },
         .block_constraints = {},
