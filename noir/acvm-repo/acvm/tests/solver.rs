@@ -52,7 +52,7 @@ fn inversion_brillig_oracle_equivalence() {
             }),
             BrilligInputs::Single(Expression::default()), // Input Register 1
         ],
-        // This tells the BrilligSolver which witnesses its output registers correspond to
+        // This tells the BrilligSolver which witnesses its output values correspond to
         outputs: vec![
             BrilligOutputs::Simple(w_x_plus_y), // Output Register 0 - from input
             BrilligOutputs::Simple(w_oracle),   // Output Register 1

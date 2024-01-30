@@ -206,8 +206,8 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 self.increment_program_counter()
             }
             Opcode::Return => {
-                if let Some(register) = self.call_stack.pop() {
-                    self.set_program_counter(register.to_usize() + 1)
+                if let Some(return_location) = self.call_stack.pop() {
+                    self.set_program_counter(return_location.to_usize() + 1)
                 } else {
                     self.fail("return opcode hit, but callstack already empty".to_string())
                 }
@@ -223,7 +223,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                     // but has the necessary results to proceed with execution.
                     let resolved_inputs = inputs
                         .iter()
-                        .map(|input| self.get_register_value_or_memory_values(*input))
+                        .map(|input| self.get_memory_values(*input))
                         .collect::<Vec<_>>();
                     return self.wait_for_foreign_call(function.clone(), resolved_inputs);
                 }
@@ -261,7 +261,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                         ValueOrArray::HeapVector(HeapVector { pointer: pointer_index, size: size_index }) => {
                             match output {
                                 ForeignCallParam::Array(values) => {
-                                    // Set our size in the size register
+                                    // Set our size in the size address
                                     self.memory.write(*size_index, Value::from(values.len()));
                                     // Convert the destination pointer to a usize
                                     let destination = self.memory.read_ref(*pointer_index);
@@ -287,28 +287,28 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 self.foreign_call_counter += 1;
                 self.increment_program_counter()
             }
-            Opcode::Mov { destination: destination_register, source: source_register } => {
-                let source_value = self.memory.read(*source_register);
-                self.memory.write(*destination_register, source_value);
+            Opcode::Mov { destination: destination_address, source: source_address } => {
+                let source_value = self.memory.read(*source_address);
+                self.memory.write(*destination_address, source_value);
                 self.increment_program_counter()
             }
             Opcode::Trap => self.fail("explicit trap hit in brillig".to_string()),
             Opcode::Stop { return_data_offset, return_data_size } => {
                 self.finish(*return_data_offset, *return_data_size)
             }
-            Opcode::Load { destination: destination_register, source_pointer } => {
+            Opcode::Load { destination: destination_address, source_pointer } => {
                 // Convert our source_pointer to an address
                 let source = self.memory.read_ref(*source_pointer);
                 // Use our usize source index to lookup the value in memory
                 let value = &self.memory.read(source);
-                self.memory.write(*destination_register, *value);
+                self.memory.write(*destination_address, *value);
                 self.increment_program_counter()
             }
-            Opcode::Store { destination_pointer, source: source_register } => {
+            Opcode::Store { destination_pointer, source: source_address } => {
                 // Convert our destination_pointer to an address
                 let destination = self.memory.read_ref(*destination_pointer);
                 // Use our usize destination index to set the value in memory
-                self.memory.write(destination, self.memory.read(*source_register));
+                self.memory.write(destination, self.memory.read(*source_address));
                 self.increment_program_counter()
             }
             Opcode::Call { location } => {
@@ -351,7 +351,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         self.status.clone()
     }
 
-    fn get_register_value_or_memory_values(&self, input: ValueOrArray) -> ForeignCallParam {
+    fn get_memory_values(&self, input: ValueOrArray) -> ForeignCallParam {
         match input {
             ValueOrArray::MemoryAddress(value_index) => self.memory.read(value_index).into(),
             ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }) => {
@@ -460,8 +460,8 @@ mod tests {
     fn add_single_step_smoke() {
         let calldata = vec![Value::from(27u128)];
 
-        // Add opcode to add the value in register `0` and `1`
-        // and place the output in register `2`
+        // Add opcode to add the value in address `0` and `1`
+        // and place the output in address `2`
         let calldata_copy = Opcode::CalldataCopy {
             destination_address: MemoryAddress::from(0),
             size: 1,
@@ -479,7 +479,7 @@ mod tests {
         let status = vm.process_opcode();
         assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
-        // The register at index `2` should have the value of 3 since we had an
+        // The address at index `2` should have the value of 3 since we had an
         // add opcode
         let VM { memory, .. } = vm;
         let output_value = memory.read(MemoryAddress::from(0));
@@ -597,7 +597,7 @@ mod tests {
             }
         );
 
-        // The register at index `2` should have not changed as we jumped over the add opcode
+        // The address at index `2` should have not changed as we jumped over the add opcode
         let VM { memory, .. } = vm;
         let output_value = memory.read(MemoryAddress::from(2));
         assert_eq!(output_value, Value::from(false));
@@ -898,7 +898,7 @@ mod tests {
         ///         memory[i as usize] = i as Value;
         ///         recursive_write(memory, i + 1, len);
         ///     }
-        /// Note we represent a 100% in-register optimized form in brillig
+        /// Note we represent a 100% in-stack optimized form in brillig
         fn brillig_recursive_write_memory(size: usize) -> Vec<Value> {
             let bit_size = 32;
             let r_i = MemoryAddress::from(0);
@@ -1002,14 +1002,14 @@ mod tests {
     }
 
     #[test]
-    fn foreign_call_opcode_register_result() {
+    fn foreign_call_opcode_simple_result() {
         let r_input = MemoryAddress::from(0);
         let r_result = MemoryAddress::from(1);
 
         let double_program = vec![
-            // Load input register with value 5
+            // Load input address with value 5
             Opcode::Const { destination: r_input, value: Value::from(5u128) },
-            // Call foreign function "double" with the input register
+            // Call foreign function "double" with the input address
             Opcode::ForeignCall {
                 function: "double".into(),
                 destinations: vec![ValueOrArray::MemoryAddress(r_result)],
@@ -1039,7 +1039,7 @@ mod tests {
         // Check that VM finished once resumed
         assert_eq!(vm.status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
 
-        // Check result register
+        // Check result address
         let result_value = vm.memory.read(r_result);
         assert_eq!(result_value, Value::from(10u128));
 

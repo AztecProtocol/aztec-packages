@@ -72,7 +72,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         let mut calldata: Vec<Value> = Vec::new();
         // Each input represents an expression or array of expressions to evaluate.
         // Iterate over each input and evaluate the expression(s) associated with it.
-        // Push the results into registers and/or memory.
+        // Push the results into memory.
         // If a certain expression is not solvable, we stall the ACVM and do not proceed with Brillig VM execution.
         for input in &brillig.inputs {
             match input {
@@ -190,7 +190,6 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                     current_ret_data_idx += 1;
                 }
                 BrilligOutputs::Array(witness_arr) => {
-                    // Treat the register value as a pointer to memory
                     for witness in witness_arr.iter() {
                         let value = memory[current_ret_data_idx];
                         insert_value(witness, value.to_field(), witness_map)?;

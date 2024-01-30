@@ -173,7 +173,7 @@ fn simple_brillig_foreign_call() {
         inputs: vec![
             BrilligInputs::Single(w_input.into()), // Input Register 0,
         ],
-        // This tells the BrilligSolver which witnesses its output registers correspond to
+        // This tells the BrilligSolver which witnesses its output values correspond to
         outputs: vec![
             BrilligOutputs::Simple(w_inverted), // Output Register 1
         ],
@@ -243,7 +243,7 @@ fn complex_brillig_foreign_call() {
                 q_c: fe_0,
             }),
         ],
-        // This tells the BrilligSolver which witnesses its output registers correspond to
+        // This tells the BrilligSolver which witnesses its output values correspond to
         outputs: vec![
             BrilligOutputs::Array(vec![a_times_2, b_times_3, c_times_4]), // Output 0,1,2
             BrilligOutputs::Simple(a_plus_b_plus_c),                      // Output 3

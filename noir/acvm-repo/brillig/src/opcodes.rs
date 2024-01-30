@@ -91,7 +91,7 @@ pub enum BrilligOpcode {
     Jump {
         location: Label,
     },
-    /// Copies calldata after the offset to the specified pointer and length
+    /// Copies calldata after the offset to the specified address and length
     CalldataCopy {
         destination_address: MemoryAddress,
         size: usize,

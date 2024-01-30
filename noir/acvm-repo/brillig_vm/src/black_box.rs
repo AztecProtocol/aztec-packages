@@ -79,14 +79,14 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             public_key_x,
             public_key_y,
             signature,
-            result: result_register,
+            result: result_address,
         }
         | BlackBoxOp::EcdsaSecp256r1 {
             hashed_msg,
             public_key_x,
             public_key_y,
             signature,
-            result: result_register,
+            result: result_address,
         } => {
             let bb_func = black_box_function_from_op(op);
 
@@ -121,7 +121,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                 _ => unreachable!("`BlackBoxOp` is guarded against being a non-ecdsa operation"),
             };
 
-            memory.write(*result_register, result.into());
+            memory.write(*result_address, result.into());
             Ok(())
         }
         BlackBoxOp::SchnorrVerify { public_key_x, public_key_y, message, signature, result } => {
