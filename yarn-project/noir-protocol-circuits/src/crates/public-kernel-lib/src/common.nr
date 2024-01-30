@@ -64,25 +64,25 @@ pub fn initialize_end_values(
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
-    let start = previous_kernel.public_inputs.end;
+    let start = previous_kernel.public_inputs.end_app_logic;
 
-    circuit_outputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
-    circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
+    circuit_outputs.end_app_logic.new_commitments = array_to_bounded_vec(start.new_commitments);
+    circuit_outputs.end_app_logic.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
 
-    circuit_outputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-    circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
-    circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+    circuit_outputs.end_app_logic.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    circuit_outputs.end_app_logic.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+    circuit_outputs.end_app_logic.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
-    circuit_outputs.end.optionally_revealed_data = start.optionally_revealed_data;
+    circuit_outputs.end_app_logic.optionally_revealed_data = start.optionally_revealed_data;
 
-    circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
-    circuit_outputs.end.public_data_reads = array_to_bounded_vec(start.public_data_reads);
+    circuit_outputs.end_app_logic.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
+    circuit_outputs.end_app_logic.public_data_reads = array_to_bounded_vec(start.public_data_reads);
 
     // Public kernel does not modify encrypted logs values --> we just copy them to output
-    circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
-    circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+    circuit_outputs.end_app_logic.encrypted_logs_hash = start.encrypted_logs_hash;
+    circuit_outputs.end_app_logic.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
 
-    circuit_outputs.end.new_contracts = array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts);
+    circuit_outputs.end_app_logic.new_contracts = array_to_bounded_vec(previous_kernel.public_inputs.end_app_logic.new_contracts);
 }
 
 fn perform_static_call_checks(public_call: PublicCallData) {
@@ -139,7 +139,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &m
     let public_call_requests = array_to_bounded_vec(public_call.public_call_stack);
     let hashes = public_call.call_stack_item.public_inputs.public_call_stack_hashes;
     validate_call_requests(public_call_requests, hashes, public_call);
-    circuit_outputs.end.public_call_stack.push_vec(public_call_requests);
+    circuit_outputs.end_app_logic.public_call_stack.push_vec(public_call_requests);
 
     propagate_new_nullifiers(public_call, circuit_outputs);
     propagate_new_commitments(public_call, circuit_outputs);
@@ -172,7 +172,7 @@ fn propagate_valid_public_data_update_requests(
             public_data_update_requests.push(public_data_update_request);
         }
     }
-    circuit_outputs.end.public_data_update_requests.push_vec(public_data_update_requests);
+    circuit_outputs.end_app_logic.public_data_update_requests.push_vec(public_data_update_requests);
 }
 
 fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -191,7 +191,7 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
             public_data_reads.push(public_data_read);
         }
     }
-    circuit_outputs.end.public_data_reads.push_vec(public_data_reads);
+    circuit_outputs.end_app_logic.public_data_reads.push_vec(public_data_reads);
 }
 
 fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -208,7 +208,7 @@ fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs: &mut 
             siloed_new_commitments.push(SideEffect { value: siloed_new_commitment, counter: new_commitments[i].counter });
         }
     }
-    circuit_outputs.end.new_commitments.push_vec(siloed_new_commitments);
+    circuit_outputs.end_app_logic.new_commitments.push_vec(siloed_new_commitments);
 }
 
 fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -231,7 +231,7 @@ fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs: &mut K
         }
     }
 
-    circuit_outputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
+    circuit_outputs.end_app_logic.new_nullifiers.push_vec(siloed_new_nullifiers);
 }
 
 fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -255,7 +255,7 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
             new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
     }
-    public_inputs.end.new_l2_to_l1_msgs.push_vec(new_l2_to_l1_msgs_to_insert);
+    public_inputs.end_app_logic.new_l2_to_l1_msgs.push_vec(new_l2_to_l1_msgs_to_insert);
 }
 
 /**
@@ -274,11 +274,11 @@ pub fn accumulate_unencrypted_logs(
 ) {
     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
 
-    let previous_kernel_end = previous_kernel.public_inputs.end;
+    let previous_kernel_end = previous_kernel.public_inputs.end_app_logic;
     let previous_unencrypted_logs_hash = previous_kernel_end.unencrypted_logs_hash;
 
     let current_unencrypted_logs_hash = public_call_public_inputs.unencrypted_logs_hash;
-    public_inputs.end.unencrypted_logs_hash = accumulate_sha256([
+    public_inputs.end_app_logic.unencrypted_logs_hash = accumulate_sha256([
         U128::from_integer(previous_unencrypted_logs_hash[0]),            
         U128::from_integer(previous_unencrypted_logs_hash[1]),
         U128::from_integer(current_unencrypted_logs_hash[0]),
@@ -287,7 +287,7 @@ pub fn accumulate_unencrypted_logs(
 
     // Add log preimages lengths from current iteration to accumulated lengths
     let current_unencrypted_log_preimages_length = public_call_public_inputs.unencrypted_log_preimages_length;
-    public_inputs.end.unencrypted_log_preimages_length =
+    public_inputs.end_app_logic.unencrypted_log_preimages_length =
         previous_kernel_end.unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
 }
 

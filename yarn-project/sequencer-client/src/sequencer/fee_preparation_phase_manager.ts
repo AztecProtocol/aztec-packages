@@ -54,7 +54,7 @@ export class FeePreparationPhaseManager extends PhaseManager {
   }> {
     this.log(`Processing tx ${await tx.getTxHash()}`);
     await this.publicContractsDB.addNewContracts(tx);
-    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
+    if (!isArrayEmpty(tx.data.endFeePrep.publicCallStack, item => item.isEmpty())) {
       const outputAndProof = this.getKernelOutputAndProof(tx, previousPublicKernelOutput, previousPublicKernelProof);
 
       this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);

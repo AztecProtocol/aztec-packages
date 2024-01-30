@@ -53,7 +53,8 @@ export class Tx {
     }
 
     const kernelPublicCallStackSize =
-      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isEmpty());
+      data?.endAppLogic.publicCallStack &&
+      arrayNonEmptyLength(data.endAppLogic.publicCallStack, item => item.isEmpty());
     if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
       throw new Error(
         `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected
@@ -150,7 +151,7 @@ export class Tx {
    */
   getTxHash(): Promise<TxHash> {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data?.end.newNullifiers[0];
+    const firstNullifier = this.data?.endAppLogic.newNullifiers[0];
     if (!firstNullifier) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
@@ -159,16 +160,22 @@ export class Tx {
 
   /** Returns stats about this tx. */
   getStats(): TxStats {
+    const newCommitmentCount =
+      this.data!.endFeePrep.newCommitments.filter(c => !c.isEmpty()).length +
+      this.data!.endAppLogic.newCommitments.filter(c => !c.isEmpty()).length;
+    const newNullifierCount =
+      this.data!.endFeePrep.newNullifiers.filter(c => !c.isEmpty()).length +
+      this.data!.endAppLogic.newNullifiers.filter(c => !c.isEmpty()).length;
     return {
-      txHash: this.data!.end.newNullifiers[0].toString(),
+      txHash: this.data!.endAppLogic.newNullifiers[0].toString(),
       encryptedLogCount: this.encryptedLogs.getTotalLogCount(),
       unencryptedLogCount: this.unencryptedLogs.getTotalLogCount(),
       encryptedLogSize: this.encryptedLogs.getSerializedLength(),
       unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
       newContractCount: this.newContracts.filter(c => !c.isEmpty()).length,
       newContractDataSize: this.newContracts.map(c => c.toBuffer().length).reduce((a, b) => a + b, 0),
-      newCommitmentCount: this.data!.end.newCommitments.filter(c => !c.isEmpty()).length,
-      newNullifierCount: this.data!.end.newNullifiers.filter(c => !c.isEmpty()).length,
+      newCommitmentCount,
+      newNullifierCount,
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,
     };

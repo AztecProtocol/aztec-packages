@@ -12,7 +12,7 @@ use crate::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{AztecAddress, EthAddress},
-    mocked::{Proof, VerificationKey},
+    mocked::{Proof, VerificationKey, AggregationObject},
     tests::{
         fixtures,
         testing_harness::build_tx_context,
@@ -194,8 +194,11 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn finish(self) -> PreviousKernelData {
+        let end_fee_prep: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
         let public_inputs = KernelCircuitPublicInputs {
-            end: self.end.finish(),
+            aggregation_object: AggregationObject { },
+            end_fee_prep: end_fee_prep.finish(),
+            end_app_logic: self.end.finish(),
             constants: CombinedConstantData {
                 block_header: self.block_header,
                 tx_context: self.tx_context,

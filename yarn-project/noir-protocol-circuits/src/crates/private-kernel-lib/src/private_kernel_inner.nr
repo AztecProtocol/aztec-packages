@@ -17,7 +17,7 @@ struct PrivateKernelInputsInner {
 
 impl PrivateKernelInputsInner {
     fn pop_and_validate_this_private_call_hash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder){
-        let call_request = public_inputs.end.private_call_stack.pop();
+        let call_request = public_inputs.end_app_logic.private_call_stack.pop();
         common::validate_call_against_request(self.private_call, call_request);
     }
 
@@ -40,7 +40,7 @@ impl PrivateKernelInputsInner {
         let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
 
-        common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
+        common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end_app_logic);
 
         // Do this before any functions can modify the inputs.
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -69,10 +69,10 @@ impl PrivateKernelInputsInner {
             this_call_stack_item.public_inputs.contract_deployment_data,
             this_call_stack_item.function_data);
 
-        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.end.aggregation_object,self.private_call.proof);
+        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.aggregation_object,self.private_call.proof);
         assert(is_previous_state_valid);
 
-        public_inputs.end.aggregation_object = updated_aggregation_object;
+        public_inputs.aggregation_object = updated_aggregation_object;
 
         public_inputs.finish()
     }
@@ -625,7 +625,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -637,7 +637,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -649,7 +649,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -661,7 +661,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -673,7 +673,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 1);
     }
 
     #[test]
@@ -687,7 +687,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 1);
     }
 
     #[test]
@@ -699,7 +699,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), MAX_READ_REQUESTS_PER_CALL);
     }
 
     #[test]
@@ -728,17 +728,17 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(
-            public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length + prev_encrypted_log_preimages_length
+            public_inputs.end_app_logic.encrypted_log_preimages_length, encrypted_log_preimages_length + prev_encrypted_log_preimages_length
         );
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+            public_inputs.end_app_logic.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
         let expected_encrypted_logs_hash = compute_logs_hash(prev_encrypted_logs_hash, encrypted_logs_hash);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.encrypted_logs_hash, expected_encrypted_logs_hash);
 
         let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="new_commitments must be empty for static calls")]

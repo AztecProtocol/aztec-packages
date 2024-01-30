@@ -34,7 +34,7 @@ impl PublicKernelPublicPreviousInputs {
         self.validate_inputs();
 
         // Pops the item from the call stack and validates it against the current execution.
-        let call_request = public_inputs.end.public_call_stack.pop();
+        let call_request = public_inputs.end_app_logic.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
@@ -188,7 +188,7 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(array_eq(public_inputs.end.new_commitments, new_commitments));
+        assert(array_eq(public_inputs.end_app_logic.new_commitments, new_commitments));
     }
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert_eq_public_data_update_requests(
-            public_inputs.end.public_data_update_requests,
+            public_inputs.end_app_logic.public_data_update_requests,
             public_data_update_requests
         );
     }
@@ -223,7 +223,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq_public_data_reads(
-            public_inputs.end.public_data_reads,
+            public_inputs.end_app_logic.public_data_reads,
             public_data_read_requests
         );
     }
@@ -253,7 +253,7 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(array_eq(public_inputs.end.new_nullifiers, new_nullifiers));
+        assert(array_eq(public_inputs.end_app_logic.new_nullifiers, new_nullifiers));
     }
 
     #[test]
@@ -276,7 +276,12 @@ mod tests {
         let new_l2_to_l1_msgs = [previous[0], siloed[0]];
 
         let public_inputs = builder.execute();
-        assert(array_eq(public_inputs.end.new_l2_to_l1_msgs, new_l2_to_l1_msgs));
+        assert(
+            array_eq(
+                public_inputs.end_app_logic.new_l2_to_l1_msgs,
+                new_l2_to_l1_msgs
+            )
+        );
     }
     // TODO: Break up this test into smaller tests.
     #[test]
@@ -300,15 +305,17 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+            public_inputs.end_app_logic.encrypted_log_preimages_length, prev_encrypted_log_preimages_length
+        );
+        assert_eq(
+            public_inputs.end_app_logic.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.encrypted_logs_hash, prev_encrypted_logs_hash);
 
         let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]

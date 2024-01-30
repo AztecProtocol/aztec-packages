@@ -1,7 +1,7 @@
 import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ContractFunctionDao } from '../index.js';
+import { ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /**
  * Function description for circuit.

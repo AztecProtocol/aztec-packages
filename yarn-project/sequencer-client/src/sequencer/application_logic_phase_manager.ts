@@ -56,7 +56,7 @@ export class ApplicationLogicPhaseManager extends PhaseManager {
     // add new contracts to the contracts db so that their functions may be found and called
     this.log(`Processing tx ${await tx.getTxHash()}`);
     await this.publicContractsDB.addNewContracts(tx);
-    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
+    if (!isArrayEmpty(tx.data.endAppLogic.publicCallStack, item => item.isEmpty())) {
       const outputAndProof = this.getKernelOutputAndProof(tx, previousPublicKernelOutput, previousPublicKernelProof);
 
       this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);

@@ -117,7 +117,9 @@ export abstract class PhaseManager {
       };
     } else {
       const publicKernelOutput = new KernelCircuitPublicInputs(
-        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
+        tx.data.aggregationObject,
+        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.endFeePrep),
+        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.endAppLogic),
         tx.data.constants,
         tx.data.isPrivate,
       );
@@ -169,11 +171,11 @@ export abstract class PhaseManager {
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
-      this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
+      this.patchPublicStorageActionOrdering(kernelOutput.endAppLogic, enqueuedExecutionResult!);
     }
 
     // TODO(#3675): This should be done in a public kernel circuit
-    this.removeRedundantPublicDataWrites(kernelOutput);
+    this.removeRedundantPublicDataWrites(kernelOutput.endAppLogic);
 
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
@@ -309,15 +311,15 @@ export abstract class PhaseManager {
   // TODO(#757): Enforce proper ordering of public state actions
   /**
    * Patch the ordering of storage actions output from the public kernel.
-   * @param publicInputs - to be patched here: public inputs to the kernel iteration up to this point
+   * @param data - to be patched here: combined accumulated data to the kernel iteration up to this point
    * @param execResult - result of the top/first execution for this enqueued public call
    */
-  private patchPublicStorageActionOrdering(publicInputs: KernelCircuitPublicInputs, execResult: PublicExecutionResult) {
+  private patchPublicStorageActionOrdering(data: CombinedAccumulatedData, execResult: PublicExecutionResult) {
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order
     const simPublicDataReads = collectPublicDataReads(execResult);
     const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
 
-    const { publicDataReads, publicDataUpdateRequests } = publicInputs.end; // from kernel
+    const { publicDataReads, publicDataUpdateRequests } = data;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const readsAreEqual = simPublicDataReads.reduce(
@@ -356,18 +358,18 @@ export abstract class PhaseManager {
     // We only want to reorder the items from the public inputs of the
     // most recently processed top/enqueued call.
     const numTotalReadsInKernel = arrayNonEmptyLength(
-      publicInputs.end.publicDataReads,
+      data.publicDataReads,
       f => f.leafSlot.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
     );
     const numTotalUpdatesInKernel = arrayNonEmptyLength(
-      publicInputs.end.publicDataUpdateRequests,
+      data.publicDataUpdateRequests,
       f => f.leafSlot.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
     );
     const numReadsBeforeThisEnqueuedCall = numTotalReadsInKernel - simPublicDataReads.length;
     const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataUpdateRequests.length;
 
     // Override kernel output
-    publicInputs.end.publicDataReads = padArrayEnd(
+    data.publicDataReads = padArrayEnd(
       [
         // do not mess with items from previous top/enqueued calls in kernel output
         ...publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
@@ -378,7 +380,7 @@ export abstract class PhaseManager {
     );
 
     // Override kernel output
-    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
+    data.publicDataUpdateRequests = padArrayEnd(
       [
         // do not mess with items from previous top/enqueued calls in kernel output
         ...publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
@@ -389,18 +391,18 @@ export abstract class PhaseManager {
     );
   }
 
-  private removeRedundantPublicDataWrites(publicInputs: KernelCircuitPublicInputs) {
+  private removeRedundantPublicDataWrites(data: CombinedAccumulatedData) {
     const lastWritesMap = new Map();
-    for (const write of publicInputs.end.publicDataUpdateRequests) {
+    for (const write of data.publicDataUpdateRequests) {
       const key = write.leafSlot.toString();
       lastWritesMap.set(key, write);
     }
 
-    const lastWrites = publicInputs.end.publicDataUpdateRequests.filter(
+    const lastWrites = data.publicDataUpdateRequests.filter(
       write => lastWritesMap.get(write.leafSlot.toString()) === write,
     );
 
-    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
+    data.publicDataUpdateRequests = padArrayEnd(
       lastWrites,
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

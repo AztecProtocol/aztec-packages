@@ -362,7 +362,7 @@ export class PXEService implements PXE {
 
       const timer = new Timer();
       const tx = await this.#simulateAndProve(txRequest, newContract);
-      this.log(`Processed private part of ${tx.data.end.newNullifiers[0]}`, {
+      this.log(`Processed private part of ${tx.data.endAppLogic.newNullifiers[0]}`, {
         eventName: 'tx-pxe-processing',
         duration: timer.ms(),
         ...tx.getStats(),
@@ -684,7 +684,7 @@ export class PXEService implements PXE {
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
     const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
-    const { publicCallStack } = publicInputs.end;
+    const { publicCallStack } = publicInputs.endAppLogic;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const areEqual = enqueuedPublicCallStackItems.reduce(
@@ -701,7 +701,7 @@ export class PXEService implements PXE {
     }
 
     // Override kernel output
-    publicInputs.end.publicCallStack = padArrayEnd(
+    publicInputs.endAppLogic.publicCallStack = padArrayEnd(
       enqueuedPublicCallStackItems,
       CallRequest.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,

@@ -66,7 +66,7 @@ impl PrivateKernelInputsInit {
 
     fn update_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+        public_inputs.end_app_logic.new_nullifiers.push(SideEffectLinkedToNoteHash{
             value: self.tx_request.hash(),
             note_hash: 0,
             counter: 0,
@@ -106,10 +106,10 @@ impl PrivateKernelInputsInit {
                           self.tx_request.function_data);
 
         // TODO(David): What previous kernel proof are we talking about, since this is private-kernel-init
-        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.end.aggregation_object,self.private_call.proof);
+        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.aggregation_object,self.private_call.proof);
         assert(is_previous_state_valid);
 
-        public_inputs.end.aggregation_object = updated_aggregation_object;
+        public_inputs.aggregation_object = updated_aggregation_object;
 
         public_inputs.finish()
     }
@@ -181,7 +181,7 @@ mod tests {
         private_call: PrivateCallDataBuilder,
         public_inputs: KernelCircuitPublicInputs
     ) {
-        assert_eq(public_inputs.end.new_contracts.len(), 1);
+        assert_eq(public_inputs.end_app_logic.new_contracts.len(), 1);
         let cdd = tx_request.tx_context.contract_deployment_data;
 
         let private_circuit_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
@@ -196,11 +196,11 @@ mod tests {
             cdd.function_tree_root,
             constructor_hash
         ).address;
-        assert(public_inputs.end.new_contracts[0].contract_address.eq(contract_address));
+        assert(public_inputs.end_app_logic.new_contracts[0].contract_address.eq(contract_address));
     }
 
     pub fn validate_no_new_deployed_contract(public_inputs: KernelCircuitPublicInputs) {
-        for new_contract in public_inputs.end.new_contracts {
+        for new_contract in public_inputs.end_app_logic.new_contracts {
             assert(new_contract.is_empty());
         }
     }
@@ -223,18 +223,20 @@ mod tests {
 
         // Check the first nullifier is hash of the signed tx request
         let tx_hash = builder.tx_request.hash();
-        assert_eq(public_inputs.end.new_nullifiers[0].value, tx_hash);
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, tx_hash);
 
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length);
+        assert_eq(public_inputs.end_app_logic.encrypted_log_preimages_length, encrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end_app_logic.unencrypted_log_preimages_length, unencrypted_log_preimages_length
+        );
 
         // Logs hashes should be a sha256 hash of a 0 value (the previous log hash) and the `(un)encrypted_logs_hash` from private input
         let expected_encrypted_logs_hash = compute_logs_hash([0, 0], encrypted_logs_hash);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.encrypted_logs_hash, expected_encrypted_logs_hash);
 
         let expected_unencrypted_logs_hash = compute_logs_hash([0, 0], unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
     #[test]
@@ -247,12 +249,12 @@ mod tests {
 
         // Since there are no logs, log preimages length should be 0 and both logs hashes should be a sha256 hash of 2 zero
         // values
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, 0);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, 0);
+        assert_eq(public_inputs.end_app_logic.encrypted_log_preimages_length, 0);
+        assert_eq(public_inputs.end_app_logic.unencrypted_log_preimages_length, 0);
 
         let expected_logs_hash = compute_logs_hash([0, 0], [0, 0]);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_logs_hash);
+        assert_eq(public_inputs.end_app_logic.encrypted_logs_hash, expected_logs_hash);
+        assert_eq(public_inputs.end_app_logic.unencrypted_logs_hash, expected_logs_hash);
     }
 
     #[test(should_fail_with = "invalid array")]
@@ -517,10 +519,10 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -533,10 +535,10 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -549,10 +551,10 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -565,10 +567,10 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 0);
     }
 
     #[test]
@@ -581,10 +583,10 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 1);
     }
 
     #[test]
@@ -598,10 +600,10 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), 1);
     }
 
     #[test]
@@ -614,9 +616,9 @@ mod tests {
 
         validate_no_new_deployed_contract(public_inputs);
         // Check the first nullifier is hash of the signed tx request
-        assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
+        assert_eq(public_inputs.end_app_logic.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(array_length(public_inputs.end_app_logic.read_requests), MAX_READ_REQUESTS_PER_CALL);
     }
 }

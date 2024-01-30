@@ -231,7 +231,6 @@ describe('Private kernel', () => {
     );
 
     const combinedAccumulatedData = new CombinedAccumulatedData(
-      AggregationObject.makeFake(),
       makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, () => SideEffect.empty()),
       makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty()),
       newCommitments,
@@ -268,7 +267,13 @@ describe('Private kernel', () => {
 
     const constants = new CombinedConstantData(blockHeader, txContext);
 
-    const kernelPublicInputs = new KernelCircuitPublicInputs(combinedAccumulatedData, constants, true);
+    const kernelPublicInputs = new KernelCircuitPublicInputs(
+      AggregationObject.makeFake(),
+      CombinedAccumulatedData.empty(), // empty fee data
+      combinedAccumulatedData,
+      constants,
+      true,
+    );
 
     const previousKernelData = new PreviousKernelData(
       kernelPublicInputs,

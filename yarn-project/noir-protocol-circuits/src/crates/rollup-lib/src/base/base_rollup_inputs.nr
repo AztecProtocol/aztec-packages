@@ -127,7 +127,7 @@ impl BaseRollupInputs {
 
     fn calculate_contract_leaves(self) -> [Field; MAX_NEW_CONTRACTS_PER_TX] {
         let mut contract_leaves = [0; MAX_NEW_CONTRACTS_PER_TX];
-        let new_contracts = self.kernel_data.public_inputs.end.new_contracts;
+        let new_contracts = self.kernel_data.public_inputs.end_app_logic.new_contracts;
 
         // loop over the new contracts
         for i in 0..new_contracts.len() {
@@ -156,13 +156,13 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self) -> Field {
-        calculate_subtree(self.kernel_data.public_inputs.end.new_commitments.map(|c: SideEffect| c.value))
+        calculate_subtree(self.kernel_data.public_inputs.end_app_logic.new_commitments.map(|c: SideEffect| c.value))
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         crate::indexed_tree::batch_insert(
             self.start.nullifier_tree,
-            self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
+            self.kernel_data.public_inputs.end_app_logic.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
             self.state_diff_hints.sorted_nullifiers,
             self.state_diff_hints.sorted_nullifier_indexes,
             self.state_diff_hints.nullifier_subtree_sibling_path,
@@ -223,7 +223,7 @@ impl BaseRollupInputs {
 
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
-            self.kernel_data.public_inputs.end.public_data_update_requests.map(|request: PublicDataUpdateRequest| {
+            self.kernel_data.public_inputs.end_app_logic.public_data_update_requests.map(|request: PublicDataUpdateRequest| {
                 PublicDataTreeLeaf {
                     slot: request.leaf_slot,
                     value: request.new_value,
@@ -254,12 +254,12 @@ impl BaseRollupInputs {
         // 1 unencrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
         let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
-        let new_commitments = kernel_data.public_inputs.end.new_commitments;
-        let new_nullifiers = kernel_data.public_inputs.end.new_nullifiers;
-        let public_data_update_requests = kernel_data.public_inputs.end.public_data_update_requests;
-        let newL2ToL1msgs = kernel_data.public_inputs.end.new_l2_to_l1_msgs;
-        let encryptedLogsHash = kernel_data.public_inputs.end.encrypted_logs_hash;
-        let unencryptedLogsHash = kernel_data.public_inputs.end.unencrypted_logs_hash;
+        let new_commitments = kernel_data.public_inputs.end_app_logic.new_commitments;
+        let new_nullifiers = kernel_data.public_inputs.end_app_logic.new_nullifiers;
+        let public_data_update_requests = kernel_data.public_inputs.end_app_logic.public_data_update_requests;
+        let newL2ToL1msgs = kernel_data.public_inputs.end_app_logic.new_l2_to_l1_msgs;
+        let encryptedLogsHash = kernel_data.public_inputs.end_app_logic.encrypted_logs_hash;
+        let unencryptedLogsHash = kernel_data.public_inputs.end_app_logic.unencrypted_logs_hash;
 
         let mut offset = 0;
 
@@ -286,12 +286,12 @@ impl BaseRollupInputs {
         }
         offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
-        let contract_leaf = kernel_data.public_inputs.end.new_contracts[0];
+        let contract_leaf = kernel_data.public_inputs.end_app_logic.new_contracts[0];
         calldata_hash_inputs[offset] = contract_leaf.hash();
 
         offset += MAX_NEW_CONTRACTS_PER_TX;
 
-        let new_contracts = kernel_data.public_inputs.end.new_contracts;
+        let new_contracts = kernel_data.public_inputs.end_app_logic.new_contracts;
         calldata_hash_inputs[offset] = new_contracts[0].contract_address.to_field();
         calldata_hash_inputs[offset + 1] = new_contracts[0].portal_contract_address.to_field();
 
@@ -355,7 +355,7 @@ impl BaseRollupInputs {
     // TODO(Kev): This aggregate_proof method is duplicated in a lot of places
     fn aggregate_proofs(self) -> AggregationObject {
         // TODO: for now we simply return the aggregation object from the first proof
-        self.kernel_data.public_inputs.end.aggregation_object
+        self.kernel_data.public_inputs.aggregation_object
     }
 }
 
@@ -650,7 +650,7 @@ mod tests {
             if i < (public_data_writes.len() as u64) {
                 let (_, leaf): (u64, PublicDataTreeLeaf) = public_data_writes.get_unchecked(i as Field);
 
-                kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
+                kernel_data.public_inputs.end_app_logic.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
                     old_value : 0,
                     new_value : leaf.value,
@@ -790,7 +790,7 @@ mod tests {
 
                     let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
 
-                    kernel_data.public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
+                    kernel_data.public_inputs.end_app_logic.new_nullifiers[original_index].value = new_nullifier;
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
                     nullifier_predecessor_preimages[i] = low_preimage;

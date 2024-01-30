@@ -127,22 +127,22 @@ describe('sequencer/solo_block_builder', () => {
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts.map(n => computeContractLeaf(n)));
+    const newContracts = txs.flatMap(tx => tx.data.endAppLogic.newContracts.map(n => computeContractLeaf(n)));
     for (const [tree, leaves] of [
-      [MerkleTreeId.NOTE_HASH_TREE, txs.flatMap(tx => tx.data.end.newCommitments.map(l => l.value.toBuffer()))],
+      [MerkleTreeId.NOTE_HASH_TREE, txs.flatMap(tx => tx.data.endAppLogic.newCommitments.map(l => l.value.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
-      txs.flatMap(tx => tx.data.end.newNullifiers.map(x => x.value.toBuffer())),
+      txs.flatMap(tx => tx.data.endAppLogic.newNullifiers.map(x => x.value.toBuffer())),
       NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const tx of txs) {
       await expectsDb.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        tx.data.end.publicDataUpdateRequests.map(write => {
+        tx.data.endAppLogic.publicDataUpdateRequests.map(write => {
           return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
         }),
         PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -223,16 +223,16 @@ describe('sequencer/solo_block_builder', () => {
     await updateArchive();
     rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
-    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
+    const newNullifiers = txs.flatMap(tx => tx.data.endAppLogic.newNullifiers);
+    const newCommitments = txs.flatMap(tx => tx.data.endAppLogic.newCommitments);
+    const newContracts = txs.flatMap(tx => tx.data.endAppLogic.newContracts).map(cd => computeContractLeaf(cd));
     const newContractData = txs
-      .flatMap(tx => tx.data.end.newContracts)
+      .flatMap(tx => tx.data.endAppLogic.newContracts)
       .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
     const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      tx.data.endAppLogic.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
-    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
+    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.endAppLogic.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
     const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
 
@@ -289,7 +289,7 @@ describe('sequencer/solo_block_builder', () => {
 
     const makeContractDeployProcessedTx = async (seed = 0x1) => {
       const tx = await makeEmptyProcessedTx();
-      tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
+      tx.data.endAppLogic.newContracts = [makeNewContractData(seed + 0x1000)];
       return tx;
     };
 
@@ -297,7 +297,7 @@ describe('sequencer/solo_block_builder', () => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
       kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
-      kernelOutput.end.publicDataUpdateRequests = makeTuple(
+      kernelOutput.endAppLogic.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
         seed + 0x500,
@@ -305,18 +305,27 @@ describe('sequencer/solo_block_builder', () => {
 
       const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
-      processedTx.data.end.newNullifiers = makeTuple(
+      processedTx.data.endAppLogic.newCommitments = makeTuple(
+        MAX_NEW_COMMITMENTS_PER_TX,
+        makeNewSideEffect,
+        seed + 0x100,
+      );
+      processedTx.data.endAppLogic.newNullifiers = makeTuple(
         MAX_NEW_NULLIFIERS_PER_TX,
         makeNewSideEffectLinkedToNoteHash,
         seed + 0x200,
       );
-      processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
+      processedTx.data.endAppLogic.newNullifiers[tx.data.endAppLogic.newNullifiers.length - 1] =
+        SideEffectLinkedToNoteHash.empty();
 
-      processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-      processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-      processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-      processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+      processedTx.data.endAppLogic.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+      processedTx.data.endAppLogic.newContracts = [makeNewContractData(seed + 0x1000)];
+      processedTx.data.endAppLogic.encryptedLogsHash = to2Fields(
+        L2Block.computeKernelLogsHash(processedTx.encryptedLogs),
+      );
+      processedTx.data.endAppLogic.unencryptedLogsHash = to2Fields(
+        L2Block.computeKernelLogsHash(processedTx.unencryptedLogs),
+      );
 
       return processedTx;
     };
@@ -393,12 +402,12 @@ describe('sequencer/solo_block_builder', () => {
 
       // new added values
       const tx = await makeEmptyProcessedTx();
-      tx.data.end.newNullifiers[0] = new SideEffectLinkedToNoteHash(
+      tx.data.endAppLogic.newNullifiers[0] = new SideEffectLinkedToNoteHash(
         new Fr(10336601644835972678500657502133589897705389664587188571002640950065546264856n),
         Fr.ZERO,
         Fr.ZERO,
       );
-      tx.data.end.newNullifiers[1] = new SideEffectLinkedToNoteHash(
+      tx.data.endAppLogic.newNullifiers[1] = new SideEffectLinkedToNoteHash(
         new Fr(17490072961923661940560522096125238013953043065748521735636170028491723851741n),
         Fr.ZERO,
         Fr.ZERO,

@@ -85,7 +85,7 @@ describe('Kernel Prover', () => {
       idx => new SideEffect(generateFakeSiloedCommitment(notesAndSlots[idx]), Fr.ZERO),
     );
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>;
+    publicInputs.endAppLogic.newCommitments = commitments as Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>;
     return {
       publicInputs,
       proof: makeEmptyProof(),

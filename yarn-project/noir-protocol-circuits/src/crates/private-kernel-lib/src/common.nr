@@ -11,6 +11,7 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
         previous_kernel_data::PreviousKernelData,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+        combined_constant_data::CombinedConstantData,
     },
     address::{AztecAddress, EthAddress},
     contrakt::deployment_data::ContractDeploymentData,
@@ -104,25 +105,25 @@ pub fn initialize_end_values(
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
-    let start = previous_kernel.public_inputs.end;
+    let start = previous_kernel.public_inputs.end_app_logic;
 
-    public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
+    public_inputs.end_app_logic.read_requests = array_to_bounded_vec(start.read_requests);
 
-    public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
-    public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
+    public_inputs.end_app_logic.new_commitments = array_to_bounded_vec(start.new_commitments);
+    public_inputs.end_app_logic.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
 
-    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
-    public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+    public_inputs.end_app_logic.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    public_inputs.end_app_logic.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+    public_inputs.end_app_logic.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
-    public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
-    public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+    public_inputs.end_app_logic.encrypted_logs_hash = start.encrypted_logs_hash;
+    public_inputs.end_app_logic.unencrypted_logs_hash = start.unencrypted_logs_hash;
 
-    public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+    public_inputs.end_app_logic.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+    public_inputs.end_app_logic.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
-    public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
-    public_inputs.end.new_contracts = array_to_bounded_vec(start.new_contracts);
+    public_inputs.end_app_logic.optionally_revealed_data = start.optionally_revealed_data;
+    public_inputs.end_app_logic.new_contracts = array_to_bounded_vec(start.new_contracts);
 }
 
 fn perform_static_call_checks(private_call: PrivateCallData) {
@@ -191,7 +192,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             )
         }
     }
-    public_inputs.end.read_requests.push_vec(siloed_read_requests);
+    public_inputs.end_app_logic.read_requests.push_vec(siloed_read_requests);
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
@@ -214,7 +215,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             );
         }
     }
-    public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
+    public_inputs.end_app_logic.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
     let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::empty());
@@ -226,7 +227,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             );
         }
     }
-    public_inputs.end.new_commitments.push_vec(siloed_new_commitments);
+    public_inputs.end_app_logic.new_commitments.push_vec(siloed_new_commitments);
 
     // Call stacks
     // Private call stack.
@@ -236,7 +237,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         private_call_public_inputs.private_call_stack_hashes,
         private_call
     );
-    public_inputs.end.private_call_stack.push_vec(private_call_stack);
+    public_inputs.end_app_logic.private_call_stack.push_vec(private_call_stack);
     // Public call stack.
     let public_call_stack = array_to_bounded_vec(private_call.public_call_stack);
     validate_call_requests(
@@ -244,7 +245,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         private_call_public_inputs.public_call_stack_hashes,
         private_call
     );
-    public_inputs.end.public_call_stack.push_vec(public_call_stack);
+    public_inputs.end_app_logic.public_call_stack.push_vec(public_call_stack);
 
     // new l2 to l1 messages
     let portal_contract_address = private_call.portal_contract_address;
@@ -263,22 +264,22 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
     }
-    public_inputs.end.new_l2_to_l1_msgs.push_vec(new_l2_to_l1_msgs_to_insert);
+    public_inputs.end_app_logic.new_l2_to_l1_msgs.push_vec(new_l2_to_l1_msgs_to_insert);
 
     // logs hashes
     // See the following thread if not clear:
     // https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426
-    let previous_encrypted_logs_hash = public_inputs.end.encrypted_logs_hash;
+    let previous_encrypted_logs_hash = public_inputs.end_app_logic.encrypted_logs_hash;
     let current_encrypted_logs_hash = private_call_public_inputs.encrypted_logs_hash;
-    public_inputs.end.encrypted_logs_hash = compute_logs_hash(previous_encrypted_logs_hash,current_encrypted_logs_hash);
-    let previous_unencrypted_logs_hash = public_inputs.end.unencrypted_logs_hash;
+    public_inputs.end_app_logic.encrypted_logs_hash = compute_logs_hash(previous_encrypted_logs_hash,current_encrypted_logs_hash);
+    let previous_unencrypted_logs_hash = public_inputs.end_app_logic.unencrypted_logs_hash;
     let current_unencrypted_logs_hash = private_call_public_inputs.unencrypted_logs_hash;
-    public_inputs.end.unencrypted_logs_hash = compute_logs_hash(previous_unencrypted_logs_hash,current_unencrypted_logs_hash);
+    public_inputs.end_app_logic.unencrypted_logs_hash = compute_logs_hash(previous_unencrypted_logs_hash,current_unencrypted_logs_hash);
 
     // Add log preimages lengths from current iteration to accumulated lengths
-    public_inputs.end.encrypted_log_preimages_length = public_inputs.end.encrypted_log_preimages_length +
+    public_inputs.end_app_logic.encrypted_log_preimages_length = public_inputs.end_app_logic.encrypted_log_preimages_length +
                                                            private_call_public_inputs.encrypted_log_preimages_length;
-    public_inputs.end.unencrypted_log_preimages_length = public_inputs.end.unencrypted_log_preimages_length + private_call_public_inputs.unencrypted_log_preimages_length;
+    public_inputs.end_app_logic.unencrypted_log_preimages_length = public_inputs.end_app_logic.unencrypted_log_preimages_length + private_call_public_inputs.unencrypted_log_preimages_length;
 }
 
 pub fn contract_logic(
@@ -316,7 +317,7 @@ pub fn contract_logic(
             portal_contract_address,
             function_tree_root: contract_dep_data.function_tree_root
         };
-        public_inputs.end.new_contracts.push(new_contract_data);
+        public_inputs.end_app_logic.new_contracts.push(new_contract_data);
 
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) VKs are mocked out for now
         // assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
@@ -327,7 +328,7 @@ pub fn contract_logic(
 
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
-        public_inputs.end.new_nullifiers.push(
+        public_inputs.end_app_logic.new_nullifiers.push(
             SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: 0, counter: 1 }
         );
     } else {

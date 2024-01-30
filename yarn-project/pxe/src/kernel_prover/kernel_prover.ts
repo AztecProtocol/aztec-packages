@@ -172,19 +172,22 @@ export class KernelProver {
     const [sortedPhaseWatermarks, sortedPhaseWatermarksIndexes] = this.sortSideEffects<
       SideEffect,
       typeof MAX_PHASE_TRANSITIONS_PER_TX
-    >(output.publicInputs.end.phaseWatermarks);
+    >(output.publicInputs.endAppLogic.phaseWatermarks);
 
     const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_COMMITMENTS_PER_TX
-    >(output.publicInputs.end.newCommitments);
+    >(output.publicInputs.endAppLogic.newCommitments);
 
     const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
       SideEffectLinkedToNoteHash,
       typeof MAX_NEW_NULLIFIERS_PER_TX
-    >(output.publicInputs.end.newNullifiers);
+    >(output.publicInputs.endAppLogic.newNullifiers);
 
-    const readCommitmentHints = this.getReadRequestHints(output.publicInputs.end.readRequests, sortedCommitments);
+    const readCommitmentHints = this.getReadRequestHints(
+      output.publicInputs.endAppLogic.readRequests,
+      sortedCommitments,
+    );
 
     const nullifierCommitmentHints = this.getNullifierHints(
       mapTuple(sortedNullifiers, n => n.noteHash),
@@ -205,7 +208,7 @@ export class KernelProver {
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
-    const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
+    const finalNewCommitments = outputFinal.publicInputs.endAppLogic.newCommitments;
     const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };

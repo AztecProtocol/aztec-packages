@@ -107,16 +107,17 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
+    // TODO(fees) collect for fee prep
+    const newNullifiers = txs.flatMap(tx => tx.data.endAppLogic.newNullifiers);
+    const newCommitments = txs.flatMap(tx => tx.data.endAppLogic.newCommitments);
+    const newContracts = txs.flatMap(tx => tx.data.endAppLogic.newContracts).map(cd => computeContractLeaf(cd));
     const newContractData = txs
-      .flatMap(tx => tx.data.end.newContracts)
+      .flatMap(tx => tx.data.endAppLogic.newContracts)
       .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
     const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      tx.data.endAppLogic.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
-    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
+    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.endAppLogic.newL2ToL1Msgs);
 
     // Consolidate logs data from all txs
     const encryptedLogsArr: TxL2Logs[] = [];
@@ -554,7 +555,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
         // TODO(#3675) remove oldValue from update requests
-        tx.data.end.publicDataUpdateRequests.map(updateRequest => {
+        // TODO(fees) collect for fee prep
+        tx.data.endAppLogic.publicDataUpdateRequests.map(updateRequest => {
           return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
         }),
         PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -612,8 +614,9 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
-    for (const i in tx.data.end.publicDataReads) {
-      const leafSlot = tx.data.end.publicDataReads[i].leafSlot.value;
+    // TODO(fees)
+    for (const i in tx.data.endAppLogic.publicDataReads) {
+      const leafSlot = tx.data.endAppLogic.publicDataReads[i].leafSlot.value;
       const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
       if (!lowLeafResult) {
         throw new Error(`Public data tree should have one initial leaf`);
@@ -665,8 +668,9 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Update the contract and note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = tx.data.end.newContracts.map(cd => computeContractLeaf(cd));
-    const newCommitments = tx.data.end.newCommitments.map(x => x.value.toBuffer());
+    // TODO(fees)
+    const newContracts = tx.data.endAppLogic.newContracts.map(cd => computeContractLeaf(cd));
+    const newCommitments = tx.data.endAppLogic.newCommitments.map(x => x.value.toBuffer());
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,
       newContracts.map(x => x.toBuffer()),
@@ -680,7 +684,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const txPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(tx);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
-    const newNullifiers = tx.data.end.newNullifiers;
+    const newNullifiers = tx.data.endAppLogic.newNullifiers;
 
     const {
       lowLeavesWitnessData: nullifierWitnessLeaves,

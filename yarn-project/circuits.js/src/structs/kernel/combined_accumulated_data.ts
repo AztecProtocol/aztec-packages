@@ -1,4 +1,7 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
@@ -17,15 +20,8 @@ import {
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import {
-  AggregationObject,
-  AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionData,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-} from '../index.js';
+import { FunctionData } from '../function_data.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -293,10 +289,6 @@ export class PublicDataUpdateRequest {
 export class CombinedAccumulatedData {
   constructor(
     /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    /**
      * All the phase transitions made in this transaction.
      */
     public phaseWatermarks: Tuple<SideEffect, typeof MAX_PHASE_TRANSITIONS_PER_TX>,
@@ -362,7 +354,6 @@ export class CombinedAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.phaseWatermarks,
       this.readRequests,
       this.newCommitments,
@@ -393,7 +384,6 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
-      reader.readObject(AggregationObject),
       reader.readArray(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
@@ -414,7 +404,6 @@ export class CombinedAccumulatedData {
 
   static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
     return new CombinedAccumulatedData(
-      finalData.aggregationObject,
       finalData.phaseWatermarks,
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       finalData.newCommitments,
@@ -444,7 +433,6 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
-      AggregationObject.makeFake(),
       makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect.empty),
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
@@ -470,10 +458,6 @@ export class CombinedAccumulatedData {
  */
 export class FinalAccumulatedData {
   constructor(
-    /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * The new commitments made in this transaction.
      */
@@ -529,7 +513,6 @@ export class FinalAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.phaseWatermarks,
       this.newCommitments,
       this.newNullifiers,
@@ -557,7 +540,6 @@ export class FinalAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
-      reader.readObject(AggregationObject),
       reader.readArray(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
@@ -584,7 +566,6 @@ export class FinalAccumulatedData {
 
   static empty() {
     return new FinalAccumulatedData(
-      AggregationObject.makeFake(),
       makeTuple(MAX_PHASE_TRANSITIONS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),

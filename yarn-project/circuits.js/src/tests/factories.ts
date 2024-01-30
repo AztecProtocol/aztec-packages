@@ -235,7 +235,6 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new CombinedAccumulatedData(
-    makeAggregationObject(seed),
     tupleGenerator(MAX_PHASE_TRANSITIONS_PER_TX, sideEffectFromNumber, seed + 0x40),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
@@ -263,7 +262,6 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new FinalAccumulatedData(
-    makeAggregationObject(seed),
     tupleGenerator(MAX_PHASE_TRANSITIONS_PER_TX, sideEffectFromNumber, seed + 0x40),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
@@ -376,6 +374,8 @@ export function makePublicCircuitPublicInputs(
  */
 export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
+    makeAggregationObject(seed),
+    makeAccumulatedData(seed, fullAccumulatedData),
     makeAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     true,
@@ -388,7 +388,12 @@ export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): Ke
  * @returns Final ordering kernel circuit public inputs.
  */
 export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
-  return new PrivateKernelPublicInputsFinal(makeFinalAccumulatedData(seed, true), makeConstantData(seed + 0x100));
+  return new PrivateKernelPublicInputsFinal(
+    makeAggregationObject(seed),
+    makeFinalAccumulatedData(seed, true),
+    makeFinalAccumulatedData(seed, true),
+    makeConstantData(seed + 0x100),
+  );
 }
 
 /**
@@ -612,7 +617,7 @@ export function makePublicKernelInputsWithTweak(
     tweak(publicKernelInputs);
   }
   // Set the call stack item for this circuit iteration at the top of the call stack
-  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
+  publicKernelInputs.previousKernel.publicInputs.endAppLogic.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
     new CallRequest(
       publicCall.callStackItem.hash(),
       publicCall.callStackItem.publicInputs.callContext.msgSender,

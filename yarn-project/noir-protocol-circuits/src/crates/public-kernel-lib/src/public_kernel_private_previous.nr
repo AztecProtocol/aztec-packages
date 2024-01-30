@@ -15,7 +15,7 @@ struct PublicKernelPrivatePreviousInputs {
 
 impl PublicKernelPrivatePreviousInputs {
     fn validate_inputs(self) {
-        let private_call_stack = self.previous_kernel.public_inputs.end.private_call_stack;
+        let private_call_stack = self.previous_kernel.public_inputs.end_app_logic.private_call_stack;
         for i in 0..private_call_stack.len() {
             let private_call = private_call_stack[i];
             assert(private_call.is_empty(),
@@ -41,7 +41,7 @@ impl PublicKernelPrivatePreviousInputs {
         self.validate_inputs();
 
         // Pops the item from the call stack and validates it against the current execution.
-        let call_request = public_inputs.end.public_call_stack.pop();
+        let call_request = public_inputs.end_app_logic.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
@@ -170,7 +170,7 @@ mod tests {
 
         // Only the 2 valid reads should have been propagated.
         let expected = [public_data_reads[0], public_data_reads[2]];
-        assert_eq_public_data_reads(public_inputs.end.public_data_reads, expected);
+        assert_eq_public_data_reads(public_inputs.end_app_logic.public_data_reads, expected);
     }
 
     #[test]
@@ -185,7 +185,10 @@ mod tests {
 
         // Only the 2 valid reads should have been propagated.
         let expected = [public_data_update_requests[0], public_data_update_requests[2]];
-        assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, expected);
+        assert_eq_public_data_update_requests(
+            public_inputs.end_app_logic.public_data_update_requests,
+            expected
+        );
     }
 
     #[test(should_fail_with="Constructors cannot be public functions")]
@@ -422,14 +425,17 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
-        assert_eq_call_requests(public_inputs.end.private_call_stack, []);
-        assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
+        assert_eq_new_contracts(public_inputs.end_app_logic.new_contracts, new_contracts);
+        assert_eq_call_requests(public_inputs.end_app_logic.private_call_stack, []);
+        assert_eq_call_requests(
+            public_inputs.end_app_logic.public_call_stack,
+            public_call_stack
+        );
         assert_eq_public_data_update_requests(
-            public_inputs.end.public_data_update_requests,
+            public_inputs.end_app_logic.public_data_update_requests,
             update_requests
         );
-        assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
+        assert_eq_public_data_reads(public_inputs.end_app_logic.public_data_reads, read_requests);
     }
 
     #[test(should_fail_with="Private call stack must be empty when executing in the public kernel")]
@@ -493,14 +499,16 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+            public_inputs.end_app_logic.encrypted_log_preimages_length, prev_encrypted_log_preimages_length
+        );
+        assert_eq(
+            public_inputs.end_app_logic.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.encrypted_logs_hash, prev_encrypted_logs_hash);
 
         let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_app_logic.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 }

@@ -74,7 +74,12 @@ export async function makeProcessedTx(
     hash: await tx.getTxHash(),
     data:
       kernelOutput ??
-      new PublicKernelPublicInputs(CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end), tx.data.constants),
+      new PublicKernelPublicInputs(
+        tx.data.aggregationObject,
+        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.endFeePrep),
+        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.endAppLogic),
+        tx.data.constants,
+      ),
     proof: proof ?? tx.proof,
     encryptedLogs: tx.encryptedLogs,
     unencryptedLogs: tx.unencryptedLogs,

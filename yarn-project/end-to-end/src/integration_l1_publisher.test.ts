@@ -165,7 +165,7 @@ describe('L1Publisher integration', () => {
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.blockHeader = await getBlockHeader(builderDb, prevGlobals);
-    kernelOutput.end.publicDataUpdateRequests = makeTuple(
+    kernelOutput.endAppLogic.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
       seed + 0x500,
@@ -173,18 +173,26 @@ describe('L1Publisher integration', () => {
 
     const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
-    processedTx.data.end.newNullifiers = makeTuple(
+    processedTx.data.endAppLogic.newCommitments = makeTuple(
+      MAX_NEW_COMMITMENTS_PER_TX,
+      makeNewSideEffect,
+      seed + 0x100,
+    );
+    processedTx.data.endAppLogic.newNullifiers = makeTuple(
       MAX_NEW_NULLIFIERS_PER_TX,
       makeNewSideEffectLinkedToNoteHash,
       seed + 0x200,
     );
-    processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
+    processedTx.data.endAppLogic.newNullifiers[processedTx.data.endAppLogic.newNullifiers.length - 1] =
       SideEffectLinkedToNoteHash.empty();
-    processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-    processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-    processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-    processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+    processedTx.data.endAppLogic.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+    processedTx.data.endAppLogic.newContracts = [makeNewContractData(seed + 0x1000)];
+    processedTx.data.endAppLogic.encryptedLogsHash = to2Fields(
+      L2Block.computeKernelLogsHash(processedTx.encryptedLogs),
+    );
+    processedTx.data.endAppLogic.unencryptedLogsHash = to2Fields(
+      L2Block.computeKernelLogsHash(processedTx.unencryptedLogs),
+    );
 
     return processedTx;
   };

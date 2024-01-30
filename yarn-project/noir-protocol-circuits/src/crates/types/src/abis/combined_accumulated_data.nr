@@ -26,7 +26,6 @@ use crate::constants::{
 };
 
 struct CombinedAccumulatedData {
-    aggregation_object: AggregationObject,
 
     phase_watermarks: [SideEffect; MAX_PHASE_TRANSITIONS_PER_TX],
 
@@ -57,7 +56,6 @@ struct CombinedAccumulatedData {
 }
 
 struct FinalAccumulatedData {
-    aggregation_object: AggregationObject,
 
     phase_watermarks: [SideEffect; MAX_PHASE_TRANSITIONS_PER_TX],
 
@@ -81,7 +79,6 @@ struct FinalAccumulatedData {
 }
 
 struct CombinedAccumulatedDataBuilder {
-    aggregation_object: AggregationObject,
 
     phase_watermarks: BoundedVec<SideEffect, MAX_PHASE_TRANSITIONS_PER_TX>,
 
@@ -114,7 +111,6 @@ struct CombinedAccumulatedDataBuilder {
 impl CombinedAccumulatedDataBuilder {
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            aggregation_object: self.aggregation_object,
 
             phase_watermarks: self.phase_watermarks.storage,
 
@@ -149,7 +145,6 @@ impl CombinedAccumulatedDataBuilder {
         assert_eq(self.public_data_reads.len, 0, "Final accumulated data: public data reads not empty");
 
         FinalAccumulatedData {
-            aggregation_object: self.aggregation_object,
 
             phase_watermarks: self.phase_watermarks.storage,
 
