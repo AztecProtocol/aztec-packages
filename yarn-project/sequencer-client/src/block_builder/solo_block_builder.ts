@@ -274,7 +274,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    await this.db.updateArchive(globalVariablesHash);
+    await this.db.updateArchive(rootOutput.header);
 
     await this.validateRootOutput(rootOutput);
 
@@ -455,16 +455,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
-    const header = tx.data.constants.historicalHeader;
-    // TODO(#3941)
-    const blockHash = computeBlockHash(
-      computeGlobalsHash(header.globalVariables),
-      header.state.partial.noteHashTree.root,
-      header.state.partial.nullifierTree.root,
-      header.state.partial.contractTree.root,
-      header.state.l1ToL2MessageTree.root,
-      header.state.partial.publicDataTree.root,
-    );
+    const blockHash = tx.data.constants.historicalHeader.hash()
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT);
   }
 

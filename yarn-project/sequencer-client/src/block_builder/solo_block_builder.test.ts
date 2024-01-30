@@ -33,7 +33,7 @@ import {
   SideEffectLinkedToNoteHash,
   StateReference,
 } from '@aztec/circuits.js';
-import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
@@ -157,14 +157,7 @@ describe('sequencer/solo_block_builder', () => {
   };
 
   const updateArchive = async () => {
-    const blockHash = computeBlockHashWithGlobals(
-      globalVariables,
-      rootRollupOutput.header.state.partial.noteHashTree.root,
-      rootRollupOutput.header.state.partial.nullifierTree.root,
-      rootRollupOutput.header.state.partial.contractTree.root,
-      rootRollupOutput.header.state.l1ToL2MessageTree.root,
-      rootRollupOutput.header.state.partial.publicDataTree.root,
-    );
+    const blockHash = rootRollupOutput.header.hash();
     await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   };
 
