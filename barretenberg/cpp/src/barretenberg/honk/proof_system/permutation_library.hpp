@@ -192,8 +192,8 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
 
     // Targets have to be full-sized polynomials. We can compute the mini circuit size from them by dividing by
     // concatenation index
-    const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_INDEX;
-    ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX == targets[0].size());
+    const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
+    ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == targets[0].size());
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
     // polynomials (4 in Goblin Translator)
@@ -247,7 +247,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
     constexpr auto sort_step = Flavor::SORT_STEP;
     constexpr auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
     const auto mini_circuit_size = mini_circuit_dyadic_size;
-    const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_INDEX;
+    const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
 
     // The value we have to end polynomials with
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
@@ -292,7 +292,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
         size_t extra_denominator_offset = i * sorted_elements_count;
 
         // Go through each polynomial in the concatenation group
-        for (size_t j = 0; j < Flavor::CONCATENATION_INDEX; j++) {
+        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_size;
