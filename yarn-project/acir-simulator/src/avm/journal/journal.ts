@@ -94,7 +94,7 @@ export class AvmJournal {
       this.currentStorageValue.set(contractAddress.toBigInt(), contractMap);
     }
     contractMap.set(key.toBigInt(), value);
-    
+
     // We want to keep track of all performed writes in the journal
     this.journalWrite(contractAddress, key, value);
   }
@@ -137,7 +137,7 @@ export class AvmJournal {
     let contractMap = map.get(contractAddress.toBigInt());
     if (!contractMap) {
       contractMap = new Map<bigint, Array<Fr>>();
-      this.storageReads.set(contractAddress.toBigInt(), contractMap);
+      map.set(contractAddress.toBigInt(), contractMap);
     }
 
     let accessArray = contractMap.get(key.toBigInt());
@@ -149,9 +149,9 @@ export class AvmJournal {
   }
 
   // Create an instance of journalUpdate that appends to the read array
-  private journalRead = this.journalUpdate.bind(this, this.storageReads); 
+  private journalRead = this.journalUpdate.bind(this, this.storageReads);
   // Create an instance of journalUpdate that appends to the writes array
-  private journalWrite = this.journalUpdate.bind(this, this.storageWrites); 
+  private journalWrite = this.journalUpdate.bind(this, this.storageWrites);
 
   public writeNoteHash(noteHash: Fr) {
     this.newNoteHashes.push(noteHash);
@@ -212,7 +212,7 @@ export class AvmJournal {
 }
 
 /**
- * Merges two contract write maps together
+ * Merges two contract current value together
  * Where childMap keys will take precedent over the hostMap
  * The assumption being that the child map is created at a later time
  * And thus contains more up to date information
@@ -226,7 +226,7 @@ function mergeCurrentValueMaps(hostMap: ContractValueMap, childMap: ContractValu
     if (!map1Value) {
       hostMap.set(key, value);
     } else {
-      mergeStorageWriteMaps(map1Value, value);
+      mergeStorageCurrentValueMaps(map1Value, value);
     }
   }
 }
@@ -235,15 +235,15 @@ function mergeCurrentValueMaps(hostMap: ContractValueMap, childMap: ContractValu
  * @param hostMap - The map to be merge into
  * @param childMap - The map to be merged from
  */
-function mergeStorageWriteMaps(hostMap: StorageValueMap, childMap: StorageValueMap) {
+function mergeStorageCurrentValueMaps(hostMap: StorageValueMap, childMap: StorageValueMap) {
   for (const [key, value] of childMap) {
     hostMap.set(key, value);
   }
 }
 
 /**
- * Merges two contract read maps together
- * For read maps, we just append the childMap into the host map, as the order of reads is important
+ * Merges two contract journalling maps together
+ * For read maps, we just append the childMap arrays into the host map arrays, as the order is important
  *
  * @param hostMap - The map to be merged into
  * @param childMap - The map to be merged from
@@ -254,7 +254,7 @@ function mergeContractJournalMaps(hostMap: ContractJournalMap, childMap: Contrac
     if (!map1Value) {
       hostMap.set(key, value);
     } else {
-      mergeStorageReadMaps(map1Value, value);
+      mergeStorageJournalMaps(map1Value, value);
     }
   }
 }
@@ -263,7 +263,7 @@ function mergeContractJournalMaps(hostMap: ContractJournalMap, childMap: Contrac
  * @param hostMap - The map to be merge into
  * @param childMap - The map to be merged from
  */
-function mergeStorageReadMaps(hostMap: StorageJournalMap, childMap: StorageJournalMap) {
+function mergeStorageJournalMaps(hostMap: StorageJournalMap, childMap: StorageJournalMap) {
   for (const [key, value] of childMap) {
     const readArr = hostMap.get(key);
     if (!readArr) {

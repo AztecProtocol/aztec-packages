@@ -61,7 +61,7 @@ describe('journal', () => {
       expect(cachedResult).toEqual(cachedValue);
     });
 
-    it('When reading from storage, should check the cache first, and be appended to read journal', async () => {
+    it('When reading from storage, should check the cache first, and be appended to read/write journal', async () => {
       // Store a different value in storage vs the cache, and make sure the cache is returned
       const contractAddress = new Fr(1);
       const key = new Fr(2);
@@ -82,10 +82,14 @@ describe('journal', () => {
       expect(cachedResult).toEqual(cachedValue);
 
       // We expect the journal to store the access in [storedVal, cachedVal] - [time0, time1]
-      const { storageReads }: JournalData = journal.flush();
+      const { storageReads, storageWrites }: JournalData = journal.flush();
       const contractReads = storageReads.get(contractAddress.toBigInt());
       const keyReads = contractReads?.get(key.toBigInt());
       expect(keyReads).toEqual([storedValue, cachedValue]);
+
+      const contractWrites = storageWrites.get(contractAddress.toBigInt());
+      const keyWrites = contractWrites?.get(key.toBigInt());
+      expect(keyWrites).toEqual([cachedValue]);
     });
   });
 
@@ -161,6 +165,11 @@ describe('journal', () => {
     const contractReads = journalUpdates.storageReads.get(contractAddress.toBigInt());
     const slotReads = contractReads?.get(key.toBigInt());
     expect(slotReads).toEqual([value, valueT1]);
+
+    // We first write value from t0, then value from t1
+    const contractWrites = journalUpdates.storageReads.get(contractAddress.toBigInt());
+    const slotWrites = contractWrites?.get(key.toBigInt());
+    expect(slotWrites).toEqual([value, valueT1]);
 
     expect(journalUpdates.newNoteHashes).toEqual([commitment, commitmentT1]);
     expect(journalUpdates.newLogs).toEqual([logs, logsT1]);
