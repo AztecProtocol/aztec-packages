@@ -51,7 +51,7 @@ struct PrivateCircuitPublicInputs {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    // Header of the block the transaction is executing against (not the block the transaction is included in).
+    // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
     contract_deployment_data: ContractDeploymentData,

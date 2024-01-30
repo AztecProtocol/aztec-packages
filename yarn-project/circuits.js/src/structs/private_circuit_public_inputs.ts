@@ -94,7 +94,7 @@ export class PrivateCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * L2 block header.
+     * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
     public historicalHeader: Header,
     /**

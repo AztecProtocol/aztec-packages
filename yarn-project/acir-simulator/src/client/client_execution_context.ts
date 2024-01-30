@@ -64,7 +64,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
-    /** Header of a block whose state is used during private execution. */
+    /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
     protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
