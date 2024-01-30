@@ -28,7 +28,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set},
+        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_state::StableState},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -49,6 +49,7 @@ contract DocsExample {
         // docs:end:storage-map-singleton-declaration
         test: Set<CardNote>,
         imm_singleton: ImmutableSingleton<CardNote>,
+        stable_value: StableState<Leader>,
     }
 
     impl Storage {
@@ -65,7 +66,7 @@ contract DocsExample {
                 // docs:start:state_vars-MapSingleton
                 profiles: Map::new(
                     context,
-                    3,
+                    4,
                     |context, slot| {
                         Singleton::new(context, slot)
                     },
@@ -73,12 +74,37 @@ contract DocsExample {
                 // docs:end:state_vars-MapSingleton
                 test: Set::new(context, 4),
                 imm_singleton: ImmutableSingleton::new(context, 4),
+                stable_value: StableState::new(context, 7),
             }
         }
     }
 
     #[aztec(private)]
     fn constructor() {}
+
+    #[aztec(public)]
+    fn initialize_stable(points: u8) {
+        let mut new_leader = Leader { account: context.msg_sender(), points };
+        storage.stable_value.init(new_leader);
+    }
+
+    #[aztec(private)]
+    fn match_stable(account: AztecAddress, points: u8) {
+        let expected = Leader { account, points };
+        let read = storage.stable_value.read_private();
+
+        debug_log_format(
+            "account: {0}, points: {1}",
+            [read.account.to_field(), read.points as Field]
+        );
+
+        assert(read.account == expected.account, "Invalid account");
+        assert(read.points == expected.points, "Invalid points");
+    }
+
+    unconstrained fn get_stable() -> pub Leader {
+        storage.stable_value.read_public()
+    }
 
     #[aztec(private)]
     fn initialize_immutable_singleton(randomness: Field, points: u8) {

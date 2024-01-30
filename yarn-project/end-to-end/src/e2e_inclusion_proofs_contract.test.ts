@@ -163,6 +163,11 @@ describe('e2e_inclusion_proofs_contract', () => {
         contract.methods.test_public_value_inclusion_proof(randomPublicValue, blockNumber).send().wait(),
       ).rejects.toThrow(/Public value does not match value in witness/);
     });
+
+    it('proves existence of uninitialized public value', async () => {
+      const blockNumber = await getRandomBlockNumber();
+      await contract.methods.test_public_unused_value_inclusion_proof(blockNumber).send().wait();
+    });
   });
 
   describe('nullifier inclusion', () => {

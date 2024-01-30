@@ -19,6 +19,24 @@ describe('e2e_singleton', () => {
 
   afterAll(() => teardown());
 
+  describe('Stable', () => {
+    it('private read of uninitialized stable', async () => {
+      const s = await contract.methods.get_stable().view();
+
+      const receipt2 = await contract.methods.match_stable(s.account, s.points).send().wait();
+      expect(receipt2.status).toEqual(TxStatus.MINED);
+    });
+
+    it('private read of initialized stable', async () => {
+      const receipt = await contract.methods.initialize_stable(1).send().wait();
+      expect(receipt.status).toEqual(TxStatus.MINED);
+      const s = await contract.methods.get_stable().view();
+
+      const receipt2 = await contract.methods.match_stable(s.account, s.points).send().wait();
+      expect(receipt2.status).toEqual(TxStatus.MINED);
+    }, 200_000);
+  });
+
   describe('Singleton', () => {
     it('fail to read uninitialized singleton', async () => {
       expect(await contract.methods.is_legendary_initialized().view()).toEqual(false);
