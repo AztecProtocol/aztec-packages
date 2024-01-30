@@ -173,7 +173,7 @@ jobs:
 
   build-mac-m1:
     name: Build on Mac aarch64-apple-darwin
-    runs-on: macos-13-xlarge
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v3
