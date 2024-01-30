@@ -29,7 +29,7 @@ It verifies the public deployment of the contract instance by conducting a membe
   - _deployer_address_ is defined in _[private_inputs](#private-inputs).[public_call](#publiccall).[contract_data](../contract-deployment/instances.md#structure)_.
   - _contract_data_ is defined in _[private_inputs](#private-inputs).[public_call](#publiccall).[call_stack_item](#publiccallstackitem)_.
 - The index and sibling path are provided in _contract_deployment_membership_witness_ through _[private_inputs](#private-inputs).[public_call](#publiccall)_.
-- The root is the _nullifier_tree_root_ in the _[header](./private-function.md#blockheader)_ within _[public_inputs](#public-inputs).[constant_data](./private-kernel-initial.md#constantdata)_.
+- The root is the _nullifier_tree_root_ in the _[header](./private-function.md#header)_ within _[public_inputs](#public-inputs).[constant_data](./private-kernel-initial.md#constantdata)_.
 
 #### Ensuring the function is legitimate:
 
@@ -231,7 +231,7 @@ The format aligns with the _[Public Inputs](./public-kernel-tail.md#public-input
 | _storage_writes_                | [_[StorageWrite](./public-kernel-tail.md#storagewrite)_; _C_]           | Data written to the public data tree.                           |
 | _unencrypted_log_hashes_        | [_[UnencryptedLogHash](./private-function.md#unencryptedloghash)_; _C_] | Hashes of the unencrypted logs emitted in this function call.   |
 | _public_call_stack_item_hashes_ | [_field_; _C_]                                                          | Hashes of the public function calls initiated by this function. |
-| _header_                  | _[Header](#blockheader)_                                           | Information about the trees used for the transaction.           |
+| _header_                        | _[Header](./private-function.md#header)_                                | Information about the trees used for the transaction.           |
 | _chain_id_                      | _field_                                                                 | Chain ID of the transaction.                                    |
 | _version_                       | _field_                                                                 | Version of the transaction.                                     |
 

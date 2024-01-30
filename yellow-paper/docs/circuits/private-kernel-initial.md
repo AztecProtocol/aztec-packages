@@ -249,7 +249,7 @@ Data that remains the same throughout the entire transaction.
 
 | Field          | Type                                               | Description                                                   |
 | -------------- | -------------------------------------------------- | ------------------------------------------------------------- |
-| _header_ | _[Header](./private-function.md#blockheader)_ | Roots of the trees at the time the transaction was assembled. |
+| _header_       | _[Header](./private-function.md#header)_           | Header of a block which was used when assembling the tx.      |
 | _tx_context_   | _[TransactionContext](#transactioncontext)_        | Context of the transaction.                                   |
 
 ### _TransientAccumulatedData_
