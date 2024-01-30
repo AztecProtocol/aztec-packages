@@ -504,7 +504,7 @@ struct Storage {
 }
 
 impl Storage {
-    fn init() -> Self {
+    fn init(context: Context) -> Self {
         Storage {
             balances: Map::new(context, 1, |context, slot| PublicState::new(context, slot)),
         }
