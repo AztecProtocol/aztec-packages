@@ -51,7 +51,7 @@ void init_grumpkin_crs_factory(std::vector<curve::Grumpkin::AffineElement> const
 
 void init_grumpkin_crs_factory(std::string crs_path)
 {
-    if (crs_factory != nullptr) {
+    if (grumpkin_crs_factory != nullptr) {
         return;
     }
 #ifdef WASMTIME_ENV_HACK
