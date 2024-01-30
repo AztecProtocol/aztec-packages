@@ -7,9 +7,10 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb::honk;
+using namespace bb
 
-template <class FF> class GrandProductTests : public testing::Test {
+    template <class FF>
+    class GrandProductTests : public testing::Test {
 
     using Polynomial = bb::Polynomial<FF>;
 
@@ -184,7 +185,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         static const size_t num_public_inputs = 0;
 
         // Instatiate a proving_key and make a pointer to it. This will be used to instantiate a Prover.
-        using Flavor = flavor::Ultra;
+        using Flavor = UltraFlavor;
         auto proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_size, num_public_inputs);
 
         // Construct mock wire and permutation polynomials.
@@ -341,7 +342,7 @@ TYPED_TEST_SUITE(GrandProductTests, FieldTypes);
 
 TYPED_TEST(GrandProductTests, GrandProductPermutation)
 {
-    TestFixture::template test_permutation_grand_product_construction<flavor::Ultra>();
+    TestFixture::template test_permutation_grand_product_construction<UltraFlavor>();
 }
 
 TYPED_TEST(GrandProductTests, GrandProductLookup)

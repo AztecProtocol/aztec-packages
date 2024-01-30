@@ -11,8 +11,8 @@ namespace bb::stdlib::recursion::honk {
 class ProtogalaxyRecursiveTest : public testing::Test {
   public:
     // Define types relevant for testing
-    using UltraFlavor = ::bb::honk::flavor::Ultra;
-    using GoblinUltraFlavor = ::bb::honk::flavor::GoblinUltra;
+    using UltraFlavor = ::bb::Ultra;
+    using GoblinUltraFlavor = ::bb::GoblinUltra;
     using UltraComposer = ::bb::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
 
@@ -27,7 +27,7 @@ class ProtogalaxyRecursiveTest : public testing::Test {
     // Types for recursive verifier circuit
     // cannot do on Goblin
     using OuterBuilder = GoblinUltraCircuitBuilder;
-    using RecursiveFlavor = ::bb::honk::flavor::UltraRecursive_<OuterBuilder>;
+    using RecursiveFlavor = ::bb::UltraRecursive_<OuterBuilder>;
     using RecursiveVerifierInstances = ::bb::honk::VerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;

@@ -18,7 +18,7 @@ auto& engine = numeric::get_debug_randomness();
 TEST(ToyAVMCircuitBuilder, BaseCase)
 {
 
-    using FF = honk::flavor::ToyFlavor::FF;
+    using FF = FF;
     using Builder = ToyCircuitBuilder;
     using Row = Builder::Row;
     Builder circuit_builder;

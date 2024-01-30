@@ -3,11 +3,12 @@
 
 #include <gtest/gtest.h>
 
-using namespace bb::honk::sumcheck;
+using namespace bb
 
-template <typename Flavor> class PartialEvaluationTests : public testing::Test {};
+    template <typename Flavor>
+    class PartialEvaluationTests : public testing::Test {};
 
-using Flavors = testing::Types<bb::honk::flavor::Ultra>;
+using Flavors = testing::Types<bb::Ultra>;
 
 TYPED_TEST_SUITE(PartialEvaluationTests, Flavors);
 

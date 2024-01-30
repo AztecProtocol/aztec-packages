@@ -4,13 +4,12 @@
 
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb::honk;
-using namespace bb::honk::sumcheck;
+using namespace bb using namespace bb
 
-using bb::BarycentricData;
+    using bb::BarycentricData;
 using bb::Univariate;
 
-using Flavor = flavor::Ultra;
+using Flavor = UltraFlavor;
 using FF = typename Flavor::FF;
 using Utils = RelationUtils<Flavor>;
 
@@ -20,7 +19,7 @@ using Utils = RelationUtils<Flavor>;
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = Ultra;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -71,7 +70,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = Ultra;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -111,7 +110,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = Ultra;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates

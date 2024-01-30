@@ -5,9 +5,9 @@
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace bb::honk {
+namespace bb {
 class AvmMiniVerifier {
-    using Flavor = honk::flavor::AvmMiniFlavor;
+    using Flavor = AvmMiniFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
@@ -30,4 +30,4 @@ class AvmMiniVerifier {
     std::shared_ptr<Transcript> transcript;
 };
 
-} // namespace bb::honk
+} // namespace bb

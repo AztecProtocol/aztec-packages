@@ -8,9 +8,9 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::honk {
+namespace bb {
 
-template <UltraFlavor Flavor> class UltraProver_ {
+template <IsUltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -48,17 +48,17 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     Polynomial quotient_W;
 
-    sumcheck::SumcheckOutput<Flavor> sumcheck_output;
+    SumcheckOutput<Flavor> sumcheck_output;
 
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
 
   private:
     plonk::proof proof;
 };
 
-using UltraProver = UltraProver_<honk::flavor::Ultra>;
-using GoblinUltraProver = UltraProver_<honk::flavor::GoblinUltra>;
+using UltraProver = UltraProver_<UltraFlavor>;
+using GoblinUltraProver = UltraProver_<GoblinUltraFlavor>;
 
-} // namespace bb::honk
+} // namespace bb

@@ -42,7 +42,7 @@ template <typename FF> struct ToyFullRow {
 
 class ToyCircuitBuilder {
   public:
-    using Flavor = bb::honk::flavor::ToyFlavor;
+    using Flavor = bb::ToyFlavor;
     using FF = Flavor::FF;
     using Row = ToyFullRow<FF>;
 
@@ -137,8 +137,7 @@ class ToyCircuitBuilder {
 
         const auto evaluate_logderivative = [&]<typename LogDerivativeSettings>(const std::string& lookup_name) {
             // Check the logderivative relation
-            bb::honk::logderivative_library::compute_logderivative_inverse<Flavor, LogDerivativeSettings>(
-                polys, params, num_rows);
+            bb::compute_logderivative_inverse<Flavor, LogDerivativeSettings>(polys, params, num_rows);
 
             typename LogDerivativeSettings::SumcheckArrayOfValuesOverSubrelations lookup_result;
 
@@ -162,11 +161,10 @@ class ToyCircuitBuilder {
             return false;
         }
 
-        if (!evaluate_logderivative.template operator()<honk::sumcheck::two_column_perm_relation<FF>>(
-                "two_column_perm")) {
+        if (!evaluate_logderivative.template operator()<two_column_perm_relation<FF>>("two_column_perm")) {
             return false;
         }
-        if (!evaluate_logderivative.template operator()<honk::sumcheck::lookup_xor_relation<FF>>("lookup_xor")) {
+        if (!evaluate_logderivative.template operator()<lookup_xor_relation<FF>>("lookup_xor")) {
             return false;
         }
 

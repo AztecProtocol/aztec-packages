@@ -20,9 +20,9 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
 template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
 {
-    using Sumcheck = ::bb::honk::sumcheck::SumcheckVerifier<Flavor>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ::bb::honk::pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -124,8 +124,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     return pairing_points;
 }
 
-template class UltraRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraRecursive_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraRecursive_<GoblinUltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::GoblinUltraRecursive_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

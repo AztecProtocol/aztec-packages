@@ -7,13 +7,13 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::honk;
+using namespace bb
 
-class UltraTranscriptTests : public ::testing::Test {
+    class UltraTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = Ultra;
     using FF = Flavor::FF;
 
     /**

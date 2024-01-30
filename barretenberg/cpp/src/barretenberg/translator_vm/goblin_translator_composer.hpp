@@ -7,10 +7,10 @@
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 #include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
 
-namespace bb::honk {
+namespace bb {
 class GoblinTranslatorComposer {
   public:
-    using Flavor = honk::flavor::GoblinTranslator;
+    using Flavor = GoblinTranslator;
     using Curve = typename Flavor::Curve;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -71,4 +71,4 @@ class GoblinTranslatorComposer {
         return commitment_key;
     };
 };
-} // namespace bb::honk
+} // namespace bb

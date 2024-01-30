@@ -313,8 +313,6 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     }
 }
 
-template class ProtoGalaxyRecursiveVerifier_<
-    bb::honk::VerifierInstances_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<
-    bb::honk::VerifierInstances_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_ < bb::UltraRecursive_<GoblinUltraCircuitBuilder>, 2 >> ;
+template class ProtoGalaxyRecursiveVerifier_ < bb::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>, 2 >> ;
 } // namespace bb::stdlib::recursion::honk

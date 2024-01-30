@@ -3,10 +3,10 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 
-namespace bb::honk {
+namespace bb {
 class GoblinTranslatorVerifier {
   public:
-    using Flavor = honk::flavor::GoblinTranslator;
+    using Flavor = GoblinTranslator;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
@@ -38,4 +38,4 @@ class GoblinTranslatorVerifier {
     bool verify_proof(const plonk::proof& proof);
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
-} // namespace bb::honk
+} // namespace bb

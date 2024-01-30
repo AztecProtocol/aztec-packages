@@ -20,9 +20,9 @@ template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::verify_proof(
     const bb::plonk::proof& proof)
 {
-    using Sumcheck = ::bb::honk::sumcheck::SumcheckVerifier<Flavor>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ::bb::honk::pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using Instance = typename ::bb::honk::VerifierInstance_<Flavor>;
@@ -91,6 +91,6 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     return pairing_points;
 }
 
-template class DeciderRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-template class DeciderRecursiveVerifier_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
+template class DeciderRecursiveVerifier_<bb::UltraRecursive_<GoblinUltraCircuitBuilder>>;
+template class DeciderRecursiveVerifier_<bb::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

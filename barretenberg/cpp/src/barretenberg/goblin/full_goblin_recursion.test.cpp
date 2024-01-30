@@ -11,9 +11,9 @@
 
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb::honk;
+using namespace bb
 
-class GoblinRecursionTests : public ::testing::Test {
+    class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {

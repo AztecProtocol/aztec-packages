@@ -11,7 +11,7 @@ auto& engine = numeric::get_debug_randomness();
 
 template <typename Flavor> class ECCVMCircuitBuilderTests : public ::testing::Test {};
 
-using FlavorTypes = ::testing::Types<bb::honk::flavor::ECCVM>;
+using FlavorTypes = ::testing::Types<bb::ECCVM>;
 TYPED_TEST_SUITE(ECCVMCircuitBuilderTests, FlavorTypes);
 
 TYPED_TEST(ECCVMCircuitBuilderTests, BaseCase)

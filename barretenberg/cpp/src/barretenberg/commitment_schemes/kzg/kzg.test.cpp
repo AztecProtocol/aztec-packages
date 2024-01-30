@@ -12,7 +12,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace bb::honk::pcs::kzg {
+namespace bb {
 
 template <class Curve> class KZGTest : public CommitmentTest<Curve> {
   public:
@@ -57,10 +57,10 @@ TYPED_TEST(KZGTest, single)
  */
 TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 {
-    using ShplonkProver = shplonk::ShplonkProver_<TypeParam>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier_<TypeParam>;
-    using GeminiProver = gemini::GeminiProver_<TypeParam>;
-    using GeminiVerifier = gemini::GeminiVerifier_<TypeParam>;
+    using ShplonkProver = ShplonkProver_<TypeParam>;
+    using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
+    using GeminiProver = GeminiProver_<TypeParam>;
+    using GeminiVerifier = GeminiVerifier_<TypeParam>;
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using GroupElement = typename TypeParam::Element;
@@ -88,7 +88,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Collect multilinear evaluations for input to prover
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
-    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
+    std::vector<Fr> rhos = gemini_detail::powers_of_rho(rho, multilinear_evaluations.size());
 
     // Compute batched multivariate evaluation
     Fr batched_evaluation = Fr::zero();
@@ -177,4 +177,4 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     EXPECT_EQ(verified, true);
 }
 
-} // namespace bb::honk::pcs::kzg
+} // namespace bb

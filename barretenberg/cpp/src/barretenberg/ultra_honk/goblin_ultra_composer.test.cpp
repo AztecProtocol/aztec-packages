@@ -8,10 +8,11 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 using namespace bb;
-using namespace bb::honk;
+using namespace bb
 
-namespace {
-auto& engine = numeric::get_debug_randomness();
+    namespace
+{
+    auto& engine = numeric::get_debug_randomness();
 }
 
 class GoblinUltraHonkComposerTests : public ::testing::Test {
@@ -21,7 +22,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using CommitmentKey = CommitmentKey<Curve>;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates

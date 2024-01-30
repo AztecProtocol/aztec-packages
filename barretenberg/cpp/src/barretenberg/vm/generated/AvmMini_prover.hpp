@@ -8,11 +8,11 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 class AvmMiniProver {
 
-    using Flavor = honk::flavor::AvmMiniFlavor;
+    using Flavor = AvmMiniFlavor;
     using FF = Flavor::FF;
     using PCS = Flavor::PCS;
     using PCSCommitmentKey = Flavor::CommitmentKey;
@@ -49,14 +49,14 @@ class AvmMiniProver {
 
     Polynomial quotient_W;
 
-    sumcheck::SumcheckOutput<Flavor> sumcheck_output;
+    SumcheckOutput<Flavor> sumcheck_output;
 
     std::shared_ptr<PCSCommitmentKey> commitment_key;
 
-    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
 
   private:
     plonk::proof proof;
 };
 
-} // namespace bb::honk
+} // namespace bb

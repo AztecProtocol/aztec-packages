@@ -149,7 +149,7 @@ void GoblinTranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOv
 template class GoblinTranslatorOpcodeConstraintRelationImpl<bb::fr>;
 template class GoblinTranslatorAccumulatorTransferRelationImpl<bb::fr>;
 
-DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, honk::flavor::GoblinTranslator);
-DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorAccumulatorTransferRelationImpl, honk::flavor::GoblinTranslator);
+DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, GoblinTranslator);
+DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorAccumulatorTransferRelationImpl, GoblinTranslator);
 
 } // namespace bb

@@ -5,7 +5,7 @@
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 
-namespace bb::honk {
+namespace bb {
 /**
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
@@ -407,7 +407,7 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
     relation_parameters.gamma = gamma;
 
     // Compute permutation and lookup grand product polynomials
-    logderivative_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+    compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
 }
 
@@ -425,7 +425,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_poly
     grand_product_library::compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
 }
 
-template class ProverInstance_<honk::flavor::Ultra>;
-template class ProverInstance_<honk::flavor::GoblinUltra>;
+template class ProverInstance_<UltraFlavor>;
+template class ProverInstance_<GoblinUltraFlavor>;
 
-} // namespace bb::honk
+} // namespace bb

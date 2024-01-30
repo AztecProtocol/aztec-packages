@@ -14,7 +14,7 @@ namespace bb {
 class Goblin {
     using HonkProof = bb::plonk::proof;
 
-    using GUHFlavor = bb::honk::flavor::GoblinUltra;
+    using GUHFlavor = bb::GoblinUltra;
     using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
 
     using GUHVerificationKey = GUHFlavor::VerificationKey;
@@ -59,7 +59,7 @@ class Goblin {
     using GoblinUltraVerifier = bb::honk::UltraVerifier_<GUHFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
     using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::honk::flavor::ECCVM;
+    using ECCVMFlavor = bb::ECCVM;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
     using ECCVMComposer = bb::honk::ECCVMComposer;
     using ECCVMProver = bb::honk::ECCVMProver_<ECCVMFlavor>;

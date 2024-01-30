@@ -5,7 +5,7 @@
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 /**
  * Create GoblinTranslatorProver from proving key, witness and manifest.
@@ -137,7 +137,7 @@ void GoblinTranslatorProver::execute_grand_product_computation_round()
  */
 void GoblinTranslatorProver::execute_relation_check_rounds()
 {
-    using Sumcheck = sumcheck::SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->get_challenge("Sumcheck:alpha");
@@ -155,7 +155,7 @@ void GoblinTranslatorProver::execute_relation_check_rounds()
  * */
 void GoblinTranslatorProver::execute_zeromorph_rounds()
 {
-    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),
@@ -197,4 +197,4 @@ plonk::proof& GoblinTranslatorProver::construct_proof()
     return export_proof();
 }
 
-} // namespace bb::honk
+} // namespace bb

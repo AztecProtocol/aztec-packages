@@ -11,9 +11,9 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace bb::honk {
+namespace bb {
 
-using Flavor = honk::flavor::AvmMiniFlavor;
+using Flavor = AvmMiniFlavor;
 
 /**
  * Create AvmMiniProver from proving key, witness and manifest.
@@ -69,7 +69,7 @@ void AvmMiniProver::execute_wire_commitments_round()
  */
 void AvmMiniProver::execute_relation_check_rounds()
 {
-    using Sumcheck = sumcheck::SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
@@ -131,4 +131,4 @@ plonk::proof& AvmMiniProver::construct_proof()
     return export_proof();
 }
 
-} // namespace bb::honk
+} // namespace bb

@@ -11,8 +11,8 @@
 namespace bb::stdlib::recursion::honk {
 
 using Builder = UltraCircuitBuilder;
-using UltraFlavor = ::bb::honk::flavor::Ultra;
-using UltraRecursiveFlavor = ::bb::honk::flavor::UltraRecursive_<Builder>;
+using UltraFlavor = ::bb::Ultra;
+using UltraRecursiveFlavor = ::bb::UltraRecursive_<Builder>;
 using FF = fr;
 using BaseTranscript = ::bb::honk::BaseTranscript;
 

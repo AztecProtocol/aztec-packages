@@ -3,9 +3,9 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb::honk;
+using namespace bb
 
-using Flavor = flavor::Ultra;
+    using Flavor = UltraFlavor;
 using VerificationKey = Flavor::VerificationKey;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;

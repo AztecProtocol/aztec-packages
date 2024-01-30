@@ -12,9 +12,7 @@
 
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb::honk;
-using namespace bb::honk::sumcheck;
-using Flavor = honk::flavor::Ultra;
+using namespace bb using namespace bb using Flavor = Ultra;
 using FF = typename Flavor::FF;
 using ProverPolynomials = typename Flavor::ProverPolynomials;
 using RelationSeparator = Flavor::RelationSeparator;

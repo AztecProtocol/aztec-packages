@@ -105,7 +105,7 @@ template <typename FF> struct AvmMiniFullRow {
 
 class AvmMiniCircuitBuilder {
   public:
-    using Flavor = bb::honk::flavor::AvmMiniFlavor;
+    using Flavor = bb::AvmMiniFlavor;
     using FF = Flavor::FF;
     using Row = AvmMiniFullRow<FF>;
 

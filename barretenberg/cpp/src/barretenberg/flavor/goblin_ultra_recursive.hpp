@@ -22,7 +22,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
-namespace bb::honk::flavor {
+namespace bb {
 
 /**
  * @brief The recursive counterpart to the "native" Goblin Ultra flavor.
@@ -38,7 +38,7 @@ namespace bb::honk::flavor {
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class GoblinUltraRecursive_ {
+template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = stdlib::bn254<CircuitBuilder>;
@@ -46,21 +46,21 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
     using CommitmentHandle = typename Curve::Element;
-    using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
+    using NativeVerificationKey = GoblinUltraFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using VerifierCommitmentKey = VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_WIRES = flavor::GoblinUltra::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = flavor::GoblinUltra::NUM_ALL_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = GoblinUltraFlavor::NUM_ALL_ENTITIES;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = flavor::GoblinUltra::NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = GoblinUltraFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = flavor::GoblinUltra::NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_WITNESS_ENTITIES = GoblinUltraFlavor::NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from GoblinUltra
@@ -169,4 +169,4 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     using Transcript = bb::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };
 
-} // namespace bb::honk::flavor
+} // namespace bb
