@@ -36,12 +36,11 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-        size_t frs_per_Fr = 1;
-        size_t frs_per_Fq = 2;
-        size_t frs_per_G = 2 * frs_per_Fq;
+        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
-        size_t frs_per_uint32 = 1;
+        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
         manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);

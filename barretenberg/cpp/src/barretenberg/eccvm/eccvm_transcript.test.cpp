@@ -40,13 +40,11 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fr = bb::field_conversion::calc_num_254_frs<FF>();
-        size_t frs_per_Fq = bb::field_conversion::calc_num_254_frs<typename Flavor::Curve::BaseField>();
-        size_t frs_per_G = 2 * frs_per_Fq;
+        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
-        size_t frs_per_uint32 = bb::field_conversion::calc_num_254_frs<uint32_t>();
-        size_t frs_uint64 = bb::field_conversion::calc_num_254_frs<uint64_t>();
+        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
         manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
@@ -168,7 +166,7 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
-        manifest_expected.add_entry(round, "IPA:poly_degree", frs_uint64);
+        manifest_expected.add_entry(round, "IPA:poly_degree", frs_per_uint32);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));

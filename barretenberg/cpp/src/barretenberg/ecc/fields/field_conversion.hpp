@@ -15,46 +15,46 @@ namespace bb::field_conversion {
  * @tparam T
  * @return constexpr size_t
  */
-template <typename T> constexpr size_t calc_num_254_frs();
+template <typename T> constexpr size_t calc_num_bn254_frs();
 
-constexpr size_t calc_num_254_frs(bb::fr* /*unused*/)
+constexpr size_t calc_num_bn254_frs(bb::fr* /*unused*/)
 {
     return 1;
 }
 
-constexpr size_t calc_num_254_frs(grumpkin::fr* /*unused*/)
+constexpr size_t calc_num_bn254_frs(grumpkin::fr* /*unused*/)
 {
     return 2;
 }
 
-template <std::integral T> constexpr size_t calc_num_254_frs(T* /*unused*/)
+template <std::integral T> constexpr size_t calc_num_bn254_frs(T* /*unused*/)
 {
     return 1; // meant for integral types that are less than 254 bits
 }
 
-constexpr size_t calc_num_254_frs(curve::BN254::AffineElement* /*unused*/)
+constexpr size_t calc_num_bn254_frs(curve::BN254::AffineElement* /*unused*/)
 {
-    return 2 * calc_num_254_frs<curve::BN254::BaseField>();
+    return 2 * calc_num_bn254_frs<curve::BN254::BaseField>();
 }
 
-constexpr size_t calc_num_254_frs(curve::Grumpkin::AffineElement* /*unused*/)
+constexpr size_t calc_num_bn254_frs(curve::Grumpkin::AffineElement* /*unused*/)
 {
-    return 2 * calc_num_254_frs<curve::Grumpkin::BaseField>();
+    return 2 * calc_num_bn254_frs<curve::Grumpkin::BaseField>();
 }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_254_frs(std::array<T, N>* /*unused*/)
+template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(std::array<T, N>* /*unused*/)
 {
-    return N * calc_num_254_frs<T>();
+    return N * calc_num_bn254_frs<T>();
 }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_254_frs(bb::Univariate<T, N>* /*unused*/)
+template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(bb::Univariate<T, N>* /*unused*/)
 {
-    return N * calc_num_254_frs<T>();
+    return N * calc_num_bn254_frs<T>();
 }
 
-template <typename T> constexpr size_t calc_num_254_frs()
+template <typename T> constexpr size_t calc_num_bn254_frs()
 {
-    return calc_num_254_frs(static_cast<T*>(nullptr));
+    return calc_num_bn254_frs(static_cast<T*>(nullptr));
 }
 
 /**
@@ -80,19 +80,6 @@ template <std::integral T> inline T convert_from_bn254_frs(std::span<const bb::f
 
 bb::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bb::fr* /*unused*/);
 
-/**
- * @brief Converts 2 bb::fr elements to grumpkin::fr
- * @details First, this function must take in 2 bb::fr elements because the grumpkin::fr field has a larger modulus than
- * the bb::fr field, so we choose to send 1 grumpkin::fr element to 2 bb::fr elements to maintain injectivity.
- * For the implementation, we want to minimize the number of constraints created by the circuit form, which happens to
- * use 68 bit limbs to represent a grumpkin::fr (as a bigfield). Therefore, our mapping will split a grumpkin::fr into a
- * 136 bit chunk for the lower two bigfield limbs and the upper chunk for the upper two limbs. The upper chunk ends up
- * being 254 - 2*68 = 118 bits as a result. This is why we check that the bb::frs must be at most 136 and 118 bits
- * respectively (to ensure no overflow). Then, we converts the two chunks to a grumpkin::fr using uint256_t conversions.
- * @param low_bits_in
- * @param high_bits_in
- * @return grumpkin::fr
- */
 grumpkin::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, grumpkin::fr* /*unused*/);
 
 curve::BN254::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
@@ -166,19 +153,6 @@ template <std::integral T> std::vector<bb::fr> inline convert_to_bn254_frs(const
     return fr_vec;
 }
 
-/**
- * @brief Converts grumpkin::fr to 2 bb::fr elements
- * @details First, this function must return 2 bb::fr elements because the grumpkin::fr field has a larger modulus than
- * the bb::fr field, so we choose to send 1 grumpkin::fr element to 2 bb::fr elements to maintain injectivity.
- * This function the reverse of convert_from_bn254_frs(std::span<const bb::fr> fr_vec, grumpkin::fr*) by merging the two
- * pairs of limbs back into the 2 bb::fr elements. For the implementation, we want to minimize the number of constraints
- * created by the circuit form, which happens to use 68 bit limbs to represent a grumpkin::fr (as a bigfield).
- * Therefore, our mapping will split a grumpkin::fr into a 136 bit chunk for the lower two bigfield limbs and the upper
- * chunk for the upper two limbs. The upper chunk ends up being 254 - 2*68 = 118 bits as a result. We manipulate the
- * value using bitwise masks and shifts to obtain our two chunks.
- * @param input
- * @return std::array<bb::fr, 2>
- */
 std::vector<bb::fr> convert_to_bn254_frs(const grumpkin::fr& val);
 
 std::vector<bb::fr> convert_to_bn254_frs(const bb::fr& val);

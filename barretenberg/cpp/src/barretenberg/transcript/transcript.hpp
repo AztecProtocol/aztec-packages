@@ -135,7 +135,6 @@ class BaseTranscript {
         Fr base_hash = crypto::Poseidon2<Poseidon2Params>::hash(full_buffer);
 
         Fr new_challenge = base_hash;
-        // std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenge;
@@ -182,7 +181,7 @@ class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = bb::field_conversion::calc_num_254_frs<T>();
+        constexpr size_t element_fr_size = bb::field_conversion::calc_num_bn254_frs<T>();
         ASSERT(offset + element_fr_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
@@ -298,7 +297,7 @@ class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        constexpr size_t element_size = bb::field_conversion::calc_num_254_frs<T>();
+        constexpr size_t element_size = bb::field_conversion::calc_num_bn254_frs<T>();
         ASSERT(num_frs_read + element_size <= proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
