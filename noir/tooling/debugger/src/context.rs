@@ -461,6 +461,11 @@ mod tests {
             })],
             outputs: vec![],
             bytecode: vec![
+                BrilligOpcode::CalldataCopy {
+                    destination_address: MemoryAddress(0),
+                    size: 1,
+                    offset: 0,
+                },
                 BrilligOpcode::Const {
                     destination: MemoryAddress::from(1),
                     value: Value::from(fe_0),
@@ -495,7 +500,7 @@ mod tests {
 
         assert_eq!(context.get_current_opcode_location(), Some(OpcodeLocation::Acir(0)));
 
-        // execute the first Brillig opcode (const)
+        // Execute the first Brillig opcode (calldata copy)
         let result = context.step_into_opcode();
         assert!(matches!(result, DebugCommandResult::Ok));
         assert_eq!(
@@ -503,20 +508,28 @@ mod tests {
             Some(OpcodeLocation::Brillig { acir_index: 0, brillig_index: 1 })
         );
 
-        // try to execute the second Brillig opcode (and resolve the foreign call)
-        let result = context.step_into_opcode();
-        assert!(matches!(result, DebugCommandResult::Ok));
-        assert_eq!(
-            context.get_current_opcode_location(),
-            Some(OpcodeLocation::Brillig { acir_index: 0, brillig_index: 1 })
-        );
-
-        // retry the second Brillig opcode (foreign call should be finished)
+        // execute the second Brillig opcode (const)
         let result = context.step_into_opcode();
         assert!(matches!(result, DebugCommandResult::Ok));
         assert_eq!(
             context.get_current_opcode_location(),
             Some(OpcodeLocation::Brillig { acir_index: 0, brillig_index: 2 })
+        );
+
+        // try to execute the third Brillig opcode (and resolve the foreign call)
+        let result = context.step_into_opcode();
+        assert!(matches!(result, DebugCommandResult::Ok));
+        assert_eq!(
+            context.get_current_opcode_location(),
+            Some(OpcodeLocation::Brillig { acir_index: 0, brillig_index: 2 })
+        );
+
+        // retry the third Brillig opcode (foreign call should be finished)
+        let result = context.step_into_opcode();
+        assert!(matches!(result, DebugCommandResult::Ok));
+        assert_eq!(
+            context.get_current_opcode_location(),
+            Some(OpcodeLocation::Brillig { acir_index: 0, brillig_index: 3 })
         );
 
         // last Brillig opcode
@@ -547,6 +560,11 @@ mod tests {
             ],
             outputs: vec![BrilligOutputs::Simple(w_z)],
             bytecode: vec![
+                BrilligOpcode::CalldataCopy {
+                    destination_address: MemoryAddress(0),
+                    size: 2,
+                    offset: 0,
+                },
                 BrilligOpcode::BinaryFieldOp {
                     destination: MemoryAddress::from(0),
                     op: BinaryFieldOp::Add,
