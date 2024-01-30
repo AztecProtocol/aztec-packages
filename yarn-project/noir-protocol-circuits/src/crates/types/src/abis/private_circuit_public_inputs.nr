@@ -56,7 +56,6 @@ struct PrivateCircuitPublicInputs {
 
     contract_deployment_data: ContractDeploymentData,
 
-    // TODO(#4256): This is now in header. Nuke this.
     chain_id: Field,
     version: Field,
 }
