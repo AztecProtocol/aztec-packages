@@ -53,7 +53,15 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
             Some(location) => {
                 match location {
                     OpcodeLocation::Acir(ip) => {
-                        println!("At opcode {}: {}", ip, opcodes[ip])
+                        // Default Brillig display is too bloated for this context,
+                        // so we limit it to denoting it's the start of a Brillig
+                        // block. The user can still use the `opcodes` command to
+                        // take a look at the whole block.
+                        let opcode_summary = match opcodes[ip] {
+                            Opcode::Brillig(..) => "BRILLIG: ...".into(),
+                            _ => format!("{}", opcodes[ip]),
+                        };
+                        println!("At opcode {}: {}", ip, opcode_summary);
                     }
                     OpcodeLocation::Brillig { acir_index, brillig_index } => {
                         let Opcode::Brillig(ref brillig) = opcodes[acir_index] else {
@@ -243,37 +251,6 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
         println!("_{} = {value}", index);
     }
 
-    pub fn show_brillig_registers(&self) {
-        if !self.context.is_executing_brillig() {
-            println!("Not executing a Brillig block");
-            return;
-        }
-
-        let Some(registers) = self.context.get_brillig_registers() else {
-            // this can happen when just entering the Brillig block since ACVM
-            // would have not initialized the Brillig VM yet; in fact, the
-            // Brillig code may be skipped altogether
-            println!("Brillig VM registers not available");
-            return;
-        };
-
-        for (index, value) in registers.inner.iter().enumerate() {
-            println!("{index} = {}", value.to_field());
-        }
-    }
-
-    pub fn set_brillig_register(&mut self, index: usize, value: String) {
-        let Some(field_value) = FieldElement::try_from_str(&value) else {
-            println!("Invalid value: {value}");
-            return;
-        };
-        if !self.context.is_executing_brillig() {
-            println!("Not executing a Brillig block");
-            return;
-        }
-        self.context.set_brillig_register(index, field_value);
-    }
-
     pub fn show_brillig_memory(&self) {
         if !self.context.is_executing_brillig() {
             println!("Not executing a Brillig block");
@@ -433,26 +410,6 @@ pub fn run<B: BlackBoxFunctionSolver>(
                 "update a witness with the given value",
                 (index: u32, value: String) => |index, value| {
                     ref_context.borrow_mut().update_witness(index, value);
-                    Ok(CommandStatus::Done)
-                }
-            },
-        )
-        .add(
-            "registers",
-            command! {
-                "show Brillig registers (valid when executing a Brillig block)",
-                () => || {
-                    ref_context.borrow().show_brillig_registers();
-                    Ok(CommandStatus::Done)
-                }
-            },
-        )
-        .add(
-            "regset",
-            command! {
-                "update a Brillig register with the given value",
-                (index: usize, value: String) => |index, value| {
-                    ref_context.borrow_mut().set_brillig_register(index, value);
                     Ok(CommandStatus::Done)
                 }
             },
