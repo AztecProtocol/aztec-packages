@@ -14,7 +14,6 @@ use crate::note::{
     utils::compute_note_hash_for_read_or_nullify,
 };
 use crate::oracle;
-use crate::types::vec::BoundedVec;
 
 fn check_note_header<Note, N>(
     context: PrivateContext,

@@ -31,7 +31,6 @@ contract Test {
         },
         state_vars::immutable_singleton::ImmutableSingleton,
         log::emit_unencrypted_log_from_private,
-        types::vec::BoundedVec,
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::{FieldNote, FieldNoteMethods, FIELD_NOTE_LEN};
@@ -99,7 +98,7 @@ contract Test {
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
-        args.push_array(an_array);
+        args.extend_from_array(an_array);
         args.push(a_struct.amount);
         args.push(a_struct.secret_hash);
         args.push(a_deep_struct.a_field);

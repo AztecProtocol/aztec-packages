@@ -26,10 +26,7 @@ use dep::types::{
         compute_commitment_nonce,
         compute_unique_siloed_commitment,
     },
-    utils::{
-        arrays::{array_length, array_eq},
-        bounded_vec::BoundedVec,
-    },
+    utils::arrays::{array_length, array_eq},
     traits::{Empty, is_empty}
 };
 
@@ -234,10 +231,7 @@ mod tests {
         },
         hash::compute_unique_siloed_commitments,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
-        utils::{
-            arrays::{array_eq, array_length},
-            bounded_vec::BoundedVec,
-        },
+        utils::arrays::{array_eq, array_length},
         traits::{Empty, is_empty, is_empty_array}
     };
 

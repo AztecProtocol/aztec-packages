@@ -9,7 +9,6 @@ use crate::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     mocked::AggregationObject,
-    utils::bounded_vec::BoundedVec
 };
 use crate::constants::{
     MAX_READ_REQUESTS_PER_TX,

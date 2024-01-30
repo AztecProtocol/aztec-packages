@@ -1,7 +1,6 @@
 use dep::std::option::Option;
 use dep::protocol_types::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{Select, Sort, Comparator};
-use crate::types::vec::BoundedVec;
 
 // docs:start:NoteViewerOptions
 struct NoteViewerOptions<Note, N> {

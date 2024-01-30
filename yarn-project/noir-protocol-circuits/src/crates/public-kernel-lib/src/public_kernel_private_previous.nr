@@ -80,12 +80,9 @@ mod tests {
             previous_kernel_data_builder::PreviousKernelDataBuilder,
             public_call_data_builder::PublicCallDataBuilder,
         },
-        utils::{
-            arrays::{
-                array_eq,
-                array_length,
-            },
-            bounded_vec::BoundedVec,
+        utils::arrays::{
+            array_eq,
+            array_length,
         },
     };
     use dep::types::constants::{
@@ -406,7 +403,7 @@ mod tests {
                 function_tree_root: 78
             }
         ];
-        builder.previous_kernel.end.new_contracts.push_array(new_contracts);
+        builder.previous_kernel.end.new_contracts.extend_from_array(new_contracts);
 
         builder.public_call.append_public_call_requests_for_regular_calls(2);
         let storage = builder.public_call.public_call_stack.storage;

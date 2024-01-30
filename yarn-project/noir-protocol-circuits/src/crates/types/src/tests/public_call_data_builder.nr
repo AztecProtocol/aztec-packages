@@ -16,8 +16,7 @@ use crate::{
     tests::{
         fixtures,
         public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder,
-    },
-    utils::bounded_vec::BoundedVec,
+    }
 };
 use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
