@@ -13,16 +13,6 @@
 
 namespace {
 using Flavor = bb::GoblinTranslator;
-// using Curve = typename Flavor::Curve;
-// using FF = typename Flavor::FF;
-// using CircuitBuilder = typename Flavor::CircuitBuilder;
-// using ProvingKey = typename Flavor::ProvingKey;
-// using VerificationKey = typename Flavor::VerificationKey;
-// using PCS = typename Flavor::PCS;
-// using CommitmentKey = typename Flavor::CommitmentKey;
-// using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-// using Polynomial = typename Flavor::Polynomial;
-// using Transcript = typename Flavor::Transcript;
 } // namespace
 
 namespace bb {
@@ -59,16 +49,16 @@ void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& c
  * @return std::vector<Polynomial>
  * */
 
-std::vector<Polynomial> construct_wire_polynomials_base_goblin_translator(const CircuitBuilder& circuit_builder,
-                                                                          const size_t dyadic_circuit_size)
+std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base_goblin_translator(
+    const typename Flavor::CircuitBuilder& circuit_builder, const size_t dyadic_circuit_size)
 {
     const size_t num_gates = circuit_builder.num_gates;
 
-    std::vector<Polynomial> wire_polynomials;
+    std::vector<typename Flavor::Polynomial> wire_polynomials;
     // Populate the wire polynomials with values from conventional wires
     for (size_t wire_idx = 0; wire_idx < Flavor::NUM_WIRES; ++wire_idx) {
         // Expect all values to be set to 0 initially
-        Polynomial w_lagrange(dyadic_circuit_size);
+        typename Flavor::Polynomial w_lagrange(dyadic_circuit_size);
 
         // Insert conventional gate wire values into the wire polynomial
         for (size_t i = 0; i < num_gates; ++i) {
@@ -283,7 +273,7 @@ std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer::compute_p
  * @return Pointer to created circuit verification key.
  * */
 
-std::shared_ptr<VerificationKey> GoblinTranslatorComposer::compute_verification_key(
+std::shared_ptr<typename Flavor::VerificationKey> GoblinTranslatorComposer::compute_verification_key(
     const CircuitBuilder& circuit_builder)
 {
     if (verification_key) {

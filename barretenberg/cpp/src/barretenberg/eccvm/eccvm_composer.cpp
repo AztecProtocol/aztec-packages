@@ -117,6 +117,6 @@ std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposer_<Flavor>::comput
     verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
     return verification_key;
 }
-template class ECCVMComposer_<ECCVM>;
+template class ECCVMComposer_<ECCVMFlavor>;
 
 } // namespace bb

@@ -8,10 +8,8 @@
 #include <span>
 
 using namespace bb;
-using namespace bb using namespace bb using namespace bb
 
-    template <class Curve>
-    class GeminiTest : public CommitmentTest<Curve> {
+template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;

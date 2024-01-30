@@ -15,9 +15,10 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb using namespace bb
+using namespace bb::honk;
+using namespace bb::honk::sumcheck;
 
-    using Flavor = Ultra;
+using Flavor = honk::flavor::Ultra;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
@@ -31,7 +32,7 @@ class SumcheckTestsRealCircuit : public ::testing::Test {
  */
 TEST_F(SumcheckTestsRealCircuit, Ultra)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = flavor::Ultra;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;

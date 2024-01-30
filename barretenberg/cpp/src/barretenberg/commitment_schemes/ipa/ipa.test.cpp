@@ -10,9 +10,11 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb using namespace bb using namespace bb
+using namespace bb::honk;
+using namespace bb::honk::pcs;
+using namespace bb::honk::pcs::ipa;
 
-    using Curve = curve::Grumpkin;
+using Curve = curve::Grumpkin;
 
 class IPATest : public CommitmentTest<Curve> {
   public:
@@ -86,10 +88,10 @@ TEST_F(IPATest, Open)
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
     using IPA = IPA<Curve>;
-    using ShplonkProver = ShplonkProver_<Curve>;
-    using ShplonkVerifier = ShplonkVerifier_<Curve>;
-    using GeminiProver = GeminiProver_<Curve>;
-    using GeminiVerifier = GeminiVerifier_<Curve>;
+    using ShplonkProver = shplonk::ShplonkProver_<Curve>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<Curve>;
+    using GeminiProver = gemini::GeminiProver_<Curve>;
+    using GeminiVerifier = gemini::GeminiVerifier_<Curve>;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -112,7 +114,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
-    std::vector<Fr> rhos = gemini_detail::powers_of_rho(rho, multilinear_evaluations.size());
+    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
     Fr batched_evaluation = Fr::zero();
     for (size_t i = 0; i < rhos.size(); ++i) {

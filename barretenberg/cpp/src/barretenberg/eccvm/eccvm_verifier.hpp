@@ -39,6 +39,6 @@ template <typename Flavor> class ECCVMVerifier_ {
     std::shared_ptr<Transcript> transcript;
 };
 
-using ECCVMVerifierGrumpkin = ECCVMVerifier_<ECCVM>;
+using ECCVMVerifierGrumpkin = ECCVMVerifier_<ECCVMFlavor>;
 
 } // namespace bb

@@ -75,6 +75,6 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
-using ECCVMComposer = ECCVMComposer_<ECCVM>;
+using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
 
 } // namespace bb

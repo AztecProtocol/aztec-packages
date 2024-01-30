@@ -283,6 +283,6 @@ using namespace bb
         return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
     }
 
-    template class ECCVMVerifier_<ECCVM>;
+    template class ECCVMVerifier_<ECCVMFlavor>;
 
 } // namespace bb

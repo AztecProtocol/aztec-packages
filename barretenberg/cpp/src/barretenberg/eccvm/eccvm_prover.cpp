@@ -96,7 +96,7 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivativ
 template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_grand_product_computation_round()
 {
     // Compute permutation grand product and their commitments
-    permutation_library::compute_permutation_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
+    compute_permutation_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 
     transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->z_perm));
 }
@@ -307,6 +307,6 @@ template <IsECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_pr
     return export_proof();
 }
 
-template class ECCVMProver_<ECCVM>;
+template class ECCVMProver_<ECCVMFlavor>;
 
 } // namespace bb
