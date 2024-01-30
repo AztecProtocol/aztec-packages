@@ -96,7 +96,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
                                std::vector<uint32_t>& public_inputs,
                                size_t varnum)
         : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>(
-              /*size_hint=*/0, witness_values, public_inputs, varnum, false)
+              /*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
