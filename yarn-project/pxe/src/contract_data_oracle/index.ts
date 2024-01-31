@@ -1,5 +1,5 @@
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/acir-simulator';
-import { ContractDatabase, StateInfoProvider } from '@aztec/circuit-types';
+import { ContractDatabase } from '@aztec/circuit-types';
 import {
   AztecAddress,
   ContractFunctionDao,
@@ -11,9 +11,9 @@ import { FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClass, ContractInstance } from '@aztec/types/contracts';
 
-import { ContractTree } from '../contract_tree/index.js';
 import { ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
+import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
  * ContractDataOracle serves as a data manager and retriever for Aztec.nr contracts.
@@ -23,12 +23,9 @@ import { ContractInstanceDatabase } from '../database/contracts/contract_instanc
  * the required information and facilitate cryptographic proof generation.
  */
 export class ContractDataOracle {
-  private trees: ContractTree[] = [];
+  private trees: PrivateFunctionsTree[] = [];
 
-  constructor(
-    private db: ContractDatabase & ContractArtifactDatabase & ContractInstanceDatabase,
-    private stateProvider: StateInfoProvider,
-  ) {}
+  constructor(private db: ContractDatabase & ContractArtifactDatabase & ContractInstanceDatabase) {}
 
   /** Returns a contract instance for a given address. Throws if not found. */
   public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstance> {
@@ -143,7 +140,6 @@ export class ContractDataOracle {
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
   public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    // REVIEWME!
     const tree = await this.getTree(contractAddress);
     return tree.getFunctionMembershipWitness(selector);
   }
@@ -172,7 +168,7 @@ export class ContractDataOracle {
    * @returns A ContractTree instance associated with the specified contract address.
    * @throws An Error if the contract is not found in the ContractDatabase.
    */
-  private async getTree(contractAddress: AztecAddress): Promise<ContractTree> {
+  private async getTree(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
     // TODO(@spalladino): ContractTree should refer to a class, not an instance!
     let tree = this.trees.find(t => t.contract.instance.address.equals(contractAddress));
     if (!tree) {
@@ -181,7 +177,7 @@ export class ContractDataOracle {
         throw new ContractNotFoundError(contractAddress.toString());
       }
 
-      tree = new ContractTree(contract, this.stateProvider);
+      tree = new PrivateFunctionsTree(contract);
       this.trees.push(tree);
     }
     return tree;

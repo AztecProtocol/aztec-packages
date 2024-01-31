@@ -4,7 +4,6 @@ import { ContractClass, ContractClassWithId } from '@aztec/types/contracts';
 
 import { getArtifactHash } from './artifact_hash.js';
 import { computeContractClassId } from './contract_class_id.js';
-import { hashVKStr } from './contract_tree/index.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
@@ -39,7 +38,9 @@ export function getContractClassFromArtifact(
 
 /**
  * Calculates the hash of a verification key.
- * */
-function getVerificationKeyHash(verificationKeyInBase64: string) {
-  return Fr.fromBuffer(hashVKStr(verificationKeyInBase64));
+ * Returns zero for consistency with Noir.
+ */
+function getVerificationKeyHash(_verificationKeyInBase64: string) {
+  // return Fr.fromBuffer(hashVKStr(verificationKeyInBase64));
+  return Fr.ZERO;
 }

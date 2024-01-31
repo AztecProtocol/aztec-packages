@@ -1,9 +1,9 @@
 import { pedersenHash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractClass, PrivateFunction } from '@aztec/types/contracts';
+import { ContractClass } from '@aztec/types/contracts';
 
-import { MerkleTreeCalculator } from '../abis/merkle_tree_calculator.js';
-import { FUNCTION_TREE_HEIGHT, GeneratorIndex } from '../constants.gen.js';
+import { GeneratorIndex } from '../constants.gen.js';
+import { computePrivateFunctionsRoot } from './private_function.js';
 
 /**
  * Returns the id of a contract class computed as its hash.
@@ -30,8 +30,8 @@ export function computeContractClassId(contractClass: ContractClass): Fr {
 
 /** Returns the preimage of a contract class id given a contract class. */
 export function computeContractClassIdPreimage(contractClass: ContractClass): ContractClassIdPreimage {
-  const privateFunctionsRoot = getPrivateFunctionsRoot(contractClass.privateFunctions);
-  const publicBytecodeCommitment = getBytecodeCommitment(contractClass.packedBytecode);
+  const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
+  const publicBytecodeCommitment = computeBytecodeCommitment(contractClass.packedBytecode);
   return { artifactHash: contractClass.artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }
 
@@ -43,25 +43,6 @@ export type ContractClassIdPreimage = {
 };
 
 // TODO(@spalladino): Replace with actual implementation
-function getBytecodeCommitment(bytecode: Buffer) {
+function computeBytecodeCommitment(bytecode: Buffer) {
   return Fr.fromBufferReduce(sha256(bytecode));
-}
-
-// Memoize the merkle tree calculators to avoid re-computing the zero-hash for each level in each call
-let privateFunctionTreeCalculator: MerkleTreeCalculator | undefined;
-
-const PRIVATE_FUNCTION_SIZE = 2;
-
-function getPrivateFunctionsRoot(fns: PrivateFunction[]): Fr {
-  const privateFunctionLeaves = fns.map(fn =>
-    pedersenHash(
-      [fn.selector, fn.vkHash].map(x => x.toBuffer()),
-      GeneratorIndex.FUNCTION_LEAF,
-    ),
-  );
-  if (!privateFunctionTreeCalculator) {
-    const functionTreeZeroLeaf = pedersenHash(new Array(PRIVATE_FUNCTION_SIZE).fill(Buffer.alloc(32)));
-    privateFunctionTreeCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
-  }
-  return Fr.fromBuffer(privateFunctionTreeCalculator.computeTreeRoot(privateFunctionLeaves));
 }

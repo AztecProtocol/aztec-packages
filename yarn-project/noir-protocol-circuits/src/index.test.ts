@@ -163,12 +163,6 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     expect(hash.toString()).toMatchSnapshot();
   });
 
-  it('Function leaf matches noir', () => {
-    const fnLeafPreimage = new FunctionLeafPreimage(new FunctionSelector(27), false, true, new Fr(1), new Fr(2));
-    const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
-    expect(fnLeaf.toString()).toMatchSnapshot();
-  });
-
   it('Public call stack item matches noir', () => {
     const contractAddress = AztecAddress.fromBigInt(1n);
     const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
