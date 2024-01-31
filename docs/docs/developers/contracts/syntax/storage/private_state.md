@@ -278,6 +278,10 @@ It's important to note that the process of applying the custom filter to get the
 
 `filter_args` provides a means to furnish additional data or context to the custom filter.
 
+### `status: u2`
+
+`status` allows the caller to retrieve notes that have been nullified, which can be useful to prove historical data.
+
 ### Methods
 
 Several methods are available on `NoteGetterOptions` to construct the options in a more readable manner:
@@ -305,6 +309,10 @@ This method lets you set a limit for the maximum number of notes to be retrieved
 ### `.set_offset`
 
 This method sets the offset value, which determines where to start retrieving notes.
+
+### `.set_status`
+
+This method sets the status value, which indicates the status of notes to retrieve (active or nullified).
 
 ### Examples
 
