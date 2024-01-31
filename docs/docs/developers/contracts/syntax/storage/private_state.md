@@ -280,7 +280,7 @@ It's important to note that the process of applying the custom filter to get the
 
 ### `status: u2`
 
-`status` allows the caller to retrieve notes that have been nullified, which can be useful to prove historical data.
+`status` allows the caller to retrieve notes that have been nullified, which can be useful to prove historical data. Note that when querying for both active and nullified notes the caller cannot know if each note retrieved has or has not been nullified.
 
 ### Methods
 
@@ -312,7 +312,7 @@ This method sets the offset value, which determines where to start retrieving no
 
 ### `.set_status`
 
-This method sets the status value, which indicates the status of notes to retrieve (active or nullified).
+This method sets the status of notes to retrieve (active or nullified).
 
 ### Examples
 
