@@ -15,10 +15,8 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::honk;
-using namespace bb::honk::sumcheck;
 
-using Flavor = honk::flavor::Ultra;
+using Flavor = UltraFlavor;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
