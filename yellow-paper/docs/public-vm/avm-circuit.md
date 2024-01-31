@@ -109,7 +109,7 @@ When decoded, instructions that operate on memory map to some Memory Controller 
 
 ### User Memory
 
-This table tracks all memory `Read` or `Write` operations. As introduced in the ["Memory State Model"](./state-model.md), a memory cell is indexed by a 32-bit unsigned integer (`u32`), i.e., the memory capacity is of 2^32 words. Each word is associated with a tag defining its type (`uninitialized`, `u8`, `u16`, `u32`, `u64`, `u128`, `field`). At the beginning of a new call, each memory cell is of type `uninitialized` and has value 0.
+This table tracks all memory `Read` or `Write` operations. As introduced in the ["Memory State Model"](./state-model.md), a memory cell is indexed by a 32-bit unsigned integer (`u32`), i.e., the memory capacity is of $2^{32}$ words. Each word is associated with a tag defining its type (`uninitialized`, `u8`, `u16`, `u32`, `u64`, `u128`, `field`). At the beginning of a new call, each memory cell is of type `uninitialized` and has value 0.
 
 The main property enforcement of this table concerns read/write consistency of every memory cell. This must ensure:
 
@@ -120,6 +120,7 @@ In addition, this table ensures that the instruction tag corresponding to a memo
 
 The user memory table essentially consists of the following colums:
 
+- `CALL_PTR`: call pointer uniquely identifying the contract call
 - `CLK`: clock value of the memory operation
 - `ADDR`: address (type `u32`) pertaining to the memory operation
 - `VAL`: value which is read (resp. written) from (resp. to) the memory address
@@ -128,11 +129,11 @@ The user memory table essentially consists of the following colums:
 - `RW`: boolean indicating whether memory operation is read or write
 - `TAG_ERR`: boolean set to true if there is a mismatch between `TAG` and `IN_TAG`
 
-To facilitate consistency check, the rows are sorted by `ADDR` and then by `CLK` in ascending (arrow of time) order. Any (non-initial) read operation row is constrained to have the same `VAL` and `TAG` than the previous row. A write operation does not need to be constrained.
+To facilitate consistency check, the rows are sorted by `CALL_PTR` then by `ADDR` and then by `CLK` in ascending (arrow of time) order. Any (non-initial) read operation row is constrained to have the same `VAL` and `TAG` than the previous row. A write operation does not need to be constrained.
 
 The tag consistency check can be performed within every row (order of rows does not matter).
 
-We note that `CLK` also plays the role of a foreign key to point to the corresponding sub-operation. This is crucial to enforce consistency of copied values between the sub-operations and memory table.
+Note that `CLK` also plays the role of a foreign key to point to the corresponding sub-operation. This is crucial to enforce consistency of copied values between the sub-operations and memory table.
 
 ### Calldata
 **TODO**
