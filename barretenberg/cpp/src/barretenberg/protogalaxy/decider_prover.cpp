@@ -94,13 +94,13 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_zeromorph_r
                      transcript);
 }
 
-template <UltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::export_proof()
+template <IsUltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-template <UltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::construct_proof()
+template <IsUltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::construct_proof()
 {
     // Add ϕ, \vec{β*}, e* to transcript
     execute_preamble_round();
