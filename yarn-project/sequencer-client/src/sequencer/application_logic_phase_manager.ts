@@ -32,8 +32,8 @@ export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
   }
 
   extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    if (!tx.enqueuedPublicFunctionCalls || tx.enqueuedPublicFunctionCalls.length <= 1) {
-      return [];
+    if (!tx.enqueuedPublicFunctionCalls) {
+      throw new Error(`Missing preimages for enqueued public calls`);
     }
     // Note: the first enqueued public call is for fee payments
     // TODO(dbanks12): why must these be reversed?
@@ -42,8 +42,8 @@ export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
 
   async handle(
     tx: Tx,
-    // previousPublicKernelOutput?: PublicKernelPublicInputs,
-    // previousPublicKernelProof?: Proof,
+    previousPublicKernelOutput?: PublicKernelPublicInputs,
+    previousPublicKernelProof?: Proof,
   ): Promise<{
     /**
      * the output of the public kernel circuit for this phase
@@ -58,11 +58,13 @@ export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
     this.log(`Processing tx ${await tx.getTxHash()}`);
     await this.publicContractsDB.addNewContracts(tx);
     if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
-      // const outputAndProof = this.getKernelOutputAndProof(tx, previousPublicKernelOutput, previousPublicKernelProof);
+      const outputAndProof = this.getKernelOutputAndProof(tx, previousPublicKernelOutput, previousPublicKernelProof);
 
       this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
-        tx,
+        this.extractEnqueuedPublicCalls(tx),
+        outputAndProof.publicKernelOutput,
+        outputAndProof.publicKernelProof,
       );
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 

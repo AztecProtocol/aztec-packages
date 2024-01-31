@@ -129,27 +129,24 @@ export abstract class AbstractPhaseManager {
     }
   }
 
-  protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
-    this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
-    if (!tx.enqueuedPublicFunctionCalls) {
+  protected async processEnqueuedPublicCalls(
+    enqueuedCalls: PublicCallRequest[],
+    previousPublicKernelOutput: PublicKernelPublicInputs,
+    previousPublicKernelProof: Proof,
+  ): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
+    if (!enqueuedCalls || !enqueuedCalls.length) {
       throw new Error(`Missing preimages for enqueued public calls`);
     }
+    let kernelOutput = previousPublicKernelOutput;
+    let kernelProof = previousPublicKernelProof;
 
-    let kernelOutput = new KernelCircuitPublicInputs(
-      CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
-      tx.data.constants,
-      tx.data.isPrivate,
-    );
-    let kernelProof = tx.proof;
     const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
 
     // TODO(#1684): Should multiple separately enqueued public calls be treated as
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
 
-    // TODO(dbanks12): why must these be reversed?
-    const enqueuedCallsReversed = tx.enqueuedPublicFunctionCalls.slice().reverse();
-    for (const enqueuedCall of enqueuedCallsReversed) {
+    for (const enqueuedCall of enqueuedCalls) {
       const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
 
       // Keep track of which result is for the top/enqueued call
