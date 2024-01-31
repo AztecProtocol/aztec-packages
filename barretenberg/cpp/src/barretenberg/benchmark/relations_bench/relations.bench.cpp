@@ -40,12 +40,12 @@ BENCHMARK(execute_relation<UltraFlavor, UltraPermutationRelation<Fr>>);
 
 BENCHMARK(execute_relation<GoblinUltraFlavor, EccOpQueueRelation<Fr>>);
 
-BENCHMARK(execute_relation<GoblinTranslator, GoblinTranslatorDecompositionRelation<Fr>>);
-BENCHMARK(execute_relation<GoblinTranslator, GoblinTranslatorOpcodeConstraintRelation<Fr>>);
-BENCHMARK(execute_relation<GoblinTranslator, GoblinTranslatorAccumulatorTransferRelation<Fr>>);
-BENCHMARK(execute_relation<GoblinTranslator, GoblinTranslatorGenPermSortRelation<Fr>>);
-BENCHMARK(execute_relation<GoblinTranslator, GoblinTranslatorNonNativeFieldRelation<Fr>>);
-BENCHMARK(execute_relation<GoblinTranslator, GoblinTranslatorPermutationRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorDecompositionRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorOpcodeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorAccumulatorTransferRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorGenPermSortRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorNonNativeFieldRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorPermutationRelation<Fr>>);
 
 BENCHMARK(execute_relation<ECCVM, ECCVMLookupRelation<Fq>>);
 BENCHMARK(execute_relation<ECCVM, ECCVMMSMRelation<Fq>>);

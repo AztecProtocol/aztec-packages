@@ -18,7 +18,7 @@
 
 namespace bb {
 
-class GoblinTranslator {
+class GoblinTranslatorFlavor {
 
   public:
     static constexpr size_t mini_circuit_size = 2048;

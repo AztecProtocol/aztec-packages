@@ -6,7 +6,7 @@
 namespace bb {
 class GoblinTranslatorVerifier {
   public:
-    using Flavor = GoblinTranslator;
+    using Flavor = GoblinTranslatorFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;

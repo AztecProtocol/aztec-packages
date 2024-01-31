@@ -30,7 +30,7 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
     using FF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
-    using RecursiveFlavor = ::bb::UltraRecursive_<BuilderType>;
+    using RecursiveFlavor = UltraRecursiveFlavor_<BuilderType>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using OuterBuilder = BuilderType;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;

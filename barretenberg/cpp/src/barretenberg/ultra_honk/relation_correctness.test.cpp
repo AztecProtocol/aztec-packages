@@ -564,8 +564,8 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
 }
 
 /**
- * @brief Test the correctness of GoblinTranslator's  extra relations (GoblinTranslatorOpcodeConstraintRelation and
- * GoblinTranslatorAccumulatorTransferRelation)
+ * @brief Test the correctness of GoblinTranslatorFlavor's  extra relations (GoblinTranslatorOpcodeConstraintRelation
+ * and GoblinTranslatorAccumulatorTransferRelation)
  *
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
@@ -667,7 +667,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
 }
 /**
- * @brief Test the correctness of GoblinTranslator's Decomposition Relation
+ * @brief Test the correctness of GoblinTranslatorFlavor's Decomposition Relation
  *
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectness)
@@ -1041,7 +1041,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
 }
 
 /**
- * @brief Test the correctness of GoblinTranslator's  NonNativeField Relation
+ * @brief Test the correctness of GoblinTranslatorFlavor's  NonNativeField Relation
  *
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)

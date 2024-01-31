@@ -62,7 +62,7 @@ void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const
 };
 
 /**
- * @brief This function verifies an GoblinTranslator Honk proof for given program settings.
+ * @brief This function verifies an GoblinTranslatorFlavor Honk proof for given program settings.
  */
 bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 {

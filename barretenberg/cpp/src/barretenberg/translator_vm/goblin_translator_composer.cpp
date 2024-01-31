@@ -12,7 +12,7 @@
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 
 namespace {
-using Flavor = bb::GoblinTranslator;
+using Flavor = bb::GoblinTranslatorFlavor;
 } // namespace
 
 namespace bb {

@@ -10,7 +10,7 @@ namespace bb {
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 class GoblinTranslatorProver {
 
-    using Flavor = GoblinTranslator;
+    using Flavor = GoblinTranslatorFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;

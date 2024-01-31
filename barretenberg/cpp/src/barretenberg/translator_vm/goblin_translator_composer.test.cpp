@@ -10,8 +10,8 @@
 using namespace bb;
 
 namespace {
-using CircuitBuilder = GoblinTranslator::CircuitBuilder;
-using Transcript = GoblinTranslator::Transcript;
+using CircuitBuilder = GoblinTranslatorFlavor::CircuitBuilder;
+using Transcript = GoblinTranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 auto& engine = numeric::get_debug_randomness();
 
