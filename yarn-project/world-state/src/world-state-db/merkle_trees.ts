@@ -404,7 +404,7 @@ export class MerkleTrees implements MerkleTreeDb {
     const state = await this.getStateReference(includeUncommitted);
     // TODO: StateReference.equals
     // TODO: Is this even needed here?
-    if (state.toBuffer().equals(header.state.toBuffer())) {
+    if (!state.toBuffer().equals(header.state.toBuffer())) {
       throw new Error('State in header does not match current state');
     }
 
