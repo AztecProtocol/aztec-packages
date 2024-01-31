@@ -454,11 +454,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(height, index, assertLength(path.toFieldArray(), height));
   }
 
-  protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
-    const blockHash = tx.data.constants.historicalHeader.hash()
-    return this.getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT);
-  }
-
   protected async getConstantRollupData(globalVariables: GlobalVariables): Promise<ConstantRollupData> {
     return ConstantRollupData.from({
       baseRollupVkHash: DELETE_FR,
@@ -688,6 +683,13 @@ export class SoloBlockBuilder implements BlockBuilder {
       publicDataSiblingPath,
     });
 
+    const blockHash = tx.data.constants.historicalHeader.hash();
+    const archiveRootMembershipWitness = await this.getMembershipWitnessFor(
+      blockHash,
+      MerkleTreeId.ARCHIVE,
+      ARCHIVE_HEIGHT,
+    );
+
     return BaseRollupInputs.from({
       kernelData: this.getKernelDataFor(tx),
       start,
@@ -700,7 +702,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       publicDataReadsPreimages: txPublicDataReadsInfo.newPublicDataReadsPreimages,
       publicDataReadsMembershipWitnesses: txPublicDataReadsInfo.newPublicDataReadsWitnesses,
 
-      archiveRootMembershipWitness: await this.getHistoricalTreesMembershipWitnessFor(tx),
+      archiveRootMembershipWitness,
 
       constants,
     });
