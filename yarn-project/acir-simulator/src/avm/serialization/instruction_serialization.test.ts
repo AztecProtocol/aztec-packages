@@ -1,11 +1,13 @@
 import { BufferCursor } from './buffer_cursor.js';
 import { OperandPair, OperandType, deserialize, serialize } from './instruction_serialization.js';
+import { encodeToBytecode } from './bytecode_serialization.js';
 
 class InstA {
   constructor(private a: number, private b: number, private c: number, private d: bigint, private e: bigint) {}
 
   static readonly opcode: number = 1;
   static readonly wireFormat: OperandPair[] = [
+    [(_: InstA) => InstA.opcode, OperandType.UINT8],
     [(c: InstA) => c.a, OperandType.UINT8],
     [(c: InstA) => c.b, OperandType.UINT16],
     [(c: InstA) => c.c, OperandType.UINT32],
@@ -22,6 +24,8 @@ describe('Instruction Serialization', () => {
     expect(actual).toEqual(
       Buffer.from(
         [
+          // opcode
+          '01',
           // a
           '12',
           // b
@@ -41,6 +45,8 @@ describe('Instruction Serialization', () => {
   it('Should deserialize all types from OperandPair[]', () => {
     const buffer = Buffer.from(
       [
+        // opcode
+        '01',
         // a
         '12',
         // b

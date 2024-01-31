@@ -1,3 +1,6 @@
+import { strict as assert } from 'assert';
+
+import { Add, Sub } from '../opcodes/index.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
 import { Opcode } from './instruction_serialization.js';
@@ -6,10 +9,14 @@ class InstA {
   constructor(private n: number) {}
   static readonly opcode: number = 1;
 
+  // Expects opcode.
   public static deserialize(buf: BufferCursor): InstA {
+    const opcode: number = buf.readUint8();
+    assert(opcode == InstA.opcode);
     return new InstA(buf.readUint16BE());
   }
 
+  // Includes opcode.
   public serialize(): Buffer {
     const buf = Buffer.alloc(1 + 2);
     buf.writeUint8(InstA.opcode);
@@ -22,10 +29,14 @@ class InstB {
   constructor(private n: bigint) {}
   static readonly opcode: number = 2;
 
+  // Expects opcode.
   public static deserialize(buf: BufferCursor): InstB {
+    const opcode: number = buf.readUint8();
+    assert(opcode == InstB.opcode);
     return new InstB(buf.readBigInt64BE());
   }
 
+  // Includes opcode.
   public serialize(): Buffer {
     const buf = Buffer.alloc(1 + 8);
     buf.writeUint8(InstB.opcode);
@@ -40,8 +51,8 @@ describe('Bytecode Serialization', () => {
       [InstA.opcode, InstA],
       [InstB.opcode, InstB],
     ]);
-    const a = new InstA(1234);
-    const b = new InstB(5678n);
+    const a = new InstA(0x1234);
+    const b = new InstB(0x5678n);
     const bytecode = Buffer.concat([a.serialize(), b.serialize()]);
 
     const actual = decodeFromBytecode(bytecode, instructionSet);
@@ -56,6 +67,30 @@ describe('Bytecode Serialization', () => {
     const actual = encodeToBytecode([a, b]);
 
     const expected = Buffer.concat([a.serialize(), b.serialize()]);
+    expect(actual).toEqual(expected);
+  });
+
+  it('Should deserialize real instructions', () => {
+    const instructions = [
+      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+    ];
+    const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
+
+    const actual = decodeFromBytecode(bytecode);
+
+    expect(actual).toEqual(instructions);
+  });
+
+  it('Should serialize real instructions', () => {
+    const instructions = [
+      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+    ];
+
+    const actual = encodeToBytecode(instructions);
+
+    const expected = Buffer.concat(instructions.map(i => i.serialize()));
     expect(actual).toEqual(expected);
   });
 });

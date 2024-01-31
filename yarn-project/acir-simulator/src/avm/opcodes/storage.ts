@@ -2,7 +2,6 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field } from '../avm_memory_types.js';
-import { AvmInterpreterError } from '../interpreter/interpreter.js';
 import { AvmJournal } from '../journal/journal.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import {
@@ -12,7 +11,7 @@ import {
   deserialize,
   serialize,
 } from '../serialization/instruction_serialization.js';
-import { Instruction } from './instruction.js';
+import { Instruction, InstructionExecutionError } from './instruction.js';
 
 abstract class BaseStorageInstruction extends Instruction {
   // Instruction wire format with opcode.
@@ -109,7 +108,7 @@ export class SLoad extends BaseStorageInstruction {
 /**
  * Error is thrown when a static call attempts to alter storage
  */
-export class StaticCallStorageAlterError extends AvmInterpreterError {
+export class StaticCallStorageAlterError extends InstructionExecutionError {
   constructor() {
     super('Static calls cannot alter storage');
     this.name = 'StaticCallStorageAlterError';

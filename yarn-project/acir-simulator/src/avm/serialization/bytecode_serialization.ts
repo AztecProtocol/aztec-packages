@@ -6,12 +6,20 @@ import {
   Cast,
   Div,
   Eq,
+  InternalCall,
+  InternalReturn,
+  Jump,
+  JumpI,
   Lt,
   Lte,
   Mov,
   Mul,
   Not,
   Or,
+  Return,
+  Revert,
+  SLoad,
+  SStore,
   Set,
   Shl,
   Shr,
@@ -73,19 +81,18 @@ const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstructio
     // //[L2gasleft.opcode, L2gasleft],
     // //[Dagasleft.opcode, Dagasleft],
     // //// Machine State - Internal Control Flow
-    // [Jump.opcode, Jump],
-    // [JumpI.opcode, JumpI],
-    // [InternalCall.opcode, InternalCall],
-    // [InternalReturn.opcode, InternalReturn],
-    // //// Machine State - Memory
+    [Jump.opcode, Jump],
+    [JumpI.opcode, JumpI],
+    [InternalCall.opcode, InternalCall],
+    [InternalReturn.opcode, InternalReturn],
     [Set.opcode, Set],
     [Mov.opcode, Mov],
     [CMov.opcode, CMov],
 
     // //// World State
     // //[Blockheaderbynumber.opcode, Blockheaderbynumber],
-    // [SLoad.opcode, SLoad], // Public Storage
-    // [SStore.opcode, SStore], // Public Storage
+    [SLoad.opcode, SLoad], // Public Storage
+    [SStore.opcode, SStore], // Public Storage
     // //[Readl1tol2msg.opcode, Readl1tol2msg], // Messages
     // //[Sendl2tol1msg.opcode, Sendl2tol1msg], // Messages
     // //[Emitnotehash.opcode, Emitnotehash], // Notes & Nullifiers
@@ -97,8 +104,8 @@ const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstructio
     // //// Control Flow - Contract Calls
     // // [Call.opcode, Call],
     // //[Staticcall.opcode, Staticcall],
-    // [Return.opcode, Return],
-    // //[Revert.opcode, Revert],
+    [Return.opcode, Return],
+    [Revert.opcode, Revert],
 
     // //// Gadgets
     // //[Keccak.opcode, Keccak],
@@ -130,7 +137,7 @@ export function decodeFromBytecode(bytecode: Buffer, instructionSet: Instruction
   const cursor = new BufferCursor(bytecode);
 
   while (!cursor.eof()) {
-    const opcode: Opcode = cursor.readUint8();
+    const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
     const instructionDeserializerOrUndef = instructionSet.get(opcode);
     if (instructionDeserializerOrUndef === undefined) {
       throw new Error(`Opcode 0x${opcode.toString(16)} not implemented`);

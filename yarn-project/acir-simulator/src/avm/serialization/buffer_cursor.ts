@@ -14,10 +14,6 @@ export class BufferCursor {
     return this._position === this._buffer.length;
   }
 
-  public buffer(): Buffer {
-    return this._buffer;
-  }
-
   public bufferAtPosition(): Buffer {
     return this._buffer.subarray(this._position);
   }
