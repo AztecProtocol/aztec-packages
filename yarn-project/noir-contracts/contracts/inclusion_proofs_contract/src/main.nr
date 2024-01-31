@@ -51,6 +51,7 @@ contract InclusionProofs {
     struct Storage {
         private_values: Map<AztecAddress, Set<ValueNote>>,
         public_value: PublicState<Field>,
+        public_unused_value: PublicState<Field>,
     }
 
     impl Storage {
@@ -66,6 +67,10 @@ contract InclusionProofs {
                 public_value: PublicState::new(
                     context,
                     2, // Storage slot
+                ),
+                public_unused_value: PublicState::new(
+                    context,
+                    3, // Storage slot
                 ),
             }
         }
@@ -97,7 +102,7 @@ contract InclusionProofs {
     fn test_note_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the note exists
-        // Value bellow is only used when the note is not found --> used to test the note inclusion failure case (it
+        // Value below is only used when the note is not found --> used to test the note inclusion failure case (it
         // allows me to pass in random value of note nullifier - I cannot add and fetch a random note from PXE because
         // PXE performs note commitment inclusion check when you add a new note).
         spare_commitment: Field
@@ -126,7 +131,7 @@ contract InclusionProofs {
     fn test_nullifier_non_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the nullifier does not exists
-        // Value bellow is only used when the note is not found --> used to test the nullifier non-inclusion failure
+        // Value below is only used when the note is not found --> used to test the nullifier non-inclusion failure
         // case (it allows me to pass in random value of note nullifier - I cannot add and fetch a random note from PXE
         // because PXE performs note commitment inclusion check when you add a new note).
         spare_nullifier: Field
@@ -193,6 +198,17 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
+    fn test_public_unused_value_inclusion_proof(block_number: u32 // The block at which we'll prove that the public value exists
+    ) {
+        prove_public_value_inclusion(
+            0,
+            storage.public_unused_value.storage_slot,
+            block_number,
+            context
+        );
+    }
+
+    #[aztec(private)]
     fn test_public_value_inclusion_proof(
         public_value: Field,
         block_number: u32 // The block at which we'll prove that the public value exists
@@ -215,18 +231,18 @@ contract InclusionProofs {
     //       contract's aztec address instead of just the address.
     #[aztec(private)]
     fn test_contract_inclusion_proof(
-        deployer_public_key: GrumpkinPoint,
+        public_key: GrumpkinPoint,
         contract_address_salt: Field,
-        function_tree_root: Field,
-        constructor_hash: Field,
+        contract_class_id: Field,
+        initialization_hash: Field,
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
         let proven_contract_address = prove_contract_inclusion(
-            deployer_public_key,
+            public_key,
             contract_address_salt,
-            function_tree_root,
-            constructor_hash,
+            contract_class_id,
+            initialization_hash,
             portal_contract_address,
             block_number,
             context
