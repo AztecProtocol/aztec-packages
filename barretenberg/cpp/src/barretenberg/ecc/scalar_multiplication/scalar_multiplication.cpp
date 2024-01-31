@@ -210,8 +210,8 @@ void compute_wnaf_states(uint64_t* point_schedule,
     const size_t bits_per_bucket = get_optimal_bucket_width(num_initial_points);
     const size_t wnaf_bits = bits_per_bucket + 1;
     const size_t num_threads = get_num_cpus_pow2();
-    const size_t num_initial_points_per_thread = num_initial_points / num_threads;
-    const size_t num_points_per_thread = num_points / num_threads;
+    // const size_t num_initial_points_per_thread = num_initial_points / num_threads;
+    // const size_t num_points_per_thread = num_points / num_threads;
     std::array<std::array<uint64_t, MAX_NUM_ROUNDS>, MAX_NUM_THREADS> thread_round_counts;
     for (size_t i = 0; i < num_threads; ++i) {
         for (size_t j = 0; j < num_rounds; ++j) {
@@ -219,33 +219,37 @@ void compute_wnaf_states(uint64_t* point_schedule,
         }
     }
 
-    parallel_for(num_threads, [&](size_t i) {
-        Fr T0;
-        uint64_t* wnaf_table = &point_schedule[(2 * i) * num_initial_points_per_thread];
-        const Fr* thread_scalars = &scalars[i * num_initial_points_per_thread];
-        bool* skew_table = &input_skew_table[(2 * i) * num_initial_points_per_thread];
-        uint64_t offset = i * num_points_per_thread;
+    run_loop_in_parallel_if_effective_with_index(
+        num_initial_points,
+        [&](size_t start, size_t end, size_t i) {
+            Fr T0;
+            uint64_t* wnaf_table = &point_schedule[(2 * start)];
+            const Fr* thread_scalars = &scalars[start];
+            bool* skew_table = &input_skew_table[(2 * start)];
+            uint64_t offset = start;
 
-        for (uint64_t j = 0; j < num_initial_points_per_thread; ++j) {
-            T0 = thread_scalars[j].from_montgomery_form();
-            Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
+            for (uint64_t j = 0; j < end - start; ++j) {
+                T0 = thread_scalars[j].from_montgomery_form();
+                Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
 
-            wnaf::fixed_wnaf_with_counts(&T0.data[0],
-                                         &wnaf_table[(j << 1UL)],
-                                         skew_table[j << 1ULL],
-                                         &thread_round_counts[i][0],
-                                         ((j << 1ULL) + offset) << 32ULL,
-                                         num_points,
-                                         wnaf_bits);
-            wnaf::fixed_wnaf_with_counts(&T0.data[2],
-                                         &wnaf_table[(j << 1UL) + 1],
-                                         skew_table[(j << 1UL) + 1],
-                                         &thread_round_counts[i][0],
-                                         ((j << 1UL) + offset + 1) << 32UL,
-                                         num_points,
-                                         wnaf_bits);
-        }
-    });
+                wnaf::fixed_wnaf_with_counts(&T0.data[0],
+                                             &wnaf_table[(j << 1UL)],
+                                             skew_table[j << 1ULL],
+                                             &thread_round_counts[i][0],
+                                             ((j << 1ULL) + offset) << 32ULL,
+                                             num_points,
+                                             wnaf_bits);
+                wnaf::fixed_wnaf_with_counts(&T0.data[2],
+                                             &wnaf_table[(j << 1UL) + 1],
+                                             skew_table[(j << 1UL) + 1],
+                                             &thread_round_counts[i][0],
+                                             ((j << 1UL) + offset + 1) << 32UL,
+                                             num_points,
+                                             wnaf_bits);
+            }
+        },
+        0,
+        1);
 
     for (size_t i = 0; i < num_rounds; ++i) {
         round_counts[i] = 0;
