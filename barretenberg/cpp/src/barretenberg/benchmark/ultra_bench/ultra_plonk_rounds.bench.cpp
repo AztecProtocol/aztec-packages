@@ -55,7 +55,7 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
         plonk::UltraComposer composer;
         // TODO: https://github.com/AztecProtocol/barretenberg/issues/761 benchmark both sparse and dense circuits
         plonk::UltraProver prover = bb::mock_proofs::get_prover(
-            composer, &bb::mock_proofs::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
+            composer, &bb::stdlib::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
         // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
         state.ResumeTiming();
@@ -77,3 +77,5 @@ ROUND_BENCHMARK(THIRD_FIAT_SHAMIR_BETA_GAMMA)->Iterations(1);
 ROUND_BENCHMARK(FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT)->Iterations(1);
 ROUND_BENCHMARK(FIFTH_COMPUTE_QUOTIENT_EVALUTION)->Iterations(1);
 ROUND_BENCHMARK(SIXTH_BATCH_OPEN)->Iterations(1);
+
+BENCHMARK_MAIN();
