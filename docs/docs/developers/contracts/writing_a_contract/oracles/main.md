@@ -4,7 +4,7 @@ title: Oracle Functions
 
 This page goes over what oracles are in Aztec and how they work. 
 
-Looking for a hands-on guide? You can learn how to use oracles in a smart contract [here](../oracles.md).
+Looking for a hands-on guide? You can learn how to use oracles in a smart contract [here](./pop_capsule.md).
 
 An oracle is something that allows us to get data from the outside world into our contracts. The most widely-known types of oracles in blockchain systems are probably Chainlink price feeds, which allow us to get the price of an asset in USD taking non-blockchain data into account.
 

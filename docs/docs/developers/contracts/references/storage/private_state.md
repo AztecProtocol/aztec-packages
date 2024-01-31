@@ -248,7 +248,7 @@ This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essenti
 
 ### NoteGetterOptions
 
-`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](../../writing_a_contract/functions/oracles.md). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
+`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](../../writing_a_contract/oracles/main.md). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec-nr/aztec/src/note/note_getter_options.nr).
 

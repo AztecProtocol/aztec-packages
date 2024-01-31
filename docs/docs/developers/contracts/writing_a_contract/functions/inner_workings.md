@@ -54,7 +54,7 @@ Inside the kernel circuits, the inputs to functions are reduced to a single valu
 **Creating the function's context.**
 #include_code context-example-context /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Each Aztec function has access to a [context](../context.mdx) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+Each Aztec function has access to a [context](./context.md) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
 #include_code context-example-context-return /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
@@ -64,7 +64,7 @@ We achieve this by pushing return values to the execution context, which we then
 **Making the contract's storage available**
 #include_code storage-example-context /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-When a [`Storage` struct](../storage/main.md) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
+When a [`Storage` struct](../storage/define_storage.md) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
@@ -75,7 +75,7 @@ This function takes the application context, and converts it into the `PrivateCi
 
 ## Unconstrained functions
 
-Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../../learn/concepts/pxe/acir_simulator.md) without generating proofs. They are useful for extracting information from a user through an [oracle](./oracles.md).
+Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../../learn/concepts/pxe/acir_simulator.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/main.md).
 
 When an unconstrained function is called, it prompts the ACIR simulator to 
 

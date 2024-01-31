@@ -14,7 +14,7 @@ There are generally 4 main components involved to make it easier to use a slow u
 
 ## Main smart contract
 
-This is the primary smart contract that will use the slow updates tree. In the example we use a [token with blacklisting features](slow_updates_tree.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract).
+This is the primary smart contract that will use the slow updates tree. In the example we use a [token with blacklisting features](./implement_slow_updates.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract).
 
 ## Interface 
 

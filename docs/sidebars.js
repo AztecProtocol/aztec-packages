@@ -306,9 +306,7 @@ const sidebars = {
                 "developers/contracts/writing_a_contract/functions/context",
                 "developers/contracts/writing_a_contract/functions/public_private_unconstrained",
                 "developers/contracts/writing_a_contract/functions/visibility",
-                "developers/contracts/writing_a_contract/functions/constructor",
-                "developers/contracts/writing_a_contract/functions/calling_functions",
-                "developers/contracts/writing_a_contract/functions/oracles",
+                "developers/contracts/writing_a_contract/functions/call_functions",
                 "developers/contracts/writing_a_contract/functions/call_functions",
                 "developers/contracts/writing_a_contract/functions/write_constructor",
                 "developers/contracts/writing_a_contract/functions/inner_workings",
@@ -317,14 +315,9 @@ const sidebars = {
             {
               label: "Storage",
               type: "category",
-              link: {
-                type: "doc",
-                id: "developers/contracts/writing_a_contract/storage/main",
-              },
               items: [
-                "developers/contracts/writing_a_contract/storage/private_state",
-                "developers/contracts/writing_a_cntract/storage/public_state",
                 "developers/contracts/writing_a_contract/storage/define_storage",
+                "developers/contracts/writing_a_contract/storage/storage_slots",
               ],
             },
             {
@@ -344,6 +337,10 @@ const sidebars = {
             {
               label: "Oracles",
               type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/writing_a_contract/oracles/main",
+              },
               items: [
                 "developers/contracts/writing_a_contract/oracles/inbuilt_oracles",
                 "developers/contracts/writing_a_contract/oracles/pop_capsule",
@@ -393,6 +390,37 @@ const sidebars = {
           items: [
             "developers/contracts/testing_a_contract/cheat_codes",
                      ],
+        },
+        {
+          label: "References",
+          type: "category",
+          items: [
+            "developers/contracts/references/globals",
+            {
+              label: "Storage Reference",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/references/storage/main",
+              },
+              items: [
+                "developers/contracts/references/storage/private_state",
+                "developers/contracts/references/storage/public_state"
+              ],
+            },
+            {
+              label: "Portals Reference",
+              type: "category",
+              items: [
+                "developers/contracts/references/portals/data_structures",
+                "developers/contracts/references/portals/inbox",
+                "developers/contracts/references/portals/outbox",
+                "developers/contracts/references/portals/registry",
+              ],
+            },
+            "developers/contracts/references/history_lib_reference",
+            "developers/contracts/references/slow_updates_tree",
+          ],
         },
         {
           label: "Resources",

@@ -1,3 +1,12 @@
+---
+title: Storage Reference
+---
+
+## Public and private state variables
+
+Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data or note viewing key with).
+
+Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](../../../../learn/concepts/hybrid_state/main.md) and [private/public execution](../../../../learn/concepts/communication/public_private_calls/main.md)) for more background.
 
 ## Map
 

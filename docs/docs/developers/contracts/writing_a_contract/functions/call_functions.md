@@ -2,7 +2,7 @@
 title: Call functions from other functions
 ---
 
-A contract is a collection of persistent [state variables](../storage/main.md#public-and-private-state-variables), and [functions](../functions/main.md) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state. If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
+A contract is a collection of persistent [state variables](../../references/storage/main.md), and [functions](../functions/main.md) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state. If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
 
 # Contract
 

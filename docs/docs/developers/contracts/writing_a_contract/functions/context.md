@@ -97,7 +97,7 @@ The `args_hash` is the result of pedersen hashing all of a function's inputs.
 
 ### Return Values
 
-The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./functions/inner_workings.md#after-expansion) for more details.
+The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./inner_workings.md#after-expansion) for more details.
 
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
@@ -129,7 +129,7 @@ The public call stack contains all of the external function calls that are creat
 
 ### New L2 to L1 msgs
 
-New L2 to L1 messages contains messages that are delivered to the [l1 outbox](../../../learn/concepts/communication/cross_chain_calls.md) on the execution of each rollup.
+New L2 to L1 messages contains messages that are delivered to the [l1 outbox](../../../../learn/concepts/communication/cross_chain_calls.md) on the execution of each rollup.
 
 ## Public Context
 

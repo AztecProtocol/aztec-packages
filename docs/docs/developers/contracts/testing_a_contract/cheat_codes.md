@@ -565,5 +565,5 @@ Keep up with the latest discussion and join the conversation in the [Aztec forum
 
 You can also use the above link to request more cheatcodes.
 
-import Disclaimer from "../../misc/common/\_disclaimer.mdx";
+import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>

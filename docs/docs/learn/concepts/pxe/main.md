@@ -31,7 +31,7 @@ graph TD;
 
 ## PXE Service 
 
-The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. It provides functions for account management, contract and transaction interactions, note management, and more. For a more extensive list of operations, refer to the [PXE reference](../../../developers/sandbox/references/pxe_reference/index.md).
+The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. It provides functions for account management, contract and transaction interactions, note management, and more. For a more extensive list of operations, refer to the [PXE reference](../../../apis/pxe/index.md).
 
 ## Components
 
@@ -62,7 +62,7 @@ The keystore is a secure storage for private and public keys.
 
 ## Oracles
 
-Oracles are pieces of data that are injected into a smart contract function from the client side. You can read more about why and how they work in the [functions section](../../../developers/contracts/writing_a_contract/functions/oracles.md).
+Oracles are pieces of data that are injected into a smart contract function from the client side. You can read more about why and how they work in the [functions section](../../../developers/contracts/writing_a_contract/oracles/main.md).
 
 ## For developers
 To learn how to develop on top of the PXE, refer to these guides:

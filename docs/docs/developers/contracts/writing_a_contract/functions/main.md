@@ -14,7 +14,7 @@ Explore this section to learn:
 
 - [How function visibility works in Aztec](./visibility.md)
 - [Public, private, and unconstrained functions](./public_private_unconstrained.md), and how to write them
-- How [constructors](./constructor.md) work and remain private
-- [Calling functions from within the same smart contract and from different contracts](./calling_functions.md), including calling private functions from private functions, public from public, and even private from public
+- How [constructors](./write_constructor.md) work and remain private
+- [Calling functions from within the same smart contract and from different contracts](./call_functions.md), including calling private functions from private functions, public from public, and even private from public
 - [Oracles](./oracles) and how Aztec smart contracts might use them
 - [How functions work under the hood](./inner_workings.md)
