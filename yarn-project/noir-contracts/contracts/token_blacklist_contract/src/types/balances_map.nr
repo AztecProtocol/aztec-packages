@@ -1,5 +1,4 @@
 use dep::std::option::Option;
-use crate::types::balance_set::BalanceSet;
 use dep::safe_math::SafeU120;
 use dep::aztec::{
     context::{PrivateContext, PublicContext, Context},
