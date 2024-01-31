@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
-add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion)
+add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -85,9 +85,7 @@ if(SMT)
     add_subdirectory(barretenberg/smt_verification)
 endif()
 
-if(BENCHMARKS)
-    add_subdirectory(barretenberg/benchmark)
-endif()
+add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
@@ -107,6 +105,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+    $<TARGET_OBJECTS:crypto_poseidon2_objects>
     $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
@@ -130,6 +129,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
+    $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
     $<TARGET_OBJECTS:stdlib_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
