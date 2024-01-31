@@ -613,7 +613,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
         Transcript() = default;
 
-        Transcript(const honk::proof& proof)
+        Transcript(const HonkProof& proof)
             : BaseTranscript(proof)
         {}
 
@@ -793,10 +793,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             }
             shplonk_q_comm =
                 BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
-            if (std::is_same<PCS, pcs::kzg::KZG<curve::BN254>>::value) {
+            if (std::is_same<PCS, KZG<curve::BN254>>::value) {
                 kzg_w_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
                                                                                           num_frs_read);
-            } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+            } else if (std::is_same<PCS, IPA<curve::Grumpkin>>::value) {
                 ipa_poly_degree = BaseTranscript::template deserialize_from_buffer<uint64_t>(BaseTranscript::proof_data,
                                                                                              num_frs_read);
                 auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));

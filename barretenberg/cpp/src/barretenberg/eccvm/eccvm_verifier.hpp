@@ -30,7 +30,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     ECCVMVerifier_& operator=(ECCVMVerifier_&& other) noexcept;
     ~ECCVMVerifier_() = default;
 
-    bool verify_proof(const honk::proof& proof);
+    bool verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

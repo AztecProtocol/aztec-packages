@@ -13,7 +13,7 @@
 
 namespace bb {
 
-using Flavor = honk::flavor::AvmMiniFlavor;
+using Flavor = AvmMiniFlavor;
 using FF = Flavor::FF;
 
 /**
@@ -99,13 +99,13 @@ void AvmMiniProver::execute_zeromorph_rounds()
                      transcript);
 }
 
-honk::proof& AvmMiniProver::export_proof()
+HonkProof& AvmMiniProver::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-bb::honk::proof& AvmMiniProver::construct_proof()
+HonkProof& AvmMiniProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

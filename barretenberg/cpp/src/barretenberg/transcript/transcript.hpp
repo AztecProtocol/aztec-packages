@@ -66,7 +66,7 @@ class BaseTranscript {
   public:
     using Fr = bb::fr;
     using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
-    using Proof = honk::proof;
+    using Proof = HonkProof;
 
     BaseTranscript() = default;
 

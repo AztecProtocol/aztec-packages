@@ -17,8 +17,7 @@ DeciderRecursiveVerifier_<Flavor>::DeciderRecursiveVerifier_(Builder* builder)
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::verify_proof(
-    const bb::honk::proof& proof)
+std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;

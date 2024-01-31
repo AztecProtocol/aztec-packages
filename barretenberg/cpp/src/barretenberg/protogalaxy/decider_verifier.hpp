@@ -18,7 +18,7 @@ template <typename Flavor> class DeciderVerifier_ {
     explicit DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
                               const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
 
-    bool verify_proof(const honk::proof& proof);
+    bool verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

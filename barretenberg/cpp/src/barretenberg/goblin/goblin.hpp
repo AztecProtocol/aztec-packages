@@ -13,8 +13,7 @@
 namespace bb {
 
 class Goblin {
-    using HonkProof = bb::honk::proof;
-    using GUHFlavor = bb::honk::flavor::GoblinUltra;
+    using GUHFlavor = GoblinUltraFlavor;
     using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
 
     using GUHVerificationKey = GUHFlavor::VerificationKey;
@@ -24,19 +23,19 @@ class Goblin {
   public:
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
-    using Transcript = bb::honk::BaseTranscript;
+    using Transcript = bb::BaseTranscript;
 
-    using GoblinUltraComposer = bb::honk::UltraComposer_<GUHFlavor>;
-    using GoblinUltraVerifier = bb::honk::UltraVerifier_<GUHFlavor>;
+    using GoblinUltraComposer = bb::UltraComposer_<GUHFlavor>;
+    using GoblinUltraVerifier = bb::UltraVerifier_<GUHFlavor>;
     using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::honk::flavor::ECCVM;
+    using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = bb::honk::ECCVMComposer;
-    using ECCVMProver = bb::honk::ECCVMProver_<ECCVMFlavor>;
+    using ECCVMComposer = bb::ECCVMComposer;
+    using ECCVMProver = bb::ECCVMProver_<ECCVMFlavor>;
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = bb::honk::GoblinTranslatorComposer;
+    using TranslatorComposer = bb::GoblinTranslatorComposer;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = bb::honk::MergeVerifier_<GUHFlavor>;
+    using MergeVerifier = bb::MergeVerifier_<GUHFlavor>;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *

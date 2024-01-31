@@ -25,7 +25,7 @@ DeciderVerifier_<Flavor>::DeciderVerifier_()
  * e*).
  *
  */
-template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const honk::proof& proof)
+template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;

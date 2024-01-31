@@ -168,13 +168,13 @@ void GoblinTranslatorProver::execute_zeromorph_rounds()
                      prover_polynomials.get_concatenation_groups());
 }
 
-honk::proof& GoblinTranslatorProver::export_proof()
+HonkProof& GoblinTranslatorProver::export_proof()
 {
     proof = transcript->export_proof();
     return proof;
 }
 
-honk::proof& GoblinTranslatorProver::construct_proof()
+HonkProof& GoblinTranslatorProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

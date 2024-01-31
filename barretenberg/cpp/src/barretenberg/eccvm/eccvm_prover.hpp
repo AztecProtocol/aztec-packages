@@ -42,8 +42,8 @@ template <IsECCVMFlavor Flavor> class ECCVMProver_ {
     BBERG_PROFILE void execute_final_pcs_round();
     BBERG_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    honk::proof& export_proof();
-    honk::proof& construct_proof();
+    HonkProof& export_proof();
+    HonkProof& construct_proof();
 
     std::shared_ptr<Transcript> transcript;
 
@@ -80,7 +80,7 @@ template <IsECCVMFlavor Flavor> class ECCVMProver_ {
     using Shplonk = ShplonkProver_<Curve>;
 
   private:
-    honk::proof proof;
+    HonkProof proof;
 };
 
 } // namespace bb

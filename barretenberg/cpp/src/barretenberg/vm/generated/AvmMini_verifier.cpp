@@ -29,7 +29,7 @@ AvmMiniVerifier& AvmMiniVerifier::operator=(AvmMiniVerifier&& other) noexcept
  * @brief This function verifies an AvmMini Honk proof for given program settings.
  *
  */
-bool AvmMiniVerifier::verify_proof(const honk::proof& proof)
+bool AvmMiniVerifier::verify_proof(const HonkProof& proof)
 {
     using Flavor = AvmMiniFlavor;
     using FF = Flavor::FF;

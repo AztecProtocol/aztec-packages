@@ -22,7 +22,7 @@ class ToyVerifier {
     ToyVerifier& operator=(const ToyVerifier& other) = delete;
     ToyVerifier& operator=(ToyVerifier&& other) noexcept;
 
-    bool verify_proof(const honk::proof& proof);
+    bool verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

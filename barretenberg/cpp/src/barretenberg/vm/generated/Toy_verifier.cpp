@@ -27,7 +27,7 @@ ToyVerifier& ToyVerifier::operator=(ToyVerifier&& other) noexcept
  * @brief This function verifies an Toy Honk proof for given program settings.
  *
  */
-bool ToyVerifier::verify_proof(const honk::proof& proof)
+bool ToyVerifier::verify_proof(const HonkProof& proof)
 {
     using Flavor = ToyFlavor;
     using FF = Flavor::FF;

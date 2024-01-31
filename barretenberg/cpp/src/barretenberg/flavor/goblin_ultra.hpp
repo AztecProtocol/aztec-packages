@@ -506,7 +506,7 @@ class GoblinUltraFlavor {
 
         Transcript_() = default;
 
-        Transcript_(const honk::proof& proof)
+        Transcript_(const HonkProof& proof)
             : BaseTranscript(proof)
         {}
 

@@ -163,7 +163,7 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
 }
 
 template <class VerifierInstances>
-void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(const bb::honk::proof& proof)
+void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(const HonkProof& proof)
 {
     using Transcript = typename Flavor::Transcript;
     using ElementNative = typename Flavor::Curve::ElementNative;

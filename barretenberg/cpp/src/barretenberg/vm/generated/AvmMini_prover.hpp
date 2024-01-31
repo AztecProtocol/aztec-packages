@@ -31,8 +31,8 @@ class AvmMiniProver {
     void execute_relation_check_rounds();
     void execute_zeromorph_rounds();
 
-    honk::proof& export_proof();
-    honk::proof& construct_proof();
+    HonkProof& export_proof();
+    HonkProof& construct_proof();
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -56,7 +56,7 @@ class AvmMiniProver {
     using ZeroMorph = ZeroMorphProver_<Curve>;
 
   private:
-    honk::proof proof;
+    HonkProof proof;
 };
 
 } // namespace bb
