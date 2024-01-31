@@ -18,9 +18,6 @@ contract DocsExample {
         address::AztecAddress,
     };
     use dep::aztec::{
-        oracle::{
-            debug_log::debug_log_format,
-        },
         note::{
             note_header::NoteHeader,
             note_getter_options::{NoteGetterOptions, Comparator},
@@ -28,7 +25,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set},
+        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_public_state::StablePublicState},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -49,10 +46,30 @@ contract DocsExample {
         // docs:end:storage-map-singleton-declaration
         test: Set<CardNote>,
         imm_singleton: ImmutableSingleton<CardNote>,
+        stable_value: StablePublicState<Leader>,
     }
 
     #[aztec(private)]
     fn constructor() {}
+
+    #[aztec(public)]
+    fn initialize_stable(points: u8) {
+        let mut new_leader = Leader { account: context.msg_sender(), points };
+        storage.stable_value.initialize(new_leader);
+    }
+
+    #[aztec(private)]
+    fn match_stable(account: AztecAddress, points: u8) {
+        let expected = Leader { account, points };
+        let read = storage.stable_value.read_private();
+
+        assert(read.account == expected.account, "Invalid account");
+        assert(read.points == expected.points, "Invalid points");
+    }
+
+    unconstrained fn get_stable() -> pub Leader {
+        storage.stable_value.read_public()
+    }
 
     #[aztec(private)]
     fn initialize_immutable_singleton(randomness: Field, points: u8) {

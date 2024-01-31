@@ -31,19 +31,11 @@ Say that we wish to add `admin` public state variable into our storage struct. I
 
 #include_code storage_admin /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
-And then when initializing it in the `Storage::init` function we can do:
-
-#include_code storage_admin_init /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
-
-We have specified that we are storing a `Field` that should be placed in storage slot `1`. This is just a single value, and is similar to the following in solidity:
+We have specified that we are storing a `Field`. This is just a single value, and is similar to the following in solidity:
 
 ```solidity
 address internal admin;
 ```
-
-:::info
-We know its verbose, and are working on making it less so.
-:::
 
 #### Mapping example
 
@@ -51,11 +43,7 @@ Say we want to have a group of `minters` that are able to mint assets in our con
 
 #include_code storage_minters /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
-And then when initializing it in the `Storage::init` function we can do it as follows:
-
-#include_code storage_minters_init /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
-
-In this case, specifying that we are dealing with a map of Fields, and that it should be put at slot 2.
+In this case, specifying that we are dealing with a map of Fields.
 
 This would be similar to the following in solidity:
 

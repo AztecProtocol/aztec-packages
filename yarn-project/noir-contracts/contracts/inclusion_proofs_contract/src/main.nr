@@ -51,6 +51,7 @@ contract InclusionProofs {
     struct Storage {
         private_values: Map<AztecAddress, Set<ValueNote>>,
         public_value: PublicState<Field>,
+        public_unused_value: PublicState<Field>,
     }
 
     #[aztec(private)]
@@ -172,6 +173,17 @@ contract InclusionProofs {
         // docs:start:prove_nullifier_inclusion
         prove_nullifier_inclusion(nullifier, block_number, context);
         // docs:end:prove_nullifier_inclusion
+    }
+
+    #[aztec(private)]
+    fn test_public_unused_value_inclusion_proof(block_number: u32 // The block at which we'll prove that the public value exists
+    ) {
+        prove_public_value_inclusion(
+            0,
+            storage.public_unused_value.storage_slot,
+            block_number,
+            context
+        );
     }
 
     #[aztec(private)]

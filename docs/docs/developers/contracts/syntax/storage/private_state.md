@@ -188,10 +188,6 @@ And can be added to the `Storage` struct as follows. Here adding a set for a cus
 
 The `new` method tells the contract how to operate on the underlying storage.
 
-We can initialize the set as follows:
-
-#include_code storage_pending_shields_init /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
-
 ### `insert`
 
 Allows us to modify the storage by inserting a note into the set.
