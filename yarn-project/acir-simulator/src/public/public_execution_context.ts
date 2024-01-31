@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { TypedOracle, toACVMField, toACVMGlobalVariables, toACVMWitness } from '../acvm/index.js';
+import { TypedOracle, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
@@ -50,9 +50,9 @@ export class PublicExecutionContext extends TypedOracle {
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
     const fields = [
-      ...callContext.toFields().map(toACVMField),
-      ...this.header.toFields().map(toACVMField),
-      ...toACVMGlobalVariables(this.globalVariables),
+      ...callContext.toFields(),
+      ...this.header.toFields(),
+      ...this.globalVariables.toFields(),
 
       ...args,
     ];

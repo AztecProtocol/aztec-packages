@@ -1,8 +1,7 @@
 import {
-  GlobalVariables,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PublicCallRequest,
+  PublicCallRequest
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -48,20 +47,6 @@ export function toACVMField(
 
 // Utilities to write TS classes to ACVM Field arrays
 // In the order that the ACVM expects them
-
-/**
- * Converts global variables into ACVM fields
- * @param globalVariables - The global variables object to convert.
- * @returns The ACVM fields
- */
-export function toACVMGlobalVariables(globalVariables: GlobalVariables): ACVMField[] {
-  return [
-    toACVMField(globalVariables.chainId),
-    toACVMField(globalVariables.version),
-    toACVMField(globalVariables.blockNumber),
-    toACVMField(globalVariables.timestamp),
-  ];
-}
 
 /**
  * Converts the public inputs structure to ACVM fields.

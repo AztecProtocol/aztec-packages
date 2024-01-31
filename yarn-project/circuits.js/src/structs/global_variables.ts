@@ -61,7 +61,7 @@ export class GlobalVariables {
     return serializeToBuffer(...GlobalVariables.getFields(this));
   }
 
-  toFieldArray() {
+  toFields() {
     return GlobalVariables.getFields(this);
   }
 

@@ -38,7 +38,7 @@ export class Header {
       ...this.lastArchive.toFieldArray(),
       ...to2Fields(this.bodyHash),
       ...this.state.toFieldArray(),
-      ...this.globalVariables.toFieldArray(),
+      ...this.globalVariables.toFields(),
     ];
     if (serialized.length !== HEADER_LENGTH) {
       throw new Error(`Expected header to have ${HEADER_LENGTH} fields, but it has ${serialized.length} fields`);
