@@ -16,7 +16,7 @@ namespace bb::honk {
 class MergeProver {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = polynomial;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using Commitment = Curve::AffineElement;
     using PCS = pcs::kzg::KZG<Curve>;
