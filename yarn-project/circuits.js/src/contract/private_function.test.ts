@@ -28,7 +28,7 @@ describe('PrivateFunction', () => {
 
   it('sorts functions before computing tree', () => {
     const root = computePrivateFunctionsRoot(privateFunctions);
-    const rootReversed = computePrivateFunctionsRoot(privateFunctions.toReversed());
+    const rootReversed = computePrivateFunctionsRoot([...privateFunctions].reverse());
     expect(root.equals(rootReversed)).toBe(true);
   });
 });
