@@ -552,8 +552,7 @@ export class AztecNodeService implements AztecNode {
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
-    const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    await merkleTrees.init();
+    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, this.log);
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),

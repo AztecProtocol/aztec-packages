@@ -21,7 +21,7 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { AztecKVStore } from '@aztec/kv-store';
 import {
@@ -68,12 +68,12 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
   private jobQueue = new SerialQueue();
 
-  constructor(private store: AztecKVStore, private log = createDebugLogger('aztec:merkle_trees')) {}
+  private constructor(private store: AztecKVStore, private log: DebugLogger) {}
 
   /**
    * Initializes the collection of Merkle Trees.
    */
-  public async init() {
+  async #init() {
     const fromDb = this.#isDbPopulated();
     const initializeTree = fromDb ? loadTree : newTree;
 
@@ -141,9 +141,9 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param store - The db instance to use for data persistance.
    * @returns - A fully initialized MerkleTrees instance.
    */
-  public static async new(store: AztecKVStore) {
-    const merkleTrees = new MerkleTrees(store);
-    await merkleTrees.init();
+  public static async new(store: AztecKVStore, log = createDebugLogger('aztec:merkle_trees')) {
+    const merkleTrees = new MerkleTrees(store, log);
+    await merkleTrees.#init();
     return merkleTrees;
   }
 
