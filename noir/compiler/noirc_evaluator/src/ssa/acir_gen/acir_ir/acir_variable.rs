@@ -400,8 +400,8 @@ impl AcirContext {
             // Operands are booleans.
             //
             // a ^ b == a + b - 2*a*b
-            let sum = self.add_var(lhs, rhs)?;
             let prod = self.mul_var(lhs, rhs)?;
+            let sum = self.add_var(lhs, rhs)?;
             self.add_mul_var(sum, -FieldElement::from(2_i128), prod)
         } else {
             let inputs = vec![AcirValue::Var(lhs, typ.clone()), AcirValue::Var(rhs, typ)];
@@ -461,8 +461,8 @@ impl AcirContext {
         if bit_size == 1 {
             // Operands are booleans
             // a + b - ab
-            let sum = self.add_var(lhs, rhs)?;
             let mul = self.mul_var(lhs, rhs)?;
+            let sum = self.add_var(lhs, rhs)?;
             self.sub_var(sum, mul)
         } else {
             // Implement OR in terms of AND
@@ -1441,20 +1441,22 @@ impl AcirContext {
         inputs: Vec<AcirValue>,
         outputs: Vec<AcirType>,
         attempt_execution: bool,
-    ) -> Result<Vec<AcirValue>, InternalError> {
-        let b_inputs = try_vecmap(inputs, |i| match i {
-            AcirValue::Var(var, _) => Ok(BrilligInputs::Single(self.var_to_expression(var)?)),
-            AcirValue::Array(vars) => {
-                let mut var_expressions: Vec<Expression> = Vec::new();
-                for var in vars {
-                    self.brillig_array_input(&mut var_expressions, var)?;
+    ) -> Result<Vec<AcirValue>, RuntimeError> {
+        let b_inputs = try_vecmap(inputs, |i| -> Result<_, InternalError> {
+            match i {
+                AcirValue::Var(var, _) => Ok(BrilligInputs::Single(self.var_to_expression(var)?)),
+                AcirValue::Array(vars) => {
+                    let mut var_expressions: Vec<Expression> = Vec::new();
+                    for var in vars {
+                        self.brillig_array_input(&mut var_expressions, var)?;
+                    }
+                    Ok(BrilligInputs::Array(var_expressions))
                 }
-                Ok(BrilligInputs::Array(var_expressions))
-            }
-            AcirValue::DynamicArray(_) => {
-                let mut var_expressions = Vec::new();
-                self.brillig_array_input(&mut var_expressions, i)?;
-                Ok(BrilligInputs::Array(var_expressions))
+                AcirValue::DynamicArray(_) => {
+                    let mut var_expressions = Vec::new();
+                    self.brillig_array_input(&mut var_expressions, i)?;
+                    Ok(BrilligInputs::Array(var_expressions))
+                }
             }
         })?;
 
@@ -1488,6 +1490,34 @@ impl AcirContext {
         });
         let predicate = self.var_to_expression(predicate)?;
         self.acir_ir.brillig(Some(predicate), generated_brillig, b_inputs, b_outputs);
+
+        fn range_constraint_value(
+            context: &mut AcirContext,
+            value: &AcirValue,
+        ) -> Result<(), RuntimeError> {
+            match value {
+                AcirValue::Var(var, typ) => {
+                    let numeric_type = match typ {
+                        AcirType::NumericType(numeric_type) => numeric_type,
+                        _ => unreachable!("`AcirValue::Var` may only hold primitive values"),
+                    };
+                    context.range_constrain_var(*var, numeric_type, None)?;
+                }
+                AcirValue::Array(values) => {
+                    for value in values {
+                        range_constraint_value(context, value)?;
+                    }
+                }
+                AcirValue::DynamicArray(_) => {
+                    unreachable!("Brillig opcodes cannot return dynamic arrays")
+                }
+            }
+            Ok(())
+        }
+
+        for output_var in &outputs_var {
+            range_constraint_value(self, output_var)?;
+        }
 
         Ok(outputs_var)
     }

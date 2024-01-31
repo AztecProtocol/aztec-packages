@@ -339,7 +339,7 @@ impl BaseRollupInputs {
 
         // Rebuild the block hash
         let header = self.kernel_data.public_inputs.constants.historical_header;
-        let previous_block_hash = header.block_hash();
+        let previous_block_hash = header.hash();
 
         let previous_block_hash_witness = self.archive_root_membership_witness;
 
@@ -598,7 +598,6 @@ mod tests {
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{AztecAddress, EthAddress},
         contract_class::ContractClassId,
-        utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
         partial_state_reference::PartialStateReference,
     };
@@ -739,7 +738,7 @@ mod tests {
             let _nullifier = builder.end.new_nullifiers.pop();
             inputs.kernel_data = builder.is_public();
   
-            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.block_hash();
+            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
             inputs
         }
