@@ -130,3 +130,4 @@ export function serialize(operands: OperandPair[], cls: any): Buffer {
 
   return Buffer.concat(chunks);
 }
+

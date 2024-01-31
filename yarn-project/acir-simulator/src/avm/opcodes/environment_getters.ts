@@ -14,7 +14,7 @@ import { Instruction } from './instruction.js';
 
 abstract class GetterInstruction extends Instruction {
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(c: GetterInstruction) => c.opcode, OperandType.UINT8],
     [(c: GetterInstruction) => c.indirect, OperandType.UINT8],
     [(c: GetterInstruction) => c.dstOffset, OperandType.UINT32],
@@ -54,9 +54,6 @@ export class Address extends GetterInstruction {
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.address;
   }
-  public static deserialize(buf: BufferCursor | Buffer): Address {
-    return new Address(...GetterInstruction.deserializeBase(buf));
-  }
 }
 
 export class StorageAddress extends GetterInstruction {
@@ -68,9 +65,6 @@ export class StorageAddress extends GetterInstruction {
   }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.storageAddress;
-  }
-  public static deserialize(buf: BufferCursor | Buffer): StorageAddress {
-    return new StorageAddress(...GetterInstruction.deserializeBase(buf));
   }
 }
 
@@ -84,9 +78,6 @@ export class Sender extends GetterInstruction {
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.sender;
   }
-  public static deserialize(buf: BufferCursor | Buffer): Sender {
-    return new Sender(...GetterInstruction.deserializeBase(buf));
-  }
 }
 
 export class Origin extends GetterInstruction {
@@ -98,9 +89,6 @@ export class Origin extends GetterInstruction {
   }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.origin;
-  }
-  public static deserialize(buf: BufferCursor | Buffer): Origin {
-    return new Origin(...GetterInstruction.deserializeBase(buf));
   }
 }
 
@@ -114,9 +102,6 @@ export class FeePerL1Gas extends GetterInstruction {
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.feePerL1Gas;
   }
-  public static deserialize(buf: BufferCursor | Buffer): FeePerL1Gas {
-    return new FeePerL1Gas(...GetterInstruction.deserializeBase(buf));
-  }
 }
 
 export class FeePerL2Gas extends GetterInstruction {
@@ -128,9 +113,6 @@ export class FeePerL2Gas extends GetterInstruction {
   }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.feePerL2Gas;
-  }
-  public static deserialize(buf: BufferCursor | Buffer): FeePerL2Gas {
-    return new FeePerL2Gas(...GetterInstruction.deserializeBase(buf));
   }
 }
 
@@ -144,9 +126,6 @@ export class FeePerDAGas extends GetterInstruction {
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.feePerDaGas;
   }
-  public static deserialize(buf: BufferCursor | Buffer): FeePerDAGas {
-    return new FeePerDAGas(...GetterInstruction.deserializeBase(buf));
-  }
 }
 
 export class Portal extends GetterInstruction {
@@ -158,9 +137,6 @@ export class Portal extends GetterInstruction {
   }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.portal.toField();
-  }
-  public static deserialize(buf: BufferCursor | Buffer): Portal {
-    return new Portal(...GetterInstruction.deserializeBase(buf));
   }
 }
 
@@ -174,9 +150,6 @@ export class ChainId extends GetterInstruction {
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.chainId;
   }
-  public static deserialize(buf: BufferCursor | Buffer): ChainId {
-    return new ChainId(...GetterInstruction.deserializeBase(buf));
-  }
 }
 
 export class Version extends GetterInstruction {
@@ -188,9 +161,6 @@ export class Version extends GetterInstruction {
   }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.version;
-  }
-  public static deserialize(buf: BufferCursor | Buffer): Version {
-    return new Version(...GetterInstruction.deserializeBase(buf));
   }
 }
 
@@ -204,9 +174,6 @@ export class BlockNumber extends GetterInstruction {
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.blockNumber;
   }
-  public static deserialize(buf: BufferCursor | Buffer): BlockNumber {
-    return new BlockNumber(...GetterInstruction.deserializeBase(buf));
-  }
 }
 
 export class Timestamp extends GetterInstruction {
@@ -218,9 +185,6 @@ export class Timestamp extends GetterInstruction {
   }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.timestamp;
-  }
-  public static deserialize(buf: BufferCursor | Buffer): Timestamp {
-    return new Timestamp(...GetterInstruction.deserializeBase(buf));
   }
 }
 

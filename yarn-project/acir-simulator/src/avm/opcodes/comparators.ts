@@ -1,6 +1,5 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmJournal } from '../journal/index.js';
-import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
@@ -17,10 +16,6 @@ export class Eq extends ThreeOperandInstruction {
     return Eq.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Eq {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Eq(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -46,11 +41,6 @@ export class Lt extends ThreeOperandInstruction {
 
   protected get opcode() {
     return Lt.opcode;
-  }
-
-  public static deserialize(buf: BufferCursor | Buffer): Lt {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Lt(...args);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -79,10 +69,6 @@ export class Lte extends ThreeOperandInstruction {
     return Lte.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Lte {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Lte(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);

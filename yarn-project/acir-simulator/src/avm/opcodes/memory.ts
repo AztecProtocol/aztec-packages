@@ -1,12 +1,10 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/index.js';
-import { BufferCursor } from '../serialization/buffer_cursor.js';
 import {
   Opcode,
   OperandPair,
   OperandType,
-  deserialize,
   serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
@@ -17,7 +15,7 @@ export class Set extends Instruction {
   static readonly opcode: Opcode = Opcode.SET;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: Set) => Set.opcode, OperandType.UINT8],
     [(c: Set) => c.indirect, OperandType.UINT8],
     [(c: Set) => c.inTag, OperandType.UINT8],
@@ -29,11 +27,6 @@ export class Set extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Set {
-    const res = deserialize(buf, Set.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof Set>; // Remove opcode.
-    return new Set(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(Set.wireFormat, this);
@@ -53,7 +46,7 @@ export class CMov extends Instruction {
   static readonly opcode: Opcode = Opcode.CMOV;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: CMov) => CMov.opcode, OperandType.UINT8],
     [(c: CMov) => c.indirect, OperandType.UINT8],
     [(c: CMov) => c.aOffset, OperandType.UINT32],
@@ -72,11 +65,6 @@ export class CMov extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): CMov {
-    const res = deserialize(buf, CMov.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof CMov>; // Remove opcode.
-    return new CMov(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(CMov.wireFormat, this);
@@ -106,10 +94,6 @@ export class Cast extends TwoOperandInstruction {
     return Cast.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Cast {
-    const args = TwoOperandInstruction.deserializeBase(buf);
-    return new Cast(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -129,7 +113,7 @@ export class Mov extends Instruction {
   static readonly opcode: Opcode = Opcode.MOV;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: Mov) => Mov.opcode, OperandType.UINT8],
     [(c: Mov) => c.indirect, OperandType.UINT8],
     [(c: Mov) => c.srcOffset, OperandType.UINT32],
@@ -140,11 +124,6 @@ export class Mov extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Mov {
-    const res = deserialize(buf, Mov.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof Mov>; // Remove opcode.
-    return new Mov(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(Mov.wireFormat, this);
@@ -164,7 +143,7 @@ export class CalldataCopy extends Instruction {
   static readonly opcode: Opcode = Opcode.CALLDATACOPY;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: CalldataCopy) => CalldataCopy.opcode, OperandType.UINT8],
     [(c: CalldataCopy) => c.indirect, OperandType.UINT8],
     [(c: CalldataCopy) => c.cdOffset, OperandType.UINT32],
@@ -176,11 +155,6 @@ export class CalldataCopy extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): CalldataCopy {
-    const res = deserialize(buf, CalldataCopy.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof CalldataCopy>; // Remove opcode.
-    return new CalldataCopy(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(CalldataCopy.wireFormat, this);

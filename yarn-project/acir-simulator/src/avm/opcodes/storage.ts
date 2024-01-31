@@ -15,7 +15,7 @@ import { Instruction, InstructionExecutionError } from './instruction.js';
 
 abstract class BaseStorageInstruction extends Instruction {
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(c: BaseStorageInstruction) => c.opcode, OperandType.UINT8],
     [(c: BaseStorageInstruction) => c.indirect, OperandType.UINT8],
     [(c: BaseStorageInstruction) => c.aOffset, OperandType.UINT32],
@@ -51,10 +51,6 @@ export class SStore extends BaseStorageInstruction {
     return SStore.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): SStore {
-    const args = BaseStorageInstruction.deserializeBase(buf);
-    return new SStore(...args);
-  }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {
@@ -86,10 +82,6 @@ export class SLoad extends BaseStorageInstruction {
     return SLoad.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): SLoad {
-    const args = BaseStorageInstruction.deserializeBase(buf);
-    return new SLoad(...args);
-  }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     const slot = machineState.memory.get(this.aOffset);

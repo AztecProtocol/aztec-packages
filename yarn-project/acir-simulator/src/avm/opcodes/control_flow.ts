@@ -1,12 +1,10 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { IntegralValue } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
-import { BufferCursor } from '../serialization/buffer_cursor.js';
 import {
   Opcode,
   OperandPair,
   OperandType,
-  deserialize,
   serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction, InstructionExecutionError } from './instruction.js';
@@ -16,7 +14,7 @@ export class Return extends Instruction {
   static readonly opcode: Opcode = Opcode.RETURN;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: Return) => Return.opcode, OperandType.UINT8],
     [(c: Return) => c.indirect, OperandType.UINT8],
     [(c: Return) => c.returnOffset, OperandType.UINT32],
@@ -25,12 +23,6 @@ export class Return extends Instruction {
 
   constructor(private indirect: number, private returnOffset: number, private copySize: number) {
     super();
-  }
-
-  public static deserialize(buf: BufferCursor | Buffer): Return {
-    const res = deserialize(buf, Return.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof Return>; // Remove opcode.
-    return new Return(...args);
   }
 
   public serialize(): Buffer {
@@ -51,7 +43,7 @@ export class Revert extends Instruction {
   static readonly opcode: Opcode = Opcode.REVERT;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: Revert) => Revert.opcode, OperandType.UINT8],
     [(c: Revert) => c.indirect, OperandType.UINT8],
     [(c: Revert) => c.returnOffset, OperandType.UINT32],
@@ -62,11 +54,6 @@ export class Revert extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Revert {
-    const res = deserialize(buf, Revert.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof Revert>; // Remove opcode.
-    return new Revert(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(Revert.wireFormat, this);
@@ -87,7 +74,7 @@ export class Jump extends Instruction {
   static readonly opcode: Opcode = Opcode.JUMP;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: Jump) => Jump.opcode, OperandType.UINT8],
     [(c: Jump) => c.jumpOffset, OperandType.UINT32],
   ];
@@ -96,11 +83,6 @@ export class Jump extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Jump {
-    const res = deserialize(buf, Jump.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof Jump>; // Remove opcode.
-    return new Jump(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(Jump.wireFormat, this);
@@ -116,7 +98,7 @@ export class JumpI extends Instruction {
   static readonly opcode: Opcode = Opcode.JUMPI;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: JumpI) => JumpI.opcode, OperandType.UINT8],
     [(c: JumpI) => c.indirect, OperandType.UINT8],
     [(c: JumpI) => c.loc, OperandType.UINT32],
@@ -127,11 +109,6 @@ export class JumpI extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): JumpI {
-    const res = deserialize(buf, JumpI.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof JumpI>; // Remove opcode.
-    return new JumpI(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(JumpI.wireFormat, this);
@@ -154,7 +131,7 @@ export class InternalCall extends Instruction {
   static readonly opcode: Opcode = Opcode.INTERNALCALL;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: InternalCall) => InternalCall.opcode, OperandType.UINT8],
     [(c: InternalCall) => c.loc, OperandType.UINT32],
   ];
@@ -163,11 +140,6 @@ export class InternalCall extends Instruction {
     super();
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): InternalCall {
-    const res = deserialize(buf, InternalCall.wireFormat);
-    const args = res.slice(1) as ConstructorParameters<typeof InternalCall>; // Remove opcode.
-    return new InternalCall(...args);
-  }
 
   public serialize(): Buffer {
     return serialize(InternalCall.wireFormat, this);
@@ -184,17 +156,12 @@ export class InternalReturn extends Instruction {
   static readonly opcode: Opcode = Opcode.INTERNALRETURN;
 
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(_c: InternalReturn) => InternalReturn.opcode, OperandType.UINT8],
   ];
 
   constructor() {
     super();
-  }
-
-  public static deserialize(buf: BufferCursor | Buffer): InternalReturn {
-    deserialize(buf, InternalReturn.wireFormat); // only contains opcode.
-    return new InternalReturn();
   }
 
   public serialize(): Buffer {

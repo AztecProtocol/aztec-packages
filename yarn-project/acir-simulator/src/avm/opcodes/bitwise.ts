@@ -18,10 +18,6 @@ export class And extends ThreeOperandInstruction {
     return And.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): And {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new And(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -48,10 +44,6 @@ export class Or extends ThreeOperandInstruction {
     return Or.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Or {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Or(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -78,10 +70,6 @@ export class Xor extends ThreeOperandInstruction {
     return Xor.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Xor {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Xor(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -108,10 +96,6 @@ export class Not extends TwoOperandInstruction {
     return Not.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Not {
-    const args = TwoOperandInstruction.deserializeBase(buf);
-    return new Not(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset);
@@ -137,10 +121,6 @@ export class Shl extends ThreeOperandInstruction {
     return Shl.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Shl {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Shl(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -167,10 +147,6 @@ export class Shr extends ThreeOperandInstruction {
     return Shr.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Shr {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Shr(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);

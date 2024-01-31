@@ -1,6 +1,5 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmJournal } from '../journal/index.js';
-import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
@@ -16,10 +15,6 @@ export class Add extends ThreeOperandInstruction {
     return Add.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Add {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Add(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -44,10 +39,6 @@ export class Sub extends ThreeOperandInstruction {
     return Sub.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Sub {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Sub(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -72,10 +63,6 @@ export class Mul extends ThreeOperandInstruction {
     return Mul.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Mul {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Mul(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -100,10 +87,6 @@ export class Div extends ThreeOperandInstruction {
     return Div.opcode;
   }
 
-  public static deserialize(buf: BufferCursor | Buffer): Div {
-    const args = ThreeOperandInstruction.deserializeBase(buf);
-    return new Div(...args);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);

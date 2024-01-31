@@ -10,7 +10,7 @@ import { Instruction } from './instruction.js';
 
 export abstract class TwoOperandInstruction extends Instruction {
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(c: TwoOperandInstruction) => c.opcode, OperandType.UINT8],
     [(c: TwoOperandInstruction) => c.indirect, OperandType.UINT8],
     [(c: TwoOperandInstruction) => c.inTag, OperandType.UINT8],
@@ -42,7 +42,7 @@ export abstract class TwoOperandInstruction extends Instruction {
 
 export abstract class ThreeOperandInstruction extends Instruction {
   // Instruction wire format with opcode.
-  private static readonly wireFormat: OperandPair[] = [
+  static readonly wireFormat: OperandPair[] = [
     [(c: ThreeOperandInstruction) => c.opcode, OperandType.UINT8],
     [(c: ThreeOperandInstruction) => c.indirect, OperandType.UINT8],
     [(c: ThreeOperandInstruction) => c.inTag, OperandType.UINT8],
