@@ -24,7 +24,7 @@ contract Token {
         },
         context::{PrivateContext, PublicContext, Context},
         hash::{compute_secret_hash},
-        state_vars::{map::Map, public_state::PublicState, set::Set},
+        state_vars::{map::Map, public_state::PublicState, stable_public_state::StablePublicState,  set::Set},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress
@@ -63,9 +63,11 @@ contract Token {
         pending_shields: Set<TransparentNote>, // slot 7
         // docs:end:storage_pending_shields
         public_balances: Map<AztecAddress, PublicState<SafeU120>>,
-        symbol: PublicState<FieldCompressedString>, 
-        name: PublicState<FieldCompressedString>,
-        decimals: PublicState<u8>,
+        symbol: StablePublicState<FieldCompressedString>,
+        name: StablePublicState<FieldCompressedString>,
+        // docs:start:storage_decimals
+        decimals: StablePublicState<u8>,
+        // docs:end:storage_decimals
     }
     // docs:end:storage_struct
 
@@ -95,29 +97,48 @@ contract Token {
 
     #[aztec(public)]
     fn public_get_name() -> pub FieldCompressedString {
-        storage.name.read()
+        storage.name.read_public()
+    }
+
+    #[aztec(private)]
+    fn private_get_name() -> pub FieldCompressedString {
+        storage.name.read_private()
     }
 
     unconstrained fn un_get_name() -> pub [u8; 31] {
-        storage.name.read().to_bytes()
+        storage.name.read_public().to_bytes()
     }
 
     #[aztec(public)]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read()
+        storage.symbol.read_public()
+    }
+
+    #[aztec(private)]
+    fn private_get_symbol() -> pub FieldCompressedString {
+        storage.symbol.read_private()
     }
 
     unconstrained fn un_get_symbol() -> pub [u8; 31] {
-        storage.symbol.read().to_bytes()
+        storage.symbol.read_public().to_bytes()
     }
 
     #[aztec(public)]
     fn public_get_decimals() -> pub u8 {
-        storage.decimals.read()
+        // docs:start:read_decimals_public
+        storage.decimals.read_public()
+        // docs:end:read_decimals_public
+    }
+
+    #[aztec(private)]
+    fn private_get_decimals() -> pub u8 {
+        // docs:start:read_decimals_private
+        storage.decimals.read_private()
+        // docs:end:read_decimals_private
     }
 
     unconstrained fn un_get_decimals() -> pub u8 {
-        storage.decimals.read()
+        storage.decimals.read_public()
     }
 
     // docs:start:set_minter
@@ -301,9 +322,11 @@ contract Token {
         assert(!new_admin.is_zero(), "invalid admin");
         storage.admin.write(new_admin);
         storage.minters.at(new_admin).write(true);
-        storage.name.write(name);
-        storage.symbol.write(symbol);
-        storage.decimals.write(decimals);
+        storage.name.initialize(name);
+        storage.symbol.initialize(symbol);
+        // docs:start:initialize_decimals
+        storage.decimals.initialize(decimals);
+        // docs:end:initialize_decimals
     }
     // docs:end:initialize
 
