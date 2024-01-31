@@ -175,6 +175,17 @@ fn member_access(lhs: &str, rhs: &str) -> Expression {
     })))
 }
 
+fn lambda(parameters: Vec<(Pattern, UnresolvedType)>, body: Expression) -> Expression {
+    expression(ExpressionKind::Lambda(Box::new(Lambda {
+        parameters,
+        return_type: UnresolvedType {
+            typ: UnresolvedTypeData::Unspecified,
+            span: Some(Span::default()),
+        },
+        body,
+    })))
+}
+
 macro_rules! chained_path {
     ( $base:expr $(, $tail:expr)* ) => {
         {
@@ -426,9 +437,13 @@ fn transform_module(
     Ok(has_transformed_module)
 }
 
-/// Auxiliary function to generate constructors in the storage struct for Maps, using
-/// the Storage struct definition as a reference. Supports nesting.
-fn generate_map_field_constructor(typ: UnresolvedTypeData) -> Result<Expression, AztecMacroError> {
+/// Auxiliary function to generate the storage constructor for a given field, using
+/// the Storage definition as a reference. Supports nesting.
+fn generate_storage_field_constructor(
+    (type_ident, unresolved_type): (Ident, UnresolvedType),
+    slot: Expression,
+) -> Result<Expression, AztecMacroError> {
+    let typ = unresolved_type.typ;
     match &typ {
         UnresolvedTypeData::Named(path, generics) => {
             let mut new_path = path.clone().to_owned();
@@ -438,9 +453,9 @@ fn generate_map_field_constructor(typ: UnresolvedTypeData) -> Result<Expression,
                     variable_path(new_path),
                     vec![
                         variable("context"),
-                        variable("slot"),
-                        expression(ExpressionKind::Lambda(Box::new(Lambda {
-                            parameters: vec![
+                        slot,
+                        lambda(
+                            vec![
                                 (
                                     Pattern::Identifier(ident("context")),
                                     make_type(UnresolvedTypeData::Named(
@@ -453,100 +468,23 @@ fn generate_map_field_constructor(typ: UnresolvedTypeData) -> Result<Expression,
                                     make_type(UnresolvedTypeData::FieldElement),
                                 ),
                             ],
-                            return_type: UnresolvedType {
-                                typ: UnresolvedTypeData::Unspecified,
-                                span: Some(Span::default()),
-                            },
-                            body: generate_map_field_constructor(
-                                generics.iter().cloned().last().unwrap().typ,
+                            generate_storage_field_constructor(
+                                (type_ident, generics.iter().cloned().last().unwrap()),
+                                variable("slot"),
                             )?,
-                        }))),
+                        ),
                     ],
                 )),
-                _ => Ok(call(variable_path(new_path), vec![variable("context"), variable("slot")])),
+                _ => Ok(call(variable_path(new_path), vec![variable("context"), slot])),
             }
         }
         _ => {
             return Err(AztecMacroError::UnsupportedStorageType {
                 typ: typ.clone(),
-                span: Some(Span::default()),
+                span: Some(type_ident.span()),
             })
         }
     }
-}
-
-/// Auxiliary function to generate the storage constructor for a given field, using
-/// the Storage definition as a reference. Supports nesting.
-fn generate_storage_field_constructor(
-    field: (Ident, UnresolvedType),
-) -> Result<(Ident, Expression), AztecMacroError> {
-    let field_constructor = if let UnresolvedTypeData::Named(path, generics) = &field.1.typ {
-        let args = match path.segments.last().unwrap().0.contents.as_str() {
-            "Map" => {
-                let mapped_struct = generics
-                    .last()
-                    .and_then(|unresolved_type| Some(unresolved_type.typ.clone()))
-                    .unwrap();
-                let mut mapped_struct_path = match mapped_struct {
-                    UnresolvedTypeData::Named(ref path, _) => Ok(path.clone()),
-                    _ => Err(AztecMacroError::UnsupportedStorageType {
-                        typ: field.1.typ.clone(),
-                        span: field.1.span,
-                    }),
-                }?;
-
-                mapped_struct_path.segments.push(ident("new"));
-
-                vec![
-                    variable("context"),
-                    expression(ExpressionKind::Literal(Literal::Integer(
-                        FieldElement::from(i128::from(0)),
-                        false,
-                    ))),
-                    expression(ExpressionKind::Lambda(Box::new(Lambda {
-                        parameters: vec![
-                            (
-                                Pattern::Identifier(ident("context")),
-                                make_type(UnresolvedTypeData::Named(
-                                    chained_path!("aztec", "context", "Context"),
-                                    vec![],
-                                )),
-                            ),
-                            (
-                                Pattern::Identifier(ident("slot")),
-                                make_type(UnresolvedTypeData::FieldElement),
-                            ),
-                        ],
-                        return_type: UnresolvedType {
-                            typ: UnresolvedTypeData::Unspecified,
-                            span: Some(Span::default()),
-                        },
-                        body: generate_map_field_constructor(mapped_struct)?,
-                    }))),
-                ]
-            }
-            _ => {
-                vec![
-                    variable("context"),
-                    expression(ExpressionKind::Literal(Literal::Integer(
-                        FieldElement::from(i128::from(0)),
-                        false,
-                    ))),
-                ]
-            }
-        };
-        let mut new_path = path.clone();
-        new_path.segments.push(ident("new"));
-        let expression = call(variable_path(new_path), args);
-        (field.0.clone(), expression)
-    } else {
-        return Err(AztecMacroError::UnsupportedStorageType {
-            typ: field.1.typ.clone(),
-            span: field.1.span,
-        });
-    };
-
-    Ok(field_constructor)
 }
 
 // Generates the Storage implementation block from the Storage struct definition if it does not exist
@@ -582,10 +520,18 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
     let definition =
         module.types.iter().find(|r#struct| r#struct.name.0.contents == "Storage").unwrap();
 
+    let slot_zero = expression(ExpressionKind::Literal(Literal::Integer(
+        FieldElement::from(i128::from(0)),
+        false,
+    )));
+
     let field_constructors = definition
         .fields
         .iter()
-        .map(|field| generate_storage_field_constructor(field.clone()))
+        .map(|field| {
+            generate_storage_field_constructor(field.clone(), slot_zero.clone())
+                .map(|expression| (field.0.clone(), expression))
+        })
         .flatten()
         .collect();
 
