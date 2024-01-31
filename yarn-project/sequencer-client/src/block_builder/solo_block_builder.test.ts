@@ -227,7 +227,7 @@ describe('sequencer/solo_block_builder', () => {
     const l2Block = L2Block.fromFields({
       archive: AppendOnlyTreeSnapshot.zero(),
       header: Header.empty(),
-      // Only the values bellow go to body hash/calldata hash
+      // Only the values below go to body hash/calldata hash
       newCommitments: newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
       newNullifiers: newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
       newContracts,
