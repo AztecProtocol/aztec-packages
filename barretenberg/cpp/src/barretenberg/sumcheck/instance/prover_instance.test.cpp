@@ -6,10 +6,8 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb
 
-    template <class Flavor>
-    class InstanceTests : public testing::Test {
+template <class Flavor> class InstanceTests : public testing::Test {
     using FF = typename Flavor::FF;
     using Polynomial = bb::Polynomial<FF>;
     using Builder = typename Flavor::CircuitBuilder;

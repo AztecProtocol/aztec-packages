@@ -3,10 +3,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace bb
-
-    template <typename Flavor>
-    class PartialEvaluationTests : public testing::Test {};
+template <typename Flavor> class PartialEvaluationTests : public testing::Test {};
 
 using Flavors = testing::Types<bb::Ultra>;
 

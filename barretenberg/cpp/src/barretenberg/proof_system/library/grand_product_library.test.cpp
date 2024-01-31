@@ -7,10 +7,8 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb
 
-    template <class FF>
-    class GrandProductTests : public testing::Test {
+template <class FF> class GrandProductTests : public testing::Test {
 
     using Polynomial = bb::Polynomial<FF>;
 

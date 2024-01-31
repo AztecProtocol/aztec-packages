@@ -10,11 +10,9 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 using namespace bb;
-using namespace bb
 
-    namespace
-{
-    auto& engine = numeric::get_debug_randomness();
+namespace {
+auto& engine = numeric::get_debug_randomness();
 }
 
 class DataBusComposerTests : public ::testing::Test {

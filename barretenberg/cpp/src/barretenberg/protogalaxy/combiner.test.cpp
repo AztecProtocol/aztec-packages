@@ -7,9 +7,8 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb
 
-    using Flavor = Ultra;
+using Flavor = Ultra;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 

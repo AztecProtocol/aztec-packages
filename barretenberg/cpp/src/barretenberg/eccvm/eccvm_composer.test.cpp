@@ -13,10 +13,8 @@
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
 using namespace bb;
-using namespace bb
 
-    template <typename Flavor>
-    class ECCVMComposerTests : public ::testing::Test {
+template <typename Flavor> class ECCVMComposerTests : public ::testing::Test {
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialized for every test.
     void SetUp() override

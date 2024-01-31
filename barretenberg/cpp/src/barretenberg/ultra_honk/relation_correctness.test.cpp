@@ -12,10 +12,8 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 using namespace bb;
-using namespace bb
 
-    void
-    ensure_non_zero(auto& polynomial)
+void ensure_non_zero(auto& polynomial)
 {
     bool has_non_zero_coefficient = false;
     for (auto& coeff : polynomial) {
