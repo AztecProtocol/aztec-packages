@@ -1,39 +1,24 @@
 import { AvmMachineState } from '../avm_machine_state.js';
-import { BufferCursor } from '../buffer_cursor.js';
 import { AvmJournal } from '../journal/index.js';
-import { Instruction } from './instruction.js';
-import { Opcode, OperandPair, OperandType, deserialize, serialize } from './instruction_serialization.js';
+import { BufferCursor } from '../serialization/buffer_cursor.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
+import { ThreeOperandInstruction } from './instruction_impl.js';
 
-export class Add extends Instruction {
+export class Add extends ThreeOperandInstruction {
   static readonly type: string = 'ADD';
   static readonly opcode = Opcode.ADD;
 
-  // Instruction wire format without opcode.
-  private static readonly wireFormat: OperandPair[] = [
-    [(c: Add) => c.indirect, OperandType.UINT8],
-    [(c: Add) => c.inTag, OperandType.UINT8],
-    [(c: Add) => c.aOffset, OperandType.UINT32],
-    [(c: Add) => c.bOffset, OperandType.UINT32],
-    [(c: Add) => c.dstOffset, OperandType.UINT32],
-  ];
-
-  constructor(
-    private indirect: number,
-    private inTag: number,
-    private aOffset: number,
-    private bOffset: number,
-    private dstOffset: number,
-  ) {
-    super();
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  public static deserialize(buf: BufferCursor): Add {
-    const args = deserialize(buf, Add.wireFormat) as ConstructorParameters<typeof Add>;
+  protected get opcode() {
+    return Add.opcode;
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Add {
+    const args = ThreeOperandInstruction.deserializeBase(buf);
     return new Add(...args);
-  }
-
-  public serialize(): Buffer {
-    return serialize(Add.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -47,27 +32,21 @@ export class Add extends Instruction {
   }
 }
 
-export class Sub extends Instruction {
+export class Sub extends ThreeOperandInstruction {
   static readonly type: string = 'SUB';
   static readonly opcode = Opcode.SUB;
 
-  // Instruction wire format without opcode.
-  private static readonly wireFormat: OperandPair[] = [
-    [(c: Sub) => c.indirect, OperandType.UINT8],
-    [(c: Sub) => c.inTag, OperandType.UINT8],
-    [(c: Sub) => c.aOffset, OperandType.UINT32],
-    [(c: Sub) => c.bOffset, OperandType.UINT32],
-    [(c: Sub) => c.dstOffset, OperandType.UINT32],
-  ];
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
+  }
 
-  constructor(
-    private indirect: number,
-    private inTag: number,
-    private aOffset: number,
-    private bOffset: number,
-    private dstOffset: number,
-  ) {
-    super();
+  protected get opcode() {
+    return Sub.opcode;
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Sub {
+    const args = ThreeOperandInstruction.deserializeBase(buf);
+    return new Sub(...args);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -79,23 +58,23 @@ export class Sub extends Instruction {
 
     this.incrementPc(machineState);
   }
-
-  public static deserialize(buf: BufferCursor): Sub {
-    const args = deserialize(buf, Sub.wireFormat) as ConstructorParameters<typeof Sub>;
-    return new Sub(...args);
-  }
-
-  public serialize(): Buffer {
-    return serialize(Sub.wireFormat, this);
-  }
 }
 
-export class Mul extends Instruction {
+export class Mul extends ThreeOperandInstruction {
   static type: string = 'MUL';
-  static numberOfOperands = 3;
+  static readonly opcode = Opcode.MUL;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
-    super();
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
+  }
+
+  protected get opcode() {
+    return Mul.opcode;
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Mul {
+    const args = ThreeOperandInstruction.deserializeBase(buf);
+    return new Mul(...args);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -109,12 +88,21 @@ export class Mul extends Instruction {
   }
 }
 
-export class Div extends Instruction {
+export class Div extends ThreeOperandInstruction {
   static type: string = 'DIV';
-  static numberOfOperands = 3;
+  static readonly opcode = Opcode.DIV;
 
-  constructor(private aOffset: number, private bOffset: number, private dstOffset: number) {
-    super();
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
+  }
+
+  protected get opcode() {
+    return Div.opcode;
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Div {
+    const args = ThreeOperandInstruction.deserializeBase(buf);
+    return new Div(...args);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {

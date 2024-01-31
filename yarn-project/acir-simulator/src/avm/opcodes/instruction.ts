@@ -2,14 +2,9 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/index.js';
 
-export const AVM_OPERAND_BYTE_LENGTH = 4; // Keep in sync with cpp code
-export const AVM_OPCODE_BYTE_LENGTH = 1; // Keep in sync with cpp code
-
-/**
- * Opcode base class
- */
 export abstract class Instruction {
-  abstract execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void>;
+  public abstract execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void>;
+  public abstract serialize(): Buffer;
 
   incrementPc(machineState: AvmMachineState): void {
     machineState.pc++;

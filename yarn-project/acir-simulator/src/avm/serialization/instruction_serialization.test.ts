@@ -1,4 +1,4 @@
-import { BufferCursor } from '../buffer_cursor.js';
+import { BufferCursor } from './buffer_cursor.js';
 import { OperandPair, OperandType, deserialize, serialize } from './instruction_serialization.js';
 
 class InstA {

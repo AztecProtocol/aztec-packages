@@ -1,10 +1,12 @@
 import { BufferCursor } from './buffer_cursor.js';
-import { Add, Sub } from './opcodes/index.js';
-import { Instruction } from './opcodes/instruction.js';
-import { Opcode } from './opcodes/instruction_serialization.js';
+import { Add, Sub } from '../opcodes/index.js';
+import { Instruction } from '../opcodes/instruction.js';
+import { Opcode } from './instruction_serialization.js';
 
 export interface DeserializableInstruction {
   deserialize(buf: BufferCursor): Instruction;
+  opcode: Opcode;
+  // serialize(this: any): Buffer;
 }
 
 export type InstructionSet = Map<Opcode, DeserializableInstruction>;
@@ -94,42 +96,22 @@ const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstructio
 );
 
 /**
- * Encode an instruction (opcode & arguments) to bytecode.
+ * TODO: doc
  * @param opcode - the opcode to encode
  * @param args - the arguments to encode
  * @returns the bytecode for this one instruction
  */
-// export function encodeToBytecode(opcode: Opcode, args: number[]): Buffer {
-//   const instructionType = INSTRUCTION_SET.get(opcode);
-//   if (instructionType === undefined) {
-//     throw new Error(`Opcode 0x${opcode.toString(16)} not implemented`);
-//   }
-
-//   const numberOfOperands = instructionType.numberOfOperands;
-//   if (args.length !== numberOfOperands) {
-//     throw new Error(
-//       `Opcode 0x${opcode.toString(16)} expects ${numberOfOperands} arguments, but ${args.length} were provided`,
-//     );
-//   }
-
-//   const bytecode = Buffer.alloc(AVM_OPCODE_BYTE_LENGTH + numberOfOperands * AVM_OPERAND_BYTE_LENGTH);
-
-//   let bytePtr = 0;
-//   bytecode.writeUInt8(opcode as number, bytePtr);
-//   bytePtr += AVM_OPCODE_BYTE_LENGTH;
-//   for (let i = 0; i < args.length; i++) {
-//     bytecode.writeUInt32BE(args[i], bytePtr);
-//     bytePtr += AVM_OPERAND_BYTE_LENGTH;
-//   }
-//   return bytecode;
-// }
+// FIXME: instructions: any[]
+export function encodeToBytecode(instructions: any[]): Buffer {
+  return Buffer.concat(instructions.map(i => i.serialize()));
+}
 
 /**
  * Convert a buffer of bytecode into an array of instructions
  * @param bytecode - Buffer of bytecode
  * @returns Bytecode decoded into an ordered array of Instructions
  */
-export function decodeBytecode(bytecode: Buffer, instructionSet: InstructionSet = INSTRUCTION_SET): Instruction[] {
+export function decodeFromBytecode(bytecode: Buffer, instructionSet: InstructionSet = INSTRUCTION_SET): Instruction[] {
   const instructions: Instruction[] = [];
   const cursor = new BufferCursor(bytecode);
 

@@ -1,4 +1,4 @@
-import { BufferCursor } from "../buffer_cursor.js";
+import { BufferCursor } from './buffer_cursor.js';
 
 /**
  * All AVM opcodes. (Keep in sync with cpp counterpart code AvmMini_opcode.hpp).
@@ -93,7 +93,7 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
   }
 }
 
-const OPERAND_SPEC: Map<OperandType, [number, () => any, (value: any) => any]> = new Map([
+const OPERAND_SPEC = new Map<OperandType, [number, () => any, (value: any) => any]>([
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
@@ -101,8 +101,11 @@ const OPERAND_SPEC: Map<OperandType, [number, () => any, (value: any) => any]> =
   [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
 ]);
 
-export function deserialize(cursor: BufferCursor, operands: OperandPair[]): any[] {
+export function deserialize(cursor: BufferCursor | Buffer, operands: OperandPair[]): any[] {
   const argValues = [];
+  if (cursor instanceof Buffer) {
+    cursor = new BufferCursor(cursor);
+  }
 
   for (const op of operands) {
     const [_opGetter, opType] = op;

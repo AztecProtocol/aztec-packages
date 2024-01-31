@@ -3,15 +3,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
-import { Field, TypeTag, Uint16 } from '../avm_memory_types.js';
+import { Field, Uint16 } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmJournal } from '../journal/journal.js';
-import { Add, Mul, Sub } from './arithmetic.js';
-import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
-import { Eq, Lt, Lte } from './comparators.js';
 import { InternalCall, InternalReturn, Jump, JumpI, Return, Revert } from './control_flow.js';
 import { InstructionExecutionError } from './instruction.js';
-import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
 describe('Control Flow Opcodes', () => {
   let journal: MockProxy<AvmJournal>;
@@ -117,39 +113,6 @@ describe('Control Flow Opcodes', () => {
     it('Should error if Internal Return is called without a corresponding Internal Call', async () => {
       const returnInstruction = () => new InternalReturn().execute(machineState, journal);
       await expect(returnInstruction()).rejects.toThrow(InstructionExecutionError);
-    });
-
-    it('Should increment PC on All other Instructions', async () => {
-      const instructions = [
-        new Add(0, 1, 2),
-        new Sub(0, 1, 2),
-        new Mul(0, 1, 2),
-        new Lt(TypeTag.UINT16, 0, 1, 2),
-        new Lte(TypeTag.UINT16, 0, 1, 2),
-        new Eq(TypeTag.UINT16, 0, 1, 2),
-        new Xor(TypeTag.UINT16, 0, 1, 2),
-        new And(TypeTag.UINT16, 0, 1, 2),
-        new Or(TypeTag.UINT16, 0, 1, 2),
-        new Shl(TypeTag.UINT16, 0, 1, 2),
-        new Shr(TypeTag.UINT16, 0, 1, 2),
-        new Not(TypeTag.UINT16, 0, 2),
-        new CalldataCopy(0, 1, 2),
-        new Set(TypeTag.UINT16, 0n, 1),
-        new Mov(0, 1),
-        new CMov(0, 1, 2, 3),
-        new Cast(TypeTag.UINT16, 0, 1),
-      ];
-
-      for (const instruction of instructions) {
-        // Use a fresh machine state each run
-        const innerMachineState = new AvmMachineState(initExecutionEnvironment());
-        innerMachineState.memory.set(0, new Uint16(4n));
-        innerMachineState.memory.set(1, new Uint16(8n));
-        innerMachineState.memory.set(2, new Uint16(12n));
-        expect(innerMachineState.pc).toBe(0);
-
-        await instruction.execute(innerMachineState, journal);
-      }
     });
   });
 

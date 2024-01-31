@@ -68,4 +68,46 @@ export class BufferCursor {
     this._position += 8;
     return ret;
   }
+
+  public writeUint8(v: number) {
+    const ret = this._buffer.writeUint8(v, this._position);
+    this._position += 1;
+    return ret;
+  }
+
+  public writeUint16LE(v: number) {
+    const ret = this._buffer.writeUint16LE(v, this._position);
+    this._position += 2;
+    return ret;
+  }
+
+  public writeUint16BE(v: number) {
+    const ret = this._buffer.writeUint16BE(v, this._position);
+    this._position += 2;
+    return ret;
+  }
+
+  public writeUint32LE(v: number) {
+    const ret = this._buffer.writeUint32LE(v, this._position);
+    this._position += 4;
+    return ret;
+  }
+
+  public writeUint32BE(v: number) {
+    const ret = this._buffer.writeUint32BE(v, this._position);
+    this._position += 4;
+    return ret;
+  }
+
+  public writeBigInt64LE(v: bigint) {
+    const ret = this._buffer.writeBigInt64LE(v, this._position);
+    this._position += 8;
+    return ret;
+  }
+
+  public writeBigInt64BE(v: bigint) {
+    const ret = this._buffer.writeBigInt64BE(v, this._position);
+    this._position += 8;
+    return ret;
+  }
 }
