@@ -402,8 +402,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
   async #updateArchive(header: Header, includeUncommitted: boolean) {
     const state = await this.getStateReference(includeUncommitted);
-    // TODO: StateReference.equals
-    // TODO: Is this even needed here?
+    // TODO(benesjan): Is this even needed here?
     if (!state.toBuffer().equals(header.state.toBuffer())) {
       throw new Error('State in header does not match current state');
     }

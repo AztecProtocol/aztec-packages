@@ -9,7 +9,6 @@ type BlockContext = {
   blockNumber: number;
   l1BlockNumber: bigint;
   block: Buffer;
-  blockHash: Buffer;
 };
 
 /**
@@ -46,7 +45,6 @@ export class BlockStore {
           blockNumber: block.number,
           block: block.toBuffer(),
           l1BlockNumber: block.getL1BlockNumber(),
-          blockHash: block.hash().toBuffer(),
         });
 
         for (const [i, tx] of block.getTxs().entries()) {
