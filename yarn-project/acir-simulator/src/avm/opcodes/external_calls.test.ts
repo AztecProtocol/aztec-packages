@@ -54,7 +54,7 @@ describe('External Calls', () => {
 
       const otherContextInstructions: [Opcode, any[]][] = [
         // Place [1,2,3] into memory
-        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*destOffset=*/ 0]],
+        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0]],
         // Store 1 into slot 1
         [Opcode.SSTORE, [/*slotOffset=*/ 0, /*dataOffset=*/ 0]],
         // Return [1,2] from memory
@@ -78,10 +78,10 @@ describe('External Calls', () => {
       expect(retValue).toEqual([new Field(1n), new Field(2n)]);
 
       // Check that the storage call has been merged into the parent journal
-      const { storageWrites } = journal.flush();
-      expect(storageWrites.size).toEqual(1);
+      const { currentStorageValue } = journal.flush();
+      expect(currentStorageValue.size).toEqual(1);
 
-      const nestedContractWrites = storageWrites.get(addr.toBigInt());
+      const nestedContractWrites = currentStorageValue.get(addr.toBigInt());
       expect(nestedContractWrites).toBeDefined();
 
       const slotNumber = 1n;
@@ -110,7 +110,7 @@ describe('External Calls', () => {
 
       const otherContextInstructions: [Opcode, any[]][] = [
         // Place [1,2,3] into memory
-        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*destOffset=*/ 0]],
+        [Opcode.CALLDATACOPY, [/*value=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0]],
         [Opcode.SSTORE, [/*slotOffset*/ 1, /*dataOffset=*/ 0]],
       ];
 

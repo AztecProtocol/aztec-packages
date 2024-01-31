@@ -16,13 +16,11 @@ import {
 } from '../constants.gen.js';
 import {
   CallContext,
-  CompleteAddress,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionData,
   FunctionLeafPreimage,
-  GlobalVariables,
   NewContractData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -34,7 +32,6 @@ import {
   TxRequest,
   VerificationKey,
 } from '../structs/index.js';
-import { PublicKey } from '../types/index.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
 /**
@@ -169,61 +166,6 @@ export function hashConstructor(functionData: FunctionData, argsHash: Fr, constr
 }
 
 /**
- * Computes a complete address.
- * @param deployerPubKey - The pubkey of the contract deployer.
- * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
- * @param fnTreeRoot - The function tree root of the contract being deployed.
- * @param constructorHash - The hash of the constructor.
- * @returns The complete address.
- */
-export function computeCompleteAddress(
-  deployerPubKey: PublicKey,
-  contractAddrSalt: Fr,
-  fnTreeRoot: Fr,
-  constructorHash: Fr,
-): CompleteAddress {
-  const partialAddress = computePartialAddress(contractAddrSalt, fnTreeRoot, constructorHash);
-  return new CompleteAddress(
-    computeContractAddressFromPartial(deployerPubKey, partialAddress),
-    deployerPubKey,
-    partialAddress,
-  );
-}
-
-/**
- *
- */
-function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructorHash: Fr) {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        Fr.ZERO.toBuffer(),
-        Fr.ZERO.toBuffer(),
-        contractAddrSalt.toBuffer(),
-        fnTreeRoot.toBuffer(),
-        constructorHash.toBuffer(),
-      ],
-      GeneratorIndex.PARTIAL_ADDRESS,
-    ),
-  );
-}
-
-/**
- * Computes a contract address from its partial address and the pubkey.
- * @param partial - The salt used as one of the inputs of the contract address computation.
- * @param fnTreeRoot - The function tree root of the contract being deployed.
- * @param constructorHash - The hash of the constructor.
- * @returns The partially constructed contract address.
- */
-export function computeContractAddressFromPartial(pubKey: PublicKey, partialAddress: Fr): AztecAddress {
-  const result = pedersenHash(
-    [pubKey.x.toBuffer(), pubKey.y.toBuffer(), partialAddress.toBuffer()],
-    GeneratorIndex.CONTRACT_ADDRESS,
-  );
-  return new AztecAddress(result);
-}
-
-/**
  * Computes a commitment nonce, which will be used to create a unique commitment.
  * @param nullifierZero - The first nullifier in the tx.
  * @param commitmentIndex - The index of the commitment.
@@ -267,88 +209,6 @@ export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
   return Fr.fromBuffer(pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER));
-}
-
-/**
- * Computes the block hash given the blocks globals and roots.
- * @param globals - The global variables to put into the block hash.
- * @param noteHashTree - The root of the note hash tree.
- * @param nullifierTreeRoot - The root of the nullifier tree.
- * @param contractTreeRoot - The root of the contract tree.
- * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
- * @param publicDataTreeRoot - The root of the public data tree.
- * @returns The block hash.
- */
-// TODO(#3941)
-export function computeBlockHashWithGlobals(
-  globals: GlobalVariables,
-  noteHashTreeRoot: Fr,
-  nullifierTreeRoot: Fr,
-  contractTreeRoot: Fr,
-  l1ToL2DataTreeRoot: Fr,
-  publicDataTreeRoot: Fr,
-): Fr {
-  return computeBlockHash(
-    computeGlobalsHash(globals),
-    noteHashTreeRoot,
-    nullifierTreeRoot,
-    contractTreeRoot,
-    l1ToL2DataTreeRoot,
-    publicDataTreeRoot,
-  );
-}
-
-/**
- * Computes the block hash given the blocks globals and roots.
- * @param globalsHash - The global variables hash to put into the block hash.
- * @param noteHashTree - The root of the note hash tree.
- * @param nullifierTreeRoot - The root of the nullifier tree.
- * @param contractTreeRoot - The root of the contract tree.
- * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
- * @param publicDataTreeRoot - The root of the public data tree.
- * @returns The block hash.
- */
-export function computeBlockHash(
-  globalsHash: Fr,
-  noteHashTreeRoot: Fr,
-  nullifierTreeRoot: Fr,
-  contractTreeRoot: Fr,
-  l1ToL2DataTreeRoot: Fr,
-  publicDataTreeRoot: Fr,
-): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        globalsHash.toBuffer(),
-        noteHashTreeRoot.toBuffer(),
-        nullifierTreeRoot.toBuffer(),
-        contractTreeRoot.toBuffer(),
-        l1ToL2DataTreeRoot.toBuffer(),
-        publicDataTreeRoot.toBuffer(),
-      ],
-      GeneratorIndex.BLOCK_HASH,
-    ),
-  );
-}
-
-/**
- * Computes the globals hash given the globals.
- * @param globals - The global variables to put into the block hash.
- * @returns The globals hash.
- * TODO: move this to GlobalVariables?
- */
-export function computeGlobalsHash(globals: GlobalVariables): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        globals.chainId.toBuffer(),
-        globals.version.toBuffer(),
-        globals.blockNumber.toBuffer(),
-        globals.timestamp.toBuffer(),
-      ],
-      GeneratorIndex.GLOBAL_VARIABLES,
-    ),
-  );
 }
 
 /**
@@ -420,12 +280,12 @@ export function computeVarArgsHash(args: Fr[]) {
  * @returns The contract leaf.
  */
 export function computeContractLeaf(cd: NewContractData): Fr {
-  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
+  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.contractClassId.isZero()) {
     return new Fr(0);
   }
   return Fr.fromBuffer(
     pedersenHash(
-      [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.functionTreeRoot.toBuffer()],
+      [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.contractClassId.toBuffer()],
       GeneratorIndex.CONTRACT_LEAF,
     ),
   );
@@ -450,9 +310,6 @@ export function computeTxHash(txRequest: TxRequest): Fr {
   );
 }
 
-/**
- *
- */
 function computeFunctionDataHash(functionData: FunctionData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -467,9 +324,6 @@ function computeFunctionDataHash(functionData: FunctionData): Fr {
   );
 }
 
-/**
- *
- */
 function computeTxContextHash(txContext: TxContext): Fr {
   return Fr.fromBuffer(
     pedersenHash(
@@ -486,17 +340,14 @@ function computeTxContextHash(txContext: TxContext): Fr {
   );
 }
 
-/**
- *
- */
 function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
       [
-        data.deployerPublicKey.x.toBuffer(),
-        data.deployerPublicKey.y.toBuffer(),
-        data.constructorVkHash.toBuffer(),
-        data.functionTreeRoot.toBuffer(),
+        data.publicKey.x.toBuffer(),
+        data.publicKey.y.toBuffer(),
+        data.initializationHash.toBuffer(),
+        data.contractClassId.toBuffer(),
         data.contractAddressSalt.toBuffer(),
         data.portalContractAddress.toBuffer(),
       ],
@@ -505,9 +356,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   );
 }
 
-/**
- *
- */
 function computeCallContextHash(input: CallContext) {
   return pedersenHash(
     [
@@ -524,9 +372,6 @@ function computeCallContextHash(input: CallContext) {
   );
 }
 
-/**
- *
- */
 function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),
@@ -552,13 +397,7 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.encryptedLogPreimagesLength.toBuffer(),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    input.blockHeader.noteHashTreeRoot.toBuffer(),
-    input.blockHeader.nullifierTreeRoot.toBuffer(),
-    input.blockHeader.contractTreeRoot.toBuffer(),
-    input.blockHeader.l1ToL2MessageTreeRoot.toBuffer(),
-    input.blockHeader.archiveRoot.toBuffer(),
-    input.blockHeader.publicDataTreeRoot.toBuffer(),
-    input.blockHeader.globalVariablesHash.toBuffer(),
+    ...(input.historicalHeader.toFieldArray().map(fr => fr.toBuffer()) as Buffer[]),
     computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
     input.chainId.toBuffer(),
     input.version.toBuffer(),
@@ -589,9 +428,6 @@ export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackI
   );
 }
 
-/**
- *
- */
 function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
   return pedersenHash(
     [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
@@ -599,22 +435,14 @@ function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateReq
   );
 }
 
-/**
- *
- */
 function computeContractStorageReadsHash(input: ContractStorageRead) {
   return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
 }
-/**
- *
- */
+
 export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
 }
 
-/**
- *
- */
 export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
   return pedersenHash(
     [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
@@ -622,9 +450,6 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
   );
 }
 
-/**
- *
- */
 export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),
@@ -638,13 +463,7 @@ export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    input.blockHeader.noteHashTreeRoot.toBuffer(),
-    input.blockHeader.nullifierTreeRoot.toBuffer(),
-    input.blockHeader.contractTreeRoot.toBuffer(),
-    input.blockHeader.l1ToL2MessageTreeRoot.toBuffer(),
-    input.blockHeader.archiveRoot.toBuffer(),
-    input.blockHeader.publicDataTreeRoot.toBuffer(),
-    input.blockHeader.globalVariablesHash.toBuffer(),
+    ...input.historicalHeader.toFieldArray().map(fr => fr.toBuffer()),
     input.proverAddress.toBuffer(),
   ];
   if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {

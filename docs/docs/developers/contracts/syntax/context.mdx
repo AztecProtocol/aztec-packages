@@ -71,11 +71,13 @@ The call context contains information about the current call being made:
      - is_static_call: This will be set if and only if the current call is a static call. In a static call, state changing altering operations are not allowed.
      - is_contract_deployment: This will be set if and only if the current call is the contract's constructor.
 
-### Block Header
+### Header
 
-Another structure that is contained within the context is the Block Header object. This object is a special one as it contains all of the roots of Aztec's data trees.
+Another structure that is contained within the context is the Header object.
+In the private context this is a header of a block which used to generate proofs against.
+In the public context this header is set by sequencer (sequencer executes public calls) and it is set to 1 block before the block in which the transaction is included.
 
-#include_code block-header /yarn-project/noir-protocol-circuits/src/crates/types/src/abis/block_header.nr rust
+#include_code header /yarn-project/noir-protocol-circuits/src/crates/types/src/header.nr rust
 
 ### Contract Deployment Data
 
@@ -97,7 +99,7 @@ The `args_hash` is the result of pedersen hashing all of a function's inputs.
 
 ### Return Values
 
-The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./functions.md#after-expansion) for more details.
+The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./functions/inner_workings.md#after-expansion) for more details.
 
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 

@@ -15,7 +15,7 @@ import {
   LogType,
   TxHash,
 } from '@aztec/circuit-types';
-import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, getContractClassId } from '@aztec/circuits.js';
+import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -297,11 +297,7 @@ export class Archiver implements ArchiveSource {
       retrievedBlocks.retrievedData.map(block => {
         // Ensure we pad the L1 to L2 message array to the full size before storing.
         block.newL1ToL2Messages = padArrayEnd(block.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        return L2Block.fromFields(
-          omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']),
-          block.getBlockHash(),
-          block.getL1BlockNumber(),
-        );
+        return L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getL1BlockNumber());
       }),
     );
   }
@@ -471,7 +467,12 @@ export class Archiver implements ArchiveSource {
   }
 }
 
-/** Converts ExtendedContractData into contract classes and instances. */
+/**
+ * Converts ExtendedContractData into contract classes and instances.
+ * Note that the conversion is not correct, since there is some data missing from the broadcasted ExtendedContractData.
+ * The archiver will trust the ids broadcasted instead of trying to recompute them.
+ * Eventually this function and ExtendedContractData altogether will be removed.
+ */
 function extendedContractDataToContractClassAndInstance(
   data: ExtendedContractData,
 ): [ContractClassWithId, ContractInstanceWithAddress] {
@@ -486,14 +487,14 @@ function extendedContractDataToContractClassAndInstance(
     privateFunctions: [],
     packedBytecode: data.bytecode,
   };
-  const contractClassId = getContractClassId(contractClass);
+  const contractClassId = data.contractClassId;
   const contractInstance: ContractInstance = {
     version: 1,
-    salt: Fr.ZERO,
+    salt: data.saltedInitializationHash,
     contractClassId,
-    initializationHash: Fr.ZERO,
+    initializationHash: data.saltedInitializationHash,
     portalContractAddress: data.contractData.portalContractAddress,
-    publicKeysHash: data.partialAddress,
+    publicKeysHash: data.publicKeyHash,
   };
   const address = data.contractData.contractAddress;
   return [

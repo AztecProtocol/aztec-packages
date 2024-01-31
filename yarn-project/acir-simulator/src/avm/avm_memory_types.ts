@@ -16,6 +16,11 @@ export abstract class MemoryValue {
 
   // Use sparingly.
   public abstract toBigInt(): bigint;
+
+  // To field
+  public toFr(): Fr {
+    return new Fr(this.toBigInt());
+  }
 }
 
 export abstract class IntegralValue extends MemoryValue {
@@ -215,11 +220,13 @@ export enum TypeTag {
 
 // TODO: Consider automatic conversion when getting undefined values.
 export class TaggedMemory {
-  static readonly MAX_MEMORY_SIZE = 1n << 32n;
+  // FIXME: memory should be 2^32, but TS doesn't allow for arrays that big.
+  static readonly MAX_MEMORY_SIZE = Number(1n << 31n); // 1n << 32n
   private _mem: MemoryValue[];
 
   constructor() {
-    this._mem = [];
+    // Initialize memory size, but leave all entries undefined.
+    this._mem = new Array(TaggedMemory.MAX_MEMORY_SIZE);
   }
 
   public get(offset: number): MemoryValue {
@@ -228,13 +235,18 @@ export class TaggedMemory {
 
   public getAs<T>(offset: number): T {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    const e = this._mem[offset];
-    return <T>e;
+    const word = this._mem[offset];
+    return word as T;
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size);
+  }
+
+  public getSliceAs<T>(offset: number, size: number): T[] {
+    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    return this._mem.slice(offset, offset + size) as T[];
   }
 
   public getSliceTags(offset: number, size: number): TypeTag[] {
@@ -282,6 +294,7 @@ export class TaggedMemory {
 
   // Truncates the value to fit the type.
   public static integralFromTag(v: bigint, tag: TypeTag): IntegralValue {
+    v = BigInt(v); // FIXME: not sure why this cast is needed, but this errors otherwise
     switch (tag) {
       case TypeTag.UINT8:
         return new Uint8(v & ((1n << 8n) - 1n));

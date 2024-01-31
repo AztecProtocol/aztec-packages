@@ -53,7 +53,7 @@ Once these have been installed, to start the sandbox, run:
 aztec-sandbox
 ```
 
-This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
+This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the installation again will overwrite any changes made to the `docker-compose.yml`.
 
 This command will also install the CLI if a node package version of the CLI isn't found locally.
 
@@ -71,13 +71,17 @@ Start by deploying a token contract. After it is deployed, we check that the dep
 
 #include_code deploy yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
+:::note
+If you're not using the default port for the Sandbox, make sure to pass the `--rpc-url` parameter, e.g.: `--rpc-url http://localhost:8000`.
+:::
+
 Note that the deployed contract address is exported, so we can use it as `$CONTRACT` later on.
 
 ## Call a contract with the CLI
 
 Alice is set up as the contract admin and token minter in the `_initialize` function. Let's get Alice some private tokens.
 
-We need to export the `SECRET` and `SECRET_HASH` values in order to privately mint tokens. Private tokens are claimable by anyone with the pre-image to a provided hash, see more about how the token contract works in the [token contract tutorial](../tutorials/writing_token_contract.md). After the tokens have been minted, the notes will have to added to the [Private Execution Environment](../../apis/pxe/interfaces/PXE) (PXE) to be consumed by private functions. Once added, Alice can claim them with the `redeem_shield` function. After this, Alice should have 1000 tokens in their private balance.
+We need to export the `SECRET` and `SECRET_HASH` values in order to privately mint tokens. Private tokens are claimable by anyone with the pre-image to a provided hash, see more about how the token contract works in the [token contract tutorial](../tutorials/writing_token_contract.md). After the tokens have been minted, the notes will have to added to the [Private Execution Environment](../../apis/pxe/interfaces/PXE.md) (PXE) to be consumed by private functions. Once added, Alice can claim them with the `redeem_shield` function. After this, Alice should have 1000 tokens in their private balance.
 
 #include_code mint-private yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 

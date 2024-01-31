@@ -32,9 +32,13 @@ Unlike public state variables, which can be arbitrary types, private state varia
 
 Notes are the fundamental elements in the private world.
 
-A note should conform to the following interface:
+A note should implement the following traits:
 
-#include_code NoteInterface /yarn-project/aztec-nr/aztec/src/note/note_interface.nr rust
+#include_code note_interface /yarn-project/aztec-nr/aztec/src/note/note_interface.nr rust
+
+#include_code serialize /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr rust
+
+#include_code deserialize /yarn-project/noir-protocol-circuits/src/crates/types/src/traits.nr rust
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
@@ -66,7 +70,7 @@ Interestingly, if a developer requires a private state to be modifiable by users
 
 Singleton is a private state variable that is unique in a way. When a Singleton is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
 
-Like for public state, we define the struct to have context, a storage slot and `note_interface` specifying how the note should be constructed and manipulated. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr).
+Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr).
 
 An example of singleton usage in the account contracts is keeping track of public keys. The `Singleton` is added to the `Storage` struct as follows:
 
@@ -74,7 +78,7 @@ An example of singleton usage in the account contracts is keeping track of publi
 
 ### `new`
 
-As part of the initialization of the `Storage` struct, the `Singleton` is created as follows, here at the specified storage slot and with the `NoteInterface` for `CardNote`.
+As part of the initialization of the `Storage` struct, the `Singleton` is created as follows at the specified storage slot.
 
 #include_code start_vars_singleton /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
@@ -180,7 +184,7 @@ Set is used for managing a collection of notes. All notes in a Set are of the sa
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec-nr/aztec/src/state_vars/set.nr).
 
-And can be added to the `Storage` struct as follows. Here adding a set for a custom note, the TransparentNote (useful for [public -> private communication](../functions.md#public---private)).
+And can be added to the `Storage` struct as follows. Here adding a set for a custom note, the TransparentNote (useful for [public -> private communication](../functions/calling_functions.md#public---private)).
 
 #include_code storage_pending_shields /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -242,67 +246,77 @@ The key distinction is that this method is unconstrained. It does not perform a 
 
 This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essentially similar to the [`NoteGetterOptions`](#notegetteroptions), except that it doesn't take a custom filter.
 
-### NoteGetterOptions
+## `NoteGetterOptions`
 
-`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](../functions.md#oracle-functions). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
+`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](../functions/oracles.md). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec-nr/aztec/src/note/note_getter_options.nr).
 
-#### `selects: BoundedVec<Option<Select>, N>`
+### `selects: BoundedVec<Option<Select>, N>`
 
-`selects` is a collection of filtering criteria, specified by `Select { field_index: u8, value: Field }` structs. It instructs the data oracle to find notes whose (`field_index`)th field matches the provided `value`.
+`selects` is a collection of filtering criteria, specified by `Select { field_index: u8, value: Field, comparator: u3 }` structs. It instructs the data oracle to find notes whose (`field_index`)th field matches the provided `value`, according to the `comparator`.
 
-#### `sorts: BoundedVec<Option<Sort>, N>`
+### `sorts: BoundedVec<Option<Sort>, N>`
 
 `sorts` is a set of sorting instructions defined by `Sort { field_index: u8, order: u2 }` structs. This directs the data oracle to sort the matching notes based on the value of the specified field index and in the indicated order. The value of order is **1** for _DESCENDING_ and **2** for _ASCENDING_.
 
-#### `limit: u32`
+### `limit: u32`
 
 When the `limit` is set to a non-zero value, the data oracle will return a maximum of `limit` notes.
 
-#### `offset: u32`
+### `offset: u32`
 
 This setting enables us to skip the first `offset` notes. It's particularly useful for pagination.
 
-#### `filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL]`
+### `filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL]`
 
 Developers have the option to provide a custom filter. This allows specific logic to be applied to notes that meet the criteria outlined above. The filter takes the notes returned from the oracle and `filter_args` as its parameters.
 
 It's important to note that the process of applying the custom filter to get the final notes is not constrained. It's crucial to verify the returned notes even if certain assumptions are made in the custom filter.
 
-#### `filter_args: FILTER_ARGS`
+### `filter_args: FILTER_ARGS`
 
 `filter_args` provides a means to furnish additional data or context to the custom filter.
 
-#### Methods
+### `status: u2`
+
+`status` allows the caller to retrieve notes that have been nullified, which can be useful to prove historical data. Note that when querying for both active and nullified notes the caller cannot know if each note retrieved has or has not been nullified.
+
+### Methods
 
 Several methods are available on `NoteGetterOptions` to construct the options in a more readable manner:
 
-#### `fn new() -> NoteGetterOptions<Note, N, Field>`
+### `fn new() -> NoteGetterOptions<Note, N, Field>`
 
 This function initializes a `NoteGetterOptions` that simply returns the maximum number of notes allowed in a call.
 
-#### `fn with_filter(filter, filter_args) -> NoteGetterOptions<Note, N, FILTER_ARGS>`
+### `fn with_filter(filter, filter_args) -> NoteGetterOptions<Note, N, FILTER_ARGS>`
 
 This function initializes a `NoteGetterOptions` with a [`filter`](#filter-fn-optionnote-max_read_requests_per_call-filter_args---optionnote-max_read_requests_per_call) and [`filter_args`](#filter_args-filter_args).
 
-#### `.select`
+### `.select`
 
 This method adds a [`Select`](#selects-boundedvecoptionselect-n) criterion to the options.
 
-#### `.sort`
+### `.sort`
 
 This method adds a [`Sort`](#sorts-boundedvecoptionsort-n) criterion to the options.
 
-#### `.set_limit`
+### `.set_limit`
 
 This method lets you set a limit for the maximum number of notes to be retrieved.
 
-#### `.set_offset`
+### `.set_offset`
 
 This method sets the offset value, which determines where to start retrieving notes.
 
-#### Examples
+### `.set_status`
+
+This method sets the status of notes to retrieve (active or nullified).
+
+### Examples
+
+#### Example 1
 
 The following code snippet creates an instance of `NoteGetterOptions`, which has been configured to find the cards that belong to `account_address`. The returned cards are sorted by their points in descending order, and the first `offset` cards with the highest points are skipped.
 
@@ -314,7 +328,7 @@ The first value of `.select` and `.sort` is the index of a field in a note type.
 
 The indices are: 0 for `points`, 1 for `secret`, and 2 for `owner`.
 
-In the example, `.select(2, account_address)` matches the 2nd field of `CardNote`, which is `owner`, and returns the cards whose `owner` field equals `account_address`.
+In the example, `.select(2, account_address, Option::none())` matches the 2nd field of `CardNote`, which is `owner`, and returns the cards whose `owner` field equals `account_address`, equality is the comparator used because because including no comparator (the third argument) defaults to using the equality comparator. The current possible values of Comparator are specified in the Note Getter Options implementation linked above.
 
 `.sort(0, SortOrder.DESC)` sorts the 0th field of `CardNote`, which is `points`, in descending order.
 
@@ -322,7 +336,7 @@ There can be as many conditions as the number of fields a note type has. The fol
 
 #include_code state_vars-NoteGetterOptionsMultiSelects /yarn-project/noir-contracts/contracts/docs_example_contract/src/options.nr rust
 
-While `selects` lets us find notes with specific values, `filter` lets us find notes in a more dynamic way. The function below picks the cards whose points are at least `min_points`:
+While `selects` lets us find notes with specific values, `filter` lets us find notes in a more dynamic way. The function below picks the cards whose points are at least `min_points`, although this now can be done by using the select function with a GTE comparator:
 
 #include_code state_vars-OptionFilter /yarn-project/noir-contracts/contracts/docs_example_contract/src/options.nr rust
 
@@ -330,8 +344,18 @@ We can use it as a filter to further reduce the number of the final notes:
 
 #include_code state_vars-NoteGetterOptionsFilter /yarn-project/noir-contracts/contracts/docs_example_contract/src/options.nr rust
 
-One thing to remember is, `filter` will be applied on the notes after they are picked from the database. Therefore, it's possible that the actual notes we end up getting are fewer than the limit.
+One thing to remember is, `filter` will be applied on the notes after they are picked from the database, so it is more efficient to use select with comparators where possible. Another side effect of this is that it's possible that the actual notes we end up getting are fewer than the limit.
 
 The limit is `MAX_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
 
 #include_code state_vars-NoteGetterOptionsPickOne /yarn-project/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+
+#### Example 2
+
+An example of how we can use a Comparator to select notes when calling a Noir contract from aztec.js is below.
+
+#include_code state_vars-NoteGetterOptionsComparatorExampleTs /yarn-project/end-to-end/src/e2e_note_getter.test.ts typescript
+
+In this example, we use the above typescript code to invoke a call to our Noir contract below. This Noir contract function takes an input to match with, and a comparator to use when fetching and selecting notes from storage.
+
+#include_code state_vars-NoteGetterOptionsComparatorExampleNoir /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust

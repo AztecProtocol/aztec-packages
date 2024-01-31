@@ -22,7 +22,7 @@ namespace avm_trace {
  * @throws runtime_error exception when the bytecode is invalid.
  * @return A zk proof of the execution.
  */
-plonk::proof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::vector<FF> const& calldata)
+honk::proof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::vector<FF> const& calldata)
 {
     auto instructions = parse(bytecode);
     auto trace = gen_trace(instructions, calldata);
@@ -161,7 +161,15 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 {
     AvmMiniTraceBuilder trace_builder{};
 
-    for (auto const& inst : instructions) {
+    // copied version of pc maintained in trace builder. The value of pc is evolving based
+    // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
+    // is determined by this value which require read access to the code below.
+    uint32_t pc = 0;
+    auto const inst_size = instructions.size();
+
+    while ((pc = trace_builder.getPc()) < inst_size) {
+        auto inst = instructions.at(pc);
+
         switch (inst.op_code) {
         case OpCode::ADD:
             trace_builder.add(inst.operands.at(0), inst.operands.at(1), inst.operands.at(2), inst.in_tag);
