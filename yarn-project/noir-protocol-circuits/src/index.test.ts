@@ -3,7 +3,6 @@ import {
   ContractDeploymentData,
   EthAddress,
   FunctionData,
-  FunctionLeafPreimage,
   FunctionSelector,
   Point,
   PrivateKernelInputsInit,
@@ -18,7 +17,7 @@ import {
   computeContractAddressFromPartial,
   computePublicKeysHash,
 } from '@aztec/circuits.js';
-import { computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
+import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
