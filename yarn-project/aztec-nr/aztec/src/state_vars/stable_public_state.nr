@@ -1,18 +1,17 @@
 use crate::context::{Context};
 use crate::oracle::{
     storage::{storage_read, storage_write},
-    debug_log::{debug_log_format,debug_log_array_with_prefix},
 };
 use crate::history::public_value_inclusion::prove_public_value_inclusion;
 use dep::std::option::Option;
 use dep::protocol_types::traits::{Deserialize, Serialize};
 
-struct StableState<T>{
+struct StablePublicState<T>{
     context: Context,
     storage_slot: Field,
 }
 
-impl<T> StableState<T> {
+impl<T> StablePublicState<T> {
     pub fn new(
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         context: Context,
@@ -26,9 +25,11 @@ impl<T> StableState<T> {
     }
 
     // Intended to be only called once. 
-    pub fn init<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
+    pub fn initialize<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
         assert(self.context.private.is_none(), "Public state wrties only supported in public functions");
         // TODO: Must throw if the storage slot is not empty -> cannot allow overwriting
+        // This is currently impractical, as public functions are never marked `is_contract_deployment`
+        // in the `call_context`, only private functions will have this flag set.
         let fields = T::serialize(value);
         storage_write(self.storage_slot, fields);
     }
@@ -49,14 +50,10 @@ impl<T> StableState<T> {
         // TODO: The block_number here can be removed when using the current header in the membership proof.
         let block_number = private_context.get_header().global_variables.block_number;
 
-        // Loop over the fields and prove their membership in the past headers
-        // This is required to ensure that the full variable is in state, and not part of it
-        // Beware that each iteration of the loop will do membership checks, possibly could be 
-        // optimized since some of the membership paths are the same.
+        // Loop over the fields and prove their inclusion in the public tree
         for i in 0..fields.len() {
-            // TODO: Update membership proofs
-            // The following is performing a membership proof of the value in a past header
-            // Thereby executing the following:
+            // TODO: Update membership proofs to use current header (Requires #4179)
+            // Currently executing unnecessary computation:
             // - a membership proof of the header(block_number) in the history
             // - a membership proof of the value in the public tree of the header 
             prove_public_value_inclusion(

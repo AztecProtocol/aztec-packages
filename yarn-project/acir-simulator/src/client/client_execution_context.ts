@@ -443,7 +443,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
-    // TODO: This is a hack to work around not having directly access to the public data tree but 
+    // TODO(#4320): This is a hack to work around not having directly access to the public data tree but
     // still having access to the witnesses
     const bn = await this.db.getBlockNumber();
 

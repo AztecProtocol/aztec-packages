@@ -3,7 +3,7 @@ import { DocsExampleContract } from '@aztec/noir-contracts';
 
 import { setup } from './fixtures/utils.js';
 
-describe('e2e_singleton', () => {
+describe('e2e_state_vars', () => {
   let wallet: Wallet;
 
   let teardown: () => Promise<void>;
@@ -19,7 +19,7 @@ describe('e2e_singleton', () => {
 
   afterAll(() => teardown());
 
-  describe('Stable', () => {
+  describe('Stable Public State', () => {
     it('private read of uninitialized stable', async () => {
       const s = await contract.methods.get_stable().view();
 
