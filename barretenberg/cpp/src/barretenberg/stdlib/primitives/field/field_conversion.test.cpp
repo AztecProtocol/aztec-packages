@@ -150,9 +150,15 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayGrumpkinFr)
         fq<Builder>(
             &builder,
             static_cast<grumpkin::fr>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
-        fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("123456789abcdef"))),
-        fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("9876543210abcdef"))),
-        fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("fedcba9876543210abcdef")))
+        fq<Builder>(
+            &builder,
+            static_cast<grumpkin::fr>(std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))),
+        fq<Builder>(
+            &builder,
+            static_cast<grumpkin::fr>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
+        fq<Builder>(
+            &builder,
+            static_cast<grumpkin::fr>(std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
     };
     this->check_conversion_array(builder, x1);
 }
@@ -185,9 +191,15 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionUnivariateGrumpkinFr)
         { fq<Builder>(&builder,
                       static_cast<grumpkin::fr>(
                           std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
-          fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("123456789abcdef"))),
-          fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("9876543210abcdef"))),
-          fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("fedcba9876543210abcdef"))) }
+          fq<Builder>(&builder,
+                      static_cast<grumpkin::fr>(
+                          std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))),
+          fq<Builder>(&builder,
+                      static_cast<grumpkin::fr>(
+                          std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
+          fq<Builder>(&builder,
+                      static_cast<grumpkin::fr>(
+                          std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))) }
     };
     this->check_conversion_univariate(builder, x);
 }
