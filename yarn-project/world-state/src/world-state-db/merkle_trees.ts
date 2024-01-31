@@ -176,9 +176,8 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, NOTE_HASH_TREE_ROOTS_TREE, L1_TO_L2_MESSAGE_TREE_ROOTS_TREE)
-   * the current roots of the corresponding trees (CONTRACT_TREE, NOTE_HASH_TREE, L1_TO_L2_MESSAGE_TREE).
-   * @param header - The header to insert into the archive.
+   * Updates the archive with the new block/header hash.
+   * @param header - The header whose hash to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
   public async updateArchive(header: Header, includeUncommitted: boolean) {
