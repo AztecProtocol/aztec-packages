@@ -21,48 +21,141 @@ describe('Storage Instructions', () => {
     machineState = new AvmMachineState(executionEnvironment);
   });
 
-  it('Sstore should Write into storage', async () => {
-    const a = new Field(1n);
-    const b = new Field(2n);
+  describe('SSTORE', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        SStore.opcode,
+        // indirect
+        0x01,
+        // srcOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // slotOffset
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
 
-    machineState.memory.set(0, a);
-    machineState.memory.set(1, b);
+      const inst = SStore.deserialize(buf);
+      expect(inst).toEqual(new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*slotOffset=*/ 0xa2345678));
+    });
 
-    await new SStore(0, 1).execute(machineState, journal);
+    it('Should serialize correctly', () => {
+      const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*slotOffset=*/ 0xa2345678);
 
-    expect(journal.writeStorage).toBeCalledWith(address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
+      const expected = Buffer.from([
+        // opcode
+        SStore.opcode,
+        // indirect
+        0x01,
+        // srcOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // slotOffset
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+      expect(inst.serialize()).toEqual(expected);
+    });
+
+    it('Sstore should Write into storage', async () => {
+      const a = new Field(1n);
+      const b = new Field(2n);
+
+      machineState.memory.set(0, a);
+      machineState.memory.set(1, b);
+
+      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(machineState, journal);
+
+      expect(journal.writeStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
+    });
+
+    it('Should not be able to write to storage in a static call', async () => {
+      const executionEnvironment = initExecutionEnvironment({ isStaticCall: true });
+      machineState = new AvmMachineState(executionEnvironment);
+
+      const a = new Field(1n);
+      const b = new Field(2n);
+
+      machineState.memory.set(0, a);
+      machineState.memory.set(1, b);
+
+      const instruction = () =>
+        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(machineState, journal);
+      await expect(instruction()).rejects.toThrow(StaticCallStorageAlterError);
+    });
   });
 
-  it('Should not be able to write to storage in a static call', async () => {
-    const executionEnvironment = initExecutionEnvironment({ isStaticCall: true });
-    machineState = new AvmMachineState(executionEnvironment);
+  describe('SLOAD', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        SLoad.opcode,
+        // indirect
+        0x01,
+        // slotOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // dstOffset
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
 
-    const a = new Field(1n);
-    const b = new Field(2n);
+      const inst = SLoad.deserialize(buf);
+      expect(inst).toEqual(new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x12345678, /*dstOffset=*/ 0xa2345678));
+    });
 
-    machineState.memory.set(0, a);
-    machineState.memory.set(1, b);
+    it('Should serialize correctly', () => {
+      const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x12345678, /*dstOffset=*/ 0xa2345678);
 
-    const instruction = () => new SStore(0, 1).execute(machineState, journal);
-    await expect(instruction()).rejects.toThrowError(StaticCallStorageAlterError);
-  });
+      const expected = Buffer.from([
+        // opcode
+        SLoad.opcode,
+        // indirect
+        0x01,
+        // slotOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // dstOffset
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+      expect(inst.serialize()).toEqual(expected);
+    });
 
-  it('Sload should Read into storage', async () => {
-    // Mock response
-    const expectedResult = new Fr(1n);
-    journal.readStorage.mockReturnValueOnce(Promise.resolve(expectedResult));
+    it('Sload should Read into storage', async () => {
+      // Mock response
+      const expectedResult = new Fr(1n);
+      journal.readStorage.mockReturnValueOnce(Promise.resolve(expectedResult));
 
-    const a = new Field(1n);
-    const b = new Field(2n);
+      const a = new Field(1n);
+      const b = new Field(2n);
 
-    machineState.memory.set(0, a);
-    machineState.memory.set(1, b);
+      machineState.memory.set(0, a);
+      machineState.memory.set(1, b);
 
-    await new SLoad(0, 1).execute(machineState, journal);
+      await new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1).execute(machineState, journal);
 
-    expect(journal.readStorage).toBeCalledWith(address, new Fr(a.toBigInt()));
+      expect(journal.readStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()));
 
-    const actual = machineState.memory.get(1);
-    expect(actual).toEqual(new Field(expectedResult));
+      const actual = machineState.memory.get(1);
+      expect(actual).toEqual(new Field(expectedResult));
+    });
   });
 });
