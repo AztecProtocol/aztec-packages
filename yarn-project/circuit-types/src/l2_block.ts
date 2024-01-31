@@ -325,7 +325,6 @@ export class L2Block {
   /**
    * Deserializes L2 block without logs from a buffer.
    * @param buf - A serialized L2 block.
-   * @param blockHash - The hash of the block.
    * @returns Deserialized L2 block.
    */
   static fromBuffer(buf: Buffer | BufferReader) {
