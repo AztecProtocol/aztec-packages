@@ -13,7 +13,6 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  CONTRACT_TREE_HEIGHT,
   CallContext,
   CallRequest,
   CallerContext,
