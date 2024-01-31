@@ -108,10 +108,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
-    const FF public_input_delta = bb::honk::compute_public_input_delta<Flavor>(
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
         inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
-    const FF lookup_grand_product_delta =
-        bb::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 

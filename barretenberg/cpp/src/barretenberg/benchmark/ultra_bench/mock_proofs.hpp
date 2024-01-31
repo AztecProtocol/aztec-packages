@@ -162,13 +162,13 @@ template <typename Builder> void generate_merkle_membership_test_circuit(Builder
 }
 
 // ultrahonk
-inline UltraComposer& composer,
-                                    void (*test_circuit_function)(CircuitBuilder&, size_t),
+inline honk::UltraProver get_prover(honk::UltraComposer& composer,
+                                    void (*test_circuit_function)(honk::UltraComposer::CircuitBuilder&, size_t),
                                     size_t num_iterations)
 {
-    CircuitBuilder builder;
+    honk::UltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    std::shared_ptr<Instance> instance = composer.create_instance(builder);
+    std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
     return composer.create_prover(instance);
 }
 
@@ -184,7 +184,7 @@ inline plonk::Prover get_prover(plonk::StandardComposer& composer,
 
 // ultraplonk
 inline plonk::UltraProver get_prover(plonk::UltraComposer& composer,
-                                     void (*test_circuit_function)(CircuitBuilder&, size_t),
+                                     void (*test_circuit_function)(honk::UltraComposer::CircuitBuilder&, size_t),
                                      size_t num_iterations)
 {
     plonk::UltraComposer::CircuitBuilder builder;
