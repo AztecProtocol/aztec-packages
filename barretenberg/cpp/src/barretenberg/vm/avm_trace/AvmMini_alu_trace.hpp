@@ -2,7 +2,7 @@
 
 #include "AvmMini_common.hpp"
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 class AvmMiniAluTraceBuilder {
 
@@ -46,4 +46,4 @@ class AvmMiniAluTraceBuilder {
   private:
     std::vector<AluTraceEntry> alu_trace;
 };
-} // namespace avm_trace
+} // namespace bb::avm_trace

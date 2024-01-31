@@ -29,7 +29,7 @@ void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
 } // namespace
 
 namespace tests_avm {
-using namespace avm_trace;
+using namespace bb::avm_trace;
 using bb::utils::hex_to_bytes;
 
 class AvmMiniExecutionTests : public ::testing::Test {

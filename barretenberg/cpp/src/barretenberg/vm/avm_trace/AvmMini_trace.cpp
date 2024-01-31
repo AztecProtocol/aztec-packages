@@ -10,7 +10,7 @@
 
 #include "AvmMini_trace.hpp"
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 /**
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
@@ -682,4 +682,4 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
     return trace;
 }
 
-} // namespace avm_trace
+} // namespace bb::avm_trace

@@ -185,7 +185,7 @@ std::vector<Row> gen_mutated_trace_mul(FF const& a, FF const& b, FF const& c_mut
 } // anonymous namespace
 
 namespace tests_avm {
-using namespace avm_trace;
+using namespace bb::avm_trace;
 
 class AvmMiniArithmeticTests : public ::testing::Test {
   public:

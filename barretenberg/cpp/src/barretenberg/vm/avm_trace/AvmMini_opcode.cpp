@@ -1,7 +1,7 @@
 #include "AvmMini_opcode.hpp"
 #include <cstdint>
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 const std::unordered_map<OpCode, size_t> Bytecode::OPERANDS_NUM = {
     // Compute
@@ -150,4 +150,4 @@ bool Bytecode::has_in_tag(OpCode const op_code)
     }
 }
 
-} // namespace avm_trace
+} // namespace bb::avm_trace

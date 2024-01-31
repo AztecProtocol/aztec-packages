@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-namespace avm_trace {
+namespace bb::avm_trace {
 using std::size_t;
 
 /**
@@ -102,4 +102,4 @@ class Bytecode {
     static const std::unordered_map<OpCode, size_t> OPERANDS_NUM;
 };
 
-} // namespace avm_trace
+} // namespace bb::avm_trace

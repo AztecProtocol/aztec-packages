@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 class Execution {
   public:
@@ -25,4 +25,4 @@ class Execution {
     static HonkProof run_and_prove(std::vector<uint8_t> const& bytecode, std::vector<FF> const& calldata);
 };
 
-} // namespace avm_trace
+} // namespace bb::avm_trace

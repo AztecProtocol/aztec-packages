@@ -1,6 +1,6 @@
 #include "AvmMini_mem_trace.hpp"
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 /**
  * @brief Constructor of a memory trace builder of AVM. Only serves to set the capacity of the
@@ -209,4 +209,4 @@ void AvmMiniMemTraceBuilder::write_into_memory(
     store_in_mem_trace(clk, interm_reg, addr, val, m_in_tag);
 }
 
-} // namespace avm_trace
+} // namespace bb::avm_trace

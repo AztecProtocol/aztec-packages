@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 class Instruction {
   public:
@@ -20,4 +20,4 @@ class Instruction {
         , in_tag(in_tag){};
 };
 
-} // namespace avm_trace
+} // namespace bb::avm_trace
