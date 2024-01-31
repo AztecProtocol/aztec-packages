@@ -13,11 +13,17 @@ using Instances = ProverInstances_<Flavor, 2>;
 using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
 using Builder = Flavor::CircuitBuilder;
 
+class GoblinBench : public benchmark::Fixture {
+  public:
+    void SetUp([[maybe_unused]] const ::benchmark::State& state) override
+    {
+        bb::srs::init_crs_factory("../srs_db/ignition");
+    }
+};
+
 // Fold one instance into an accumulator.
 void fold_one(State& state) noexcept
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
-
     auto log2_num_gates = static_cast<size_t>(state.range(0));
     auto composer = UltraComposer();
 
