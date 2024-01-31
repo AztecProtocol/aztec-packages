@@ -172,7 +172,7 @@ jobs:
           retention-days: 3
 
   build-mac-m1:
-    name: Build on Mac aarch64-apple-darwin
+    name: Build on Mac aarch64-apple-darwin 
     runs-on: macos-14
     steps:
       - name: Checkout
