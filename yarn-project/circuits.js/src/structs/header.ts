@@ -109,7 +109,6 @@ export class Header {
     return Header.fromBuffer(buffer);
   }
 
-  // TODO(benesjan): cache this? would require making all properties readonly
   hash(): Fr {
     return Fr.fromBuffer(
       pedersenHash(
