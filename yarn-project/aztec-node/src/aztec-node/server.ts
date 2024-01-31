@@ -26,7 +26,6 @@ import {
   ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
   Fr,
-  GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -554,7 +553,7 @@ export class AztecNodeService implements AztecNode {
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
     const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    await merkleTrees.init(true); // TODO(benesjan): : not sure if correct
+    await merkleTrees.init();
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),

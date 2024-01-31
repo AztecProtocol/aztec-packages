@@ -23,7 +23,7 @@ import {
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { AztecKVStore, AztecSingleton } from '@aztec/kv-store';
+import { AztecKVStore } from '@aztec/kv-store';
 import {
   AppendOnlyTree,
   BatchInsertionResult,
@@ -32,6 +32,7 @@ import {
   StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
+  getTreeMeta,
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
@@ -60,8 +61,6 @@ class PublicDataTree extends StandardIndexedTree {
   }
 }
 
-const FROM_DB_FLAG = 'FROM_DB';
-
 /**
  * A convenience class for managing multiple merkle trees.
  */
@@ -69,17 +68,13 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
   private jobQueue = new SerialQueue();
 
-  fromDb: AztecSingleton<boolean>;
-
-  constructor(private store: AztecKVStore, private log = createDebugLogger('aztec:merkle_trees')) {
-    this.fromDb = store.openSingleton(FROM_DB_FLAG);
-  }
+  constructor(private store: AztecKVStore, private log = createDebugLogger('aztec:merkle_trees')) {}
 
   /**
-   * initializes the collection of Merkle Trees.
-   * @param fromDb - Whether to initialize the trees from the db.
+   * Initializes the collection of Merkle Trees.
    */
-  public async init(fromDb = false) {
+  public async init() {
+    const fromDb = this.#isDbPopulated();
     const initializeTree = fromDb ? loadTree : newTree;
 
     const hasher = new Pedersen();
@@ -148,9 +143,7 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public static async new(store: AztecKVStore) {
     const merkleTrees = new MerkleTrees(store);
-    const fromDbFlag = store.openSingleton<boolean>(FROM_DB_FLAG);
-    const val = fromDbFlag.get();
-    await merkleTrees.init(val);
+    await merkleTrees.init();
     return merkleTrees;
   }
 
@@ -481,7 +474,6 @@ export class MerkleTrees implements MerkleTreeDb {
     for (const tree of this.trees) {
       await tree.commit();
     }
-    await this.fromDb.set(true);
   }
 
   /**
@@ -582,5 +574,16 @@ export class MerkleTrees implements MerkleTreeDb {
     await this._snapshot(l2Block.number);
 
     return { isBlockOurs: ourBlock };
+  }
+
+  #isDbPopulated(): boolean {
+    try {
+      getTreeMeta(this.store, MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]);
+      // Tree meta was found --> db is populated
+      return true;
+    } catch (e) {
+      // Tree meta was not found --> db is not populated
+      return false;
+    }
   }
 }
