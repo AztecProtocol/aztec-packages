@@ -75,31 +75,37 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
         auto lhs = dsl_bigint.bn254_fr(input.lhs);
         auto rhs = dsl_bigint.bn254_fr(input.rhs);
         dsl_bigint.set_bn254_fr(lhs + rhs, input.result);
+        break;
     }
     case ModulusId::BN254_FQ: {
         auto lhs = dsl_bigint.bn254_fq(input.lhs);
         auto rhs = dsl_bigint.bn254_fq(input.rhs);
         dsl_bigint.set_bn254_fq(lhs + rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FQ: {
         auto lhs = dsl_bigint.secp256k1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fq(input.rhs);
         dsl_bigint.set_secp256k1_fq(lhs + rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FR: {
         auto lhs = dsl_bigint.secp256k1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fr(input.rhs);
         dsl_bigint.set_secp256k1_fr(lhs + rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FQ: {
         auto lhs = dsl_bigint.secp256r1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fq(input.rhs);
         dsl_bigint.set_secp256r1_fq(lhs + rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FR: {
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs + rhs, input.result);
+        break;
     }
     default: {
         ASSERT(false);
@@ -115,31 +121,37 @@ void create_bigint_neg_constraint(const BigIntOperation& input, DSLBigInts<Build
         auto lhs = dsl_bigint.bn254_fr(input.lhs);
         auto rhs = dsl_bigint.bn254_fr(input.rhs);
         dsl_bigint.set_bn254_fr(lhs - rhs, input.result);
+        break;
     }
     case ModulusId::BN254_FQ: {
         auto lhs = dsl_bigint.bn254_fq(input.lhs);
         auto rhs = dsl_bigint.bn254_fq(input.rhs);
         dsl_bigint.set_bn254_fq(lhs - rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FQ: {
         auto lhs = dsl_bigint.secp256k1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fq(input.rhs);
         dsl_bigint.set_secp256k1_fq(lhs - rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FR: {
         auto lhs = dsl_bigint.secp256k1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fr(input.rhs);
         dsl_bigint.set_secp256k1_fr(lhs - rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FQ: {
         auto lhs = dsl_bigint.secp256r1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fq(input.rhs);
         dsl_bigint.set_secp256r1_fq(lhs - rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FR: {
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs - rhs, input.result);
+        break;
     }
     default: {
         ASSERT(false);
@@ -155,31 +167,37 @@ void create_bigint_mul_constraint(const BigIntOperation& input, DSLBigInts<Build
         auto lhs = dsl_bigint.bn254_fr(input.lhs);
         auto rhs = dsl_bigint.bn254_fr(input.rhs);
         dsl_bigint.set_bn254_fr(lhs * rhs, input.result);
+        break;
     }
     case ModulusId::BN254_FQ: {
         auto lhs = dsl_bigint.bn254_fq(input.lhs);
         auto rhs = dsl_bigint.bn254_fq(input.rhs);
         dsl_bigint.set_bn254_fq(lhs * rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FQ: {
         auto lhs = dsl_bigint.secp256k1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fq(input.rhs);
         dsl_bigint.set_secp256k1_fq(lhs * rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FR: {
         auto lhs = dsl_bigint.secp256k1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fr(input.rhs);
         dsl_bigint.set_secp256k1_fr(lhs * rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FQ: {
         auto lhs = dsl_bigint.secp256r1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fq(input.rhs);
         dsl_bigint.set_secp256r1_fq(lhs * rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FR: {
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs * rhs, input.result);
+        break;
     }
     default: {
         ASSERT(false);
@@ -195,31 +213,37 @@ void create_bigint_div_constraint(const BigIntOperation& input, DSLBigInts<Build
         auto lhs = dsl_bigint.bn254_fr(input.lhs);
         auto rhs = dsl_bigint.bn254_fr(input.rhs);
         dsl_bigint.set_bn254_fr(lhs / rhs, input.result);
+        break;
     }
     case ModulusId::BN254_FQ: {
         auto lhs = dsl_bigint.bn254_fq(input.lhs);
         auto rhs = dsl_bigint.bn254_fq(input.rhs);
         dsl_bigint.set_bn254_fq(lhs / rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FQ: {
         auto lhs = dsl_bigint.secp256k1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fq(input.rhs);
         dsl_bigint.set_secp256k1_fq(lhs / rhs, input.result);
+        break;
     }
     case ModulusId::SECP256K1_FR: {
         auto lhs = dsl_bigint.secp256k1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256k1_fr(input.rhs);
         dsl_bigint.set_secp256k1_fr(lhs / rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FQ: {
         auto lhs = dsl_bigint.secp256r1_fq(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fq(input.rhs);
         dsl_bigint.set_secp256r1_fq(lhs / rhs, input.result);
+        break;
     }
     case ModulusId::SECP256R1_FR: {
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs / rhs, input.result);
+        break;
     }
     default: {
         ASSERT(false);
