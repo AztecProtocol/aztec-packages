@@ -91,7 +91,7 @@ Once the execution environment is created, `execute_unconstrained_function` is i
 This:
 
 1. Prepares the ACIR for execution
-2. Converts `args` into a format suitable for the ACVM (Aztec's virtual machine), creating an initial witness (witness = set of inputs required to compute the function). `args` might be an oracle to request a user's balance
+2. Converts `args` into a format suitable for the ACVM (Abstract Circuit Virtual Machine), creating an initial witness (witness = set of inputs required to compute the function). `args` might be an oracle to request a user's balance
 3. Executes the function in the ACVM, which involves running the ACIR with the initial witness and the context. If requesting a user's balance, this would query the balance from the PXE database
 4. Extracts the return values from the `partialWitness` and decodes them based on the artifact to get the final function output. The [artifact](../../artifacts.md) is the compiled output of the contract, and has information like the function signature, parameter types, and return types
 

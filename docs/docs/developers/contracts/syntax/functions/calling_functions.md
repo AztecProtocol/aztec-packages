@@ -83,7 +83,7 @@ The public execution environment in Aztec takes place on the sequencer through a
 
 Using the same example code and call stack from the section [above](#private---private-function-calls), we will walk through how it gets executed in public.
 
-The first key difference is that public functions are not compiled to circuits, rather they are compiled to `Aztec Bytecode` (might also be referred to as brillig).
+The first key difference is that public functions are not compiled to circuits, rather they are compiled to `Aztec Bytecode`.
 
 This bytecode is run by the sequencer in the `Aztec VM`, which is in turn proven by the [`Aztec VM circuit`](../../../../learn/concepts/hybrid_state/public_vm.md).
 The mental model for public execution carries many of the same idea as are carried by Ethereum. Programs are compiled into a series of opcodes (known as bytecode). This bytecode is then executed. The extra step for the Aztec VM is that each opcode is then proven for correctness.
@@ -124,7 +124,7 @@ If you recall the `redeem_shield` from back in the [private function section](./
 
 #include_code redeem_shield /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
-When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the note hash tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](./../../../../learn/concepts/communication/cross_chain_calls.md) we are going to see this pattern again.
+When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the nullifier tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](./../../../../learn/concepts/communication/cross_chain_calls.md) we are going to see this pattern again.
 
 :::danger
 Something to be mindful of when inserting from public. Everyone can see the insertion and what happens in public, so if you are including a secret directly anyone would be able to see it. This is why the hash of the secret is used in the snippet above (`secret_hash`).
