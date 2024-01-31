@@ -71,6 +71,17 @@ export class MerkleTrees implements MerkleTreeDb {
   private constructor(private store: AztecKVStore, private log: DebugLogger) {}
 
   /**
+   * Method to asynchronously create and initialize a MerkleTrees instance.
+   * @param store - The db instance to use for data persistance.
+   * @returns - A fully initialized MerkleTrees instance.
+   */
+  public static async new(store: AztecKVStore, log = createDebugLogger('aztec:merkle_trees')) {
+    const merkleTrees = new MerkleTrees(store, log);
+    await merkleTrees.#init();
+    return merkleTrees;
+  }
+
+  /**
    * Initializes the collection of Merkle Trees.
    */
   async #init() {
@@ -134,17 +145,6 @@ export class MerkleTrees implements MerkleTreeDb {
     }
 
     await this.#commit();
-  }
-
-  /**
-   * Method to asynchronously create and initialize a MerkleTrees instance.
-   * @param store - The db instance to use for data persistance.
-   * @returns - A fully initialized MerkleTrees instance.
-   */
-  public static async new(store: AztecKVStore, log = createDebugLogger('aztec:merkle_trees')) {
-    const merkleTrees = new MerkleTrees(store, log);
-    await merkleTrees.#init();
-    return merkleTrees;
   }
 
   public async buildInitialHeader(includeUncommitted: boolean): Promise<Header> {
