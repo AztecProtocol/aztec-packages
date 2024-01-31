@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace crypto {
+namespace bb::crypto {
 
 /**
  * @brief Applies the Poseidon2 permutation function from https://eprint.iacr.org/2023/323 .
@@ -40,9 +40,8 @@ template <typename Params> class Poseidon2Permutation {
     using MatrixDiagonal = std::array<FF, t>;
     using RoundConstantsContainer = std::array<RoundConstants, NUM_ROUNDS>;
 
-    static constexpr MatrixDiagonal internal_matrix_diagonal =
-        Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal;
-    static constexpr RoundConstantsContainer round_constants = Poseidon2Bn254ScalarFieldParams::round_constants;
+    static constexpr MatrixDiagonal internal_matrix_diagonal = Params::internal_matrix_diagonal;
+    static constexpr RoundConstantsContainer round_constants = Params::round_constants;
 
     static constexpr void matrix_multiplication_4x4(State& input)
     {
@@ -162,4 +161,4 @@ template <typename Params> class Poseidon2Permutation {
         return current_state;
     }
 };
-} // namespace crypto
+} // namespace bb::crypto

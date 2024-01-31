@@ -19,7 +19,13 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../types"
     }
   ],
   "include": ["src"]

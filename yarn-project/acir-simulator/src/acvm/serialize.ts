@@ -1,9 +1,9 @@
 import {
-  BlockHeader,
   CallContext,
   ContractDeploymentData,
   FunctionData,
   GlobalVariables,
+  Header,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallRequest,
@@ -92,10 +92,10 @@ export function toACVMCallContext(callContext: CallContext): ACVMField[] {
  */
 export function toACVMContractDeploymentData(contractDeploymentData: ContractDeploymentData): ACVMField[] {
   return [
-    toACVMField(contractDeploymentData.deployerPublicKey.x),
-    toACVMField(contractDeploymentData.deployerPublicKey.y),
-    toACVMField(contractDeploymentData.constructorVkHash),
-    toACVMField(contractDeploymentData.functionTreeRoot),
+    toACVMField(contractDeploymentData.publicKey.x),
+    toACVMField(contractDeploymentData.publicKey.y),
+    toACVMField(contractDeploymentData.initializationHash),
+    toACVMField(contractDeploymentData.contractClassId),
     toACVMField(contractDeploymentData.contractAddressSalt),
     toACVMField(contractDeploymentData.portalContractAddress),
   ];
@@ -103,19 +103,11 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 
 /**
  * Converts a block header into ACVM fields.
- * @param blockHeader - The block header object to convert.
+ * @param header - The block header object to convert.
  * @returns The ACVM fields.
  */
-export function toACVMBlockHeader(blockHeader: BlockHeader): ACVMField[] {
-  return [
-    toACVMField(blockHeader.noteHashTreeRoot),
-    toACVMField(blockHeader.nullifierTreeRoot),
-    toACVMField(blockHeader.contractTreeRoot),
-    toACVMField(blockHeader.l1ToL2MessageTreeRoot),
-    toACVMField(blockHeader.archiveRoot),
-    toACVMField(blockHeader.publicDataTreeRoot),
-    toACVMField(blockHeader.globalVariablesHash),
-  ];
+export function toACVMHeader(header: Header): ACVMField[] {
+  return header.toFieldArray().map(toACVMField);
 }
 
 /**
@@ -143,9 +135,10 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.argsHash),
 
     ...publicInputs.returnValues.map(toACVMField),
-    ...publicInputs.readRequests.flatMap(x => x.toFieldArray()).map(toACVMField),
-    ...publicInputs.newCommitments.flatMap(x => x.toFieldArray()).map(toACVMField),
-    ...publicInputs.newNullifiers.flatMap(x => x.toFieldArray()).map(toACVMField),
+    ...publicInputs.readRequests.flatMap(x => x.toFields()).map(toACVMField),
+    ...publicInputs.nullifierKeyValidationRequests.flatMap(x => x.toFields()).map(toACVMField),
+    ...publicInputs.newCommitments.flatMap(x => x.toFields()).map(toACVMField),
+    ...publicInputs.newNullifiers.flatMap(x => x.toFields()).map(toACVMField),
     ...publicInputs.privateCallStackHashes.map(toACVMField),
     ...publicInputs.publicCallStackHashes.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
@@ -156,7 +149,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),
 
-    ...toACVMBlockHeader(publicInputs.blockHeader),
+    ...toACVMHeader(publicInputs.historicalHeader),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
 
@@ -199,18 +192,13 @@ export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVM
 /**
  * Converts the result of loading messages to ACVM fields.
  * @param messageLoadOracleInputs - The result of loading messages to convert.
- * @param l1ToL2MessageTreeRoot - The L1 to L2 message tree root
  * @returns The Message Oracle Fields.
  */
-export function toAcvmL1ToL2MessageLoadOracleInputs(
-  messageLoadOracleInputs: MessageLoadOracleInputs,
-  l1ToL2MessageTreeRoot: Fr,
-): ACVMField[] {
+export function toAcvmL1ToL2MessageLoadOracleInputs(messageLoadOracleInputs: MessageLoadOracleInputs): ACVMField[] {
   return [
     ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
     toACVMField(messageLoadOracleInputs.index),
     ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
-    toACVMField(l1ToL2MessageTreeRoot),
   ];
 }
 

@@ -1,8 +1,8 @@
 #include "memory_tree.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::plonk::stdlib::merkle_tree;
+using namespace bb;
+using namespace bb::stdlib::merkle_tree;
 
 static std::vector<fr> VALUES = []() {
     std::vector<fr> values(4);

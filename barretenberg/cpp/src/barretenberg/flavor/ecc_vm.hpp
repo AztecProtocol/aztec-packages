@@ -26,8 +26,7 @@
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
-namespace proof_system::honk {
-namespace flavor {
+namespace bb::honk::flavor {
 
 template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBase {
   public:
@@ -38,7 +37,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using PCS = PCS_T;
 
     using FF = typename G1::subgroup_field;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using GroupElement = typename G1::element;
     using Commitment = typename G1::affine_element;
@@ -376,7 +375,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     /**
      * @brief A container for univariates used during sumcheck.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -600,7 +599,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         Commitment lookup_read_counts_1_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
-        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> gemini_univariate_comms;
         std::vector<FF> gemini_a_evals;
@@ -614,201 +613,201 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
         Transcript() = default;
 
-        Transcript(const std::vector<uint8_t>& proof)
+        Transcript(const honk::proof& proof)
             : BaseTranscript(proof)
         {}
 
         void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
-            size_t num_bytes_read = 0;
+            size_t num_frs_read = 0;
             circuit_size =
-                BaseTranscript::template deserialize_from_buffer<uint32_t>(BaseTranscript::proof_data, num_bytes_read);
+                BaseTranscript::template deserialize_from_buffer<uint32_t>(BaseTranscript::proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
-            transcript_add_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_mul_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_eq_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_collision_check_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_msm_transition_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_pc_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_msm_count_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_Px_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_Py_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_z1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_z2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_z1zero_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_z2zero_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_op_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_accumulator_x_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_accumulator_y_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_msm_x_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_msm_y_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_pc_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_point_transition_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_round_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_scalar_sum_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s1hi_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s1lo_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s2hi_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s2lo_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s3hi_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s3lo_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s4hi_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_s4lo_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_skew_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_dx_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_dy_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_tx_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_ty_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_transition_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_add_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                        num_bytes_read);
-            msm_double_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                           num_bytes_read);
-            msm_skew_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                         num_bytes_read);
-            msm_accumulator_x_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_accumulator_y_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_pc_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_size_of_msm_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_count_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                          num_bytes_read);
-            msm_round_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                          num_bytes_read);
-            msm_add1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                         num_bytes_read);
-            msm_add2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                         num_bytes_read);
-            msm_add3_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                         num_bytes_read);
-            msm_add4_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                         num_bytes_read);
-            msm_x1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_y1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_x2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_y2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_x3_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_y3_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_x4_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_y4_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
-            msm_collision_x1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_collision_x2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_collision_x3_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_collision_x4_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            msm_lambda1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                            num_bytes_read);
-            msm_lambda2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                            num_bytes_read);
-            msm_lambda3_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                            num_bytes_read);
-            msm_lambda4_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                            num_bytes_read);
-            msm_slice1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                           num_bytes_read);
-            msm_slice2_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                           num_bytes_read);
-            msm_slice3_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                           num_bytes_read);
-            msm_slice4_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                           num_bytes_read);
-            transcript_accumulator_empty_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            transcript_reset_accumulator_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            precompute_select_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            lookup_read_counts_0_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            lookup_read_counts_1_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            lookup_inverses_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(
-                BaseTranscript::proof_data, num_bytes_read);
-            z_perm_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                       num_bytes_read);
+            transcript_add_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_mul_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_eq_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_collision_check_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_msm_transition_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_pc_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_msm_count_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_Px_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_Py_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_z1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_z2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_z1zero_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_z2zero_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_op_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_accumulator_x_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_accumulator_y_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_msm_x_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_msm_y_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_pc_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_point_transition_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_round_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_scalar_sum_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s1hi_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s1lo_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s2hi_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s2lo_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s3hi_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s3lo_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s4hi_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_s4lo_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_skew_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_dx_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_dy_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_tx_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_ty_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_transition_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_add_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_double_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_skew_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_accumulator_x_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_accumulator_y_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_pc_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_size_of_msm_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_count_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_round_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_add1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_add2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_add3_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_add4_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_x1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_y1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_x2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_y2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_x3_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_y3_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_x4_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_y4_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_collision_x1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_collision_x2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_collision_x3_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_collision_x4_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_lambda1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_lambda2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_lambda3_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_lambda4_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_slice1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_slice2_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_slice3_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            msm_slice4_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_accumulator_empty_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            transcript_reset_accumulator_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            precompute_select_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            lookup_read_counts_0_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            lookup_read_counts_1_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            lookup_inverses_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
+            z_perm_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.emplace_back(BaseTranscript::template deserialize_from_buffer<
-                                                  barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                    BaseTranscript::proof_data, num_bytes_read));
+                sumcheck_univariates.emplace_back(
+                    BaseTranscript::template deserialize_from_buffer<
+                        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(BaseTranscript::proof_data, num_frs_read));
             }
             sumcheck_evaluations = BaseTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                BaseTranscript::proof_data, num_bytes_read);
+                BaseTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < log_n - 1; ++i) {
                 gemini_univariate_comms.emplace_back(BaseTranscript::template deserialize_from_buffer<Commitment>(
-                    BaseTranscript::proof_data, num_bytes_read));
+                    BaseTranscript::proof_data, num_frs_read));
             }
             for (size_t i = 0; i < log_n; ++i) {
                 gemini_a_evals.emplace_back(
-                    BaseTranscript::template deserialize_from_buffer<FF>(BaseTranscript::proof_data, num_bytes_read));
+                    BaseTranscript::template deserialize_from_buffer<FF>(BaseTranscript::proof_data, num_frs_read));
             }
-            shplonk_q_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                          num_bytes_read);
+            shplonk_q_comm =
+                BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data, num_frs_read);
             if (std::is_same<PCS, pcs::kzg::KZG<curve::BN254>>::value) {
                 kzg_w_comm = BaseTranscript::template deserialize_from_buffer<Commitment>(BaseTranscript::proof_data,
-                                                                                          num_bytes_read);
+                                                                                          num_frs_read);
             } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
                 ipa_poly_degree = BaseTranscript::template deserialize_from_buffer<uint64_t>(BaseTranscript::proof_data,
-                                                                                             num_bytes_read);
+                                                                                             num_frs_read);
                 auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
                 for (size_t i = 0; i < log_poly_degree; ++i) {
                     ipa_l_comms.emplace_back(BaseTranscript::template deserialize_from_buffer<Commitment>(
-                        BaseTranscript::proof_data, num_bytes_read));
+                        BaseTranscript::proof_data, num_frs_read));
                     ipa_r_comms.emplace_back(BaseTranscript::template deserialize_from_buffer<Commitment>(
-                        BaseTranscript::proof_data, num_bytes_read));
+                        BaseTranscript::proof_data, num_frs_read));
                 }
                 ipa_a_0_eval =
-                    BaseTranscript::template deserialize_from_buffer<FF>(BaseTranscript::proof_data, num_bytes_read);
+                    BaseTranscript::template deserialize_from_buffer<FF>(BaseTranscript::proof_data, num_frs_read);
             } else {
                 throw_or_abort("Unsupported PCS");
             }
@@ -925,9 +924,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     };
 };
 
-class ECCVM : public ECCVMBase<barretenberg::g1, curve::Grumpkin, pcs::ipa::IPA<curve::Grumpkin>> {};
+class ECCVM : public ECCVMBase<bb::g1, curve::Grumpkin, pcs::ipa::IPA<curve::Grumpkin>> {};
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
-} // namespace flavor
-} // namespace proof_system::honk
+} // namespace bb::honk::flavor

@@ -8,11 +8,9 @@
 #include <iostream>
 #include <sstream>
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace merkle_tree {
+namespace bb::stdlib::merkle_tree {
 
-using namespace barretenberg;
+using namespace bb;
 
 // Size of merkle tree nodes in bytes.
 constexpr size_t REGULAR_NODE_SIZE = 64;
@@ -353,6 +351,4 @@ template <typename Store> void MerkleTree<Store>::remove(fr const& key)
 
 template class MerkleTree<MemoryStore>;
 
-} // namespace merkle_tree
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::merkle_tree

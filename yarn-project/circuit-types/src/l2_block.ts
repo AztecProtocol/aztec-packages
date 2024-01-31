@@ -1,6 +1,5 @@
 import {
   AppendOnlyTreeSnapshot,
-  GlobalVariables,
   Header,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
@@ -8,18 +7,14 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BYTES_PER_SHA256,
-  PartialStateReference,
   STRING_ENCODING,
-  StateReference,
 } from '@aztec/circuits.js';
-import { makeAppendOnlyTreeSnapshot, makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
-import { keccak, sha256 } from '@aztec/foundation/crypto';
+import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/factories';
+import { times } from '@aztec/foundation/collection';
+import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import times from 'lodash.times';
 
 import { ContractData } from './contract_data.js';
 import { L2Tx } from './l2_tx.js';
@@ -96,7 +91,6 @@ export class L2Block {
     public newL1ToL2Messages: Fr[] = [],
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
-    private blockHash?: Buffer,
     l1BlockNumber?: bigint,
   ) {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
@@ -144,8 +138,6 @@ export class L2Block {
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
   ): L2Block {
-    const globalVariables = makeGlobalVariables(0, l2BlockNum);
-
     const newNullifiers = times(MAX_NEW_NULLIFIERS_PER_TX * txsPerBlock, Fr.random);
     const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
     const newContracts = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, Fr.random);
@@ -169,7 +161,7 @@ export class L2Block {
     return L2Block.fromFields(
       {
         archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, globalVariables),
+        header: makeHeader(0, l2BlockNum),
         newCommitments,
         newNullifiers,
         newContracts,
@@ -180,7 +172,6 @@ export class L2Block {
         newEncryptedLogs,
         newUnencryptedLogs,
       },
-      undefined,
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
       BigInt(l2BlockNum),
     );
@@ -236,7 +227,6 @@ export class L2Block {
        */
       newUnencryptedLogs?: L2BlockL2Logs;
     },
-    blockHash?: Buffer,
     l1BlockNumber?: bigint,
   ) {
     return new this(
@@ -251,7 +241,6 @@ export class L2Block {
       fields.newL1ToL2Messages,
       fields.newEncryptedLogs,
       fields.newUnencryptedLogs,
-      blockHash,
       l1BlockNumber,
     );
   }
@@ -264,19 +253,7 @@ export class L2Block {
    */
   toBuffer() {
     return serializeToBuffer(
-      this.header.globalVariables,
-      // TODO(#3868)
-      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
-      this.header.lastArchive,
-      this.header.state.partial.noteHashTree,
-      this.header.state.partial.nullifierTree,
-      this.header.state.partial.contractTree,
-      this.header.state.partial.publicDataTree,
-      this.header.state.l1ToL2MessageTree,
+      this.header,
       this.archive,
       this.newCommitments.length,
       this.newCommitments,
@@ -309,6 +286,32 @@ export class L2Block {
     return serializeToBuffer(this.toBuffer(), this.newEncryptedLogs, this.newUnencryptedLogs);
   }
 
+  bodyToBuffer(): Buffer {
+    if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
+      throw new Error(
+        `newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData (block ${this.header.globalVariables.blockNumber})`,
+      );
+    }
+
+    return serializeToBuffer(
+      this.newCommitments.length,
+      this.newCommitments,
+      this.newNullifiers.length,
+      this.newNullifiers,
+      this.newPublicDataWrites.length,
+      this.newPublicDataWrites,
+      this.newL2ToL1Msgs.length,
+      this.newL2ToL1Msgs,
+      this.newContracts.length,
+      this.newContracts,
+      this.newContractData,
+      this.newL1ToL2Messages.length,
+      this.newL1ToL2Messages,
+      this.newEncryptedLogs,
+      this.newUnencryptedLogs,
+    );
+  }
+
   /**
    * Serializes a block without logs to a string.
    * @remarks This is used when the block is being served via JSON-RPC because the logs are expected to be served
@@ -322,25 +325,12 @@ export class L2Block {
   /**
    * Deserializes L2 block without logs from a buffer.
    * @param buf - A serialized L2 block.
-   * @param blockHash - The hash of the block.
    * @returns Deserialized L2 block.
    */
-  static fromBuffer(buf: Buffer | BufferReader, blockHash?: Buffer) {
+  static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const globalVariables = reader.readObject(GlobalVariables);
-    // TODO(#3938): update the encoding here
-    reader.readObject(AppendOnlyTreeSnapshot); // startNoteHashTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startNullifierTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startContractTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startPublicDataTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startL1ToL2MessageTreeSnapshot
-    const startArchiveSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endNoteHashTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endPublicDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endL1ToL2MessageTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endArchiveSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const header = reader.readObject(Header);
+    const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
@@ -350,30 +340,17 @@ export class L2Block {
     // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
 
-    const partial = new PartialStateReference(
-      endNoteHashTreeSnapshot,
-      endNullifierTreeSnapshot,
-      endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
-    );
-    const state = new StateReference(endL1ToL2MessageTreeSnapshot, partial);
-    // TODO(#3938): populate bodyHash
-    const header = new Header(startArchiveSnapshot, Buffer.alloc(NUM_BYTES_PER_SHA256), state, globalVariables);
-
-    return L2Block.fromFields(
-      {
-        archive: endArchiveSnapshot,
-        header,
-        newCommitments,
-        newNullifiers,
-        newPublicDataWrites,
-        newL2ToL1Msgs,
-        newContracts,
-        newContractData,
-        newL1ToL2Messages,
-      },
-      blockHash,
-    );
+    return L2Block.fromFields({
+      archive,
+      header,
+      newCommitments,
+      newNullifiers,
+      newPublicDataWrites,
+      newL2ToL1Msgs,
+      newContracts,
+      newContractData,
+      newL1ToL2Messages,
+    });
   }
 
   /**
@@ -456,14 +433,11 @@ export class L2Block {
   }
 
   /**
-   * Returns the block's hash.
+   * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public getBlockHash(): Buffer {
-    if (!this.blockHash) {
-      this.blockHash = keccak(this.toBufferWithLogs());
-    }
-    return this.blockHash;
+  public hash(): Fr {
+    return this.header.hash();
   }
 
   /**
@@ -475,11 +449,11 @@ export class L2Block {
     const buf = serializeToBuffer(
       this.header.globalVariables,
       // TODO(#3868)
-      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
       this.header.state.partial.noteHashTree,
       this.header.state.partial.nullifierTree,
@@ -502,11 +476,11 @@ export class L2Block {
     const inputValue = serializeToBuffer(
       new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
       // TODO(#3868)
-      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
     );
     return sha256(inputValue);
@@ -654,7 +628,7 @@ export class L2Block {
       newL2ToL1Msgs,
       newContracts,
       newContractData,
-      this.getBlockHash(),
+      this.hash(),
       Number(this.header.globalVariables.blockNumber.toBigInt()),
     );
   }

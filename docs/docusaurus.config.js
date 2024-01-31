@@ -82,13 +82,6 @@ const config = {
         name: "load-versions",
         async loadContent() {
           try {
-            const noirVersionPath = path.resolve(
-              __dirname,
-              "../yarn-project/noir-compiler/src/noir-version.json"
-            );
-            const noirVersion = JSON.parse(
-              fs.readFileSync(noirVersionPath).toString()
-            ).tag;
             const aztecVersionPath = path.resolve(
               __dirname,
               "../.release-please-manifest.json"
@@ -97,12 +90,11 @@ const config = {
               fs.readFileSync(aztecVersionPath).toString()
             )["."];
             return {
-              noir: noirVersion,
               "aztec-packages": `aztec-packages-v${aztecVersion}`,
             };
           } catch (err) {
             throw new Error(
-              `Error loading Noir version from noir-compiler in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
+              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
             );
           }
         },
@@ -203,7 +195,7 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "intro",
+            docId: "welcome",
             position: "left",
             label: "Aztec Protocol",
           },
@@ -221,7 +213,7 @@ const config = {
               },
               {
                 label: "Developer Quickstart",
-                to: "/dev_docs/getting_started/quickstart",
+                to: "/developers/getting_started/quickstart",
               },
               {
                 label: "Aztec.nr",

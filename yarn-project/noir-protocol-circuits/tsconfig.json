@@ -16,7 +16,13 @@
       "path": "../noir-compiler"
     },
     {
+      "path": "../types"
+    },
+    {
       "path": "../circuit-types"
+    },
+    {
+      "path": "../kv-store"
     },
     {
       "path": "../merkle-tree"

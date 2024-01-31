@@ -204,7 +204,7 @@ impl BaseRollupInputs {
         )
     }
 
-    fn create_nullifier_subtree<N>(self, leaves: [NullifierLeafPreimage; N]) -> Field {
+    fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
         calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
@@ -338,8 +338,8 @@ impl BaseRollupInputs {
         let archive_root = self.constants.last_archive.root;
 
         // Rebuild the block hash
-        let block_header = self.kernel_data.public_inputs.constants.block_header;
-        let previous_block_hash = block_header.block_hash();
+        let header = self.kernel_data.public_inputs.constants.historical_header;
+        let previous_block_hash = header.hash();
 
         let previous_block_hash_witness = self.archive_root_membership_witness;
 
@@ -359,7 +359,7 @@ impl BaseRollupInputs {
     }
 }
 
-fn verify_kernel_proof(proof: Proof) -> bool {
+fn verify_kernel_proof(_proof: Proof) -> bool {
     // TODO: Just return true as we are mocking out the proof verification
     // and aggregation.
     // TODO(Kev): It may make sense to move all of these methods into a 
@@ -521,11 +521,11 @@ fn consistent_call_data_hash_full_fields() {
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(lhs, rhs)
+    lhs.lt(rhs)
 }
 
 pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(rhs, lhs)
+    rhs.lt(lhs)
 }
 
 #[test]
@@ -597,7 +597,6 @@ mod tests {
         abis::side_effect::SideEffect,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{AztecAddress, EthAddress},
-        utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
         partial_state_reference::PartialStateReference,
     };
@@ -648,7 +647,7 @@ mod tests {
 
         for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TEST {
             if i < (public_data_writes.len() as u64) {
-                let (_, leaf): (u64, PublicDataTreeLeaf) = public_data_writes.get_unchecked(i as Field);
+                let leaf = public_data_writes.get_unchecked(i as Field).1;
 
                 kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
@@ -738,7 +737,7 @@ mod tests {
             let _nullifier = builder.end.new_nullifiers.pop();
             inputs.kernel_data = builder.is_public();
   
-            inputs.pre_existing_blocks[0] = inputs.kernel_data.block_header.block_hash();
+            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
             inputs
         }
@@ -949,7 +948,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            function_tree_root: 3
+            contract_class_id: 3
         };
 
         let mut builder = BaseRollupInputsBuilder::new();
@@ -978,7 +977,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            function_tree_root: 3
+            contract_class_id: 3
         };
 
         let mut builder = BaseRollupInputsBuilder::new();

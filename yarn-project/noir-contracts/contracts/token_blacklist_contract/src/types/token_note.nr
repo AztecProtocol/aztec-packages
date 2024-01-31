@@ -10,10 +10,11 @@ use dep::aztec::{
     state_vars::set::Set,
     log::emit_encrypted_log,
     hash::pedersen_hash,
+    protocol_types::traits::{Serialize, Deserialize}
 };
 use dep::aztec::oracle::{
     rand::rand,
-    get_secret_key::get_secret_key,
+    nullifier_key::get_nullifier_secret_key,
     get_public_key::get_public_key,
 };
 use dep::safe_math::SafeU120;
@@ -35,21 +36,14 @@ struct TokenNote {
     header: NoteHeader,
 }
 
-impl TokenNote {
-    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
-        Self {
-            amount,
-            owner,
-            randomness: rand(),
-            header: NoteHeader::empty(),
-        }
-    }
-
-    pub fn serialize(self) -> [Field; TOKEN_NOTE_LEN] {
+impl Serialize<TOKEN_NOTE_LEN> for TokenNote {
+    fn serialize(self) -> [Field; TOKEN_NOTE_LEN] {
         [self.amount.value as Field, self.owner.to_field(), self.randomness]
     }
+}
 
-    pub fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
+impl Deserialize<TOKEN_NOTE_LEN> for TokenNote {
+    fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
             amount: SafeU120::new(preimage[0]),
             owner: AztecAddress::from_field(preimage[1]),
@@ -57,8 +51,10 @@ impl TokenNote {
             header: NoteHeader::empty(),
         }
     }
+}
 
-    pub fn compute_note_hash(self) -> Field {
+impl NoteInterface for TokenNote {
+      fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
             self.amount.value as Field, 
@@ -68,9 +64,9 @@ impl TokenNote {
     }
 
     // docs:start:nullifier
-    pub fn compute_nullifier(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(TokenNoteMethods, self);
-        let secret = get_secret_key(self.owner);
+    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
+        let secret = context.request_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
             note_hash_for_nullify,
@@ -80,12 +76,28 @@ impl TokenNote {
     }
     // docs:end:nullifier
 
-    pub fn set_header(&mut self, header: NoteHeader) {
+    fn compute_nullifier_without_context(self) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
+        let secret = get_nullifier_secret_key(self.owner);
+        // TODO(#1205) Should use a non-zero generator index.
+        pedersen_hash([
+            note_hash_for_nullify,
+            secret.low,
+            secret.high,
+        ],0)
+    }
+
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
 
+
+    fn get_header(note: TokenNote) -> NoteHeader {
+        note.header
+    }
+
     // Broadcasts the note as an encrypted log on L1.
-    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !self.amount.is_zero() {
           let encryption_pub_key = get_public_key(self.owner);
@@ -100,41 +112,13 @@ impl TokenNote {
   }
 }
 
-fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> TokenNote {
-    TokenNote::deserialize(preimage)
+impl TokenNote {
+    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
+        Self {
+            amount,
+            owner,
+            randomness: rand(),
+            header: NoteHeader::empty(),
+        }
+    }
 }
-
-fn serialize(note: TokenNote) -> [Field; TOKEN_NOTE_LEN] {
-    note.serialize()
-}
-
-fn compute_note_hash(note: TokenNote) -> Field {
-    note.compute_note_hash()
-}
-
-fn compute_nullifier(note: TokenNote) -> Field {
-    note.compute_nullifier()
-}
-
-fn get_header(note: TokenNote) -> NoteHeader {
-    note.header
-}
-
-fn set_header(note: &mut TokenNote, header: NoteHeader) {
-    note.set_header(header)
-}
-
-// Broadcasts the note as an encrypted log on L1.
-fn broadcast(context: &mut PrivateContext, slot: Field, note: TokenNote) {
-    note.broadcast(context, slot);
-}
-
-global TokenNoteMethods = NoteInterface {
-    deserialize,
-    serialize,
-    compute_note_hash,
-    compute_nullifier,
-    get_header,
-    set_header,
-    broadcast,
-};

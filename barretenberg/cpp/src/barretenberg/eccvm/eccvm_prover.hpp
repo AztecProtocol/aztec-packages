@@ -3,12 +3,12 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 // We won't compile this class with honk::flavor::Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
@@ -23,7 +23,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = barretenberg::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations;
 
   public:
     explicit ECCVMProver_(const std::shared_ptr<ProvingKey>& input_key,
@@ -42,8 +42,8 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     BBERG_PROFILE void execute_final_pcs_round();
     BBERG_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    plonk::proof& export_proof();
-    plonk::proof& construct_proof();
+    honk::proof& export_proof();
+    honk::proof& construct_proof();
 
     std::shared_ptr<Transcript> transcript;
 
@@ -51,7 +51,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     std::vector<FF> public_inputs;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
 
@@ -80,7 +80,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;
 
   private:
-    plonk::proof proof;
+    honk::proof proof;
 };
 
-} // namespace proof_system::honk
+} // namespace bb::honk

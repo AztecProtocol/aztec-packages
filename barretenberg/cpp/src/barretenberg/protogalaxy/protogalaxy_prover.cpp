@@ -1,6 +1,6 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-namespace proof_system::honk {
+namespace bb::honk {
 template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
@@ -233,7 +233,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
     // the verifier
     auto& combined_relation_parameters = instances.relation_parameters;
-    auto folded_relation_parameters = proof_system::RelationParameters<FF>{
+    auto folded_relation_parameters = bb::RelationParameters<FF>{
         combined_relation_parameters.eta.evaluate(challenge),
         combined_relation_parameters.beta.evaluate(challenge),
         combined_relation_parameters.gamma.evaluate(challenge),
@@ -269,14 +269,10 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     return next_accumulator;
 }
 
-// TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
     prepare_for_folding();
-
-    // TODO(#https://github.com/AztecProtocol/barretenberg/issues/740): Handle the case where we are folding for the
-    // first time and accumulator is 0
     FF delta = transcript->get_challenge("delta");
 
     auto accumulator = get_accumulator();
@@ -313,4 +309,4 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
-} // namespace proof_system::honk
+} // namespace bb::honk

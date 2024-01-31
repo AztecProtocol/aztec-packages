@@ -3,15 +3,13 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
-using namespace proof_system::plonk::stdlib;
+using namespace bb::stdlib;
 
-namespace rollup {
-namespace proofs {
-namespace mock {
+namespace rollup::proofs::mock {
 
 class MockCircuitTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 TEST_F(MockCircuitTests, test_simple_circuit)
@@ -38,6 +36,4 @@ TEST_F(MockCircuitTests, test_simple_circuit)
     EXPECT_TRUE(result);
 }
 
-} // namespace mock
-} // namespace proofs
-} // namespace rollup
+} // namespace rollup::proofs::mock

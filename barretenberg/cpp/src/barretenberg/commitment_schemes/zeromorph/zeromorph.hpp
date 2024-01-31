@@ -5,7 +5,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk::pcs::zeromorph {
+namespace bb::honk::pcs::zeromorph {
 
 /**
  * @brief Compute powers of a given challenge
@@ -33,7 +33,7 @@ template <class FF> inline std::vector<FF> powers_of_challenge(const FF challeng
 template <typename Curve> class ZeroMorphProver_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
     // (Then, eventually, set it based on the real SRS). For now we set it to be large but more or less arbitrary.
@@ -563,17 +563,17 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // If applicable, add contribution from concatenated polynomial commitments
         // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
-            size_t CONCATENATION_INDEX = concatenation_groups_commitments[0].size();
-            size_t MINICIRCUIT_N = N / CONCATENATION_INDEX;
+            size_t CONCATENATION_GROUP_SIZE = concatenation_groups_commitments[0].size();
+            size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
             std::vector<FF> x_shifts;
             auto current_x_shift = x_challenge;
             auto x_to_minicircuit_n = x_challenge.pow(MINICIRCUIT_N);
-            for (size_t i = 0; i < CONCATENATION_INDEX; ++i) {
+            for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
                 x_shifts.emplace_back(current_x_shift);
                 current_x_shift *= x_to_minicircuit_n;
             }
             for (auto& concatenation_group_commitment : concatenation_groups_commitments) {
-                for (size_t i = 0; i < CONCATENATION_INDEX; ++i) {
+                for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
                     scalars.emplace_back(rho_pow * x_shifts[i]);
                     commitments.emplace_back(concatenation_group_commitment[i]);
                 }
@@ -728,4 +728,4 @@ template <typename Curve> class ZeroMorphVerifier_ {
     }
 };
 
-} // namespace proof_system::honk::pcs::zeromorph
+} // namespace bb::honk::pcs::zeromorph

@@ -24,7 +24,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb::honk::sumcheck {
 /**
  * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
  *
@@ -389,7 +389,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
             auto result = Accumulator(0);
 
             // Iterate over tuple and sum as a polynomial over beta
-            barretenberg::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
                 [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
             const auto& gamma = params.gamma;
             return result + gamma;
@@ -399,12 +399,10 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
 
             auto result = Accumulator(0);
             // Iterate over tuple and sum as a polynomial over beta
-            barretenberg::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
-                [&]<size_t i>() {
-                    result =
-                        (result * params.beta) + View(std::get<i + 2 * LOOKUP_TUPLE_SIZE>(all_polynomials)) -
-                        View(std::get<i + LOOKUP_TUPLE_SIZE>(all_polynomials)) * View(std::get<i>(all_polynomials));
-                });
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>([&]<size_t i>() {
+                result = (result * params.beta) + View(std::get<i + 2 * LOOKUP_TUPLE_SIZE>(all_polynomials)) -
+                         View(std::get<i + LOOKUP_TUPLE_SIZE>(all_polynomials)) * View(std::get<i>(all_polynomials));
+            });
             const auto& gamma = params.gamma;
             return result + gamma;
         } else {
@@ -439,7 +437,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
             auto result = Accumulator(0);
 
             // Iterate over tuple and sum as a polynomial over beta
-            barretenberg::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
+            bb::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
                 [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
             const auto& gamma = params.gamma;
             return result + gamma;
@@ -481,4 +479,4 @@ using GenericLookupRelation = Relation<GenericLookupRelationImpl<Settings, FF>>;
 
 template <typename Settings, typename FF> using GenericLookup = GenericLookupRelationImpl<Settings, FF>;
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb::honk::sumcheck

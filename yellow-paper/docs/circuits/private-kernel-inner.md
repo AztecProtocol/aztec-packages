@@ -52,14 +52,14 @@ This circuit will:
 
 For the _call_context_ in the [public_inputs](./private-function.md#public-inputs) of the _[private_call](#privatecall).[call_stack_item](./private-kernel-initial.md#privatecallstackitem)_ and the _call_request_ popped in the [previous step](#ensuring-the-current-call-matches-the-call-request), this circuit checks that:
 
-1. If it is a standard call (`call_context.is_delegate_call == false`):
+1. If it is a standard call: _`call_context.is_delegate_call == false`_
 
    - The _msg_sender_ of the current iteration must be the same as the caller's _contract_address_:
      - _`call_context.msg_sender == call_request.caller_contract_address`_
    - The _storage_contract_address_ of the current iteration must be the same as its _contract_address_:
      - _`call_context.storage_contract_address == call_stack_item.contract_address`_
 
-2. If it is a delegate call (`call_context.is_delegate_call == true`):
+2. If it is a delegate call: _`call_context.is_delegate_call == true`_
 
    - The _caller_context_ in the _call_request_ must not be empty. Specifically, the following values of the caller must not be zeros:
      - _msg_sender_
@@ -71,7 +71,12 @@ For the _call_context_ in the [public_inputs](./private-function.md#public-input
    - The _storage_contract_address_ of the current iteration must not equal the _contract_address_:
      - _`call_context.storage_contract_address != call_stack_item.contract_address`_
 
-3. If it is an internal call (`call_stack_item.function_data.is_internal == true`):
+3. If it is NOT a static call: _`call_context.is_static_call == false`_
+
+   - The previous iteration must not be a static call:
+     - _`caller_context.is_static_call == false`_
+
+4. If it is an internal call: _`call_stack_item.function_data.is_internal == true`_
 
    - The _msg_sender_ of the current iteration must equal the _storage_contract_address_:
      - _`call_context.msg_sender == call_context.storage_contract_address`_
@@ -86,11 +91,14 @@ This circuit verifies this proof and [the proof of the previous kernel iteration
 
 It ensures the private function circuit's intention by checking the following in _[private_call](#privatecall).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
-- The _block_header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
+- The _header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
 - If it is a static call (_`public_inputs.call_context.is_static_call == true`_), it ensures that the function does not induce any state changes by verifying that the following arrays are empty:
   - _note_hashes_
   - _nullifiers_
   - _l2_to_l1_messages_
+  - _unencrypted_log_hashes_
+  - _encrypted_log_hashes_
+  - _encrypted_note_preimage_hashes_
 
 #### Verifying the counters.
 
@@ -99,20 +107,6 @@ This section follows the same [process](./private-kernel-initial.md#verifying-th
 Additionally, it verifies that for the _[call_stack_item](#privatecallstackitem)_, the _counter_start_ and _counter_end_ must match those in the _call_request_ [popped](#ensuring-the-current-call-matches-the-call-request) from the _private_call_requests_ in a previous step.
 
 ### Validating Public Inputs
-
-#### Verifying the accumulated data.
-
-It checks that the hashes and the lengths for both encrypted and unencrypted logs are accumulated as follows:
-
-- `new_hash = hash(prev_hash, cur_hash)`
-  - If either hash is zero, the new hash will be `prev_hash | cur_hash`.
-- `new_length = prev_length + cur_length`
-
-Where:
-
-- _new_hash_ and _new_length_ are the values in _[public_inputs](#public-inputs).[accumulated_data](./private-kernel-initial.md#accumulateddata)_.
-- _prev_hash_ and _prev_length_ are the values in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[accumulated_data](./private-kernel-initial.md#accumulateddata)_.
-- _cur_hash_ and _cur_length_ are the values in _[private_inputs](#private-inputs).[private_call](#privatecall).[call_stack_item](./private-kernel-initial.md#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_.
 
 #### Verifying the transient accumulated data.
 

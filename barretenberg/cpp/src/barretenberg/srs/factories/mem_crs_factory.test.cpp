@@ -7,9 +7,9 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace barretenberg::srs::factories;
-using namespace curve;
+using namespace bb;
+using namespace bb::srs::factories;
+using namespace bb::curve;
 
 TEST(reference_string, mem_bn254_file_consistency)
 {
@@ -41,7 +41,7 @@ TEST(reference_string, mem_bn254_file_consistency)
 
     EXPECT_EQ(memcmp(mem_verifier_crs->get_precomputed_g2_lines(),
                      file_verifier_crs->get_precomputed_g2_lines(),
-                     sizeof(barretenberg::pairing::miller_lines) * 2),
+                     sizeof(pairing::miller_lines) * 2),
               0);
 }
 

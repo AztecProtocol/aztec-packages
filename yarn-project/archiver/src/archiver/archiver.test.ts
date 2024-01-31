@@ -1,13 +1,13 @@
 import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import times from 'lodash.times';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
@@ -269,7 +269,7 @@ describe('Archiver', () => {
 function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
   return {
     blockNumber: l1BlockNum,
-    args: { blockNum: l2BlockNum },
+    args: { blockNumber: l2BlockNum },
     transactionHash: `0x${l2BlockNum}`,
   } as Log<bigint, number, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>;
 }
@@ -290,9 +290,9 @@ function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
       aztecAddress: extendedContractData.contractData.contractAddress.toString(),
       portalAddress: extendedContractData.contractData.portalContractAddress.toString(),
       l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
-      partialAddress: extendedContractData.partialAddress.toString(),
-      pubKeyX: extendedContractData.publicKey.x.toString(),
-      pubKeyY: extendedContractData.publicKey.y.toString(),
+      contractClassId: extendedContractData.contractClassId.toString(),
+      saltedInitializationHash: extendedContractData.saltedInitializationHash.toString(),
+      publicKeyHash: extendedContractData.publicKeyHash.toString(),
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,
@@ -349,8 +349,15 @@ function makeL1ToL2MessageCancelledEvents(l1BlockNum: bigint, entryKeys: string[
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
 function makeRollupTx(l2Block: L2Block) {
+  const header = toHex(l2Block.header.toBuffer());
+  const archive = toHex(l2Block.archive.root.toBuffer());
+  const txsHash = toHex(l2Block.getCalldataHash());
+  const body = toHex(l2Block.bodyToBuffer());
   const proof = `0x`;
-  const block = toHex(l2Block.toBufferWithLogs());
-  const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [proof, block] });
+  const input = encodeFunctionData({
+    abi: RollupAbi,
+    functionName: 'process',
+    args: [header, archive, txsHash, body, proof],
+  });
   return { input } as Transaction<bigint, number>;
 }

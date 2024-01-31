@@ -1,7 +1,7 @@
 #include "decider_prover.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 /**
  * Create DeciderProver_ from an accumulator.
@@ -94,13 +94,13 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_zeromorph_rou
                      transcript);
 }
 
-template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::export_proof()
+template <UltraFlavor Flavor> honk::proof& DeciderProver_<Flavor>::export_proof()
 {
-    proof.proof_data = transcript->proof_data;
+    proof = transcript->proof_data;
     return proof;
 }
 
-template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::construct_proof()
+template <UltraFlavor Flavor> honk::proof& DeciderProver_<Flavor>::construct_proof()
 {
     // Add ϕ, \vec{β*}, e* to transcript
     execute_preamble_round();
@@ -118,4 +118,4 @@ template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::construct_pr
 template class DeciderProver_<honk::flavor::Ultra>;
 template class DeciderProver_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

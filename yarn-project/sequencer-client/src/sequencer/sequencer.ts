@@ -1,14 +1,13 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { GlobalVariables } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
-
-import times from 'lodash.times';
 
 import { BlockBuilder } from '../block_builder/index.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -140,19 +139,23 @@ export class Sequencer {
       }
       this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
-      const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+      const historicalHeader = (await this.l2BlockSource.getBlock(-1))?.header;
+      const newBlockNumber =
+        (historicalHeader === undefined
+          ? await this.l2BlockSource.getBlockNumber()
+          : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
 
       /**
        * We'll call this function before running expensive operations to avoid wasted work.
        */
       const assertBlockHeight = async () => {
         const currentBlockNumber = await this.l2BlockSource.getBlockNumber();
-        if (currentBlockNumber + 1 !== blockNumber) {
+        if (currentBlockNumber + 1 !== newBlockNumber) {
           throw new Error('New block was emitted while building block');
         }
       };
 
-      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(newBlockNumber));
 
       // Filter out invalid txs
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
@@ -161,15 +164,12 @@ export class Sequencer {
         return;
       }
 
-      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
+      this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
-
-      const prevGlobalVariables =
-        (await this.l2BlockSource.getBlock(-1))?.header.globalVariables ?? GlobalVariables.empty();
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+      const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
@@ -235,20 +235,25 @@ export class Sequencer {
   protected async publishExtendedContractData(validTxs: ProcessedTx[], block: L2Block) {
     // Publishes contract data for txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
-    const newContractData = validTxs
-      .map(tx => {
-        // Currently can only have 1 new contract per tx
-        return tx.newContracts[0];
-      })
-      .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
+    const newContracts = validTxs.flatMap(tx => tx.newContracts).filter(cd => !cd.isEmpty());
 
-    const blockHash = block.getCalldataHash();
-    this.log(`Publishing extended contract data with block hash ${blockHash.toString('hex')}`);
+    if (newContracts.length === 0) {
+      this.log.debug(`No new contracts to publish in block ${block.number}`);
+      return;
+    }
 
-    const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
+    const blockCalldataHash = block.getCalldataHash();
+    this.log.info(`Publishing ${newContracts.length} contracts in block ${block.number}`);
+
+    const publishedContractData = await this.publisher.processNewContractData(
+      block.number,
+      blockCalldataHash,
+      newContracts,
+    );
+
     if (publishedContractData) {
       this.log(`Successfully published new contract data for block ${block.number}`);
-    } else if (!publishedContractData && newContractData.length) {
+    } else if (!publishedContractData && newContracts.length) {
       this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }

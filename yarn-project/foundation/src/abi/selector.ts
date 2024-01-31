@@ -1,9 +1,11 @@
 import { fromHex, toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
+
+import { randomBytes } from 'crypto';
 
 import { keccak } from '../crypto/keccak/index.js';
 import { Fr } from '../fields/index.js';
-import { ABIParameter } from './abi.js';
+import { type ABIParameter } from './abi.js';
 import { decodeFunctionSignature } from './decoder.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
@@ -15,7 +17,7 @@ abstract class Selector {
 
   constructor(/** Value of the selector */ public value: number) {
     if (value > 2 ** (Selector.SIZE * 8) - 1) {
-      throw new Error(`selector must fit in ${Selector.SIZE} bytes.`);
+      throw new Error(`Selector must fit in ${Selector.SIZE} bytes (got value ${value}).`);
     }
   }
 
@@ -72,6 +74,19 @@ export interface FunctionSelector {
 /** A function selector is the first 4 bytes of the hash of a function signature. */
 export class FunctionSelector extends Selector {
   /**
+   * Checks if this function selector is equal to another.
+   * @returns True if the function selectors are equal.
+   */
+  equals(otherName: string, otherParams: ABIParameter[]): boolean;
+  equals(other: FunctionSelector): boolean;
+  equals(other: FunctionSelector | string, otherParams?: ABIParameter[]): boolean {
+    if (typeof other === 'string') {
+      return this.equals(FunctionSelector.fromNameAndParameters(other, otherParams!));
+    }
+    return this.value === other.value;
+  }
+
+  /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
    * @returns The Selector.
@@ -89,6 +104,11 @@ export class FunctionSelector extends Selector {
    */
   static fromField(fr: Fr) {
     return new FunctionSelector(Number(fr.toBigInt()));
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return FunctionSelector.fromField(reader.readField());
   }
 
   /**
@@ -140,6 +160,13 @@ export class FunctionSelector extends Selector {
     // If using the debug logger here it kill the typing in the `server_world_state_synchronizer` and jest tests.
     // console.log(`selector for ${signature} is ${selector}`);
     return selector;
+  }
+
+  /**
+   * Creates a random instance.
+   */
+  static random() {
+    return FunctionSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
 }
 

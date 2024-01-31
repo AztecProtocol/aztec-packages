@@ -1,7 +1,7 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 /**
  * Create UltraProver_ from an instance.
@@ -178,13 +178,13 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_round
                      transcript);
 }
 
-template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
+template <UltraFlavor Flavor> honk::proof& UltraProver_<Flavor>::export_proof()
 {
-    proof.proof_data = transcript->proof_data;
+    proof = transcript->proof_data;
     return proof;
 }
 
-template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proof()
+template <UltraFlavor Flavor> honk::proof& UltraProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript->
     execute_preamble_round();
@@ -215,4 +215,4 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proo
 template class UltraProver_<honk::flavor::Ultra>;
 template class UltraProver_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

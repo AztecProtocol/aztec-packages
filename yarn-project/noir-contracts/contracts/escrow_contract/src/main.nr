@@ -20,18 +20,17 @@ contract Escrow {
 
     use dep::address_note::address_note::{
         AddressNote,
-        AddressNoteMethods,
         ADDRESS_NOTE_LEN,
     };
 
     struct Storage {
-        owners: Set<AddressNote, ADDRESS_NOTE_LEN>,
+        owners: Set<AddressNote>,
     }
 
     impl Storage {
         fn init(context: Context) -> Self {
             Storage {
-                owners: Set::new(context, 1, AddressNoteMethods),
+                owners: Set::new(context, 1),
             }
         }
     }
@@ -57,7 +56,7 @@ contract Escrow {
         let sender = context.msg_sender();
 
         // We don't remove note from the owners set. If a note exists, the owner and recipient are legit.
-        let options = NoteGetterOptions::new().select(0, sender.to_field()).select(1, this.to_field()).set_limit(1);
+        let options = NoteGetterOptions::new().select(0, sender.to_field(), Option::none()).select(1, this.to_field(), Option::none()).set_limit(1);
         let notes = storage.owners.get_notes(options);
         assert(notes[0].is_some(), "Sender is not an owner.");
 
@@ -77,6 +76,6 @@ contract Escrow {
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         assert(storage_slot == 1);
-        note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(AddressNote::deserialize, note_header, serialized_note)
     }
 }

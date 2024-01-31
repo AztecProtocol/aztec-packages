@@ -2,7 +2,9 @@
 
 #include <stack>
 
+#include "AvmMini_alu_trace.hpp"
 #include "AvmMini_common.hpp"
+#include "AvmMini_instructions.hpp"
 #include "AvmMini_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 
@@ -24,6 +26,8 @@ class AvmMiniTraceBuilder {
     std::vector<Row> finalize();
     void reset();
 
+    uint32_t getPc() const { return pc; }
+
     // Addition with direct memory access.
     void add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
@@ -35,6 +39,9 @@ class AvmMiniTraceBuilder {
 
     // Division with direct memory access.
     void div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Set a constant from bytecode with direct memory access.
+    void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
@@ -51,10 +58,10 @@ class AvmMiniTraceBuilder {
 
     // CALLDATACOPY opcode with direct memory access, i.e.,
     // M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
-    void call_data_copy(uint32_t cd_offset,
-                        uint32_t copy_size,
-                        uint32_t dst_offset,
-                        std::vector<FF> const& call_data_mem);
+    void calldata_copy(uint32_t cd_offset,
+                       uint32_t copy_size,
+                       uint32_t dst_offset,
+                       std::vector<FF> const& call_data_mem);
 
     // RETURN opcode with direct memory access, i.e.,
     // return(M[ret_offset:ret_offset+ret_size])
@@ -63,6 +70,7 @@ class AvmMiniTraceBuilder {
   private:
     std::vector<Row> main_trace;
     AvmMiniMemTraceBuilder mem_trace_builder;
+    AvmMiniAluTraceBuilder alu_trace_builder;
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;

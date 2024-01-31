@@ -1,7 +1,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/flavor/goblin_translator.hpp"
 
-namespace proof_system {
+namespace bb {
 /**
  * @brief Expression for the computation of Goblin Translator accumulator in integers through 68-bit limbs and
  * native field (prime) limb
@@ -277,7 +277,7 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
     std::get<2>(accumulators) += tmp;
 };
 
-template class GoblinTranslatorNonNativeFieldRelationImpl<barretenberg::fr>;
+template class GoblinTranslatorNonNativeFieldRelationImpl<bb::fr>;
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorNonNativeFieldRelationImpl, honk::flavor::GoblinTranslator);
 
-} // namespace proof_system
+} // namespace bb

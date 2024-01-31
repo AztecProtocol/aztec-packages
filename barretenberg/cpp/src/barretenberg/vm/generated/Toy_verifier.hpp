@@ -2,10 +2,10 @@
 
 #pragma once
 #include "barretenberg/flavor/generated/Toy_flavor.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 class ToyVerifier {
     using Flavor = honk::flavor::ToyFlavor;
     using FF = Flavor::FF;
@@ -22,7 +22,7 @@ class ToyVerifier {
     ToyVerifier& operator=(const ToyVerifier& other) = delete;
     ToyVerifier& operator=(ToyVerifier&& other) noexcept;
 
-    bool verify_proof(const plonk::proof& proof);
+    bool verify_proof(const honk::proof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
@@ -30,4 +30,4 @@ class ToyVerifier {
     std::shared_ptr<Transcript> transcript;
 };
 
-} // namespace proof_system::honk
+} // namespace bb::honk

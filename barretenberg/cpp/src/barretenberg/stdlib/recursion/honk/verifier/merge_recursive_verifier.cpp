@@ -1,6 +1,6 @@
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::goblin {
+namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder)
@@ -16,9 +16,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  */
 template <typename CircuitBuilder>
 std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const plonk::proof& proof)
+    const bb::honk::proof& proof)
 {
-    transcript = std::make_shared<Transcript>(builder, proof.proof_data);
+    transcript = std::make_shared<Transcript>(builder, proof);
 
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
     std::array<Commitment, NUM_WIRES> C_T_prev;
@@ -85,4 +85,4 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
 template class MergeRecursiveVerifier_<UltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib::recursion::goblin
+} // namespace bb::stdlib::recursion::goblin

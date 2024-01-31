@@ -20,7 +20,7 @@
 #define BBERG_NO_ASM 1
 #endif
 
-namespace barretenberg {
+namespace bb {
 template <class Params_> struct alignas(32) field {
   public:
     using View = field;
@@ -110,6 +110,13 @@ template <class Params_> struct alignas(32) field {
     {
         uint256_t value(input);
         *this = field(value);
+    }
+
+    constexpr explicit operator bool() const
+    {
+        field out = from_montgomery_form();
+        ASSERT(out.data[0] == 0 || out.data[0] == 1);
+        return static_cast<bool>(out.data[0]);
     }
 
     constexpr explicit operator uint32_t() const
@@ -437,7 +444,7 @@ template <class Params_> struct alignas(32) field {
         src = T;
     }
 
-    static field random_element(numeric::random::Engine* engine = nullptr) noexcept;
+    static field random_element(numeric::RNG* engine = nullptr) noexcept;
 
     static constexpr field multiplicative_generator() noexcept;
 
@@ -586,4 +593,4 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
     write(buf, input.data[0]);
 }
 
-} // namespace barretenberg
+} // namespace bb

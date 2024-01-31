@@ -6,6 +6,7 @@ import { NodeInfo } from '@aztec/types/interfaces';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
+import { ContractInstanceWithAddress } from '../index.js';
 import { Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
 
@@ -14,6 +15,7 @@ describe('Contract Class', () => {
   let resolvedExtendedContractData: ExtendedContractData;
   let contractAddress: AztecAddress;
   let account: CompleteAddress;
+  let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
@@ -21,16 +23,15 @@ describe('Contract Class', () => {
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockViewResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
+    availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
-    decoderHelperAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
-    compatibleNargoVersion: 'vx.x.x-aztec.x',
     chainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
@@ -43,6 +44,7 @@ describe('Contract Class', () => {
         name: 'bar',
         functionType: FunctionType.SECRET,
         isInternal: false,
+        debugSymbols: '',
         parameters: [
           {
             name: 'value',
@@ -69,6 +71,7 @@ describe('Contract Class', () => {
         parameters: [],
         returnTypes: [],
         bytecode: '0be',
+        debugSymbols: '',
       },
       {
         name: 'qux',
@@ -91,19 +94,23 @@ describe('Contract Class', () => {
           },
         ],
         bytecode: '0cd',
+        debugSymbols: '',
       },
     ],
     events: [],
+    fileMap: {},
   };
 
   beforeEach(() => {
     resolvedExtendedContractData = ExtendedContractData.random();
     contractAddress = resolvedExtendedContractData.contractData.contractAddress;
     account = CompleteAddress.random();
+    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getExtendedContractData.mockResolvedValue(resolvedExtendedContractData);
+    wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.viewTx.mockResolvedValue(mockViewResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);

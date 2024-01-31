@@ -1,12 +1,4 @@
-import {
-  CompleteAddress,
-  FUNCTION_SELECTOR_NUM_BYTES,
-  Fr,
-  FunctionSelector,
-  PartialAddress,
-  Point,
-  PublicKey,
-} from '@aztec/circuits.js';
+import { FUNCTION_SELECTOR_NUM_BYTES, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -106,6 +98,23 @@ export class EncodedContractFunction {
   }
 
   /**
+   * Serializes this instance into a string.
+   * @returns Encoded string.
+   */
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes a contract function object from an encoded string.
+   * @param data - The encoded string.
+   * @returns The deserialized contract function.
+   */
+  static fromString(data: string): EncodedContractFunction {
+    return EncodedContractFunction.fromBuffer(Buffer.from(data, 'hex'));
+  }
+
+  /**
    * Creates a random contract function.
    * @returns A random contract function.
    */
@@ -125,11 +134,13 @@ export class ExtendedContractData {
     /** The base contract data: aztec & portal addresses. */
     public contractData: ContractData,
     /** Artifacts of public functions. */
-    private publicFunctions: EncodedContractFunction[],
-    /** Partial addresses of the contract. */
-    public readonly partialAddress: PartialAddress,
-    /** Public key of the contract. */
-    public readonly publicKey: PublicKey,
+    public readonly publicFunctions: EncodedContractFunction[],
+    /** Contract class id */
+    public readonly contractClassId: Fr,
+    /** Salted init hash. */
+    public readonly saltedInitializationHash: Fr,
+    /** Public key hash of the contract. */
+    public readonly publicKeyHash: Fr,
   ) {
     this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
   }
@@ -149,7 +160,13 @@ export class ExtendedContractData {
    */
   public toBuffer(): Buffer {
     const contractDataBuf = this.contractData.toBuffer();
-    return serializeToBuffer(contractDataBuf, this.bytecode, this.partialAddress, this.publicKey);
+    return serializeToBuffer(
+      contractDataBuf,
+      this.bytecode,
+      this.contractClassId,
+      this.saltedInitializationHash,
+      this.publicKeyHash,
+    );
   }
 
   /**
@@ -160,22 +177,14 @@ export class ExtendedContractData {
     return this.toBuffer().toString('hex');
   }
 
-  /**
-   * Gets the complete address.
-   * @returns The complete address.
-   */
-  public getCompleteAddress(): CompleteAddress {
-    return new CompleteAddress(this.contractData.contractAddress, this.publicKey, this.partialAddress);
-  }
-
   /** True if this represents an empty instance. */
   public isEmpty(): boolean {
     return (
       this.contractData.isEmpty() &&
       this.publicFunctions.length === 0 &&
-      this.partialAddress.isZero() &&
-      this.publicKey.x.isZero() &&
-      this.publicKey.y.isZero()
+      this.contractClassId.isZero() &&
+      this.publicKeyHash.isZero() &&
+      this.saltedInitializationHash.isZero()
     );
   }
 
@@ -188,9 +197,10 @@ export class ExtendedContractData {
     const reader = BufferReader.asReader(buffer);
     const contractData = reader.readObject(ContractData);
     const publicFns = reader.readVector(EncodedContractFunction);
-    const partialAddress = reader.readObject(Fr);
-    const publicKey = reader.readObject(Point);
-    return new ExtendedContractData(contractData, publicFns, partialAddress, publicKey);
+    const contractClassId = reader.readObject(Fr);
+    const saltedInitializationHash = reader.readObject(Fr);
+    const publicKeyHash = reader.readObject(Fr);
+    return new ExtendedContractData(contractData, publicFns, contractClassId, saltedInitializationHash, publicKeyHash);
   }
 
   /**
@@ -212,13 +222,14 @@ export class ExtendedContractData {
       contractData ?? ContractData.random(),
       [EncodedContractFunction.random(), EncodedContractFunction.random()],
       Fr.random(),
-      Point.random(),
+      Fr.random(),
+      Fr.random(),
     );
   }
 
   /** Generates empty extended contract data. */
   static empty(): ExtendedContractData {
-    return new ExtendedContractData(ContractData.empty(), [], Fr.ZERO, Point.ZERO);
+    return new ExtendedContractData(ContractData.empty(), [], Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }
 

@@ -10,7 +10,7 @@
 #include <random>
 #include <vector>
 
-namespace barretenberg::group_elements {
+namespace bb::group_elements {
 
 /**
  * @brief element class. Implements ecc group arithmetic using Jacobian coordinates
@@ -49,7 +49,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr operator affine_element<Fq, Fr, Params>() const noexcept;
 
-    static element random_element(numeric::random::Engine* engine = nullptr) noexcept;
+    static element random_element(numeric::RNG* engine = nullptr) noexcept;
 
     constexpr element dbl() const noexcept;
     constexpr void self_dbl() noexcept;
@@ -106,7 +106,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     element mul_with_endomorphism(const Fr& exponent) const noexcept;
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
-    static element random_coordinates_on_curve(numeric::random::Engine* engine = nullptr) noexcept;
+    static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
     // {
     //     bool found_one = false;
     //     Fq yy;
@@ -147,21 +147,20 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 // constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
 // constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
 // constexpr element<Fq, Fr, Params>::curve_b = Params::b;
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements
 
 #include "./element_impl.hpp"
 
 template <class Fq, class Fr, class Params>
-barretenberg::group_elements::affine_element<Fq, Fr, Params> operator*(
-    const barretenberg::group_elements::affine_element<Fq, Fr, Params>& base, const Fr& exponent) noexcept
+bb::group_elements::affine_element<Fq, Fr, Params> operator*(
+    const bb::group_elements::affine_element<Fq, Fr, Params>& base, const Fr& exponent) noexcept
 {
-    return barretenberg::group_elements::affine_element<Fq, Fr, Params>(barretenberg::group_elements::element(base) *
-                                                                        exponent);
+    return bb::group_elements::affine_element<Fq, Fr, Params>(bb::group_elements::element(base) * exponent);
 }
 
 template <class Fq, class Fr, class Params>
-barretenberg::group_elements::affine_element<Fq, Fr, Params> operator*(
-    const barretenberg::group_elements::element<Fq, Fr, Params>& base, const Fr& exponent) noexcept
+bb::group_elements::affine_element<Fq, Fr, Params> operator*(const bb::group_elements::element<Fq, Fr, Params>& base,
+                                                             const Fr& exponent) noexcept
 {
-    return (barretenberg::group_elements::element(base) * exponent);
+    return (bb::group_elements::element(base) * exponent);
 }

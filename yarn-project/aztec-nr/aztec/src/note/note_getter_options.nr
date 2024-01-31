@@ -1,15 +1,37 @@
 use dep::std::option::Option;
-use crate::types::vec::BoundedVec;
-use dep::protocol_types::constants::MAX_READ_REQUESTS_PER_CALL;
+use dep::protocol_types::{
+    constants::MAX_READ_REQUESTS_PER_CALL,
+    traits::Deserialize,
+};
+use crate::note::note_interface::NoteInterface;
+
+struct ComparatorEnum {
+    EQ: u3,
+    NEQ: u3,
+    LT: u3,
+    LTE: u3,
+    GT: u3,
+    GTE: u3,
+}
+
+global Comparator = ComparatorEnum {
+    EQ: 1,
+    NEQ: 2,
+    LT: 3,
+    LTE: 4,
+    GT: 5,
+    GTE: 6,
+};
 
 struct Select {
     field_index: u8,
     value: Field,
+    comparator: u3,
 }
 
 impl Select {
-    pub fn new(field_index: u8, value: Field) -> Self {
-        Select { field_index, value }
+    pub fn new(field_index: u8, value: Field, comparator: u3) -> Self {
+        Select { field_index, value, comparator }
     }
 }
 
@@ -34,6 +56,17 @@ impl Sort {
     }
 }
 
+struct NoteStatusEnum {
+    ACTIVE: u2,
+    ACTIVE_OR_NULLIFIED: u2,
+}
+
+global NoteStatus = NoteStatusEnum {
+    ACTIVE: 1,
+    ACTIVE_OR_NULLIFIED: 2,
+    // TODO 4217: add 'NULLIFIED'
+};
+
 fn return_all_notes<Note, N>(
     notes: [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     _p: Field
@@ -49,6 +82,7 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
     offset: u32,
     filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
+    status: u2,
 }
 // docs:end:NoteGetterOptions
 
@@ -58,7 +92,7 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
 // And finally, a custom filter to refine the outcome further.
 impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
-    pub fn new() -> NoteGetterOptions<Note, N, Field> {
+    pub fn new() -> NoteGetterOptions<Note, N, Field> where Note: NoteInterface + Deserialize<N> {
         NoteGetterOptions {
             selects: BoundedVec::new(Option::none()),
             sorts: BoundedVec::new(Option::none()),
@@ -66,6 +100,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter: return_all_notes,
             filter_args: 0,
+            status: NoteStatus.ACTIVE,
         }
     }
 
@@ -74,7 +109,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     pub fn with_filter(
         filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
         filter_args: FILTER_ARGS,
-    ) -> Self {
+    ) -> Self where Note: NoteInterface + Deserialize<N> {
          NoteGetterOptions {
             selects: BoundedVec::new(Option::none()),
             sorts: BoundedVec::new(Option::none()),
@@ -82,13 +117,16 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
             offset: 0,
             filter,
             filter_args,
+            status: NoteStatus.ACTIVE,
         }
     }
 
     // This method adds a `Select` criterion to the options.
-    // It takes a field_index indicating which field to select and a value representing the specific value to match in that field.
-    pub fn select(&mut self, field_index: u8, value: Field) -> Self {
-        self.selects.push(Option::some(Select::new(field_index, value)));
+    // It takes a field_index indicating which field to select, 
+    // a value representing the specific value to match in that field, and 
+    // a comparator (For possible values of comparators, please see the Comparator enum above)
+    pub fn select(&mut self, field_index: u8, value: Field, comparator: Option<u3>) -> Self {
+        self.selects.push(Option::some(Select::new(field_index, value, comparator.unwrap_or(Comparator.EQ))));
         *self
     }
 
@@ -99,16 +137,22 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
         *self
     }
 
-    // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result. 
+    // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result.
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_READ_REQUESTS_PER_CALL as u32);
         self.limit = limit;
         *self
     }
 
-    // This method sets the offset value, which determines where to start retrieving notes in the query results. 
+    // This method sets the offset value, which determines where to start retrieving notes in the query results.
     pub fn set_offset(&mut self, offset: u32) -> Self {
         self.offset = offset;
+        *self
+    }
+
+    // This method sets the status value, which determines whether to retrieve active or nullified notes.
+    pub fn set_status(&mut self, status: u2) -> Self {
+        self.status = status;
         *self
     }
 }

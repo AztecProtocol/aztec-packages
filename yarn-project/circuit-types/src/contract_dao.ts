@@ -1,15 +1,15 @@
-import { CompleteAddress, ContractFunctionDao } from '@aztec/circuits.js';
+import { AztecAddress, ContractFunctionDao } from '@aztec/circuits.js';
 import {
   ContractArtifact,
-  DebugMetadata,
+  DebugFileMap,
   EventAbi,
   FunctionDebugMetadata,
   FunctionSelector,
   FunctionType,
   getFunctionDebugMetadata,
 } from '@aztec/foundation/abi';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
+import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { EncodedContractFunction } from './contract_data.js';
 
@@ -21,13 +21,8 @@ import { EncodedContractFunction } from './contract_data.js';
 export class ContractDao implements ContractArtifact {
   /** An array of contract functions with additional selector property.  */
   public readonly functions: ContractFunctionDao[];
-  constructor(
-    private contractArtifact: ContractArtifact,
-    /** The complete address representing the contract on L2.  */
-    public readonly completeAddress: CompleteAddress,
-    /** The Ethereum address of the L1 contract serving as a bridge for cross-layer interactions.  */
-    public readonly portalContract: EthAddress,
-  ) {
+
+  constructor(private contractArtifact: ContractArtifact, public readonly instance: ContractInstanceWithAddress) {
     this.functions = contractArtifact.functions.map(f => ({
       ...f,
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
@@ -46,8 +41,8 @@ export class ContractDao implements ContractArtifact {
     return this.contractArtifact.events;
   }
 
-  get debug(): DebugMetadata | undefined {
-    return this.contractArtifact.debug;
+  get fileMap(): DebugFileMap {
+    return this.contractArtifact.fileMap;
   }
 
   getFunctionArtifact(selector: FunctionSelector): ContractFunctionDao | undefined {
@@ -59,7 +54,8 @@ export class ContractDao implements ContractArtifact {
   }
 
   getFunctionDebugMetadataByName(functionName: string): FunctionDebugMetadata | undefined {
-    return getFunctionDebugMetadata(this, functionName);
+    const fn = this.getFunctionArtifactByName(functionName);
+    return fn && getFunctionDebugMetadata(this, fn);
   }
 
   toBuffer(): Buffer {
@@ -67,8 +63,8 @@ export class ContractDao implements ContractArtifact {
     // should be safe to JSON.stringify it (i.e. it doesn't contain BigInts)
     const contractArtifactJson = JSON.stringify(this.contractArtifact);
     const buf = Buffer.concat([
-      this.completeAddress.toBuffer(),
-      this.portalContract.toBuffer20(),
+      this.instance.address.toBuffer(),
+      new SerializableContractInstance(this.instance).toBuffer(),
       prefixBufferWithLength(Buffer.from(contractArtifactJson, 'utf-8')),
     ]);
 
@@ -77,10 +73,10 @@ export class ContractDao implements ContractArtifact {
 
   static fromBuffer(buf: Uint8Array | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const completeAddress = CompleteAddress.fromBuffer(reader);
-    const portalContract = new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
+    const address = AztecAddress.fromBuffer(reader);
+    const instance = SerializableContractInstance.fromBuffer(reader).withAddress(address);
     const contractArtifact = JSON.parse(reader.readString());
-    return new ContractDao(contractArtifact, completeAddress, portalContract);
+    return new ContractDao(contractArtifact, instance);
   }
 }
 

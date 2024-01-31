@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/numeric/random/engine.hpp"
 
-namespace barretenberg {
+namespace bb {
 template <typename base_field, typename Fq6Params> class field6 {
   public:
     constexpr field6(const base_field& a = base_field::zero(),
@@ -190,7 +190,7 @@ template <typename base_field, typename Fq6Params> class field6 {
         };
     }
 
-    static constexpr field6 random_element(numeric::random::Engine* engine = nullptr)
+    static constexpr field6 random_element(numeric::RNG* engine = nullptr)
     {
         return {
             base_field::random_element(engine),
@@ -221,4 +221,4 @@ template <typename base_field, typename Fq6Params> class field6 {
 
     constexpr bool operator==(const field6& other) const { return c0 == other.c0 && c1 == other.c1 && c2 == other.c2; }
 };
-} // namespace barretenberg
+} // namespace bb
