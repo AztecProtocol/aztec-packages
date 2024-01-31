@@ -34,7 +34,7 @@ impl MacroProcessor for AztecMacro {
         crate_id: &CrateId,
         context: &mut HirContext,
     ) -> Result<(), (MacroError, FileId)> {
-        transform_hir(crate_id, context)
+        transform_hir(crate_id, context).map_err(|(err, file_id)| (err.into(), file_id))
     }
 }
 
@@ -50,6 +50,7 @@ pub enum AztecMacroError {
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
+    EventError { span: Span, message: String },
 }
 
 impl From<AztecMacroError> for MacroError {
@@ -89,6 +90,11 @@ impl From<AztecMacroError> for MacroError {
                 primary_message: format!("Could not assign storage slots, please provide a custom storage implementation"),
                 secondary_message,
                 span: None,
+            },
+            AztecMacroError::EventError { span, message } => MacroError {
+                primary_message: message,
+                secondary_message: None,
+                span: Some(span),
             },
         }
     }
@@ -268,8 +274,8 @@ fn transform(
 
 /// Completes the Hir with data gathered from type resolution
 fn transform_hir(crate_id: &CrateId, context: &mut HirContext) -> Result<(), (MacroError, FileId)> {
-    transform_events(crate_id, context);
-    assign_storage_slots(crate_id, context).map_err(|(err, file_id)| (err.into(), file_id))
+    transform_events(crate_id, context)?;
+    assign_storage_slots(crate_id, context)
 }
 
 /// Includes an import to the aztec library if it has not been included yet
@@ -673,19 +679,30 @@ fn collect_traits(context: &HirContext) -> Vec<TraitId> {
 }
 
 /// Substitutes the signature literal that was introduced in the selector method previously with the actual signature.
-fn transform_event(struct_id: StructId, interner: &mut NodeInterner) {
+fn transform_event(
+    struct_id: StructId,
+    interner: &mut NodeInterner,
+) -> Result<(), (AztecMacroError, FileId)> {
     let struct_type = interner.get_struct(struct_id);
     let selector_id = interner
-        .lookup_method(&Type::Struct(struct_type, vec![]), struct_id, "selector", false)
-        .expect("Selector method not found");
+        .lookup_method(&Type::Struct(struct_type.clone(), vec![]), struct_id, "selector", false)
+        .ok_or_else(|| {
+            let error = AztecMacroError::EventError {
+                span: struct_type.borrow().location.span,
+                message: "Selector method not found".to_owned(),
+            };
+            (error, struct_type.borrow().location.file)
+        })?;
     let selector_function = interner.function(&selector_id);
 
     let compute_selector_statement = interner.statement(
-        selector_function
-            .block(interner)
-            .statements()
-            .first()
-            .expect("Compute selector statement not found"),
+        selector_function.block(interner).statements().first().ok_or_else(|| {
+            let error = AztecMacroError::EventError {
+                span: struct_type.borrow().location.span,
+                message: "Compute selector statement not found".to_owned(),
+            };
+            (error, struct_type.borrow().location.file)
+        })?,
     );
 
     let compute_selector_expression = match compute_selector_statement {
@@ -695,12 +712,21 @@ fn transform_event(struct_id: StructId, interner: &mut NodeInterner) {
         },
         _ => None,
     }
-    .expect("Compute selector statement is not a call expression");
+    .ok_or_else(|| {
+        let error = AztecMacroError::EventError {
+            span: struct_type.borrow().location.span,
+            message: "Compute selector statement is not a call expression".to_owned(),
+        };
+        (error, struct_type.borrow().location.file)
+    })?;
 
-    let first_arg_id = compute_selector_expression
-        .arguments
-        .first()
-        .expect("Missing argument for compute selector");
+    let first_arg_id = compute_selector_expression.arguments.first().ok_or_else(|| {
+        let error = AztecMacroError::EventError {
+            span: struct_type.borrow().location.span,
+            message: "Compute selector statement is not a call expression".to_owned(),
+        };
+        (error, struct_type.borrow().location.file)
+    })?;
 
     match interner.expression(first_arg_id) {
         HirExpression::Literal(HirLiteral::Str(signature))
@@ -719,18 +745,29 @@ fn transform_event(struct_id: StructId, interner: &mut NodeInterner) {
                 selector_literal_id,
                 Type::String(Box::new(Type::Constant(signature.len() as u64))),
             );
+            Ok(())
         }
-        _ => unreachable!("Signature placeholder literal does not match"),
+        _ => Err((
+            AztecMacroError::EventError {
+                span: struct_type.borrow().location.span,
+                message: "Signature placeholder literal does not match".to_owned(),
+            },
+            struct_type.borrow().location.file,
+        )),
     }
 }
 
-fn transform_events(crate_id: &CrateId, context: &mut HirContext) {
+fn transform_events(
+    crate_id: &CrateId,
+    context: &mut HirContext,
+) -> Result<(), (AztecMacroError, FileId)> {
     for struct_id in collect_crate_structs(crate_id, context) {
         let attributes = context.def_interner.struct_attributes(&struct_id);
         if attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Event)) {
-            transform_event(struct_id, &mut context.def_interner);
+            transform_event(struct_id, &mut context.def_interner)?;
         }
     }
+    Ok(())
 }
 
 /// Obtains the serialized length of a type that implements the Serialize trait.

@@ -365,11 +365,11 @@ impl DefCollector {
         errors.extend(resolved_globals.errors);
 
         for macro_processor in macro_processors {
-            let macro_result = macro_processor.process_typed_ast(&crate_id, context);
-            if macro_result.is_err() {
-                let (error, file_id) = macro_result.unwrap_err();
-                errors.push((error.into(), file_id));
-            }
+            macro_processor.process_typed_ast(&crate_id, context).unwrap_or_else(
+                |(macro_err, file_id)| {
+                    errors.push((macro_err.into(), file_id));
+                },
+            );
         }
         errors.extend(type_check_globals(&mut context.def_interner, resolved_globals.globals));
 
