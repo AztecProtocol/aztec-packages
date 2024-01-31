@@ -18,7 +18,7 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
         EXPECT_EQ(x.get_value(), y.get_value());
     }
 
-    template <typename T> void check_conversion_iterable(Builder& builder, T x)
+    template <typename T> void check_conversion_array(Builder& builder, T x)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs(x);
@@ -28,29 +28,22 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
             EXPECT_EQ(x[i].get_value(), y[i].get_value());
         }
     }
+
+    template <typename T> void check_conversion_univariate(Builder& builder, T x)
+    {
+        size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<T>();
+        auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs(x);
+        EXPECT_EQ(len, frs.size());
+        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
+        for (size_t i = 0; i < x.evaluations.size(); i++) {
+            EXPECT_EQ(x.evaluations[i].get_value(), y.evaluations[i].get_value());
+        }
+    }
 };
 
 using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(StdlibFieldConversionTests, BuilderTypes);
-
-// /**
-//  * @brief Field conversion test for size_t
-//  */
-// TYPED_TEST(StdlibFieldConversionTests, FieldConversionSizeT)
-// {
-//     size_t x = 210849;
-//     this->check_conversion(builder, x);
-// }
-
-// /**
-//  * @brief Field conversion test for uint32_t
-//  */
-// TYPED_TEST(StdlibFieldConversionTests, FieldConversionUint32)
-// {
-//     auto x = static_cast<uint32_t>(1) << 31;
-//     this->check_conversion(builder, x);
-// }
 
 /**
  * @brief Field conversion test for fr<Builder>
@@ -101,6 +94,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
     this->check_conversion(builder, x2);
 }
 
+// TODO: Will this be necessary for the ECCVM recursive verifier?
 // /**
 //  * @brief Field conversion test for element<Builder, fq<Builder>, fr<Builder>, curve::Grumpkin::Group>
 //  */
@@ -128,49 +122,73 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayBn254Fr)
     Builder builder;
 
     // Constructing std::array objects with fr<Builder> values
-    std::array<fr<Builder>, 4> x1_val{
+    std::array<fr<Builder>, 4> x1{
         fr<Builder>(&builder, 1), fr<Builder>(&builder, 2), fr<Builder>(&builder, 3), fr<Builder>(&builder, 4)
     };
-    std::array<fr<Builder>, 4> x1(x1_val);
-    this->check_conversion_iterable(builder, x1);
+    this->check_conversion_array(builder, x1);
 
-    std::array<fr<Builder>, 7> x2_val{ fr<Builder>(&builder, bb::fr::modulus_minus_two),
-                                       fr<Builder>(&builder, bb::fr::modulus_minus_two - 123),
-                                       fr<Builder>(&builder, 215215125),
-                                       fr<Builder>(&builder, 102701750),
-                                       fr<Builder>(&builder, 367032),
-                                       fr<Builder>(&builder, 12985028),
-                                       fr<Builder>(&builder, bb::fr::modulus_minus_two - 125015028) };
-    std::array<fr<Builder>, 7> x2(x2_val);
-    this->check_conversion_iterable(builder, x2);
+    std::array<fr<Builder>, 7> x2{ fr<Builder>(&builder, bb::fr::modulus_minus_two),
+                                   fr<Builder>(&builder, bb::fr::modulus_minus_two - 123),
+                                   fr<Builder>(&builder, 215215125),
+                                   fr<Builder>(&builder, 102701750),
+                                   fr<Builder>(&builder, 367032),
+                                   fr<Builder>(&builder, 12985028),
+                                   fr<Builder>(&builder, bb::fr::modulus_minus_two - 125015028) };
+    this->check_conversion_array(builder, x2);
 }
 
-// /**
-//  * @brief Field conversion test for std::array<fq<Builder>, N>
-//  */
-// TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayGrumpkinFr)
-// {
-//     using Builder = TypeParam;
-//     Builder builder;
+/**
+ * @brief Field conversion test for std::array<fq<Builder>, N>
+ */
+TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayGrumpkinFr)
+{
+    using Builder = TypeParam;
+    Builder builder;
 
-//     // Constructing std::array objects with fq<Builder> values
-//     std::array<fq<Builder>, 4> x1_val{
-//         fq<Builder>(
-//             static_cast<grumpkin::fr>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
-//         static_cast<grumpkin::fr>(std::string(fq<Builder>(std::string("123456789abcdef")))),
-//         fq<Builder>(static_cast<grumpkin::fr>(std::string(std::string("9876543210abcdef")))),
-//         fq<Builder>(static_cast<grumpkin::fr>(std::string(std::string("fedcba9876543210abcdef"))))
-//     };
-//     std::array<fq<Builder>, 4> x1(x1_val);
-//     this->check_conversion_iterable(builder, x1);
+    // Constructing std::array objects with fq<Builder> values
+    std::array<fq<Builder>, 4> x1{
+        fq<Builder>(
+            &builder,
+            static_cast<grumpkin::fr>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
+        fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("123456789abcdef"))),
+        fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("9876543210abcdef"))),
+        fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("fedcba9876543210abcdef")))
+    };
+    this->check_conversion_array(builder, x1);
+}
 
-//     std::array<fq<Builder>, 7> x2_val{
-//         fq<Builder>(std::string("9a807b615c4d3e2fa0")), fq<Builder>(std::string("1c2d3e4f56789fedcba")),
-//         fq<Builder>(std::string("b1c2d3e4f56789")),     fq<Builder>(std::string("fedcba9876543210")),
-//         fq<Builder>(std::string("abcdef0123456789")),   fq<Builder>(std::string("123456789abcdef")),
-//         fq<Builder>(std::string("9876543210abcdef"))
-//     };
-//     std::array<fq<Builder>, 7> x2(x2_val);
-//     this->check_conversion_iterable(builder, x2);
-// }
+/**
+ * @brief Field conversion test for Univariate<fr<Builder>, N>
+ */
+TYPED_TEST(StdlibFieldConversionTests, FieldConversionUnivariateBn254Fr)
+{
+    using Builder = TypeParam;
+    Builder builder;
+
+    // Constructing Univariate objects with fr<Builder> values
+    Univariate<fr<Builder>, 4> x{
+        { fr<Builder>(&builder, 1), fr<Builder>(&builder, 2), fr<Builder>(&builder, 3), fr<Builder>(&builder, 4) }
+    };
+    this->check_conversion_univariate(builder, x);
+}
+
+/**
+ * @brief Field conversion test for Univariate<fq<Builder>, N>
+ */
+TYPED_TEST(StdlibFieldConversionTests, FieldConversionUnivariateGrumpkinFr)
+{
+    using Builder = TypeParam;
+    Builder builder;
+
+    // Constructing std::array objects with fq<Builder> values
+    Univariate<fq<Builder>, 4> x{
+        { fq<Builder>(&builder,
+                      static_cast<grumpkin::fr>(
+                          std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
+          fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("123456789abcdef"))),
+          fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("9876543210abcdef"))),
+          fq<Builder>(&builder, static_cast<grumpkin::fr>(std::string("fedcba9876543210abcdef"))) }
+    };
+    this->check_conversion_univariate(builder, x);
+}
 } // namespace bb::stdlib::field_conversion_tests
