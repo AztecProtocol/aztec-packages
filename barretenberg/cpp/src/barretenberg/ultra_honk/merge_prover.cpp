@@ -4,6 +4,8 @@ namespace bb::honk {
 
 /**
  * @brief Create MergeProver
+ * @details We require an SRS at least as large as the current op queue size in order to commit to the shifted
+ * per-circuit contribution t_i^{shift}
  *
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue)
