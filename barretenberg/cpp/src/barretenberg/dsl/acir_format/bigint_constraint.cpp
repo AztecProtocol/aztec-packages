@@ -299,21 +299,26 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
         if (i < input.modulus.size()) {
             modulus_64 += input.modulus[i] * base;
             base = base * 256;
-        }
-        if (i % 8 == 0) {
-            modulus_limbs.push_back(modulus_64);
-            modulus_64 = 0;
+            if ((i + 1) % 8 == 0) {
+                modulus_limbs.push_back(modulus_64);
+                modulus_64 = 0;
+                base = 1;
+            }
         }
     }
     auto modulus = ModulusParam{ .modulus_0 = modulus_limbs[0],
                                  .modulus_1 = modulus_limbs[1],
                                  .modulus_2 = modulus_limbs[2],
                                  .modulus_3 = modulus_limbs[3] };
-    bb::stdlib::byte_array<Builder> bytes;
-    for (auto input : input.inputs) {
-        field_ct element = field_ct::from_witness_index(&builder, input);
-        byte_array_ct element_bytes(element, 1);
-        bytes.write(element_bytes);
+    bb::stdlib::byte_array<Builder> bytes = bb::stdlib::byte_array<Builder>(&builder, 32);
+    for (size_t i = 0; i < 32; ++i) {
+        if (i < input.inputs.size()) {
+            field_ct element = field_ct::from_witness_index(&builder, input.inputs[i]);
+            byte_array_ct element_bytes(element, 1);
+            bytes.write_at(element_bytes, i);
+        } else {
+            bytes[i] = 0;
+        }
     }
 
     auto modulus_id = modulus_param_to_id(modulus);
@@ -322,6 +327,7 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     case BN254_FQ: {
         auto big = big_bn254_fq(bytes);
         dsl_bigints.set_bn254_fq(big, input.result);
+
         break;
     }
     case BN254_FR: {
@@ -367,6 +373,7 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
     using big_secp256k1_fr = bb::stdlib::bigfield<Builder, secp256k1::Secp256k1FrParams>;
     using big_secp256r1_fq = bb::stdlib::bigfield<Builder, secp256r1::Secp256r1FqParams>;
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, secp256r1::Secp256r1FrParams>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     auto modulus_id = dsl_bigints.get_modulus_id(input.input);
     bb::stdlib::byte_array<Builder> byte_array;
@@ -407,7 +414,13 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
         ASSERT(false);
         break;
     }
+    // TODO: check both sizes are equal
     for (size_t i = 0; i < input.result.size(); ++i) {
+        info(byte_array[i].normalize().witness_index);
+        info(byte_array[i].normalize().get_value());
+        info(input.result[i]);
+        field_ct result = field_ct::from_witness_index(&builder, input.result[i]);
+        info(result.get_value());
         builder.assert_equal(byte_array[i].normalize().witness_index, input.result[i]);
     }
 }

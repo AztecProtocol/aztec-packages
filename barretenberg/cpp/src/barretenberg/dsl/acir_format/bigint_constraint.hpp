@@ -103,6 +103,7 @@ template <typename Builder> class DSLBigInts {
         if (this->m_bn254_fr.contains(bigint_id)) {
             return this->m_bn254_fr[bigint_id];
         }
+        ASSERT(false);
         return { 0 };
     }
 
@@ -113,6 +114,7 @@ template <typename Builder> class DSLBigInts {
         if (this->m_bn254_fq.contains(bigint_id)) {
             return this->m_bn254_fq[bigint_id];
         }
+        ASSERT(false);
         return { 0 };
     }
 
@@ -123,6 +125,7 @@ template <typename Builder> class DSLBigInts {
         if (this->m_secp256r1_fq.contains(bigint_id)) {
             return this->m_secp256r1_fq[bigint_id];
         }
+        ASSERT(false);
         return { 0 };
     }
 
@@ -136,6 +139,7 @@ template <typename Builder> class DSLBigInts {
         if (this->m_secp256r1_fr.contains(bigint_id)) {
             return this->m_secp256r1_fr[bigint_id];
         }
+        ASSERT(false);
         return { 0 };
     }
 
@@ -149,6 +153,7 @@ template <typename Builder> class DSLBigInts {
         if (this->m_secp256k1_fq.contains(bigint_id)) {
             return this->m_secp256k1_fq[bigint_id];
         }
+        ASSERT(false);
         return { 0 };
     }
 
@@ -175,7 +180,10 @@ template <typename Builder>
 void create_bigint_from_le_bytes_constraint(Builder& builder,
                                             const BigIntFromLeBytes& input,
                                             DSLBigInts<Builder>& dsl_bigints);
-template <typename Builder> void create_bigint_to_le_bytes_constraint(Builder& builder, const BigIntToLeBytes& input);
+template <typename Builder>
+void create_bigint_to_le_bytes_constraint(Builder& builder,
+                                          const BigIntToLeBytes& input,
+                                          DSLBigInts<Builder>& dsl_bigints);
 
 template <typename Builder>
 void create_bigint_operations_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigints);

@@ -101,6 +101,9 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     for (const auto& constraint : constraint_system.bigint_operations) {
         create_bigint_operations_constraint<Builder>(constraint, dsl_bigints);
     }
+    for (const auto& constraint : constraint_system.bigint_to_le_bytes_constraints) {
+        create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
