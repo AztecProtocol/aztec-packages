@@ -12,19 +12,19 @@ auto& engine = numeric::get_debug_randomness();
 template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
   public:
     using Composer = UltraComposer_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
+    using VerificationKey = typename Flavor::VerificationKey;
     using Instance = ProverInstance_<Flavor>;
     using Instances = ProverInstances_<Flavor, 2>;
     using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
-    using FF = Flavor::FF;
-    using Affine = Flavor::Commitment;
-    using Projective = Flavor::GroupElement;
-    using Builder = Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+    using Affine = typename Flavor::Commitment;
+    using Projective = typename Flavor::GroupElement;
+    using Builder = typename Flavor::CircuitBuilder;
     using Polynomial = typename Flavor::Polynomial;
-    using ProverPolynomials = Flavor::ProverPolynomials;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using RelationParameters = bb::RelationParameters<FF>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
-    using CommitmentKey = Flavor::CommitmentKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
     using PowPolynomial = bb::PowPolynomial<FF>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
@@ -155,7 +155,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void test_pertubator_polynomial()
     {
-        using RelationSeparator = Flavor::RelationSeparator;
+        using RelationSeparator = typename Flavor::RelationSeparator;
         const size_t log_instance_size(3);
         const size_t instance_size(1 << log_instance_size);
         std::array<bb::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> random_polynomials;

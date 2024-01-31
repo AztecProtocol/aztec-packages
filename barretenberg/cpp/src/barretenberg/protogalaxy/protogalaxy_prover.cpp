@@ -307,13 +307,14 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 {
     prepare_for_folding();
     FF delta = transcript->get_challenge("delta");
+
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
+
     auto perturbator = compute_perturbator(accumulator, deltas);
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
-
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
@@ -321,6 +322,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     combine_alpha(instances);
     auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
     auto combiner = compute_combiner(instances, pow_polynomial);
+
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
 

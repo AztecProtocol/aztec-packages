@@ -16,13 +16,13 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using UltraComposer = ::bb::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
 
-    using InnerFlavor = RecursiveFlavor::NativeFlavor;
+    using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerComposer = ::bb::honk::UltraComposer_<InnerFlavor>;
     using Instance = ::bb::honk::ProverInstance_<InnerFlavor>;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
-    using Commitment = InnerFlavor::Commitment;
-    using FF = InnerFlavor::FF;
+    using Commitment = typename InnerFlavor::Commitment;
+    using FF = typename InnerFlavor::FF;
 
     // Types for veryfing a recursive verifier circuit
     using OuterBuilder = GoblinUltraCircuitBuilder;
@@ -147,6 +147,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         return inner_folding_proof.accumulator;
     }
 
+    /**
+     *@brief Create inner circuit and call check_circuit on it
+     */
     static void test_inner_circuit()
     {
         InnerBuilder builder;
@@ -157,28 +160,37 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         EXPECT_EQ(result, true);
     };
 
-    // static void test_new_evaluate()
-    // {
-    //     OuterBuilder builder;
-    //     using fr_ct = bn254<OuterBuilder>::ScalarField;
-    //     using fr = bn254<OuterBuilder>::ScalarFieldNative;
+    /**
+     * @brief Ensure that evaluating the perturbator in the recursive folding verifier returns the same result as
+     * evaluating in Polynomial class.
+     *
+     */
+    static void test_new_evaluate()
+    {
+        OuterBuilder builder;
+        using fr_ct = bn254<OuterBuilder>::ScalarField;
+        using fr = bn254<OuterBuilder>::ScalarFieldNative;
 
-    //     std::vector<fr> coeffs;
-    //     std::vector<fr_ct> coeffs_ct;
-    //     for (size_t idx = 0; idx < 8; idx++) {
-    //         auto el = fr::random_element();
-    //         coeffs.emplace_back(el);
-    //         coeffs_ct.emplace_back(fr_ct(&builder, el));
-    //     }
-    //     Polynomial<fr> poly(coeffs);
-    //     fr point = fr::random_element();
-    //     fr_ct point_ct(fr_ct(&builder, point));
-    //     auto res1 = poly.evaluate(point);
+        std::vector<fr> coeffs;
+        std::vector<fr_ct> coeffs_ct;
+        for (size_t idx = 0; idx < 8; idx++) {
+            auto el = fr::random_element();
+            coeffs.emplace_back(el);
+            coeffs_ct.emplace_back(fr_ct(&builder, el));
+        }
+        Polynomial<fr> poly(coeffs);
+        fr point = fr::random_element();
+        fr_ct point_ct(fr_ct(&builder, point));
+        auto res1 = poly.evaluate(point);
 
-    //     auto res2 = FoldingRecursiveVerifier::evaluate_perturbator(coeffs_ct, point_ct);
-    //     EXPECT_EQ(res1, res2.get_value());
-    // };
+        auto res2 = FoldingRecursiveVerifier::evaluate_perturbator(coeffs_ct, point_ct);
+        EXPECT_EQ(res1, res2.get_value());
+    };
 
+    /**
+     * @brief Tests a simple recursive fold that is valid works as expected.
+     *
+     */
     static void test_recursive_folding()
     {
         // Create two arbitrary circuits for the first round of folding
@@ -197,6 +209,11 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         fold_and_verify(instances, inner_composer);
     };
 
+    /**
+     * @brief Recursively verify two rounds of folding valid circuits and then recursive verify the final decider proof,
+     * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
+     * verifiers are identical by checking the manifests
+     */
     static void test_full_protogalaxy_recursive()
     {
         // Create two arbitrary circuits for the first round of folding
@@ -338,38 +355,22 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 using FlavorTypes = testing::Types<::bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>,
                                    ::bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
-/**@brief Create inner circuit and call check_circuit on it*/
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)
 {
     TestFixture::test_inner_circuit();
 }
 
-/**
- * @brief Ensure that evaluating the perturbator in the recursive folding verifier returns the same result as
- * evaluating in Polynomial class.
- *
- */
-// TYPED_TEST(ProtoGalaxyRecursiveTests, NewEvaluate)
-// {
-//     TestFixture::test_new_evaluate();
-// }
+TYPED_TEST(ProtoGalaxyRecursiveTests, NewEvaluate)
+{
+    TestFixture::test_new_evaluate();
+}
 
-/**
- * @brief Tests a simple recursive fold that is valid works as expected.
- *
- */
 TYPED_TEST(ProtoGalaxyRecursiveTests, RecursiveFoldingTest)
 {
     TestFixture::test_recursive_folding();
 }
 
-/**
- * @brief Recursively verify two rounds of folding valid circuits and then recursive verify the final decider proof,
- * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native verifiers
- * are identical by checking the manifests
-
- */
 TYPED_TEST(ProtoGalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
 {
 

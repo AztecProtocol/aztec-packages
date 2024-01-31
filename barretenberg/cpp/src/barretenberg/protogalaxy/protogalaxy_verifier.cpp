@@ -112,8 +112,8 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     // Get permutation challenges and commitment to permutation and lookup grand products
     auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
 
-    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
+        // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
         witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
             domain_separator + "_" + commitment_labels.lookup_inverses);
     }
