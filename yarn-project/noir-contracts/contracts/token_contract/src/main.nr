@@ -56,22 +56,22 @@ contract Token {
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<AztecAddress>, 1
+        admin: PublicState<AztecAddress>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicState<bool>>, 2
+        minters: Map<AztecAddress, PublicState<bool>>, 
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap<TokenNote>, 3
+        balances: BalancesMap<TokenNote>, // slot 3
         // docs:end:storage_balances
-        total_supply: PublicState<SafeU120>, 6
+        total_supply: PublicState<SafeU120>, 
         // docs:start:storage_pending_shields
-        pending_shields: Set<TransparentNote>, 7
+        pending_shields: Set<TransparentNote>, // slot 7
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicState<SafeU120>>, 9
-        symbol: PublicState<FieldCompressedString>, 10  
-        name: PublicState<FieldCompressedString>, 11
-        decimals: PublicState<u8>, 12
+        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
+        symbol: PublicState<FieldCompressedString>, 
+        name: PublicState<FieldCompressedString>,
+        decimals: PublicState<u8>,
     }
     // docs:end:storage_struct
 
