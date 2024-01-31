@@ -31,7 +31,7 @@ template <typename Flavor> ECCVMVerifier_<Flavor>& ECCVMVerifier_<Flavor>::opera
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const honk::proof& proof)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
@@ -46,7 +46,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

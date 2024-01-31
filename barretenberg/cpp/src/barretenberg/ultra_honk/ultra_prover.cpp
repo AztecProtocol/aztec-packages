@@ -178,13 +178,13 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_rou
                      transcript);
 }
 
-template <IsUltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
+template <UltraFlavor Flavor> honk::proof& UltraProver_<Flavor>::export_proof()
 {
-    proof.proof_data = transcript->proof_data;
+    proof = transcript->proof_data;
     return proof;
 }
 
-template <IsUltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proof()
+template <UltraFlavor Flavor> honk::proof& UltraProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript->
     execute_preamble_round();
