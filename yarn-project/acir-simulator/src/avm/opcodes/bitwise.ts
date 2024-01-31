@@ -1,5 +1,5 @@
 import { AvmMachineState } from '../avm_machine_state.js';
-import { IntegralValue, TypeTag } from '../avm_memory_types.js';
+import { IntegralValue } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/index.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode } from '../serialization/instruction_serialization.js';

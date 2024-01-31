@@ -53,7 +53,6 @@ export class Lt extends ThreeOperandInstruction {
     return new Lt(...args);
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 

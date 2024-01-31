@@ -25,11 +25,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
 
       const inst = Add.deserialize(buf);
@@ -61,11 +70,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -121,11 +139,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
 
       const inst = Sub.deserialize(buf);
@@ -157,11 +184,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -197,11 +233,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
 
       const inst = Mul.deserialize(buf);
@@ -233,11 +278,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -293,11 +347,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
 
       const inst = Div.deserialize(buf);
@@ -329,11 +392,20 @@ describe('Arithmetic Instructions', () => {
         // inTag
         TypeTag.FIELD,
         // aOffset
-        0x12, 0x34, 0x56, 0x78,
+        0x12,
+        0x34,
+        0x56,
+        0x78,
         // bOffset
-        0x23, 0x45, 0x67, 0x89,
+        0x23,
+        0x45,
+        0x67,
+        0x89,
         // dstOffset
-        0x34, 0x56, 0x78, 0x9a,
+        0x34,
+        0x56,
+        0x78,
+        0x9a,
       ]);
       expect(inst.serialize()).toEqual(expected);
     });

@@ -2,7 +2,7 @@ import { strict as assert } from 'assert';
 
 /*
  * A Buffer-like class that automatically advances the position.
-*/
+ */
 export class BufferCursor {
   constructor(private _buffer: Buffer, private _position: number = 0) {}
 

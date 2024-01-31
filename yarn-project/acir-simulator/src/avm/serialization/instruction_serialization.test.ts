@@ -1,6 +1,5 @@
 import { BufferCursor } from './buffer_cursor.js';
 import { OperandPair, OperandType, deserialize, serialize } from './instruction_serialization.js';
-import { encodeToBytecode } from './bytecode_serialization.js';
 
 class InstA {
   constructor(private a: number, private b: number, private c: number, private d: bigint, private e: bigint) {}
@@ -61,7 +60,8 @@ describe('Instruction Serialization', () => {
       'hex',
     );
 
-    const params = deserialize(new BufferCursor(buffer), InstA.wireFormat) as ConstructorParameters<typeof InstA>;
+    const deserializedParams = deserialize(new BufferCursor(buffer), InstA.wireFormat);
+    const params = deserializedParams.slice(1) as ConstructorParameters<typeof InstA>; // Drop opcode.
 
     const actual = new InstA(...params);
     const expected = new InstA(0x12, 0x1234, 0x12345678, 0x1234567887654321n, 0x1234567887654321abcdef0000fedcban);
