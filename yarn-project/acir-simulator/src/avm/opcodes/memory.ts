@@ -5,7 +5,6 @@ import {
   Opcode,
   OperandPair,
   OperandType,
-  serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { TwoOperandInstruction } from './instruction_impl.js';
@@ -22,14 +21,10 @@ export class Set extends Instruction {
     [(c: Set) => c.value, OperandType.UINT128],
     [(c: Set) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = Set.wireFormat;
 
   constructor(private indirect: number, private inTag: number, private value: bigint, private dstOffset: number) {
     super();
-  }
-
-
-  public serialize(): Buffer {
-    return serialize(Set.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -54,6 +49,7 @@ export class CMov extends Instruction {
     [(c: CMov) => c.condOffset, OperandType.UINT32],
     [(c: CMov) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = CMov.wireFormat;
 
   constructor(
     private indirect: number,
@@ -66,9 +62,6 @@ export class CMov extends Instruction {
   }
 
 
-  public serialize(): Buffer {
-    return serialize(CMov.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -119,15 +112,13 @@ export class Mov extends Instruction {
     [(c: Mov) => c.srcOffset, OperandType.UINT32],
     [(c: Mov) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = Mov.wireFormat;
 
   constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
     super();
   }
 
 
-  public serialize(): Buffer {
-    return serialize(Mov.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.srcOffset);
@@ -150,15 +141,13 @@ export class CalldataCopy extends Instruction {
     [(c: CalldataCopy) => c.copySize, OperandType.UINT32],
     [(c: CalldataCopy) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = CalldataCopy.wireFormat;
 
   constructor(private indirect: number, private cdOffset: number, private copySize: number, private dstOffset: number) {
     super();
   }
 
 
-  public serialize(): Buffer {
-    return serialize(CalldataCopy.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const transformedData = machineState.executionEnvironment.calldata

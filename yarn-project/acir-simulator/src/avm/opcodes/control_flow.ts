@@ -5,7 +5,6 @@ import {
   Opcode,
   OperandPair,
   OperandType,
-  serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction, InstructionExecutionError } from './instruction.js';
 
@@ -20,14 +19,12 @@ export class Return extends Instruction {
     [(c: Return) => c.returnOffset, OperandType.UINT32],
     [(c: Return) => c.copySize, OperandType.UINT32],
   ];
+  wireFormat = Return.wireFormat;
 
   constructor(private indirect: number, private returnOffset: number, private copySize: number) {
     super();
   }
 
-  public serialize(): Buffer {
-    return serialize(Return.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const returnData = machineState.memory.getSlice(this.returnOffset, this.copySize).map(word => word.toFr());
@@ -49,15 +46,13 @@ export class Revert extends Instruction {
     [(c: Revert) => c.returnOffset, OperandType.UINT32],
     [(c: Revert) => c.retSize, OperandType.UINT32],
   ];
+  wireFormat = Revert.wireFormat;
 
   constructor(private indirect: number, private returnOffset: number, private retSize: number) {
     super();
   }
 
 
-  public serialize(): Buffer {
-    return serialize(Revert.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const returnData = machineState.memory
@@ -78,15 +73,13 @@ export class Jump extends Instruction {
     [(_c: Jump) => Jump.opcode, OperandType.UINT8],
     [(c: Jump) => c.jumpOffset, OperandType.UINT32],
   ];
+  wireFormat = Jump.wireFormat;
 
   constructor(private jumpOffset: number) {
     super();
   }
 
 
-  public serialize(): Buffer {
-    return serialize(Jump.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     machineState.pc = this.jumpOffset;
@@ -104,15 +97,12 @@ export class JumpI extends Instruction {
     [(c: JumpI) => c.loc, OperandType.UINT32],
     [(c: JumpI) => c.condOffset, OperandType.UINT32],
   ];
+  wireFormat = JumpI.wireFormat;
 
   constructor(private indirect: number, private loc: number, private condOffset: number) {
     super();
   }
 
-
-  public serialize(): Buffer {
-    return serialize(JumpI.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const condition = machineState.memory.getAs<IntegralValue>(this.condOffset);
@@ -135,15 +125,13 @@ export class InternalCall extends Instruction {
     [(_c: InternalCall) => InternalCall.opcode, OperandType.UINT8],
     [(c: InternalCall) => c.loc, OperandType.UINT32],
   ];
+  wireFormat = InternalCall.wireFormat;
 
   constructor(private loc: number) {
     super();
   }
 
 
-  public serialize(): Buffer {
-    return serialize(InternalCall.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     machineState.internalCallStack.push(machineState.pc + 1);
@@ -159,14 +147,12 @@ export class InternalReturn extends Instruction {
   static readonly wireFormat: OperandPair[] = [
     [(_c: InternalReturn) => InternalReturn.opcode, OperandType.UINT8],
   ];
+  wireFormat = InternalReturn.wireFormat;
 
   constructor() {
     super();
   }
 
-  public serialize(): Buffer {
-    return serialize(InternalReturn.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const jumpOffset = machineState.internalCallStack.pop();

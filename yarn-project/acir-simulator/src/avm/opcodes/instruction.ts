@@ -2,11 +2,10 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/index.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
-import { deserialize } from '../serialization/instruction_serialization.js';
+import { deserialize, serialize } from '../serialization/instruction_serialization.js';
 
 export abstract class Instruction {
   public abstract execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void>;
-  public abstract serialize(): Buffer;
 
   incrementPc(machineState: AvmMachineState): void {
     machineState.pc++;
@@ -36,7 +35,11 @@ export abstract class Instruction {
   public static deserialize<T extends { new(...args: any[]): InstanceType<T>; wireFormat: any}>(this: T, buf: BufferCursor | Buffer): InstanceType<T> {
     const res = deserialize(buf, this.wireFormat);
     const args = res.slice(1) as ConstructorParameters<T>; // Remove opcode.
-    return (new this(...args) as InstanceType<T>);
+    return new this(...args);
+  }
+
+  public serialize<T extends { wireFormat: any}>(this: T): Buffer {
+    return serialize(this.wireFormat, this);
   }
 }
 

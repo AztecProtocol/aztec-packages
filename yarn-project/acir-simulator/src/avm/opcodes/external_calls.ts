@@ -8,7 +8,6 @@ import {
   Opcode,
   OperandPair,
   OperandType,
-  serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
@@ -28,6 +27,7 @@ export class Call extends Instruction {
     [(c: Call) => c.retSize, OperandType.UINT32],
     [(c: Call) => c.successOffset, OperandType.UINT32],
   ];
+  wireFormat = Call.wireFormat;
 
   constructor(
     private indirect: number,
@@ -40,11 +40,6 @@ export class Call extends Instruction {
     private successOffset: number,
   ) {
     super();
-  }
-
-
-  public serialize(): Buffer {
-    return serialize(Call.wireFormat, this);
   }
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3992): there is no concept of remaining / available gas at this moment
@@ -94,6 +89,7 @@ export class StaticCall extends Instruction {
     [(c: StaticCall) => c.retSize, OperandType.UINT32],
     [(c: StaticCall) => c.successOffset, OperandType.UINT32],
   ];
+  wireFormat = StaticCall.wireFormat;
 
   constructor(
     private indirect: number,
@@ -108,10 +104,6 @@ export class StaticCall extends Instruction {
     super();
   }
 
-
-  public serialize(): Buffer {
-    return serialize(StaticCall.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     const callAddress = machineState.memory.get(this.addrOffset);

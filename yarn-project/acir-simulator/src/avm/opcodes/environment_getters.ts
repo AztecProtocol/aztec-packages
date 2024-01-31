@@ -2,13 +2,10 @@ import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
-import { BufferCursor } from '../serialization/buffer_cursor.js';
 import {
   Opcode,
   OperandPair,
   OperandType,
-  deserialize,
-  serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
@@ -19,19 +16,10 @@ abstract class GetterInstruction extends Instruction {
     [(c: GetterInstruction) => c.indirect, OperandType.UINT8],
     [(c: GetterInstruction) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = GetterInstruction.wireFormat;
 
   constructor(protected indirect: number, protected dstOffset: number) {
     super();
-  }
-
-  protected static deserializeBase(buf: BufferCursor | Buffer): ConstructorParameters<typeof GetterInstruction> {
-    const res = deserialize(buf, GetterInstruction.wireFormat);
-    const params = res.slice(1); // Remove opcode.
-    return params as ConstructorParameters<typeof GetterInstruction>;
-  }
-
-  public serialize(): Buffer {
-    return serialize(GetterInstruction.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {

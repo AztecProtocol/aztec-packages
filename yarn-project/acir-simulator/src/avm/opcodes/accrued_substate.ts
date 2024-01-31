@@ -4,7 +4,6 @@ import {
   Opcode,
   OperandPair,
   OperandType,
-  serialize,
 } from '../serialization/instruction_serialization.js';
 import { Instruction, 
 } from './instruction.js';
@@ -23,10 +22,6 @@ export class EmitNoteHash extends Instruction {
 
   constructor(private indirect: number, private noteHashOffset: number) {
     super();
-  }
-
-  public serialize(): Buffer {
-    return serialize(EmitNoteHash.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
@@ -56,9 +51,6 @@ export class EmitNullifier extends Instruction {
     super();
   }
 
-  public serialize(): Buffer {
-    return serialize(EmitNullifier.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {
@@ -88,9 +80,6 @@ export class EmitUnencryptedLog extends Instruction {
     super();
   }
 
-  public serialize(): Buffer {
-    return serialize(EmitUnencryptedLog.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {
@@ -121,9 +110,6 @@ export class SendL2ToL1Message extends Instruction {
   }
 
 
-  public serialize(): Buffer {
-    return serialize(SendL2ToL1Message.wireFormat, this);
-  }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {

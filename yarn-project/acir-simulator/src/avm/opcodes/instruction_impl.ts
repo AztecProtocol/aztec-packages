@@ -17,6 +17,7 @@ export abstract class TwoOperandInstruction extends Instruction {
     [(c: TwoOperandInstruction) => c.aOffset, OperandType.UINT32],
     [(c: TwoOperandInstruction) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = TwoOperandInstruction.wireFormat;
 
   constructor(
     protected indirect: number,
@@ -50,6 +51,7 @@ export abstract class ThreeOperandInstruction extends Instruction {
     [(c: ThreeOperandInstruction) => c.bOffset, OperandType.UINT32],
     [(c: ThreeOperandInstruction) => c.dstOffset, OperandType.UINT32],
   ];
+  wireFormat = ThreeOperandInstruction.wireFormat;
 
   constructor(
     protected indirect: number,
