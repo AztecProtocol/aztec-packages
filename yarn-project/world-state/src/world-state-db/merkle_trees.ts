@@ -133,7 +133,7 @@ export class MerkleTrees implements MerkleTreeDb {
       await this.#updateArchive(initialHeder, true);
     }
 
-    await this._commit();
+    await this.#commit();
   }
 
   /**
@@ -192,7 +192,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns The tree info for the specified tree.
    */
   public async getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
-    return await this.synchronize(() => this._getTreeInfo(treeId, includeUncommitted));
+    return await this.synchronize(() => this.#getTreeInfo(treeId, includeUncommitted));
   }
 
   /**
@@ -248,7 +248,7 @@ export class MerkleTrees implements MerkleTreeDb {
     index: bigint,
     includeUncommitted: boolean,
   ): Promise<SiblingPath<N>> {
-    return await this.synchronize(() => this._getSiblingPath(treeId, index, includeUncommitted));
+    return await this.synchronize(() => this.trees[treeId].getSiblingPath<N>(index, includeUncommitted));
   }
 
   /**
@@ -258,7 +258,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
-    return await this.synchronize(() => this._appendLeaves(treeId, leaves));
+    return await this.synchronize(() => this.#appendLeaves(treeId, leaves));
   }
 
   /**
@@ -266,7 +266,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async commit(): Promise<void> {
-    return await this.synchronize(() => this._commit());
+    return await this.synchronize(() => this.#commit());
   }
 
   /**
@@ -274,7 +274,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async rollback(): Promise<void> {
-    return await this.synchronize(() => this._rollback());
+    return await this.synchronize(() => this.#rollback());
   }
 
   /**
@@ -302,7 +302,7 @@ export class MerkleTrees implements MerkleTreeDb {
     | undefined
   > {
     return await this.synchronize(() =>
-      Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousKey(value, includeUncommitted)),
+      Promise.resolve(this.#getIndexedTree(treeId).findIndexOfPreviousKey(value, includeUncommitted)),
     );
   }
 
@@ -319,7 +319,7 @@ export class MerkleTrees implements MerkleTreeDb {
     includeUncommitted: boolean,
   ): Promise<IndexedTreeLeafPreimage | undefined> {
     return await this.synchronize(() =>
-      Promise.resolve(this._getIndexedTree(treeId).getLatestLeafPreimageCopy(index, includeUncommitted)),
+      Promise.resolve(this.#getIndexedTree(treeId).getLatestLeafPreimageCopy(index, includeUncommitted)),
     );
   }
 
@@ -349,7 +349,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
-    return await this.synchronize(() => this._updateLeaf(treeId, leaf, index));
+    return await this.synchronize(() => this.#updateLeaf(treeId, leaf, index));
   }
 
   /**
@@ -358,7 +358,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Whether the block handled was produced by this same node.
    */
   public async handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
-    return await this.synchronize(() => this._handleL2Block(block));
+    return await this.synchronize(() => this.#handleL2Block(block));
   }
 
   /**
@@ -401,7 +401,7 @@ export class MerkleTrees implements MerkleTreeDb {
     }
 
     const blockHash = header.hash();
-    await this._appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
+    await this.#appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   }
 
   /**
@@ -410,7 +410,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The tree info for the specified tree.
    */
-  private _getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
+  #getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     const treeInfo = {
       treeId,
       root: this.trees[treeId].getRoot(includeUncommitted),
@@ -425,23 +425,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - Id of the tree to get an instance of.
    * @returns The indexed tree for the specified tree id.
    */
-  private _getIndexedTree(treeId: IndexedTreeId): IndexedTree {
+  #getIndexedTree(treeId: IndexedTreeId): IndexedTree {
     return this.trees[treeId] as IndexedTree;
-  }
-
-  /**
-   * Returns the sibling path for a leaf in a tree.
-   * @param treeId - Id of the tree to get the sibling path from.
-   * @param index - Index of the leaf to get the sibling path for.
-   * @param includeUncommitted - Indicates whether to include uncommitted updates in the sibling path.
-   * @returns Promise containing the sibling path for the leaf.
-   */
-  private _getSiblingPath<N extends number>(
-    treeId: MerkleTreeId,
-    index: bigint,
-    includeUncommitted: boolean,
-  ): Promise<SiblingPath<N>> {
-    return Promise.resolve(this.trees[treeId].getSiblingPath<N>(index, includeUncommitted));
   }
 
   /**
@@ -450,7 +435,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param leaves - Leaves to append.
    * @returns Empty promise.
    */
-  private async _appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
+  async #appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
     const tree = this.trees[treeId];
     if (!('appendLeaves' in tree)) {
       throw new Error('Tree does not support `appendLeaves` method');
@@ -458,7 +443,7 @@ export class MerkleTrees implements MerkleTreeDb {
     return await tree.appendLeaves(leaves);
   }
 
-  private async _updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
+  async #updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
     const tree = this.trees[treeId];
     if (!('updateLeaf' in tree)) {
       throw new Error('Tree does not support `updateLeaf` method');
@@ -470,7 +455,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * Commits all pending updates.
    * @returns Empty promise.
    */
-  private async _commit(): Promise<void> {
+  async #commit(): Promise<void> {
     for (const tree of this.trees) {
       await tree.commit();
     }
@@ -480,7 +465,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * Rolls back all pending updates.
    * @returns Empty promise.
    */
-  private async _rollback(): Promise<void> {
+  async #rollback(): Promise<void> {
     for (const tree of this.trees) {
       await tree.rollback();
     }
@@ -490,7 +475,7 @@ export class MerkleTrees implements MerkleTreeDb {
     return Promise.all(this.trees.map(tree => tree.getSnapshot(blockNumber)));
   }
 
-  private async _snapshot(blockNumber: number): Promise<void> {
+  async #snapshot(blockNumber: number): Promise<void> {
     for (const tree of this.trees) {
       await tree.snapshot(blockNumber);
     }
@@ -500,7 +485,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
    * @param l2Block - The L2 block to handle.
    */
-  private async _handleL2Block(l2Block: L2Block): Promise<HandleL2BlockResult> {
+  async #handleL2Block(l2Block: L2Block): Promise<HandleL2BlockResult> {
     const treeRootWithIdPairs = [
       [l2Block.header.state.partial.contractTree.root, MerkleTreeId.CONTRACT_TREE],
       [l2Block.header.state.partial.nullifierTree.root, MerkleTreeId.NULLIFIER_TREE],
@@ -516,10 +501,10 @@ export class MerkleTrees implements MerkleTreeDb {
     const ourBlock = treeRootWithIdPairs.every(([root, id]) => compareRoot(root, id));
     if (ourBlock) {
       this.log(`Block ${l2Block.number} is ours, committing world state`);
-      await this._commit();
+      await this.#commit();
     } else {
       this.log(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain`);
-      await this._rollback();
+      await this.#rollback();
 
       // Sync the append only trees
       for (const [tree, leaves] of [
@@ -527,7 +512,7 @@ export class MerkleTrees implements MerkleTreeDb {
         [MerkleTreeId.NOTE_HASH_TREE, l2Block.newCommitments],
         [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
-        await this._appendLeaves(
+        await this.#appendLeaves(
           tree,
           leaves.map(fr => fr.toBuffer()),
         );
@@ -554,12 +539,12 @@ export class MerkleTrees implements MerkleTreeDb {
       // The last thing remaining is to update the archive
       await this.#updateArchive(l2Block.header, true);
 
-      await this._commit();
+      await this.#commit();
     }
 
     for (const [root, treeId] of treeRootWithIdPairs) {
       const treeName = MerkleTreeId[treeId];
-      const info = await this._getTreeInfo(treeId, false);
+      const info = await this.#getTreeInfo(treeId, false);
       const syncedStr = '0x' + info.root.toString('hex');
       const rootStr = root.toString();
       // Sanity check that the rebuilt trees match the roots published by the L2 block
@@ -571,7 +556,7 @@ export class MerkleTrees implements MerkleTreeDb {
         this.log(`Tree ${treeName} synched with size ${info.size} root ${rootStr}`);
       }
     }
-    await this._snapshot(l2Block.number);
+    await this.#snapshot(l2Block.number);
 
     return { isBlockOurs: ourBlock };
   }

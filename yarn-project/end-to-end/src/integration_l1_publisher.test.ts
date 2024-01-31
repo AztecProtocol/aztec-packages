@@ -149,7 +149,7 @@ describe('L1Publisher integration', () => {
       l1BlockPublishRetryIntervalMS: 100,
     });
 
-    prevHeader = await buildInitialHeader(builderDb);
+    prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {

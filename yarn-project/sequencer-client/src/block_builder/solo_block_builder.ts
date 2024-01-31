@@ -271,8 +271,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
-    // Update the root trees with the latest data and contract tree roots,
-    // and validate them against the output of the root circuit simulation
+    // Update the archive with the latest block header
     this.debug(`Updating and validating root trees`);
     await this.db.updateArchive(rootOutput.header);
 
@@ -702,7 +701,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       publicDataReadsPreimages: txPublicDataReadsInfo.newPublicDataReadsPreimages,
       publicDataReadsMembershipWitnesses: txPublicDataReadsInfo.newPublicDataReadsWitnesses,
 
-      archiveRootMembershipWitness, // TODO(benesjan): This is a bad name. Rename it to kernelHeaderMembershipWitness
+      archiveRootMembershipWitness,
 
       constants,
     });
