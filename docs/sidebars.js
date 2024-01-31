@@ -263,6 +263,7 @@ const sidebars = {
           items: [
             "developers/sandbox/guides/blank_box",
             "developers/sandbox/guides/run_more_than_one_pxe_sandbox",
+            "developers/wallets/creating_schnorr_accounts",
           ],
         },
         {
@@ -325,6 +326,7 @@ const sidebars = {
               type: "category",
               items: [
                 "developers/contracts/writing_a_contract/accounts/write_accounts_contract",
+      
               ],
             },
             {
@@ -514,8 +516,6 @@ const sidebars = {
       },
       items: [
         "developers/wallets/architecture",
-        "developers/wallets/writing_an_account_contract",
-        "developers/wallets/creating_schnorr_accounts",
       ],
     },
 

@@ -19,14 +19,8 @@ This removes any other arguments, allowing you to ensure an isolated environment
 In another terminal, run:
 
 ```bash
-docker-compose run -e MODE=pxe -e PXE_PORT=8085 -e AZTEC_NODE_URL='http://aztec-aztec-1:8079' -e TEST_ACCOUNTS='false' -p 8085:8085 aztec
+aztec start --pxe nodeUrl=http://aztec-aztec-1:8079
 ```
-This does a few things:
-* Starts in PXE mode
-* Passes the current Aztec node URL
-* Does not load new test accounts
-* Sets a port to listen on
-* Only runs Aztec PXE, not Ethereum
 
 This command uses the default ports, so they might need to be changed depending on yuor configuration.
 
