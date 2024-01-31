@@ -46,7 +46,7 @@ export class BlockStore {
           blockNumber: block.number,
           block: block.toBuffer(),
           l1BlockNumber: block.getL1BlockNumber(),
-          blockHash: block.getBlockHash(),
+          blockHash: block.hash().toBuffer(),
         });
 
         for (const [i, tx] of block.getTxs().entries()) {

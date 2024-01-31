@@ -1,6 +1,5 @@
 import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { Header, NullifierLeafPreimage, StateReference } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';

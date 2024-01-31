@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/factories';
 import { times } from '@aztec/foundation/collection';
-import { keccak, sha256 } from '@aztec/foundation/crypto';
+import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -91,7 +91,6 @@ export class L2Block {
     public newL1ToL2Messages: Fr[] = [],
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
-    private blockHash?: Buffer,
     l1BlockNumber?: bigint,
   ) {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
@@ -173,7 +172,6 @@ export class L2Block {
         newEncryptedLogs,
         newUnencryptedLogs,
       },
-      undefined,
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
       BigInt(l2BlockNum),
     );
@@ -229,7 +227,6 @@ export class L2Block {
        */
       newUnencryptedLogs?: L2BlockL2Logs;
     },
-    blockHash?: Buffer,
     l1BlockNumber?: bigint,
   ) {
     return new this(
@@ -244,7 +241,6 @@ export class L2Block {
       fields.newL1ToL2Messages,
       fields.newEncryptedLogs,
       fields.newUnencryptedLogs,
-      blockHash,
       l1BlockNumber,
     );
   }
@@ -332,7 +328,7 @@ export class L2Block {
    * @param blockHash - The hash of the block.
    * @returns Deserialized L2 block.
    */
-  static fromBuffer(buf: Buffer | BufferReader, blockHash?: Buffer) {
+  static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
@@ -345,20 +341,17 @@ export class L2Block {
     // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
 
-    return L2Block.fromFields(
-      {
-        archive,
-        header,
-        newCommitments,
-        newNullifiers,
-        newPublicDataWrites,
-        newL2ToL1Msgs,
-        newContracts,
-        newContractData,
-        newL1ToL2Messages,
-      },
-      blockHash,
-    );
+    return L2Block.fromFields({
+      archive,
+      header,
+      newCommitments,
+      newNullifiers,
+      newPublicDataWrites,
+      newL2ToL1Msgs,
+      newContracts,
+      newContractData,
+      newL1ToL2Messages,
+    });
   }
 
   /**
@@ -441,15 +434,11 @@ export class L2Block {
   }
 
   /**
-   * Returns the block's hash.
+   * Returns the block's hash (hash of block header).
    * @returns The block's hash.
-   * TODO: rename this as hash and make it return this.header.hash()
    */
-  public getBlockHash(): Buffer {
-    if (!this.blockHash) {
-      this.blockHash = keccak(this.toBufferWithLogs());
-    }
-    return this.blockHash;
+  public hash(): Fr {
+    return this.header.hash();
   }
 
   /**
@@ -640,7 +629,7 @@ export class L2Block {
       newL2ToL1Msgs,
       newContracts,
       newContractData,
-      this.getBlockHash(),
+      this.hash(),
       Number(this.header.globalVariables.blockNumber.toBigInt()),
     );
   }
