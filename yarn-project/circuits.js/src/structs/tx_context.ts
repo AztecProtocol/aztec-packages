@@ -40,6 +40,10 @@ export class ContractDeploymentData {
     );
   }
 
+  toFields(): Fr[] {
+    return [...this.publicKey.toFields(), this.initializationHash, this.contractClassId, this.contractAddressSalt];
+  }
+
   /**
    * Returns an empty ContractDeploymentData.
    * @returns The empty ContractDeploymentData.

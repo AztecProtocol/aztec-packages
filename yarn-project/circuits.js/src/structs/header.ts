@@ -32,7 +32,7 @@ export class Header {
     return serializeToBuffer(this.lastArchive, this.bodyHash, this.state, this.globalVariables);
   }
 
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     // Note: The order here must match the order in header.nr
     const serialized = [
       ...this.lastArchive.toFieldArray(),
@@ -112,7 +112,7 @@ export class Header {
   hash(): Fr {
     return Fr.fromBuffer(
       pedersenHash(
-        this.toFieldArray().map(f => f.toBuffer()),
+        this.toFields().map(f => f.toBuffer()),
         GeneratorIndex.BLOCK_HASH,
       ),
     );

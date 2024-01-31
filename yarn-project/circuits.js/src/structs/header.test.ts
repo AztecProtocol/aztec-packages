@@ -14,7 +14,7 @@ describe('Header', () => {
     const randomInt = Math.floor(Math.random() * 1000);
     const expected = makeHeader(randomInt, undefined);
 
-    const fieldArray = expected.toFieldArray();
+    const fieldArray = expected.toFields();
     const res = Header.fromFieldArray(fieldArray);
     expect(res).toEqual(expected);
   });

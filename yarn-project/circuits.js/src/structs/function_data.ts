@@ -1,7 +1,7 @@
 import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ContractFunctionDao } from '../index.js';
+import { ContractFunctionDao, Fr } from '../index.js';
 
 /**
  * Function description for circuit.
@@ -42,6 +42,10 @@ export class FunctionData {
    */
   toBuffer(): Buffer {
     return serializeToBuffer(this.selector, this.isInternal, this.isPrivate, this.isConstructor);
+  }
+
+  toFields(): Fr[] {
+    return [this.selector.toField(), new Fr(this.isInternal), new Fr(this.isPrivate), new Fr(this.isConstructor)];
   }
 
   /**

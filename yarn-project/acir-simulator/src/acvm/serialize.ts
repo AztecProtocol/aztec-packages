@@ -1,9 +1,6 @@
 import {
   CallContext,
-  ContractDeploymentData,
-  FunctionData,
   GlobalVariables,
-  Header,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallRequest,
@@ -54,20 +51,6 @@ export function toACVMField(
 // In the order that the ACVM expects them
 
 /**
- * Converts a function data to ACVM fields.
- * @param functionData - The function data to convert.
- * @returns The ACVM fields.
- */
-export function toACVMFunctionData(functionData: FunctionData): ACVMField[] {
-  return [
-    toACVMField(functionData.selector.toBuffer()),
-    toACVMField(functionData.isInternal),
-    toACVMField(functionData.isPrivate),
-    toACVMField(functionData.isConstructor),
-  ];
-}
-
-/**
  * Converts a call context to ACVM fields.
  * @param callContext - The call context to convert.
  * @returns The ACVM fields.
@@ -83,31 +66,6 @@ export function toACVMCallContext(callContext: CallContext): ACVMField[] {
     toACVMField(callContext.isContractDeployment),
     toACVMField(callContext.startSideEffectCounter),
   ];
-}
-
-/**
- * Converts a contract deployment data to ACVM fields.
- * @param contractDeploymentData - The contract deployment data to convert.
- * @returns The ACVM fields.
- */
-export function toACVMContractDeploymentData(contractDeploymentData: ContractDeploymentData): ACVMField[] {
-  return [
-    toACVMField(contractDeploymentData.publicKey.x),
-    toACVMField(contractDeploymentData.publicKey.y),
-    toACVMField(contractDeploymentData.initializationHash),
-    toACVMField(contractDeploymentData.contractClassId),
-    toACVMField(contractDeploymentData.contractAddressSalt),
-    toACVMField(contractDeploymentData.portalContractAddress),
-  ];
-}
-
-/**
- * Converts a block header into ACVM fields.
- * @param header - The block header object to convert.
- * @returns The ACVM fields.
- */
-export function toACVMHeader(header: Header): ACVMField[] {
-  return header.toFieldArray().map(toACVMField);
 }
 
 /**
@@ -149,9 +107,9 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),
 
-    ...toACVMHeader(publicInputs.historicalHeader),
+    ...publicInputs.historicalHeader.toFields().map(toACVMField),
 
-    ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
+    ...publicInputs.contractDeploymentData.toFields().map(toACVMField),
 
     toACVMField(publicInputs.chainId),
     toACVMField(publicInputs.version),
@@ -166,7 +124,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
 export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMField[] {
   return [
     toACVMField(item.contractAddress),
-    ...toACVMFunctionData(item.functionData),
+    ...item.functionData.toFields().map(toACVMField),
     ...toACVMPublicInputs(item.publicInputs),
     toACVMField(item.isExecutionRequest),
   ];
@@ -183,7 +141,7 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
 export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
   return [
     toACVMField(item.contractAddress),
-    ...toACVMFunctionData(item.functionData),
+    ...item.functionData.toFields().map(toACVMField),
     ...toACVMCallContext(item.callContext),
     toACVMField(item.getArgsHash()),
   ];

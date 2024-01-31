@@ -10,7 +10,6 @@ import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
-  toACVMHeader,
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
   toAcvmL1ToL2MessageLoadOracleInputs,
@@ -132,7 +131,7 @@ export class Oracle {
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
-    return toACVMHeader(header);
+    return header.toFields().map(toACVMField);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
