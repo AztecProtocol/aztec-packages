@@ -32,7 +32,7 @@ const sidebars = {
     "learn/about_aztec/what_is_aztec",
     "learn/about_aztec/vision",
     "learn/about_aztec/technical_overview",
-  
+
     {
       type: "html",
       value: '<span clasuns="sidebar-divider" />',
@@ -55,9 +55,7 @@ const sidebars = {
             type: "doc",
             id: "learn/concepts/hybrid_state/main",
           },
-          items: [
-            "learn/concepts/hybrid_state/public_vm",
-          ],
+          items: ["learn/concepts/hybrid_state/public_vm"],
         },
         {
           label: "Storage",
@@ -70,9 +68,7 @@ const sidebars = {
                 type: "doc",
                 id: "learn/concepts/storage/trees/main",
               },
-              items: [
-                "learn/concepts/storage/trees/indexed_merkle_tree",
-              ],
+              items: ["learn/concepts/storage/trees/indexed_merkle_tree"],
             },
             "learn/concepts/storage/storage_slots",
           ],
@@ -97,9 +93,7 @@ const sidebars = {
             type: "doc",
             id: "learn/concepts/smart_contracts/main",
           },
-          items: [
-            "learn/concepts/smart_contracts/contract_creation",
-          ],
+          items: ["learn/concepts/smart_contracts/contract_creation"],
         },
         {
           label: "Communication",
@@ -126,9 +120,7 @@ const sidebars = {
             type: "doc",
             id: "learn/concepts/pxe/main",
           },
-          items: [
-            "learn/concepts/pxe/acir_simulator",
-          ],
+          items: ["learn/concepts/pxe/acir_simulator"],
         },
         {
           label: "Circuits",
@@ -312,8 +304,14 @@ const sidebars = {
               },
               items: [
                 "developers/contracts/writing_a_contract/functions/context",
+                "developers/contracts/writing_a_contract/functions/public_private_unconstrained",
+                "developers/contracts/writing_a_contract/functions/visibility",
+                "developers/contracts/writing_a_contract/functions/constructor",
+                "developers/contracts/writing_a_contract/functions/calling_functions",
+                "developers/contracts/writing_a_contract/functions/oracles",
                 "developers/contracts/writing_a_contract/functions/call_functions",
                 "developers/contracts/writing_a_contract/functions/write_constructor",
+                "developers/contracts/writing_a_contract/functions/inner_workings",
               ],
             },
             {

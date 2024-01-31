@@ -338,8 +338,8 @@ impl BaseRollupInputs {
         let archive_root = self.constants.last_archive.root;
 
         // Rebuild the block hash
-        let block_header = self.kernel_data.public_inputs.constants.block_header;
-        let previous_block_hash = block_header.block_hash();
+        let header = self.kernel_data.public_inputs.constants.historical_header;
+        let previous_block_hash = header.block_hash();
 
         let previous_block_hash_witness = self.archive_root_membership_witness;
 
@@ -738,7 +738,7 @@ mod tests {
             let _nullifier = builder.end.new_nullifiers.pop();
             inputs.kernel_data = builder.is_public();
   
-            inputs.pre_existing_blocks[0] = inputs.kernel_data.block_header.block_hash();
+            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.block_hash();
 
             inputs
         }
@@ -949,7 +949,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            function_tree_root: 3
+            contract_class_id: 3
         };
 
         let mut builder = BaseRollupInputsBuilder::new();
@@ -978,7 +978,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            function_tree_root: 3
+            contract_class_id: 3
         };
 
         let mut builder = BaseRollupInputsBuilder::new();

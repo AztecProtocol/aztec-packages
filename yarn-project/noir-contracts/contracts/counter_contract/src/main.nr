@@ -9,6 +9,13 @@ contract Counter {
         },
         state_vars::map::Map,
     };
+    use dep::value_note::{
+            balance_utils,
+            value_note::{
+                ValueNote,
+                VALUE_NOTE_LEN,
+            },
+    };
     use dep::easy_private_state::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
@@ -64,9 +71,10 @@ contract Counter {
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
-        serialized_note: [Field; 0]
-        ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
+        serialized_note: [Field; VALUE_NOTE_LEN]
+    ) -> pub [Field; 4] {
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
     }
     // docs:end:nullifier
 }
