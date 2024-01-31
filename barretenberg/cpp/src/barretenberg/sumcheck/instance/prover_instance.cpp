@@ -422,7 +422,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_poly
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
     // Compute permutation and lookup grand product polynomials
-    grand_product_library::compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
+    compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
 }
 
 template class ProverInstance_<UltraFlavor>;

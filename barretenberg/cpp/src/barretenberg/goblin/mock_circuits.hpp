@@ -17,8 +17,8 @@ class GoblinMockCircuits {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using OpQueue = bb::ECCOpQueue;
     using GoblinUltraBuilder = bb::GoblinUltraCircuitBuilder;
-    using Flavor = bb::GoblinUltra;
-    using RecursiveFlavor = bb::GoblinUltraRecursive_<GoblinUltraBuilder>;
+    using Flavor = bb::GoblinUltraFlavor;
+    using RecursiveFlavor = bb::GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using KernelInput = Goblin::AccumulationOutput;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;

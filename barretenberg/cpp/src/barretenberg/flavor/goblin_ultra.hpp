@@ -21,7 +21,7 @@
 
 namespace bb {
 
-class GoblinUltraFlavor_ {
+class GoblinUltraFlavor {
   public:
     using CircuitBuilder = GoblinUltraCircuitBuilder;
     using Curve = curve::BN254;

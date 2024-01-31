@@ -3,14 +3,8 @@
 #include "barretenberg/relations/utils.hpp"
 
 #include <gtest/gtest.h>
+
 using namespace bb;
-
-using bb::BarycentricData;
-using bb::Univariate;
-
-using Flavor = flavor::Ultra;
-using FF = typename Flavor::FF;
-using Utils = RelationUtils<Flavor>;
 
 /**
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
@@ -18,7 +12,7 @@ using Utils = RelationUtils<Flavor>;
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -36,7 +30,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
     FF running_challenge = 1;
-    Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
+    RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
     PowPolynomial<FF> pow_polynomial({ 1 });

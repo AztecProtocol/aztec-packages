@@ -18,9 +18,6 @@ namespace bb::stdlib::recursion::honk {
  */
 template <typename BuilderType> class GoblinRecursiveVerifierTest : public testing::Test {
 
-    // Define types relevant for testing
-    using UltraFlavor = ::bb::Ultra;
-    using GoblinUltraFlavor = ::bb::GoblinUltra;
     using UltraComposer = ::bb::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
 

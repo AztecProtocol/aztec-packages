@@ -64,7 +64,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from GoblinUltra
-    using Relations = GoblinUltra::Relations_<FF>;
+    using Relations = GoblinUltraFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -90,9 +90,9 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public GoblinUltra::AllEntities<FF> {
+    class AllValues : public GoblinUltraFlavor::AllEntities<FF> {
       public:
-        using Base = GoblinUltra::AllEntities<FF>;
+        using Base = GoblinUltraFlavor::AllEntities<FF>;
         using Base::Base;
     };
     /**
@@ -104,7 +104,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
      * circuits.
      * This differs from GoblinUltra in how we construct the commitments.
      */
-    class VerificationKey : public VerificationKey_<GoblinUltra::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public VerificationKey_<GoblinUltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
@@ -160,11 +160,11 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     /**
      * @brief A container for the witness commitments.
      */
-    using WitnessCommitments = GoblinUltra::WitnessEntities<Commitment>;
+    using WitnessCommitments = GoblinUltraFlavor::WitnessEntities<Commitment>;
 
-    using CommitmentLabels = GoblinUltra::CommitmentLabels;
+    using CommitmentLabels = GoblinUltraFlavor::CommitmentLabels;
     // Reuse the VerifierCommitments from GoblinUltra
-    using VerifierCommitments = GoblinUltra::VerifierCommitments_<Commitment, VerificationKey>;
+    using VerifierCommitments = GoblinUltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
     using Transcript = bb::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };

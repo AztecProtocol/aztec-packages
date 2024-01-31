@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
@@ -12,14 +13,7 @@
 namespace bb {
 
 class Goblin {
-    using HonkProof = bb::plonk::proof;
-
-    using GUHFlavor = bb::GoblinUltra;
-    using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
-
-    using GUHVerificationKey = GUHFlavor::VerificationKey;
-    using Commitment = GUHFlavor::Commitment;
-    using FF = GUHFlavor::FF;
+    using HonkProof = plonk::proof;
 
   public:
     /**
@@ -28,7 +22,7 @@ class Goblin {
      */
     struct AccumulationOutput {
         HonkProof proof;
-        std::shared_ptr<GUHVerificationKey> verification_key;
+        std::shared_ptr<GoblinUltraFlavor::VerificationKey> verification_key;
     };
 
     struct Proof {
@@ -55,18 +49,17 @@ class Goblin {
         }
     };
 
-    using GoblinUltraComposer = bb::honk::UltraComposer_<GUHFlavor>;
-    using GoblinUltraVerifier = bb::honk::UltraVerifier_<GUHFlavor>;
+    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
+    using GoblinUltraVerifier = UltraVerifier_<GoblinUltraFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
-    using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::ECCVM;
-    using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = bb::honk::ECCVMComposer;
-    using ECCVMProver = bb::honk::ECCVMProver_<ECCVMFlavor>;
-    using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = bb::honk::GoblinTranslatorComposer;
-    using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = bb::honk::MergeVerifier_<GUHFlavor>;
+    using OpQueue = ECCOpQueue;
+    using ECCVMBuilder = ECCVMCircuitBuilder<ECCVMFlavor>;
+    using ECCVMComposer = ECCVMComposer;
+    using ECCVMProver = ECCVMProver_<ECCVMFlavor>;
+    using TranslatorBuilder = GoblinTranslatorCircuitBuilder;
+    using TranslatorComposer = GoblinTranslatorComposer;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
+    using MergeVerifier = MergeVerifier_<GoblinUltraFlavor>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 

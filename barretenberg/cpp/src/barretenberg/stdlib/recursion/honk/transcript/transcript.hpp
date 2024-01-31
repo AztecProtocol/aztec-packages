@@ -17,7 +17,7 @@ template <typename Builder> class Transcript {
   public:
     using field_ct = field_t<Builder>;
     using FF = bb::fr;
-    using BaseTranscript = bb::honk::BaseTranscript;
+    using BaseTranscript = BaseTranscript;
     using StdlibTypes = utility::StdlibTypesUtility<Builder>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = BaseTranscript::HASH_OUTPUT_SIZE;

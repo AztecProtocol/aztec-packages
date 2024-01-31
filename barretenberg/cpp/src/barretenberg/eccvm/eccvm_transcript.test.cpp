@@ -7,10 +7,8 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb
 
-    template <typename Flavor>
-    class ECCVMTranscriptTests : public ::testing::Test {
+template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
   public:
     void SetUp() override
     {
