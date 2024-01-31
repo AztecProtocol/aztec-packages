@@ -1,6 +1,6 @@
 import { Fr } from '../fields/index.js';
 import { ABIType, FunctionAbi } from './abi.js';
-import { isAddressStruct, isFunctionSelectorStruct } from './utils.js';
+import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -89,6 +89,10 @@ class ArgumentEncoder {
           } else {
             this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg.value, `${name}.inner`);
           }
+          break;
+        }
+        if (isWrappedFieldStruct(abiType)) {
+          this.encodeArgument({ kind: 'field' }, arg.inner ?? arg, `${name}.inner`);
           break;
         }
         for (const field of abiType.fields) {

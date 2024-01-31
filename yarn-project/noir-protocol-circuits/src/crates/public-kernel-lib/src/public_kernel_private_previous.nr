@@ -74,6 +74,7 @@ mod tests {
             public_data_update_request::PublicDataUpdateRequest,
         },
         address::{AztecAddress, EthAddress},
+        contract_class::ContractClassId,
         contrakt::storage_read::StorageRead,
         hash::compute_logs_hash,
         tests::{
@@ -403,7 +404,7 @@ mod tests {
             NewContractData {
                 contract_address: AztecAddress::from_field(123),
                 portal_contract_address: EthAddress::from_field(456),
-                contract_class_id: 78
+                contract_class_id: ContractClassId::from_field(78)
             }
         ];
         builder.previous_kernel.end.new_contracts.push_array(new_contracts);

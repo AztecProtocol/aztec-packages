@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { ContractClass, ContractClassWithId } from '@aztec/types/contracts';
 
 import { getArtifactHash } from './artifact_hash.js';
-import { getContractClassId } from './contract_class_id.js';
+import { computeContractClassId } from './contract_class_id.js';
 import { hashVKStr } from './contract_tree/index.js';
 
 /** Contract artifact including its artifact hash */
@@ -33,7 +33,7 @@ export function getContractClassFromArtifact(
       })),
     packedBytecode: Buffer.alloc(0),
   };
-  const id = getContractClassId(contractClass);
+  const id = computeContractClassId(contractClass);
   return { ...contractClass, id };
 }
 

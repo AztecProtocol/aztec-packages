@@ -1,13 +1,14 @@
 use crate::abis::membership_witness::ContractLeafMembershipWitness;
 use crate::address::{AztecAddress, EthAddress};
 use crate::tests::fixtures;
+use crate::contract_class::ContractClassId;
 
 struct ContractData {
     contract_address_salt: Field,
     address: AztecAddress,
     portal_contract_address: EthAddress,
     membership_witness: ContractLeafMembershipWitness,
-    contract_class_id: Field,
+    contract_class_id: ContractClassId,
 }
 
 global default_contract = ContractData {
@@ -18,7 +19,7 @@ global default_contract = ContractData {
         leaf_index: 0,
         sibling_path: fixtures::contract_tree::SIBLING_PATHS[0],
     },
-    contract_class_id: 0x1c55b3903b8b2812ba2a2315edb30aa9b9d9c99c153e9215cc01ec8979a8e9be,
+    contract_class_id: ContractClassId { inner: 0x1c55b3903b8b2812ba2a2315edb30aa9b9d9c99c153e9215cc01ec8979a8e9be },
 };
 
 global parent_contract = ContractData {
@@ -29,5 +30,5 @@ global parent_contract = ContractData {
         leaf_index: 1,
         sibling_path: fixtures::contract_tree::SIBLING_PATHS[1],
     },
-    contract_class_id: 0x02b3f6b0a36bd01f08cee2d607dbe08894bb8c58159e87bb17db28cad43291d4,
+    contract_class_id: ContractClassId { inner: 0x02b3f6b0a36bd01f08cee2d607dbe08894bb8c58159e87bb17db28cad43291d4 },
 };

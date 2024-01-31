@@ -48,6 +48,7 @@ use dep::protocol_types::{
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
+    contract_class::ContractClassId,
     contrakt::{
         deployment_data::ContractDeploymentData,
         storage_read::StorageRead,
@@ -349,7 +350,7 @@ impl PrivateContext {
                       y: reader.read()
                     },
                     initialization_hash : reader.read(),
-                    contract_class_id : reader.read(),
+                    contract_class_id : ContractClassId::from_field(reader.read()),
                     contract_address_salt : reader.read(),
                     portal_contract_address : EthAddress::from_field(reader.read()),
                 },
