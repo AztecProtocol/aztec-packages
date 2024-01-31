@@ -273,9 +273,11 @@ fn transform(
 //
 
 /// Completes the Hir with data gathered from type resolution
-fn transform_hir(crate_id: &CrateId, context: &mut HirContext) -> Result<(), (MacroError, FileId)> {
-    transform_events(crate_id, context)?;
-    assign_storage_slots(crate_id, context)
+fn transform_hir(
+    crate_id: &CrateId,
+    context: &mut HirContext,
+) -> Result<(), (AztecMacroError, FileId)> {
+    transform_events(crate_id, context).and(assign_storage_slots(crate_id, context))
 }
 
 /// Includes an import to the aztec library if it has not been included yet
