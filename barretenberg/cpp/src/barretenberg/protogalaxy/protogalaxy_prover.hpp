@@ -12,6 +12,19 @@
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 namespace bb::honk {
+
+template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
+    using FF = typename ProverInstances_::FF;
+    using Instance = typename ProverInstances_::Instance;
+
+    std::shared_ptr<Instance> accumulator;
+    Polynomial<FF> perturbator;
+    std::vector<FF> deltas; // WORKTODO: might resize? prob not?
+    Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
+    FF compressed_perturbator;
+    FoldingResult<typename ProverInstances_::Flavor> result;
+};
+
 template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
     using ProverInstances = ProverInstances_;
@@ -49,8 +62,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     ProverInstances instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-
     std::shared_ptr<CommitmentKey> commitment_key;
+    ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
@@ -432,6 +445,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
         FF& challenge,
         const FF& compressed_perturbator);
+
+    void preparation_round();
+    void perturbator_round();
+    void combiner_quotient_round();
+    void accumulator_update_round();
 };
 
 } // namespace bb::honk
