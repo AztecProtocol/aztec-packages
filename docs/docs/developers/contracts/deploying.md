@@ -10,7 +10,7 @@ Once you have [compiled](./compiling.md) your contracts you can proceed to deplo
 
 - `aztec-cli` and `aztec-nargo` installed (go to [Sandbox and CLI section](../sandbox/main.md) for installation instructions)
 - contract artifacts ready (go to [Compiling contracts section](./compiling.md) for instructions on how to compile contracts)
-- aztec-sandbox running (go to [Sandbox section](../getting_started/quickstart.md) for instructions on how to install and run the sandbox)
+- Aztec Sandbox running (go to [Sandbox section](../getting_started/quickstart.md) for instructions on how to install and run the sandbox)
 
 ## Deploy
 

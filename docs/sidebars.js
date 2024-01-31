@@ -324,6 +324,8 @@ const sidebars = {
                 id: "developers/contracts/writing_a_contract/storage/main",
               },
               items: [
+                "developers/contracts/writing_a_contract/storage/private_state",
+                "developers/contracts/writing_a_cntract/storage/public_state",
                 "developers/contracts/writing_a_contract/storage/define_storage",
               ],
             },
