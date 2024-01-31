@@ -135,7 +135,7 @@ verification_key& verification_key::operator=(verification_key&& other) noexcept
     return *this;
 }
 
-sha256::hash verification_key::sha256_hash()
+crypto::Sha256Hash verification_key::sha256_hash()
 {
     std::vector<uint256_t> vk_data;
     vk_data.emplace_back(static_cast<uint32_t>(circuit_type));

@@ -6,9 +6,8 @@
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 
-namespace bb {
-
-struct Secp256k1FqParams {
+namespace bb::secp256k1 {
+struct FqParams {
     static constexpr uint64_t modulus_0 = 0xFFFFFFFEFFFFFC2FULL;
     static constexpr uint64_t modulus_1 = 0xFFFFFFFFFFFFFFFFULL;
     static constexpr uint64_t modulus_2 = 0xFFFFFFFFFFFFFFFFULL;
@@ -45,8 +44,9 @@ struct Secp256k1FqParams {
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
+using fq = field<FqParams>;
 
-struct Secp256k1FrParams {
+struct FrParams {
     static constexpr uint64_t modulus_0 = 0xBFD25E8CD0364141ULL;
     static constexpr uint64_t modulus_1 = 0xBAAEDCE6AF48A03BULL;
     static constexpr uint64_t modulus_2 = 0xFFFFFFFFFFFFFFFEULL;
@@ -100,8 +100,9 @@ struct Secp256k1FrParams {
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
+using fr = field<FrParams>;
 
-struct Secp256k1G1Params {
+struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
     static constexpr bool small_elements = true;
@@ -115,12 +116,7 @@ struct Secp256k1G1Params {
     static constexpr fq one_y =
         fq(0x9C47D08FFB10D4B8UL, 0xFD17B448A6855419UL, 0x5DA4FBFC0E1108A8UL, 0x483ADA7726A3C465UL).to_montgomery_form();
 };
-} // namespace bb
-
-namespace bb::secp256k1 {
-using fq = field<Secp256k1FqParams>;
-using fr = field<Secp256k1FrParams>;
-using g1 = group<field<Secp256k1FqParams>, field<Secp256k1FrParams>, Secp256k1G1Params>;
+using g1 = group<field<FqParams>, field<FrParams>, G1Params>;
 } // namespace bb::secp256k1
 
 namespace bb::curve {
