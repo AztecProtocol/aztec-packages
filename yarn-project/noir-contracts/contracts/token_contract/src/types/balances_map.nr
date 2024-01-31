@@ -22,7 +22,6 @@ use crate::types::token_note::{TokenNote, OwnedNote};
 
 struct BalancesMap<T> {
     context: Context,
-    storage_slot: Field,
     set: Set<T>
 }
 
@@ -34,7 +33,6 @@ impl<T> BalancesMap<T> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
             context,
-            storage_slot,
             set: Set::new(context, storage_slot)
         }
     }

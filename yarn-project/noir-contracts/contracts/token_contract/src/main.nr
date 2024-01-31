@@ -13,8 +13,8 @@ contract Token {
     // Libs
     use dep::std::option::Option;
 
-    use dep::safe_math::{SafeU120, SAFE_U120_SERIALIZED_LEN};
-    use dep::compressed_string::{FieldCompressedString};
+    use dep::safe_math::SafeU120;
+    use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
         note::{
@@ -26,12 +26,6 @@ contract Token {
         hash::{compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         protocol_types::{
-            type_serialization::{
-                FIELD_SERIALIZED_LEN, 
-                BOOL_SERIALIZED_LEN, 
-                U8_SERIALIZED_LEN,
-                AZTEC_ADDRESS_SERIALIZED_LEN
-            },
             abis::function_selector::FunctionSelector,
             address::AztecAddress
         }
