@@ -103,7 +103,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const hon
                                             transcript);
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-
     return sumcheck_verified.value() && verified;
 }
 
