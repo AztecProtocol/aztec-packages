@@ -67,7 +67,7 @@ contract Counter {
     // docs:end:get_counter
 
     // docs:start:nullifier
-     unconstrained fn compute_note_hash_and_nullifier(
+    unconstrained fn compute_note_hash_and_nullifier(
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
