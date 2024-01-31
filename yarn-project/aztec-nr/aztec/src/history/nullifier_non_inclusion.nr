@@ -20,7 +20,7 @@ pub fn prove_nullifier_non_inclusion(
     context: PrivateContext
 ) {
     // 1) Get block header from oracle and ensure that the block is included in the archive.
-    let block_header = context.get_block_header(block_number);
+    let header = context.get_header_at(block_number);
 
     // 2) Get the membership witness of a low nullifier of the nullifier
     let witness = get_low_nullifier_membership_witness(block_number, nullifier);
@@ -30,7 +30,7 @@ pub fn prove_nullifier_non_inclusion(
     // 3.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
     let low_nullifier_leaf = witness.leaf_preimage.hash();
     assert(
-        block_header.nullifier_tree_root
+        header.state.partial.nullifier_tree.root
         == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path), "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
     );
 
@@ -50,12 +50,11 @@ pub fn prove_nullifier_non_inclusion(
 }
 
 pub fn prove_note_not_nullified<Note, N>(
-    note_interface: NoteInterface<Note, N>,
     note_with_header: Note,
     block_number: u32, // The block at which we'll prove that the note was not nullified
     context: &mut PrivateContext
-) {
-    let nullifier = compute_siloed_nullifier(note_interface, note_with_header, context);
+) where Note: NoteInterface {
+    let nullifier = compute_siloed_nullifier(note_with_header, context);
 
     prove_nullifier_non_inclusion(nullifier, block_number, *context);
 }

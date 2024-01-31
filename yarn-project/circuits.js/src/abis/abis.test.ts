@@ -16,7 +16,6 @@ import {
 import {
   makeAztecAddress,
   makeEthAddress,
-  makePoint,
   makePrivateCallStackItem,
   makePublicCallStackItem,
   makeTxRequest,
@@ -26,8 +25,6 @@ import {
   computeBlockHashWithGlobals,
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeCompleteAddress,
-  computeContractAddressFromPartial,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
@@ -85,22 +82,6 @@ describe('abis', () => {
     const argsHash = new Fr(42);
     const vkHash = Buffer.alloc(32);
     const res = hashConstructor(functionData, argsHash, vkHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a complete address', () => {
-    const deployerPubKey = makePoint();
-    const contractAddrSalt = new Fr(2n);
-    const treeRoot = new Fr(3n);
-    const constructorHash = new Fr(4n);
-    const res = computeCompleteAddress(deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a contract address from partial', () => {
-    const deployerPubKey = makePoint();
-    const partialAddress = new Fr(2n);
-    const res = computeContractAddressFromPartial(deployerPubKey, partialAddress);
     expect(res).toMatchSnapshot();
   });
 
@@ -246,16 +227,39 @@ describe('abis', () => {
     expect(emptyHash).toMatchSnapshot();
   });
 
-  it('Computes an empty call request hash ', () => {
-    const emptycallstack = PublicCallStackItem.empty();
-    const emptyHash = emptycallstack.hash();
-    expect(emptyHash.toString()).toMatchSnapshot();
-  });
-
   it('Computes an empty public inputs hash ', () => {
     const publicInputs = PublicCircuitPublicInputs.empty();
     const emptyHash = computePublicInputsHash(publicInputs);
 
     expect(Fr.fromBuffer(emptyHash).toString()).toMatchSnapshot();
+  });
+
+  it('Computes a callstack item request hash', () => {
+    const callStack = PublicCallStackItem.empty();
+
+    callStack.contractAddress = AztecAddress.fromField(new Fr(1));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.isExecutionRequest = true;
+    callStack.publicInputs.newCommitments[0] = new SideEffect(new Fr(1), new Fr(0));
+
+    const hash = callStack.hash();
+    expect(hash.toString()).toMatchSnapshot();
+
+    // Value used in compute_call_stack_item_hash test in noir circuits
+    // console.log("hash", hash.toString());
+  });
+
+  it('Computes a callstack item hash', () => {
+    const callStack = PublicCallStackItem.empty();
+
+    callStack.contractAddress = AztecAddress.fromField(new Fr(1));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.publicInputs.newCommitments[0] = new SideEffect(new Fr(1), new Fr(0));
+
+    const hash = callStack.hash();
+    expect(hash.toString()).toMatchSnapshot();
+
+    // Value used in compute_call_stack_item_request_hash test in noir circuits
+    // console.log("hash", hash.toString());
   });
 });

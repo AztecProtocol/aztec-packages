@@ -14,9 +14,6 @@ contract InclusionProofs {
             set::Set,
             public_state::PublicState,
         },
-        types::{
-            type_serialization::field_serialization::FieldSerializationMethods,
-        },
         context::Context,
         note::{
             note_getter_options::NoteGetterOptions,
@@ -49,11 +46,11 @@ contract InclusionProofs {
          // docs:end:imports
     };
     // docs:start:value_note_imports
-    use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
     // docs:end:value_note_imports
     struct Storage {
-        private_values: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
-        public_value: PublicState<Field, 1>,
+        private_values: Map<AztecAddress, Set<ValueNote>>,
+        public_value: PublicState<Field>,
     }
 
     impl Storage {
@@ -63,13 +60,12 @@ contract InclusionProofs {
                     context,
                     1, // Storage slot
                     |context, slot| {
-                        Set::new(context, slot, ValueNoteMethods)
+                        Set::new(context, slot)
                     },
                 ),
                 public_value: PublicState::new(
                     context,
                     2, // Storage slot
-                    FieldSerializationMethods,
                 ),
             }
         }
@@ -117,12 +113,7 @@ contract InclusionProofs {
         // 2) Prove the note inclusion
         if maybe_note.is_some() {
             // docs:start:prove_note_inclusion
-            prove_note_inclusion(
-                ValueNoteMethods,
-                maybe_note.unwrap_unchecked(),
-                block_number,
-                context
-            );
+            prove_note_inclusion(maybe_note.unwrap_unchecked(), block_number, context);
             // docs:end:prove_note_inclusion
         } else {
             // Note was not found so we will prove inclusion of the spare commitment
@@ -149,12 +140,7 @@ contract InclusionProofs {
         // 3) Compute the nullifier from the note
         if maybe_note.is_some() {
             // docs:start:prove_note_not_nullified
-            prove_note_not_nullified(
-                ValueNoteMethods,
-                maybe_note.unwrap_unchecked(),
-                block_number,
-                &mut context
-            );
+            prove_note_not_nullified(maybe_note.unwrap_unchecked(), block_number, &mut context);
             // docs:end:prove_note_not_nullified
         } else {
             // Note was not found so we will use the spare nullifier
@@ -177,7 +163,7 @@ contract InclusionProofs {
 
         // 2) Prove the note validity
         // docs:start:prove_note_validity
-        prove_note_validity(ValueNoteMethods, note, block_number, &mut context);
+        prove_note_validity(note, block_number, &mut context);
         // docs:end:prove_note_validity
     }
 
@@ -229,18 +215,18 @@ contract InclusionProofs {
     //       contract's aztec address instead of just the address.
     #[aztec(private)]
     fn test_contract_inclusion_proof(
-        deployer_public_key: GrumpkinPoint,
+        public_key: GrumpkinPoint,
         contract_address_salt: Field,
-        function_tree_root: Field,
-        constructor_hash: Field,
+        contract_class_id: Field,
+        initialization_hash: Field,
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
         let proven_contract_address = prove_contract_inclusion(
-            deployer_public_key,
+            public_key,
             contract_address_salt,
-            function_tree_root,
-            constructor_hash,
+            contract_class_id,
+            initialization_hash,
             portal_contract_address,
             block_number,
             context
@@ -258,6 +244,6 @@ contract InclusionProofs {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
     }
 }
