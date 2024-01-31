@@ -208,8 +208,7 @@ describe('sequencer/solo_block_builder', () => {
     await updateExpectedTreesFromTxs([txs[1]]);
     baseRollupOutputRight.end = await getPartialStateReference();
 
-    // Update l1 to l2 data tree
-    // And update the root trees now to create proper output to the root rollup circuit
+    // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
 
     const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
@@ -241,6 +240,7 @@ describe('sequencer/solo_block_builder', () => {
       newUnencryptedLogs,
     });
 
+    // Now we update can make the final header, compute the block hash and update archive
     rootRollupOutput.header.globalVariables = globalVariables;
     rootRollupOutput.header.bodyHash = l2Block.getCalldataHash();
     rootRollupOutput.header.state = await getStateReference();
