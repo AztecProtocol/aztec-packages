@@ -22,7 +22,7 @@ describe('Accrued Substate', () => {
     const value = new Field(69n);
     machineState.memory.set(0, value);
 
-    await new EmitNoteHash(0).execute(machineState, journal);
+    await new EmitNoteHash(/*indirect=*/ 0, 0).execute(machineState, journal);
 
     const journalState = journal.flush();
     const expected = [value.toFr()];
@@ -33,7 +33,7 @@ describe('Accrued Substate', () => {
     const value = new Field(69n);
     machineState.memory.set(0, value);
 
-    await new EmitNullifier(0).execute(machineState, journal);
+    await new EmitNullifier(/*indirect=*/ 0, 0).execute(machineState, journal);
 
     const journalState = journal.flush();
     const expected = [value.toFr()];
@@ -48,7 +48,7 @@ describe('Accrued Substate', () => {
 
     const length = values.length;
 
-    await new EmitUnencryptedLog(startOffset, length).execute(machineState, journal);
+    await new EmitUnencryptedLog(/*indirect=*/ 0, startOffset, length).execute(machineState, journal);
 
     const journalState = journal.flush();
     const expected = values.map(v => v.toFr());
@@ -63,7 +63,7 @@ describe('Accrued Substate', () => {
 
     const length = values.length;
 
-    await new SendL2ToL1Message(startOffset, length).execute(machineState, journal);
+    await new SendL2ToL1Message(/*indirect=*/ 0, startOffset, length).execute(machineState, journal);
 
     const journalState = journal.flush();
     const expected = values.map(v => v.toFr());
@@ -75,15 +75,15 @@ describe('Accrued Substate', () => {
     machineState = new AvmMachineState(executionEnvironment);
 
     const instructions = [
-      new EmitNoteHash(0),
-      new EmitNullifier(0),
-      new EmitUnencryptedLog(0, 1),
-      new SendL2ToL1Message(0, 1),
+      new EmitNoteHash(/*indirect=*/ 0, 0),
+      new EmitNullifier(/*indirect=*/ 0, 0),
+      new EmitUnencryptedLog(/*indirect=*/ 0, 0, 1),
+      new SendL2ToL1Message(/*indirect=*/ 0, 0, 1),
     ];
 
     for (const instruction of instructions) {
       const inst = () => instruction.execute(machineState, journal);
-      await expect(inst()).rejects.toThrowError(StaticCallStorageAlterError);
+      await expect(inst()).rejects.toThrow(StaticCallStorageAlterError);
     }
   });
 });

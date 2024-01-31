@@ -4,7 +4,7 @@ import {
   And,
   BlockNumber,
   CMov,
-  Call,
+  // Call,
   CalldataCopy,
   Cast,
   ChainId,
@@ -33,13 +33,16 @@ import {
   Set,
   Shl,
   Shr,
-  StaticCall,
+  // StaticCall,
   StorageAddress,
   Sub,
   Timestamp,
   Version,
   Xor,
-  Timestamp,
+  EmitUnencryptedLog,
+  SendL2ToL1Message,
+  EmitNoteHash,
+  EmitNullifier,
 } from '../opcodes/index.js';
 import { Instruction } from '../opcodes/instruction.js';
 import { BufferCursor } from './buffer_cursor.js';
@@ -108,16 +111,16 @@ const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstructio
     [SLoad.opcode, SLoad], // Public Storage
     [SStore.opcode, SStore], // Public Storage
     // //[Readl1tol2msg.opcode, Readl1tol2msg], // Messages
-    // //[Sendl2tol1msg.opcode, Sendl2tol1msg], // Messages
-    // //[Emitnotehash.opcode, Emitnotehash], // Notes & Nullifiers
-    // //[Emitnullifier.opcode, Emitnullifier], // Notes & Nullifiers
+    [SendL2ToL1Message.opcode, SendL2ToL1Message], // Messages
+    [EmitNoteHash.opcode, EmitNoteHash], // Notes & Nullifiers
+    [EmitNullifier.opcode, EmitNullifier], // Notes & Nullifiers
 
     // //// Accrued Substate
-    // //[Emitunencryptedlog.opcode, Emitunencryptedlog],
+    [EmitUnencryptedLog.opcode, EmitUnencryptedLog],
 
     // //// Control Flow - Contract Calls
-    [Call.opcode, Call],
-    [StaticCall.opcode, StaticCall],
+    // [Call.opcode, Call],
+    // [StaticCall.opcode, StaticCall],
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
