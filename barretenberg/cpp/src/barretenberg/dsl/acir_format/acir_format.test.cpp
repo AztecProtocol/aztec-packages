@@ -474,6 +474,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = {},
                                   .block_constraints = {} };
