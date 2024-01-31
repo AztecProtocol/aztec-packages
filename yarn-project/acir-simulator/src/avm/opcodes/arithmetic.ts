@@ -15,7 +15,6 @@ export class Add extends ThreeOperandInstruction {
     return Add.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
     const b = machineState.memory.get(this.bOffset);
@@ -38,7 +37,6 @@ export class Sub extends ThreeOperandInstruction {
   protected get opcode() {
     return Sub.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -63,7 +61,6 @@ export class Mul extends ThreeOperandInstruction {
     return Mul.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
     const b = machineState.memory.get(this.bOffset);
@@ -86,7 +83,6 @@ export class Div extends ThreeOperandInstruction {
   protected get opcode() {
     return Div.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);

@@ -32,14 +32,17 @@ export abstract class Instruction {
     }
   }
 
-  public static deserialize<T extends { new(...args: any[]): InstanceType<T>; wireFormat: any}>(this: T, buf: BufferCursor | Buffer): InstanceType<T> {
+  public static deserialize<T extends { new (...args: any[]): InstanceType<T>; wireFormat: any }>(
+    this: T,
+    buf: BufferCursor | Buffer,
+  ): InstanceType<T> {
     const res = deserialize(buf, this.wireFormat);
     const args = res.slice(1) as ConstructorParameters<T>; // Remove opcode.
     return new this(...args);
   }
 
-  public serialize<T extends { wireFormat: any}>(this: T): Buffer {
-    return serialize(this.wireFormat, this);
+  public serialize(this: any): Buffer {
+    return serialize(this.constructor.wireFormat, this);
   }
 }
 

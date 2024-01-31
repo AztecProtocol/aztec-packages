@@ -1,23 +1,16 @@
 import { BufferCursor } from '../serialization/buffer_cursor.js';
-import {
-  Opcode,
-  OperandPair,
-  OperandType,
-  deserialize,
-  serialize,
-} from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
 export abstract class TwoOperandInstruction extends Instruction {
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(c: TwoOperandInstruction) => c.opcode, OperandType.UINT8],
-    [(c: TwoOperandInstruction) => c.indirect, OperandType.UINT8],
-    [(c: TwoOperandInstruction) => c.inTag, OperandType.UINT8],
-    [(c: TwoOperandInstruction) => c.aOffset, OperandType.UINT32],
-    [(c: TwoOperandInstruction) => c.dstOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = TwoOperandInstruction.wireFormat;
 
   constructor(
     protected indirect: number,
@@ -43,15 +36,14 @@ export abstract class TwoOperandInstruction extends Instruction {
 
 export abstract class ThreeOperandInstruction extends Instruction {
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(c: ThreeOperandInstruction) => c.opcode, OperandType.UINT8],
-    [(c: ThreeOperandInstruction) => c.indirect, OperandType.UINT8],
-    [(c: ThreeOperandInstruction) => c.inTag, OperandType.UINT8],
-    [(c: ThreeOperandInstruction) => c.aOffset, OperandType.UINT32],
-    [(c: ThreeOperandInstruction) => c.bOffset, OperandType.UINT32],
-    [(c: ThreeOperandInstruction) => c.dstOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = ThreeOperandInstruction.wireFormat;
 
   constructor(
     protected indirect: number,

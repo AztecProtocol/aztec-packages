@@ -17,7 +17,6 @@ export class And extends ThreeOperandInstruction {
     return And.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -42,7 +41,6 @@ export class Or extends ThreeOperandInstruction {
   protected get opcode() {
     return Or.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -69,7 +67,6 @@ export class Xor extends ThreeOperandInstruction {
     return Xor.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -95,7 +92,6 @@ export class Not extends TwoOperandInstruction {
     return Not.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset);
 
@@ -119,7 +115,6 @@ export class Shl extends ThreeOperandInstruction {
   protected get opcode() {
     return Shl.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
@@ -145,7 +140,6 @@ export class Shr extends ThreeOperandInstruction {
   protected get opcode() {
     return Shr.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);

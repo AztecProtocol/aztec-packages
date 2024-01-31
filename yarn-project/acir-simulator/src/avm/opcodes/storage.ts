@@ -3,22 +3,17 @@ import { Fr } from '@aztec/foundation/fields';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
-import {
-  Opcode,
-  OperandPair,
-  OperandType,
-} from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction, InstructionExecutionError } from './instruction.js';
 
 abstract class BaseStorageInstruction extends Instruction {
   // Instruction wire format with opcode.
-  public static readonly wireFormat: OperandPair[] = [
-    [(c: BaseStorageInstruction) => c.opcode, OperandType.UINT8],
-    [(c: BaseStorageInstruction) => c.indirect, OperandType.UINT8],
-    [(c: BaseStorageInstruction) => c.aOffset, OperandType.UINT32],
-    [(c: BaseStorageInstruction) => c.bOffset, OperandType.UINT32],
+  public static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = BaseStorageInstruction.wireFormat;
 
   constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {
     super();
@@ -68,7 +63,6 @@ export class SLoad extends BaseStorageInstruction {
   protected get opcode() {
     return SLoad.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     const slot = machineState.memory.get(this.aOffset);

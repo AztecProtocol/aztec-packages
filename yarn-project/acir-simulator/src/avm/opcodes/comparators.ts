@@ -16,7 +16,6 @@ export class Eq extends ThreeOperandInstruction {
     return Eq.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -68,7 +67,6 @@ export class Lte extends ThreeOperandInstruction {
   protected get opcode() {
     return Lte.opcode;
   }
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);

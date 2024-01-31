@@ -2,21 +2,12 @@ import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
-import {
-  Opcode,
-  OperandPair,
-  OperandType,
-} from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
 abstract class GetterInstruction extends Instruction {
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(c: GetterInstruction) => c.opcode, OperandType.UINT8],
-    [(c: GetterInstruction) => c.indirect, OperandType.UINT8],
-    [(c: GetterInstruction) => c.dstOffset, OperandType.UINT32],
-  ];
-  wireFormat = GetterInstruction.wireFormat;
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
   constructor(protected indirect: number, protected dstOffset: number) {
     super();

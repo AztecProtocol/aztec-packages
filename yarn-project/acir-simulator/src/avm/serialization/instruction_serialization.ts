@@ -73,8 +73,6 @@ export enum OperandType {
   UINT128,
 }
 
-export type OperandPair = [(c: any) => any, OperandType];
-
 function readBigInt128BE(this: Buffer): bigint {
   const totalBytes = 16;
   let ret: bigint = 0n;
@@ -101,14 +99,14 @@ const OPERAND_SPEC = new Map<OperandType, [number, () => any, (value: any) => an
   [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
 ]);
 
-export function deserialize(cursor: BufferCursor | Buffer, operands: OperandPair[]): any[] {
+export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): any[] {
   const argValues = [];
   if (cursor instanceof Buffer) {
     cursor = new BufferCursor(cursor);
   }
 
   for (const op of operands) {
-    const [_opGetter, opType] = op;
+    const opType = op;
     const [sizeBytes, reader, _writer] = OPERAND_SPEC.get(opType)!;
     argValues.push(reader.call(cursor.bufferAtPosition()));
     cursor.advance(sizeBytes);
@@ -117,17 +115,18 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandPair
   return argValues;
 }
 
-export function serialize(operands: OperandPair[], cls: any): Buffer {
+export function serialize(operands: OperandType[], cls: any): Buffer {
   const chunks: Buffer[] = [];
 
-  for (const op of operands) {
-    const [opGetter, opType] = op;
+  // TODO: infer opcode not in this loop
+  const classValues = [cls.constructor.opcode, ...Object.values(cls)];
+  for (let i = 0; i < operands.length; i++) {
+    const opType = operands[i];
     const [sizeBytes, _reader, writer] = OPERAND_SPEC.get(opType)!;
     const buf = Buffer.alloc(sizeBytes);
-    writer.call(buf, opGetter(cls));
+    writer.call(buf, classValues[i]);
     chunks.push(buf);
   }
 
   return Buffer.concat(chunks);
 }
-

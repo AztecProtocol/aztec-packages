@@ -1,22 +1,22 @@
 import { BufferCursor } from './buffer_cursor.js';
-import { OperandPair, OperandType, deserialize, serialize } from './instruction_serialization.js';
+import { OperandType, deserialize, serialize } from './instruction_serialization.js';
 
 class InstA {
   constructor(private a: number, private b: number, private c: number, private d: bigint, private e: bigint) {}
 
   static readonly opcode: number = 1;
-  static readonly wireFormat: OperandPair[] = [
-    [(_: InstA) => InstA.opcode, OperandType.UINT8],
-    [(c: InstA) => c.a, OperandType.UINT8],
-    [(c: InstA) => c.b, OperandType.UINT16],
-    [(c: InstA) => c.c, OperandType.UINT32],
-    [(c: InstA) => c.d, OperandType.UINT64],
-    [(c: InstA) => c.e, OperandType.UINT128],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT32,
+    OperandType.UINT64,
+    OperandType.UINT128,
   ];
 }
 
 describe('Instruction Serialization', () => {
-  it('Should serialize all types from OperandPair[]', () => {
+  it('Should serialize all types from OperandType[]', () => {
     const instance = new InstA(0x12, 0x1234, 0x12345678, 0x1234567887654321n, 0x1234567887654321abcdef0000fedcban);
     const actual: Buffer = serialize(InstA.wireFormat, instance);
 
@@ -41,7 +41,7 @@ describe('Instruction Serialization', () => {
     );
   });
 
-  it('Should deserialize all types from OperandPair[]', () => {
+  it('Should deserialize all types from OperandType[]', () => {
     const buffer = Buffer.from(
       [
         // opcode

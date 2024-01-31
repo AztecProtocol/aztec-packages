@@ -1,12 +1,7 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmJournal } from '../journal/journal.js';
-import {
-  Opcode,
-  OperandPair,
-  OperandType,
-} from '../serialization/instruction_serialization.js';
-import { Instruction, 
-} from './instruction.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
+import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
 
 export class EmitNoteHash extends Instruction {
@@ -14,11 +9,7 @@ export class EmitNoteHash extends Instruction {
   static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_: EmitNoteHash) => EmitNoteHash.opcode, OperandType.UINT8],
-    [(c: EmitNoteHash) => c.indirect, OperandType.UINT8],
-    [(c: EmitNoteHash) => c.noteHashOffset, OperandType.UINT32],
-  ];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
   constructor(private indirect: number, private noteHashOffset: number) {
     super();
@@ -41,16 +32,11 @@ export class EmitNullifier extends Instruction {
   static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_: EmitNullifier) => EmitNullifier.opcode, OperandType.UINT8],
-    [(c: EmitNullifier) => c.indirect, OperandType.UINT8],
-    [(c: EmitNullifier) => c.nullifierOffset, OperandType.UINT32],
-  ];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
   constructor(private indirect: number, private nullifierOffset: number) {
     super();
   }
-
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {
@@ -69,17 +55,11 @@ export class EmitUnencryptedLog extends Instruction {
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_: EmitUnencryptedLog) => EmitUnencryptedLog.opcode, OperandType.UINT8],
-    [(c: EmitUnencryptedLog) => c.indirect, OperandType.UINT8],
-    [(c: EmitUnencryptedLog) => c.logOffset, OperandType.UINT32],
-    [(c: EmitUnencryptedLog) => c.logSize, OperandType.UINT32],
-  ];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
 
   constructor(private indirect: number, private logOffset: number, private logSize: number) {
     super();
   }
-
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {
@@ -98,18 +78,11 @@ export class SendL2ToL1Message extends Instruction {
   static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_: SendL2ToL1Message) => SendL2ToL1Message.opcode, OperandType.UINT8],
-    [(c: SendL2ToL1Message) => c.indirect, OperandType.UINT8],
-    [(c: SendL2ToL1Message) => c.msgOffset, OperandType.UINT32],
-    [(c: SendL2ToL1Message) => c.msgSize, OperandType.UINT32],
-  ];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
 
   constructor(private indirect: number, private msgOffset: number, private msgSize: number) {
     super();
   }
-
-
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     if (machineState.executionEnvironment.isStaticCall) {

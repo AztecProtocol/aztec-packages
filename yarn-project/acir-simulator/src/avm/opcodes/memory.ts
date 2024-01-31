@@ -1,11 +1,7 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/index.js';
-import {
-  Opcode,
-  OperandPair,
-  OperandType,
-} from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { TwoOperandInstruction } from './instruction_impl.js';
 
@@ -14,14 +10,13 @@ export class Set extends Instruction {
   static readonly opcode: Opcode = Opcode.SET;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_c: Set) => Set.opcode, OperandType.UINT8],
-    [(c: Set) => c.indirect, OperandType.UINT8],
-    [(c: Set) => c.inTag, OperandType.UINT8],
-    [(c: Set) => c.value, OperandType.UINT128],
-    [(c: Set) => c.dstOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT128,
+    OperandType.UINT32,
   ];
-  wireFormat = Set.wireFormat;
 
   constructor(private indirect: number, private inTag: number, private value: bigint, private dstOffset: number) {
     super();
@@ -41,15 +36,14 @@ export class CMov extends Instruction {
   static readonly opcode: Opcode = Opcode.CMOV;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_c: CMov) => CMov.opcode, OperandType.UINT8],
-    [(c: CMov) => c.indirect, OperandType.UINT8],
-    [(c: CMov) => c.aOffset, OperandType.UINT32],
-    [(c: CMov) => c.bOffset, OperandType.UINT32],
-    [(c: CMov) => c.condOffset, OperandType.UINT32],
-    [(c: CMov) => c.dstOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = CMov.wireFormat;
 
   constructor(
     private indirect: number,
@@ -60,8 +54,6 @@ export class CMov extends Instruction {
   ) {
     super();
   }
-
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
@@ -87,7 +79,6 @@ export class Cast extends TwoOperandInstruction {
     return Cast.opcode;
   }
 
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
 
@@ -106,19 +97,16 @@ export class Mov extends Instruction {
   static readonly opcode: Opcode = Opcode.MOV;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_c: Mov) => Mov.opcode, OperandType.UINT8],
-    [(c: Mov) => c.indirect, OperandType.UINT8],
-    [(c: Mov) => c.srcOffset, OperandType.UINT32],
-    [(c: Mov) => c.dstOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = Mov.wireFormat;
 
   constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
     super();
   }
-
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.srcOffset);
@@ -134,20 +122,17 @@ export class CalldataCopy extends Instruction {
   static readonly opcode: Opcode = Opcode.CALLDATACOPY;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_c: CalldataCopy) => CalldataCopy.opcode, OperandType.UINT8],
-    [(c: CalldataCopy) => c.indirect, OperandType.UINT8],
-    [(c: CalldataCopy) => c.cdOffset, OperandType.UINT32],
-    [(c: CalldataCopy) => c.copySize, OperandType.UINT32],
-    [(c: CalldataCopy) => c.dstOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = CalldataCopy.wireFormat;
 
   constructor(private indirect: number, private cdOffset: number, private copySize: number, private dstOffset: number) {
     super();
   }
-
-
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const transformedData = machineState.executionEnvironment.calldata

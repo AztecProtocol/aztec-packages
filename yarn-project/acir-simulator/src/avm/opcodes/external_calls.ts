@@ -4,11 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
-import {
-  Opcode,
-  OperandPair,
-  OperandType,
-} from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
 export class Call extends Instruction {
@@ -16,18 +12,17 @@ export class Call extends Instruction {
   static readonly opcode: Opcode = Opcode.CALL;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_: Call) => Call.opcode, OperandType.UINT8],
-    [(c: Call) => c.indirect, OperandType.UINT8],
-    [(c: Call) => c._gasOffset, OperandType.UINT32],
-    [(c: Call) => c.addrOffset, OperandType.UINT32],
-    [(c: Call) => c.argsOffset, OperandType.UINT32],
-    [(c: Call) => c.argsSize, OperandType.UINT32],
-    [(c: Call) => c.retOffset, OperandType.UINT32],
-    [(c: Call) => c.retSize, OperandType.UINT32],
-    [(c: Call) => c.successOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = Call.wireFormat;
 
   constructor(
     private indirect: number,
@@ -78,18 +73,17 @@ export class StaticCall extends Instruction {
   static readonly opcode: Opcode = Opcode.STATICCALL;
 
   // Instruction wire format with opcode.
-  static readonly wireFormat: OperandPair[] = [
-    [(_: StaticCall) => StaticCall.opcode, OperandType.UINT8],
-    [(c: StaticCall) => c.indirect, OperandType.UINT8],
-    [(c: StaticCall) => c._gasOffset, OperandType.UINT32],
-    [(c: StaticCall) => c.addrOffset, OperandType.UINT32],
-    [(c: StaticCall) => c.argsOffset, OperandType.UINT32],
-    [(c: StaticCall) => c.argsSize, OperandType.UINT32],
-    [(c: StaticCall) => c.retOffset, OperandType.UINT32],
-    [(c: StaticCall) => c.retSize, OperandType.UINT32],
-    [(c: StaticCall) => c.successOffset, OperandType.UINT32],
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
-  wireFormat = StaticCall.wireFormat;
 
   constructor(
     private indirect: number,
@@ -103,7 +97,6 @@ export class StaticCall extends Instruction {
   ) {
     super();
   }
-
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
     const callAddress = machineState.memory.get(this.addrOffset);
