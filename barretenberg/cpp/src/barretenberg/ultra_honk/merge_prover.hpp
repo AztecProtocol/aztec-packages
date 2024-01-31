@@ -12,31 +12,28 @@ namespace bb::honk {
 /**
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
  *
- * @tparam Flavor
  */
-template <typename Flavor> class MergeProver_ {
-    using FF = typename Flavor::FF;
-    using Polynomial = typename Flavor::Polynomial;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using Commitment = typename Flavor::Commitment;
-    using PCS = typename Flavor::PCS;
-    using Curve = typename Flavor::Curve;
+class MergeProver {
+    using Curve = curve::BN254;
+    using FF = Curve::ScalarField;
+    using Polynomial = polynomial;
+    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using Commitment = Curve::AffineElement;
+    using PCS = pcs::kzg::KZG<Curve>;
     using OpeningClaim = typename pcs::ProverOpeningClaim<Curve>;
-    using OpeningPair = typename pcs::OpeningPair<Curve>;
     using Transcript = BaseTranscript;
 
   public:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<ECCOpQueue> op_queue;
-    std::shared_ptr<CommitmentKey> pcs_commitment_key;
 
-    explicit MergeProver_(const std::shared_ptr<CommitmentKey>&,
-                          const std::shared_ptr<ECCOpQueue>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    BBERG_PROFILE honk::proof& construct_proof();
+    explicit MergeProver(const std::shared_ptr<ECCOpQueue>&);
+
+    BBERG_PROFILE honk::proof construct_proof();
 
   private:
-    honk::proof proof;
+    std::shared_ptr<ECCOpQueue> op_queue;
+    std::shared_ptr<CommitmentKey> pcs_commitment_key;
+    static constexpr size_t NUM_WIRES = flavor::GoblinUltra::NUM_WIRES;
 };
 
 } // namespace bb::honk
