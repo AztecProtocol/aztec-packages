@@ -43,6 +43,7 @@ struct FqParams {
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
+using fq = field<FqParams>;
 
 struct FrParams {
     static constexpr uint64_t modulus_0 = 0xF3B9CAC2FC632551ULL;
@@ -83,6 +84,7 @@ struct FrParams {
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
+using fr = field<FrParams>;
 
 struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
@@ -100,9 +102,7 @@ struct G1Params {
     static constexpr fq one_y =
         fq(0xCBB6406837BF51F5, 0x2BCE33576B315ECE, 0x8EE7EB4A7C0F9E16, 0x4FE342E2FE1A7F9B).to_montgomery_form();
 };
-using fq = field<FqParams>;
-using fr = field<FrParams>;
-using g1 = group<field<FqParams>, field<FrParams>, G1Params>;
+using g1 = group<fq, fr, G1Params>;
 } // namespace bb::secp256r1
 
 namespace bb::curve {

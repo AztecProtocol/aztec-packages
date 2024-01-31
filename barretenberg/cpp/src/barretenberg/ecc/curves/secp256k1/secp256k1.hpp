@@ -116,7 +116,7 @@ struct G1Params {
     static constexpr fq one_y =
         fq(0x9C47D08FFB10D4B8UL, 0xFD17B448A6855419UL, 0x5DA4FBFC0E1108A8UL, 0x483ADA7726A3C465UL).to_montgomery_form();
 };
-using g1 = group<field<FqParams>, field<FrParams>, G1Params>;
+using g1 = group<fq, fr, G1Params>;
 } // namespace bb::secp256k1
 
 namespace bb::curve {
