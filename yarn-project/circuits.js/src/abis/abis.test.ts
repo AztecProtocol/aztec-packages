@@ -41,7 +41,7 @@ import {
   hashTxRequest,
   hashVK,
   siloCommitment,
-  siloNullifier
+  siloNullifier,
 } from './abis.js';
 
 describe('abis', () => {
