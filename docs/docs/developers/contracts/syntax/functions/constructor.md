@@ -13,7 +13,3 @@ A special `constructor` function **must** be declared within a contract's scope.
 Although you can have a constructor that does nothing, you might want to do something with it, such as setting the deployer as an owner.
 
 #include_code constructor /yarn-project/noir-contracts/contracts/escrow_contract/src/main.nr rust
-
-:::danger
-It is not possible to call public functions from within a constructor. Beware that the compiler will not throw an error if you do, but the execution will fail!
-:::
