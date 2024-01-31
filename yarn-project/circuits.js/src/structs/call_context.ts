@@ -107,6 +107,19 @@ export class CallContext {
     return serializeToBuffer(...CallContext.getFields(this));
   }
 
+  toFields(): Fr[] {
+    return [
+      this.msgSender.toField(),
+      this.storageContractAddress.toField(),
+      this.portalContractAddress.toField(),
+      this.functionSelector.toField(),
+      new Fr(this.isDelegateCall),
+      new Fr(this.isStaticCall),
+      new Fr(this.isContractDeployment),
+      new Fr(this.startSideEffectCounter),
+    ];
+  }
+
   /**
    * Deserialize this from a buffer.
    * @param buffer - The bufferable type from which to deserialize.

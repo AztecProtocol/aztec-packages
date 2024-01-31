@@ -1,5 +1,4 @@
 import {
-  CallContext,
   GlobalVariables,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -51,24 +50,6 @@ export function toACVMField(
 // In the order that the ACVM expects them
 
 /**
- * Converts a call context to ACVM fields.
- * @param callContext - The call context to convert.
- * @returns The ACVM fields.
- */
-export function toACVMCallContext(callContext: CallContext): ACVMField[] {
-  return [
-    toACVMField(callContext.msgSender),
-    toACVMField(callContext.storageContractAddress),
-    toACVMField(callContext.portalContractAddress),
-    toACVMField(callContext.functionSelector.toField()),
-    toACVMField(callContext.isDelegateCall),
-    toACVMField(callContext.isStaticCall),
-    toACVMField(callContext.isContractDeployment),
-    toACVMField(callContext.startSideEffectCounter),
-  ];
-}
-
-/**
  * Converts global variables into ACVM fields
  * @param globalVariables - The global variables object to convert.
  * @returns The ACVM fields
@@ -89,7 +70,7 @@ export function toACVMGlobalVariables(globalVariables: GlobalVariables): ACVMFie
  */
 export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): ACVMField[] {
   return [
-    ...toACVMCallContext(publicInputs.callContext),
+    ...publicInputs.callContext.toFields().map(toACVMField),
     toACVMField(publicInputs.argsHash),
 
     ...publicInputs.returnValues.map(toACVMField),
@@ -140,11 +121,11 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
  */
 export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
   return [
-    toACVMField(item.contractAddress),
-    ...item.functionData.toFields().map(toACVMField),
-    ...toACVMCallContext(item.callContext),
-    toACVMField(item.getArgsHash()),
-  ];
+    item.contractAddress.toField(),
+    ...item.functionData.toFields(),
+    ...item.callContext.toFields(),
+    item.getArgsHash(),
+  ].map(toACVMField);
 }
 
 /**
