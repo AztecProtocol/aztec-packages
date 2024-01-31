@@ -17,7 +17,7 @@ impl NoteInterface for CardNote {
     fn compute_note_hash(self) -> Field {
         pedersen_hash([
             self.owner.to_field(),
-        ],0)
+        ], 0)
     }
 ```
 
@@ -27,7 +27,7 @@ impl NoteInterface for CardNote {
     fn compute_note_content_hash(self) -> Field {
         pedersen_hash([
             self.owner.to_field(),
-        ],0)
+        ], 0)
     }
 ``````
 
