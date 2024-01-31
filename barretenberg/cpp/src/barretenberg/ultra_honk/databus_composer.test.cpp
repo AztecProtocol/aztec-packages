@@ -22,7 +22,7 @@ class DataBusComposerTests : public ::testing::Test {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
 
     /**
      * @brief Generate a simple test circuit that includes arithmetic and goblin ecc op gates

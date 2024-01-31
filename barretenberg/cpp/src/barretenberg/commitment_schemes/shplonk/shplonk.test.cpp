@@ -23,7 +23,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using Polynomial = typename bb::Polynomial<Fr>;
-    using OpeningPair = OpeningPair<TypeParam>;
+    using OpeningPair = bb::OpeningPair<TypeParam>;
     using OpeningClaim = OpeningClaim<TypeParam>;
 
     const size_t n = 16;

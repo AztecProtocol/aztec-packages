@@ -29,8 +29,8 @@ class UltraFlavor {
     using PCS = KZG<Curve>;
     using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
-    using CommitmentKey = CommitmentKey<Curve>;
-    using VerifierCommitmentKey = VerifierCommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often

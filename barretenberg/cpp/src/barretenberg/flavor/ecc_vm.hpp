@@ -42,8 +42,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using GroupElement = typename G1::element;
     using Commitment = typename G1::affine_element;
     using CommitmentHandle = typename G1::affine_element;
-    using CommitmentKey = CommitmentKey<Curve>;
-    using VerifierCommitmentKey = VerifierCommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_WIRES = 74;

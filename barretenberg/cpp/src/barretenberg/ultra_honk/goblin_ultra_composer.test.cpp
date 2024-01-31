@@ -20,7 +20,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
