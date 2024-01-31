@@ -225,7 +225,7 @@ describe('sequencer/solo_block_builder', () => {
 
     // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
     const l2Block = L2Block.fromFields({
-      archive: AppendOnlyTreeSnapshot.empty(),
+      archive: AppendOnlyTreeSnapshot.zero(),
       header: Header.empty(),
       // Only the values bellow go to body hash/calldata hash
       newCommitments: newCommitments.map((sideEffect: SideEffect) => sideEffect.value),

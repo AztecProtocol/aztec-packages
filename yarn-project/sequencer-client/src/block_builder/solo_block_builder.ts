@@ -153,19 +153,19 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected validateTxs(txs: ProcessedTx[]) {
     for (const tx of txs) {
       const txHeader = tx.data.constants.historicalHeader;
-      if (txHeader.state.l1ToL2MessageTree.isEmpty()) {
+      if (txHeader.state.l1ToL2MessageTree.isZero()) {
         throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
       }
-      if (txHeader.state.partial.noteHashTree.isEmpty()) {
+      if (txHeader.state.partial.noteHashTree.isZero()) {
         throw new Error(`Empty note hash tree in tx: ${toFriendlyJSON(tx)}`);
       }
-      if (txHeader.state.partial.nullifierTree.isEmpty()) {
+      if (txHeader.state.partial.nullifierTree.isZero()) {
         throw new Error(`Empty nullifier tree in tx: ${toFriendlyJSON(tx)}`);
       }
-      if (txHeader.state.partial.contractTree.isEmpty()) {
+      if (txHeader.state.partial.contractTree.isZero()) {
         throw new Error(`Empty contract tree in tx: ${toFriendlyJSON(tx)}`);
       }
-      if (txHeader.state.partial.publicDataTree.isEmpty()) {
+      if (txHeader.state.partial.publicDataTree.isZero()) {
         throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
       }
     }

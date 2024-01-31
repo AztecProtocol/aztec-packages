@@ -80,7 +80,7 @@ export class Header {
 
   static empty(): Header {
     return new Header(
-      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.zero(),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       StateReference.empty(),
       GlobalVariables.empty(),
@@ -89,7 +89,7 @@ export class Header {
 
   isEmpty(): boolean {
     return (
-      this.lastArchive.isEmpty() &&
+      this.lastArchive.isZero() &&
       this.bodyHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty()

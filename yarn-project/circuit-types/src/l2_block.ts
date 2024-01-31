@@ -450,11 +450,11 @@ export class L2Block {
     const buf = serializeToBuffer(
       this.header.globalVariables,
       // TODO(#3868)
-      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
       this.header.state.partial.noteHashTree,
       this.header.state.partial.nullifierTree,
@@ -477,11 +477,11 @@ export class L2Block {
     const inputValue = serializeToBuffer(
       new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
       // TODO(#3868)
-      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
     );
     return sha256(inputValue);
