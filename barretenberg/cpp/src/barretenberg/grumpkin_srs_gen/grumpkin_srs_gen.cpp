@@ -7,6 +7,8 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/srs/io.hpp"
 
+using namespace bb;
+
 const std::string protocol_name = "BARRETENBERG_GRUMPKIN_IPA_CRS";
 /**
  * @brief Generates a monomial basis Grumpkin SRS.
@@ -32,7 +34,7 @@ int main(int argc, char** argv)
     // write the files to the dir that was given.
     std::filesystem::create_directories(std::filesystem::path(srs_path) / "monomial");
 
-    std::vector<grumpkin::g1::affine_element> srs(subgroup_size);
+    std::vector<bb::grumpkin::g1::affine_element> srs(subgroup_size);
 
     std::vector<uint8_t> hash_input;
 

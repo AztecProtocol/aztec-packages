@@ -7,6 +7,9 @@
 #include "barretenberg/serialize/test_helper.hpp"
 #include <fstream>
 
+using namespace bb;
+
+namespace {
 template <typename G1> class TestAffineElement : public testing::Test {
     using element = typename G1::element;
     using affine_element = typename G1::affine_element;
@@ -87,6 +90,7 @@ template <typename G1> class TestAffineElement : public testing::Test {
 };
 
 using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
+} // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
 

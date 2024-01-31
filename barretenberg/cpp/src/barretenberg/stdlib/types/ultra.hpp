@@ -52,11 +52,6 @@ using cycle_group_ct = stdlib::cycle_group<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using secp256k1_ct = stdlib::secp256k1<Builder>;
 
-namespace merkle_tree {
-using namespace stdlib::merkle_tree;
-using hash_path = stdlib::merkle_tree::hash_path<Builder>;
-} // namespace merkle_tree
-
 using schnorr_signature_bits = stdlib::schnorr_signature_bits<Builder>;
 
 // Ultra-composer specific types

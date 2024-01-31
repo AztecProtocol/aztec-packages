@@ -4,7 +4,7 @@
 #include "../bn254/fq.hpp"
 #include "../bn254/fr.hpp"
 
-namespace grumpkin {
+namespace bb::grumpkin {
 
 constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 252;
 
@@ -28,7 +28,7 @@ struct GrumpkinG1Params {
 };
 using g1 = bb::group<bb::fr, bb::fq, GrumpkinG1Params>;
 
-}; // namespace grumpkin
+}; // namespace bb::grumpkin
 
 namespace bb::curve {
 class Grumpkin {
