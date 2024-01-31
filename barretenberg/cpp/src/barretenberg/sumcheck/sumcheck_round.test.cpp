@@ -63,7 +63,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = UltraHonkFlavor;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -103,7 +103,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = UltraHonkFlavor;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates

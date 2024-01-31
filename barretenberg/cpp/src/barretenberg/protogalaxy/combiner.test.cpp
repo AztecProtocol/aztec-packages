@@ -8,7 +8,7 @@
 
 using namespace bb;
 
-using Flavor = Ultra;
+using Flavor = UltraFlavor;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 
@@ -41,7 +41,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
 
             for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
                 auto instance = std::make_shared<ProverInstance>();
-                auto prover_polynomials = honk::get_sequential_prover_polynomials<Flavor>(
+                auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->prover_polynomials = std::move(prover_polynomials);
@@ -73,7 +73,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
 
             for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
                 auto instance = std::make_shared<ProverInstance>();
-                auto prover_polynomials = honk::get_zero_prover_polynomials<Flavor>(
+                auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->prover_polynomials = std::move(prover_polynomials);
@@ -164,7 +164,7 @@ TEST(Protogalaxy, CombinerOn4Instances)
 
         for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
             auto instance = std::make_shared<ProverInstance>();
-            auto prover_polynomials = honk::get_zero_prover_polynomials<Flavor>(
+            auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                 /*log_circuit_size=*/1);
             instance->prover_polynomials = std::move(prover_polynomials);
             instance->instance_size = 2;

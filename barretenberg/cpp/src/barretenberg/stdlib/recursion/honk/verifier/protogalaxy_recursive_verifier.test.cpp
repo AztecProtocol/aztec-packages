@@ -26,12 +26,12 @@ class ProtogalaxyRecursiveTest : public testing::Test {
     // cannot do on Goblin
     using OuterBuilder = GoblinUltraCircuitBuilder;
     using RecursiveFlavor = ::bb::UltraRecursiveFlavor_<OuterBuilder>;
-    using RecursiveVerifierInstances = ::bb::honk::VerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveVerifierInstances = VerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
-    using DeciderVerifier = ::bb::honk::DeciderVerifier_<InnerFlavor>;
-    using NativeVerifierInstances = ::bb::honk::VerifierInstances_<InnerFlavor, 2>;
-    using NativeFoldingVerifier = bb::honk::ProtoGalaxyVerifier_<NativeVerifierInstances>;
+    using DeciderVerifier = DeciderVerifier_<InnerFlavor>;
+    using NativeVerifierInstances = VerifierInstances_<InnerFlavor, 2>;
+    using NativeFoldingVerifier = ProtoGalaxyVerifier_<NativeVerifierInstances>;
 
     // Helper for getting composer for prover/verifier of recursive (outer) circuit
     template <typename BuilderT> static auto get_outer_composer()

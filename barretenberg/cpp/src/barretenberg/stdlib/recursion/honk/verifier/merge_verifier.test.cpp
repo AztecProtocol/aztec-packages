@@ -20,7 +20,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
     using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
 
     // Define types relevant for inner circuit
-    using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
+    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
     using InnerFlavor = GoblinUltraFlavor;
     using InnerComposer = GoblinUltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;

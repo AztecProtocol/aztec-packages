@@ -29,7 +29,7 @@ plonk::proof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std:
     auto circuit_builder = bb::AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    auto composer = bb::honk::AvmMiniComposer();
+    auto composer = AvmMiniComposer();
     auto prover = composer.create_prover(circuit_builder);
     return prover.construct_proof();
 }

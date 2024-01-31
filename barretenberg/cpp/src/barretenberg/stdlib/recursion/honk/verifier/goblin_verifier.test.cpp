@@ -18,8 +18,8 @@ namespace bb::stdlib::recursion::honk {
  */
 template <typename BuilderType> class GoblinRecursiveVerifierTest : public testing::Test {
 
-    using UltraComposer = ::bb::honk::UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
+    using UltraComposer = UltraComposer_<UltraFlavor>;
+    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;

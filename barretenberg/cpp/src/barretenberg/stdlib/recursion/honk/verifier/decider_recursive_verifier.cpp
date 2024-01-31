@@ -25,7 +25,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-    using Instance = typename ::bb::honk::VerifierInstance_<Flavor>;
+    using Instance = typename VerifierInstance_<Flavor>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
     transcript = std::make_shared<Transcript>(builder, proof.proof_data);

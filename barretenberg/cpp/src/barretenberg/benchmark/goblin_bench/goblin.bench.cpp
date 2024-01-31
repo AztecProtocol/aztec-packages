@@ -39,7 +39,7 @@ void goblin_full(State& state) noexcept
         proof = goblin.prove();
         // Verify the final ultra proof
     }
-    honk::GoblinUltraVerifier ultra_verifier{ kernel_input.verification_key };
+    GoblinUltraVerifier ultra_verifier{ kernel_input.verification_key };
     ultra_verifier.verify_proof(kernel_input.proof);
     // Verify the goblin proof (eccvm, translator, merge)
     goblin.verify(proof);

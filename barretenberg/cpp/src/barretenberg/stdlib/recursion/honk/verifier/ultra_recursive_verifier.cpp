@@ -86,9 +86,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
     }
 
-    const FF public_input_delta = bb::honk::compute_public_input_delta<Flavor>(
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(pub_inputs_offset.get_value()));
-    const FF lookup_grand_product_delta = bb::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
