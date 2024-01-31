@@ -5,3 +5,5 @@ export * from './instruction.js';
 export * from './comparators.js';
 export * from './memory.js';
 export * from './storage.js';
+export * from './external_calls.js';
+export * from './environment_getters.js';

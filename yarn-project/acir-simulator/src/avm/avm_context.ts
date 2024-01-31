@@ -6,8 +6,8 @@ import { AvmMachineState } from './avm_machine_state.js';
 import { AvmMessageCallResult } from './avm_message_call_result.js';
 import { AvmInterpreterError, executeAvm } from './interpreter/index.js';
 import { AvmJournal } from './journal/journal.js';
-import { Instruction } from './opcodes/index.js';
-import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
+import { Instruction } from './opcodes/instruction.js';
+import { decodeFromBytecode } from './serialization/bytecode_serialization.js';  // FIXME: dependency cycle.
 
 /**
  * Avm Executor manages the execution of the AVM

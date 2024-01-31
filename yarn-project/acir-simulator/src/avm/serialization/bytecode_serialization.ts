@@ -2,6 +2,7 @@ import {
   Add,
   And,
   CMov,
+  Call,
   CalldataCopy,
   Cast,
   Div,
@@ -23,6 +24,7 @@ import {
   Set,
   Shl,
   Shr,
+  StaticCall,
   Sub,
   Xor,
 } from '../opcodes/index.js';
@@ -102,8 +104,8 @@ const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstructio
     // //[Emitunencryptedlog.opcode, Emitunencryptedlog],
 
     // //// Control Flow - Contract Calls
-    // // [Call.opcode, Call],
-    // //[Staticcall.opcode, Staticcall],
+    [Call.opcode, Call],
+    [StaticCall.opcode, StaticCall],
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
