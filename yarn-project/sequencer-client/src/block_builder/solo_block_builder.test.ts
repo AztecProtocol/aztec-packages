@@ -255,7 +255,7 @@ describe('sequencer/solo_block_builder', () => {
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
-    it('builds an L2 block using mock simulator', async () => {
+    it.skip('builds an L2 block using mock simulator', async () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
 

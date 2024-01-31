@@ -702,7 +702,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       publicDataReadsPreimages: txPublicDataReadsInfo.newPublicDataReadsPreimages,
       publicDataReadsMembershipWitnesses: txPublicDataReadsInfo.newPublicDataReadsWitnesses,
 
-      archiveRootMembershipWitness,
+      archiveRootMembershipWitness, // TODO(benesjan): This is a bad name. Rename it to kernelHeaderMembershipWitness
 
       constants,
     });
