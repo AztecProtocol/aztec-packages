@@ -1,14 +1,40 @@
 import { AvmMachineState } from '../avm_machine_state.js';
 import { IntegralValue } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/journal.js';
+import { BufferCursor } from '../serialization/buffer_cursor.js';
+import {
+  Opcode,
+  OperandPair,
+  OperandType,
+  deserialize,
+  serialize,
+} from '../serialization/instruction_serialization.js';
 import { Instruction, InstructionExecutionError } from './instruction.js';
 
 export class Return extends Instruction {
   static type: string = 'RETURN';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.RETURN;
 
-  constructor(private returnOffset: number, private copySize: number) {
+  // Instruction wire format with opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(_c: Return) => Return.opcode, OperandType.UINT8],
+    [(c: Return) => c.indirect, OperandType.UINT8],
+    [(c: Return) => c.returnOffset, OperandType.UINT32],
+    [(c: Return) => c.copySize, OperandType.UINT32],
+  ];
+
+  constructor(private indirect: number, private returnOffset: number, private copySize: number) {
     super();
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Return {
+    const res = deserialize(buf, Return.wireFormat);
+    const args = res.slice(1) as ConstructorParameters<typeof Return>; // Remove opcode.
+    return new Return(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(Return.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -22,10 +48,28 @@ export class Return extends Instruction {
 
 export class Revert extends Instruction {
   static type: string = 'RETURN';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.REVERT;
 
-  constructor(private returnOffset: number, private retSize: number) {
+  // Instruction wire format with opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(_c: Revert) => Revert.opcode, OperandType.UINT8],
+    [(c: Revert) => c.indirect, OperandType.UINT8],
+    [(c: Revert) => c.returnOffset, OperandType.UINT32],
+    [(c: Revert) => c.retSize, OperandType.UINT32],
+  ];
+
+  constructor(private indirect: number, private returnOffset: number, private retSize: number) {
     super();
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Revert {
+    const res = deserialize(buf, Revert.wireFormat);
+    const args = res.slice(1) as ConstructorParameters<typeof Revert>; // Remove opcode.
+    return new Revert(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(Revert.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -40,10 +84,26 @@ export class Revert extends Instruction {
 
 export class Jump extends Instruction {
   static type: string = 'JUMP';
-  static numberOfOperands = 1;
+  static readonly opcode: Opcode = Opcode.JUMP;
+
+  // Instruction wire format with opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(_c: Jump) => Jump.opcode, OperandType.UINT8],
+    [(c: Jump) => c.jumpOffset, OperandType.UINT32],
+  ];
 
   constructor(private jumpOffset: number) {
     super();
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): Jump {
+    const res = deserialize(buf, Jump.wireFormat);
+    const args = res.slice(1) as ConstructorParameters<typeof Jump>; // Remove opcode.
+    return new Jump(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(Jump.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -53,10 +113,28 @@ export class Jump extends Instruction {
 
 export class JumpI extends Instruction {
   static type: string = 'JUMPI';
-  static numberOfOperands = 1;
+  static readonly opcode: Opcode = Opcode.JUMPI;
 
-  constructor(private jumpOffset: number, private condOffset: number) {
+  // Instruction wire format with opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(_c: JumpI) => JumpI.opcode, OperandType.UINT8],
+    [(c: JumpI) => c.indirect, OperandType.UINT8],
+    [(c: JumpI) => c.loc, OperandType.UINT32],
+    [(c: JumpI) => c.condOffset, OperandType.UINT32],
+  ];
+
+  constructor(private indirect: number, private loc: number, private condOffset: number) {
     super();
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): JumpI {
+    const res = deserialize(buf, JumpI.wireFormat);
+    const args = res.slice(1) as ConstructorParameters<typeof JumpI>; // Remove opcode.
+    return new JumpI(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(JumpI.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -66,31 +144,61 @@ export class JumpI extends Instruction {
     if (condition.toBigInt() == 0n) {
       this.incrementPc(machineState);
     } else {
-      machineState.pc = this.jumpOffset;
+      machineState.pc = this.loc;
     }
   }
 }
 
 export class InternalCall extends Instruction {
-  static type: string = 'INTERNALCALL';
-  static numberOfOperands = 1;
+  static readonly type: string = 'INTERNALCALL';
+  static readonly opcode: Opcode = Opcode.INTERNALCALL;
 
-  constructor(private jumpOffset: number) {
+  // Instruction wire format with opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(_c: InternalCall) => InternalCall.opcode, OperandType.UINT8],
+    [(c: InternalCall) => c.loc, OperandType.UINT32],
+  ];
+
+  constructor(private loc: number) {
     super();
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): InternalCall {
+    const res = deserialize(buf, InternalCall.wireFormat);
+    const args = res.slice(1) as ConstructorParameters<typeof InternalCall>; // Remove opcode.
+    return new InternalCall(...args);
+  }
+
+  public serialize(): Buffer {
+    return serialize(InternalCall.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     machineState.internalCallStack.push(machineState.pc + 1);
-    machineState.pc = this.jumpOffset;
+    machineState.pc = this.loc;
   }
 }
 
 export class InternalReturn extends Instruction {
-  static type: string = 'INTERNALRETURN';
-  static numberOfOperands = 0;
+  static readonly type: string = 'INTERNALRETURN';
+  static readonly opcode: Opcode = Opcode.INTERNALRETURN;
+
+  // Instruction wire format with opcode.
+  private static readonly wireFormat: OperandPair[] = [
+    [(_c: InternalReturn) => InternalReturn.opcode, OperandType.UINT8],
+  ];
 
   constructor() {
     super();
+  }
+
+  public static deserialize(buf: BufferCursor | Buffer): InternalReturn {
+    deserialize(buf, InternalReturn.wireFormat); // only contains opcode.
+    return new InternalReturn();
+  }
+
+  public serialize(): Buffer {
+    return serialize(InternalReturn.wireFormat, this);
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {

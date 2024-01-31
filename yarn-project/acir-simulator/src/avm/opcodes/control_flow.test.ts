@@ -18,7 +18,37 @@ describe('Control Flow Opcodes', () => {
     machineState = new AvmMachineState(initExecutionEnvironment());
   });
 
-  describe('Jumps', () => {
+  describe('JUMP', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        Jump.opcode,
+        // loc
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      const inst: Jump = Jump.deserialize(buf);
+      expect(inst).toEqual(new Jump(/*loc=*/ 0x12345678));
+    });
+
+    it('Should serialize correctly', () => {
+      const inst = new Jump(/*loc=*/ 0x12345678);
+
+      const expected = Buffer.from([
+        // opcode
+        Jump.opcode,
+        // loc
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+      expect(inst.serialize()).toEqual(expected);
+    });
+
     it('Should implement JUMP', async () => {
       const jumpLocation = 22;
 
@@ -27,6 +57,52 @@ describe('Control Flow Opcodes', () => {
       const instruction = new Jump(jumpLocation);
       await instruction.execute(machineState, journal);
       expect(machineState.pc).toBe(jumpLocation);
+    });
+  });
+
+  describe('JUMPI', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        JumpI.opcode,
+        // indirect
+        0x01,
+        // loc
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // condOffset
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      const inst: JumpI = JumpI.deserialize(buf);
+      expect(inst).toEqual(new JumpI(/*indirect=*/ 1, /*loc=*/ 0x12345678, /*condOffset=*/ 0xa2345678));
+    });
+
+    it('Should serialize correctly', () => {
+      const inst = new JumpI(/*indirect=*/ 1, /*loc=*/ 0x12345678, /*condOffset=*/ 0xa2345678);
+
+      const expected = Buffer.from([
+        // opcode
+        JumpI.opcode,
+        // indirect
+        0x01,
+        // loc
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // condOffset
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+      expect(inst.serialize()).toEqual(expected);
     });
 
     it('Should implement JUMPI - truthy', async () => {
@@ -38,12 +114,12 @@ describe('Control Flow Opcodes', () => {
       machineState.memory.set(0, new Uint16(1n));
       machineState.memory.set(1, new Uint16(2n));
 
-      const instruction = new JumpI(jumpLocation, 0);
+      const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
       await instruction.execute(machineState, journal);
       expect(machineState.pc).toBe(jumpLocation);
 
       // Truthy can be greater than 1
-      const instruction1 = new JumpI(jumpLocation1, 1);
+      const instruction1 = new JumpI(/*indirect=*/ 0, jumpLocation1, /*condOffset=*/ 1);
       await instruction1.execute(machineState, journal);
       expect(machineState.pc).toBe(jumpLocation1);
     });
@@ -55,9 +131,42 @@ describe('Control Flow Opcodes', () => {
 
       machineState.memory.set(0, new Uint16(0n));
 
-      const instruction = new JumpI(jumpLocation, 0);
+      const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
       await instruction.execute(machineState, journal);
       expect(machineState.pc).toBe(1);
+    });
+  });
+
+  describe('INTERNALCALL and RETURN', () => {
+    it('INTERNALCALL should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        InternalCall.opcode,
+        // loc
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      const inst = InternalCall.deserialize(buf);
+      expect(inst).toEqual(new InternalCall(/*loc=*/ 0x12345678));
+    });
+
+    it('INTERNALCALL should serialize correctly', () => {
+      const inst = new InternalCall(/*loc=*/ 0x12345678);
+
+      const expected = Buffer.from([
+        // opcode
+        InternalCall.opcode,
+        // loc
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      expect(inst.serialize()).toEqual(expected);
     });
 
     it('Should implement Internal Call and Return', async () => {
@@ -75,6 +184,13 @@ describe('Control Flow Opcodes', () => {
       expect(machineState.pc).toBe(1);
     });
 
+    it('Should error if Internal Return is called without a corresponding Internal Call', async () => {
+      const returnInstruction = () => new InternalReturn().execute(machineState, journal);
+      await expect(returnInstruction()).rejects.toThrow(InstructionExecutionError);
+    });
+  });
+
+  describe('General flow', () => {
     it('Should chain series of control flow instructions', async () => {
       const jumpLocation0 = 22;
       const jumpLocation1 = 69;
@@ -109,14 +225,54 @@ describe('Control Flow Opcodes', () => {
         expect(machineState.pc).toBe(expectedPcs[i]);
       }
     });
-
-    it('Should error if Internal Return is called without a corresponding Internal Call', async () => {
-      const returnInstruction = () => new InternalReturn().execute(machineState, journal);
-      await expect(returnInstruction()).rejects.toThrow(InstructionExecutionError);
-    });
   });
 
-  describe('Halting Opcodes', () => {
+  describe('RETURN', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        Return.opcode,
+        // indirect
+        0x01,
+        // returnOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // copySize
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      const inst = Return.deserialize(buf);
+      expect(inst).toEqual(new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*copySize=*/ 0xa2345678));
+    });
+
+    it('Should serialize correctly', () => {
+      const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*copySize=*/ 0xa2345678);
+
+      const expected = Buffer.from([
+        // opcode
+        Return.opcode,
+        // indirect
+        0x01,
+        // returnOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // copySize
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      expect(inst.serialize()).toEqual(expected);
+    });
+
     it('Should return data from the return opcode', async () => {
       const returnData = [new Fr(1n), new Fr(2n), new Fr(3n)];
 
@@ -124,12 +280,59 @@ describe('Control Flow Opcodes', () => {
       machineState.memory.set(1, new Field(2n));
       machineState.memory.set(2, new Field(3n));
 
-      const instruction = new Return(0, returnData.length);
+      const instruction = new Return(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
       await instruction.execute(machineState, journal);
 
       expect(machineState.getReturnData()).toEqual(returnData);
       expect(machineState.halted).toBe(true);
       expect(machineState.reverted).toBe(false);
+    });
+  });
+
+  describe('REVERT', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        Revert.opcode,
+        // indirect
+        0x01,
+        // returnOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // retSize
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      const inst = Revert.deserialize(buf);
+      expect(inst).toEqual(new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*retSize=*/ 0xa2345678));
+    });
+
+    it('Should serialize correctly', () => {
+      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*retSize=*/ 0xa2345678);
+
+      const expected = Buffer.from([
+        // opcode
+        Revert.opcode,
+        // indirect
+        0x01,
+        // returnOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+        // retSize
+        0xa2,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      expect(inst.serialize()).toEqual(expected);
     });
 
     it('Should return data and revert from the revert opcode', async () => {
@@ -139,7 +342,7 @@ describe('Control Flow Opcodes', () => {
       machineState.memory.set(1, new Field(2n));
       machineState.memory.set(2, new Field(3n));
 
-      const instruction = new Revert(0, returnData.length);
+      const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
       await instruction.execute(machineState, journal);
 
       expect(machineState.getReturnData()).toEqual(returnData);

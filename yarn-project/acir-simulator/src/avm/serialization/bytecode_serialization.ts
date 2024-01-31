@@ -1,99 +1,114 @@
-import { BufferCursor } from './buffer_cursor.js';
-import { Add, Sub } from '../opcodes/index.js';
+import {
+  Add,
+  And,
+  CMov,
+  CalldataCopy,
+  Cast,
+  Div,
+  Eq,
+  Lt,
+  Lte,
+  Mov,
+  Mul,
+  Not,
+  Or,
+  Set,
+  Shl,
+  Shr,
+  Sub,
+  Xor,
+} from '../opcodes/index.js';
 import { Instruction } from '../opcodes/instruction.js';
+import { BufferCursor } from './buffer_cursor.js';
 import { Opcode } from './instruction_serialization.js';
 
-export interface DeserializableInstruction {
-  deserialize(buf: BufferCursor): Instruction;
+interface DeserializableInstruction {
+  deserialize(buf: BufferCursor | Buffer): Instruction;
   opcode: Opcode;
-  // serialize(this: any): Buffer;
 }
 
 export type InstructionSet = Map<Opcode, DeserializableInstruction>;
 const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstruction>(
   [
-    // new Array<[Opcode, InstructionConstructorAndMembers]>(
-    // Compute
-    // Compute - Arithmetic
     [Add.opcode, Add],
     [Sub.opcode, Sub],
-    // [Opcode.SUB, Sub],
-    // [Opcode.MUL, Mul],
-    // [Opcode.DIV, Div],
-    // //// Compute - Comparators
-    // //[Opcode.EQ, Eq],
-    // //[Opcode.LT, Lt],
-    // //[Opcode.LTE, Lte],
-    // //// Compute - Bitwise
-    // [Opcode.AND, And],
-    // [Opcode.OR, Or],
-    // [Opcode.XOR, Xor],
-    // [Opcode.NOT, Not],
-    // [Opcode.SHL, Shl],
-    // [Opcode.SHR, Shr],
-    // //// Compute - Type Conversions
-    // [Opcode.CAST, Cast],
-
+    [Sub.opcode, Sub],
+    [Mul.opcode, Mul],
+    [Div.opcode, Div],
+    [Eq.opcode, Eq],
+    [Lt.opcode, Lt],
+    [Lte.opcode, Lte],
+    [And.opcode, And],
+    [Or.opcode, Or],
+    [Xor.opcode, Xor],
+    [Not.opcode, Not],
+    [Shl.opcode, Shl],
+    [Shr.opcode, Shr],
+    [Cast.opcode, Cast],
     // //// Execution Environment
-    // //[Opcode.ADDRESS, Address],
-    // //[Opcode.STORAGEADDRESS, Storageaddress],
-    // //[Opcode.ORIGIN, Origin],
-    // //[Opcode.SENDER, Sender],
-    // //[Opcode.PORTAL, Portal],
-    // //[Opcode.FEEPERL1GAS, Feeperl1gas],
-    // //[Opcode.FEEPERL2GAS, Feeperl2gas],
-    // //[Opcode.FEEPERDAGAS, Feeperdagas],
-    // //[Opcode.CONTRACTCALLDEPTH, Contractcalldepth],
+    // //[Address.opcode, Address],
+    // //[Storageaddress.opcode, Storageaddress],
+    // //[Origin.opcode, Origin],
+    // //[Sender.opcode, Sender],
+    // //[Portal.opcode, Portal],
+    // //[Feeperl1gas.opcode, Feeperl1gas],
+    // //[Feeperl2gas.opcode, Feeperl2gas],
+    // //[Feeperdagas.opcode, Feeperdagas],
+    // //[Contractcalldepth.opcode, Contractcalldepth],
     // //// Execution Environment - Globals
-    // //[Opcode.CHAINID, Chainid],
-    // //[Opcode.VERSION, Version],
-    // //[Opcode.BLOCKNUMBER, Blocknumber],
-    // //[Opcode.TIMESTAMP, Timestamp],
-    // //[Opcode.COINBASE, Coinbase],
-    // //[Opcode.BLOCKL1GASLIMIT, Blockl1gaslimit],
-    // //[Opcode.BLOCKL2GASLIMIT, Blockl2gaslimit],
-    // //[Opcode.BLOCKDAGASLIMIT, Blockdagaslimit],
+    // //[Chainid.opcode, Chainid],
+    // //[Version.opcode, Version],
+    // //[Blocknumber.opcode, Blocknumber],
+    // //[Timestamp.opcode, Timestamp],
+    // //[Coinbase.opcode, Coinbase],
+    // //[Blockl1gaslimit.opcode, Blockl1gaslimit],
+    // //[Blockl2gaslimit.opcode, Blockl2gaslimit],
+    // //[Blockdagaslimit.opcode, Blockdagaslimit],
     // // Execution Environment - Calldata
-    // [Opcode.CALLDATACOPY, CalldataCopy],
+    [CalldataCopy.opcode, CalldataCopy],
 
     // //// Machine State
     // // Machine State - Gas
-    // //[Opcode.L1GASLEFT, L1gasleft],
-    // //[Opcode.L2GASLEFT, L2gasleft],
-    // //[Opcode.DAGASLEFT, Dagasleft],
+    // //[L1gasleft.opcode, L1gasleft],
+    // //[L2gasleft.opcode, L2gasleft],
+    // //[Dagasleft.opcode, Dagasleft],
     // //// Machine State - Internal Control Flow
-    // [Opcode.JUMP, Jump],
-    // [Opcode.JUMPI, JumpI],
-    // [Opcode.INTERNALCALL, InternalCall],
-    // [Opcode.INTERNALRETURN, InternalReturn],
+    // [Jump.opcode, Jump],
+    // [JumpI.opcode, JumpI],
+    // [InternalCall.opcode, InternalCall],
+    // [InternalReturn.opcode, InternalReturn],
     // //// Machine State - Memory
-    // [Opcode.SET, Set],
-    // [Opcode.MOV, Mov],
-    // [Opcode.CMOV, CMov],
+    [Set.opcode, Set],
+    [Mov.opcode, Mov],
+    [CMov.opcode, CMov],
 
     // //// World State
-    // //[Opcode.BLOCKHEADERBYNUMBER, Blockheaderbynumber],
-    // [Opcode.SLOAD, SLoad], // Public Storage
-    // [Opcode.SSTORE, SStore], // Public Storage
-    // //[Opcode.READL1TOL2MSG, Readl1tol2msg], // Messages
-    // //[Opcode.SENDL2TOL1MSG, Sendl2tol1msg], // Messages
-    // //[Opcode.EMITNOTEHASH, Emitnotehash], // Notes & Nullifiers
-    // //[Opcode.EMITNULLIFIER, Emitnullifier], // Notes & Nullifiers
+    // //[Blockheaderbynumber.opcode, Blockheaderbynumber],
+    // [SLoad.opcode, SLoad], // Public Storage
+    // [SStore.opcode, SStore], // Public Storage
+    // //[Readl1tol2msg.opcode, Readl1tol2msg], // Messages
+    // //[Sendl2tol1msg.opcode, Sendl2tol1msg], // Messages
+    // //[Emitnotehash.opcode, Emitnotehash], // Notes & Nullifiers
+    // //[Emitnullifier.opcode, Emitnullifier], // Notes & Nullifiers
 
     // //// Accrued Substate
-    // //[Opcode.EMITUNENCRYPTEDLOG, Emitunencryptedlog],
+    // //[Emitunencryptedlog.opcode, Emitunencryptedlog],
 
     // //// Control Flow - Contract Calls
-    // // [Opcode.CALL, Call],
-    // //[Opcode.STATICCALL, Staticcall],
-    // [Opcode.RETURN, Return],
-    // //[Opcode.REVERT, Revert],
+    // // [Call.opcode, Call],
+    // //[Staticcall.opcode, Staticcall],
+    // [Return.opcode, Return],
+    // //[Revert.opcode, Revert],
 
     // //// Gadgets
-    // //[Opcode.KECCAK, Keccak],
-    // //[Opcode.POSEIDON, Poseidon],
+    // //[Keccak.opcode, Keccak],
+    // //[Poseidon.opcode, Poseidon],
   ], //),
 );
+
+interface Serializable {
+  serialize(): Buffer;
+}
 
 /**
  * TODO: doc
@@ -101,8 +116,7 @@ const INSTRUCTION_SET: InstructionSet = new Map<Opcode, DeserializableInstructio
  * @param args - the arguments to encode
  * @returns the bytecode for this one instruction
  */
-// FIXME: instructions: any[]
-export function encodeToBytecode(instructions: any[]): Buffer {
+export function encodeToBytecode(instructions: Serializable[]): Buffer {
   return Buffer.concat(instructions.map(i => i.serialize()));
 }
 
