@@ -169,7 +169,9 @@ if(WASM)
         $<TARGET_OBJECTS:common_objects>
         $<TARGET_OBJECTS:numeric_objects>
         $<TARGET_OBJECTS:ecc_objects>
+        $<TARGET_OBJECTS:crypto_blake2s_objects>
         $<TARGET_OBJECTS:crypto_keccak_objects>
+        $<TARGET_OBJECTS:crypto_schnorr_objects>
         $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     )
