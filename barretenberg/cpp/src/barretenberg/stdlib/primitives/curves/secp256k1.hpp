@@ -23,8 +23,8 @@ template <typename CircuitType> struct secp256k1 {
     using bool_ct = bool_t<Builder>;
     using uint32_ct = stdlib::uint32<Builder>;
 
-    using fq_ct = bigfield<Builder, typename ::secp256k1::Secp256k1FqParams>;
-    using bigfr_ct = bigfield<Builder, typename ::secp256k1::Secp256k1FrParams>;
+    using fq_ct = bigfield<Builder, typename ::Secp256k1FqParams>;
+    using bigfr_ct = bigfield<Builder, typename ::Secp256k1FrParams>;
     using g1_ct = element<Builder, fq_ct, fr_ct, g1>;
     using g1_bigfr_ct = element<Builder, fq_ct, bigfr_ct, g1>;
 };

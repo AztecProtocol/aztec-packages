@@ -3,7 +3,7 @@
 #include "../../fields/field.hpp"
 #include "../../groups/group.hpp"
 
-namespace secp256r1 {
+namespace bb {
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 struct Secp256r1FqParams {
     static constexpr uint64_t modulus_0 = 0xFFFFFFFFFFFFFFFFULL;
@@ -84,9 +84,6 @@ struct Secp256r1FrParams {
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
 
-using fq = bb::field<Secp256r1FqParams>;
-using fr = bb::field<Secp256r1FrParams>;
-
 struct Secp256r1G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
@@ -103,9 +100,13 @@ struct Secp256r1G1Params {
     static constexpr fq one_y =
         fq(0xCBB6406837BF51F5, 0x2BCE33576B315ECE, 0x8EE7EB4A7C0F9E16, 0x4FE342E2FE1A7F9B).to_montgomery_form();
 };
+} // namespace bb
 
-using g1 = bb::group<bb::field<Secp256r1FqParams>, bb::field<Secp256r1FrParams>, Secp256r1G1Params>;
-} // namespace secp256r1
+namespace bb::secp256r1 {
+using fq = field<Secp256r1FqParams>;
+using fr = field<Secp256r1FrParams>;
+using g1 = group<field<Secp256r1FqParams>, field<Secp256r1FrParams>, Secp256r1G1Params>;
+} // namespace bb::secp256r1
 
 namespace bb::curve {
 class SECP256R1 {

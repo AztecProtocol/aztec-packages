@@ -149,7 +149,7 @@ sha256::hash verification_key::sha256_hash()
     for (auto& index : recursive_proof_public_input_indices) {
         vk_data.emplace_back(index);
     }
-    return sha256::sha256(to_buffer(vk_data));
+    return crypto::sha256(to_buffer(vk_data));
 }
 
 } // namespace bb::plonk

@@ -98,7 +98,7 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
     // NOTE: If the hash being used outputs more than 32 bytes, then big-field will panic
     std::vector<uint8_t> message_buffer;
     std::copy(message_string.begin(), message_string.end(), std::back_inserter(message_buffer));
-    auto hashed_message = sha256::sha256(message_buffer);
+    auto hashed_message = crypto::sha256(message_buffer);
 
     crypto::ecdsa_key_pair<secp256r1::fr, secp256r1::g1> account;
     account.private_key = 10;

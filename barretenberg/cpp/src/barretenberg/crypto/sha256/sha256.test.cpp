@@ -9,7 +9,7 @@ TEST(misc_sha256, test_NIST_vector_one)
 
     std::vector<uint8_t> input;
     std::copy(input_str.begin(), input_str.end(), std::back_inserter(input));
-    auto result = sha256::sha256(input);
+    auto result = crypto::sha256(input);
 
     sha256::hash expected{
         0xBA, 0x78, 0x16, 0xBF, 0x8F, 0x01, 0xCF, 0xEA, 0x41, 0x41, 0x40, 0xDE, 0x5D, 0xAE, 0x22, 0x23,
@@ -27,7 +27,7 @@ TEST(misc_sha256, test_NIST_vector_two)
 
     std::vector<uint8_t> input;
     std::copy(input_str.begin(), input_str.end(), std::back_inserter(input));
-    auto result = sha256::sha256(input);
+    auto result = crypto::sha256(input);
 
     sha256::hash expected{
         0x24, 0x8D, 0x6A, 0x61, 0xD2, 0x06, 0x38, 0xB8, 0xE5, 0xC0, 0x26, 0x93, 0x0C, 0x3E, 0x60, 0x39,
@@ -43,7 +43,7 @@ TEST(misc_sha256, test_NIST_vector_three)
 {
     std::vector<uint8_t> input;
     input.push_back(0xbd);
-    auto result = sha256::sha256(input);
+    auto result = crypto::sha256(input);
 
     sha256::hash expected{
         0x68, 0x32, 0x57, 0x20, 0xaa, 0xbd, 0x7c, 0x82, 0xf3, 0x0f, 0x55, 0x4b, 0x31, 0x3d, 0x05, 0x70,
@@ -59,7 +59,7 @@ TEST(misc_sha256, test_NIST_vector_four)
 {
     std::vector<uint8_t> input{ 0xc9, 0x8c, 0x8e, 0x55 };
 
-    auto result = sha256::sha256(input);
+    auto result = crypto::sha256(input);
 
     sha256::hash expected{
         0x7a, 0xbc, 0x22, 0xc0, 0xae, 0x5a, 0xf2, 0x6c, 0xe9, 0x3d, 0xbb, 0x94, 0x43, 0x3a, 0x0e, 0x0b,
@@ -87,7 +87,7 @@ TEST(misc_sha256, test_NIST_vector_five)
 
     std::vector<uint8_t> input;
     std::copy(input_str.begin(), input_str.end(), std::back_inserter(input));
-    auto result = sha256::sha256(input);
+    auto result = crypto::sha256(input);
 
     sha256::hash expected{
         0xc2, 0xe6, 0x86, 0x82, 0x34, 0x89, 0xce, 0xd2, 0x01, 0x7f, 0x60, 0x59, 0xb8, 0xb2, 0x39, 0x31,

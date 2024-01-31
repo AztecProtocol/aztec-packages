@@ -23,7 +23,7 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     // NOTE: If the hash being used outputs more than 32 bytes, then big-field will panic
     std::vector<uint8_t> message_buffer;
     std::copy(message_string.begin(), message_string.end(), std::back_inserter(message_buffer));
-    auto hashed_message = sha256::sha256(message_buffer);
+    auto hashed_message = crypto::sha256(message_buffer);
 
     crypto::ecdsa_key_pair<curve_ct::fr, curve_ct::g1> account;
     account.private_key = curve_ct::fr::random_element();

@@ -53,7 +53,7 @@ int main(int argc, char** argv)
             hash_input.insert(hash_input.end(),
                               reinterpret_cast<uint8_t*>(&point_attempt_le_order),
                               reinterpret_cast<uint8_t*>(&point_attempt_le_order) + sizeof(uint64_t));
-            auto hash_result = sha256::sha256(hash_input);
+            auto hash_result = crypto::sha256(hash_input);
             uint256_t hash_result_uint(ntohll(*reinterpret_cast<uint64_t*>(hash_result.data())),
                                        ntohll(*reinterpret_cast<uint64_t*>(hash_result.data() + sizeof(uint64_t))),
                                        ntohll(*reinterpret_cast<uint64_t*>(hash_result.data() + 2 * sizeof(uint64_t))),
