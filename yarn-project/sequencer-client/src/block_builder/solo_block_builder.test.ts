@@ -15,6 +15,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   Fr,
   GlobalVariables,
+  Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -210,12 +211,6 @@ describe('sequencer/solo_block_builder', () => {
     // Update l1 to l2 data tree
     // And update the root trees now to create proper output to the root rollup circuit
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
-    rootRollupOutput.header.state = await getStateReference();
-
-    // Calculate block hash
-    rootRollupOutput.header.globalVariables = globalVariables;
-    await updateArchive();
-    rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
     const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
@@ -230,9 +225,11 @@ describe('sequencer/solo_block_builder', () => {
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
     const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
 
+    // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
     const l2Block = L2Block.fromFields({
-      archive: rootRollupOutput.archive,
-      header: rootRollupOutput.header,
+      archive: AppendOnlyTreeSnapshot.empty(),
+      header: Header.empty(),
+      // Only the values bellow go to body hash/calldata hash
       newCommitments: newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
       newNullifiers: newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
       newContracts,
@@ -244,7 +241,12 @@ describe('sequencer/solo_block_builder', () => {
       newUnencryptedLogs,
     });
 
+    rootRollupOutput.header.globalVariables = globalVariables;
     rootRollupOutput.header.bodyHash = l2Block.getCalldataHash();
+    rootRollupOutput.header.state = await getStateReference();
+
+    await updateArchive();
+    rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     return txs;
   };
@@ -255,7 +257,7 @@ describe('sequencer/solo_block_builder', () => {
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
-    it.skip('builds an L2 block using mock simulator', async () => {
+    it('builds an L2 block using mock simulator', async () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
 

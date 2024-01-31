@@ -47,10 +47,12 @@ export class AppendOnlyTreeSnapshot {
     return AppendOnlyTreeSnapshot.fromBuffer(Buffer.from(str, STRING_ENCODING));
   }
 
+  // TODO(benesjan): rename to 0
   static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 
+  // TODO(benesjan): rename to isZero
   isEmpty(): boolean {
     return this.root.isZero() && this.nextAvailableLeafIndex === 0;
   }
