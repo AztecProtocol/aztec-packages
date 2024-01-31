@@ -52,12 +52,12 @@ contract TokenBlacklist {
     // docs:end:interface
 
     struct Storage {
-        admin: PublicState<AztecAddress>,
-        balances: BalancesMap<TokenNote>,
-        total_supply: PublicState<SafeU120>,
-        pending_shields: Set<TransparentNote>,
-        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
-        slow_update: ImmutableSingleton<FieldNote>,
+        admin: PublicState<AztecAddress>, 
+        balances: BalancesMap<TokenNote>, // slot 2
+        total_supply: PublicState<SafeU120>, 
+        pending_shields: Set<TransparentNote>, // slot 6
+        public_balances: Map<AztecAddress, PublicState<SafeU120>>, 
+        slow_update: ImmutableSingleton<FieldNote>, // slot 9
         public_slow_update: PublicState<AztecAddress>,
     }
 
@@ -347,9 +347,9 @@ contract TokenBlacklist {
         preimage: [Field; TOKEN_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == 5) {
+        if (storage_slot == 6) {
             note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, preimage)
-        } else if (storage_slot == 7) {
+        } else if (storage_slot == 9) {
             note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize, note_header, preimage)
         } else {
             note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, preimage)

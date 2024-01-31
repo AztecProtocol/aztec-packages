@@ -56,22 +56,22 @@ contract Token {
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<AztecAddress>,
+        admin: PublicState<AztecAddress>, 1
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicState<bool>>,
+        minters: Map<AztecAddress, PublicState<bool>>, 2
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap<TokenNote>,
+        balances: BalancesMap<TokenNote>, 3
         // docs:end:storage_balances
-        total_supply: PublicState<SafeU120>,
+        total_supply: PublicState<SafeU120>, 6
         // docs:start:storage_pending_shields
-        pending_shields: Set<TransparentNote>,
+        pending_shields: Set<TransparentNote>, 7
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
-        symbol: PublicState<FieldCompressedString>,
-        name: PublicState<FieldCompressedString>,
-        decimals: PublicState<u8>,
+        public_balances: Map<AztecAddress, PublicState<SafeU120>>, 9
+        symbol: PublicState<FieldCompressedString>, 10  
+        name: PublicState<FieldCompressedString>, 11
+        decimals: PublicState<u8>, 12
     }
     // docs:end:storage_struct
 
@@ -378,7 +378,7 @@ contract Token {
         serialized_note: [Field; TOKEN_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == 5) {
+        if (storage_slot == 7) {
             note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
         } else {
             note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)
