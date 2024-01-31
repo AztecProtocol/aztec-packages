@@ -10,10 +10,10 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
-using namespace bb;
-using namespace bb
 
-    class GoblinRecursionTests : public ::testing::Test {
+using namespace bb;
+
+class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
