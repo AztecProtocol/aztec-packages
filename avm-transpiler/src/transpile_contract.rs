@@ -34,6 +34,43 @@ pub struct CompiledAcirContract {
     //pub warnings: serde_json::Value,
 }
 
+/// Representation of a contract function
+/// with AVM bytecode as a base64 string
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AvmContractFunction {
+    pub name: String,
+    pub function_type: ContractFunctionType,
+    pub is_internal: bool,
+    pub abi: serde_json::Value,
+    pub bytecode: String, // base64
+    pub debug_symbols: serde_json::Value,
+}
+
+/// Representation of an ACIR contract function but with
+/// catch-all serde Values for fields irrelevant to transpilation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AcirContractFunction {
+    pub name: String,
+    pub function_type: ContractFunctionType,
+    pub is_internal: bool,
+    pub abi: serde_json::Value,
+    #[serde(
+        serialize_with = "Circuit::serialize_circuit_base64",
+        deserialize_with = "Circuit::deserialize_circuit_base64"
+    )]
+    pub bytecode: Circuit,
+    pub debug_symbols: serde_json::Value,
+}
+
+/// An enum that allows the TranspiledContract struct to contain
+/// functions with either ACIR or AVM bytecode
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)] // omit Acir/Avm tag for these objects in json
+pub enum AvmOrAcirContractFunction {
+    Acir(AcirContractFunction),
+    Avm(AvmContractFunction),
+}
+
 /// Transpilation is performed when a TranspiledContract
 /// is constructed from a CompiledAcirContract
 impl From<CompiledAcirContract> for TranspiledContract {
@@ -80,41 +117,4 @@ impl From<CompiledAcirContract> for TranspiledContract {
             //warnings: contract.warnings,
         }
     }
-}
-
-/// Representation of a contract function
-/// with AVM bytecode as a base64 string
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AvmContractFunction {
-    pub name: String,
-    pub function_type: ContractFunctionType,
-    pub is_internal: bool,
-    pub abi: serde_json::Value,
-    pub bytecode: String, // base64
-    pub debug_symbols: serde_json::Value,
-}
-
-/// Representation of an ACIR contract function but with
-/// catch-all serde Values for fields irrelevant to transpilation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AcirContractFunction {
-    pub name: String,
-    pub function_type: ContractFunctionType,
-    pub is_internal: bool,
-    pub abi: serde_json::Value,
-    #[serde(
-        serialize_with = "Circuit::serialize_circuit_base64",
-        deserialize_with = "Circuit::deserialize_circuit_base64"
-    )]
-    pub bytecode: Circuit,
-    pub debug_symbols: serde_json::Value,
-}
-
-/// An enum that allows the TranspiledContract struct to contain
-/// functions with either ACIR or AVM bytecode
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)] // omit Acir/Avm tag for these objects in json
-pub enum AvmOrAcirContractFunction {
-    Acir(AcirContractFunction),
-    Avm(AvmContractFunction),
 }

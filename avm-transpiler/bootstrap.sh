@@ -7,6 +7,7 @@ CMD=${1:-}
 
 if [ -n "$CMD" ]; then
   if [ "$CMD" = "clean" ]; then
+    cargo clean
     git clean -fdx
     exit 0
   else

@@ -225,11 +225,8 @@ export class TaggedMemory {
   private _mem: MemoryValue[];
 
   constructor() {
-    this._mem = [];
-    // The following two lines basically initialize a sparse array of length MAX_MEMORY_SIZE.
-    // All entries will be undefined afterwards.
-    this._mem[TaggedMemory.MAX_MEMORY_SIZE] = new Field(0);
-    this._mem.splice(TaggedMemory.MAX_MEMORY_SIZE, 1);
+    // Initialize memory size, but leave all entries undefined.
+    this._mem = new Array(TaggedMemory.MAX_MEMORY_SIZE);
   }
 
   public get(offset: number): MemoryValue {
