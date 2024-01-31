@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, Header, PartialStateReference, StateReference } from '@aztec/circuits.js';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import { SiblingPath } from '@aztec/types/membership';
@@ -150,5 +150,9 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
 
   updateLeaf(): Promise<void> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
+  }
+
+  buildInitialHeader(): Promise<Header> {
+    throw new Error('Building initial header not supported on snapshot.');
   }
 }

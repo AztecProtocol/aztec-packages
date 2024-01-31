@@ -21,7 +21,6 @@ import {
   ContractStorageUpdateRequest,
   FunctionData,
   FunctionLeafPreimage,
-  GlobalVariables,
   NewContractData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,

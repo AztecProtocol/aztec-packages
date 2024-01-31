@@ -36,7 +36,6 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  buildInitialHeader,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
