@@ -3,9 +3,13 @@
 
 #include <gtest/gtest.h>
 
+using namespace bb;
+
+namespace {
 template <typename Flavor> class PartialEvaluationTests : public testing::Test {};
 
-using Flavors = testing::Types<bb::Ultra>;
+using Flavors = testing::Types<bb::UltraFlavor>;
+} // namespace
 
 TYPED_TEST_SUITE(PartialEvaluationTests, Flavors);
 

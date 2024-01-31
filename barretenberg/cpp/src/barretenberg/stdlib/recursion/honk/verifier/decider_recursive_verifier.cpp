@@ -25,7 +25,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-    using Instance = typename VerifierInstance_<Flavor>;
+    using Instance = VerifierInstance_<Flavor>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
     transcript = std::make_shared<Transcript>(builder, proof.proof_data);
@@ -91,6 +91,6 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     return pairing_points;
 }
 
-template class DeciderRecursiveVerifier_<bb::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-template class DeciderRecursiveVerifier_<bb::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
+template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+template class DeciderRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

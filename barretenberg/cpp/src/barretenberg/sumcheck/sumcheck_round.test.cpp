@@ -46,7 +46,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     EXPECT_EQ(result, result_expected);
 
     // Reinitialize univariate accumulators to zero
-    Utils::zero_univariates(tuple_of_tuples);
+    RelationUtils<Flavor>::zero_univariates(tuple_of_tuples);
 
     // Check that reinitialization was successful
     Univariate<FF, 3> expected_1({ 0, 0, 0 });
@@ -63,7 +63,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = UltraHonkFlavor;
+    using Flavor = UltraFlavor;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -103,7 +103,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = UltraHonkFlavor;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates
@@ -125,7 +125,7 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     auto tuple_of_tuples_2 =
         std::make_tuple(std::make_tuple(univariate_4), std::make_tuple(univariate_5, univariate_6));
 
-    Utils::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
+    RelationUtils<Flavor>::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
 
     EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples_1)), expected_sum_1);
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_1)), expected_sum_2);

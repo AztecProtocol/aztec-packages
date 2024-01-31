@@ -31,7 +31,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
     // Types for recursive verifier circuit
     using OuterBuilder = BuilderType;
-    using RecursiveFlavor = ::bb::GoblinUltraRecursive_<OuterBuilder>;
+    using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 

@@ -376,7 +376,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = bb::Polynomial<FF>;
-    using namespace bb auto& engine = numeric::get_debug_randomness();
+    auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
     auto full_circuit_size = mini_circuit_size * Flavor::CONCATENATION_GROUP_SIZE;
 

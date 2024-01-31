@@ -43,7 +43,6 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using OpeningClaim = typename OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
 
@@ -182,7 +181,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     // Compute powers of batching challenge rho
     FF rho = transcript->get_challenge("rho");
-    std::vector<FF> rhos = powers_of_rho(rho, NUM_POLYNOMIALS);
+    std::vector<FF> rhos = gemini_detail::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();
@@ -272,8 +271,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         }
 
         // Construct and verify batched opening claim
-        OpeningClaim batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                  batched_commitment };
+        OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
+                                                         batched_commitment };
         univariate_opening_verified = PCS::verify(pcs_verification_key, batched_univariate_claim, transcript);
     }
 

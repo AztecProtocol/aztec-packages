@@ -12,7 +12,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    using Flavor = GoblinUltra;
+    using Flavor = GoblinUltraFlavor;
     using FF = Flavor::FF;
 
     /**

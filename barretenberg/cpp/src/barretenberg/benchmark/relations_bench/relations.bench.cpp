@@ -47,12 +47,12 @@ BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorGenPermSortRe
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorNonNativeFieldRelation<Fr>>);
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorPermutationRelation<Fr>>);
 
-BENCHMARK(execute_relation<ECCVM, ECCVMLookupRelation<Fq>>);
-BENCHMARK(execute_relation<ECCVM, ECCVMMSMRelation<Fq>>);
-BENCHMARK(execute_relation<ECCVM, ECCVMPointTableRelation<Fq>>);
-BENCHMARK(execute_relation<ECCVM, ECCVMSetRelation<Fq>>);
-BENCHMARK(execute_relation<ECCVM, ECCVMTranscriptRelation<Fq>>);
-BENCHMARK(execute_relation<ECCVM, ECCVMWnafRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMLookupRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMMSMRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMPointTableRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMSetRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMTranscriptRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMWnafRelation<Fq>>);
 
 } // namespace bb::benchmark::relations
 
