@@ -88,7 +88,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Collect multilinear evaluations for input to prover
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
-    std::vector<Fr> rhos = gemini_detail::powers_of_rho(rho, multilinear_evaluations.size());
+    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
     // Compute batched multivariate evaluation
     Fr batched_evaluation = Fr::zero();

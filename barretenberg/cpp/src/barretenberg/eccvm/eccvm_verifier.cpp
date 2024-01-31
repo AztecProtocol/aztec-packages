@@ -181,7 +181,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const HonkP
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     // Compute powers of batching challenge rho
     FF rho = transcript->get_challenge("rho");
-    std::vector<FF> rhos = gemini_detail::powers_of_rho(rho, NUM_POLYNOMIALS);
+    std::vector<FF> rhos = gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();

@@ -29,7 +29,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         const Fr rho = Fr::random_element();
 
-        std::vector<Fr> rhos = gemini_detail::powers_of_rho(rho, multilinear_evaluations.size());
+        std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
         // Compute batched multivariate evaluation
         Fr batched_evaluation = Fr::zero();

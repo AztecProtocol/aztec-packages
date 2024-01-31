@@ -113,7 +113,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
-    std::vector<Fr> rhos = gemini_detail::powers_of_rho(rho, multilinear_evaluations.size());
+    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
     Fr batched_evaluation = Fr::zero();
     for (size_t i = 0; i < rhos.size(); ++i) {

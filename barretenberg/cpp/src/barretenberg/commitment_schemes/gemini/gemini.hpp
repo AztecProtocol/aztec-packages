@@ -62,7 +62,7 @@ template <typename Curve> struct GeminiProverOutput {
     std::vector<bb::Polynomial<typename Curve::ScalarField>> witnesses;
 };
 
-namespace gemini_detail {
+namespace gemini {
 /**
  * @brief Compute powers of challenge ρ
  *
@@ -97,7 +97,7 @@ template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t
     }
     return squares;
 };
-} // namespace gemini_detail
+} // namespace gemini
 
 template <typename Curve> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
@@ -150,7 +150,7 @@ template <typename Curve> class GeminiVerifier_ {
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->get_challenge("Gemini:r");
-        std::vector<Fr> r_squares = gemini_detail::squares_of_r(r, num_variables);
+        std::vector<Fr> r_squares = gemini::squares_of_r(r, num_variables);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         std::vector<Fr> evaluations;
