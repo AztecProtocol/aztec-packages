@@ -1,4 +1,4 @@
-import { PrivateCallStackItem, PrivateCircuitPublicInputs, PublicCallRequest } from '@aztec/circuits.js';
+import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -45,40 +45,6 @@ export function toACVMField(
 // In the order that the ACVM expects them
 
 /**
- * Converts the public inputs structure to ACVM fields.
- * @param publicInputs - The public inputs to convert.
- * @returns The ACVM fields.
- */
-export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): ACVMField[] {
-  return [
-    ...publicInputs.callContext.toFields().map(toACVMField),
-    toACVMField(publicInputs.argsHash),
-
-    ...publicInputs.returnValues.map(toACVMField),
-    ...publicInputs.readRequests.flatMap(x => x.toFields()).map(toACVMField),
-    ...publicInputs.nullifierKeyValidationRequests.flatMap(x => x.toFields()).map(toACVMField),
-    ...publicInputs.newCommitments.flatMap(x => x.toFields()).map(toACVMField),
-    ...publicInputs.newNullifiers.flatMap(x => x.toFields()).map(toACVMField),
-    ...publicInputs.privateCallStackHashes.map(toACVMField),
-    ...publicInputs.publicCallStackHashes.map(toACVMField),
-    ...publicInputs.newL2ToL1Msgs.map(toACVMField),
-    toACVMField(publicInputs.endSideEffectCounter),
-    ...publicInputs.encryptedLogsHash.map(toACVMField),
-    ...publicInputs.unencryptedLogsHash.map(toACVMField),
-
-    toACVMField(publicInputs.encryptedLogPreimagesLength),
-    toACVMField(publicInputs.unencryptedLogPreimagesLength),
-
-    ...publicInputs.historicalHeader.toFields().map(toACVMField),
-
-    ...publicInputs.contractDeploymentData.toFields().map(toACVMField),
-
-    toACVMField(publicInputs.chainId),
-    toACVMField(publicInputs.version),
-  ];
-}
-
-/**
  * Converts a private call stack item to ACVM fields.
  * @param item - The private call stack item to convert.
  * @returns The ACVM fields.
@@ -87,7 +53,7 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
   return [
     toACVMField(item.contractAddress),
     ...item.functionData.toFields().map(toACVMField),
-    ...toACVMPublicInputs(item.publicInputs),
+    ...item.publicInputs.toFields().map(toACVMField),
     toACVMField(item.isExecutionRequest),
   ];
 }
