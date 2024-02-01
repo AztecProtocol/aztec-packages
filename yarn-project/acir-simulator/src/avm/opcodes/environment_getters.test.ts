@@ -37,9 +37,45 @@ describe('Environment getters instructions', () => {
     expect(actual).toEqual(value);
   };
 
-  it('Should read address correctly', async () => {
-    const address = new Fr(123456n);
-    await envGetterTest('address', address, new Address(/*indirect=*/ 0, /*dstOffset=*/ 0));
+  describe('ADDRESS', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        // opcode
+        Address.opcode,
+        // indirect
+        0x01,
+        // dstOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+
+      const inst = Address.deserialize(buf);
+      expect(inst).toEqual(new Address(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
+    });
+
+    it('Should serialize correctly', () => {
+      const inst = new Address(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
+
+      const expected = Buffer.from([
+        // opcode
+        Address.opcode,
+        // indirect
+        0x01,
+        // dstOffset
+        0x12,
+        0x34,
+        0x56,
+        0x78,
+      ]);
+      expect(inst.serialize()).toEqual(expected);
+    });
+
+    it('Should read address correctly', async () => {
+      const address = new Fr(123456n);
+      await envGetterTest('address', address, new Address(/*indirect=*/ 0, /*dstOffset=*/ 0));
+    });
   });
 
   it('Should read storage address correctly', async () => {

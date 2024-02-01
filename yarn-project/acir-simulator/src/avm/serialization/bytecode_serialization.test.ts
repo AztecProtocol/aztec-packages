@@ -1,6 +1,6 @@
 import { strict as assert } from 'assert';
 
-import { Add, Sub } from '../opcodes/index.js';
+import { Add, Address, Sub } from '../opcodes/index.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
 import { Opcode } from './instruction_serialization.js';
@@ -74,6 +74,7 @@ describe('Bytecode Serialization', () => {
     const instructions = [
       new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
       new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
     ];
     const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
 
@@ -86,6 +87,7 @@ describe('Bytecode Serialization', () => {
     const instructions = [
       new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
       new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
     ];
 
     const actual = encodeToBytecode(instructions);

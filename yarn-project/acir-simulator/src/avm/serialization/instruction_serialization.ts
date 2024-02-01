@@ -1,3 +1,5 @@
+import { strict as assert } from 'assert';
+
 import { BufferCursor } from './buffer_cursor.js';
 
 /**
@@ -5,62 +7,62 @@ import { BufferCursor } from './buffer_cursor.js';
  * Source: https://yp-aztec.netlify.app/docs/public-vm/instruction-set
  */
 export enum Opcode {
-  ADD = 0x00,
-  SUB = 0x01,
-  MUL = 0x02,
-  DIV = 0x03,
-  EQ = 0x04,
-  LT = 0x05,
-  LTE = 0x06,
-  AND = 0x07,
-  OR = 0x08,
-  XOR = 0x09,
-  NOT = 0x0a,
-  SHL = 0x0b,
-  SHR = 0x0c,
-  CAST = 0x0d,
-  ADDRESS = 0x0e,
-  STORAGEADDRESS = 0x0f,
-  ORIGIN = 0x10,
-  SENDER = 0x11,
-  PORTAL = 0x12,
-  FEEPERL1GAS = 0x13,
-  FEEPERL2GAS = 0x14,
-  FEEPERDAGAS = 0x15,
-  CONTRACTCALLDEPTH = 0x16,
-  CHAINID = 0x17,
-  VERSION = 0x18,
-  BLOCKNUMBER = 0x19,
-  TIMESTAMP = 0x1a,
-  COINBASE = 0x1b,
-  BLOCKL1GASLIMIT = 0x1c,
-  BLOCKL2GASLIMIT = 0x1d,
-  BLOCKDAGASLIMIT = 0x1e,
-  CALLDATACOPY = 0x1f,
-  L1GASLEFT = 0x20,
-  L2GASLEFT = 0x21,
-  DAGASLEFT = 0x22,
-  JUMP = 0x23,
-  JUMPI = 0x24,
-  INTERNALCALL = 0x25,
-  INTERNALRETURN = 0x26,
-  SET = 0x27,
-  MOV = 0x28,
-  CMOV = 0x29,
-  BLOCKHEADERBYNUMBER = 0x2a,
-  SLOAD = 0x2b, // Public Storage
-  SSTORE = 0x2c, // Public Storage
-  READL1TOL2MSG = 0x2d, // Messages
-  SENDL2TOL1MSG = 0x2e, // Messages
-  EMITNOTEHASH = 0x2f, // Notes & Nullifiers
-  EMITNULLIFIER = 0x30, // Notes & Nullifiers
-  EMITUNENCRYPTEDLOG = 0x31,
-  CALL = 0x32,
-  STATICCALL = 0x33,
-  RETURN = 0x34,
-  REVERT = 0x35,
-  KECCAK = 0x36,
-  POSEIDON = 0x37,
+  ADD,
+  SUB,
+  MUL,
+  DIV,
+  EQ,
+  LT,
+  LTE,
+  AND,
+  OR,
+  XOR,
+  NOT,
+  SHL,
+  SHR,
+  CAST,
+  ADDRESS,
+  STORAGEADDRESS,
+  ORIGIN,
+  SENDER,
+  PORTAL,
+  FEEPERL1GAS,
+  FEEPERL2GAS,
+  FEEPERDAGAS,
+  CONTRACTCALLDEPTH,
+  CHAINID,
+  VERSION,
+  BLOCKNUMBER,
+  TIMESTAMP,
+  COINBASE,
+  BLOCKL1GASLIMIT,
+  BLOCKL2GASLIMIT,
+  BLOCKDAGASLIMIT,
+  CALLDATACOPY,
+  L1GASLEFT,
+  L2GASLEFT,
+  DAGASLEFT,
+  JUMP,
+  JUMPI,
+  INTERNALCALL,
+  INTERNALRETURN,
+  SET,
+  MOV,
+  CMOV,
+  BLOCKHEADERBYNUMBER,
+  SLOAD, // Public Storage
+  SSTORE, // Public Storage
+  READL1TOL2MSG, // Messages
+  SENDL2TOL1MSG, // Messages
+  EMITNOTEHASH, // Notes & Nullifiers
+  EMITNULLIFIER, // Notes & Nullifiers
+  EMITUNENCRYPTEDLOG,
+  CALL,
+  STATICCALL,
+  RETURN,
+  REVERT,
+  KECCAK,
+  POSEIDON,
   // Add new opcodes before this
   TOTAL_OPCODES_NUMBER,
 }
@@ -120,6 +122,10 @@ export function serialize(operands: OperandType[], cls: any): Buffer {
 
   // TODO: infer opcode not in this loop
   const classValues = [cls.constructor.opcode, ...Object.values(cls)];
+  assert(
+    classValues.length === operands.length,
+    `Got ${classValues.length} values but only ${operands.length} serialization operands are specified!`,
+  );
   for (let i = 0; i < operands.length; i++) {
     const opType = operands[i];
     const [sizeBytes, _reader, writer] = OPERAND_SPEC.get(opType)!;
