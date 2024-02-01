@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { Grumpkin } from '../barretenberg/index.js';
@@ -16,7 +16,7 @@ import {
  *
  * @remarks We have introduced this type because it is common that these 3 values are used together. They are commonly
  *          used together because it is the information needed to send user a note.
- * @remarks See the link bellow for details about how address is computed:
+ * @remarks See the link below for details about how address is computed:
  *          https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 export class CompleteAddress {
@@ -46,6 +46,12 @@ export class CompleteAddress {
     const publicKey = Point.random();
     const address = computeContractAddressFromPartial({ publicKey, partialAddress });
     return new CompleteAddress(address, publicKey, partialAddress);
+  }
+
+  static fromRandomPrivateKey() {
+    const privateKey = GrumpkinScalar.random();
+    const partialAddress = Fr.random();
+    return { privateKey, completeAddress: CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, partialAddress) };
   }
 
   static fromPrivateKeyAndPartialAddress(privateKey: GrumpkinPrivateKey, partialAddress: Fr): CompleteAddress {

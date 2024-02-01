@@ -339,7 +339,7 @@ impl BaseRollupInputs {
 
         // Rebuild the block hash
         let header = self.kernel_data.public_inputs.constants.historical_header;
-        let previous_block_hash = header.block_hash();
+        let previous_block_hash = header.hash();
 
         let previous_block_hash_witness = self.archive_root_membership_witness;
 
@@ -597,7 +597,7 @@ mod tests {
         abis::side_effect::SideEffect,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{AztecAddress, EthAddress},
-        utils::bounded_vec::BoundedVec,
+        contract_class::ContractClassId,
         utils::uint256::U256,
         partial_state_reference::PartialStateReference,
     };
@@ -738,7 +738,7 @@ mod tests {
             let _nullifier = builder.end.new_nullifiers.pop();
             inputs.kernel_data = builder.is_public();
   
-            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.block_hash();
+            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
             inputs
         }
@@ -949,7 +949,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            contract_class_id: 3
+            contract_class_id: ContractClassId::from_field(3)
         };
 
         let mut builder = BaseRollupInputsBuilder::new();
@@ -978,7 +978,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            contract_class_id: 3
+            contract_class_id: ContractClassId::from_field(3)
         };
 
         let mut builder = BaseRollupInputsBuilder::new();
