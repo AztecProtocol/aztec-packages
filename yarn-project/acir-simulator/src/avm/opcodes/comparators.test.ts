@@ -19,27 +19,12 @@ describe('Comparators', () => {
   describe('Eq', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Eq.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Eq.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Eq = Eq.deserialize(buf);
@@ -64,27 +49,12 @@ describe('Comparators', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Eq.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Eq.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -134,27 +104,12 @@ describe('Comparators', () => {
   describe('Lt', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Lt.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Lt.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Lt = Lt.deserialize(buf);
@@ -179,27 +134,12 @@ describe('Comparators', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Lt.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Lt.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -249,27 +189,12 @@ describe('Comparators', () => {
   describe('Lte', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Lte.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Lte.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Lte = Lte.deserialize(buf);
@@ -294,27 +219,12 @@ describe('Comparators', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Lte.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Lte.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });

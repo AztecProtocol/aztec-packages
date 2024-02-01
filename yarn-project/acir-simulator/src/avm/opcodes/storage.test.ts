@@ -24,20 +24,10 @@ describe('Storage Instructions', () => {
   describe('SSTORE', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        SStore.opcode,
-        // indirect
-        0x01,
-        // srcOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // slotOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        SStore.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // srcOffset
+        ...Buffer.from('a2345678', 'hex'), // slotOffset
       ]);
 
       const inst = SStore.deserialize(buf);
@@ -48,20 +38,10 @@ describe('Storage Instructions', () => {
       const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*slotOffset=*/ 0xa2345678);
 
       const expected = Buffer.from([
-        // opcode
-        SStore.opcode,
-        // indirect
-        0x01,
-        // srcOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // slotOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        SStore.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // srcOffset
+        ...Buffer.from('a2345678', 'hex'), // slotOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -97,20 +77,10 @@ describe('Storage Instructions', () => {
   describe('SLOAD', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        SLoad.opcode,
-        // indirect
-        0x01,
-        // slotOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // dstOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        SLoad.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // slotOffset
+        ...Buffer.from('a2345678', 'hex'), // dstOffset
       ]);
 
       const inst = SLoad.deserialize(buf);
@@ -121,20 +91,10 @@ describe('Storage Instructions', () => {
       const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x12345678, /*dstOffset=*/ 0xa2345678);
 
       const expected = Buffer.from([
-        // opcode
-        SLoad.opcode,
-        // indirect
-        0x01,
-        // slotOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // dstOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        SLoad.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // slotOffset
+        ...Buffer.from('a2345678', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });

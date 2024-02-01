@@ -38,7 +38,8 @@ describe('avm', () => {
   });
 
   describe('testing transpiled Noir contracts', () => {
-    it('Should execute contract function that performs addition', async () => {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/4361): sync wire format w/transpiler.
+    it.skip('Should execute contract function that performs addition', async () => {
       const calldata: Fr[] = [new Fr(1), new Fr(2)];
       const journal = mock<AvmJournal>();
 

@@ -18,27 +18,12 @@ describe('Bitwise instructions', () => {
   describe('AND', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        And.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        And.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: And = And.deserialize(buf);
@@ -63,27 +48,12 @@ describe('Bitwise instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        And.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        And.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -108,27 +78,12 @@ describe('Bitwise instructions', () => {
   describe('OR', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Or.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Or.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Or = Or.deserialize(buf);
@@ -153,27 +108,12 @@ describe('Bitwise instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Or.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Or.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -202,27 +142,12 @@ describe('Bitwise instructions', () => {
   describe('XOR', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Xor.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Xor.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Xor = Xor.deserialize(buf);
@@ -247,27 +172,12 @@ describe('Bitwise instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Xor.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Xor.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -296,27 +206,12 @@ describe('Bitwise instructions', () => {
   describe('SHR', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Shr.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Shr.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Shr = Shr.deserialize(buf);
@@ -341,27 +236,12 @@ describe('Bitwise instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Shr.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Shr.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -430,27 +310,12 @@ describe('Bitwise instructions', () => {
   describe('SHL', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Shl.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Shl.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst: Shl = Shl.deserialize(buf);
@@ -475,27 +340,12 @@ describe('Bitwise instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Shl.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Shl.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -584,24 +434,12 @@ describe('Bitwise instructions', () => {
   describe('NOT', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Not.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Not.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
       const inst: Not = Not.deserialize(buf);
       expect(inst).toEqual(
         new Not(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT64, /*aOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a),
@@ -617,22 +455,11 @@ describe('Bitwise instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Not.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.UINT64,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Not.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });

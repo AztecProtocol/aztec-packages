@@ -40,15 +40,9 @@ describe('Environment getters instructions', () => {
   describe('ADDRESS', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Address.opcode,
-        // indirect
-        0x01,
-        // dstOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
+        Address.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
 
       const inst = Address.deserialize(buf);
@@ -59,15 +53,9 @@ describe('Environment getters instructions', () => {
       const inst = new Address(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
       const expected = Buffer.from([
-        // opcode
-        Address.opcode,
-        // indirect
-        0x01,
-        // dstOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
+        Address.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });

@@ -21,13 +21,8 @@ describe('Control Flow Opcodes', () => {
   describe('JUMP', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Jump.opcode,
-        // loc
-        0x12,
-        0x34,
-        0x56,
-        0x78,
+        Jump.opcode, // opcode
+        ...Buffer.from('12345678', 'hex'), // loc
       ]);
 
       const inst: Jump = Jump.deserialize(buf);
@@ -38,13 +33,8 @@ describe('Control Flow Opcodes', () => {
       const inst = new Jump(/*loc=*/ 0x12345678);
 
       const expected = Buffer.from([
-        // opcode
-        Jump.opcode,
-        // loc
-        0x12,
-        0x34,
-        0x56,
-        0x78,
+        Jump.opcode, // opcode
+        ...Buffer.from('12345678', 'hex'), // loc
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -63,20 +53,10 @@ describe('Control Flow Opcodes', () => {
   describe('JUMPI', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        JumpI.opcode,
-        // indirect
-        0x01,
-        // loc
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // condOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        JumpI.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // loc
+        ...Buffer.from('a2345678', 'hex'), // condOffset
       ]);
 
       const inst: JumpI = JumpI.deserialize(buf);
@@ -87,20 +67,10 @@ describe('Control Flow Opcodes', () => {
       const inst = new JumpI(/*indirect=*/ 1, /*loc=*/ 0x12345678, /*condOffset=*/ 0xa2345678);
 
       const expected = Buffer.from([
-        // opcode
-        JumpI.opcode,
-        // indirect
-        0x01,
-        // loc
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // condOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        JumpI.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // loc
+        ...Buffer.from('a2345678', 'hex'), // condOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -140,13 +110,8 @@ describe('Control Flow Opcodes', () => {
   describe('INTERNALCALL and RETURN', () => {
     it('INTERNALCALL should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        InternalCall.opcode,
-        // loc
-        0x12,
-        0x34,
-        0x56,
-        0x78,
+        InternalCall.opcode, // opcode
+        ...Buffer.from('12345678', 'hex'), // loc
       ]);
 
       const inst = InternalCall.deserialize(buf);
@@ -157,13 +122,8 @@ describe('Control Flow Opcodes', () => {
       const inst = new InternalCall(/*loc=*/ 0x12345678);
 
       const expected = Buffer.from([
-        // opcode
-        InternalCall.opcode,
-        // loc
-        0x12,
-        0x34,
-        0x56,
-        0x78,
+        InternalCall.opcode, // opcode
+        ...Buffer.from('12345678', 'hex'), // loc
       ]);
 
       expect(inst.serialize()).toEqual(expected);
@@ -230,20 +190,10 @@ describe('Control Flow Opcodes', () => {
   describe('RETURN', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Return.opcode,
-        // indirect
-        0x01,
-        // returnOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // copySize
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        Return.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // returnOffset
+        ...Buffer.from('a2345678', 'hex'), // copySize
       ]);
 
       const inst = Return.deserialize(buf);
@@ -254,20 +204,10 @@ describe('Control Flow Opcodes', () => {
       const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*copySize=*/ 0xa2345678);
 
       const expected = Buffer.from([
-        // opcode
-        Return.opcode,
-        // indirect
-        0x01,
-        // returnOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // copySize
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        Return.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // returnOffset
+        ...Buffer.from('a2345678', 'hex'), // copySize
       ]);
 
       expect(inst.serialize()).toEqual(expected);
@@ -292,20 +232,10 @@ describe('Control Flow Opcodes', () => {
   describe('REVERT', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Revert.opcode,
-        // indirect
-        0x01,
-        // returnOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // retSize
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        Revert.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // returnOffset
+        ...Buffer.from('a2345678', 'hex'), // retSize
       ]);
 
       const inst = Revert.deserialize(buf);
@@ -316,20 +246,10 @@ describe('Control Flow Opcodes', () => {
       const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*retSize=*/ 0xa2345678);
 
       const expected = Buffer.from([
-        // opcode
-        Revert.opcode,
-        // indirect
-        0x01,
-        // returnOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // retSize
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
+        Revert.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // returnOffset
+        ...Buffer.from('a2345678', 'hex'), // retSize
       ]);
 
       expect(inst.serialize()).toEqual(expected);

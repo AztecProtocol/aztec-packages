@@ -18,27 +18,12 @@ describe('Arithmetic Instructions', () => {
   describe('Add', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Add.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Add.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst = Add.deserialize(buf);
@@ -63,27 +48,12 @@ describe('Arithmetic Instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Add.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Add.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -132,27 +102,12 @@ describe('Arithmetic Instructions', () => {
   describe('Sub', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Sub.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Sub.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst = Sub.deserialize(buf);
@@ -177,27 +132,12 @@ describe('Arithmetic Instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Sub.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Sub.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -226,27 +166,12 @@ describe('Arithmetic Instructions', () => {
   describe('Mul', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Mul.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Mul.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst = Mul.deserialize(buf);
@@ -271,27 +196,12 @@ describe('Arithmetic Instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Mul.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Mul.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -340,27 +250,12 @@ describe('Arithmetic Instructions', () => {
   describe('Div', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Div.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Div.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
 
       const inst = Div.deserialize(buf);
@@ -385,27 +280,12 @@ describe('Arithmetic Instructions', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Div.opcode,
-        // indirect
-        0x01,
-        // inTag
-        TypeTag.FIELD,
-        // aOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // bOffset
-        0x23,
-        0x45,
-        0x67,
-        0x89,
-        // dstOffset
-        0x34,
-        0x56,
-        0x78,
-        0x9a,
+        Div.opcode, // opcode
+        0x01, // indirect
+        TypeTag.FIELD, // inTag
+        ...Buffer.from('12345678', 'hex'), // aOffset
+        ...Buffer.from('23456789', 'hex'), // bOffset
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });

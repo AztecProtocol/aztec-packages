@@ -36,45 +36,15 @@ describe('External Calls', () => {
   describe('Call', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        Call.opcode,
-        // indirect
-        0x01,
-        // gasOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // addrOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
-        // argsOffset
-        0xb2,
-        0x34,
-        0x56,
-        0x78,
-        // argsSize
-        0xc2,
-        0x34,
-        0x56,
-        0x78,
-        // retOffset
-        0xd2,
-        0x34,
-        0x56,
-        0x78,
-        // retSize
-        0xe2,
-        0x34,
-        0x56,
-        0x78,
-        // successOffset
-        0xf2,
-        0x34,
-        0x56,
-        0x78,
+        Call.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // gasOffset
+        ...Buffer.from('a2345678', 'hex'), // addrOffset
+        ...Buffer.from('b2345678', 'hex'), // argsOffset
+        ...Buffer.from('c2345678', 'hex'), // argsSize
+        ...Buffer.from('d2345678', 'hex'), // retOffset
+        ...Buffer.from('e2345678', 'hex'), // retSize
+        ...Buffer.from('f2345678', 'hex'), // successOffset
       ]);
 
       const inst = Call.deserialize(buf);
@@ -105,45 +75,15 @@ describe('External Calls', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        Call.opcode,
-        // indirect
-        0x01,
-        // gasOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // addrOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
-        // argsOffset
-        0xb2,
-        0x34,
-        0x56,
-        0x78,
-        // argsSize
-        0xc2,
-        0x34,
-        0x56,
-        0x78,
-        // retOffset
-        0xd2,
-        0x34,
-        0x56,
-        0x78,
-        // retSize
-        0xe2,
-        0x34,
-        0x56,
-        0x78,
-        // successOffset
-        0xf2,
-        0x34,
-        0x56,
-        0x78,
+        Call.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // gasOffset
+        ...Buffer.from('a2345678', 'hex'), // addrOffset
+        ...Buffer.from('b2345678', 'hex'), // argsOffset
+        ...Buffer.from('c2345678', 'hex'), // argsSize
+        ...Buffer.from('d2345678', 'hex'), // retOffset
+        ...Buffer.from('e2345678', 'hex'), // retSize
+        ...Buffer.from('f2345678', 'hex'), // successOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
@@ -207,45 +147,15 @@ describe('External Calls', () => {
   describe('Static Call', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        // opcode
-        StaticCall.opcode,
-        // indirect
-        0x01,
-        // gasOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // addrOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
-        // argsOffset
-        0xb2,
-        0x34,
-        0x56,
-        0x78,
-        // argsSize
-        0xc2,
-        0x34,
-        0x56,
-        0x78,
-        // retOffset
-        0xd2,
-        0x34,
-        0x56,
-        0x78,
-        // retSize
-        0xe2,
-        0x34,
-        0x56,
-        0x78,
-        // successOffset
-        0xf2,
-        0x34,
-        0x56,
-        0x78,
+        StaticCall.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // gasOffset
+        ...Buffer.from('a2345678', 'hex'), // addrOffset
+        ...Buffer.from('b2345678', 'hex'), // argsOffset
+        ...Buffer.from('c2345678', 'hex'), // argsSize
+        ...Buffer.from('d2345678', 'hex'), // retOffset
+        ...Buffer.from('e2345678', 'hex'), // retSize
+        ...Buffer.from('f2345678', 'hex'), // successOffset
       ]);
 
       const inst = StaticCall.deserialize(buf);
@@ -276,45 +186,15 @@ describe('External Calls', () => {
       );
 
       const expected = Buffer.from([
-        // opcode
-        StaticCall.opcode,
-        // indirect
-        0x01,
-        // gasOffset
-        0x12,
-        0x34,
-        0x56,
-        0x78,
-        // addrOffset
-        0xa2,
-        0x34,
-        0x56,
-        0x78,
-        // argsOffset
-        0xb2,
-        0x34,
-        0x56,
-        0x78,
-        // argsSize
-        0xc2,
-        0x34,
-        0x56,
-        0x78,
-        // retOffset
-        0xd2,
-        0x34,
-        0x56,
-        0x78,
-        // retSize
-        0xe2,
-        0x34,
-        0x56,
-        0x78,
-        // successOffset
-        0xf2,
-        0x34,
-        0x56,
-        0x78,
+        StaticCall.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('12345678', 'hex'), // gasOffset
+        ...Buffer.from('a2345678', 'hex'), // addrOffset
+        ...Buffer.from('b2345678', 'hex'), // argsOffset
+        ...Buffer.from('c2345678', 'hex'), // argsSize
+        ...Buffer.from('d2345678', 'hex'), // retOffset
+        ...Buffer.from('e2345678', 'hex'), // retSize
+        ...Buffer.from('f2345678', 'hex'), // successOffset
       ]);
       expect(inst.serialize()).toEqual(expected);
     });
