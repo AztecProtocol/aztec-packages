@@ -23,6 +23,7 @@ use crate::{
     hash::pedersen_hash,
     header::Header,
 };
+use crate::traits::{Hash, Serialize, Deserialize};
 
 struct PublicCircuitPublicInputs{
     call_context: CallContext,
@@ -52,8 +53,8 @@ struct PublicCircuitPublicInputs{
     prover_address: AztecAddress,
 }
 
-impl PublicCircuitPublicInputs{
-    pub fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInputs {
+    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields.extend_from_array(self.call_context.serialize());   
         fields.push(self.args_hash);
@@ -79,8 +80,22 @@ impl PublicCircuitPublicInputs{
         fields.push(self.prover_address.to_field());
         fields.storage
     }
+}
 
-    fn hash(self) -> Field {      
+impl Hash for PublicCircuitPublicInputs {
+    fn hash(self) -> Field {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)
     }
+}
+
+#[test]
+fn serialization_smoke() {
+    let pcpi: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let _serialized = pcpi.serialize();
+}
+
+#[test]
+fn hash_smoke() {
+    let pcpi: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let _hashed = pcpi.hash();
 }

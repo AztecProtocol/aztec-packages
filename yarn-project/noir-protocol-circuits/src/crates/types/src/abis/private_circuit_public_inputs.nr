@@ -5,9 +5,7 @@ use crate::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
-    hash::{
-        pedersen_hash,
-    },
+    hash::pedersen_hash,
     header::Header,
 };
 use crate::constants::{
@@ -23,7 +21,7 @@ use crate::constants::{
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
         GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
 };
-use crate::traits::{Hash, Serialize, Deserialize};
+use crate::traits::{Hash, Serialize};
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
@@ -61,12 +59,6 @@ struct PrivateCircuitPublicInputs {
     version: Field,
 }
 
-impl Hash for PrivateCircuitPublicInputs {
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
-    }
-}
-
 impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
@@ -99,6 +91,12 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
         fields.storage
+    }
+}
+
+impl Hash for PrivateCircuitPublicInputs {
+    fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
 }
 
