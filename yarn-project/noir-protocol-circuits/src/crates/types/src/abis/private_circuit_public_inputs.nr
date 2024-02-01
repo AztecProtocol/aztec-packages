@@ -1,17 +1,18 @@
 use crate::{
     abis::{
         call_context::CallContext,
-        block_header::BlockHeader,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::{
         pedersen_hash,
     },
-    utils::bounded_vec::BoundedVec,
+    header::Header,
 };
 use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -23,7 +24,7 @@ use crate::constants::{
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
         GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
 };
-use crate::traits::Hash;
+use crate::traits::{Hash, Serialize, Deserialize};
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
@@ -32,6 +33,7 @@ struct PrivateCircuitPublicInputs {
     return_values: [Field; RETURN_VALUES_LENGTH],
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
+    nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
@@ -48,10 +50,14 @@ struct PrivateCircuitPublicInputs {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    block_header: BlockHeader,
+    // Header of a block whose state is used during private execution (not the block the transaction is included in).
+    historical_header: Header,
 
     contract_deployment_data: ContractDeploymentData,
 
+    // Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
+    // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
+    // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     chain_id: Field,
     version: Field,
 }
@@ -62,26 +68,26 @@ impl Hash for PrivateCircuitPublicInputs {
         let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0); 
         fields.push(self.call_context.hash());
         fields.push(self.args_hash);
-        fields.push_array(self.return_values);
+        fields.extend_from_array(self.return_values);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
-            fields.push_array(self.read_requests[i].serialize());
+            fields.extend_from_array(self.read_requests[i].serialize());
         }
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
-            fields.push_array(self.new_commitments[i].serialize());
+            fields.extend_from_array(self.new_commitments[i].serialize());
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
-            fields.push_array(self.new_nullifiers[i].serialize());
+            fields.extend_from_array(self.new_nullifiers[i].serialize());
         }
-        fields.push_array(self.private_call_stack_hashes);
-        fields.push_array(self.public_call_stack_hashes);
-        fields.push_array(self.new_l2_to_l1_msgs);
+        fields.extend_from_array(self.private_call_stack_hashes);
+        fields.extend_from_array(self.public_call_stack_hashes);
+        fields.extend_from_array(self.new_l2_to_l1_msgs);
         fields.push(self.end_side_effect_counter as Field);
-        fields.push_array(self.encrypted_logs_hash);
-        fields.push_array(self.unencrypted_logs_hash);
+        fields.extend_from_array(self.encrypted_logs_hash);
+        fields.extend_from_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_header.serialize());
+        fields.extend_from_array(self.historical_header.serialize());
         fields.push(self.contract_deployment_data.hash());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -92,32 +98,32 @@ impl Hash for PrivateCircuitPublicInputs {
     }
 }
 
-impl PrivateCircuitPublicInputs {
+impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
-        fields.push_array(self.call_context.serialize());
+        fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
-        fields.push_array(self.return_values);
+        fields.extend_from_array(self.return_values);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
-            fields.push_array(self.read_requests[i].serialize());
+            fields.extend_from_array(self.read_requests[i].serialize());
         }
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
-            fields.push_array(self.new_commitments[i].serialize());
+            fields.extend_from_array(self.new_commitments[i].serialize());
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
-            fields.push_array(self.new_nullifiers[i].serialize());
+            fields.extend_from_array(self.new_nullifiers[i].serialize());
         }
-        fields.push_array(self.private_call_stack_hashes);
-        fields.push_array(self.public_call_stack_hashes);
-        fields.push_array(self.new_l2_to_l1_msgs);
+        fields.extend_from_array(self.private_call_stack_hashes);
+        fields.extend_from_array(self.public_call_stack_hashes);
+        fields.extend_from_array(self.new_l2_to_l1_msgs);
         fields.push(self.end_side_effect_counter as Field);
-        fields.push_array(self.encrypted_logs_hash);
-        fields.push_array(self.unencrypted_logs_hash);
+        fields.extend_from_array(self.encrypted_logs_hash);
+        fields.extend_from_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_header.serialize());
-        fields.push_array(self.contract_deployment_data.serialize());
+        fields.extend_from_array(self.historical_header.serialize());
+        fields.extend_from_array(self.contract_deployment_data.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
 

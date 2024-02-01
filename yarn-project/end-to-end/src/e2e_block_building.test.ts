@@ -12,11 +12,10 @@ import {
   Wallet,
   isContractDeployed,
 } from '@aztec/aztec.js';
+import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { TokenContract } from '@aztec/noir-contracts/Token';
-
-import times from 'lodash.times';
 
 import { setup } from './fixtures/utils.js';
 
@@ -87,7 +86,7 @@ describe('e2e_block_building', () => {
       // but we are in the same block as the deployment transaction
       const callInteraction = new ContractFunctionInteraction(
         owner,
-        deployer.completeAddress!.address,
+        deployer.instance!.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minter.getCompleteAddress(), true],
       );

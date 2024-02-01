@@ -5,8 +5,6 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  BlockHeader,
-  CONTRACT_TREE_HEIGHT,
   CallContext,
   CallRequest,
   CallerContext,
@@ -23,6 +21,8 @@ import {
   FunctionData,
   FunctionSelector,
   GlobalVariables,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
   Header,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -30,6 +30,7 @@ import {
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -41,6 +42,8 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NullifierKeyValidationRequest,
+  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
   OptionallyRevealedData,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -72,26 +75,28 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { Tuple, from2Fields, mapTuple } from '@aztec/foundation/serialize';
+import { Tuple, from2Fields, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 
 import {
-  BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
-  ContractLeafMembershipWitness as ContractLeafMembershipWitnessNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
+  GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   NewContractData as NewContractDataNoir,
   AztecAddress as NoirAztecAddress,
+  ContractClassId as NoirContractClassId,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
+  NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
+  NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
   OptionallyRevealedData as OptionallyRevealedDataNoir,
   PrivateCallData as PrivateCallDataNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
@@ -168,6 +173,16 @@ export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromString(field);
 }
 
+/** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
+export function mapWrappedFieldToNoir(field: Fr): { inner: NoirField } {
+  return { inner: mapFieldToNoir(field) };
+}
+
+/** Maps a noir wrapped field type (ie any type implemented as struct with an inner Field) to a typescript field. */
+export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr {
+  return mapFieldFromNoir(wrappedField.inner);
+}
+
 /**
  * Maps a number coming from noir.
  * @param number - The field representing the number.
@@ -177,9 +192,6 @@ export function mapNumberFromNoir(number: NoirField): number {
   return Number(Fr.fromString(number).toBigInt());
 }
 
-/**
- *
- */
 export function mapNumberToNoir(number: number): NoirField {
   return new Fr(BigInt(number)).toString();
 }
@@ -203,6 +215,27 @@ export function mapPointToNoir(point: Point): NoirPoint {
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
   return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
+}
+
+/**
+ * Maps a GrumpkinPrivateKey to a noir GrumpkinPrivateKey.
+ * @param privateKey - The GrumpkinPrivateKey.
+ * @returns The noir GrumpkinPrivateKey.
+ */
+export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): GrumpkinPrivateKeyNoir {
+  return {
+    high: mapFieldToNoir(privateKey.high),
+    low: mapFieldToNoir(privateKey.low),
+  };
+}
+
+/**
+ * Maps a noir GrumpkinPrivateKey to a GrumpkinPrivateKey.
+ * @param privateKey - The noir GrumpkinPrivateKey.
+ * @returns The GrumpkinPrivateKey.
+ */
+export function mapGrumpkinPrivateKeyFromNoir(privateKey: GrumpkinPrivateKeyNoir): GrumpkinPrivateKey {
+  return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.high), mapFieldFromNoir(privateKey.low));
 }
 
 /**
@@ -245,6 +278,16 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
   return EthAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
+/** Maps a field to a contract class id in Noir. */
+export function mapContractClassIdToNoir(contractClassId: Fr): NoirContractClassId {
+  return { inner: mapFieldToNoir(contractClassId) };
+}
+
+/** Maps a noir contract class id to typescript. */
+export function mapContractClassIdFromNoir(contractClassId: NoirContractClassId): Fr {
+  return mapFieldFromNoir(contractClassId.inner);
+}
+
 /**
  * Maps a contract deployment data to a noir contract deployment data.
  * @param data - The data.
@@ -252,9 +295,9 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
  */
 export function mapContractDeploymentDataToNoir(data: ContractDeploymentData): ContractDeploymentDataNoir {
   return {
-    deployer_public_key: mapPointToNoir(data.deployerPublicKey),
-    constructor_vk_hash: mapFieldToNoir(data.constructorVkHash),
-    function_tree_root: mapFieldToNoir(data.functionTreeRoot),
+    public_key: mapPointToNoir(data.publicKey),
+    initialization_hash: mapFieldToNoir(data.initializationHash),
+    contract_class_id: mapContractClassIdToNoir(data.contractClassId),
     contract_address_salt: mapFieldToNoir(data.contractAddressSalt),
     portal_contract_address: mapEthAddressToNoir(data.portalContractAddress),
   };
@@ -267,9 +310,9 @@ export function mapContractDeploymentDataToNoir(data: ContractDeploymentData): C
  */
 export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): ContractDeploymentData {
   return new ContractDeploymentData(
-    mapPointFromNoir(data.deployer_public_key),
-    mapFieldFromNoir(data.constructor_vk_hash),
-    mapFieldFromNoir(data.function_tree_root),
+    mapPointFromNoir(data.public_key),
+    mapFieldFromNoir(data.initialization_hash),
+    mapContractClassIdFromNoir(data.contract_class_id),
     mapFieldFromNoir(data.contract_address_salt),
     mapEthAddressFromNoir(data.portal_contract_address),
   );
@@ -430,7 +473,7 @@ export function mapCallerContextToNoir(callerContext: CallerContext): CallerCont
 }
 
 /**
- * Maps a noit call request to a call request.
+ * Maps a noir call request to a call request.
  * @param callRequest - The noir call request.
  * @returns The call request.
  */
@@ -511,38 +554,60 @@ export function mapSideEffectLinkedFromNoir(
 }
 
 /**
- * Maps a block header to a noir block header.
- * @param blockHeader - The block header.
- * @returns The noir block header.
+ * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
+ * @param request - The NullifierKeyValidationRequest.
+ * @returns The noir NullifierKeyValidationRequest.
  */
-export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir {
+export function mapNullifierKeyValidationRequestToNoir(
+  request: NullifierKeyValidationRequest,
+): NullifierKeyValidationRequestNoir {
   return {
-    note_hash_tree_root: mapFieldToNoir(blockHeader.noteHashTreeRoot),
-    nullifier_tree_root: mapFieldToNoir(blockHeader.nullifierTreeRoot),
-    contract_tree_root: mapFieldToNoir(blockHeader.contractTreeRoot),
-    l1_to_l2_message_tree_root: mapFieldToNoir(blockHeader.l1ToL2MessageTreeRoot),
-    archive_root: mapFieldToNoir(blockHeader.archiveRoot),
-    public_data_tree_root: mapFieldToNoir(blockHeader.publicDataTreeRoot),
-    global_variables_hash: mapFieldToNoir(blockHeader.globalVariablesHash),
-    // TODO(#3441)
+    public_key: mapPointToNoir(request.publicKey),
+    secret_key: mapGrumpkinPrivateKeyToNoir(request.secretKey),
   };
 }
 
 /**
- * Maps a noir block header to a block header.
- * @param blockHeader - The noir block header.
- * @returns The block header.
+ * Maps a noir NullifierKeyValidationRequest to NullifierKeyValidationRequest.
+ * @param request - The noir NullifierKeyValidationRequest.
+ * @returns The TS NullifierKeyValidationRequest.
  */
-export function mapBlockHeaderFromNoir(blockHeader: BlockHeaderNoir): BlockHeader {
-  return new BlockHeader(
-    mapFieldFromNoir(blockHeader.note_hash_tree_root),
-    mapFieldFromNoir(blockHeader.nullifier_tree_root),
-    mapFieldFromNoir(blockHeader.contract_tree_root),
-    mapFieldFromNoir(blockHeader.l1_to_l2_message_tree_root),
-    mapFieldFromNoir(blockHeader.archive_root),
-    Fr.zero(), // TODO(#3441)
-    mapFieldFromNoir(blockHeader.public_data_tree_root),
-    mapFieldFromNoir(blockHeader.global_variables_hash),
+export function mapNullifierKeyValidationRequestFromNoir(
+  request: NullifierKeyValidationRequestNoir,
+): NullifierKeyValidationRequest {
+  return new NullifierKeyValidationRequest(
+    mapPointFromNoir(request.public_key),
+    mapGrumpkinPrivateKeyFromNoir(request.secret_key),
+  );
+}
+
+/**
+ * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
+ * @param request - The NullifierKeyValidationRequest.
+ * @returns The noir NullifierKeyValidationRequest.
+ */
+export function mapNullifierKeyValidationRequestContextToNoir(
+  request: NullifierKeyValidationRequestContext,
+): NullifierKeyValidationRequestContextNoir {
+  return {
+    public_key: mapPointToNoir(request.publicKey),
+    secret_key: mapGrumpkinPrivateKeyToNoir(request.secretKey),
+    contract_address: mapAztecAddressToNoir(request.contractAddress),
+  };
+}
+
+/**
+ * Maps a noir NullifierKeyValidationRequestContext to NullifierKeyValidationRequestContext.
+ * @param request - The noir NullifierKeyValidationRequestContext.
+ * @returns The TS NullifierKeyValidationRequestContext.
+ */
+export function mapNullifierKeyValidationRequestContextFromNoir(
+  request: NullifierKeyValidationRequestContextNoir,
+): NullifierKeyValidationRequestContext {
+  return new NullifierKeyValidationRequestContext(
+    mapPointFromNoir(request.public_key),
+    mapGrumpkinPrivateKeyFromNoir(request.secret_key),
+    mapAztecAddressFromNoir(request.contract_address),
   );
 }
 
@@ -559,6 +624,10 @@ export function mapPrivateCircuitPublicInputsToNoir(
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
     read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
+    nullifier_key_validation_requests: mapTuple(
+      privateCircuitPublicInputs.nullifierKeyValidationRequests,
+      mapNullifierKeyValidationRequestToNoir,
+    ),
     new_commitments: mapTuple(privateCircuitPublicInputs.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack_hashes: mapTuple(privateCircuitPublicInputs.privateCallStackHashes, mapFieldToNoir),
@@ -569,7 +638,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     unencrypted_logs_hash: mapTuple(privateCircuitPublicInputs.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
-    block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.blockHeader),
+    historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
@@ -598,20 +667,6 @@ export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallS
 function mapFunctionLeafMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
 ): FunctionLeafMembershipWitnessNoir {
-  return {
-    leaf_index: membershipWitness.leafIndex.toString(),
-    sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
-  };
-}
-
-/**
- * Maps a contract leaf membership witness to a noir contract leaf membership witness.
- * @param membershipWitness - The membership witness.
- * @returns The noir contract leaf membership witness.
- */
-function mapContractLeafMembershipWitnessToNoir(
-  membershipWitness: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>,
-): ContractLeafMembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -649,13 +704,14 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
       privateCallData.functionLeafMembershipWitness,
     ),
-    contract_leaf_membership_witness: mapContractLeafMembershipWitnessToNoir(
-      privateCallData.contractLeafMembershipWitness,
-    ),
     read_request_membership_witnesses: mapTuple(
       privateCallData.readRequestMembershipWitnesses,
       mapReadRequestMembershipWitnessToNoir,
     ),
+    contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
+    contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
+    public_keys_hash: mapWrappedFieldToNoir(privateCallData.publicKeysHash),
+    salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
     //TODO this seems like the wrong type in circuits.js
     portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(privateCallData.portalContractAddress)),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
@@ -687,6 +743,15 @@ export function mapTupleFromNoir<T, N extends number, M>(
  */
 export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
   return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
+}
+
+/**
+ * Maps a sha256 to the representation used in noir.
+ * @param hash - The hash represented as a 32 bytes long buffer.
+ * @returns The hash as it is represented in Noir (2 fields).
+ */
+export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, 2> {
+  return to2Fields(hash).map(mapFieldToNoir) as FixedLengthArray<Field, 2>;
 }
 
 /**
@@ -738,7 +803,7 @@ export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir)
   return new NewContractData(
     mapAztecAddressFromNoir(newContractData.contract_address),
     mapEthAddressFromNoir(newContractData.portal_contract_address),
-    mapFieldFromNoir(newContractData.function_tree_root),
+    mapContractClassIdFromNoir(newContractData.contract_class_id),
   );
 }
 
@@ -751,7 +816,7 @@ export function mapNewContractDataToNoir(newContractData: NewContractData): NewC
   return {
     contract_address: mapAztecAddressToNoir(newContractData.contractAddress),
     portal_contract_address: mapEthAddressToNoir(newContractData.portalContractAddress),
-    function_tree_root: mapFieldToNoir(newContractData.functionTreeRoot),
+    contract_class_id: mapContractClassIdToNoir(newContractData.contractClassId),
   };
 }
 
@@ -818,6 +883,11 @@ export function mapCombinedAccumulatedDataFromNoir(
     // TODO aggregation object
     AggregationObject.makeFake(),
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.nullifier_key_validation_requests,
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      mapNullifierKeyValidationRequestContextFromNoir,
+    ),
     mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -900,6 +970,10 @@ export function mapCombinedAccumulatedDataToNoir(
   return {
     aggregation_object: {},
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
+    nullifier_key_validation_requests: mapTuple(
+      combinedAccumulatedData.nullifierKeyValidationRequests,
+      mapNullifierKeyValidationRequestContextToNoir,
+    ),
     new_commitments: mapTuple(combinedAccumulatedData.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack: mapTuple(combinedAccumulatedData.privateCallStack, mapCallRequestToNoir),
@@ -926,7 +1000,7 @@ export function mapCombinedAccumulatedDataToNoir(
  */
 export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
   return new CombinedConstantData(
-    mapBlockHeaderFromNoir(combinedConstantData.block_header),
+    mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
   );
 }
@@ -938,7 +1012,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
  */
 export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedConstantData): CombinedConstantDataNoir {
   return {
-    block_header: mapBlockHeaderToNoir(combinedConstantData.blockHeader),
+    historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
   };
 }
@@ -1047,6 +1121,7 @@ export function mapPrivateKernelInputsOrderingToNoir(
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapSideEffectLinkedToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
+    master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
 }
 
@@ -1142,7 +1217,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     new_l2_to_l1_msgs: mapTuple(publicInputs.newL2ToL1Msgs, mapFieldToNoir),
     unencrypted_logs_hash: mapTuple(publicInputs.unencryptedLogsHash, mapFieldToNoir),
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
-    block_header: mapBlockHeaderToNoir(publicInputs.blockHeader),
+    historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
   };
@@ -1322,6 +1397,20 @@ export function mapRootRollupPublicInputsFromNoir(
 }
 
 /**
+ * Maps header to Noir
+ * @param header - The header.
+ * @returns Header.
+ */
+export function mapHeaderToNoir(header: Header): HeaderNoir {
+  return {
+    last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
+    body_hash: mapSha256HashToNoir(header.bodyHash),
+    state: mapStateReferenceToNoir(header.state),
+    global_variables: mapGlobalVariablesToNoir(header.globalVariables),
+  };
+}
+
+/**
  * Maps header from Noir.
  * @param header - The header.
  * @returns Header.
@@ -1333,6 +1422,18 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
   );
+}
+
+/**
+ * Maps state reference to Noir.
+ * @param stateReference - The state reference.
+ * @returns Noir representation of state reference.
+ */
+export function mapStateReferenceToNoir(stateReference: StateReference): StateReferenceNoir {
+  return {
+    l1_to_l2_message_tree: mapAppendOnlyTreeSnapshotToNoir(stateReference.l1ToL2MessageTree),
+    partial: mapPartialStateReferenceToNoir(stateReference.partial),
+  };
 }
 
 /**

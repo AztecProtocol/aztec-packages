@@ -5,11 +5,11 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
-namespace crypto {
+namespace bb::crypto {
 
 struct Poseidon2Bn254ScalarFieldParams {
 
-    using FF = barretenberg::fr;
+    using FF = bb::fr;
     static constexpr size_t t = 4;
     static constexpr size_t d = 5;
     static constexpr size_t rounds_f = 8;
@@ -449,4 +449,4 @@ struct Poseidon2Bn254ScalarFieldParams {
         FF(std::string("0x2e11c5cff2a22c64d01304b778d78f6998eff1ab73163a35603f54794c30847a")),
     };
 };
-} // namespace crypto
+} // namespace bb::crypto

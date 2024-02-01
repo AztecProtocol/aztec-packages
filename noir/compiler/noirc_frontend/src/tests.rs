@@ -52,10 +52,12 @@ mod test {
     ) -> (ParsedModule, Context, Vec<(CompilationError, FileId)>) {
         let root = std::path::Path::new("/");
         let fm = FileManager::new(root);
-        let mut context = Context::new(fm);
+
+        let mut context = Context::new(fm, Default::default());
         context.def_interner.populate_dummy_operator_traits();
         let root_file_id = FileId::dummy();
         let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
+
         let (program, parser_errors) = parse_program(src);
         let mut errors = vecmap(parser_errors, |e| (e.into(), root_file_id));
         remove_experimental_warnings(&mut errors);
@@ -116,6 +118,12 @@ mod test {
         
         impl Eq for Foo {
             fn eq(self, other: Foo) -> bool { self.a == other.a } 
+        }
+        
+        impl Default for u64 {
+            fn default() -> Self {
+                0
+            }
         }
         
         impl Default for Foo {

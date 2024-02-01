@@ -3,10 +3,10 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(
     const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key,
@@ -65,10 +65,10 @@ void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const
 /**
  * @brief This function verifies an GoblinTranslator Honk proof for given program settings.
  */
-bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
+bool GoblinTranslatorVerifier::verify_proof(const honk::proof& proof)
 {
     batching_challenge_v = transcript->get_challenge("Translation:batching_challenge");
-    transcript->load_proof(proof.proof_data);
+    transcript->load_proof(proof);
 
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
@@ -312,4 +312,4 @@ bool GoblinTranslatorVerifier::verify_translation(const TranslationEvaluations& 
     return is_value_reconstructed;
 }
 
-} // namespace proof_system::honk
+} // namespace bb::honk

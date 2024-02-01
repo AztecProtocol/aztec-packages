@@ -10,7 +10,7 @@
 
 #include "./field_declarations.hpp"
 
-namespace barretenberg {
+namespace bb {
 
 // clang-format off
 // disable the following style guides:
@@ -518,7 +518,7 @@ template <class T> constexpr std::pair<bool, field<T>> field<T>::sqrt() const no
     }
     return std::pair<bool, field>(false, field::zero());
 
-} // namespace barretenberg
+} // namespace bb;
 
 template <class T> constexpr field<T> field<T>::operator/(const field& other) const noexcept
 {
@@ -561,10 +561,10 @@ template <class T> constexpr field<T> field<T>::get_root_of_unity(size_t subgrou
     return r;
 }
 
-template <class T> field<T> field<T>::random_element(numeric::random::Engine* engine) noexcept
+template <class T> field<T> field<T>::random_element(numeric::RNG* engine) noexcept
 {
     if (engine == nullptr) {
-        engine = &numeric::random::get_engine();
+        engine = &numeric::get_randomness();
     }
 
     uint512_t source = engine->get_random_uint512();
@@ -670,7 +670,7 @@ template <class Params> void field<Params>::msgpack_unpack(auto o)
     *this = to_montgomery_form();
 }
 
-} // namespace barretenberg
+} // namespace bb
 
 // clang-format off
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

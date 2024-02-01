@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/flavor/goblin_translator.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 class GoblinTranslatorVerifier {
   public:
     using Flavor = honk::flavor::GoblinTranslator;
@@ -12,7 +12,7 @@ class GoblinTranslatorVerifier {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using TranslationEvaluations = barretenberg::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations;
     using Transcript = typename Flavor::Transcript;
 
     BF evaluation_input_x = 0;
@@ -35,7 +35,7 @@ class GoblinTranslatorVerifier {
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
                                                      const uint256_t& accumulated_result);
-    bool verify_proof(const plonk::proof& proof);
+    bool verify_proof(const honk::proof& proof);
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
-} // namespace proof_system::honk
+} // namespace bb::honk

@@ -1,7 +1,7 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/flavor/goblin_translator.hpp"
 
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief Compute contribution of the goblin translator permutation relation for a given edge (internal function)
@@ -59,7 +59,7 @@ void GoblinTranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrel
     }();
 };
 
-template class GoblinTranslatorPermutationRelationImpl<barretenberg::fr>;
+template class GoblinTranslatorPermutationRelationImpl<bb::fr>;
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl, honk::flavor::GoblinTranslator);
 
-} // namespace proof_system
+} // namespace bb

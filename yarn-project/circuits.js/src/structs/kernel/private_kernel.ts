@@ -1,17 +1,18 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import {
-  CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
+import { GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { CallRequest } from '../call_request.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { MembershipWitness } from '../membership_witness.js';
@@ -48,14 +49,25 @@ export class PrivateCallData {
      */
     public vk: VerificationKey,
     /**
+     * Artifact hash of the contract class for this private call.
+     */
+    public contractClassArtifactHash: Fr,
+    /**
+     * Public bytecode commitment for the contract class for this private call.
+     */
+    public contractClassPublicBytecodeCommitment: Fr,
+    /**
+     * Public keys hash of the contract instance.
+     */
+    public publicKeysHash: Fr,
+    /**
+     * Salted initialization hash of the contract instance.
+     */
+    public saltedInitializationHash: Fr,
+    /**
      * The membership witness for the function leaf corresponding to the function being invoked.
      */
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
-    /**
-     * The membership witness for the contract leaf corresponding to the contract on which the function is being
-     * invoked.
-     */
-    public contractLeafMembershipWitness: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>,
     /**
      * The membership witnesses for read requests created by the function being invoked.
      */
@@ -82,8 +94,11 @@ export class PrivateCallData {
       fields.publicCallStack,
       fields.proof,
       fields.vk,
+      fields.contractClassArtifactHash,
+      fields.contractClassPublicBytecodeCommitment,
+      fields.publicKeysHash,
+      fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
-      fields.contractLeafMembershipWitness,
       fields.readRequestMembershipWitnesses,
       fields.portalContractAddress,
       fields.acirHash,
@@ -115,8 +130,11 @@ export class PrivateCallData {
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, CallRequest),
       reader.readObject(Proof),
       reader.readObject(VerificationKey),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
-      reader.readObject(MembershipWitness.deserializer(CONTRACT_TREE_HEIGHT)),
       reader.readArray(MAX_READ_REQUESTS_PER_CALL, ReadRequestMembershipWitness),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -145,6 +163,16 @@ export class PrivateKernelInputsInit {
    */
   toBuffer() {
     return serializeToBuffer(this.txRequest, this.privateCall);
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelInputsInit {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateKernelInputsInit(reader.readObject(TxRequest), reader.readObject(PrivateCallData));
   }
 }
 
@@ -215,6 +243,10 @@ export class PrivateKernelInputsOrdering {
      * Contains hints for the transient nullifiers to localize corresponding commitments.
      */
     public nullifierCommitmentHints: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    /**
+     * The master nullifier secret keys for the nullifier key validation requests.
+     */
+    public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
   ) {}
 
   /**
@@ -230,6 +262,26 @@ export class PrivateKernelInputsOrdering {
       this.sortedNewNullifiers,
       this.sortedNewNullifiersIndexes,
       this.nullifierCommitmentHints,
+      this.masterNullifierSecretKeys,
+    );
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelInputsOrdering {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateKernelInputsOrdering(
+      reader.readObject(PreviousKernelData),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
+      reader.readNumbers(MAX_NEW_COMMITMENTS_PER_TX),
+      reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
+      reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
     );
   }
 }

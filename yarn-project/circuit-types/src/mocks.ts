@@ -1,7 +1,5 @@
 import {
   AztecAddress,
-  CompleteAddress,
-  EthAddress,
   Fr,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -9,10 +7,10 @@ import {
 } from '@aztec/circuits.js';
 import { makePrivateKernelPublicInputsFinal, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { ContractArtifact } from '@aztec/foundation/abi';
+import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Tuple } from '@aztec/foundation/serialize';
-
-import times from 'lodash.times';
+import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { ExtendedContractData } from './contract_data.js';
 import { DeployedContract } from './interfaces/index.js';
@@ -48,12 +46,15 @@ export const randomContractArtifact = (): ContractArtifact => ({
   name: randomBytes(4).toString('hex'),
   functions: [],
   events: [],
+  fileMap: {},
 });
+
+export const randomContractInstanceWithAddress = (): ContractInstanceWithAddress =>
+  SerializableContractInstance.random().withAddress(AztecAddress.random());
 
 export const randomDeployedContract = (): DeployedContract => ({
   artifact: randomContractArtifact(),
-  completeAddress: CompleteAddress.random(),
-  portalContract: EthAddress.random(),
+  instance: randomContractInstanceWithAddress(),
 });
 
 export const randomExtendedNote = ({

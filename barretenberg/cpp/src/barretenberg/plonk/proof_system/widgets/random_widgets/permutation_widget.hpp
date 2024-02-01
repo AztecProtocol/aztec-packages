@@ -1,7 +1,7 @@
 #pragma once
 #include "random_widget.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 template <typename Field,
           typename Group,
           typename Transcript,
@@ -34,10 +34,10 @@ class ProverPermutationWidget : public ProverRandomWidget {
                                    const size_t round_number,
                                    work_queue& queue) override;
 
-    barretenberg::fr compute_quotient_contribution(const barretenberg::fr& alpha_base,
-                                                   const transcript::StandardTranscript& transcript) override;
+    bb::fr compute_quotient_contribution(const bb::fr& alpha_base,
+                                         const transcript::StandardTranscript& transcript) override;
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk
 
 #include "./permutation_widget_impl.hpp"

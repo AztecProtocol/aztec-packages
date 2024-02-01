@@ -10,6 +10,7 @@ import {
   to2Fields,
 } from '@aztec/aztec.js';
 import {
+  Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -28,13 +29,13 @@ import {
 } from '@aztec/circuits.js/factories';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
-import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AztecLmdbStore } from '@aztec/kv-store';
+import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  getBlockHeader,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -44,8 +45,6 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
-import { default as levelup } from 'levelup';
-import memdown from 'memdown';
 import {
   Address,
   Chain,
@@ -79,7 +78,6 @@ describe('L1Publisher integration', () => {
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
-  let decoderHelperAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let inbox: GetContractReturnType<
@@ -88,7 +86,6 @@ describe('L1Publisher integration', () => {
     WalletClient<HttpTransport, Chain>
   >;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
-  let decoderHelper: GetContractReturnType<typeof DecoderHelperAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
   let l2Proof: Buffer;
@@ -96,8 +93,8 @@ describe('L1Publisher integration', () => {
   let builder: SoloBlockBuilder;
   let builderDb: MerkleTreeOperations;
 
-  // The global variables of the last rollup
-  let prevGlobals: GlobalVariables;
+  // The header of the last block
+  let prevHeader: Header;
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
@@ -110,13 +107,12 @@ describe('L1Publisher integration', () => {
       l1ContractAddresses,
       walletClient,
       publicClient: publicClient_,
-    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger, true);
+    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
     publicClient = publicClient_;
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
-    decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -135,13 +131,8 @@ describe('L1Publisher integration', () => {
       abi: OutboxAbi,
       publicClient,
     });
-    decoderHelper = getContract({
-      address: decoderHelperAddress!,
-      abi: DecoderHelperAbi,
-      publicClient,
-    });
 
-    builderDb = await MerkleTrees.new(levelup((memdown as any)())).then(t => t.asLatest());
+    builderDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
     const vks = getVerificationKeys();
     const simulator = new RealRollupCircuitSimulator();
     const prover = new EmptyRollupProver();
@@ -158,12 +149,11 @@ describe('L1Publisher integration', () => {
       l1BlockPublishRetryIntervalMS: 100,
     });
 
-    prevGlobals = GlobalVariables.empty();
+    prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const blockHeader = await getBlockHeader(builderDb, prevGlobals);
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(blockHeader, new Fr(chainId), new Fr(config.version));
+    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
@@ -172,7 +162,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.blockHeader = await getBlockHeader(builderDb, prevGlobals);
+    kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -253,6 +243,7 @@ describe('L1Publisher integration', () => {
     }
     // Path relative to the package.json in the end-to-end folder
     const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
+
     const jsonObject = {
       populate: {
         l1ToL2Content: l1ToL2Content.map(c => `0x${c.toBuffer().toString('hex').padStart(64, '0')}`),
@@ -264,14 +255,54 @@ describe('L1Publisher integration', () => {
         l2ToL1Messages: block.newL2ToL1Msgs.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
-        blockNumber: block.number,
-        startStateHash: `0x${block.getStartStateHash().toString('hex').padStart(64, '0')}`,
-        endStateHash: `0x${block.getEndStateHash().toString('hex').padStart(64, '0')}`,
-        publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
+        // This should not be a problem for testing as long as the values are not larger than u32.
+        archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        body: `0x${block.bodyToBuffer().toString('hex')}`,
         calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        decodedHeader: {
+          bodyHash: `0x${block.header.bodyHash.toString('hex').padStart(64, '0')}`,
+          globalVariables: {
+            blockNumber: block.number,
+            chainId: Number(block.header.globalVariables.chainId.toBigInt()),
+            timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
+            version: Number(block.header.globalVariables.version.toBigInt()),
+          },
+          lastArchive: {
+            nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
+            root: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+          },
+          stateReference: {
+            l1ToL2MessageTree: {
+              nextAvailableLeafIndex: block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
+              root: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+            },
+            partialStateReference: {
+              contractTree: {
+                nextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              },
+              noteHashTree: {
+                nextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              },
+              nullifierTree: {
+                nextAvailableLeafIndex: block.header.state.partial.nullifierTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.nullifierTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              },
+              publicDataTree: {
+                nextAvailableLeafIndex: block.header.state.partial.publicDataTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.publicDataTree.root
+                  .toBuffer()
+                  .toString('hex')
+                  .padStart(64, '0')}`,
+              },
+            },
+          },
+        },
+        header: `0x${block.header.toBuffer().toString('hex')}`,
         l1ToL2MessagesHash: `0x${block.getL1ToL2MessagesHash().toString('hex').padStart(64, '0')}`,
-        body: `0x${block.toBufferWithLogs().toString('hex')}`,
-        timestamp: Number(block.header.globalVariables.timestamp.toBigInt()), // The json formatting in forge is a bit brittle, so we convert to a number here. This should not be a problem for testing as longs as the timestamp is not larger than u32.
+        publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
       },
     };
 
@@ -280,8 +311,8 @@ describe('L1Publisher integration', () => {
   };
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
-    const stateInRollup_ = await rollup.read.rollupStateHash();
-    expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    const archiveInRollup_ = await rollup.read.archive();
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
     const blockNumber = await publicClient.getBlockNumber();
     // random recipient address, just kept consistent for easy testing ts/sol.
@@ -334,7 +365,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
-      prevGlobals = globalVariables;
+      prevHeader = block.header;
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
@@ -362,7 +393,7 @@ describe('L1Publisher integration', () => {
         fromBlock: blockNumber + 1n,
       });
       expect(logs).toHaveLength(i + 1);
-      expect(logs[i].args.blockNum).toEqual(BigInt(i + 1));
+      expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
 
       const ethTx = await publicClient.getTransaction({
         hash: logs[i].transactionHash!,
@@ -371,22 +402,15 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [`0x${l2Proof.toString('hex')}`, `0x${block.toBufferWithLogs().toString('hex')}`],
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.getCalldataHash().toString('hex')}`,
+          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${l2Proof.toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
-
-      const decoderArgs = [`0x${block.toBufferWithLogs().toString('hex')}`] as const;
-      const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
-      const decodedRes = await decoderHelper.read.decode(decoderArgs);
-      const stateInRollup = await rollup.read.rollupStateHash();
-
-      expect(block.number).toEqual(Number(decodedRes[0]));
-      expect(block.getStartStateHash()).toEqual(hexStringToBuffer(decodedRes[1].toString()));
-      expect(block.getEndStateHash()).toEqual(hexStringToBuffer(decodedRes[2].toString()));
-      expect(block.getEndStateHash()).toEqual(hexStringToBuffer(stateInRollup.toString()));
-      expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
-      expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
-      expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
 
       // check that values have been consumed from the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
@@ -403,8 +427,8 @@ describe('L1Publisher integration', () => {
   }, 360_000);
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 empty txs building on each other`, async () => {
-    const stateInRollup_ = await rollup.read.rollupStateHash();
-    expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    const archiveInRollup_ = await rollup.read.archive();
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
     const blockNumber = await publicClient.getBlockNumber();
 
@@ -423,7 +447,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
-      prevGlobals = globalVariables;
+      prevHeader = block.header;
 
       writeJson(`empty_block_${i}`, block, l1ToL2Messages, [], AztecAddress.ZERO, deployerAccount.address);
 
@@ -438,7 +462,7 @@ describe('L1Publisher integration', () => {
         fromBlock: blockNumber + 1n,
       });
       expect(logs).toHaveLength(i + 1);
-      expect(logs[i].args.blockNum).toEqual(BigInt(i + 1));
+      expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
 
       const ethTx = await publicClient.getTransaction({
         hash: logs[i].transactionHash!,
@@ -447,22 +471,15 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [`0x${l2Proof.toString('hex')}`, `0x${block.toBufferWithLogs().toString('hex')}`],
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.getCalldataHash().toString('hex')}`,
+          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${l2Proof.toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
-
-      const decoderArgs = [`0x${block.toBufferWithLogs().toString('hex')}`] as const;
-      const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
-      const decodedRes = await decoderHelper.read.decode(decoderArgs);
-      const stateInRollup = await rollup.read.rollupStateHash();
-
-      expect(block.number).toEqual(Number(decodedRes[0]));
-      expect(block.getStartStateHash()).toEqual(hexStringToBuffer(decodedRes[1].toString()));
-      expect(block.getEndStateHash()).toEqual(hexStringToBuffer(decodedRes[2].toString()));
-      expect(block.getEndStateHash()).toEqual(hexStringToBuffer(stateInRollup.toString()));
-      expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
-      expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
-      expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedHashes[1].toString()));
     }
   }, 60_000);
 });

@@ -4,10 +4,10 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
+using namespace bb;
+using namespace bb::honk::sumcheck;
 
-namespace proof_system::honk {
+namespace bb::honk {
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
@@ -32,7 +32,7 @@ template <typename Flavor> ECCVMVerifier_<Flavor>& ECCVMVerifier_<Flavor>::opera
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const honk::proof& proof)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
@@ -48,7 +48,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -283,4 +283,4 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

@@ -3,12 +3,12 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 /**
  * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
@@ -33,7 +33,7 @@ template <typename Flavor> class MergeVerifier_ {
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
     explicit MergeVerifier_();
-    bool verify_proof(const plonk::proof& proof);
+    bool verify_proof(const honk::proof& proof);
 };
 
-} // namespace proof_system::honk
+} // namespace bb::honk

@@ -16,7 +16,7 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "relation_definitions.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb::honk::flavor {
 
 class GoblinTranslator {
 
@@ -32,7 +32,7 @@ class GoblinTranslator {
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using RelationSeparator = FF;
 
@@ -44,13 +44,13 @@ class GoblinTranslator {
     // None of this parameters can be changed
 
     // How many mini_circuit_size polynomials are concatenated in one concatenated_*
-    static constexpr size_t CONCATENATION_INDEX = 16;
+    static constexpr size_t CONCATENATION_GROUP_SIZE = 16;
 
     // The number of concatenated_* wires
     static constexpr size_t NUM_CONCATENATED_WIRES = 4;
 
     // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_INDEX;
+    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE;
 
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
@@ -1007,7 +1007,7 @@ class GoblinTranslator {
     /**
      * @brief A container for univariates used during sumcheck.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -1138,4 +1138,4 @@ class GoblinTranslator {
 
     using Transcript = BaseTranscript;
 };
-} // namespace proof_system::honk::flavor
+} // namespace bb::honk::flavor

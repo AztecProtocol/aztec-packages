@@ -14,14 +14,14 @@
  * https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view.
  *
  */
-namespace proof_system::honk::pcs::ipa {
+namespace bb::honk::pcs::ipa {
 template <typename Curve> class IPA {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
   public:
     /**
@@ -43,14 +43,13 @@ template <typename Curve> class IPA {
         transcript->send_to_verifier("IPA:poly_degree", static_cast<uint64_t>(poly_degree));
         const Fr generator_challenge = transcript->get_challenge("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
-
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
         ASSERT((poly_degree > 0) && (!(poly_degree & (poly_degree - 1))) &&
                "The poly_degree should be positive and a power of two");
 
         auto a_vec = polynomial;
-        auto srs_elements = ck->srs->get_monomial_points();
+        auto* srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_degree);
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
@@ -90,38 +89,47 @@ template <typename Curve> class IPA {
         std::vector<GroupElement> R_elements(log_poly_degree);
         std::size_t round_size = poly_degree;
 
+        // Allocate vectors for parallel storage of partial products
+        const size_t num_cpus = get_num_cpus();
+        std::vector<Fr> partial_inner_prod_L(num_cpus);
+        std::vector<Fr> partial_inner_prod_R(num_cpus);
         // Perform IPA rounds
         for (size_t i = 0; i < log_poly_degree; i++) {
             round_size >>= 1;
+            // Set partial products to zero
+            memset(&partial_inner_prod_L[0], 0, sizeof(Fr) * num_cpus);
+            memset(&partial_inner_prod_R[0], 0, sizeof(Fr) * num_cpus);
             // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
-            std::mutex addition_lock;
             Fr inner_prod_L = Fr::zero();
             Fr inner_prod_R = Fr::zero();
             // Run scalar product in parallel
-            run_loop_in_parallel_if_effective(
+            run_loop_in_parallel_if_effective_with_index(
                 round_size,
-                [&a_vec, &b_vec, &inner_prod_L, &inner_prod_R, round_size, &addition_lock](size_t start, size_t end) {
+                [&a_vec, &b_vec, round_size, &partial_inner_prod_L, &partial_inner_prod_R](
+                    size_t start, size_t end, size_t workload_index) {
                     Fr current_inner_prod_L = Fr::zero();
                     Fr current_inner_prod_R = Fr::zero();
                     for (size_t j = start; j < end; j++) {
                         current_inner_prod_L += a_vec[j] * b_vec[round_size + j];
                         current_inner_prod_R += a_vec[round_size + j] * b_vec[j];
                     }
-                    addition_lock.lock();
-                    inner_prod_L += current_inner_prod_L;
-                    inner_prod_R += current_inner_prod_R;
-                    addition_lock.unlock();
+                    partial_inner_prod_L[workload_index] = current_inner_prod_L;
+                    partial_inner_prod_R[workload_index] = current_inner_prod_R;
                 },
                 /*finite_field_additions_per_iteration=*/2,
                 /*finite_field_multiplications_per_iteration=*/2);
+            for (size_t j = 0; j < num_cpus; j++) {
+                inner_prod_L += partial_inner_prod_L[j];
+                inner_prod_R += partial_inner_prod_R[j];
+            }
 
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_elements[i] = barretenberg::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+            L_elements[i] = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
             L_elements[i] += aux_generator * inner_prod_L;
 
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_elements[i] = barretenberg::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+            R_elements[i] = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
             R_elements[i] += aux_generator * inner_prod_R;
 
@@ -205,7 +213,7 @@ template <typename Curve> class IPA {
             msm_scalars[2 * i + 1] = round_challenges_inv[i].sqr();
         }
 
-        GroupElement LR_sums = barretenberg::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+        GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &msm_scalars[0], &msm_elements[0], pippenger_size, vk->pippenger_runtime_state);
         GroupElement C_zero = C_prime + LR_sums;
 
@@ -246,7 +254,7 @@ template <typename Curve> class IPA {
             /*finite_field_additions_per_iteration=*/0,
             /*finite_field_multiplications_per_iteration=*/log_poly_degree);
 
-        auto srs_elements = vk->srs->get_monomial_points();
+        auto* srs_elements = vk->srs->get_monomial_points();
 
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_degree);
@@ -269,7 +277,7 @@ template <typename Curve> class IPA {
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
 
-        auto G_zero = barretenberg::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+        auto G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &s_vec[0], &G_vec_local[0], poly_degree, vk->pippenger_runtime_state);
 
         auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
@@ -280,4 +288,4 @@ template <typename Curve> class IPA {
     }
 };
 
-} // namespace proof_system::honk::pcs::ipa
+} // namespace bb::honk::pcs::ipa

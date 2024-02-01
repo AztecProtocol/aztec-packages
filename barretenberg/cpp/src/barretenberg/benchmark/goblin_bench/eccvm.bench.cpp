@@ -1,11 +1,11 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/benchmark/ultra_bench/benchmark_utilities.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 
 using namespace benchmark;
-using namespace proof_system;
+using namespace bb;
 
 using Flavor = honk::flavor::ECCVM;
 using Builder = ECCVMCircuitBuilder<Flavor>;
@@ -45,7 +45,7 @@ Builder generate_trace(size_t target_num_gates)
 
 void eccvm_generate_prover(State& state) noexcept
 {
-    barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
@@ -57,7 +57,7 @@ void eccvm_generate_prover(State& state) noexcept
 
 void eccvm_prove(State& state) noexcept
 {
-    barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
@@ -71,3 +71,5 @@ void eccvm_prove(State& state) noexcept
 BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(10, 20);
 BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(10, 20);
 } // namespace
+
+BENCHMARK_MAIN();

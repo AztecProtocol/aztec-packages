@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.21.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.20.0...barretenberg.js-v0.21.0) (2024-01-30)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.20.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.19.0...barretenberg.js-v0.20.0) (2024-01-22)
+
+
+### Features
+
+* Goblin acir composer ([#4112](https://github.com/AztecProtocol/aztec-packages/issues/4112)) ([5e85b92](https://github.com/AztecProtocol/aztec-packages/commit/5e85b92f48bc31fe55315de9f45c4907e417cb6a))
+
+## [0.19.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.18.0...barretenberg.js-v0.19.0) (2024-01-17)
+
+
+### Miscellaneous
+
+* Barretenberg =&gt; bb namespace shortening ([#4066](https://github.com/AztecProtocol/aztec-packages/issues/4066)) ([e6b66b8](https://github.com/AztecProtocol/aztec-packages/commit/e6b66b856db498e6fc465212f3645cf2c196c31a))
+
 ## [0.18.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.17.0...barretenberg.js-v0.18.0) (2024-01-16)
 
 

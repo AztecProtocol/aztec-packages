@@ -2,16 +2,31 @@ import {
   CompleteAddress,
   MerkleTreeId,
   Note,
+  NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
   PublicKey,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { BlockHeader, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { GrumpkinPrivateKey, Header, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+
+/**
+ * A pair of public key and secret key.
+ */
+export interface KeyPair {
+  /**
+   * Public key.
+   */
+  publicKey: PublicKey;
+  /**
+   * Secret Key.
+   */
+  secretKey: GrumpkinPrivateKey;
+}
 
 /**
  * Information about a note needed during execution.
@@ -33,33 +48,22 @@ export interface NoteData {
   index?: bigint;
 }
 
-/**
- * The partial data for L1 to L2 Messages provided by other data sources.
- */
-export interface MessageLoadOracleInputs {
-  /**
-   * An collapsed array of fields containing all of the l1 to l2 message components.
-   * `l1ToL2Message.toFieldArray()` -\> [sender, chainId, recipient, version, content, secretHash, deadline, fee]
-   */
-  message: Fr[];
-  /**
-   * The path in the merkle tree to the message.
-   */
-  siblingPath: Fr[];
-  /**
-   * The index of the message commitment in the merkle tree.
-   */
-  index: bigint;
-}
+export class MessageLoadOracleInputs {
+  constructor(
+    /**
+     * An collapsed array of fields containing all of the l1 to l2 message components.
+     * `l1ToL2Message.toFieldArray()` -\> [sender, chainId, recipient, version, content, secretHash, deadline, fee]
+     */
+    public message: Fr[],
+    /** The index of the message commitment in the merkle tree. */
+    public index: bigint,
+    /** The path in the merkle tree to the message. */
+    public siblingPath: Fr[],
+  ) {}
 
-/**
- * The data required by Aztec.nr to validate L1 to L2 Messages.
- */
-export interface L1ToL2MessageOracleReturnData extends MessageLoadOracleInputs {
-  /**
-   * The current root of the l1 to l2 message tree.
-   */
-  root: Fr;
+  toFields(): Fr[] {
+    return [...this.message, new Fr(this.index), ...this.siblingPath];
+  }
 }
 
 /**
@@ -76,7 +80,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getSecretKey(_owner: PublicKey): Promise<GrumpkinScalar> {
+  getNullifierKeyPair(_accountAddress: AztecAddress): Promise<KeyPair> {
     throw new Error('Not available.');
   }
 
@@ -107,12 +111,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
-    throw new Error('Not available.');
-  }
-
-  // TODO(#3564) - Nuke this oracle and inject the number directly to context
-  getNullifierRootBlockNumber(_nullifierTreeRoot: Fr): Promise<number | undefined> {
+  getHeader(_blockNumber: number): Promise<Header | undefined> {
     throw new Error('Not available.');
   }
 
@@ -133,10 +132,12 @@ export abstract class TypedOracle {
     _numSelects: number,
     _selectBy: number[],
     _selectValues: Fr[],
+    _selectComparators: number[],
     _sortBy: number[],
     _sortOrder: number[],
     _limit: number,
     _offset: number,
+    _status: NoteStatus,
   ): Promise<NoteData[]> {
     throw new Error('Not available.');
   }
@@ -153,7 +154,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getL1ToL2Message(_msgKey: Fr): Promise<L1ToL2MessageOracleReturnData> {
+  getL1ToL2Message(_msgKey: Fr): Promise<MessageLoadOracleInputs> {
     throw new Error('Not available.');
   }
 

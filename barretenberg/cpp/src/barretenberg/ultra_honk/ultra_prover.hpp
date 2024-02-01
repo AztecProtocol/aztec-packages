@@ -2,13 +2,13 @@
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <UltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
@@ -35,14 +35,14 @@ template <UltraFlavor Flavor> class UltraProver_ {
     BBERG_PROFILE void execute_relation_check_rounds();
     BBERG_PROFILE void execute_zeromorph_rounds();
 
-    plonk::proof& export_proof();
-    plonk::proof& construct_proof();
+    honk::proof& export_proof();
+    honk::proof& construct_proof();
 
     std::shared_ptr<Instance> instance;
 
     std::shared_ptr<Transcript> transcript;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
     CommitmentLabels commitment_labels;
 
@@ -55,10 +55,10 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
 
   private:
-    plonk::proof proof;
+    honk::proof proof;
 };
 
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
 using GoblinUltraProver = UltraProver_<honk::flavor::GoblinUltra>;
 
-} // namespace proof_system::honk
+} // namespace bb::honk

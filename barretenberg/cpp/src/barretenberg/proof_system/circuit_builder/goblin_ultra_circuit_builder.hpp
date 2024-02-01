@@ -3,9 +3,9 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "ultra_circuit_builder.hpp"
 
-namespace proof_system {
+namespace bb {
 
-using namespace barretenberg;
+using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<arithmetization::UltraHonk<FF>> {
   public:
@@ -194,5 +194,5 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     bool check_circuit();
 };
-using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;
-} // namespace proof_system
+using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<bb::fr>;
+} // namespace bb

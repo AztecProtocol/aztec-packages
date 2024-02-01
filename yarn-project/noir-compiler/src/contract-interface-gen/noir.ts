@@ -7,10 +7,10 @@ import {
   FunctionType,
   StructType,
 } from '@aztec/foundation/abi';
+import { times } from '@aztec/foundation/collection';
 
 import camelCase from 'lodash.camelcase';
 import capitalize from 'lodash.capitalize';
-import times from 'lodash.times';
 
 /**
  * Returns whether this function type corresponds to a private call.
@@ -166,7 +166,7 @@ ${callStatement}
 function generateStaticImports() {
   return `use dep::std;
 use dep::aztec::context::{ PrivateContext, PublicContext };
-use dep::protocol_types::{
+use dep::aztec::protocol_types::{
   address::AztecAddress,
   abis::function_selector::FunctionSelector,
   constants::RETURN_VALUES_LENGTH,

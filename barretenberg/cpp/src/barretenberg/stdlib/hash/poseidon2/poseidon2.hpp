@@ -6,9 +6,9 @@
 
 #include "../../primitives/circuit_builders/circuit_builders.hpp"
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
-using namespace barretenberg;
+using namespace bb;
 /**
  * @brief stdlib class that evaluates in-circuit poseidon2 hashes, consistent with behavior in
  * crypto::poseidon2
@@ -30,6 +30,6 @@ template <typename Builder> class poseidon2 {
     static field_ct hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
 };
 
-extern template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;
+extern template class poseidon2<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib
