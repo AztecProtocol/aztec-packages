@@ -17,6 +17,7 @@ export function fromACVMField(field: ACVMField): Fr {
  * Converts a field to a number.
  * @param fr - The field to convert.
  * @returns The number.
+ * TODO(#4102): Nuke this once block number is big int.
  */
 export function frToNumber(fr: Fr): number {
   return Number(fr.value);
