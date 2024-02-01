@@ -10,6 +10,7 @@ import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
+  toACVMHeader,
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
   toAcvmL1ToL2MessageLoadOracleInputs,
@@ -124,25 +125,14 @@ export class Oracle {
     return witness.toFieldArray().map(toACVMField);
   }
 
-  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const blockHeader = await this.typedOracle.getBlockHeader(parsedBlockNumber);
-    if (!blockHeader) {
+    const header = await this.typedOracle.getHeader(parsedBlockNumber);
+    if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
-    return blockHeader.toArray().map(toACVMField);
-  }
-
-  // TODO(#3564) - Nuke this oracle and inject the number directly to context
-  async getNullifierRootBlockNumber([nullifierTreeRoot]: ACVMField[]): Promise<ACVMField> {
-    const parsedRoot = fromACVMField(nullifierTreeRoot);
-
-    const blockNumber = await this.typedOracle.getNullifierRootBlockNumber(parsedRoot);
-    if (!blockNumber) {
-      throw new Error(`Block header not found for block ${parsedRoot}.`);
-    }
-    return toACVMField(blockNumber);
+    return toACVMHeader(header);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
@@ -167,10 +157,12 @@ export class Oracle {
     [numSelects]: ACVMField[],
     selectBy: ACVMField[],
     selectValues: ACVMField[],
+    selectComparators: ACVMField[],
     sortBy: ACVMField[],
     sortOrder: ACVMField[],
     [limit]: ACVMField[],
     [offset]: ACVMField[],
+    [status]: ACVMField[],
     [returnSize]: ACVMField[],
   ): Promise<ACVMField[]> {
     const noteDatas = await this.typedOracle.getNotes(
@@ -178,10 +170,12 @@ export class Oracle {
       +numSelects,
       selectBy.map(s => +s),
       selectValues.map(fromACVMField),
+      selectComparators.map(s => +s),
       sortBy.map(s => +s),
       sortOrder.map(s => +s),
       +limit,
       +offset,
+      +status,
     );
 
     const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
@@ -232,8 +226,8 @@ export class Oracle {
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
-    const { root, ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
-    return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
+    const { ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
+    return toAcvmL1ToL2MessageLoadOracleInputs(message);
   }
 
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {

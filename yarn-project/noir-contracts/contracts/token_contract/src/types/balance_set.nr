@@ -15,10 +15,9 @@ use dep::aztec::note::{
 };
 use dep::aztec::note::{
     note_header::NoteHeader,
-    note_interface::NoteInterface,
-    utils::compute_note_hash_for_read_or_nullify,
+    note_interface::NoteInterface
 };
-use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
+use crate::types::token_note::TokenNote;
 
 // A set implementing standard manipulation of balances.
 // Does not require spending key, but only knowledge.
@@ -26,7 +25,7 @@ use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
 struct BalanceSet {
   context: Context,
   owner: AztecAddress,
-  set: Set<TokenNote, TOKEN_NOTE_LEN>
+  set: Set<TokenNote>
 }
 
 impl BalanceSet {
@@ -35,7 +34,6 @@ impl BalanceSet {
     let set = Set {
         context,
         storage_slot,
-        note_interface: TokenNoteMethods,
     };
     Self {
         context,

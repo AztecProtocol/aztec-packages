@@ -45,8 +45,9 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = { constraint },
         .block_constraints = {},
     };
@@ -156,8 +157,9 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .pedersen_hash_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
-                                  .ec_double_constraints = {},
                                   .recursion_constraints = {},
+                                  .bigint_from_le_bytes_constraints = {},
+                                  .bigint_operations = {},
                                   .constraints = { expr_a, expr_b, expr_c, expr_d },
                                   .block_constraints = {} };
 
@@ -219,8 +221,9 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                   .pedersen_hash_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
-                                  .ec_double_constraints = {},
                                   .recursion_constraints = {},
+                                  .bigint_from_le_bytes_constraints = {},
+                                  .bigint_operations = {},
                                   .constraints = { poly_triple{
                                       .a = schnorr_constraint.result,
                                       .b = schnorr_constraint.result,
@@ -310,8 +313,9 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = { poly_triple{
             .a = schnorr_constraint.result,
             .b = schnorr_constraint.result,
@@ -420,8 +424,9 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = { dummy },
         .block_constraints = {},
     };
@@ -462,8 +467,9 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .pedersen_hash_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
-                                  .ec_double_constraints = {},
                                   .recursion_constraints = {},
+                                  .bigint_from_le_bytes_constraints = {},
+                                  .bigint_operations = {},
                                   .constraints = {},
                                   .block_constraints = {} };
 

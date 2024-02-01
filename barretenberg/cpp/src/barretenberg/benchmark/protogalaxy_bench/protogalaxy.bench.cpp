@@ -30,7 +30,7 @@ void fold_one(State& state) noexcept
     std::shared_ptr<Instance> instance_1 = construct_instance();
     std::shared_ptr<Instance> instance_2 = construct_instance();
 
-    auto folding_prover = composer.create_folding_prover({ instance_1, instance_2 }, composer.commitment_key);
+    auto folding_prover = composer.create_folding_prover({ instance_1, instance_2 });
 
     for (auto _ : state) {
         auto proof = folding_prover.fold_instances();
@@ -39,3 +39,5 @@ void fold_one(State& state) noexcept
 
 BENCHMARK(fold_one)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 } // namespace bb::honk
+
+BENCHMARK_MAIN();

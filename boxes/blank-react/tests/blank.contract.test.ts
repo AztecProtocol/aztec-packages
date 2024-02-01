@@ -1,26 +1,41 @@
 import { BlankContract } from '../artifacts/Blank.js';
-import { callContractFunction, deployContract, getWallet } from '../src/scripts/index.js';
+import { callContractFunction, getWallet } from '../src/scripts/index.js';
 import {
   AccountWallet,
   AztecAddress,
   CompleteAddress,
   Contract,
+  DeployMethod,
   Fr,
-  PXE,
   TxStatus,
   Wallet,
   createDebugLogger,
 } from '@aztec/aztec.js';
 import { pxe } from '../src/config.js';
+import { convertArgs } from '../src/scripts/util.js';
 
 const logger = createDebugLogger('aztec:http-pxe-client');
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE) {
   logger('Deploying Blank contract...');
-  const contractAddress = await deployContract(owner, BlankContract.artifact, [], Fr.random(), pxe);
 
+  const { artifact } = BlankContract;
+  const salt = Fr.random();
+  const functionAbi = artifact.functions.find(f => f.name === 'constructor')!;
+  const typedArgs: any[] = convertArgs(functionAbi, []);
+  const tx = new DeployMethod(
+    owner.publicKey,
+    pxe.getPxe(),
+    artifact,
+    (a, w) => Contract.at(a, artifact, w),
+    typedArgs,
+  ).send({
+    contractAddressSalt: salt,
+  });
+
+  const { contractAddress } = await tx.wait();
   logger(`L2 contract deployed at ${contractAddress}`);
-  return BlankContract.at(contractAddress, wallet);
+  return BlankContract.at(contractAddress!, wallet);
 }
 
 describe('ZK Contract Tests', () => {

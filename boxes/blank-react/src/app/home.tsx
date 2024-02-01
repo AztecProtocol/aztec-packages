@@ -1,50 +1,37 @@
 import { pxe } from '../config.js';
-import { WalletDropdown } from './components/wallet_dropdown.js';
 import { Contract } from './contract.js';
-import styles from './home.module.scss';
-import { Loader } from '@aztec/aztec-ui';
-import { CompleteAddress } from '@aztec/aztec.js';
 import { useEffect, useRef, useState } from 'react';
+import { useAccount } from './hooks/useAccounts.js';
+import { convertArgs } from '../scripts/util.js';
+import { AztecAddress, CompleteAddress, ContractArtifact, DeployMethod, Fr, PXE } from '@aztec/aztec.js';
+import { useContract } from './hooks/useContract.js';
 
 export function Home() {
-  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
-  const [selectedWallet, setSelectedWallet] = useState<CompleteAddress>();
-  const [selectWalletError, setSelectedWalletError] = useState('');
+  const [deploymentAccount, setDeploymentAccount] = useState<CompleteAddress>();
+  const accounts = useAccount();
+  const { deploy, contract } = useContract({ deployer: deploymentAccount });
 
-  const handleSelectWallet = (address: CompleteAddress | undefined) => {
-    setSelectedWallet(address);
-    setIsLoadingWallet(false);
+  const selectWallet = ({ currentTarget }: React.FormEvent<HTMLSelectElement>) => {
+    if (!accounts) return;
+    const index = parseInt(currentTarget.value);
+    setDeploymentAccount(accounts[index]);
   };
 
-  const handleSelectWalletError = (msg: string) => {
-    setSelectedWalletError(msg);
-    setIsLoadingWallet(false);
-  };
+  if (!contract) {
+    return (
+      <form onSubmit={deploy}>
+        <label htmlFor="accounts">Choose a wallet to deploy dummy contract:</label>
+        <select name="accounts" id="accounts" onChange={selectWallet}>
+          {accounts?.map((acc, index) => (
+            <option key={index} value={index}>
+              {acc.address.toShortString()}
+            </option>
+          ))}
+        </select>
+        <button type="submit">Deploy dummy contract</button>
+      </form>
+    );
+  }
 
-  return (
-    <main className={styles.main}>
-      <img src="aztec_logo.svg" alt="Aztec" className={styles.logo} />
-      <>
-        {isLoadingWallet && <Loader />}
-        {!isLoadingWallet && (
-          <>
-            {!!selectWalletError && (
-              <>
-                {`Failed to load accounts. Error: ${selectWalletError}`}
-                <br />
-                {`Make sure PXE from Aztec Sandbox is running at: ${pxe.getPxeUrl()}`}
-              </>
-            )}
-            {!selectWalletError && !selectedWallet && `No accounts.`}
-            {!selectWalletError && !!selectedWallet && <Contract wallet={selectedWallet} />}
-          </>
-        )}
-        <WalletDropdown
-          selected={selectedWallet}
-          onSelectChange={handleSelectWallet}
-          onError={handleSelectWalletError}
-        />
-      </>
-    </main>
-  );
+  return <Contract address={contract} />;
 }

@@ -140,8 +140,9 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };
@@ -185,8 +186,9 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };
@@ -228,8 +230,9 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };
@@ -266,8 +269,9 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };

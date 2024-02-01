@@ -6,17 +6,20 @@ template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
                                                                   const std::string& domain_separator)
 {
+    // Get circuit parameters
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
     inst->public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
 
+    // Get folded public inputs
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
     }
 
+    // Get folded relation parameters
     auto eta = transcript->template receive_from_prover<FF>(domain_separator + "_eta");
     auto beta = transcript->template receive_from_prover<FF>(domain_separator + "_beta");
     auto gamma = transcript->template receive_from_prover<FF>(domain_separator + "_gamma");
@@ -26,6 +29,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::sha
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
+    // Get the folded relation separator challenges \vec{α}
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         inst->alphas[idx] =
             transcript->template receive_from_prover<FF>(domain_separator + "_alpha_" + std::to_string(idx));
@@ -33,11 +37,14 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::sha
 
     inst->target_sum = transcript->template receive_from_prover<FF>(domain_separator + "_target_sum");
 
+    // Get the folded gate challenges, \vec{β} in the paper
     inst->gate_challenges = std::vector<FF>(inst->log_instance_size);
     for (size_t idx = 0; idx < inst->log_instance_size; idx++) {
         inst->gate_challenges[idx] =
             transcript->template receive_from_prover<FF>(domain_separator + "_gate_challenge_" + std::to_string(idx));
     }
+
+    // Get the folded commitments to all witness polynomials
     auto comm_view = inst->witness_commitments.get_all();
     auto witness_labels = inst->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
@@ -45,6 +52,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::sha
             transcript->template receive_from_prover<Commitment>(domain_separator + "_" + witness_labels[idx]);
     }
 
+    // Get the folded commitments to selector polynomials
     inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
     auto vk_view = inst->verification_key->get_all();
     auto vk_labels = inst->commitment_labels.get_precomputed();
@@ -57,6 +65,7 @@ template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
                                                                             const std::string& domain_separator)
 {
+    // Get circuit parameters and the public inputs
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
     inst->public_input_size =
@@ -71,33 +80,39 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     inst->pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
 
+    // Get commitments to first three wire polynomials
     auto labels = inst->commitment_labels;
     auto& witness_commitments = inst->witness_commitments;
     witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
     witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
     witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
 
+    // Get challenge for sorted list batching and wire four memory records commitment
     auto eta = transcript->get_challenge(domain_separator + "_eta");
     witness_commitments.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
 
+    // Get permutation challenges and commitment to permutation and lookup grand products
     auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
     witness_commitments.z_perm =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
     witness_commitments.z_lookup =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
+    // Compute correction terms for grand products
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
     const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
+    // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         inst->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
     }
 
+    // Get the commitments to the selector polynomials for the given instance
     inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
     auto vk_view = inst->verification_key->get_all();
     auto vk_labels = labels.get_precomputed();
@@ -109,7 +124,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
 // between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<uint8_t>& fold_data)
+void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<FF>& fold_data)
 {
     transcript = std::make_shared<Transcript>(fold_data);
     auto index = 0;
@@ -142,7 +157,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
 }
 
 template <class VerifierInstances>
-bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<uint8_t> fold_data)
+bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::vector<FF>& fold_data)
 {
     prepare_for_folding(fold_data);
 

@@ -1,6 +1,3 @@
-import styles from './popup.module.scss';
-import { Button } from '@aztec/aztec-ui';
-
 interface Props {
   children: string;
   buttonText?: string;
@@ -10,15 +7,9 @@ interface Props {
 
 export function Popup({ children, buttonText = 'Close', isWarning = false, onClose }: Props) {
   return (
-    <div className={styles.popup}>
+    <div>
       {isWarning && (
-        <svg
-          className={styles.alert}
-          aria-hidden="true"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 20 20"
-        >
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
           <path
             stroke="currentColor"
             strokeLinecap="round"
@@ -28,8 +19,8 @@ export function Popup({ children, buttonText = 'Close', isWarning = false, onClo
           />
         </svg>
       )}
-      <div className={styles.content}>{children}</div>
-      <Button text={buttonText} onClick={onClose} />
+      <div>{children}</div>
+      <button onClick={onClose}>{buttonText}</button>
     </div>
   );
 }
