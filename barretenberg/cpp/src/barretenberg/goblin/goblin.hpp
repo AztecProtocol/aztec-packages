@@ -15,7 +15,6 @@ namespace bb {
 class Goblin {
     using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
 
-    using GUHVerificationKey = GoblinUltraFlavor::VerificationKey;
     using Commitment = GoblinUltraFlavor::Commitment;
     using FF = GoblinUltraFlavor::FF;
 
