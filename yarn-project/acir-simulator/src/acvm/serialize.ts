@@ -4,7 +4,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { ACVMField } from './acvm_types.js';
-import { MessageLoadOracleInputs } from './oracle/typed_oracle.js';
 
 /**
  * Adapts the buffer to the field size.
@@ -59,19 +58,6 @@ export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVM
     ...item.callContext.toFields(),
     item.getArgsHash(),
   ].map(toACVMField);
-}
-
-/**
- * Converts the result of loading messages to ACVM fields.
- * @param messageLoadOracleInputs - The result of loading messages to convert.
- * @returns The Message Oracle Fields.
- */
-export function toAcvmL1ToL2MessageLoadOracleInputs(messageLoadOracleInputs: MessageLoadOracleInputs): ACVMField[] {
-  return [
-    ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
-    toACVMField(messageLoadOracleInputs.index),
-    ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
-  ];
 }
 
 /**

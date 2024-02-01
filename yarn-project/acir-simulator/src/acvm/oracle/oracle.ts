@@ -8,11 +8,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
-import {
-  toACVMField,
-  toAcvmEnqueuePublicFunctionResult,
-  toAcvmL1ToL2MessageLoadOracleInputs
-} from '../serialize.js';
+import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 import { TypedOracle } from './typed_oracle.js';
 
@@ -224,8 +220,8 @@ export class Oracle {
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
-    const { ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
-    return toAcvmL1ToL2MessageLoadOracleInputs(message);
+    const message = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
+    return message.toFields().map(toACVMField);
   }
 
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {
