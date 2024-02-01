@@ -2,17 +2,21 @@ import {
   AztecAddress,
   CompleteAddress,
   Contract,
+  ContractArtifact,
   ContractDeployer,
   DebugLogger,
   EthAddress,
   Fr,
   PXE,
+  SignerlessWallet,
   TxStatus,
   Wallet,
   getContractInstanceFromDeployParams,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { TestContractArtifact } from '@aztec/noir-contracts/Test';
+import { siloNullifier } from '@aztec/circuits.js/abis';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts';
+import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
@@ -195,4 +199,42 @@ describe('e2e_deploy_contract', () => {
       });
     }
   }, 60_000);
+
+  // Tests calling a private function in an uninitialized and undeployed contract. Note that
+  // it still requires registering the contract artifact and instance locally in the pxe.
+  test.each(['as entrypoint', 'from an account contract'] as const)(
+    'executes a function in an undeployed contract %s',
+    async kind => {
+      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
+      const instance = await registerContract(pxe, TestContractArtifact);
+      const contract = await TestContract.at(instance.address, testWallet);
+      const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
+      const expected = siloNullifier(instance.address, new Fr(10));
+      expect(receipt.debugInfo?.newNullifiers[1]).toEqual(expected);
+    },
+  );
+
+  // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
+  test.each(['as entrypoint', 'from an account contract'] as const)(
+    'privately initializes a contract %s',
+    async kind => {
+      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
+      const { completeAddress: owner, privateKey } = CompleteAddress.fromRandomPrivateKey();
+      await pxe.registerAccount(privateKey, owner.partialAddress);
+      const initArgs: Parameters<StatefulTestContract['methods']['constructor']> = [owner, 42];
+      const instance = await registerContract(pxe, StatefulTestContractArtifact, initArgs);
+      const contract = await StatefulTestContract.at(instance.address, testWallet);
+      await contract.methods
+        .constructor(...initArgs)
+        .send()
+        .wait();
+      expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+    },
+  );
 });
+
+async function registerContract(pxe: PXE, artifact: ContractArtifact, args: any[] = []) {
+  const instance = getContractInstanceFromDeployParams(artifact, args);
+  await pxe.addContracts([{ artifact, instance }]);
+  return instance;
+}
