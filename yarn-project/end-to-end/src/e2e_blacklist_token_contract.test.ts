@@ -112,7 +112,7 @@ describe('e2e_blacklist_token_contract', () => {
 
     // Add the note
     const note = new Note([slowTree.address.toField()]);
-    const storageSlot = new Fr(7);
+    const storageSlot = new Fr(6);
 
     for (const wallet of wallets) {
       const extendedNote = new ExtendedNote(
