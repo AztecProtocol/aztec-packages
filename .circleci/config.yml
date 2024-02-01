@@ -125,6 +125,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-compile-acir-tests 32
 
+  avm-transpiler:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build avm-transpiler 32
+
   # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
@@ -610,7 +621,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_sandbox_example.test.ts
 
-  e2e-singleton:
+  e2e-state-vars:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -619,7 +630,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_singleton.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_state_vars.test.ts
 
   e2e-block-building:
     docker:
@@ -1137,6 +1148,9 @@ workflows:
             - noir-ecr-manifest
           <<: *defaults
 
+      # Transpiler
+      - avm-transpiler: *defaults
+
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
@@ -1185,6 +1199,7 @@ workflows:
       # Yarn Project
       - yarn-project-base:
           requires:
+            - avm-transpiler
             - l1-contracts
             - bb-js
             - noir-ecr-manifest
@@ -1240,7 +1255,7 @@ workflows:
       # TODO(3458): Investigate intermittent failure
       # - e2e-slow-tree: *e2e_test
       - e2e-sandbox-example: *e2e_test
-      - e2e-singleton: *e2e_test
+      - e2e-state-vars: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-non-contract-account: *e2e_test
@@ -1278,7 +1293,7 @@ workflows:
             - e2e-token-contract
             - e2e-blacklist-token-contract
             - e2e-sandbox-example
-            - e2e-singleton
+            - e2e-state-vars
             - e2e-block-building
             - e2e-nested-contract
             - e2e-non-contract-account

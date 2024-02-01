@@ -6,7 +6,6 @@ import {
   FunctionData,
   FunctionLeafPreimage,
   FunctionSelector,
-  GlobalVariables,
   NewContractData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
@@ -16,23 +15,18 @@ import {
 import {
   makeAztecAddress,
   makeEthAddress,
-  makePoint,
   makePrivateCallStackItem,
   makePublicCallStackItem,
   makeTxRequest,
   makeVerificationKey,
 } from '../tests/factories.js';
 import {
-  computeBlockHashWithGlobals,
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeCompleteAddress,
-  computeContractAddressFromPartial,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
-  computeGlobalsHash,
   computeNullifierHash,
   computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
@@ -88,22 +82,6 @@ describe('abis', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes a complete address', () => {
-    const deployerPubKey = makePoint();
-    const contractAddrSalt = new Fr(2n);
-    const treeRoot = new Fr(3n);
-    const constructorHash = new Fr(4n);
-    const res = computeCompleteAddress(deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a contract address from partial', () => {
-    const deployerPubKey = makePoint();
-    const partialAddress = new Fr(2n);
-    const res = computeContractAddressFromPartial(deployerPubKey, partialAddress);
-    expect(res).toMatchSnapshot();
-  });
-
   it('computes commitment nonce', () => {
     const nullifierZero = new Fr(123n);
     const commitmentIndex = 456;
@@ -129,40 +107,6 @@ describe('abis', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
     const innerNullifier = new Fr(456);
     const res = siloNullifier(contractAddress, innerNullifier);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes block hash with globals', () => {
-    const globals = GlobalVariables.from({
-      chainId: new Fr(1n),
-      version: new Fr(2n),
-      blockNumber: new Fr(3n),
-      timestamp: new Fr(4n),
-    });
-    const noteHashTreeRoot = new Fr(5n);
-    const nullifierTreeRoot = new Fr(6n);
-    const contractTreeRoot = new Fr(7n);
-    const l1ToL2DataTreeRoot = new Fr(8n);
-    const publicDataTreeRoot = new Fr(9n);
-    const res = computeBlockHashWithGlobals(
-      globals,
-      noteHashTreeRoot,
-      nullifierTreeRoot,
-      contractTreeRoot,
-      l1ToL2DataTreeRoot,
-      publicDataTreeRoot,
-    );
-    expect(res).toMatchSnapshot();
-  });
-
-  it('compute globals hash', () => {
-    const globals = GlobalVariables.from({
-      chainId: new Fr(1n),
-      version: new Fr(2n),
-      blockNumber: new Fr(3n),
-      timestamp: new Fr(4n),
-    });
-    const res = computeGlobalsHash(globals);
     expect(res).toMatchSnapshot();
   });
 
