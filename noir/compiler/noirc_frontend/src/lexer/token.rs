@@ -562,10 +562,6 @@ impl FunctionAttribute {
         matches!(self, FunctionAttribute::Foreign(_))
     }
 
-    pub fn is_oracle(&self) -> bool {
-        matches!(self, FunctionAttribute::Oracle(_))
-    }
-
     pub fn is_low_level(&self) -> bool {
         matches!(self, FunctionAttribute::Foreign(_) | FunctionAttribute::Builtin(_))
     }

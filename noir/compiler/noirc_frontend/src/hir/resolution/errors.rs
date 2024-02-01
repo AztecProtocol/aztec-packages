@@ -84,8 +84,6 @@ pub enum ResolverError {
     InvalidTypeForEntryPoint { span: Span },
     #[error("Nested slices are not supported")]
     NestedSlices { span: Span },
-    #[error("Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library")]
-    LowLevelFunctionOutsideOfStdlib { ident: Ident },
 }
 
 impl ResolverError {
@@ -312,11 +310,6 @@ impl From<ResolverError> for Diagnostic {
                 "Nested slices are not supported".into(),
                 "Try to use a constant sized array instead".into(),
                 span,
-            ),
-            ResolverError::LowLevelFunctionOutsideOfStdlib { ident } => Diagnostic::simple_error(
-                "Definition of low-level function outside of standard library".into(),
-                "Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library".into(),
-                ident.span(),
             ),
         }
     }
