@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { boolToBuffer, numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -11,15 +11,12 @@ import {
   FUNCTION_SELECTOR_NUM_BYTES,
   FUNCTION_TREE_HEIGHT,
   GeneratorIndex,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
-  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH
 } from '../constants.gen.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 import {
   CallContext,
   ContractDeploymentData,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
   FunctionData,
   FunctionLeafPreimage,
   NewContractData,
@@ -31,7 +28,7 @@ import {
   SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
-  VerificationKey,
+  VerificationKey
 } from '../structs/index.js';
 
 /**
@@ -428,17 +425,6 @@ export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackI
   );
 }
 
-function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
-  return pedersenHash(
-    [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
-    GeneratorIndex.PUBLIC_DATA_UPDATE_REQUEST,
-  );
-}
-
-function computeContractStorageReadsHash(input: ContractStorageRead) {
-  return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
-}
-
 export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
 }
@@ -448,28 +434,6 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
     [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
     GeneratorIndex.SIDE_EFFECT,
   );
-}
-
-export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
-  const toHash = [
-    computeCallContextHash(input.callContext),
-    input.argsHash.toBuffer(),
-    ...input.returnValues.map(fr => fr.toBuffer()),
-    ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
-    ...input.contractStorageReads.map(computeContractStorageReadsHash),
-    ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
-    ...input.newCommitments.map(computeCommitmentsHash),
-    ...input.newNullifiers.map(computeNullifierHash),
-    ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
-    ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
-    input.unencryptedLogPreimagesLength.toBuffer(),
-    ...input.historicalHeader.toFields().map(fr => fr.toBuffer()),
-    input.proverAddress.toBuffer(),
-  ];
-  if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
-    throw new Error('Incorrect number of input fields when hashing PublicCircuitPublicInputs');
-  }
-  return pedersenHash(toHash, GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS);
 }
 
 /**
@@ -495,7 +459,7 @@ export function computePublicCallStackItemHash({
       [
         contractAddress.toBuffer(),
         computeFunctionDataHash(functionData).toBuffer(),
-        computePublicInputsHash(publicInputs),
+        publicInputs.hash().toBuffer(),
       ],
       GeneratorIndex.CALL_STACK_ITEM,
     ),

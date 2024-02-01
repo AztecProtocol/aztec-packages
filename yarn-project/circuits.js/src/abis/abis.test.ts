@@ -8,9 +8,8 @@ import {
   FunctionSelector,
   NewContractData,
   PublicCallStackItem,
-  PublicCircuitPublicInputs,
   SideEffect,
-  SideEffectLinkedToNoteHash,
+  SideEffectLinkedToNoteHash
 } from '../index.js';
 import {
   makeAztecAddress,
@@ -32,7 +31,6 @@ import {
   computePublicCallStackItemHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computePublicInputsHash,
   computeSecretMessageHash,
   computeTxHash,
   computeUniqueCommitment,
@@ -188,13 +186,6 @@ describe('abis', () => {
     const emptySideEffect = SideEffect.empty();
     const emptyHash = Fr.fromBuffer(computeCommitmentsHash(emptySideEffect)).toString();
     expect(emptyHash).toMatchSnapshot();
-  });
-
-  it('Computes an empty public inputs hash ', () => {
-    const publicInputs = PublicCircuitPublicInputs.empty();
-    const emptyHash = computePublicInputsHash(publicInputs);
-
-    expect(Fr.fromBuffer(emptyHash).toString()).toMatchSnapshot();
   });
 
   it('Computes a callstack item request hash', () => {
