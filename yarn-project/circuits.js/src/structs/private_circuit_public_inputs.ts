@@ -11,6 +11,7 @@ import {
 import { FieldsOf } from '@aztec/foundation/types';
 
 import {
+  GeneratorIndex,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -24,6 +25,7 @@ import {
 import { CallContext } from './call_context.js';
 import { ContractDeploymentData, Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
+import { pedersenHash } from '@aztec/foundation/crypto';
 
 /**
  * Public inputs to a private circuit.
@@ -281,5 +283,14 @@ export class PrivateCircuitPublicInputs {
    */
   toFields(): Fr[] {
     return serializeToFieldArray(...PrivateCircuitPublicInputs.getFields(this));
+  }
+
+  hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFields().map(field => field.toBuffer()),
+        GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS,
+      ),
+    );
   }
 }
