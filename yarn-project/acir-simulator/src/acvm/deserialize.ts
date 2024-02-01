@@ -1,8 +1,6 @@
 import {
   CallContext,
   ContractDeploymentData,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
   HEADER_LENGTH,
   Header,
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -11,8 +9,6 @@ import {
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   NullifierKeyValidationRequest,
@@ -22,10 +18,9 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { FieldReader, Tuple } from '@aztec/foundation/serialize';
+import { FieldReader } from '@aztec/foundation/serialize';
 
 import { getReturnWitness } from '@noir-lang/acvm_js';
 
@@ -145,57 +140,5 @@ export function extractPrivateCircuitPublicInputs(
  */
 export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, acir: Buffer): PublicCircuitPublicInputs {
   const witnessReader = createPublicInputsReader(partialWitness, acir);
-
-  const callContext = witnessReader.readObject(CallContext);
-
-  const argsHash = witnessReader.readField();
-  const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
-
-  const contractStorageUpdateRequests = new Array(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).fill(
-    ContractStorageUpdateRequest.empty(),
-  );
-  for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
-    const request = new ContractStorageUpdateRequest(
-      witnessReader.readField(),
-      witnessReader.readField(),
-      witnessReader.readField(),
-    );
-    contractStorageUpdateRequests[i] = request;
-  }
-  const contractStorageReads = new Array(MAX_PUBLIC_DATA_READS_PER_CALL).fill(ContractStorageRead.empty());
-  for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
-    const request = new ContractStorageRead(witnessReader.readField(), witnessReader.readField());
-    contractStorageReads[i] = request;
-  }
-
-  const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  const newCommitments = witnessReader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect);
-  const newNullifiers = witnessReader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash);
-  const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
-
-  const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
-  const unencryptedLogPreimagesLength = witnessReader.readField();
-
-  const header = Header.fromFields(witnessReader.readFieldArray(HEADER_LENGTH));
-
-  const proverAddress = AztecAddress.fromField(witnessReader.readField());
-
-  return new PublicCircuitPublicInputs(
-    callContext,
-    argsHash,
-    returnValues,
-    contractStorageUpdateRequests as Tuple<
-      ContractStorageUpdateRequest,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
-    >,
-    contractStorageReads as Tuple<ContractStorageRead, typeof MAX_PUBLIC_DATA_READS_PER_CALL>,
-    publicCallStack,
-    newCommitments,
-    newNullifiers,
-    newL2ToL1Msgs,
-    unencryptedLogsHash,
-    unencryptedLogPreimagesLength,
-    header,
-    proverAddress,
-  );
+  return PublicCircuitPublicInputs.fromFields(witnessReader);
 }
