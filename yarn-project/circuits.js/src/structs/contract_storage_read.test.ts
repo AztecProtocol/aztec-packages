@@ -1,3 +1,4 @@
+import { CONTRACT_STORAGE_READ_LENGTH } from '../constants.gen.js';
 import { makeContractStorageRead } from '../tests/factories.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 
@@ -19,5 +20,10 @@ describe('ContractStorageRead', () => {
     const fieldArray = read.toFields();
     const res = ContractStorageRead.fromFields(fieldArray);
     expect(res).toEqual(read);
+  });
+
+  it('number of fields matches constant', () => {
+    const fields = read.toFields();
+    expect(fields.length).toBe(CONTRACT_STORAGE_READ_LENGTH);
   });
 });
