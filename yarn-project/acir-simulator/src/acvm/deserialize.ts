@@ -1,25 +1,5 @@
-import {
-  CallContext,
-  ContractDeploymentData,
-  HEADER_LENGTH,
-  Header,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_READ_REQUESTS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
-  NullifierKeyValidationRequest,
-  PrivateCircuitPublicInputs,
-  PublicCircuitPublicInputs,
-  RETURN_VALUES_LENGTH,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-} from '@aztec/circuits.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { PrivateCircuitPublicInputs, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
 
 import { getReturnWitness } from '@noir-lang/acvm_js';
@@ -75,61 +55,7 @@ export function extractPrivateCircuitPublicInputs(
   acir: Buffer,
 ): PrivateCircuitPublicInputs {
   const witnessReader = createPublicInputsReader(partialWitness, acir);
-
-  const callContext = witnessReader.readObject(CallContext);
-  const argsHash = witnessReader.readField();
-  const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
-  const readRequests = witnessReader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect);
-  const nullifierKeyValidationRequests = witnessReader.readArray(
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-    NullifierKeyValidationRequest,
-  );
-  const newCommitments = witnessReader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect);
-  const newNullifiers = witnessReader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash);
-  const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-  const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
-  const endSideEffectCounter = witnessReader.readField();
-
-  const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
-  const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
-  const encryptedLogPreimagesLength = witnessReader.readField();
-  const unencryptedLogPreimagesLength = witnessReader.readField();
-
-  const header = Header.fromFields(witnessReader.readFieldArray(HEADER_LENGTH));
-
-  const contractDeploymentData = new ContractDeploymentData(
-    new Point(witnessReader.readField(), witnessReader.readField()),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    witnessReader.readField(),
-    EthAddress.fromField(witnessReader.readField()),
-  );
-
-  const chainId = witnessReader.readField();
-  const version = witnessReader.readField();
-
-  return new PrivateCircuitPublicInputs(
-    callContext,
-    argsHash,
-    returnValues,
-    readRequests,
-    nullifierKeyValidationRequests,
-    newCommitments,
-    newNullifiers,
-    privateCallStack,
-    publicCallStack,
-    newL2ToL1Msgs,
-    endSideEffectCounter,
-    encryptedLogsHash,
-    unencryptedLogsHash,
-    encryptedLogPreimagesLength,
-    unencryptedLogPreimagesLength,
-    header,
-    contractDeploymentData,
-    chainId,
-    version,
-  );
+  return PrivateCircuitPublicInputs.fromFields(witnessReader);
 }
 
 /**
