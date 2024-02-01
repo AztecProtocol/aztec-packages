@@ -38,26 +38,16 @@ describe('Environment getters instructions', () => {
   };
 
   describe('Address', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Address.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = Address.deserialize(buf);
-      expect(inst).toEqual(new Address(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Address(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        Address.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Address.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read address correctly', async () => {
@@ -67,26 +57,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('StorageAddress', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StorageAddress.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = StorageAddress.deserialize(buf);
-      expect(inst).toEqual(new StorageAddress(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new StorageAddress(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        StorageAddress.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(StorageAddress.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read storage address correctly', async () => {
@@ -96,26 +76,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('Portal', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Portal.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = Portal.deserialize(buf);
-      expect(inst).toEqual(new Portal(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Portal(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        Portal.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Portal.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read Portal correctly', async () => {
@@ -125,26 +95,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('FeePerL1Gas', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         FeePerL1Gas.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = FeePerL1Gas.deserialize(buf);
-      expect(inst).toEqual(new FeePerL1Gas(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new FeePerL1Gas(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        FeePerL1Gas.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(FeePerL1Gas.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read FeePerL1Gas correctly', async () => {
@@ -154,26 +114,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('FeePerL2Gas', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         FeePerL2Gas.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = FeePerL2Gas.deserialize(buf);
-      expect(inst).toEqual(new FeePerL2Gas(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new FeePerL2Gas(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        FeePerL2Gas.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(FeePerL2Gas.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read FeePerL2Gas correctly', async () => {
@@ -183,26 +133,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('FeePerDAGas', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         FeePerDAGas.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = FeePerDAGas.deserialize(buf);
-      expect(inst).toEqual(new FeePerDAGas(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new FeePerDAGas(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        FeePerDAGas.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(FeePerDAGas.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read FeePerDAGas correctly', async () => {
@@ -212,26 +152,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('Origin', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Origin.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = Origin.deserialize(buf);
-      expect(inst).toEqual(new Origin(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Origin(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        Origin.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Origin.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read Origin correctly', async () => {
@@ -241,26 +171,16 @@ describe('Environment getters instructions', () => {
   });
 
   describe('Sender', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Sender.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = Sender.deserialize(buf);
-      expect(inst).toEqual(new Sender(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Sender(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        Sender.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Sender.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should read Sender correctly', async () => {
@@ -281,26 +201,16 @@ describe('Environment getters instructions', () => {
     };
 
     describe('chainId', () => {
-      it('Should deserialize correctly', () => {
+      it('Should (de)serialize correctly', () => {
         const buf = Buffer.from([
           ChainId.opcode, // opcode
           0x01, // indirect
           ...Buffer.from('12345678', 'hex'), // dstOffset
         ]);
-
-        const inst = ChainId.deserialize(buf);
-        expect(inst).toEqual(new ChainId(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-      });
-
-      it('Should serialize correctly', () => {
         const inst = new ChainId(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-        const expected = Buffer.from([
-          ChainId.opcode, // opcode
-          0x01, // indirect
-          ...Buffer.from('12345678', 'hex'), // dstOffset
-        ]);
-        expect(inst.serialize()).toEqual(expected);
+        expect(ChainId.deserialize(buf)).toEqual(inst);
+        expect(inst.serialize()).toEqual(buf);
       });
 
       it('Should read chainId', async () => {
@@ -310,26 +220,16 @@ describe('Environment getters instructions', () => {
     });
 
     describe('version', () => {
-      it('Should deserialize correctly', () => {
+      it('Should (de)serialize correctly', () => {
         const buf = Buffer.from([
           Version.opcode, // opcode
           0x01, // indirect
           ...Buffer.from('12345678', 'hex'), // dstOffset
         ]);
-
-        const inst = Version.deserialize(buf);
-        expect(inst).toEqual(new Version(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-      });
-
-      it('Should serialize correctly', () => {
         const inst = new Version(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-        const expected = Buffer.from([
-          Version.opcode, // opcode
-          0x01, // indirect
-          ...Buffer.from('12345678', 'hex'), // dstOffset
-        ]);
-        expect(inst.serialize()).toEqual(expected);
+        expect(Version.deserialize(buf)).toEqual(inst);
+        expect(inst.serialize()).toEqual(buf);
       });
 
       it('Should read version', async () => {
@@ -339,26 +239,16 @@ describe('Environment getters instructions', () => {
     });
 
     describe('block', () => {
-      it('Should deserialize correctly', () => {
+      it('Should (de)serialize correctly', () => {
         const buf = Buffer.from([
           BlockNumber.opcode, // opcode
           0x01, // indirect
           ...Buffer.from('12345678', 'hex'), // dstOffset
         ]);
-
-        const inst = BlockNumber.deserialize(buf);
-        expect(inst).toEqual(new BlockNumber(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-      });
-
-      it('Should serialize correctly', () => {
         const inst = new BlockNumber(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-        const expected = Buffer.from([
-          BlockNumber.opcode, // opcode
-          0x01, // indirect
-          ...Buffer.from('12345678', 'hex'), // dstOffset
-        ]);
-        expect(inst.serialize()).toEqual(expected);
+        expect(BlockNumber.deserialize(buf)).toEqual(inst);
+        expect(inst.serialize()).toEqual(buf);
       });
 
       it('Should read block number', async () => {
@@ -368,26 +258,16 @@ describe('Environment getters instructions', () => {
     });
 
     describe('timestamp', () => {
-      it('Should deserialize correctly', () => {
+      it('Should (de)serialize correctly', () => {
         const buf = Buffer.from([
           Timestamp.opcode, // opcode
           0x01, // indirect
           ...Buffer.from('12345678', 'hex'), // dstOffset
         ]);
-
-        const inst = Timestamp.deserialize(buf);
-        expect(inst).toEqual(new Timestamp(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-      });
-
-      it('Should serialize correctly', () => {
         const inst = new Timestamp(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-        const expected = Buffer.from([
-          Timestamp.opcode, // opcode
-          0x01, // indirect
-          ...Buffer.from('12345678', 'hex'), // dstOffset
-        ]);
-        expect(inst.serialize()).toEqual(expected);
+        expect(Timestamp.deserialize(buf)).toEqual(inst);
+        expect(inst.serialize()).toEqual(buf);
       });
 
       it('Should read timestamp', async () => {

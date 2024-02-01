@@ -26,20 +26,6 @@ describe('Comparators', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst: Eq = Eq.deserialize(buf);
-      expect(inst).toEqual(
-        new Eq(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.UINT64,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Eq(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
@@ -48,15 +34,8 @@ describe('Comparators', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Eq.opcode, // opcode
-        0x01, // indirect
-        TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Eq.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {
@@ -111,20 +90,6 @@ describe('Comparators', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst: Lt = Lt.deserialize(buf);
-      expect(inst).toEqual(
-        new Lt(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.UINT64,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Lt(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
@@ -133,15 +98,8 @@ describe('Comparators', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Lt.opcode, // opcode
-        0x01, // indirect
-        TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Lt.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {
@@ -196,20 +154,6 @@ describe('Comparators', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst: Lte = Lte.deserialize(buf);
-      expect(inst).toEqual(
-        new Lte(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.UINT64,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Lte(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
@@ -218,15 +162,8 @@ describe('Comparators', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Lte.opcode, // opcode
-        0x01, // indirect
-        TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Lte.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {

@@ -34,7 +34,7 @@ describe('External Calls', () => {
   });
 
   describe('Call', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
         0x01, // indirect
@@ -46,23 +46,6 @@ describe('External Calls', () => {
         ...Buffer.from('e2345678', 'hex'), // retSize
         ...Buffer.from('f2345678', 'hex'), // successOffset
       ]);
-
-      const inst = Call.deserialize(buf);
-      expect(inst).toEqual(
-        new Call(
-          /*indirect=*/ 0x01,
-          /*gasOffset=*/ 0x12345678,
-          /*addrOffset=*/ 0xa2345678,
-          /*argsOffset=*/ 0xb2345678,
-          /*argsSize=*/ 0xc2345678,
-          /*retOffset=*/ 0xd2345678,
-          /*retSize=*/ 0xe2345678,
-          /*successOffset=*/ 0xf2345678,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Call(
         /*indirect=*/ 0x01,
         /*gasOffset=*/ 0x12345678,
@@ -74,18 +57,8 @@ describe('External Calls', () => {
         /*successOffset=*/ 0xf2345678,
       );
 
-      const expected = Buffer.from([
-        Call.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // gasOffset
-        ...Buffer.from('a2345678', 'hex'), // addrOffset
-        ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSize
-        ...Buffer.from('d2345678', 'hex'), // retOffset
-        ...Buffer.from('e2345678', 'hex'), // retSize
-        ...Buffer.from('f2345678', 'hex'), // successOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Call.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3992): gas not implemented
@@ -145,7 +118,7 @@ describe('External Calls', () => {
   });
 
   describe('Static Call', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
         0x01, // indirect
@@ -157,23 +130,6 @@ describe('External Calls', () => {
         ...Buffer.from('e2345678', 'hex'), // retSize
         ...Buffer.from('f2345678', 'hex'), // successOffset
       ]);
-
-      const inst = StaticCall.deserialize(buf);
-      expect(inst).toEqual(
-        new StaticCall(
-          /*indirect=*/ 0x01,
-          /*gasOffset=*/ 0x12345678,
-          /*addrOffset=*/ 0xa2345678,
-          /*argsOffset=*/ 0xb2345678,
-          /*argsSize=*/ 0xc2345678,
-          /*retOffset=*/ 0xd2345678,
-          /*retSize=*/ 0xe2345678,
-          /*successOffset=*/ 0xf2345678,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new StaticCall(
         /*indirect=*/ 0x01,
         /*gasOffset=*/ 0x12345678,
@@ -185,18 +141,8 @@ describe('External Calls', () => {
         /*successOffset=*/ 0xf2345678,
       );
 
-      const expected = Buffer.from([
-        StaticCall.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // gasOffset
-        ...Buffer.from('a2345678', 'hex'), // addrOffset
-        ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSize
-        ...Buffer.from('d2345678', 'hex'), // retOffset
-        ...Buffer.from('e2345678', 'hex'), // retSize
-        ...Buffer.from('f2345678', 'hex'), // successOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(StaticCall.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should fail if a static call attempts to touch storage', async () => {

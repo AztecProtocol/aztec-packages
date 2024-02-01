@@ -22,28 +22,17 @@ describe('Storage Instructions', () => {
   });
 
   describe('SSTORE', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         SStore.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // srcOffset
         ...Buffer.from('a2345678', 'hex'), // slotOffset
       ]);
-
-      const inst = SStore.deserialize(buf);
-      expect(inst).toEqual(new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*slotOffset=*/ 0xa2345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*slotOffset=*/ 0xa2345678);
 
-      const expected = Buffer.from([
-        SStore.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // srcOffset
-        ...Buffer.from('a2345678', 'hex'), // slotOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(SStore.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Sstore should Write into storage', async () => {
@@ -75,28 +64,17 @@ describe('Storage Instructions', () => {
   });
 
   describe('SLOAD', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         SLoad.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // slotOffset
         ...Buffer.from('a2345678', 'hex'), // dstOffset
       ]);
-
-      const inst = SLoad.deserialize(buf);
-      expect(inst).toEqual(new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x12345678, /*dstOffset=*/ 0xa2345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x12345678, /*dstOffset=*/ 0xa2345678);
 
-      const expected = Buffer.from([
-        SLoad.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // slotOffset
-        ...Buffer.from('a2345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(SLoad.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Sload should Read into storage', async () => {

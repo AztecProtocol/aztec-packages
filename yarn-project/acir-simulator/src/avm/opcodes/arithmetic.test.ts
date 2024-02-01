@@ -16,7 +16,7 @@ describe('Arithmetic Instructions', () => {
   });
 
   describe('Add', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Add.opcode, // opcode
         0x01, // indirect
@@ -25,20 +25,6 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Add.deserialize(buf);
-      expect(inst).toEqual(
-        new Add(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.FIELD,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Add(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.FIELD,
@@ -47,15 +33,8 @@ describe('Arithmetic Instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Add.opcode, // opcode
-        0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Add.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should add correctly over field elements', async () => {
@@ -100,7 +79,7 @@ describe('Arithmetic Instructions', () => {
   });
 
   describe('Sub', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Sub.opcode, // opcode
         0x01, // indirect
@@ -109,20 +88,6 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Sub.deserialize(buf);
-      expect(inst).toEqual(
-        new Sub(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.FIELD,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Sub(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.FIELD,
@@ -131,15 +96,8 @@ describe('Arithmetic Instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Sub.opcode, // opcode
-        0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Sub.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should subtract correctly over field elements', async () => {
@@ -164,7 +122,7 @@ describe('Arithmetic Instructions', () => {
   });
 
   describe('Mul', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Mul.opcode, // opcode
         0x01, // indirect
@@ -173,20 +131,6 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Mul.deserialize(buf);
-      expect(inst).toEqual(
-        new Mul(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.FIELD,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Mul(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.FIELD,
@@ -195,15 +139,8 @@ describe('Arithmetic Instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Mul.opcode, // opcode
-        0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Mul.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should multiply correctly over field elements', async () => {
@@ -248,7 +185,7 @@ describe('Arithmetic Instructions', () => {
   });
 
   describe('Div', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Div.opcode, // opcode
         0x01, // indirect
@@ -257,20 +194,6 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('23456789', 'hex'), // bOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Div.deserialize(buf);
-      expect(inst).toEqual(
-        new Add(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.FIELD,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Div(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.FIELD,
@@ -279,15 +202,8 @@ describe('Arithmetic Instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Div.opcode, // opcode
-        0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Div.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should perform field division', async () => {

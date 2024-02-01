@@ -19,26 +19,16 @@ describe('Accrued Substate', () => {
   });
 
   describe('EmitNoteHash', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         EmitNoteHash.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = EmitNoteHash.deserialize(buf);
-      expect(inst).toEqual(new EmitNoteHash(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        EmitNoteHash.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(EmitNoteHash.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should append a new note hash correctly', async () => {
@@ -54,26 +44,16 @@ describe('Accrued Substate', () => {
   });
 
   describe('EmitNullifier', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         EmitNullifier.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
       ]);
-
-      const inst = EmitNullifier.deserialize(buf);
-      expect(inst).toEqual(new EmitNullifier(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new EmitNullifier(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
 
-      const expected = Buffer.from([
-        EmitNullifier.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(EmitNullifier.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should append a new nullifier correctly', async () => {
@@ -89,30 +69,17 @@ describe('Accrued Substate', () => {
   });
 
   describe('EmitUnencryptedLog', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // offset
         ...Buffer.from('a2345678', 'hex'), // length
       ]);
-
-      const inst = EmitUnencryptedLog.deserialize(buf);
-      expect(inst).toEqual(
-        new EmitUnencryptedLog(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678, /*length=*/ 0xa2345678),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678, /*length=*/ 0xa2345678);
 
-      const expected = Buffer.from([
-        EmitUnencryptedLog.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-        ...Buffer.from('a2345678', 'hex'), // length
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should append unencrypted logs correctly', async () => {
@@ -132,30 +99,17 @@ describe('Accrued Substate', () => {
   });
 
   describe('SendL2ToL1Message', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         SendL2ToL1Message.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // offset
         ...Buffer.from('a2345678', 'hex'), // length
       ]);
-
-      const inst = SendL2ToL1Message.deserialize(buf);
-      expect(inst).toEqual(
-        new SendL2ToL1Message(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678, /*length=*/ 0xa2345678),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new SendL2ToL1Message(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678, /*length=*/ 0xa2345678);
 
-      const expected = Buffer.from([
-        SendL2ToL1Message.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-        ...Buffer.from('a2345678', 'hex'), // length
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(SendL2ToL1Message.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should append l1 to l2 messages correctly', async () => {

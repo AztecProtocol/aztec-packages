@@ -18,7 +18,7 @@ describe('Memory instructions', () => {
   });
 
   describe('SET', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Set.opcode, // opcode
         0x01, // indirect
@@ -26,19 +26,6 @@ describe('Memory instructions', () => {
         ...Buffer.from('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Set.deserialize(buf);
-      expect(inst).toEqual(
-        new Set(
-          /*indirect=*/ 0x01,
-          /*inTag=*/ TypeTag.FIELD,
-          /*value=*/ 0x12345678123456781234567812345678n,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Set(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.FIELD,
@@ -46,14 +33,8 @@ describe('Memory instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Set.opcode, // opcode
-        0x01, // indirect
-        TypeTag.FIELD, // inTag
-        ...Buffer.from('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('should correctly set value and tag (uninitialized)', async () => {
@@ -94,14 +75,6 @@ describe('Memory instructions', () => {
         ...Buffer.from('12345678', 'hex'), // aOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Cast.deserialize(buf);
-      expect(inst).toEqual(
-        new Cast(/*indirect=*/ 0x01, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Cast(
         /*indirect=*/ 0x01,
         /*dstTag=*/ TypeTag.FIELD,
@@ -109,14 +82,8 @@ describe('Memory instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        Cast.opcode, // opcode
-        0x01, // indirect
-        TypeTag.FIELD, // dstTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Cast.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should upcast between integral types', () => {
@@ -243,28 +210,17 @@ describe('Memory instructions', () => {
   });
 
   describe('MOV', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Mov.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // srcOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = Mov.deserialize(buf);
-      expect(inst).toEqual(new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a));
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a);
 
-      const expected = Buffer.from([
-        Mov.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // srcOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(Mov.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should move integrals on different memory cells', async () => {
@@ -300,20 +256,6 @@ describe('Memory instructions', () => {
         ...Buffer.from('b2345678', 'hex'), // condOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = CMov.deserialize(buf);
-      expect(inst).toEqual(
-        new CMov(
-          /*indirect=*/ 0x01,
-          /*aOffset=*/ 0x12345678,
-          /*bOffset=*/ 0xa2345678,
-          /*condOffset=*/ 0xb2345678,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new CMov(
         /*indirect=*/ 0x01,
         /*aOffset=*/ 0x12345678,
@@ -322,15 +264,8 @@ describe('Memory instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        CMov.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('a2345678', 'hex'), // bOffset
-        ...Buffer.from('b2345678', 'hex'), // condOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(CMov.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should move A if COND is true, on different memory cells (integral condition)', async () => {
@@ -399,7 +334,7 @@ describe('Memory instructions', () => {
   });
 
   describe('CALLDATACOPY', () => {
-    it('Should deserialize correctly', () => {
+    it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
         0x01, // indirect
@@ -407,19 +342,6 @@ describe('Memory instructions', () => {
         ...Buffer.from('23456789', 'hex'), // copysize
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
-
-      const inst = CalldataCopy.deserialize(buf);
-      expect(inst).toEqual(
-        new CalldataCopy(
-          /*indirect=*/ 0x01,
-          /*cdOffset=*/ 0x12345678,
-          /*copysize=*/ 0x23456789,
-          /*dstOffset=*/ 0x3456789a,
-        ),
-      );
-    });
-
-    it('Should serialize correctly', () => {
       const inst = new CalldataCopy(
         /*indirect=*/ 0x01,
         /*cdOffset=*/ 0x12345678,
@@ -427,14 +349,8 @@ describe('Memory instructions', () => {
         /*dstOffset=*/ 0x3456789a,
       );
 
-      const expected = Buffer.from([
-        CalldataCopy.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // cdOffset
-        ...Buffer.from('23456789', 'hex'), // copysize
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
-      ]);
-      expect(inst.serialize()).toEqual(expected);
+      expect(CalldataCopy.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
     });
 
     it('Writes nothing if size is 0', async () => {
