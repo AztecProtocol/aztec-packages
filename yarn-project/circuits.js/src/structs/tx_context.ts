@@ -2,16 +2,13 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicKey } from '../index.js';
-import { AztecAddress, EthAddress, Fr, Point } from './index.js';
+import { EthAddress, Fr, Point } from './index.js';
 
 /**
  * Contract deployment data in a TxContext
  * Not to be confused with NewContractData.
  */
 export class ContractDeploymentData {
-  /** Ethereum address of the portal contract on L1. */
-  public portalContractAddress: EthAddress;
-
   constructor(
     /** Public key of the contract. */
     public publicKey: PublicKey,
@@ -21,14 +18,9 @@ export class ContractDeploymentData {
     public contractClassId: Fr,
     /** Contract address salt (used when deriving a contract address). */
     public contractAddressSalt: Fr,
-    /**
-     * Ethereum address of the portal contract on L1.
-     * TODO(AD): union type kludge due to cbind compiler having special needs
-     */
-    portalContractAddress: EthAddress | AztecAddress,
-  ) {
-    this.portalContractAddress = EthAddress.fromField(portalContractAddress.toField());
-  }
+    /** Ethereum address of the portal contract on L1. */
+    public portalContractAddress: EthAddress,
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(
