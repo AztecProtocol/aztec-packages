@@ -101,7 +101,7 @@ contract SchnorrAccount {
         storage_slot: Field,
         serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]
     ) -> pub [Field; 4] {
-        assert(storage_slot == 1);
+        assert(storage_slot == storage.signing_public_key.get_storage_slot());
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(PublicKeyNote::deserialize, note_header, serialized_note)
     }

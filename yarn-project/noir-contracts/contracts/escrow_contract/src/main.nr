@@ -67,7 +67,7 @@ contract Escrow {
         serialized_note: [Field; ADDRESS_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        assert(storage_slot == 1);
+        assert(storage_slot == storage.owners.get_storage_slot());
         note_utils::compute_note_hash_and_nullifier(AddressNote::deserialize, note_header, serialized_note)
     }
 }

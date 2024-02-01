@@ -1,4 +1,5 @@
 use std::borrow::{Borrow, BorrowMut};
+use std::vec;
 
 use iter_extended::vecmap;
 use noirc_frontend::macros_api::FieldElement;
@@ -774,12 +775,14 @@ fn transform_events(
 
 /// Obtains the serialized length of a type that implements the Serialize trait.
 fn get_serialized_length(
-    serialize_traits: &Vec<TraitId>,
+    traits: &Vec<TraitId>,
     typ: &Type,
     interner: &NodeInterner,
 ) -> Result<u64, AztecMacroError> {
-    let maybe_stored_in_state = match typ {
-        Type::Struct(_, generics) => Ok(generics.get(0)),
+    let (struct_name, maybe_stored_in_state) = match typ {
+        Type::Struct(struct_type, generics) => {
+            Ok((struct_type.borrow().name.0.contents.clone(), generics.get(0)))
+        }
         _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
             secondary_message: Some("State storage variable must be a struct".to_string()),
         }),
@@ -790,13 +793,34 @@ fn get_serialized_length(
             secondary_message: Some("State storage variable must be generic".to_string()),
         }),
     }?;
-    let trait_impl_kind = serialize_traits
+
+    let is_note = traits.iter().any(|&trait_id| {
+        let r#trait = interner.get_trait(trait_id);
+        r#trait.borrow().name.0.contents == "NoteInterface"
+            && !interner
+                .lookup_all_trait_implementations(stored_in_state.clone(), trait_id)
+                .is_empty()
+    });
+
+    // Maps and (private) Notes always occupy a single slot. Someone could store a Note in PublicState for whatever reason though.
+    if struct_name == "Map" || (is_note && struct_name != "PublicState") {
+        return Ok(1);
+    }
+
+    let trait_impl_kind = traits
         .iter()
-        .filter_map(|&s_trait_id| {
-            interner
-                .lookup_all_trait_implementations(stored_in_state.clone(), s_trait_id)
-                .into_iter()
-                .nth(0)
+        .filter_map(|&trait_id| {
+            let r#trait = interner.get_trait(trait_id);
+            if r#trait.borrow().name.0.contents == "Serialize"
+                && r#trait.borrow().generics.len() == 1
+            {
+                interner
+                    .lookup_all_trait_implementations(stored_in_state.clone(), trait_id)
+                    .into_iter()
+                    .nth(0)
+            } else {
+                None
+            }
         })
         .nth(0)
         .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
@@ -823,14 +847,7 @@ fn assign_storage_slots(
     crate_id: &CrateId,
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
-    let serialize_traits: Vec<_> = collect_traits(context)
-        .iter()
-        .filter(|trait_id| {
-            let r#trait = context.def_interner.get_trait(**trait_id);
-            r#trait.borrow().name.0.contents == "Serialize" && r#trait.borrow().generics.len() == 1
-        })
-        .cloned()
-        .collect();
+    let traits: Vec<_> = collect_traits(context).iter().cloned().collect();
     for struct_id in collect_crate_structs(crate_id, context) {
         let interner: &mut NodeInterner = context.def_interner.borrow_mut();
         let r#struct = interner.get_struct(struct_id);
@@ -923,9 +940,8 @@ fn assign_storage_slots(
                     continue;
                 }
 
-                let type_serialized_len =
-                    get_serialized_length(&serialize_traits, field_type, interner)
-                        .map_err(|err| (err.into(), file_id))?;
+                let type_serialized_len = get_serialized_length(&traits, field_type, interner)
+                    .map_err(|err| (err.into(), file_id))?;
                 interner.update_expression(new_call_expression.arguments[1], |expr| {
                     *expr = HirExpression::Literal(HirLiteral::Integer(
                         FieldElement::from(u128::from(storage_slot)),

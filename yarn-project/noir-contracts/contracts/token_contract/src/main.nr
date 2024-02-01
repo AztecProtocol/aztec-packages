@@ -56,11 +56,11 @@ contract Token {
         minters: Map<AztecAddress, PublicState<bool>>, 
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap<TokenNote>, // slot 3
+        balances: BalancesMap<TokenNote>,
         // docs:end:storage_balances
         total_supply: PublicState<SafeU120>, 
         // docs:start:storage_pending_shields
-        pending_shields: Set<TransparentNote>, // slot 7
+        pending_shields: Set<TransparentNote>, 
         // docs:end:storage_pending_shields
         public_balances: Map<AztecAddress, PublicState<SafeU120>>,
         symbol: StablePublicState<FieldCompressedString>,
@@ -395,7 +395,7 @@ contract Token {
         serialized_note: [Field; TOKEN_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == 7) {
+        if (storage_slot == storage.pending_shields.get_storage_slot()) {
             note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
         } else {
             note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)

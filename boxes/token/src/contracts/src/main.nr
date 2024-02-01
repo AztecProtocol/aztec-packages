@@ -374,7 +374,7 @@ contract Token {
         serialized_note: [Field; TOKEN_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == 5) {
+        if (storage_slot == storage.pending_shields.get_storage_slot()) {
             note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
         } else {
             note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)

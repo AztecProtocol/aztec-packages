@@ -96,7 +96,7 @@ contract EcdsaAccount {
         storage_slot: Field,
         serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]
     ) -> pub [Field; 4] {
-        assert(storage_slot == 1);
+        assert(storage_slot == storage.public_key.get_storage_slot());
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(EcdsaPublicKeyNote::deserialize, note_header, serialized_note)
     }
