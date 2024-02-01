@@ -1,4 +1,4 @@
-import { L1ToL2Message } from '@aztec/circuit-types';
+import { L1ToL2Message, SiblingPath } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -455,13 +455,14 @@ describe('ACIR public execution simulator', () => {
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
         publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
-        const siblingPath = Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random());
+        const siblingPathFields = Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random());
+        const siblingPath = new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, siblingPathFields);
         let root = messageKey ?? preimage.hash();
-        for (const sibling of siblingPath) {
+        for (const sibling of siblingPathFields) {
           root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling.toBuffer()]));
         }
         commitmentsDb.getL1ToL2Message.mockImplementation(() => {
-          return Promise.resolve(new MessageLoadOracleInputs(preimage.toFieldArray(), 0n, siblingPath));
+          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, siblingPath));
         });
 
         return new AppendOnlyTreeSnapshot(
