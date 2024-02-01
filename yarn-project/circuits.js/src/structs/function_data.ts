@@ -1,5 +1,5 @@
 import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ContractFunctionDao, Fr } from '../index.js';
 
@@ -96,5 +96,16 @@ export class FunctionData {
       reader.readBoolean(),
       reader.readBoolean(),
     );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): FunctionData {
+    const reader = FieldReader.asReader(fields);
+
+    const selector = FunctionSelector.fromFields(reader);
+    const isInternal = reader.readBoolean();
+    const isPrivate = reader.readBoolean();
+    const isConstructor = reader.readBoolean();
+
+    return new FunctionData(selector, isInternal, isPrivate, isConstructor);
   }
 }
