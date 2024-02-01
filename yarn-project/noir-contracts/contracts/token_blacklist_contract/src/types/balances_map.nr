@@ -8,21 +8,23 @@ use dep::aztec::{
         constants::MAX_READ_REQUESTS_PER_CALL,
         traits::{Serialize, Deserialize}
     },
-    state_vars::set::Set,
+    state_vars::{
+        set::Set,
+        map::Map
+    },
     note::{
         note_getter::view_notes,
         note_getter_options::{NoteGetterOptions, SortOrder},
         note_viewer_options::NoteViewerOptions,
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_note_hash_for_read_or_nullify,
     }
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
 struct BalancesMap<T> {
     context: Context,
-    set: Set<T>
+    map: Map<AztecAddress, Set<T>>
 }
 
 impl<T> BalancesMap<T> {
@@ -33,7 +35,7 @@ impl<T> BalancesMap<T> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
             context,
-            set: Set::new(context, storage_slot)
+            map: Map::new(context, storage_slot, |context, slot| Set::new(context, slot))
         }
     }
 
@@ -46,7 +48,7 @@ impl<T> BalancesMap<T> {
       let mut balance = SafeU120::min();
       // docs:start:view_notes
       let options = NoteViewerOptions::new().set_offset(offset);
-      let opt_notes = self.set.view_notes(options);
+      let opt_notes = self.map.at(owner).view_notes(options);
       // docs:end:view_notes
       let len = opt_notes.len();
       for i in 0..len {
@@ -65,14 +67,14 @@ impl<T> BalancesMap<T> {
         let mut addend_note = T::new(addend, owner);
 
         // docs:start:insert
-        self.set.insert(&mut addend_note, true);
+        self.map.at(owner).insert(&mut addend_note, true);
         // docs:end:insert
     }
 
     pub fn sub<T_SERIALIZED_LEN>(self: Self, owner: AztecAddress, subtrahend: SafeU120) where T: Deserialize<T_SERIALIZED_LEN> + Serialize<T_SERIALIZED_LEN> + NoteInterface + OwnedNote{
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
-        let maybe_notes = self.set.get_notes(options);
+        let maybe_notes = self.map.at(owner).get_notes(options);
         // docs:end:get_notes
 
         let mut minuend: SafeU120 = SafeU120::min();
@@ -85,7 +87,7 @@ impl<T> BalancesMap<T> {
                 // which require knowledge of the secret key (currently the users encryption key).
                 // The contract logic must ensure that the spending key is used as well.
                 // docs:start:remove
-                self.set.remove(note);
+                self.map.at(owner).remove(note);
                 // docs:end:remove
 
                 minuend = minuend.add(note.get_amount());
