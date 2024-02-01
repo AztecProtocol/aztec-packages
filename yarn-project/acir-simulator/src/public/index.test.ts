@@ -455,11 +455,14 @@ describe('ACIR public execution simulator', () => {
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
         publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
-        const siblingPathFields = Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random());
-        const siblingPath = new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, siblingPathFields);
+        const siblingPathBuffers = Array(L1_TO_L2_MSG_TREE_HEIGHT)
+          .fill(Fr.random())
+          .map(f => f.toBuffer());
+        const siblingPath = new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, siblingPathBuffers);
+
         let root = messageKey ?? preimage.hash();
-        for (const sibling of siblingPathFields) {
-          root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling.toBuffer()]));
+        for (const sibling of siblingPathBuffers) {
+          root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling]));
         }
         commitmentsDb.getL1ToL2Message.mockImplementation(() => {
           return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, siblingPath));
