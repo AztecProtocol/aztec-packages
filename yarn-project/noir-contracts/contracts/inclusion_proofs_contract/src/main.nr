@@ -18,6 +18,7 @@ contract InclusionProofs {
         context::Context,
         note::{
             note_getter_options::NoteGetterOptions,
+            note_getter_options::NoteStatus,
             note_header::NoteHeader,
             utils as note_utils,
         },
@@ -25,21 +26,27 @@ contract InclusionProofs {
         history::{
             contract_inclusion::{
                 prove_contract_inclusion,
+                prove_contract_inclusion_at,
             },  
             note_inclusion::{
                 prove_note_inclusion,
+                prove_note_inclusion_at,
             },
             note_validity::{
                 prove_note_validity,
+                prove_note_validity_at,
             },
             nullifier_inclusion::{
                 prove_nullifier_inclusion,
+                prove_nullifier_inclusion_at,
             },
             nullifier_non_inclusion::{
                 prove_note_not_nullified,
+                prove_note_not_nullified_at,
             },
             public_value_inclusion::{
                 prove_public_value_inclusion,
+                prove_public_value_inclusion_at,
             },
         },
          // docs:end:imports
@@ -96,14 +103,11 @@ contract InclusionProofs {
     }
     // docs:end:create_note
 
-    // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
-    fn test_note_inclusion_proof(
+    fn test_note_inclusion(
         owner: AztecAddress,
-        // Value below is only used when the note is not found --> used to test the note inclusion failure case (it
-        // allows me to pass in random value of note nullifier - I cannot add and fetch a random note from PXE because
-        // PXE performs note commitment inclusion check when you add a new note).
-        spare_commitment: Field
+        use_block_number: bool,
+        block_number: u32 // The block at which we'll prove that the note exists
     ) {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
@@ -114,40 +118,62 @@ contract InclusionProofs {
         // docs:end:get_note_from_pxe
 
         // 2) Prove the note inclusion
-        if maybe_note.is_some() {
-            // docs:start:prove_note_inclusion
+        if (use_block_number) {
+            prove_note_inclusion_at(maybe_note.unwrap_unchecked(), block_number, context);
+        } else {
             prove_note_inclusion(maybe_note.unwrap_unchecked(), context);
-            // docs:end:prove_note_inclusion
+        }
+    }
+
+    #[aztec(private)]
+    fn test_note_inclusion_fail_case(
+        owner: AztecAddress,
+        use_block_number: bool,
+        block_number: u32 // The block at which we'll prove that the note exists
+    ) {
+        let mut note = ValueNote::new(1, owner);
+
+        if (use_block_number) {
+            prove_note_inclusion_at(note, block_number, context);
+        } else {
+            prove_note_inclusion(note, context);
         }
     }
 
     // Proves that the note was not yet nullified at block `block_number`.
     #[aztec(private)]
-    fn test_nullifier_non_inclusion_proof(
+    fn test_note_not_nullified(
         owner: AztecAddress,
+        use_block_number: bool,
         block_number: u32, // The block at which we'll prove that the nullifier does not exists
         // Value below is only used when the note is not found --> used to test the nullifier non-inclusion failure
         // case (it allows me to pass in random value of note nullifier - I cannot add and fetch a random note from PXE
         // because PXE performs note commitment inclusion check when you add a new note).
-        spare_nullifier: Field
+        fail_case: bool
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        if (fail_case) {
+            options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
+        }
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
 
         // 3) Compute the nullifier from the note
-        if maybe_note.is_some() {
-            // docs:start:prove_note_not_nullified
+        // docs:start:prove_note_not_nullified
+        if (use_block_number) {
+            prove_note_not_nullified_at(maybe_note.unwrap_unchecked(), block_number, &mut context);
+        } else {
             prove_note_not_nullified(maybe_note.unwrap_unchecked(), &mut context);
-            // docs:end:prove_note_not_nullified
         }
+        // docs:end:prove_note_not_nullified
     }
 
     #[aztec(private)]
-    fn test_note_validity_proof(
+    fn test_note_validity(
         owner: AztecAddress,
+        use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the note exists and is not nullified
     ) {
         // 1) Get the note from PXE.
@@ -158,7 +184,11 @@ contract InclusionProofs {
 
         // 2) Prove the note validity
         // docs:start:prove_note_validity
-        prove_note_validity(note, &mut context);
+        if (use_block_number) {
+            prove_note_validity_at(note, block_number, &mut context);
+        } else {
+            prove_note_validity(note, &mut context);
+        }
         // docs:end:prove_note_validity
     }
 
@@ -178,27 +208,47 @@ contract InclusionProofs {
     // Note: I am not getting a nullifier of the note that was created in this contract in this function because it is
     //       currently not possible to obtain a nullified note from PXE.
     #[aztec(private)]
-    fn test_nullifier_inclusion_proof(
+    fn test_nullifier_inclusion(
         nullifier: Field,
+        use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
     ) {
         // docs:start:prove_nullifier_inclusion
-        prove_nullifier_inclusion(nullifier, context);
+        if (use_block_number) {
+            prove_nullifier_inclusion_at(nullifier, block_number, context);
+        } else {
+            prove_nullifier_inclusion(nullifier, context);
+        }
         // docs:end:prove_nullifier_inclusion
     }
 
     #[aztec(private)]
-    fn test_public_unused_value_inclusion_proof(block_number: u32 // The block at which we'll prove that the public value exists
+    fn test_public_unused_value_inclusion(block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        prove_public_value_inclusion(0, storage.public_unused_value.storage_slot, context);
+        prove_public_value_inclusion_at(
+            0,
+            storage.public_unused_value.storage_slot,
+            block_number,
+            context
+        );
     }
 
     #[aztec(private)]
-    fn test_public_value_inclusion_proof(
+    fn test_public_value_inclusion(
         public_value: Field,
+        use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        prove_public_value_inclusion(public_value, storage.public_value.storage_slot, context);
+        if (use_block_number) {
+            prove_public_value_inclusion_at(
+                public_value,
+                storage.public_value.storage_slot,
+                block_number,
+                context
+            );
+        } else {
+            prove_public_value_inclusion(public_value, storage.public_value.storage_slot, context);
+        }
     }
 
     // Proves that a contract exists at block `block_number`.
@@ -210,7 +260,7 @@ contract InclusionProofs {
     //       that it is what it expects. The constructor param check is the reason of why we pass in the preimage of
     //       contract's aztec address instead of just the address.
     #[aztec(private)]
-    fn test_contract_inclusion_proof(
+    fn test_contract_inclusion(
         public_key: GrumpkinPoint,
         contract_address_salt: Field,
         contract_class_id: ContractClassId,
@@ -218,12 +268,13 @@ contract InclusionProofs {
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        let proven_contract_address = prove_contract_inclusion(
+        let proven_contract_address = prove_contract_inclusion_at(
             public_key,
             contract_address_salt,
             contract_class_id,
             initialization_hash,
             portal_contract_address,
+            block_number,
             context
         );
         // Here typically the factory would add the contract address to its internal map of deployed contracts.

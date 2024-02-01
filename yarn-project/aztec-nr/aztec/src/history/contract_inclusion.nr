@@ -29,7 +29,7 @@ pub fn prove_contract_inclusion(
     portal_contract_address: EthAddress,
     context: PrivateContext
 ) -> AztecAddress {
-    // 1) Get block header from oracle and ensure that the block is included in the archive.
+    // 1) Get block header from context
     // let block_header = context.historical_header;
 
     // 2) Compute the contract address
@@ -60,6 +60,32 @@ pub fn prove_contract_inclusion(
     // );
     //
     // --> Now we have traversed the trees all the way up to archive root.
+
+    contract_address
+}
+
+pub fn prove_contract_inclusion_at(
+    public_key: GrumpkinPoint,
+    contract_address_salt: Field,
+    contract_class_id: ContractClassId,
+    initialization_hash: Field,
+    portal_contract_address: EthAddress,
+    block_number: u32,
+    context: PrivateContext
+) -> AztecAddress {
+    // 1) Get block header from oracle and ensure that the block is included in the archive.
+    let header = context.get_header_at(block_number);
+
+    // 2) Compute the contract address
+    let contract_address = AztecAddress::compute_from_public_key(
+        public_key,
+        contract_class_id,
+        contract_address_salt,
+        initialization_hash,
+        portal_contract_address
+    );
+
+    // TODO(@spalladino): See above func to impl 
 
     contract_address
 }

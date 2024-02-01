@@ -51,7 +51,6 @@ impl<T> StablePublicState<T> {
         for i in 0..fields.len() {
             // TODO: Update membership proofs to use current header (Requires #4179)
             // Currently executing unnecessary computation:
-            // - a membership proof of the header(block_number) in the history
             // - a membership proof of the value in the public tree of the header 
             prove_public_value_inclusion(
                 fields[i],
