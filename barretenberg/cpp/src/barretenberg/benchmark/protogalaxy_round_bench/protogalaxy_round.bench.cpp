@@ -8,14 +8,14 @@ using namespace benchmark;
 
 namespace bb::honk {
 using Flavor = flavor::Ultra;
+using Polynomial = Flavor::Polynomial;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
 using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
 using Builder = Flavor::CircuitBuilder;
 
-static void run_protogalaxy_prover_round(State& state, size_t function_index)
+void bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver&))
 {
-    // state.PauseTiming();
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto log2_num_gates = static_cast<size_t>(state.range(0));
     auto composer = UltraComposer();
@@ -30,47 +30,28 @@ static void run_protogalaxy_prover_round(State& state, size_t function_index)
     std::shared_ptr<Instance> instance_2 = construct_instance();
 
     auto folding_prover = composer.create_folding_prover({ instance_1, instance_2 });
+
+    // prepare the prover state
+    folding_prover.state.accumulator = instance_1;
+    folding_prover.state.deltas.resize(log2_num_gates);
+    std::fill_n(folding_prover.state.deltas.begin(), log2_num_gates, 0);
+    folding_prover.state.perturbator = Polynomial::random(1 << log2_num_gates);
     folding_prover.transcript = Flavor::Transcript::prover_init_empty();
+    folding_prover.preparation_round();
+
     for (auto _ : state) {
-        if (function_index != 0)
-            state.PauseTiming();
-        folding_prover.preparation_round();
-        if (function_index == 0)
-            continue;
-        if (function_index == 1)
-            state.ResumeTiming();
-        folding_prover.perturbator_round();
-        if (function_index == 1)
-            continue;
-        if (function_index == 2)
-            state.ResumeTiming();
-        folding_prover.combiner_quotient_round();
-        if (function_index == 2)
-            continue;
-        if (function_index == 3)
-            state.ResumeTiming();
-        folding_prover.accumulator_update_round();
-        if (function_index == 3)
-            continue;
+        F(folding_prover);
     }
 }
 
-BENCHMARK_CAPTURE(run_protogalaxy_prover_round, FoldOnePreparation, 0)
-    ->/* vary the circuit size */ DenseRange(14, 20)
-    ->Unit(kMillisecond);
-
-BENCHMARK_CAPTURE(run_protogalaxy_prover_round, FoldOnePerturbator, 1)
-    ->/* vary the circuit size */ DenseRange(14, 20)
-    ->Unit(kMillisecond);
-
-BENCHMARK_CAPTURE(run_protogalaxy_prover_round, FoldOneCombinerQuotient, 2)
-    ->/* vary the circuit size */ DenseRange(14, 20)
-    ->Unit(kMillisecond);
-
-BENCHMARK_CAPTURE(run_protogalaxy_prover_round, FoldOneAccumulatorUpdate, 3)
-    ->/* vary the circuit size */ DenseRange(14, 20)
-    ->Unit(kMillisecond);
-
+BENCHMARK_CAPTURE(bench_round, preparation, [](auto& prover) { prover.preparation_round(); }) -> DenseRange(14, 20)
+    -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round, perturbator, [](auto& prover) { prover.perturbator_round(); }) -> DenseRange(14, 20)
+    -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
 } // namespace bb::honk
 
 BENCHMARK_MAIN();
