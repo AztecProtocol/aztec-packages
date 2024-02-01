@@ -40,7 +40,7 @@ and install dependencies:
 yarn
 ```
 
-## Start developing
+This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run `yarn install:sandbox` (see [sandbox docs](https://docs.aztec.network/developers/cli/main) for more information.)
 
 Time to build. Run:
 
