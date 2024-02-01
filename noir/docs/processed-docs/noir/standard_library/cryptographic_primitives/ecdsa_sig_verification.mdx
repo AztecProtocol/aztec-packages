@@ -15,10 +15,10 @@ Verifier for ECDSA Secp256k1 signatures
 
 ```rust title="ecdsa_secp256k1" showLineNumbers 
 pub fn verify_signature<N>(
-    _public_key_x: [u8; 32],
-    _public_key_y: [u8; 32],
-    _signature: [u8; 64],
-    _message_hash: [u8; N]
+    public_key_x: [u8; 32],
+    public_key_y: [u8; 32],
+    signature: [u8; 64],
+    message_hash: [u8; N]
 ) -> bool
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/ecdsa_secp256k1.nr#L2-L9" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/ecdsa_secp256k1.nr#L2-L9</a></sub></sup>
@@ -39,10 +39,10 @@ Verifier for ECDSA Secp256r1 signatures
 
 ```rust title="ecdsa_secp256r1" showLineNumbers 
 pub fn verify_signature<N>(
-    _public_key_x: [u8; 32],
-    _public_key_y: [u8; 32],
-    _signature: [u8; 64],
-    _message_hash: [u8; N]
+    public_key_x: [u8; 32],
+    public_key_y: [u8; 32],
+    signature: [u8; 64],
+    message_hash: [u8; N]
 ) -> bool
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/ecdsa_secp256r1.nr#L2-L9" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/ecdsa_secp256r1.nr#L2-L9</a></sub></sup>

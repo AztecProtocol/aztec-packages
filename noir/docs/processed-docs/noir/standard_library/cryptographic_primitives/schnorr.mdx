@@ -13,10 +13,10 @@ Verifier for Schnorr signatures over the embedded curve (for BN254 it is Grumpki
 
 ```rust title="schnorr_verify" showLineNumbers 
 pub fn verify_signature<N>(
-    _public_key_x: Field,
-    _public_key_y: Field,
-    _signature: [u8; 64],
-    _message: [u8; N]
+    public_key_x: Field,
+    public_key_y: Field,
+    signature: [u8; 64],
+    message: [u8; N]
 ) -> bool
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/schnorr.nr#L2-L9" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/schnorr.nr#L2-L9</a></sub></sup>

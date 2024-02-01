@@ -14,8 +14,8 @@ configured noir field. For the BN254 scalar field, this is BabyJubJub or Grumpki
 
 ```rust title="fixed_base_embedded_curve" showLineNumbers 
 pub fn fixed_base_embedded_curve(
-    _low: Field,
-    _high: Field
+    low: Field,
+    high: Field
 ) -> [Field; 2]
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/scalar_mul.nr#L27-L32" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/scalar_mul.nr#L27-L32</a></sub></sup>

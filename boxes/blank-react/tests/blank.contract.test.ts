@@ -4,7 +4,6 @@ import {
   AccountWallet,
   AztecAddress,
   CompleteAddress,
-  Contract,
   DeployMethod,
   Fr,
   TxStatus,

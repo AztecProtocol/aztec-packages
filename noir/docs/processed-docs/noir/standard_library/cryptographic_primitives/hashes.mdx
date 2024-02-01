@@ -15,7 +15,7 @@ import BlackBoxInfo from '@site/src/components/Notes/_blackbox.mdx';
 Given an array of bytes, returns the resulting sha256 hash.
 
 ```rust title="sha256" showLineNumbers 
-pub fn sha256<N>(_input: [u8; N]) -> [u8; 32]
+pub fn sha256<N>(input: [u8; N]) -> [u8; 32]
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/hash.nr#L5-L7" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/hash.nr#L5-L7</a></sub></sup>
 
@@ -36,7 +36,7 @@ fn main() {
 Given an array of bytes, returns an array with the Blake2 hash
 
 ```rust title="blake2s" showLineNumbers 
-pub fn blake2s<N>(_input: [u8; N]) -> [u8; 32]
+pub fn blake2s<N>(input: [u8; N]) -> [u8; 32]
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/hash.nr#L11-L13" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/hash.nr#L11-L13</a></sub></sup>
 
@@ -57,7 +57,7 @@ fn main() {
 Given an array of bytes, returns an array with the Blake3 hash
 
 ```rust title="blake3" showLineNumbers 
-pub fn blake3<N>(_input: [u8; N]) -> [u8; 32]
+pub fn blake3<N>(input: [u8; N]) -> [u8; 32]
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/hash.nr#L17-L19" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/hash.nr#L17-L19</a></sub></sup>
 
@@ -137,7 +137,7 @@ Given an array of bytes (`u8`), returns the resulting keccak hash as an array of
 of the input.
 
 ```rust title="keccak256" showLineNumbers 
-pub fn keccak256<N>(_input: [u8; N], _message_size: u32) -> [u8; 32]
+pub fn keccak256<N>(input: [u8; N], message_size: u32) -> [u8; 32]
 ```
 > <sup><sub><a href="https://github.com/noir-lang/noir/blob/master/noir_stdlib/src/hash.nr#L67-L69" target="_blank" rel="noopener noreferrer">Source code: noir_stdlib/src/hash.nr#L67-L69</a></sub></sup>
 
