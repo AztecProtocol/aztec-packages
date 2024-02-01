@@ -13,10 +13,6 @@ export class And extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return And.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -36,10 +32,6 @@ export class Or extends ThreeOperandInstruction {
 
   constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return Or.opcode;
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -63,10 +55,6 @@ export class Xor extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Xor.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -86,10 +74,6 @@ export class Not extends TwoOperandInstruction {
 
   constructor(indirect: number, inTag: number, aOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return Not.opcode;
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -112,10 +96,6 @@ export class Shl extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Shl.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -135,10 +115,6 @@ export class Shr extends ThreeOperandInstruction {
 
   constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return Shr.opcode;
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {

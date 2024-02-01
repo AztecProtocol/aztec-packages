@@ -11,10 +11,6 @@ export class Add extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Add.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
     const b = machineState.memory.get(this.bOffset);
@@ -32,10 +28,6 @@ export class Sub extends ThreeOperandInstruction {
 
   constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return Sub.opcode;
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
@@ -57,10 +49,6 @@ export class Mul extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Mul.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
     const b = machineState.memory.get(this.bOffset);
@@ -78,10 +66,6 @@ export class Div extends ThreeOperandInstruction {
 
   constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return Div.opcode;
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {

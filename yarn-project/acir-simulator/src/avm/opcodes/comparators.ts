@@ -12,10 +12,6 @@ export class Eq extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Eq.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -38,10 +34,6 @@ export class Lt extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Lt.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
@@ -62,10 +54,6 @@ export class Lte extends ThreeOperandInstruction {
 
   constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return Lte.opcode;
   }
 
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {

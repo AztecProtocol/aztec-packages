@@ -67,6 +67,7 @@ export enum Opcode {
   TOTAL_OPCODES_NUMBER,
 }
 
+// Possible types for an instruction's operand in its wire format.
 export enum OperandType {
   UINT8,
   UINT16,
@@ -74,6 +75,18 @@ export enum OperandType {
   UINT64,
   UINT128,
 }
+
+type OperandNativeType = number | bigint;
+type OperandWriter = (value: any) => void;
+
+// Specifies how to read and write each operand type.
+const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, OperandWriter]>([
+  [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
+  [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
+  [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
+  [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
+  [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
+]);
 
 function readBigInt128BE(this: Buffer): bigint {
   const totalBytes = 16;
@@ -93,15 +106,13 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
   }
 }
 
-const OPERAND_SPEC = new Map<OperandType, [number, () => any, (value: any) => any]>([
-  [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
-  [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
-  [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
-  [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
-  [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
-]);
-
-export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): any[] {
+/**
+ * Reads an array of operands from a buffer.
+ * @param cursor Buffer to read from. Might be longer than needed.
+ * @param operands Specification of the operand types.
+ * @returns An array as big as {@code operands}, with the converted TS values.
+ */
+export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
   if (cursor instanceof Buffer) {
     cursor = new BufferCursor(cursor);
@@ -117,15 +128,28 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType
   return argValues;
 }
 
+/**
+ * Serializes a class using the specified operand types.
+ * More specifically, this serializes {@code [cls.constructor.opcode, ...Object.values(cls)]}.
+ * Observe in particular that:
+ *   (1) the first operand type specified must correspond to the opcode;
+ *   (2) the rest of the operand types must be specified in the order returned by {@code Object.values()}.
+ * @param operands Type specification for the values to be serialized.
+ * @param cls The class to be serialized.
+ * @returns
+ */
 export function serialize(operands: OperandType[], cls: any): Buffer {
   const chunks: Buffer[] = [];
 
   // TODO: infer opcode not in this loop
-  const classValues = [cls.constructor.opcode, ...Object.values(cls)];
+  assert(cls.constructor.opcode !== undefined && cls.constructor.opcode !== null);
+  const rawClassValues: any[] = [cls.constructor.opcode, ...Object.values(cls)];
   assert(
-    classValues.length === operands.length,
-    `Got ${classValues.length} values but only ${operands.length} serialization operands are specified!`,
+    rawClassValues.length === operands.length,
+    `Got ${rawClassValues.length} values but only ${operands.length} serialization operands are specified!`,
   );
+  const classValues = rawClassValues as OperandNativeType[];
+
   for (let i = 0; i < operands.length; i++) {
     const opType = operands[i];
     const [sizeBytes, _reader, writer] = OPERAND_SPEC.get(opType)!;

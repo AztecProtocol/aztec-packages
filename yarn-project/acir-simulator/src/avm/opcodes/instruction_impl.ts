@@ -1,9 +1,12 @@
-import { BufferCursor } from '../serialization/buffer_cursor.js';
-import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
+import { OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
+/**
+ * Covers (de)serialization for an instruction with:
+ * indirect, inTag, and two UINT32s.
+ */
 export abstract class TwoOperandInstruction extends Instruction {
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -20,22 +23,14 @@ export abstract class TwoOperandInstruction extends Instruction {
   ) {
     super();
   }
-
-  protected static deserializeBase(buf: BufferCursor | Buffer): ConstructorParameters<typeof TwoOperandInstruction> {
-    const res = deserialize(buf, TwoOperandInstruction.wireFormat);
-    const params = res.slice(1); // Remove opcode.
-    return params as ConstructorParameters<typeof TwoOperandInstruction>;
-  }
-
-  public serialize(): Buffer {
-    return serialize(TwoOperandInstruction.wireFormat, this);
-  }
-
-  protected abstract get opcode(): Opcode;
 }
 
+/**
+ * Covers (de)serialization for an instruction with:
+ * indirect, inTag, and three UINT32s.
+ */
 export abstract class ThreeOperandInstruction extends Instruction {
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -54,16 +49,4 @@ export abstract class ThreeOperandInstruction extends Instruction {
   ) {
     super();
   }
-
-  protected static deserializeBase(buf: BufferCursor | Buffer): ConstructorParameters<typeof ThreeOperandInstruction> {
-    const res = deserialize(buf, ThreeOperandInstruction.wireFormat);
-    const params = res.slice(1); // Remove opcode.
-    return params as ConstructorParameters<typeof ThreeOperandInstruction>;
-  }
-
-  public serialize(): Buffer {
-    return serialize(ThreeOperandInstruction.wireFormat, this);
-  }
-
-  protected abstract get opcode(): Opcode;
 }

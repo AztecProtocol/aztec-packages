@@ -8,8 +8,7 @@ import { TwoOperandInstruction } from './instruction_impl.js';
 export class Set extends Instruction {
   static readonly type: string = 'SET';
   static readonly opcode: Opcode = Opcode.SET;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -34,8 +33,7 @@ export class Set extends Instruction {
 export class CMov extends Instruction {
   static readonly type: string = 'CMOV';
   static readonly opcode: Opcode = Opcode.CMOV;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -75,10 +73,6 @@ export class Cast extends TwoOperandInstruction {
     super(indirect, dstTag, aOffset, dstOffset);
   }
 
-  protected get opcode() {
-    return Cast.opcode;
-  }
-
   async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
     const a = machineState.memory.get(this.aOffset);
 
@@ -95,8 +89,7 @@ export class Cast extends TwoOperandInstruction {
 export class Mov extends Instruction {
   static readonly type: string = 'MOV';
   static readonly opcode: Opcode = Opcode.MOV;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -120,8 +113,7 @@ export class Mov extends Instruction {
 export class CalldataCopy extends Instruction {
   static readonly type: string = 'CALLDATACOPY';
   static readonly opcode: Opcode = Opcode.CALLDATACOPY;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,

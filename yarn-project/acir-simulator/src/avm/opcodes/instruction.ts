@@ -1,8 +1,10 @@
+import { assert } from 'console';
+
 import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { AvmJournal } from '../journal/index.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
-import { deserialize, serialize } from '../serialization/instruction_serialization.js';
+import { OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
 
 export abstract class Instruction {
   public abstract execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void>;
@@ -32,7 +34,14 @@ export abstract class Instruction {
     }
   }
 
-  public static deserialize<T extends { new (...args: any[]): InstanceType<T>; wireFormat: any }>(
+  /**
+   * Deserializes a subclass of Instruction from a Buffer.
+   * If you want to use this, your subclass should specify a {@code static wireFormat: OperandType[]}.
+   * @param this Class object to deserialize to.
+   * @param buf Buffer to read from.
+   * @returns Constructed instance of Class.
+   */
+  public static deserialize<T extends { new (...args: any[]): InstanceType<T>; wireFormat: OperandType[] }>(
     this: T,
     buf: BufferCursor | Buffer,
   ): InstanceType<T> {
@@ -42,6 +51,7 @@ export abstract class Instruction {
   }
 
   public serialize(this: any): Buffer {
+    assert(this instanceof Instruction);
     return serialize(this.constructor.wireFormat, this);
   }
 }

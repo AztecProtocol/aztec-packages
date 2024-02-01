@@ -10,8 +10,7 @@ import { Instruction } from './instruction.js';
 export class Call extends Instruction {
   static type: string = 'CALL';
   static readonly opcode: Opcode = Opcode.CALL;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -71,8 +70,7 @@ export class Call extends Instruction {
 export class StaticCall extends Instruction {
   static type: string = 'STATICCALL';
   static readonly opcode: Opcode = Opcode.STATICCALL;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,

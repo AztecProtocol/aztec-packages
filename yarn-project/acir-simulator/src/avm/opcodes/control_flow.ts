@@ -7,8 +7,7 @@ import { Instruction, InstructionExecutionError } from './instruction.js';
 export class Return extends Instruction {
   static type: string = 'RETURN';
   static readonly opcode: Opcode = Opcode.RETURN;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -32,8 +31,7 @@ export class Return extends Instruction {
 export class Revert extends Instruction {
   static type: string = 'RETURN';
   static readonly opcode: Opcode = Opcode.REVERT;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -58,8 +56,7 @@ export class Revert extends Instruction {
 export class Jump extends Instruction {
   static type: string = 'JUMP';
   static readonly opcode: Opcode = Opcode.JUMP;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private jumpOffset: number) {
@@ -102,8 +99,7 @@ export class JumpI extends Instruction {
 export class InternalCall extends Instruction {
   static readonly type: string = 'INTERNALCALL';
   static readonly opcode: Opcode = Opcode.INTERNALCALL;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private loc: number) {
@@ -119,8 +115,7 @@ export class InternalCall extends Instruction {
 export class InternalReturn extends Instruction {
   static readonly type: string = 'INTERNALRETURN';
   static readonly opcode: Opcode = Opcode.INTERNALRETURN;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8];
 
   constructor() {

@@ -7,8 +7,7 @@ import { StaticCallStorageAlterError } from './storage.js';
 export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
   static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
   constructor(private indirect: number, private noteHashOffset: number) {
@@ -30,8 +29,7 @@ export class EmitNoteHash extends Instruction {
 export class EmitNullifier extends Instruction {
   static type: string = 'EMITNULLIFIER';
   static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
   constructor(private indirect: number, private nullifierOffset: number) {
@@ -53,8 +51,7 @@ export class EmitNullifier extends Instruction {
 export class EmitUnencryptedLog extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
 
   constructor(private indirect: number, private logOffset: number, private logSize: number) {
@@ -76,8 +73,7 @@ export class EmitUnencryptedLog extends Instruction {
 export class SendL2ToL1Message extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
-
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
 
   constructor(private indirect: number, private msgOffset: number, private msgSize: number) {

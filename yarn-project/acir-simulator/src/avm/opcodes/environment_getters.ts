@@ -6,7 +6,7 @@ import { Opcode, OperandType } from '../serialization/instruction_serialization.
 import { Instruction } from './instruction.js';
 
 abstract class GetterInstruction extends Instruction {
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
   constructor(protected indirect: number, protected dstOffset: number) {
@@ -19,7 +19,6 @@ abstract class GetterInstruction extends Instruction {
     this.incrementPc(machineState);
   }
 
-  protected abstract get opcode(): Opcode;
   protected abstract getIt(env: AvmExecutionEnvironment): any;
 }
 
@@ -27,9 +26,6 @@ export class Address extends GetterInstruction {
   static type: string = 'ADDRESS';
   static readonly opcode: Opcode = Opcode.ADDRESS;
 
-  protected get opcode() {
-    return Address.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.address;
   }
@@ -39,9 +35,6 @@ export class StorageAddress extends GetterInstruction {
   static type: string = 'STORAGEADDRESS';
   static readonly opcode: Opcode = Opcode.STORAGEADDRESS;
 
-  protected get opcode() {
-    return StorageAddress.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.storageAddress;
   }
@@ -51,9 +44,6 @@ export class Sender extends GetterInstruction {
   static type: string = 'SENDER';
   static readonly opcode: Opcode = Opcode.SENDER;
 
-  protected get opcode() {
-    return Sender.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.sender;
   }
@@ -63,9 +53,6 @@ export class Origin extends GetterInstruction {
   static type: string = 'ORIGIN';
   static readonly opcode: Opcode = Opcode.ORIGIN;
 
-  protected get opcode() {
-    return Origin.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.origin;
   }
@@ -75,9 +62,6 @@ export class FeePerL1Gas extends GetterInstruction {
   static type: string = 'FEEPERL1GAS';
   static readonly opcode: Opcode = Opcode.FEEPERL1GAS;
 
-  protected get opcode() {
-    return FeePerL1Gas.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.feePerL1Gas;
   }
@@ -87,9 +71,6 @@ export class FeePerL2Gas extends GetterInstruction {
   static type: string = 'FEEPERL2GAS';
   static readonly opcode: Opcode = Opcode.FEEPERL2GAS;
 
-  protected get opcode() {
-    return FeePerL2Gas.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.feePerL2Gas;
   }
@@ -99,9 +80,6 @@ export class FeePerDAGas extends GetterInstruction {
   static type: string = 'FEEPERDAGAS';
   static readonly opcode: Opcode = Opcode.FEEPERDAGAS;
 
-  protected get opcode() {
-    return FeePerDAGas.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.feePerDaGas;
   }
@@ -111,9 +89,6 @@ export class Portal extends GetterInstruction {
   static type: string = 'PORTAL';
   static readonly opcode: Opcode = Opcode.PORTAL;
 
-  protected get opcode() {
-    return Portal.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.portal.toField();
   }
@@ -123,9 +98,6 @@ export class ChainId extends GetterInstruction {
   static type: string = 'CHAINID';
   static readonly opcode: Opcode = Opcode.CHAINID;
 
-  protected get opcode() {
-    return ChainId.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.chainId;
   }
@@ -135,9 +107,6 @@ export class Version extends GetterInstruction {
   static type: string = 'VERSION';
   static readonly opcode: Opcode = Opcode.VERSION;
 
-  protected get opcode() {
-    return Version.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.version;
   }
@@ -147,9 +116,6 @@ export class BlockNumber extends GetterInstruction {
   static type: string = 'BLOCKNUMBER';
   static readonly opcode: Opcode = Opcode.BLOCKNUMBER;
 
-  protected get opcode() {
-    return BlockNumber.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.blockNumber;
   }
@@ -159,9 +125,6 @@ export class Timestamp extends GetterInstruction {
   static type: string = 'TIMESTAMP';
   static readonly opcode: Opcode = Opcode.TIMESTAMP;
 
-  protected get opcode() {
-    return Timestamp.opcode;
-  }
   protected getIt(env: AvmExecutionEnvironment): any {
     return env.globals.timestamp;
   }

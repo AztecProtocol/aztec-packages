@@ -7,7 +7,7 @@ import { Opcode, OperandType } from '../serialization/instruction_serialization.
 import { Instruction, InstructionExecutionError } from './instruction.js';
 
 abstract class BaseStorageInstruction extends Instruction {
-  // Instruction wire format with opcode.
+  // Informs (de)serialization. See Instruction.deserialize.
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
@@ -18,8 +18,6 @@ abstract class BaseStorageInstruction extends Instruction {
   constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {
     super();
   }
-
-  protected abstract get opcode(): Opcode;
 }
 
 export class SStore extends BaseStorageInstruction {
@@ -28,10 +26,6 @@ export class SStore extends BaseStorageInstruction {
 
   constructor(indirect: number, srcOffset: number, slotOffset: number) {
     super(indirect, srcOffset, slotOffset);
-  }
-
-  protected get opcode() {
-    return SStore.opcode;
   }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
@@ -58,10 +52,6 @@ export class SLoad extends BaseStorageInstruction {
 
   constructor(indirect: number, slotOffset: number, dstOffset: number) {
     super(indirect, slotOffset, dstOffset);
-  }
-
-  protected get opcode() {
-    return SLoad.opcode;
   }
 
   async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {

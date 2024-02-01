@@ -133,18 +133,16 @@ interface Serializable {
 }
 
 /**
- * TODO: doc
- * @param opcode - the opcode to encode
- * @param args - the arguments to encode
- * @returns the bytecode for this one instruction
+ * Serializes an array of instructions to bytecode.
  */
 export function encodeToBytecode(instructions: Serializable[]): Buffer {
   return Buffer.concat(instructions.map(i => i.serialize()));
 }
 
 /**
- * Convert a buffer of bytecode into an array of instructions
- * @param bytecode - Buffer of bytecode
+ * Convert a buffer of bytecode into an array of instructions.
+ * @param bytecode Buffer of bytecode.
+ * @param instructionSet Optional {@code InstructionSet} to be used for deserialization.
  * @returns Bytecode decoded into an ordered array of Instructions
  */
 export function decodeFromBytecode(bytecode: Buffer, instructionSet: InstructionSet = INSTRUCTION_SET): Instruction[] {
