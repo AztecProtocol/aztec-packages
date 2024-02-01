@@ -1043,6 +1043,8 @@ impl NodeInterner {
         Ok(impl_kind)
     }
 
+    /// Given a `ObjectType: TraitId` pair, find all implementations without taking constraints into account or
+    /// applying any type bindings. Useful to look for a specific trait in a type that is used in a macro.
     pub fn lookup_all_trait_implementations(
         &self,
         object_type: Type,
