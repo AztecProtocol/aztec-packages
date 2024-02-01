@@ -1,4 +1,4 @@
-import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { PublicCallRequest } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -43,20 +43,6 @@ export function toACVMField(
 
 // Utilities to write TS classes to ACVM Field arrays
 // In the order that the ACVM expects them
-
-/**
- * Converts a private call stack item to ACVM fields.
- * @param item - The private call stack item to convert.
- * @returns The ACVM fields.
- */
-export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMField[] {
-  return [
-    toACVMField(item.contractAddress),
-    ...item.functionData.toFields().map(toACVMField),
-    ...item.publicInputs.toFields().map(toACVMField),
-    toACVMField(item.isExecutionRequest),
-  ];
-}
 
 /**
  * Converts a public call stack item with the request for executing a public function to

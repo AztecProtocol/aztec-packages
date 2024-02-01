@@ -10,9 +10,8 @@ import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
-  toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
-  toAcvmL1ToL2MessageLoadOracleInputs,
+  toAcvmL1ToL2MessageLoadOracleInputs
 } from '../serialize.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 import { TypedOracle } from './typed_oracle.js';
@@ -296,7 +295,7 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideffectCounter)),
     );
-    return toAcvmCallPrivateStackItem(callStackItem);
+    return callStackItem.toFields().map(toACVMField);
   }
 
   async callPublicFunction(
