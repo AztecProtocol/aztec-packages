@@ -86,7 +86,7 @@ describe('abi/encoder', () => {
             path: `types::address::${structType}`,
             fields: [
               {
-                name: 'address',
+                name: 'inner',
                 type: { kind: 'field' },
               },
             ],
