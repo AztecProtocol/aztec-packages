@@ -2,7 +2,6 @@ import { CONTRACT_DEPLOYMENT_DATA_LENGTH } from '../constants.gen.js';
 import { makeContractDeploymentData } from '../tests/factories.js';
 import { ContractDeploymentData } from './contract_deployment_data.js';
 
-
 describe('ContractDeploymentData', () => {
   it(`serializes to buffer and deserializes it back`, () => {
     const expected = makeContractDeploymentData(1);

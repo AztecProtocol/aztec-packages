@@ -17,7 +17,7 @@ describe('PublicCircuitPublicInputs', () => {
     expect(target.isEmpty()).toBe(true);
   });
 
-  it("number of fields matches constant", () => {
+  it('number of fields matches constant', () => {
     const target = makePublicCircuitPublicInputs(327);
     const fields = target.toFields();
     expect(fields.length).toBe(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
