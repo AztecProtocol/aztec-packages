@@ -224,6 +224,10 @@ contract DocsExample {
     }
     // docs:end:get_note-immutable-singleton
 
+    unconstrained fn view_imm_card() -> pub CardNote {
+        storage.imm_singleton.view_note()
+    }
+
     unconstrained fn is_imm_initialized() -> pub bool {
         storage.imm_singleton.is_initialized()
     }
