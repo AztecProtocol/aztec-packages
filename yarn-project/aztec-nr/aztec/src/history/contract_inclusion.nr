@@ -26,11 +26,10 @@ pub fn prove_contract_inclusion(
     contract_class_id: Field,
     initialization_hash: Field,
     portal_contract_address: EthAddress,
-    block_number: u32, // The block at which we'll prove that the public value exists
     context: PrivateContext
 ) -> AztecAddress {
     // 1) Get block header from oracle and ensure that the block is included in the archive.
-    // let block_header = context.get_header.at(block_number);
+    // let block_header = context.historical_header;
 
     // 2) Compute the contract address
     let contract_address = AztecAddress::compute_from_public_key(

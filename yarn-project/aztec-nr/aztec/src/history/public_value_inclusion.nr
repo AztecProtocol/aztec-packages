@@ -18,22 +18,21 @@ use crate::{
 pub fn prove_public_value_inclusion(
     value: Field, // The value that we want to prove is in the public data tree
     storage_slot: Field, // The storage slot in which the value is stored
-    block_number: u32, // The block at which we'll prove that the note exists
     context: PrivateContext
 ) {
-    // 1) Get block header from oracle and ensure that the block hash is included in the archive.
-    let header = context.get_header_at(block_number);
-
-    // 2) Compute the leaf slot by siloing the storage slot with our own address
+    // 1) Compute the leaf slot by siloing the storage slot with our own address
     let public_value_leaf_slot = pedersen_hash(
         [context.this_address().to_field(), storage_slot],
         GENERATOR_INDEX__PUBLIC_LEAF_INDEX
     );
 
-    // 3) Get the membership witness of the slot
-    let witness = get_public_data_witness(block_number, public_value_leaf_slot);
+    // 2) Get the membership witness of the slot
+    let witness = get_public_data_witness(
+        context.historical_header.global_variables.block_number as u32,
+        public_value_leaf_slot
+    );
 
-    // 4) Check that the witness matches the corresponding public_value
+    // 3) Check that the witness matches the corresponding public_value
     let preimage = witness.leaf_preimage;
 
     // Here we have two cases. Code based on same checks in `validate_public_data_reads` in `base_rollup_inputs`
@@ -51,9 +50,9 @@ pub fn prove_public_value_inclusion(
         assert_eq(preimage.value, value, "Public value does not match the witness");
     }
 
-    // 5) Prove that the leaf we validated is in the public data tree
+    // 4) Prove that the leaf we validated is in the public data tree
     assert(
-        header.state.partial.public_data_tree.root
+        context.historical_header.state.partial.public_data_tree.root
         == compute_merkle_root(preimage.hash(), witness.index, witness.path), "Proving public value inclusion failed"
     );
     // --> Now we have traversed the trees all the way up to archive root and that way verified that a specific

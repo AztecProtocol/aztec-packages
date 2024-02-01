@@ -14,23 +14,24 @@ use crate::{
     },
 };
 
-pub fn prove_nullifier_non_inclusion(
-    nullifier: Field,
-    block_number: u32, // The block at which we'll prove that the nullifier does not exists
-    context: PrivateContext
-) {
-    // 1) Get block header from oracle and ensure that the block is included in the archive.
-    let header = context.get_header_at(block_number);
+pub fn prove_note_not_nullified<Note, N>(
+    note_with_header: Note,
+    context: &mut PrivateContext
+) where Note: NoteInterface {
+    let nullifier = compute_siloed_nullifier(note_with_header, context);
 
     // 2) Get the membership witness of a low nullifier of the nullifier
-    let witness = get_low_nullifier_membership_witness(block_number, nullifier);
+    let witness = get_low_nullifier_membership_witness(
+        context.historical_header.global_variables.block_number as u32,
+        nullifier
+    );
 
     // 3) Prove that the nullifier is not included in the nullifier tree
 
     // 3.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
     let low_nullifier_leaf = witness.leaf_preimage.hash();
     assert(
-        header.state.partial.nullifier_tree.root
+        context.historical_header.state.partial.nullifier_tree.root
         == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path), "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
     );
 
@@ -47,14 +48,4 @@ pub fn prove_nullifier_non_inclusion(
     );
     // --> Now we have traversed the trees all the way up to archive root and verified that the nullifier
     //     was not yet included in the nullifier tree.
-}
-
-pub fn prove_note_not_nullified<Note, N>(
-    note_with_header: Note,
-    block_number: u32, // The block at which we'll prove that the note was not nullified
-    context: &mut PrivateContext
-) where Note: NoteInterface {
-    let nullifier = compute_siloed_nullifier(note_with_header, context);
-
-    prove_nullifier_non_inclusion(nullifier, block_number, *context);
 }

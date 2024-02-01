@@ -74,7 +74,7 @@ describe('e2e_inclusion_proofs_contract', () => {
         // Prove note inclusion in a given block.
         const ignoredCommitment = 0; // Not ignored only when the note doesn't exist
         await contract.methods
-          .test_note_inclusion_proof(owner, noteCreationBlockNumber, ignoredCommitment)
+          .test_note_inclusion_proof(owner, ignoredCommitment)
           .send()
           .wait();
       }
@@ -141,7 +141,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       const blockNumber = await getRandomBlockNumberSinceDeployment();
       const randomNoteCommitment = Fr.random();
       await expect(
-        contract.methods.test_note_inclusion_proof(owner, blockNumber, randomNoteCommitment).send().wait(),
+        contract.methods.test_note_inclusion_proof(owner, randomNoteCommitment).send().wait(),
       ).rejects.toThrow(`Leaf value: ${randomNoteCommitment.toString()} not found in NOTE_HASH_TREE`);
     });
   });
