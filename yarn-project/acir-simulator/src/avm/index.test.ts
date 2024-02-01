@@ -46,7 +46,7 @@ describe('avm', () => {
       const addArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_addArgsReturn')!;
 
       // Decode bytecode into instructions
-      const instructions = decodeBytecode(Buffer.from(addArtifact.bytecode, 'base64'));
+      const instructions = decodeFromBytecode(Buffer.from(addArtifact.bytecode, 'base64'));
 
       // Execute instructions
       const context = new AvmMachineState(initExecutionEnvironment({ calldata }));
