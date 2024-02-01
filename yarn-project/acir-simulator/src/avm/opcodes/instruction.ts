@@ -6,6 +6,10 @@ import { AvmJournal } from '../journal/index.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
 
+/**
+ * Parent class for all AVM instructions.
+ * It's most important aspects are execution and (de)serialization.
+ */
 export abstract class Instruction {
   public abstract execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void>;
 
