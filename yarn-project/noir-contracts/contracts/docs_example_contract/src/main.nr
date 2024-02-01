@@ -144,20 +144,20 @@ contract DocsExample {
     fn insert_notes(amounts: [u8; 10]) {
         for i in 0..amounts.len() {
             let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
-            storage.test.insert(&mut note, true);
+            storage.set.insert(&mut note, true);
         }
     }
 
     #[aztec(private)]
     fn insert_note(amount: u8, randomness: Field) {
         let mut note = CardNote::new(amount, randomness, context.msg_sender());
-        storage.test.insert(&mut note, true);
+        storage.set.insert(&mut note, true);
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     unconstrained fn read_note(amount: Field, comparator: u3) -> pub [Option<CardNote>; 10] {
         let options = NoteViewerOptions::new().select(0, amount, Option::some(comparator));
-        let notes = storage.test.view_notes(options);
+        let notes = storage.set.view_notes(options);
 
         notes
     }
