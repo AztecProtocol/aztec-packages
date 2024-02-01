@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 
+using namespace bb;
 namespace {
 void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
                             std::vector<Row>&& trace,

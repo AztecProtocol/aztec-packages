@@ -3,8 +3,6 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace bb;
-
 namespace bb {
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(

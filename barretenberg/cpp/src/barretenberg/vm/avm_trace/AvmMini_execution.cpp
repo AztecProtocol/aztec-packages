@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+using namespace bb;
+
 namespace avm_trace {
 
 /**

@@ -4,8 +4,6 @@
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace bb;
-
 namespace bb {
 
 template <typename Flavor>

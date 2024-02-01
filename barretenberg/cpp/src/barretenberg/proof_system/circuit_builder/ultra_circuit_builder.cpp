@@ -10,8 +10,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace bb;
-
 namespace bb {
 
 template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::finalize_circuit()

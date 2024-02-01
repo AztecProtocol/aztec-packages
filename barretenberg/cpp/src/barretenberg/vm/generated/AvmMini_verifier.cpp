@@ -5,8 +5,6 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace bb;
-
 namespace bb {
 AvmMiniVerifier::AvmMiniVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)

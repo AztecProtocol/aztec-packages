@@ -16,8 +16,6 @@
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 
-using namespace bb;
-
 namespace bb {
 
 template <typename FF> struct AvmMiniFullRow {

@@ -13,20 +13,19 @@
 namespace bb {
 
 class Goblin {
-    using GUHFlavor = GoblinUltraFlavor;
     using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
 
-    using GUHVerificationKey = GUHFlavor::VerificationKey;
-    using Commitment = GUHFlavor::Commitment;
-    using FF = GUHFlavor::FF;
+    using GUHVerificationKey = GoblinUltraFlavor::VerificationKey;
+    using Commitment = GoblinUltraFlavor::Commitment;
+    using FF = GoblinUltraFlavor::FF;
 
   public:
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = bb::BaseTranscript;
 
-    using GoblinUltraComposer = bb::UltraComposer_<GUHFlavor>;
-    using GoblinUltraVerifier = bb::UltraVerifier_<GUHFlavor>;
+    using GoblinUltraComposer = bb::UltraComposer_<GoblinUltraFlavor>;
+    using GoblinUltraVerifier = bb::UltraVerifier_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
@@ -35,7 +34,7 @@ class Goblin {
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = bb::GoblinTranslatorComposer;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = bb::MergeVerifier_<GUHFlavor>;
+    using MergeVerifier = bb::MergeVerifier_<GoblinUltraFlavor>;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
