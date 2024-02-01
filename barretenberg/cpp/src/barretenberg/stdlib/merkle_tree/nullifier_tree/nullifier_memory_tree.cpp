@@ -26,15 +26,17 @@ NullifierMemoryTree::NullifierMemoryTree(size_t depth)
     root_ = update_element(0, initial_leaf.hash());
 }
 
-fr NullifierMemoryTree::update_element(fr const& value)
+fr_hash_path NullifierMemoryTree::update_element(fr const& value)
 {
     // Find the leaf with the value closest and less than `value`
 
     // If value is 0 we simply append 0 a null NullifierLeaf to the tree
+    fr_hash_path hash_path;
     if (value == 0) {
         auto zero_leaf = WrappedNullifierLeaf::zero();
+        hash_path = get_hash_path(leaves_.size() - 1);
         leaves_.push_back(zero_leaf);
-        return update_element(leaves_.size() - 1, zero_leaf.hash());
+        update_element(leaves_.size() - 1, zero_leaf.hash());
     }
 
     size_t current;
@@ -57,6 +59,7 @@ fr NullifierMemoryTree::update_element(fr const& value)
         leaves_.push_back(new_leaf);
     }
 
+    hash_path = get_hash_path(current);
     // Update the old leaf in the tree
     auto old_leaf_hash = current_leaf.hash();
     size_t old_leaf_index = current;
@@ -67,7 +70,7 @@ fr NullifierMemoryTree::update_element(fr const& value)
     size_t new_leaf_index = is_already_present ? old_leaf_index : leaves_.size() - 1;
     root = update_element(new_leaf_index, new_leaf_hash);
 
-    return root;
+    return hash_path;
 }
 
 } // namespace bb::stdlib::merkle_tree

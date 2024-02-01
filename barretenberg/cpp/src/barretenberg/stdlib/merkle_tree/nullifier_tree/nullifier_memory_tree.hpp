@@ -72,7 +72,7 @@ class NullifierMemoryTree : public MemoryTree {
     using MemoryTree::root;
     using MemoryTree::update_element;
 
-    fr update_element(fr const& value);
+    fr_hash_path update_element(fr const& value);
 
     const std::vector<bb::fr>& get_hashes() { return hashes_; }
     const WrappedNullifierLeaf get_leaf(size_t index)
