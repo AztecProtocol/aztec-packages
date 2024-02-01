@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/benchmark/ultra_bench/benchmark_utilities.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 
@@ -71,3 +71,5 @@ void eccvm_prove(State& state) noexcept
 BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(10, 20);
 BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(10, 20);
 } // namespace
+
+BENCHMARK_MAIN();

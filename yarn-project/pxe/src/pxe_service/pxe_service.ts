@@ -44,6 +44,10 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
+  computeContractClassId,
+  computeSaltedInitializationHash,
+  getArtifactHash,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
@@ -52,6 +56,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
@@ -85,7 +90,7 @@ export class PXEService implements PXE {
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
     this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
-    this.contractDataOracle = new ContractDataOracle(db, node);
+    this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.nodeVersion = getPackageInfo().version;
 
@@ -153,6 +158,10 @@ export class PXEService implements PXE {
     return this.db.addCapsule(capsule);
   }
 
+  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.db.getContractInstance(address);
+  }
+
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
@@ -207,19 +216,31 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
+    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.instance));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
+    await this.addArtifactsAndInstancesFromDeployedContracts(contracts);
     for (const contract of contractDaos) {
-      const contractAztecAddress = contract.completeAddress.address;
-      const portalInfo =
-        contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
+      const instance = contract.instance;
+      const contractAztecAddress = instance.address;
+      const hasPortal = instance.portalContractAddress && !instance.portalContractAddress.isZero();
+      const portalInfo = hasPortal ? ` with portal ${instance.portalContractAddress.toChecksumString()}` : '';
       this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
       await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
     }
   }
 
+  private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
+    for (const contract of contracts) {
+      const artifact = contract.artifact;
+      const artifactHash = getArtifactHash(artifact);
+      const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
+      await this.db.addContractArtifact(contractClassId, artifact);
+      await this.db.addContractInstance(contract.instance);
+    }
+  }
+
   public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.completeAddress.address);
+    return (await this.db.getContracts()).map(c => c.instance.address);
   }
 
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
@@ -424,7 +445,7 @@ export class PXEService implements PXE {
         txHash,
         TxStatus.MINED,
         '',
-        settledTx.blockHash,
+        settledTx.blockHash.toBuffer(),
         settledTx.blockNumber,
         deployedContractAddress,
       );
@@ -462,7 +483,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -614,7 +635,7 @@ export class PXEService implements PXE {
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest);
 
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
@@ -625,10 +646,11 @@ export class PXEService implements PXE {
 
     const extendedContractData = newContract
       ? new ExtendedContractData(
-          new ContractData(newContract.completeAddress.address, newContract.portalContract),
+          new ContractData(newContract.instance.address, newContract.instance.portalContractAddress),
           getNewContractPublicFunctions(newContract),
-          newContract.completeAddress.partialAddress,
-          newContract.completeAddress.publicKey,
+          getContractClassFromArtifact(newContract).id,
+          computeSaltedInitializationHash(newContract.instance),
+          newContract.instance.publicKeysHash,
         )
       : ExtendedContractData.empty();
 

@@ -1,9 +1,8 @@
 import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-
-import { randomBytes } from 'crypto';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
@@ -13,9 +12,7 @@ import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  BlockHeader,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  CONTRACT_TREE_HEIGHT,
   CallContext,
   CallRequest,
   CallerContext,
@@ -33,6 +30,8 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -42,6 +41,8 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -62,6 +63,8 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NullifierKeyValidationRequest,
+  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
   OptionallyRevealedData,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
@@ -135,31 +138,12 @@ export function makeTxContext(seed: number): TxContext {
 }
 
 /**
- * Creates an arbitrary combined historical tree roots object from the given seed.
- * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
- * @param seed - The seed to use for generating the combined historical tree roots.
- * @returns A combined historical tree roots object.
- */
-export function makeBlockHeader(seed: number): BlockHeader {
-  return new BlockHeader(
-    fr(seed),
-    fr(seed + 1),
-    fr(seed + 2),
-    fr(seed + 3),
-    fr(seed + 4),
-    fr(seed + 5),
-    fr(seed + 6),
-    fr(seed + 7),
-  );
-}
-
-/**
  * Creates arbitrary constant data with the given seed.
  * @param seed - The seed to use for generating the constant data.
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeBlockHeader(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4));
 }
 
 /**
@@ -169,6 +153,28 @@ export function makeConstantData(seed = 1): CombinedConstantData {
  */
 export function makeSelector(seed: number): FunctionSelector {
   return new FunctionSelector(seed);
+}
+
+/**
+ * Creates arbitrary NullifierKeyValidationRequest from the given seed.
+ * @param seed - The seed to use for generating the NullifierKeyValidationRequest.
+ * @returns A NullifierKeyValidationRequest.
+ */
+function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
+  return new NullifierKeyValidationRequest(makePoint(seed), makeGrumpkinPrivateKey(seed + 2));
+}
+
+/**
+ * Creates arbitrary NullifierKeyValidationRequestContext from the given seed.
+ * @param seed - The seed to use for generating the NullifierKeyValidationRequestContext.
+ * @returns A NullifierKeyValidationRequestContext.
+ */
+function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyValidationRequestContext {
+  return new NullifierKeyValidationRequestContext(
+    makePoint(seed),
+    makeGrumpkinPrivateKey(seed + 2),
+    makeAztecAddress(seed + 4),
+  );
 }
 
 /**
@@ -234,7 +240,12 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
+    tupleGenerator(
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      makeNullifierKeyValidationRequestContext,
+      seed + 0x100,
+    ),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x120),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
@@ -359,7 +370,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    makeBlockHeader(seed + 0xa00),
+    makeHeader(seed + 0xa00, undefined),
     makeAztecAddress(seed + 0xb01),
   );
 }
@@ -467,6 +478,15 @@ export function makeVerificationKey(): VerificationKey {
  */
 export function makePoint(seed = 1): Point {
   return new Point(fr(seed), fr(seed + 1));
+}
+
+/**
+ * Creates an arbitrary grumpkin private key.
+ * @param seed - Seed to generate the values.
+ * @returns A GrumpkinPrivateKey.
+ */
+export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+  return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -644,8 +664,11 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x20),
     proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
     vk: makeVerificationKey(),
+    contractClassArtifactHash: fr(seed + 0x70),
+    contractClassPublicBytecodeCommitment: fr(seed + 0x71),
+    publicKeysHash: fr(seed + 0x72),
+    saltedInitializationHash: fr(seed + 0x73),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
-    contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
     readRequestMembershipWitnesses: makeTuple(
       MAX_READ_REQUESTS_PER_CALL,
       makeReadRequestMembershipWitness,
@@ -690,6 +713,11 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
+    nullifierKeyValidationRequests: makeTuple(
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+      makeNullifierKeyValidationRequest,
+      seed + 0x300,
+    ),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x500),
     privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
@@ -700,7 +728,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    blockHeader: makeBlockHeader(seed + 0xd00),
+    historicalHeader: makeHeader(seed + 0xd00, undefined),
     contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
@@ -862,18 +890,17 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
 /**
  * Makes root rollup public inputs.
  * @param seed - The seed to use for generating the root rollup public inputs.
- * @param blockNumber - The block number to use for generating the root rollup public inputs.
- * if blockNumber is undefined, it will be set to seed + 2.
+ * @param blockNumber - The block number to use in the global variables of a header.
  * @returns A root rollup public inputs.
  */
 export function makeRootRollupPublicInputs(
   seed = 0,
-  globalVariables: GlobalVariables | undefined = undefined,
+  blockNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     aggregationObject: makeAggregationObject(seed),
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, globalVariables),
+    header: makeHeader(seed + 0x200, blockNumber),
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
 }
@@ -881,12 +908,12 @@ export function makeRootRollupPublicInputs(
 /**
  * Makes header.
  */
-export function makeHeader(seed = 0, globalVariables: GlobalVariables | undefined): Header {
+export function makeHeader(seed = 0, blockNumber: number | undefined = undefined): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    randomBytes(NUM_BYTES_PER_SHA256),
-    makeStateReference(seed + 0x200),
-    globalVariables ?? makeGlobalVariables((seed += 0x100)),
+    toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
+    makeStateReference(seed + 0x300),
+    makeGlobalVariables((seed += 0x400), blockNumber),
   );
 }
 

@@ -8,8 +8,11 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
+
 using namespace bb;
-namespace bb::honk::pcs::ipa::test {
+using namespace bb::honk;
+using namespace bb::honk::pcs;
+using namespace bb::honk::pcs::ipa;
 
 using Curve = curve::Grumpkin;
 
@@ -31,7 +34,7 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     }
     p[3] = Fr::one();
     GroupElement commitment = this->commit(p);
-    auto srs_elements = this->ck()->srs->get_monomial_points();
+    auto* srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -47,7 +50,7 @@ TEST_F(IPATest, Commit)
     constexpr size_t n = 128;
     auto poly = this->random_polynomial(n);
     GroupElement commitment = this->commit(poly);
-    auto srs_elements = this->ck()->srs->get_monomial_points();
+    auto* srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -176,4 +179,3 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     EXPECT_EQ(verified, true);
 }
-} // namespace bb::honk::pcs::ipa::test

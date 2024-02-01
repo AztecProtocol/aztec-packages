@@ -10,7 +10,7 @@
     "formatting:fix": "./run_nargo_fmt.sh && FORCE_COLOR=true yarn workspaces foreach -p -v run formatting:fix",
     "lint": "yarn eslint --cache --ignore-pattern l1-artifacts .",
     "format": "yarn prettier --cache -w .",
-    "test": "FORCE_COLOR=true yarn workspaces foreach --exclude @aztec/aztec3-packages --exclude @aztec/end-to-end --exclude private-token -p -j unlimited -v run test",
+    "test": "FORCE_COLOR=true yarn workspaces foreach --exclude @aztec/aztec3-packages --exclude @aztec/end-to-end --exclude private-token -p -j ${JOBS:-unlimited} -v run test",
     "build": "yarn workspace @aztec/l1-artifacts build && tsc -b tsconfig.json",
     "build:dev": "yarn workspace @aztec/l1-artifacts build && tsc -b tsconfig.json --watch",
     "clean": "yarn workspaces foreach -p -v run clean"
@@ -22,7 +22,7 @@
     "aztec-faucet",
     "aztec-node",
     "pxe",
-    "aztec-sandbox",
+    "aztec",
     "aztec.js",
     "circuits.js",
     "circuit-types",
@@ -32,6 +32,7 @@
     "ethereum",
     "foundation",
     "key-store",
+    "kv-store",
     "l1-artifacts",
     "merkle-tree",
     "noir-compiler",
@@ -45,8 +46,7 @@
     "scripts",
     "types",
     "world-state",
-    "yarn-project-base",
-    "kv-store"
+    "yarn-project-base"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {

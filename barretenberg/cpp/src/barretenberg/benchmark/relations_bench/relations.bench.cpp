@@ -5,7 +5,7 @@
 #include <benchmark/benchmark.h>
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using namespace bb::honk::sumcheck;
@@ -57,3 +57,5 @@ BENCHMARK(execute_relation<honk::flavor::ECCVM, ECCVMTranscriptRelation<Fq>>);
 BENCHMARK(execute_relation<honk::flavor::ECCVM, ECCVMWnafRelation<Fq>>);
 
 } // namespace bb::benchmark::relations
+
+BENCHMARK_MAIN();

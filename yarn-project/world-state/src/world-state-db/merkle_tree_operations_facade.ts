@@ -1,12 +1,10 @@
-import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { NullifierLeafPreimage } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { Header, NullifierLeafPreimage, StateReference } from '@aztec/circuits.js';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { SiblingPath } from '@aztec/types/membership';
 
 import { MerkleTreeDb } from './merkle_tree_db.js';
-import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
+import { HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -25,11 +23,19 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Get the current roots of the commitment trees.
-   * @returns The current roots of the trees.
+   * Get the current state reference.
+   * @returns The current state reference.
    */
-  getTreeRoots(): Promise<CurrentTreeRoots> {
-    return this.trees.getTreeRoots(this.includeUncommitted);
+  getStateReference(): Promise<StateReference> {
+    return this.trees.getStateReference(this.includeUncommitted);
+  }
+
+  /**
+   * Builds the initial header.
+   * @returns The initial header.
+   */
+  buildInitialHeader(): Promise<Header> {
+    return this.trees.buildInitialHeader(this.includeUncommitted);
   }
 
   /**
@@ -128,25 +134,10 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   /**
    * Inserts the new block hash into the archive.
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
-   * @param globalVariablesHash - The global variables hash to insert into the block hash.
+   * @param header - The header to insert into the archive.
    */
-  public updateArchive(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateArchive(globalVariablesHash, this.includeUncommitted);
-  }
-
-  /**
-   * Updates the latest global variables hash
-   * @param globalVariablesHash - The latest global variables hash
-   */
-  public updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateLatestGlobalVariablesHash(globalVariablesHash, this.includeUncommitted);
-  }
-
-  /**
-   * Gets the global variables hash from the previous block
-   */
-  public getLatestGlobalVariablesHash(): Promise<Fr> {
-    return this.trees.getLatestGlobalVariablesHash(this.includeUncommitted);
+  public updateArchive(header: Header): Promise<void> {
+    return this.trees.updateArchive(header, this.includeUncommitted);
   }
 
   /**

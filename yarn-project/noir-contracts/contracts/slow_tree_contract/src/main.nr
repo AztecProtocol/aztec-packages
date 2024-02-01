@@ -14,7 +14,7 @@ contract SlowTree {
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
+        value_note::{VALUE_NOTE_LEN, ValueNote},
     };
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
@@ -23,15 +23,15 @@ contract SlowTree {
             utils as note_utils,
         },
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialization::field_serialization::{
-            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
-        },
+        protocol_types::type_serialization::FIELD_SERIALIZED_LEN,
     };
     use dep::slow_updates_tree::slow_map::{
         SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof
     };
 
+    // docs:start:import_pop_capsule
     use crate::capsule::pop_capsule;
+    // docs:end:import_pop_capsule
     use crate::types::{MembershipProof, deserialize_membership_proof};
 
     // docs:start:constants_and_storage
@@ -84,7 +84,9 @@ contract SlowTree {
     // docs:start:read_at_private
     #[aztec(private)]
     fn read_at(index: Field) -> Field {
+        // docs:start:pop_capsule
         let fields = pop_capsule();
+        // docs:end:pop_capsule
         let p: MembershipProof<TREE_HEIGHT, MEMBERSHIP_SIZE> = deserialize_membership_proof(fields);
         assert(index == p.index, "Index does not match expected");
 

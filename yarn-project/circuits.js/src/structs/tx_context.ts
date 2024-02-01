@@ -1,85 +1,10 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { PublicKey } from '../index.js';
-import { AztecAddress, EthAddress, Fr, Point } from './index.js';
-
-/**
- * Contract deployment data in a TxContext
- * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp.
- *
- * Not to be confused with NewContractData.
- */
-export class ContractDeploymentData {
-  /** Ethereum address of the portal contract on L1. */
-  public portalContractAddress: EthAddress;
-
-  constructor(
-    /** Public key of the contract deployer (used when deploying account contracts). */
-    public deployerPublicKey: PublicKey,
-    /** Hash of the constructor verification key. */
-    public constructorVkHash: Fr,
-    /** Function tree root. */
-    public functionTreeRoot: Fr,
-    /** Contract address salt (used when deriving a contract address). */
-    public contractAddressSalt: Fr,
-    /**
-     * Ethereum address of the portal contract on L1.
-     * TODO(AD): union type kludge due to cbind compiler having special needs
-     */
-    portalContractAddress: EthAddress | AztecAddress,
-  ) {
-    this.portalContractAddress = EthAddress.fromField(portalContractAddress.toField());
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.deployerPublicKey,
-      this.constructorVkHash,
-      this.functionTreeRoot,
-      this.contractAddressSalt,
-      this.portalContractAddress,
-    );
-  }
-
-  /**
-   * Returns an empty ContractDeploymentData.
-   * @returns The empty ContractDeploymentData.
-   */
-  public static empty(): ContractDeploymentData {
-    return new ContractDeploymentData(Point.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
-  }
-
-  isEmpty() {
-    return (
-      this.deployerPublicKey.isZero() &&
-      this.constructorVkHash.isZero() &&
-      this.functionTreeRoot.isZero() &&
-      this.contractAddressSalt.isZero() &&
-      this.portalContractAddress.isZero()
-    );
-  }
-
-  /**
-   * Deserializes contract deployment data rom a buffer or reader.
-   * @param buffer - Buffer to read from.
-   * @returns The deserialized ContractDeploymentData.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
-    const reader = BufferReader.asReader(buffer);
-    return new ContractDeploymentData(
-      reader.readObject(Point),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      new EthAddress(reader.readBytes(32)),
-    );
-  }
-}
+import { ContractDeploymentData, Fr } from './index.js';
 
 /**
  * Transaction context.
- * @see cpp/src/aztec3/circuits/abis/tx_context.hpp.
  */
 export class TxContext {
   constructor(

@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFieldArray } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { Fr, FunctionSelector } from './index.js';
@@ -107,6 +107,10 @@ export class CallContext {
     return serializeToBuffer(...CallContext.getFields(this));
   }
 
+  toFields(): Fr[] {
+    return serializeToFieldArray(...CallContext.getFields(this));
+  }
+
   /**
    * Deserialize this from a buffer.
    * @param buffer - The bufferable type from which to deserialize.
@@ -123,6 +127,20 @@ export class CallContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readNumber(),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): CallContext {
+    const reader = FieldReader.asReader(fields);
+    return new CallContext(
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readField(),
+      reader.readObject(FunctionSelector),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readU32(),
     );
   }
 

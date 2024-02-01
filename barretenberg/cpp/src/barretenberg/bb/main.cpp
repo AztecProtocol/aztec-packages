@@ -10,6 +10,7 @@
 #include <barretenberg/common/timer.hpp>
 #include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
+#include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
 #include <iostream>
 #include <stdexcept>
@@ -43,6 +44,12 @@ void init_bn254_crs(size_t dyadic_circuit_size)
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 }
 
+/**
+ * @brief Initialize the global crs_factory for grumpkin based on a known dyadic circuit size
+ * @details Grumpkin crs is required only for the ECCVM
+ *
+ * @param dyadic_circuit_size power-of-2 circuit size
+ */
 void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
     auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
@@ -65,7 +72,7 @@ acir_format::WitnessVector get_witness(std::string const& witness_path)
     return acir_format::witness_buf_to_witness_data(witness_data);
 }
 
-acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
+acir_format::AcirFormat get_constraint_system(std::string const& bytecode_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
     return acir_format::circuit_buf_to_acir_format(bytecode);
@@ -84,7 +91,7 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
+bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
@@ -102,16 +109,53 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     write_benchmark("subgroup_size", acir_composer.get_dyadic_circuit_size(), "acir_test", current_dir);
 
     Timer proof_timer;
-    auto proof = acir_composer.create_proof(recursive);
+    auto proof = acir_composer.create_proof();
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
     Timer vk_timer;
     acir_composer.init_verification_key();
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
 
-    auto verified = acir_composer.verify_proof(proof, recursive);
+    auto verified = acir_composer.verify_proof(proof);
 
     vinfo("verified: ", verified);
+    return verified;
+}
+
+/**
+ * @brief Constructs and verifies a Honk proof for an ACIR circuit via the Goblin accumulate mechanism
+ *
+ * Communication:
+ * - proc_exit: A boolean value is returned indicating whether the proof is valid.
+ *   an exit code of 0 will be returned for success and 1 for failure.
+ *
+ * @param bytecodePath Path to the file containing the serialized acir constraint system
+ * @param witnessPath Path to the file containing the serialized witness
+ * @return verified
+ */
+bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    // Populate the acir constraint system and witness from gzipped data
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto witness = get_witness(witnessPath);
+
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
+    acir_proofs::GoblinAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
+    // to max circuit size present in acir tests suite.
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
+    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
+    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+
+    // Call accumulate to generate a GoblinUltraHonk proof
+    auto proof = acir_composer.accumulate();
+
+    // Verify the GoblinUltraHonk proof
+    auto verified = acir_composer.verify_accumulator(proof);
+
     return verified;
 }
 
@@ -128,15 +172,15 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool proveAndVerifyGoblin(const std::string& bytecodePath,
-                          const std::string& witnessPath,
-                          [[maybe_unused]] bool recursive)
+bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
 {
+    // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    acir_proofs::AcirComposer acir_composer;
-    acir_composer.create_goblin_circuit(constraint_system, witness);
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
+    acir_proofs::GoblinAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
@@ -145,9 +189,11 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
-    auto proof = acir_composer.create_goblin_proof();
+    // Generate a GoblinUltraHonk proof and a full Goblin proof
+    auto proof = acir_composer.accumulate_and_prove();
 
-    auto verified = acir_composer.verify_goblin_proof(proof);
+    // Verify the GoblinUltraHonk proof and the full Goblin proof
+    auto verified = acir_composer.verify(proof);
 
     return verified;
 }
@@ -164,10 +210,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
  */
-void prove(const std::string& bytecodePath,
-           const std::string& witnessPath,
-           bool recursive,
-           const std::string& outputPath)
+void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
@@ -176,7 +219,7 @@ void prove(const std::string& bytecodePath,
     acir_composer.create_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
-    auto proof = acir_composer.create_proof(recursive);
+    auto proof = acir_composer.create_proof();
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);
@@ -222,12 +265,12 @@ void gateCount(const std::string& bytecodePath)
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
+bool verify(const std::string& proof_path, const std::string& vk_path)
 {
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
-    auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
+    auto verified = acir_composer.verify_proof(read_file(proof_path));
 
     vinfo("verified: ", verified);
     return verified;
@@ -443,7 +486,6 @@ int main(int argc, char* argv[])
         std::string vk_path = get_option(args, "-k", "./target/vk");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
-        bool recursive = flag_present(args, "-r") || flag_present(args, "--recursive");
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
@@ -456,18 +498,21 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (command == "prove_and_verify") {
-            return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
+            return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "accumulate_and_verify_goblin") {
+            return accumulateAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
-            return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;
+            return proveAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, recursive, output_path);
+            prove(bytecode_path, witness_path, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
-            return verify(proof_path, recursive, vk_path) ? 0 : 1;
+            return verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);

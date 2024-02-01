@@ -8,12 +8,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
-import {
-  toACVMField,
-  toAcvmCallPrivateStackItem,
-  toAcvmEnqueuePublicFunctionResult,
-  toAcvmL1ToL2MessageLoadOracleInputs,
-} from '../serialize.js';
+import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 import { TypedOracle } from './typed_oracle.js';
 
@@ -33,10 +28,14 @@ export class Oracle {
     return toACVMField(packed);
   }
 
-  async getSecretKey([publicKeyX]: ACVMField[], [publicKeyY]: ACVMField[]): Promise<ACVMField[]> {
-    const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
-    const secretKey = await this.typedOracle.getSecretKey(publicKey);
-    return [toACVMField(secretKey.low), toACVMField(secretKey.high)];
+  async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
+    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(fromACVMField(accountAddress));
+    return [
+      toACVMField(publicKey.x),
+      toACVMField(publicKey.y),
+      toACVMField(secretKey.high),
+      toACVMField(secretKey.low),
+    ];
   }
 
   async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
@@ -120,25 +119,14 @@ export class Oracle {
     return witness.toFieldArray().map(toACVMField);
   }
 
-  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const blockHeader = await this.typedOracle.getBlockHeader(parsedBlockNumber);
-    if (!blockHeader) {
+    const header = await this.typedOracle.getHeader(parsedBlockNumber);
+    if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
-    return blockHeader.toArray().map(toACVMField);
-  }
-
-  // TODO(#3564) - Nuke this oracle and inject the number directly to context
-  async getNullifierRootBlockNumber([nullifierTreeRoot]: ACVMField[]): Promise<ACVMField> {
-    const parsedRoot = fromACVMField(nullifierTreeRoot);
-
-    const blockNumber = await this.typedOracle.getNullifierRootBlockNumber(parsedRoot);
-    if (!blockNumber) {
-      throw new Error(`Block header not found for block ${parsedRoot}.`);
-    }
-    return toACVMField(blockNumber);
+    return header.toFields().map(toACVMField);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
@@ -163,10 +151,12 @@ export class Oracle {
     [numSelects]: ACVMField[],
     selectBy: ACVMField[],
     selectValues: ACVMField[],
+    selectComparators: ACVMField[],
     sortBy: ACVMField[],
     sortOrder: ACVMField[],
     [limit]: ACVMField[],
     [offset]: ACVMField[],
+    [status]: ACVMField[],
     [returnSize]: ACVMField[],
   ): Promise<ACVMField[]> {
     const noteDatas = await this.typedOracle.getNotes(
@@ -174,10 +164,12 @@ export class Oracle {
       +numSelects,
       selectBy.map(s => +s),
       selectValues.map(fromACVMField),
+      selectComparators.map(s => +s),
       sortBy.map(s => +s),
       sortOrder.map(s => +s),
       +limit,
       +offset,
+      +status,
     );
 
     const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
@@ -228,8 +220,8 @@ export class Oracle {
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
-    const { root, ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
-    return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
+    const message = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
+    return message.toFields().map(toACVMField);
   }
 
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {
@@ -299,7 +291,7 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideffectCounter)),
     );
-    return toAcvmCallPrivateStackItem(callStackItem);
+    return callStackItem.toFields().map(toACVMField);
   }
 
   async callPublicFunction(

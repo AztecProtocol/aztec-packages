@@ -1,63 +1,70 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { AvmMachineState } from '../avm_machine_state.js';
-import { AvmStateManager } from '../avm_state_manager.js';
+import { AvmJournal } from '../journal/index.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
+import { ThreeOperandInstruction } from './instruction_impl.js';
 
-/** -*/
-export class Eq extends Instruction {
-  static type: string = 'EQ';
-  static numberOfOperands = 3;
+export class Eq extends ThreeOperandInstruction {
+  static readonly type: string = 'EQ';
+  static readonly opcode = Opcode.EQ;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-    super();
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() == b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
 
-    this.incrementPc(machineState);
-  }
-}
-/** -*/
-export class Lt extends Instruction {
-  static type: string = 'Lt';
-  static numberOfOperands = 3;
-
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-    super();
-  }
-
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
-
-    const dest = new Fr(a.toBigInt() < b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    // Result will be of the same type as 'a'.
+    const dest = a.build(a.equals(b) ? 1n : 0n);
+    machineState.memory.set(this.dstOffset, dest);
 
     this.incrementPc(machineState);
   }
 }
 
-/** -*/
-export class Lte extends Instruction {
-  static type: string = 'LTE';
-  static numberOfOperands = 3;
+export class Lt extends ThreeOperandInstruction {
+  static readonly type: string = 'LT';
+  static readonly opcode = Opcode.LT;
 
-  constructor(private aOffset: number, private bOffset: number, private destOffset: number) {
-    super();
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    const a: Fr = machineState.readMemory(this.aOffset);
-    const b: Fr = machineState.readMemory(this.bOffset);
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
 
-    const dest = new Fr(a.toBigInt() < b.toBigInt());
-    machineState.writeMemory(this.destOffset, dest);
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
+
+    // Result will be of the same type as 'a'.
+    const dest = a.build(a.lt(b) ? 1n : 0n);
+    machineState.memory.set(this.dstOffset, dest);
+
+    this.incrementPc(machineState);
+  }
+}
+
+export class Lte extends ThreeOperandInstruction {
+  static readonly type: string = 'LTE';
+  static readonly opcode = Opcode.LTE;
+
+  constructor(indirect: number, inTag: number, aOffset: number, bOffset: number, dstOffset: number) {
+    super(indirect, inTag, aOffset, bOffset, dstOffset);
+  }
+
+  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
+    Instruction.checkTags(machineState, this.inTag, this.aOffset, this.bOffset);
+
+    const a = machineState.memory.get(this.aOffset);
+    const b = machineState.memory.get(this.bOffset);
+
+    // Result will be of the same type as 'a'.
+    const dest = a.build(a.equals(b) || a.lt(b) ? 1n : 0n);
+    machineState.memory.set(this.dstOffset, dest);
 
     this.incrementPc(machineState);
   }

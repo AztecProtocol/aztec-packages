@@ -7,7 +7,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   PXE,
   Point,
-  getContractDeploymentInfo,
+  getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { NewContractData } from '@aztec/circuits.js';
 import { computeContractLeaf } from '@aztec/circuits.js/abis';
@@ -157,11 +157,15 @@ describe('e2e_inclusion_proofs_contract', () => {
     it('public value existence failure case', async () => {
       // Choose random block number between first block and current block number to test archival node
       const blockNumber = await getRandomBlockNumber();
-
       const randomPublicValue = Fr.random();
       await expect(
         contract.methods.test_public_value_inclusion_proof(randomPublicValue, blockNumber).send().wait(),
-      ).rejects.toThrow(/Public value does not match value in witness/);
+      ).rejects.toThrow('Public value does not match the witness');
+    });
+
+    it('proves existence of uninitialized public value', async () => {
+      const blockNumber = await getRandomBlockNumber();
+      await contract.methods.test_public_unused_value_inclusion_proof(blockNumber).send().wait();
     });
   });
 
@@ -189,23 +193,25 @@ describe('e2e_inclusion_proofs_contract', () => {
   describe('contract inclusion', () => {
     // InclusionProofs contract doesn't have associated public key because it's not an account contract
     const publicKey = Point.ZERO;
-    let functionTreeRoot: Fr;
-    let constructorHash: Fr;
+    let contractClassId: Fr;
+    let initializationHash: Fr;
     let portalContractAddress: EthAddress;
 
     beforeAll(() => {
       const contractArtifact = contract.artifact;
-
       const constructorArgs = [publicValue];
+      portalContractAddress = EthAddress.random();
 
-      ({ constructorHash, functionTreeRoot } = getContractDeploymentInfo(
+      const instance = getContractInstanceFromDeployParams(
         contractArtifact,
         constructorArgs,
         contractAddressSalt,
         publicKey,
-      ));
+        portalContractAddress,
+      );
 
-      portalContractAddress = contract.portalContract;
+      contractClassId = instance.contractClassId;
+      initializationHash = instance.initializationHash;
     });
 
     it('proves existence of a contract', async () => {
@@ -218,8 +224,8 @@ describe('e2e_inclusion_proofs_contract', () => {
         .test_contract_inclusion_proof(
           publicKey,
           contractAddressSalt,
-          functionTreeRoot,
-          constructorHash,
+          contractClassId,
+          initializationHash,
           portalContractAddress,
           blockNumber,
         )
@@ -227,11 +233,11 @@ describe('e2e_inclusion_proofs_contract', () => {
         .wait();
     });
 
-    it('contract existence failure case', async () => {
+    // TODO(@spalladino): Re-enable once we add check for non-inclusion based on nullifier
+    it.skip('contract existence failure case', async () => {
       // This should fail because we choose a block number before the contract was deployed
       const blockNumber = deploymentBlockNumber - 1;
-
-      const contractData = new NewContractData(contract.address, contract.portalContract, functionTreeRoot);
+      const contractData = new NewContractData(contract.address, portalContractAddress, contractClassId);
       const leaf = computeContractLeaf(contractData);
 
       await expect(
@@ -239,8 +245,8 @@ describe('e2e_inclusion_proofs_contract', () => {
           .test_contract_inclusion_proof(
             publicKey,
             contractAddressSalt,
-            functionTreeRoot,
-            constructorHash,
+            contractClassId,
+            initializationHash,
             portalContractAddress,
             blockNumber,
           )
@@ -251,12 +257,10 @@ describe('e2e_inclusion_proofs_contract', () => {
   });
 
   const getRandomBlockNumberSinceDeployment = async () => {
-    const currentBlockNumber = await pxe.getBlockNumber();
-    return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - deploymentBlockNumber));
+    return deploymentBlockNumber + Math.floor(Math.random() * ((await pxe.getBlockNumber()) - deploymentBlockNumber));
   };
 
   const getRandomBlockNumber = async () => {
-    const currentBlockNumber = await pxe.getBlockNumber();
-    return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - INITIAL_L2_BLOCK_NUM));
+    return deploymentBlockNumber + Math.floor(Math.random() * ((await pxe.getBlockNumber()) - INITIAL_L2_BLOCK_NUM));
   };
 });

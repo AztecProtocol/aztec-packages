@@ -1,21 +1,21 @@
-import { DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   KeyStore,
   L2Block,
   MerkleTreeId,
+  NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
   StateInfoProvider,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  BlockHeader,
   CompleteAddress,
   EthAddress,
   Fr,
   FunctionSelector,
-  GrumpkinPrivateKey,
-  PublicKey,
+  Header,
+  L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -35,15 +35,18 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
-    return this.keyStore.getAccountPrivateKey(pubKey);
+  async getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair> {
+    const accountPublicKey = (await this.db.getCompleteAddress(accountAddress))!.publicKey;
+    const publicKey = await this.keyStore.getNullifierPublicKey(accountPublicKey);
+    const secretKey = await this.keyStore.getSiloedNullifierSecretKey(accountPublicKey, contractAddress);
+    return { publicKey, secretKey };
   }
 
   async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;
@@ -65,8 +68,12 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
+    const noteDaos = await this.db.getNotes({
+      contractAddress,
+      storageSlot,
+      status,
+    });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
@@ -119,16 +126,12 @@ export class SimulatorOracle implements DBOracle {
    * @returns A promise that resolves to the message data, a sibling path and the
    *          index of the message in the l1ToL2MessageTree
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
+  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
-    const message = messageAndIndex.message.toFieldArray();
+    const message = messageAndIndex.message;
     const index = messageAndIndex.index;
     const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath('latest', index);
-    return {
-      message,
-      siblingPath: siblingPath.toFieldArray(),
-      index,
-    };
+    return new MessageLoadOracleInputs(message, index, siblingPath);
   }
 
   /**
@@ -192,10 +195,10 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a BlockHeader object.
+   * @returns A Promise that resolves to a Header object.
    */
-  getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+  getHeader(): Promise<Header> {
+    return Promise.resolve(this.db.getHeader());
   }
 
   /**

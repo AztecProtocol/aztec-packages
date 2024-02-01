@@ -1,4 +1,4 @@
-import { Archiver, KVArchiverDataStore } from '@aztec/archiver';
+import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
   AztecNode,
   ContractData,
@@ -19,15 +19,15 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
   SequencerConfig,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
-  BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
-  GlobalVariables,
+  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -35,11 +35,11 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computeGlobalsHash, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { AztecKVStore, AztecLmdbStore } from '@aztec/kv-store';
 import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import {
   GlobalVariableBuilder,
@@ -47,7 +47,6 @@ import {
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
-import { SiblingPath } from '@aztec/types/membership';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -56,10 +55,7 @@ import {
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
-import { LevelUp } from 'levelup';
-
 import { AztecNodeConfig } from './config.js';
-import { openDb } from './db.js';
 
 /**
  * The aztec node.
@@ -78,7 +74,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly chainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
-    protected readonly merkleTreesDb: LevelUp,
+    protected readonly merkleTreesDb: AztecKVStore,
     private log = createDebugLogger('aztec:node'),
   ) {
     const message =
@@ -106,12 +102,16 @@ export class AztecNodeService implements AztecNode {
     }
 
     const log = createDebugLogger('aztec:node');
-    const store = await AztecLmdbStore.create(config.l1Contracts.rollupAddress, config.dataDirectory);
-    const [_, worldStateDb] = await openDb(config, log);
+    const store = await AztecLmdbStore.open(config.l1Contracts.rollupAddress, config.dataDirectory);
 
-    // first create and sync the archiver
-    const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
-    const archiver = await Archiver.createAndSync(config, archiverStore, true);
+    let archiver: ArchiveSource;
+    if (!config.archiverUrl) {
+      // first create and sync the archiver
+      const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
+      archiver = await Archiver.createAndSync(config, archiverStore, true);
+    } else {
+      archiver = createArchiverClient(config.archiverUrl);
+    }
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -121,14 +121,9 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(store, config, new AztecKVTxPool(store), archiver);
 
     // now create the merkle trees and the world state synchronizer
-    const merkleTrees = await MerkleTrees.new(worldStateDb);
+    const merkleTrees = await MerkleTrees.new(store);
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
-    const worldStateSynchronizer = await ServerWorldStateSynchronizer.new(
-      worldStateDb,
-      merkleTrees,
-      archiver,
-      worldStateConfig,
-    );
+    const worldStateSynchronizer = new ServerWorldStateSynchronizer(store, merkleTrees, archiver, worldStateConfig);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
@@ -151,7 +146,7 @@ export class AztecNodeService implements AztecNode {
       ethereumChain.chainInfo.id,
       config.version,
       getGlobalVariableBuilder(config),
-      worldStateDb,
+      store,
       log,
     );
   }
@@ -285,8 +280,6 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
-    this.log('Closing Merkle Trees');
-    await this.merkleTreesDb.close();
     this.log.info(`Stopped`);
   }
 
@@ -531,51 +524,18 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the current committed roots for the data trees.
-   * @returns The current committed roots for the data trees.
-   */
-  public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
-    const committedDb = await this.#getWorldState('latest');
-    const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
-
-    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessageTree, archive, publicDataTree] = await Promise.all([
-      getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
-      getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-      getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-      getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      getTreeRoot(MerkleTreeId.ARCHIVE),
-      getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-    ]);
-
-    return {
-      [MerkleTreeId.CONTRACT_TREE]: contractTree,
-      [MerkleTreeId.NOTE_HASH_TREE]: noteHashTree,
-      [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: l1ToL2MessageTree,
-      [MerkleTreeId.ARCHIVE]: archive,
-    };
-  }
-
-  /**
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  // TODO(#3937): Nuke this
-  public async getBlockHeader(): Promise<BlockHeader> {
-    const committedDb = await this.#getWorldState('latest');
-    const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
+  public async getHeader(): Promise<Header> {
+    const block = await this.getBlock(-1);
+    if (block) {
+      return block.header;
+    }
 
-    return new BlockHeader(
-      roots[MerkleTreeId.NOTE_HASH_TREE],
-      roots[MerkleTreeId.NULLIFIER_TREE],
-      roots[MerkleTreeId.CONTRACT_TREE],
-      roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
-      roots[MerkleTreeId.ARCHIVE],
-      Fr.ZERO, // TODO(#3441)
-      roots[MerkleTreeId.PUBLIC_DATA_TREE],
-      globalsHash,
-    );
+    // No block was not found so we build the initial header.
+    const committedDb = await this.#getWorldState('latest');
+    return await committedDb.buildInitialHeader();
   }
 
   /**
@@ -586,24 +546,19 @@ export class AztecNodeService implements AztecNode {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
-    const prevGlobalVariables =
-      (await this.blockSource.getBlock(-1))?.header.globalVariables ?? GlobalVariables.empty();
+    const prevHeader = (await this.blockSource.getBlock(-1))?.header;
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
-    const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    const globalVariablesHash = computeGlobalsHash(prevGlobalVariables);
-    await merkleTrees.init({
-      globalVariablesHash,
-    });
+    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, this.log);
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),
       this.contractDataSource,
       this.l1ToL2MessageSource,
     );
-    const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+    const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
     const [, failedTxs] = await processor.process([tx]);
     if (failedTxs.length) {
       throw failedTxs[0].error;

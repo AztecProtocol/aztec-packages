@@ -1,4 +1,12 @@
-import { BlockHeader, CallContext, FunctionData, GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { L1ToL2Message, SiblingPath } from '@aztec/circuit-types';
+import {
+  AppendOnlyTreeSnapshot,
+  CallContext,
+  FunctionData,
+  GlobalVariables,
+  Header,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -13,6 +21,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 import { getFunctionSelector } from 'viem';
 
+import { MessageLoadOracleInputs } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
@@ -26,15 +35,15 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockHeader: BlockHeader;
+  let header: Header;
 
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockHeader = BlockHeader.empty();
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHeader);
+    header = Header.empty();
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
   }, 10000);
 
   describe('Token contract', () => {
@@ -353,69 +362,6 @@ describe('ACIR public execution simulator', () => {
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
 
-    it('Should be able to consume an L1 to L2 message in the public context', async () => {
-      const mintPublicArtifact = TestContractArtifact.functions.find(f => f.name === 'consume_mint_public_message')!;
-
-      // Set up cross chain message
-      const canceller = EthAddress.random();
-
-      const bridgedAmount = 20n;
-      const secret = new Fr(1n);
-      const recipient = AztecAddress.random();
-
-      const preimage = buildL1ToL2Message(
-        getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
-        [recipient.toField(), new Fr(bridgedAmount), canceller.toField()],
-        contractAddress,
-        secret,
-      );
-
-      // Stub message key
-      const messageKey = Fr.random();
-      const args = encodeArguments(mintPublicArtifact, [
-        recipient.toField(),
-        bridgedAmount,
-        canceller.toField(),
-        messageKey,
-        secret,
-      ]);
-
-      const callContext = CallContext.from({
-        msgSender: AztecAddress.random(),
-        storageContractAddress: contractAddress,
-        portalContractAddress: preimage.sender.sender,
-        functionSelector: FunctionSelector.empty(),
-        isContractDeployment: false,
-        isDelegateCall: false,
-        isStaticCall: false,
-        startSideEffectCounter: 0,
-      });
-
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
-      publicState.storageRead.mockResolvedValue(Fr.ZERO);
-
-      // Mock response
-      commitmentsDb.getL1ToL2Message.mockImplementation(async () => {
-        return await Promise.resolve({
-          message: preimage.toFieldArray(),
-          index: 0n,
-          siblingPath: Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random()),
-        });
-      });
-
-      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-
-      const gv = new GlobalVariables(
-        new Fr(preimage.sender.chainId),
-        new Fr(preimage.recipient.version),
-        Fr.ZERO,
-        Fr.ZERO,
-      );
-      const result = await executor.simulate(execution, gv);
-
-      expect(result.newNullifiers.length).toEqual(1);
-    });
-
     it('Should be able to create a nullifier from the public context', async () => {
       const createNullifierPublicArtifact = TestContractArtifact.functions.find(
         f => f.name === 'create_nullifier_public',
@@ -444,6 +390,232 @@ describe('ACIR public execution simulator', () => {
 
       const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
       expect(result.newNullifiers[0].value.toBuffer()).toEqual(expectedNewMessageValue);
+    });
+
+    describe('L1 to L2 messages', () => {
+      const mintPublicArtifact = TestContractArtifact.functions.find(f => f.name === 'consume_mint_public_message')!;
+
+      const canceller = EthAddress.random();
+      const tokenRecipient = AztecAddress.random();
+      let bridgedAmount = 20n;
+      let secret = new Fr(1);
+
+      let crossChainMsgRecipient: AztecAddress | undefined;
+      let crossChainMsgSender: EthAddress | undefined;
+      let messageKey: Fr | undefined;
+
+      let preimage: L1ToL2Message;
+      let globalVariables: GlobalVariables;
+
+      let args: Fr[];
+      let callContext: CallContext;
+
+      beforeEach(() => {
+        bridgedAmount = 20n;
+        secret = new Fr(1);
+
+        crossChainMsgRecipient = undefined;
+        crossChainMsgSender = undefined;
+        messageKey = undefined;
+      });
+
+      const computePreImage = () =>
+        buildL1ToL2Message(
+          getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
+          [tokenRecipient.toField(), new Fr(bridgedAmount), canceller.toField()],
+          crossChainMsgRecipient ?? contractAddress,
+          secret,
+        );
+
+      const computeArgs = () =>
+        encodeArguments(mintPublicArtifact, [
+          tokenRecipient.toField(),
+          bridgedAmount,
+          canceller.toField(),
+          messageKey ?? preimage.hash(),
+          secret,
+        ]);
+
+      const computeCallContext = () =>
+        CallContext.from({
+          msgSender: AztecAddress.random(),
+          storageContractAddress: contractAddress,
+          portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
+          functionSelector: FunctionSelector.empty(),
+          isContractDeployment: false,
+          isDelegateCall: false,
+          isStaticCall: false,
+          startSideEffectCounter: 0,
+        });
+
+      const computeGlobalVariables = () =>
+        new GlobalVariables(new Fr(preimage.sender.chainId), new Fr(preimage.recipient.version), Fr.ZERO, Fr.ZERO);
+
+      const mockOracles = () => {
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
+        publicState.storageRead.mockResolvedValue(Fr.ZERO);
+
+        const siblingPathBuffers = Array(L1_TO_L2_MSG_TREE_HEIGHT)
+          .fill(Fr.random())
+          .map(f => f.toBuffer());
+        const siblingPath = new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, siblingPathBuffers);
+
+        let root = messageKey ?? preimage.hash();
+        for (const sibling of siblingPathBuffers) {
+          root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling]));
+        }
+        commitmentsDb.getL1ToL2Message.mockImplementation(() => {
+          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, siblingPath));
+        });
+
+        return new AppendOnlyTreeSnapshot(
+          root,
+          1, // we set 1 message in the tree
+        );
+      };
+
+      it('Should be able to consume an L1 to L2 message in the public context', async () => {
+        preimage = computePreImage();
+
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        const result = await executor.simulate(execution, globalVariables);
+        expect(result.newNullifiers.length).toEqual(1);
+      });
+
+      it('Message not matching requested key', async () => {
+        // Using a random value for the message key
+        messageKey = Fr.random();
+
+        preimage = computePreImage();
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError(
+          'Message not matching requested key',
+        );
+      });
+
+      it('Invalid membership proof', async () => {
+        preimage = computePreImage();
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Mock oracles but don't update state
+        mockOracles();
+
+        // Prepare the state
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Message not in state');
+      });
+
+      it('Invalid recipient', async () => {
+        crossChainMsgRecipient = AztecAddress.random();
+        preimage = computePreImage();
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid recipient');
+      });
+
+      it('Invalid sender', async () => {
+        crossChainMsgSender = EthAddress.random();
+        preimage = computePreImage();
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid sender');
+      });
+
+      it('Invalid chainid', async () => {
+        preimage = computePreImage();
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+        globalVariables.chainId = Fr.random();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid Chainid');
+      });
+
+      it('Invalid version', async () => {
+        preimage = computePreImage();
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+        globalVariables.version = Fr.random();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid Version');
+      });
+
+      it('Invalid Content', async () => {
+        preimage = computePreImage();
+
+        bridgedAmount = bridgedAmount + 1n; // Invalid amount
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid Content');
+      });
+
+      it('Invalid secret', async () => {
+        preimage = computePreImage();
+
+        secret = Fr.random(); // Invalid secret
+        args = computeArgs();
+        callContext = computeCallContext();
+
+        // Prepare the state
+        header.state.l1ToL2MessageTree = mockOracles();
+        globalVariables = computeGlobalVariables();
+
+        const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid message secret');
+      });
     });
   });
 });
