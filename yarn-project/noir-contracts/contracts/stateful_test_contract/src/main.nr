@@ -51,11 +51,7 @@ contract StatefulTest {
     #[aztec(private)]
     fn constructor(owner: AztecAddress, value: Field) {
         let selector = FunctionSelector::from_signature("create_note((Field),Field)");
-        let _res = context.call_private_function(
-            context.this_address(),
-            selector,
-            [owner.to_field(), value]
-        );
+        let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
     }
 
     #[aztec(private)]
