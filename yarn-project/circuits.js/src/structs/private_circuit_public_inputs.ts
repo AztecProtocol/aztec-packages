@@ -16,9 +16,8 @@ import {
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
-import { Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
+import { ContractDeploymentData, Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
-import { ContractDeploymentData } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.
