@@ -47,7 +47,7 @@ contract DocsExample {
         profiles: Map<AztecAddress, Singleton<CardNote>>,
         // docs:end:storage-map-singleton-declaration
         // docs:start:storage-set-declaration
-        test: Set<CardNote>,
+        set: Set<CardNote>,
         // docs:end:storage-set-declaration
         // docs:start:storage-immutable-singleton-declaration
         imm_singleton: ImmutableSingleton<CardNote>,
