@@ -36,7 +36,7 @@
     "l1-artifacts",
     "merkle-tree",
     "noir-compiler",
-    "noir-contracts",
+    "noir-contracts.js",
     "noir-protocol-circuits",
     "p2p",
     "p2p-bootstrap",

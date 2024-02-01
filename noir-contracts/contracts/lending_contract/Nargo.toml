@@ -1,0 +1,9 @@
+[package]
+name = "lending_contract"
+authors = [""]
+compiler_version = ">=0.18.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../yarn-project/aztec-nr/aztec" }
+safe_math = { path = "../../../yarn-project/aztec-nr/safe-math" }

@@ -1,0 +1,9 @@
+[package]
+name = "uniswap_contract"
+authors = [""]
+compiler_version = ">=0.18.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../yarn-project/aztec-nr/aztec" }
+authwit = { path = "../../../yarn-project/aztec-nr/authwit" }
