@@ -9,6 +9,13 @@ describe('PrivateCircuitPublicInputs', () => {
     expect(result).toEqual(target);
   });
 
+  it('serializes to fields and back', () => {
+    const target = makePrivateCircuitPublicInputs(100);
+    const fields = target.toFields();
+    const result = PrivateCircuitPublicInputs.fromFields(fields);
+    expect(result).toEqual(target);
+  });
+
   it(`initializes an empty PrivateCircuitPublicInputs`, () => {
     const target = PrivateCircuitPublicInputs.empty();
     expect(target.isEmpty()).toBe(true);

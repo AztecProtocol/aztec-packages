@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 /**
@@ -50,6 +50,12 @@ export class GlobalVariables {
       Fr.fromString(obj.blockNumber),
       Fr.fromString(obj.timestamp),
     );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): GlobalVariables {
+    const reader = FieldReader.asReader(fields);
+
+    return new GlobalVariables(reader.readField(), reader.readField(), reader.readField(), reader.readField());
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {

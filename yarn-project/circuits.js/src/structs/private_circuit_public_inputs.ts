@@ -1,7 +1,13 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  Tuple,
+  serializeToBuffer,
+  serializeToFieldArray,
+} from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import {
@@ -153,6 +159,31 @@ export class PrivateCircuitPublicInputs {
     );
   }
 
+  static fromFields(fields: Fr[] | FieldReader): PrivateCircuitPublicInputs {
+    const reader = FieldReader.asReader(fields);
+    return new PrivateCircuitPublicInputs(
+      reader.readObject(CallContext),
+      reader.readField(),
+      reader.readFieldArray(RETURN_VALUES_LENGTH),
+      reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
+      reader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+      reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+      reader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      reader.readField(),
+      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readField(),
+      reader.readField(),
+      reader.readObject(Header),
+      reader.readObject(ContractDeploymentData),
+      reader.readField(),
+      reader.readField(),
+    );
+  }
+
   /**
    * Create an empty PrivateCircuitPublicInputs.
    * @returns An empty PrivateCircuitPublicInputs object.
@@ -236,11 +267,19 @@ export class PrivateCircuitPublicInputs {
       fields.version,
     ] as const;
   }
+
   /**
    * Serialize this as a buffer.
    * @returns The buffer.
    */
   toBuffer(): Buffer {
     return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
+  }
+
+  /**
+   * Serialize this as a field array.
+   */
+  toFields(): Fr[] {
+    return serializeToFieldArray(...PrivateCircuitPublicInputs.getFields(this));
   }
 }

@@ -15,7 +15,7 @@ describe('Header', () => {
     const expected = makeHeader(randomInt, undefined);
 
     const fieldArray = expected.toFields();
-    const res = Header.fromFieldArray(fieldArray);
+    const res = Header.fromFields(fieldArray);
     expect(res).toEqual(expected);
   });
 

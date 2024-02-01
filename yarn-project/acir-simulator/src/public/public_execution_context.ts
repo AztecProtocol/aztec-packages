@@ -49,13 +49,7 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [
-      ...callContext.toFields(),
-      ...this.header.toFields(),
-      ...this.globalVariables.toFields(),
-
-      ...args,
-    ];
+    const fields = [...callContext.toFields(), ...this.header.toFields(), ...this.globalVariables.toFields(), ...args];
 
     return toACVMWitness(witnessStartIndex, fields);
   }
