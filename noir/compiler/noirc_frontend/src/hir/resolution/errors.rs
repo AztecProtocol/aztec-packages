@@ -86,6 +86,8 @@ pub enum ResolverError {
     NestedSlices { span: Span },
     #[error("#[recursive] attribute is only allowed on entry points to a program")]
     MisplacedRecursiveAttribute { ident: Ident },
+    #[error("Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library")]
+    LowLevelFunctionOutsideOfStdlib { ident: Ident },
 }
 
 impl ResolverError {
@@ -325,6 +327,11 @@ impl From<ResolverError> for Diagnostic {
                 diag.add_note("The `#[recursive]` attribute specifies to the backend whether it should use a prover which generates proofs that are friendly for recursive verification in another circuit".to_owned());
                 diag
             }
+            ResolverError::LowLevelFunctionOutsideOfStdlib { ident } => Diagnostic::simple_error(
+                "Definition of low-level function outside of standard library".into(),
+                "Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library".into(),
+                ident.span(),
+            ),
         }
     }
 }

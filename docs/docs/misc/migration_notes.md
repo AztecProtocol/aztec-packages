@@ -6,6 +6,39 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### `Note::compute_note_hash` renamed to `Note::compute_note_content_hash`
+The `compute_note_hash` function in of the `Note` trait has been renamed to `compute_note_content_hash` to avoid being confused with the actual note hash.
+
+Before:
+```rust
+impl NoteInterface for CardNote {
+    fn compute_note_hash(self) -> Field {
+        pedersen_hash([
+            self.owner.to_field(),
+        ], 0)
+    }
+```
+
+Now:
+```rust
+impl NoteInterface for CardNote {
+    fn compute_note_content_hash(self) -> Field {
+        pedersen_hash([
+            self.owner.to_field(),
+        ], 0)
+    }
+```
+
+### Introduce `compute_note_hash_for_consumption` and `compute_note_hash_for_insertion`
+
+Makes a split in logic for note hash computation for consumption and insertion. This is to avoid confusion between the two, and to make it clear that the note hash for consumption is different from the note hash for insertion (sometimes).
+
+`compute_note_hash_for_consumption` replaces `compute_note_hash_for_read_or_nullify`.
+`compute_note_hash_for_insertion` is new, and mainly used in `lifecycle.nr``
+
+
 ## 0.22.0
 
 ### [Aztec.nr] `Serialize`, `Deserialize`, `NoteInterface` as Traits, removal of SerializationMethods and SERIALIZED_LEN
