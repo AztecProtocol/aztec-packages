@@ -1,4 +1,4 @@
-import { GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
@@ -91,7 +91,7 @@ export class PublicExecutor {
    * @param globalVariables - The global variables to use.
    * @returns The result of the run plus all nested runs.
    */
-  public async simulate(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+  public async simulate(execution: PublicExecution): Promise<PublicExecutionResult> {
     const selector = execution.functionData.selector;
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) {
@@ -107,7 +107,6 @@ export class PublicExecutor {
     const context = new PublicExecutionContext(
       execution,
       this.header,
-      globalVariables,
       packedArgs,
       sideEffectCounter,
       this.stateDb,

@@ -1,5 +1,5 @@
 import { FunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
-import { CallContext, FunctionData, FunctionSelector, GlobalVariables, Header } from '@aztec/circuits.js';
+import { CallContext, FunctionData, FunctionSelector, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -26,7 +26,6 @@ export class PublicExecutionContext extends TypedOracle {
      */
     public readonly execution: PublicExecution,
     private readonly header: Header,
-    private readonly globalVariables: GlobalVariables,
     private readonly packedArgsCache: PackedArgsCache,
     private readonly sideEffectCounter: SideEffectCounter,
     private readonly stateDb: PublicStateDB,
@@ -43,13 +42,17 @@ export class PublicExecutionContext extends TypedOracle {
    * @param args - The arguments to the function.
    * @param callContext - The call context of the function.
    * @param header - Contains data required to reconstruct a block hash (historical roots etc.).
-   * @param globalVariables - The global variables.
    * @param witnessStartIndex - The index where to start inserting the parameters.
    * @returns The initial witness.
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [...callContext.toFields(), ...this.header.toFields(), ...this.globalVariables.toFields(), ...args];
+    const fields = [
+      ...callContext.toFields(),
+      ...this.header.toFields(),
+      ...this.header.globalVariables.toFields(),
+      ...args,
+    ];
 
     return toACVMWitness(witnessStartIndex, fields);
   }
@@ -198,7 +201,6 @@ export class PublicExecutionContext extends TypedOracle {
     const context = new PublicExecutionContext(
       nestedExecution,
       this.header,
-      this.globalVariables,
       this.packedArgsCache,
       this.sideEffectCounter,
       this.stateDb,
