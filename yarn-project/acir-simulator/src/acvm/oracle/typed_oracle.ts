@@ -58,10 +58,7 @@ export interface NoteData {
 
 export class MessageLoadOracleInputs<N extends number> {
   constructor(
-    /**
-     * An collapsed array of fields containing all of the l1 to l2 message components.
-     * `l1ToL2Message.toFieldArray()` -\> [sender, chainId, recipient, version, content, secretHash, deadline, fee]
-     */
+    /** The message. */
     public message: L1ToL2Message,
     /** The index of the message commitment in the merkle tree. */
     public index: bigint,
