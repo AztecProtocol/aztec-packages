@@ -16,7 +16,7 @@ use crate::note::{
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
-use crate::state_vars::store::Store;
+use crate::state_vars::storage::Storage;
 
 // docs:start:struct
 struct ImmutableSingleton<Note> {
@@ -25,7 +25,7 @@ struct ImmutableSingleton<Note> {
 }
 // docs:end:struct
 
-impl<T> Store<T> for ImmutableSingleton<T> {}
+impl<T> Storage<T> for ImmutableSingleton<T> {}
 
 impl<Note> ImmutableSingleton<Note> {
     // docs:start:new

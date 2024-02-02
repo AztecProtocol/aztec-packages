@@ -14,7 +14,6 @@ contract Benchmarking {
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
-            type_serialization::FIELD_SERIALIZED_LEN
         },
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},

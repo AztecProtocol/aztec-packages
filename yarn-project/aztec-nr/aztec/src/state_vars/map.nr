@@ -4,7 +4,7 @@ use dep::protocol_types::{
     hash::pedersen_hash,
     traits::{ToField}
 };
-use crate::state_vars::store::Store;
+use crate::state_vars::storage::Storage;
 
 // docs:start:map
 struct Map<K, V> {
@@ -14,7 +14,7 @@ struct Map<K, V> {
 }
 // docs:end:map
 
-impl<K, T> Store<T> for Map<K, T> {}
+impl<K, T> Storage<T> for Map<K, T> {}
 
 impl<K, V> Map<K, V> {
     // docs:start:new

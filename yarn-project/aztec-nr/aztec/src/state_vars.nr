@@ -4,4 +4,4 @@ mod public_state;
 mod set;
 mod singleton;
 mod stable_public_state;
-mod store;
+mod storage;

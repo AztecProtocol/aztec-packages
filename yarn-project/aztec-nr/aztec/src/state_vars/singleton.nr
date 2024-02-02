@@ -20,7 +20,7 @@ use crate::oracle::{
     nullifier_key::get_nullifier_secret_key,
     notes::check_nullifier_exists,
 };
-use crate::state_vars::store::Store;
+use crate::state_vars::storage::Storage;
 
 // docs:start:struct
 struct Singleton<Note> {
@@ -29,7 +29,7 @@ struct Singleton<Note> {
 }
 // docs:end:struct
 
-impl<T> Store<T> for Singleton<T> {}
+impl<T> Storage<T> for Singleton<T> {}
 
 impl<Note> Singleton<Note> {
     // docs:start:new

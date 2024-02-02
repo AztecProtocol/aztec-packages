@@ -223,7 +223,7 @@ fn cast(lhs: Expression, ty: UnresolvedTypeData) -> Expression {
 }
 
 fn make_type(typ: UnresolvedTypeData) -> UnresolvedType {
-    UnresolvedType { typ, span: None }
+    UnresolvedType { typ, span: Some(Span::default()) }
 }
 
 fn index_array(array: Ident, index: &str) -> Expression {
@@ -278,7 +278,8 @@ fn transform_hir(
     crate_id: &CrateId,
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
-    transform_events(crate_id, context).and(assign_storage_slots(crate_id, context))
+    transform_events(crate_id, context)?;
+    assign_storage_slots(crate_id, context)
 }
 
 /// Includes an import to the aztec library if it has not been included yet
@@ -317,8 +318,10 @@ fn check_for_storage_definition(module: &SortedModule) -> bool {
 
 // Check to see if the user has defined a storage struct
 fn check_for_storage_implementation(module: &SortedModule) -> bool {
-    module.impls.iter().any(|r#impl| match r#impl.object_type.typ.clone() {
-        UnresolvedTypeData::Named(path, _) => path.segments.last().unwrap().0.contents == "Storage",
+    module.impls.iter().any(|r#impl| match &r#impl.object_type.typ {
+        UnresolvedTypeData::Named(path, _) => {
+            path.segments.last().is_some_and(|segment| segment.0.contents == "Storage")
+        }
         _ => false,
     })
 }
@@ -383,9 +386,8 @@ fn transform_module(
     let crate_graph = &context.crate_graph[crate_id];
 
     if storage_defined && !storage_implemented {
-        if let Err(err) = generate_storage_implementation(module) {
-            return Err((err.into(), crate_graph.root_file_id));
-        }
+        generate_storage_implementation(module)
+            .map_err(|err| (err.into(), crate_graph.root_file_id))?;
     }
 
     if storage_defined && !check_for_compute_note_hash_and_nullifier_definition(module) {
@@ -449,11 +451,11 @@ fn transform_module(
 /// Auxiliary function to generate the storage constructor for a given field, using
 /// the Storage definition as a reference. Supports nesting.
 fn generate_storage_field_constructor(
-    (type_ident, unresolved_type): (Ident, UnresolvedType),
+    (type_ident, unresolved_type): &(Ident, UnresolvedType),
     slot: Expression,
 ) -> Result<Expression, AztecMacroError> {
-    let typ = unresolved_type.typ;
-    match &typ {
+    let typ = &unresolved_type.typ;
+    match typ {
         UnresolvedTypeData::Named(path, generics) => {
             let mut new_path = path.clone().to_owned();
             new_path.segments.push(ident("new"));
@@ -466,7 +468,7 @@ fn generate_storage_field_constructor(
                         lambda(
                             vec![
                                 (
-                                    Pattern::Identifier(ident("context")),
+                                    pattern("context"),
                                     make_type(UnresolvedTypeData::Named(
                                         chained_path!("aztec", "context", "Context"),
                                         vec![],
@@ -478,7 +480,7 @@ fn generate_storage_field_constructor(
                                 ),
                             ],
                             generate_storage_field_constructor(
-                                (type_ident, generics.iter().cloned().last().unwrap()),
+                                &(type_ident.clone(), generics.iter().cloned().last().unwrap()),
                                 variable("slot"),
                             )?,
                         ),
@@ -538,7 +540,7 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
         .fields
         .iter()
         .map(|field| {
-            generate_storage_field_constructor(field.clone(), slot_zero.clone())
+            generate_storage_field_constructor(field, slot_zero.clone())
                 .map(|expression| (field.0.clone(), expression))
         })
         .flatten()
@@ -553,13 +555,10 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
         &vec![],
         &vec![(
             ident("context"),
-            UnresolvedType {
-                typ: UnresolvedTypeData::Named(
-                    chained_path!("aztec", "context", "Context"),
-                    vec![],
-                ),
-                span: Some(Span::default()),
-            },
+            make_type(UnresolvedTypeData::Named(
+                chained_path!("aztec", "context", "Context"),
+                vec![],
+            )),
         )],
         &BlockExpression(vec![storage_constructor_statement]),
         &vec![],
@@ -787,16 +786,14 @@ fn get_serialized_length(
             secondary_message: Some("State storage variable must be a struct".to_string()),
         }),
     }?;
-    let stored_in_state = match maybe_stored_in_state {
-        Some(stored_in_state) => Ok(stored_in_state),
-        None => Err(AztecMacroError::CouldNotAssignStorageSlots {
+    let stored_in_state =
+        maybe_stored_in_state.ok_or(AztecMacroError::CouldNotAssignStorageSlots {
             secondary_message: Some("State storage variable must be generic".to_string()),
-        }),
-    }?;
+        })?;
 
     let is_note = traits.iter().any(|&trait_id| {
         let r#trait = interner.get_trait(trait_id);
-        r#trait.borrow().name.0.contents == "NoteInterface"
+        r#trait.name.0.contents == "NoteInterface"
             && !interner
                 .lookup_all_trait_implementations(stored_in_state.clone(), trait_id)
                 .is_empty()
@@ -822,7 +819,7 @@ fn get_serialized_length(
                 None
             }
         })
-        .nth(0)
+        .next()
         .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
             secondary_message: Some("Stored data must implement Serialize trait".to_string()),
         })?;
