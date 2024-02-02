@@ -5,7 +5,7 @@
 using namespace benchmark;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using FF = bb::fr;
@@ -24,3 +24,5 @@ void extend_2_to_6(State& state) noexcept
 BENCHMARK(extend_2_to_6);
 
 } // namespace bb::benchmark
+
+BENCHMARK_MAIN();

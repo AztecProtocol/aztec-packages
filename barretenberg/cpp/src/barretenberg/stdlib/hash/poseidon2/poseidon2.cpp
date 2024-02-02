@@ -1,8 +1,7 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-namespace bb::plonk::stdlib {
+namespace bb::stdlib {
 
-using namespace bb;
 using namespace bb;
 
 /**
@@ -15,8 +14,7 @@ template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vecto
      * This should just call the sponge variable length hash function
      *
      */
-    auto input{ inputs };
-    return Sponge::hash_fixed_length(builder, input);
+    return Sponge::hash_fixed_length(builder, inputs);
 }
 
 /**
@@ -43,4 +41,4 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
 }
 template class poseidon2<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace bb::plonk::stdlib
+} // namespace bb::stdlib

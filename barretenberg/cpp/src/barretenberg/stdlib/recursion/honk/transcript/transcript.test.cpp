@@ -8,13 +8,12 @@
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 
 using Builder = UltraCircuitBuilder;
-using UltraFlavor = ::bb::honk::flavor::Ultra;
-using UltraRecursiveFlavor = ::bb::honk::flavor::UltraRecursive_<Builder>;
-using FF = bb::fr;
-using BaseTranscript = ::bb::honk::BaseTranscript;
+using UltraRecursiveFlavor = UltraRecursiveFlavor_<Builder>;
+using FF = fr;
+using BaseTranscript = BaseTranscript;
 
 /**
  * @brief Create some mock data; add it to the provided prover transcript in various mock rounds
@@ -124,8 +123,8 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
  */
 TEST(RecursiveHonkTranscript, ReturnValuesMatch)
 {
-    using FF = bb::fr;
-    using Commitment = bb::g1::affine_element;
+    using FF = fr;
+    using Commitment = g1::affine_element;
 
     using field_ct = field_t<Builder>;
     using fq_ct = bigfield<Builder, bb::Bn254FqParams>;
@@ -176,4 +175,4 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     EXPECT_EQ(static_cast<FF>(native_alpha), stdlib_alpha.get_value());
     EXPECT_EQ(static_cast<FF>(native_beta), stdlib_beta.get_value());
 }
-} // namespace bb::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

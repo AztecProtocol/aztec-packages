@@ -84,7 +84,7 @@ export class AcirSimulator {
 
     const curve = new Grumpkin();
 
-    const blockHeader = await this.db.getBlockHeader();
+    const header = await this.db.getHeader();
     const callContext = new CallContext(
       msgSender,
       contractAddress,
@@ -101,7 +101,7 @@ export class AcirSimulator {
       request.argsHash,
       request.txContext,
       callContext,
-      blockHeader,
+      header,
       request.authWitnesses,
       PackedArgsCache.create(request.packedArguments),
       new ExecutionNoteCache(),
@@ -139,8 +139,7 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as constrained`);
     }
 
-    const blockHeader = await this.db.getBlockHeader();
-    const context = new ViewDataOracle(contractAddress, blockHeader, [], this.db, aztecNode);
+    const context = new ViewDataOracle(contractAddress, [], this.db, aztecNode);
 
     try {
       return await executeUnconstrainedFunction(
@@ -184,7 +183,7 @@ export class AcirSimulator {
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
-      to: AztecAddress.ZERO,
+      to: contractAddress,
       functionData: FunctionData.empty(),
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, extendedNoteItems]),
     };
@@ -192,7 +191,7 @@ export class AcirSimulator {
     const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
-      AztecAddress.ZERO,
+      contractAddress,
     )) as bigint[];
 
     return {

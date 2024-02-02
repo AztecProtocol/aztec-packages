@@ -4,10 +4,7 @@
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace bb;
-using namespace bb::honk::sumcheck;
-
-namespace bb::honk {
+namespace bb {
 
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
@@ -26,17 +23,17 @@ DeciderVerifier_<Flavor>::DeciderVerifier_()
  * e*).
  *
  */
-template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using Instance = VerifierInstance_<Flavor>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
     auto inst = std::make_unique<Instance>();
 
     inst->instance_size = transcript->template receive_from_prover<uint32_t>("instance_size");
@@ -107,7 +104,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     return sumcheck_verified.value() && verified;
 }
 
-template class DeciderVerifier_<honk::flavor::Ultra>;
-template class DeciderVerifier_<honk::flavor::GoblinUltra>;
+template class DeciderVerifier_<UltraFlavor>;
+template class DeciderVerifier_<GoblinUltraFlavor>;
 
-} // namespace bb::honk
+} // namespace bb

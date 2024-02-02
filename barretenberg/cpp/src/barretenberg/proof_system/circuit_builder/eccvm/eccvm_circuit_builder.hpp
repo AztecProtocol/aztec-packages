@@ -24,21 +24,21 @@ template <typename Flavor> class ECCVMCircuitBuilder {
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
 
-    static constexpr size_t NUM_SCALAR_BITS = bb_eccvm::NUM_SCALAR_BITS;
-    static constexpr size_t WNAF_SLICE_BITS = bb_eccvm::WNAF_SLICE_BITS;
-    static constexpr size_t NUM_WNAF_SLICES = bb_eccvm::NUM_WNAF_SLICES;
-    static constexpr uint64_t WNAF_MASK = bb_eccvm::WNAF_MASK;
-    static constexpr size_t POINT_TABLE_SIZE = bb_eccvm::POINT_TABLE_SIZE;
-    static constexpr size_t WNAF_SLICES_PER_ROW = bb_eccvm::WNAF_SLICES_PER_ROW;
-    static constexpr size_t ADDITIONS_PER_ROW = bb_eccvm::ADDITIONS_PER_ROW;
+    static constexpr size_t NUM_SCALAR_BITS = bb::eccvm::NUM_SCALAR_BITS;
+    static constexpr size_t WNAF_SLICE_BITS = bb::eccvm::WNAF_SLICE_BITS;
+    static constexpr size_t NUM_WNAF_SLICES = bb::eccvm::NUM_WNAF_SLICES;
+    static constexpr uint64_t WNAF_MASK = bb::eccvm::WNAF_MASK;
+    static constexpr size_t POINT_TABLE_SIZE = bb::eccvm::POINT_TABLE_SIZE;
+    static constexpr size_t WNAF_SLICES_PER_ROW = bb::eccvm::WNAF_SLICES_PER_ROW;
+    static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
 
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
-    using MSM = bb_eccvm::MSM<CycleGroup>;
-    using VMOperation = bb_eccvm::VMOperation<CycleGroup>;
+    using MSM = bb::eccvm::MSM<CycleGroup>;
+    using VMOperation = bb::eccvm::VMOperation<CycleGroup>;
     std::shared_ptr<ECCOpQueue> op_queue;
-    using ScalarMul = bb_eccvm::ScalarMul<CycleGroup>;
+    using ScalarMul = bb::eccvm::ScalarMul<CycleGroup>;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     ECCVMCircuitBuilder()
@@ -505,11 +505,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
         auto polynomials = compute_polynomials();
         const size_t num_rows = polynomials.get_polynomial_size();
-        bb::honk::logderivative_library::compute_logderivative_inverse<Flavor, honk::sumcheck::ECCVMLookupRelation<FF>>(
-            polynomials, params, num_rows);
-
-        honk::permutation_library::compute_permutation_grand_product<Flavor, honk::sumcheck::ECCVMSetRelation<FF>>(
-            num_rows, polynomials, params);
+        compute_logderivative_inverse<Flavor, ECCVMLookupRelation<FF>>(polynomials, params, num_rows);
+        compute_permutation_grand_product<Flavor, ECCVMSetRelation<FF>>(num_rows, polynomials, params);
 
         polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 
@@ -538,20 +535,16 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         };
 
         bool result = true;
-        result = result && evaluate_relation.template operator()<honk::sumcheck::ECCVMTranscriptRelation<FF>>(
-                               "ECCVMTranscriptRelation");
-        result = result && evaluate_relation.template operator()<honk::sumcheck::ECCVMPointTableRelation<FF>>(
-                               "ECCVMPointTableRelation");
         result =
-            result && evaluate_relation.template operator()<honk::sumcheck::ECCVMWnafRelation<FF>>("ECCVMWnafRelation");
+            result && evaluate_relation.template operator()<ECCVMTranscriptRelation<FF>>("ECCVMTranscriptRelation");
         result =
-            result && evaluate_relation.template operator()<honk::sumcheck::ECCVMMSMRelation<FF>>("ECCVMMSMRelation");
-        result =
-            result && evaluate_relation.template operator()<honk::sumcheck::ECCVMSetRelation<FF>>("ECCVMSetRelation");
+            result && evaluate_relation.template operator()<ECCVMPointTableRelation<FF>>("ECCVMPointTableRelation");
+        result = result && evaluate_relation.template operator()<ECCVMWnafRelation<FF>>("ECCVMWnafRelation");
+        result = result && evaluate_relation.template operator()<ECCVMMSMRelation<FF>>("ECCVMMSMRelation");
+        result = result && evaluate_relation.template operator()<ECCVMSetRelation<FF>>("ECCVMSetRelation");
 
-        using LookupRelation = honk::sumcheck::ECCVMLookupRelation<FF>;
-        typename honk::sumcheck::ECCVMLookupRelation<typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations
-            lookup_result;
+        using LookupRelation = ECCVMLookupRelation<FF>;
+        typename ECCVMLookupRelation<typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations lookup_result;
         for (auto& r : lookup_result) {
             r = 0;
         }

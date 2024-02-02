@@ -4,8 +4,7 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include <array>
 
-namespace bb::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 template <typename Builder> class bit_array;
 
 /**
@@ -202,5 +201,6 @@ template <typename Builder> class keccak {
                                                                Builder* context);
 };
 
-} // namespace stdlib
-} // namespace bb::plonk
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations);
+
+} // namespace bb::stdlib

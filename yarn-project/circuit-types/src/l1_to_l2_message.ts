@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -116,6 +117,10 @@ export class L1ToL2Message {
     return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.deadline, this.fee);
   }
 
+  hash(): Fr {
+    return Fr.fromBufferReduce(sha256(serializeToBuffer(...this.toFieldArray())));
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): L1ToL2Message {
     const reader = BufferReader.asReader(buffer);
     const sender = reader.readObject(L1Actor);
@@ -125,6 +130,15 @@ export class L1ToL2Message {
     const deadline = reader.readNumber();
     const fee = reader.readNumber();
     return new L1ToL2Message(sender, recipient, content, secretHash, deadline, fee);
+  }
+
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(data: string): L1ToL2Message {
+    const buffer = Buffer.from(data, 'hex');
+    return L1ToL2Message.fromBuffer(buffer);
   }
 
   static empty(): L1ToL2Message {

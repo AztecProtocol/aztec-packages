@@ -77,7 +77,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // We don't need templating for Goblin
     using Fr = bb::fr;
     using Fq = bb::fq;
-    using Arithmetization = arithmetization::GoblinTranslator;
+    using Arithmetization = GoblinTranslatorArith;
 
   public:
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
@@ -184,7 +184,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     };
 
-    // Basic goblin translator has the minicircuit size of 2048, so optimize for that case
+    // Basic goblin translator has the minimum minicircuit size of 2048, so optimize for that case
     // For context, minicircuit is the part of the final polynomials fed into the proving system, where we have all the
     // arithmetic logic. However, the full circuit is several times larger (we use a trick to bring down the degree of
     // the permutation argument)

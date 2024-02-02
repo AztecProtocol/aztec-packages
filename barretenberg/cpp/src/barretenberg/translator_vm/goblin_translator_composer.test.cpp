@@ -7,23 +7,19 @@
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 
 #include <gtest/gtest.h>
-
-using namespace bb::honk;
-using CircuitBuilder = flavor::GoblinTranslator::CircuitBuilder;
-using Transcript = flavor::GoblinTranslator::Transcript;
-using OpQueue = bb::ECCOpQueue;
-
-namespace test_goblin_translator_composer {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
+using CircuitBuilder = GoblinTranslatorFlavor::CircuitBuilder;
+using Transcript = GoblinTranslatorFlavor::Transcript;
+using OpQueue = ECCOpQueue;
+auto& engine = numeric::get_debug_randomness();
 
 std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)
 {
     std::vector<uint32_t> res;
-    for (size_t i = 0; i < variables.size(); i++) {
-        res.emplace_back(circuit_constructor.add_variable(variables[i]));
+    for (fr& variable : variables) {
+        res.emplace_back(circuit_constructor.add_variable(variable));
     }
     return res;
 }
@@ -41,6 +37,7 @@ class GoblinTranslatorComposerTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
+} // namespace
 
 /**
  * @brief Test simple circuit with public inputs
@@ -48,9 +45,9 @@ class GoblinTranslatorComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinTranslatorComposerTests, Basic)
 {
-    using G1 = bb::g1::affine_element;
-    using Fr = bb::fr;
-    using Fq = bb::fq;
+    using G1 = g1::affine_element;
+    using Fr = fr;
+    using Fq = fq;
 
     auto P1 = G1::random_element();
     auto P2 = G1::random_element();
@@ -81,5 +78,3 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
 }
-
-} // namespace test_goblin_translator_composer

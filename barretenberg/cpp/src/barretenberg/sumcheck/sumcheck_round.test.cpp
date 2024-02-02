@@ -4,17 +4,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace bb::honk;
-using namespace bb::honk::sumcheck;
-
-using bb::BarycentricData;
-using bb::Univariate;
-
-using Flavor = flavor::Ultra;
-using FF = typename Flavor::FF;
-using Utils = bb::RelationUtils<Flavor>;
-
-namespace test_sumcheck_round {
+using namespace bb;
 
 /**
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
@@ -22,7 +12,7 @@ namespace test_sumcheck_round {
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = bb::honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -40,10 +30,10 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
     FF running_challenge = 1;
-    Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
+    RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
-    bb::PowPolynomial<FF> pow_polynomial({ 1 });
+    PowPolynomial<FF> pow_polynomial({ 1 });
     auto result = Univariate<FF, MAX_LENGTH>();
     SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_polynomial);
 
@@ -56,7 +46,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     EXPECT_EQ(result, result_expected);
 
     // Reinitialize univariate accumulators to zero
-    Utils::zero_univariates(tuple_of_tuples);
+    RelationUtils<Flavor>::zero_univariates(tuple_of_tuples);
 
     // Check that reinitialization was successful
     Univariate<FF, 3> expected_1({ 0, 0, 0 });
@@ -73,8 +63,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = bb::honk::flavor::Ultra;
-    using Utils = bb::RelationUtils<Flavor>;
+    using Flavor = UltraFlavor;
+    using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -113,7 +103,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = bb::honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates
@@ -135,11 +125,9 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     auto tuple_of_tuples_2 =
         std::make_tuple(std::make_tuple(univariate_4), std::make_tuple(univariate_5, univariate_6));
 
-    Utils::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
+    RelationUtils<Flavor>::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
 
     EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples_1)), expected_sum_1);
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_1)), expected_sum_2);
     EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples_1)), expected_sum_3);
 }
-
-} // namespace test_sumcheck_round

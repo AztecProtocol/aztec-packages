@@ -3,10 +3,9 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-namespace bb::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
@@ -889,8 +888,27 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
     }
     return result;
 }
+
+/**
+ * @brief Generate a simple keccak circuit for testing purposes
+ *
+ * @tparam Builder
+ * @param builder
+ * @param num_iterations number of hashes to perform
+ */
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
+{
+    std::string in = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
+
+    stdlib::byte_array<Builder> input(&builder, in);
+    for (size_t i = 0; i < num_iterations; i++) {
+        input = stdlib::keccak<Builder>::hash(input);
+    }
+}
+
 template class keccak<bb::UltraCircuitBuilder>;
 template class keccak<bb::GoblinUltraCircuitBuilder>;
+template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
+template void generate_keccak_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
 
-} // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb::stdlib

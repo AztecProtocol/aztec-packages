@@ -1,14 +1,13 @@
 #include "poseidon2.hpp"
 
-namespace crypto {
+namespace bb::crypto {
 /**
  * @brief Hashes a vector of field elements
  */
 template <typename Params>
 typename Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::vector<typename Poseidon2<Params>::FF>& input)
 {
-    auto input_span = input;
-    return Sponge::hash_fixed_length(input_span);
+    return Sponge::hash_fixed_length(input);
 }
 
 /**
@@ -45,4 +44,4 @@ typename Poseidon2<Params>::FF Poseidon2<Params>::hash_buffer(const std::vector<
 }
 
 template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
-} // namespace crypto
+} // namespace bb::crypto

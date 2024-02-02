@@ -11,7 +11,7 @@ use crate::{
         private_circuit_public_inputs::{PrivateCircuitPublicInputs},
         private_kernel::private_call_data::PrivateCallData,
     },
-    address::{AztecAddress, EthAddress},
+    address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     mocked::{Proof, VerificationKey},
     tests::{
         fixtures,
@@ -20,9 +20,6 @@ use crate::{
     },
     transaction::{
         request::TxRequest,
-    },
-    utils::{
-        bounded_vec::BoundedVec,
     },
 };
 use crate::constants::{
@@ -43,8 +40,11 @@ struct PrivateCallDataBuilder {
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     proof: Proof,
     vk: VerificationKey,
+    salted_initialization_hash: SaltedInitializationHash,
+    public_keys_hash: PublicKeysHash,
+    contract_class_artifact_hash: Field,
+    contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
-    contract_leaf_membership_witness: ContractLeafMembershipWitness,
     read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
@@ -72,7 +72,10 @@ impl PrivateCallDataBuilder {
             proof: Proof {},
             vk: VerificationKey {},
             function_leaf_membership_witness: contract_function.membership_witness,
-            contract_leaf_membership_witness: contract_data.membership_witness,
+            salted_initialization_hash: contract_data.salted_initialization_hash,
+            public_keys_hash: contract_data.public_keys_hash,
+            contract_class_artifact_hash: contract_data.artifact_hash,
+            contract_class_public_bytecode_commitment: contract_data.public_bytecode_commitment,
             read_request_membership_witnesses: dep::std::unsafe::zeroed(),
             portal_contract_address: public_inputs.call_context.portal_contract_address,
             acir_hash: contract_function.acir_hash,
@@ -103,7 +106,7 @@ impl PrivateCallDataBuilder {
     }
 
     pub fn build_tx_request(self) -> TxRequest {
-        let tx_context = build_tx_context(self.public_inputs.call_context.is_contract_deployment);
+        let tx_context = build_tx_context(self.public_inputs.call_context.is_contract_deployment, self.public_inputs.args_hash);
         TxRequest {
             origin: self.contract_address,
             args_hash: self.public_inputs.args_hash,
@@ -114,14 +117,14 @@ impl PrivateCallDataBuilder {
 
     pub fn append_private_call_requests(&mut self, num_requests: Field, is_delegate_call: bool) {
         let (hashes, call_requests) = self.generate_call_requests(self.private_call_stack, num_requests, is_delegate_call);
-        self.public_inputs.private_call_stack_hashes.push_vec(hashes);
-        self.private_call_stack.push_vec(call_requests);
+        self.public_inputs.private_call_stack_hashes.extend_from_bounded_vec(hashes);
+        self.private_call_stack.extend_from_bounded_vec(call_requests);
     }
 
     pub fn append_public_call_requests(&mut self, num_requests: Field, is_delegate_call: bool) {
         let (hashes, call_requests) = self.generate_call_requests(self.public_call_stack, num_requests, is_delegate_call);
-        self.public_inputs.public_call_stack_hashes.push_vec(hashes);
-        self.public_call_stack.push_vec(call_requests);
+        self.public_inputs.public_call_stack_hashes.extend_from_bounded_vec(hashes);
+        self.public_call_stack.extend_from_bounded_vec(call_requests);
     }
 
     fn generate_call_requests<N>(
@@ -162,14 +165,14 @@ impl PrivateCallDataBuilder {
 
     pub fn append_read_requests(&mut self, num_read_requests: Field) {
         let (read_requests, read_request_membership_witnesses) = fixtures::read_requests::generate_read_requests(num_read_requests);
-        self.public_inputs.read_requests.push_vec(read_requests);
-        self.read_request_membership_witnesses.push_vec(read_request_membership_witnesses);
+        self.public_inputs.read_requests.extend_from_bounded_vec(read_requests);
+        self.read_request_membership_witnesses.extend_from_bounded_vec(read_request_membership_witnesses);
     }
 
     pub fn append_transient_read_requests(&mut self, num_read_requests: Field) {
         let (read_requests, read_request_membership_witnesses) = fixtures::read_requests::generate_transient_read_requests(num_read_requests);
-        self.public_inputs.read_requests.push_vec(read_requests);
-        self.read_request_membership_witnesses.push_vec(read_request_membership_witnesses);
+        self.public_inputs.read_requests.extend_from_bounded_vec(read_requests);
+        self.read_request_membership_witnesses.extend_from_bounded_vec(read_request_membership_witnesses);
     }
 
     pub fn set_encrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
@@ -207,7 +210,10 @@ impl PrivateCallDataBuilder {
             proof: self.proof,
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
-            contract_leaf_membership_witness: self.contract_leaf_membership_witness,
+            salted_initialization_hash: self.salted_initialization_hash,
+            public_keys_hash: self.public_keys_hash,
+            contract_class_artifact_hash: self.contract_class_artifact_hash,
+            contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
             read_request_membership_witnesses: self.read_request_membership_witnesses.storage,
             portal_contract_address: self.portal_contract_address,
             acir_hash: self.acir_hash,

@@ -1,16 +1,17 @@
 import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CONTRACT_TREE_HEIGHT,
   CallRequest,
   Fr,
+  GrumpkinScalar,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
-  MembershipWitness,
+  NullifierKeyValidationRequestContext,
   PreviousKernelData,
   PrivateCallData,
   PrivateKernelInputsInit,
@@ -138,6 +139,7 @@ export class KernelProver {
 
       if (firstIteration) {
         const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
@@ -185,6 +187,10 @@ export class KernelProver {
       sortedCommitments,
     );
 
+    const masterNullifierSecretKeys = await this.getMasterNullifierSecretKeys(
+      output.publicInputs.end.nullifierKeyValidationRequests,
+    );
+
     const privateInputs = new PrivateKernelInputsOrdering(
       previousKernelData,
       sortedCommitments,
@@ -193,7 +199,9 @@ export class KernelProver {
       sortedNullifiers,
       sortedNullifiersIndexes,
       nullifierCommitmentHints,
+      masterNullifierSecretKeys,
     );
+    pushTestData('private-kernel-inputs-ordering', privateInputs);
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
@@ -241,14 +249,15 @@ export class KernelProver {
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
 
-    const contractLeafMembershipWitness = functionData.isConstructor
-      ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
-      : await this.oracle.getContractMembershipWitness(contractAddress);
-
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
       functionData.selector,
     );
+    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+      contractAddress,
+    );
+    const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
+      await this.oracle.getContractClassIdPreimage(contractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
@@ -257,18 +266,21 @@ export class KernelProver {
     // TODO
     const proof = makeEmptyProof();
 
-    return new PrivateCallData(
+    return PrivateCallData.from({
       callStackItem,
       privateCallStack,
       publicCallStack,
       proof,
-      VerificationKey.fromBuffer(vk),
+      vk: VerificationKey.fromBuffer(vk),
+      publicKeysHash,
+      contractClassArtifactHash,
+      contractClassPublicBytecodeCommitment,
+      saltedInitializationHash,
       functionLeafMembershipWitness,
-      contractLeafMembershipWitness,
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
-      portalContractAddress.toField(),
+      readRequestMembershipWitnesses: makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      portalContractAddress: portalContractAddress.toField(),
       acirHash,
-    );
+    });
   }
 
   /**
@@ -355,5 +367,22 @@ export class KernelProver {
       }
     }
     return hints;
+  }
+
+  private async getMasterNullifierSecretKeys(
+    nullifierKeyValidationRequests: Tuple<
+      NullifierKeyValidationRequestContext,
+      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    >,
+  ) {
+    const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
+    for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
+      const request = nullifierKeyValidationRequests[i];
+      if (request.isEmpty()) {
+        break;
+      }
+      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
+    }
+    return keys;
   }
 }

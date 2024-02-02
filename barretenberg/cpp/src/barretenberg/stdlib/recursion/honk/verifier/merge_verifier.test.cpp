@@ -4,7 +4,7 @@
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
-namespace bb::plonk::stdlib::recursion::goblin {
+namespace bb::stdlib::recursion::goblin {
 
 /**
  * @brief Test suite for recursive verification of Goblin Merge proofs
@@ -20,8 +20,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
     using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
 
     // Define types relevant for inner circuit
-    using GoblinUltraFlavor = ::bb::honk::flavor::GoblinUltra;
-    using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
+    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
     using InnerFlavor = GoblinUltraFlavor;
     using InnerComposer = GoblinUltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
@@ -29,7 +28,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
     // Define additional types for testing purposes
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
-    using VerifierCommitmentKey = ::bb::honk::pcs::VerifierCommitmentKey<curve::BN254>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
@@ -97,4 +96,4 @@ TEST_F(RecursiveMergeVerifierTest, SingleRecursiveVerification)
     RecursiveMergeVerifierTest::test_recursive_merge_verification();
 };
 
-} // namespace bb::plonk::stdlib::recursion::goblin
+} // namespace bb::stdlib::recursion::goblin

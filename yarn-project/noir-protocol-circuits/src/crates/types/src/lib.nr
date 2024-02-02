@@ -1,6 +1,7 @@
 mod utils;
 mod address;
 mod grumpkin_point;
+mod grumpkin_private_key;
 // This is intentionally spelled like this 
 // since contract is a reserved keyword, so it cannot 
 // be used as an ident.
@@ -8,10 +9,12 @@ mod contrakt;
 mod transaction;
 mod abis;
 mod constants;
+mod contract_class;
 
 mod mocked;
 mod hash;
 mod traits;
+mod type_serialization;
 
 mod header;
 

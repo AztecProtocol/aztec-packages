@@ -5,8 +5,7 @@
 #include "barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
 
-namespace join_split_example {
-namespace proofs {
+namespace bb::join_split_example::proofs {
 
 template <typename Composer> struct verify_result {
     verify_result()
@@ -17,7 +16,7 @@ template <typename Composer> struct verify_result {
     bool logic_verified;
     std::string err;
     std::vector<fr> public_inputs;
-    plonk::stdlib::recursion::aggregation_state<plonk::stdlib::bn254<Composer>> aggregation_state;
+    stdlib::recursion::aggregation_state<stdlib::bn254<Composer>> aggregation_state;
 
     std::vector<uint8_t> proof_data;
     bool verified;
@@ -26,7 +25,7 @@ template <typename Composer> struct verify_result {
 };
 
 template <typename Composer>
-inline bool pairing_check(plonk::stdlib::recursion::aggregation_state<plonk::stdlib::bn254<Composer>> aggregation_state,
+inline bool pairing_check(stdlib::recursion::aggregation_state<stdlib::bn254<Composer>> aggregation_state,
                           std::shared_ptr<bb::srs::factories::VerifierCrs> const& srs)
 {
     g1::affine_element P[2];
@@ -70,5 +69,4 @@ auto verify_logic_internal(Builder& builder, Tx& tx, CircuitData const& cd, char
     return result;
 }
 
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs

@@ -1,6 +1,6 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-namespace bb::honk {
+namespace bb {
 template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
@@ -269,14 +269,10 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     return next_accumulator;
 }
 
-// TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
     prepare_for_folding();
-
-    // TODO(#https://github.com/AztecProtocol/barretenberg/issues/740): Handle the case where we are folding for the
-    // first time and accumulator is 0
     FF delta = transcript->get_challenge("delta");
 
     auto accumulator = get_accumulator();
@@ -311,6 +307,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     return res;
 }
 
-template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
-template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
-} // namespace bb::honk
+template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>;
+} // namespace bb

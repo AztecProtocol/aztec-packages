@@ -1,18 +1,20 @@
+use dep::std;
 use dep::types::{
     abis::{
         call_request::CallRequest,
         combined_accumulated_data::CombinedAccumulatedData,
-        complete_address::CompleteAddress,
         function_data::FunctionData,
         kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder,
         membership_witness::ReadRequestMembershipWitness,
         new_contract_data::NewContractData,
+        nullifier_key_validation_request::NullifierKeyValidationRequestContext,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         previous_kernel_data::PreviousKernelData,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    address::{AztecAddress, EthAddress},
+    address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
+    contract_class::ContractClassId,
     contrakt::deployment_data::ContractDeploymentData,
     constants::{
         MAX_NEW_NULLIFIERS_PER_CALL,
@@ -20,7 +22,9 @@ use dep::types::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
     },
+    grumpkin_private_key::GrumpkinPrivateKey,
     hash::{
         compute_constructor_hash,
         compute_l2_to_l1_hash,
@@ -28,6 +32,8 @@ use dep::types::{
         compute_new_contract_address_hash,
         contract_tree_root_from_siblings,
         function_tree_root_from_siblings,
+        pedersen_hash,
+        private_functions_root_from_siblings,
         read_request_root_from_siblings,
         silo_commitment,
         silo_nullifier,
@@ -39,18 +45,18 @@ use dep::types::{
             array_to_bounded_vec,
             validate_array,
         },
-        bounded_vec::BoundedVec,
     },
-    traits::is_empty_array,
+    traits::{is_empty, is_empty_array},
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // Each of the following arrays is expected to be zero-padded.
     // In addition, some of the following arrays (new_commitments, etc...) are passed
-    // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
+    // to extend_from_array_to_array() routines which rely on the passed arrays to be well-formed.
 
     validate_array(app_public_inputs.return_values);
     validate_array(app_public_inputs.read_requests);
+    validate_array(app_public_inputs.nullifier_key_validation_requests);
     validate_array(app_public_inputs.new_commitments);
     validate_array(app_public_inputs.new_nullifiers);
     validate_array(app_public_inputs.private_call_stack_hashes);
@@ -106,6 +112,7 @@ pub fn initialize_end_values(
     let start = previous_kernel.public_inputs.end;
 
     public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
+    public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
 
     public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
@@ -173,6 +180,8 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     let read_requests = private_call_public_inputs.read_requests;
     let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
 
+    let nullifier_key_validation_requests = private_call_public_inputs.nullifier_key_validation_requests;
+
     let new_commitments = private_call_public_inputs.new_commitments;
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
 
@@ -190,7 +199,15 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             )
         }
     }
-    public_inputs.end.read_requests.push_vec(siloed_read_requests);
+    public_inputs.end.read_requests.extend_from_bounded_vec(siloed_read_requests);
+
+    // Nullifier key validation requests.
+    for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
+        let request = nullifier_key_validation_requests[i];
+        if !is_empty(request) {
+            public_inputs.end.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
+        }
+    }
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
@@ -213,7 +230,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             );
         }
     }
-    public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
+    public_inputs.end.new_nullifiers.extend_from_bounded_vec(siloed_new_nullifiers);
 
     // commitments
     let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::empty());
@@ -225,7 +242,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             );
         }
     }
-    public_inputs.end.new_commitments.push_vec(siloed_new_commitments);
+    public_inputs.end.new_commitments.extend_from_bounded_vec(siloed_new_commitments);
 
     // Call stacks
     // Private call stack.
@@ -235,7 +252,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         private_call_public_inputs.private_call_stack_hashes,
         private_call
     );
-    public_inputs.end.private_call_stack.push_vec(private_call_stack);
+    public_inputs.end.private_call_stack.extend_from_bounded_vec(private_call_stack);
     // Public call stack.
     let public_call_stack = array_to_bounded_vec(private_call.public_call_stack);
     validate_call_requests(
@@ -243,7 +260,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         private_call_public_inputs.public_call_stack_hashes,
         private_call
     );
-    public_inputs.end.public_call_stack.push_vec(public_call_stack);
+    public_inputs.end.public_call_stack.extend_from_bounded_vec(public_call_stack);
 
     // new l2 to l1 messages
     let portal_contract_address = private_call.portal_contract_address;
@@ -262,7 +279,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
             new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
     }
-    public_inputs.end.new_l2_to_l1_msgs.push_vec(new_l2_to_l1_msgs_to_insert);
+    public_inputs.end.new_l2_to_l1_msgs.extend_from_bounded_vec(new_l2_to_l1_msgs_to_insert);
 
     // logs hashes
     // See the following thread if not clear:
@@ -297,23 +314,27 @@ pub fn contract_logic(
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     if is_contract_deployment {
-        //TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) use locally computed private_call_vk_hash here
-        let constructor_hash = compute_constructor_hash(
-            function_data,
-            private_call_public_inputs.args_hash,
-            contract_dep_data.constructor_vk_hash
+        let computed_initialization_hash = compute_initialization_hash(
+            function_data.selector.to_field(),
+            private_call_public_inputs.args_hash
         );
-        let new_contract_address = CompleteAddress::compute(
-            contract_dep_data.deployer_public_key,
+
+        assert(
+            computed_initialization_hash == contract_dep_data.initialization_hash, "initialization hash does not match computed one"
+        );
+
+        let new_contract_address = AztecAddress::compute_from_public_key(
+            contract_dep_data.public_key,
+            contract_dep_data.contract_class_id,
             contract_dep_data.contract_address_salt,
-            contract_dep_data.function_tree_root,
-            constructor_hash
-        ).address;
+            contract_dep_data.initialization_hash,
+            contract_dep_data.portal_contract_address
+        );
 
         let new_contract_data = NewContractData {
             contract_address: new_contract_address,
             portal_contract_address,
-            function_tree_root: contract_dep_data.function_tree_root
+            contract_class_id: contract_dep_data.contract_class_id
         };
         public_inputs.end.new_contracts.push(new_contract_data);
 
@@ -332,37 +353,37 @@ pub fn contract_logic(
     } else {
         // non-contract deployments must specify contract address being interacted with
         assert(!contract_address.is_zero(), "contract address cannot be zero");
+        // std::println(f"contract_address={contract_address}");
+        // std::println(f"private_call_vk_hash={private_call_vk_hash}");
 
-        /* We need to compute the root of the contract tree, starting from the function's VK:
-         * - Compute the vk_hash (done above)
-         * - Compute the function_leaf: hash(function_selector, is_internal, is_private, vk_hash, acir_hash)
-         * - Hash the function_leaf with the function_leaf's sibling_path to get the function_tree_root
-         * - Compute the contract_leaf: hash(contract_address, portal_contract_address, function_tree_root)
-         * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
-         */
-
-        // The logic below ensures that the contract exists in the contracts tree
-        let computed_function_tree_root = function_tree_root_from_siblings(
+        // Recompute the contract class id
+        let computed_private_functions_root = private_functions_root_from_siblings(
             private_call.call_stack_item.function_data.selector,
-            private_call.call_stack_item.function_data.is_internal,
-            true, // is_private
             private_call_vk_hash,
-            private_call.acir_hash,
             private_call.function_leaf_membership_witness.leaf_index,
             private_call.function_leaf_membership_witness.sibling_path
         );
+        // std::println(f"computed_private_functions_root={computed_private_functions_root}");
 
-        let computed_contract_tree_root = contract_tree_root_from_siblings(
-            computed_function_tree_root,
-            contract_address,
-            portal_contract_address,
-            private_call.contract_leaf_membership_witness.leaf_index,
-            private_call.contract_leaf_membership_witness.sibling_path
+        let computed_contract_class_id = ContractClassId::compute(
+            private_call.contract_class_artifact_hash,
+            computed_private_functions_root,
+            private_call.contract_class_public_bytecode_commitment
         );
+        // std::println(f"computed_contract_class_id={computed_contract_class_id}");
 
-        let purported_contract_tree_root = private_call.call_stack_item.public_inputs.block_header.contract_tree_root();
-        assert_eq(
-            computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root"
+        // Recompute contract address using the preimage which includes the class_id
+        let computed_partial_address = PartialAddress::compute_from_salted_initialization_hash(
+            computed_contract_class_id,
+            private_call.salted_initialization_hash
+        );
+        // std::println(f"computed_partial_address={computed_partial_address}");
+
+        let computed_address = AztecAddress::compute(private_call.public_keys_hash, computed_partial_address);
+        // std::println(f"computed_address={computed_address}");
+
+        assert(
+            computed_address.eq(contract_address), "computed contract address does not match expected one"
         );
     }
 }
@@ -407,4 +428,29 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
             call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address"
         );
     }
+}
+
+fn field_to_grumpkin_private_key(val: Field) -> GrumpkinPrivateKey {
+    let bytes = val.to_be_bytes(32);
+    let mut v = 1;
+    let mut high = 0;
+    let mut low = 0;
+
+    for i in 0..16 {
+        high = high + (bytes[15 - i] as Field) * v;
+        low = low + (bytes[16 + 15 - i] as Field) * v;
+        v = v * 256;
+    }
+
+    GrumpkinPrivateKey { high, low }
+}
+
+pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contract_address: AztecAddress) -> GrumpkinPrivateKey {
+    // TODO: Temporary hack. Should replace it with a secure way to derive the secret key.
+    // Match the way keys are derived in circuits.js/src/keys/index.ts
+    let hash = pedersen_hash(
+        [secret_key.high, secret_key.low, contract_address.to_field()],
+        0
+    );
+    field_to_grumpkin_private_key(hash)
 }

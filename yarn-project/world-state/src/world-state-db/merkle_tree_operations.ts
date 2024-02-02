@@ -1,10 +1,8 @@
-import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { NullifierLeafPreimage } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { Header, NullifierLeafPreimage, StateReference } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -35,24 +33,6 @@ export interface TreeInfo {
 }
 
 /**
- * The current roots of the commitment trees
- */
-export type CurrentTreeRoots = {
-  /** Note Hash Tree root. */
-  noteHashTreeRoot: Buffer;
-  /** Contract data tree root. */
-  contractDataTreeRoot: Buffer;
-  /** L1 to L2 Messages data tree root. */
-  l1Tol2MessageTreeRoot: Buffer;
-  /** Nullifier data tree root. */
-  nullifierTreeRoot: Buffer;
-  /** Archive root. */
-  archiveRoot: Buffer;
-  /** Public data tree root */
-  publicDataTreeRoot: Buffer;
-};
-
-/**
  * Defines the interface for operations on a set of Merkle Trees.
  */
 export interface MerkleTreeOperations {
@@ -70,9 +50,14 @@ export interface MerkleTreeOperations {
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo>;
 
   /**
-   * Gets the current roots of the commitment trees.
+   * Gets the current state reference.
    */
-  getTreeRoots(): Promise<CurrentTreeRoots>;
+  getStateReference(): Promise<StateReference>;
+
+  /**
+   * Builds the initial header.
+   */
+  buildInitialHeader(): Promise<Header>;
 
   /**
    * Gets sibling path for a leaf.
@@ -133,22 +118,11 @@ export interface MerkleTreeOperations {
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
 
   /**
-   * Inserts the new block hash into the archive.
+   * Inserts the block hash into the archive.
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
-   * @param globalVariablesHash - The global variables hash to insert into the block hash.
+   * @param header - The header to insert into the archive.
    */
-  updateArchive(globalVariablesHash: Fr): Promise<void>;
-
-  /**
-   * Updates the latest global variables hash
-   * @param globalVariablesHash - The latest global variables hash
-   */
-  updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void>;
-
-  /**
-   * Gets the global variables hash from the previous block
-   */
-  getLatestGlobalVariablesHash(): Promise<Fr>;
+  updateArchive(header: Header): Promise<void>;
 
   /**
    * Batch insert multiple leaves into the tree.

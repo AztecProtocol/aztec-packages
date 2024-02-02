@@ -5,10 +5,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace bb;
-using namespace bb::honk::sumcheck;
-
-namespace bb::honk {
+namespace bb {
 AvmMiniVerifier::AvmMiniVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
 {}
@@ -30,19 +27,19 @@ AvmMiniVerifier& AvmMiniVerifier::operator=(AvmMiniVerifier&& other) noexcept
  * @brief This function verifies an AvmMini Honk proof for given program settings.
  *
  */
-bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
+bool AvmMiniVerifier::verify_proof(const HonkProof& proof)
 {
-    using Flavor = honk::flavor::AvmMiniFlavor;
+    using Flavor = AvmMiniFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     // using Curve = Flavor::Curve;
-    // using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    // using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using CommitmentLabels = Flavor::CommitmentLabels;
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -72,6 +69,54 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_tag_err);
     commitments.memTrace_m_one_min_inv =
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_one_min_inv);
+    commitments.aluChip_alu_clk =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_clk);
+    commitments.aluChip_alu_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ia);
+    commitments.aluChip_alu_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ib);
+    commitments.aluChip_alu_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ic);
+    commitments.aluChip_alu_op_add =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_add);
+    commitments.aluChip_alu_op_sub =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_sub);
+    commitments.aluChip_alu_op_mul =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_mul);
+    commitments.aluChip_alu_op_div =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_div);
+    commitments.aluChip_alu_ff_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ff_tag);
+    commitments.aluChip_alu_u8_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8_tag);
+    commitments.aluChip_alu_u16_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_tag);
+    commitments.aluChip_alu_u32_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u32_tag);
+    commitments.aluChip_alu_u64_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u64_tag);
+    commitments.aluChip_alu_u128_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u128_tag);
+    commitments.aluChip_alu_u8_r0 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8_r0);
+    commitments.aluChip_alu_u8_r1 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8_r1);
+    commitments.aluChip_alu_u16_r0 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r0);
+    commitments.aluChip_alu_u16_r1 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r1);
+    commitments.aluChip_alu_u16_r2 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r2);
+    commitments.aluChip_alu_u16_r3 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r3);
+    commitments.aluChip_alu_u16_r4 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r4);
+    commitments.aluChip_alu_u16_r5 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r5);
+    commitments.aluChip_alu_u16_r6 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r6);
+    commitments.aluChip_alu_u16_r7 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r7);
+    commitments.aluChip_alu_u64_r0 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u64_r0);
+    commitments.aluChip_alu_cf = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_cf);
     commitments.avmMini_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_pc);
     commitments.avmMini_internal_return_ptr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_internal_return_ptr);
@@ -119,11 +164,14 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+
     FF alpha = transcript->get_challenge("Sumcheck:alpha");
+
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
+
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
@@ -147,4 +195,4 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
     return sumcheck_verified.value();
 }
 
-} // namespace bb::honk
+} // namespace bb

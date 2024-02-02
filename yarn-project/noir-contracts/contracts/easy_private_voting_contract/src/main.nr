@@ -3,23 +3,17 @@ contract EasyPrivateVoting {
     use dep::aztec::{
         protocol_types::{
             abis::function_selector::FunctionSelector,
-            address::AztecAddress,
+            address::AztecAddress
         },
         context::{PrivateContext, Context},
-        oracle::get_secret_key::get_secret_key, // used to compute nullifier
-        state_vars::{ map::Map, public_state::PublicState,}, 
-        types::type_serialization::{ // serialization methods for using booleans and aztec addresses
-            bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-            address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
-            field_serialization::{ FieldSerializationMethods, FIELD_SERIALIZED_LEN},
-        }, 
+        state_vars::{ map::Map, public_state::PublicState}, 
     };
     // docs:end:imports
     // docs:start:storage_struct
     struct Storage {
-        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>, // admin can end vote
-        tally: Map<Field, PublicState<Field, FIELD_SERIALIZED_LEN>>, // we will store candidate as key and number of votes as value
-        voteEnded: PublicState<bool, BOOL_SERIALIZED_LEN>, // voteEnded is boolean
+        admin: PublicState<AztecAddress>, // admin can end vote
+        tally: Map<Field, PublicState<Field>>, // we will store candidate as key and number of votes as value
+        voteEnded: PublicState<bool>, // voteEnded is boolean
     }
     // docs:end:storage_struct
     // docs:start:storage_impl
@@ -29,7 +23,6 @@ contract EasyPrivateVoting {
 		 admin: PublicState::new(
 		    context, 
             1, // storage slot. this can be anything except 0. it is hashed, and hash on 0 = 0
-            AddressSerializationMethods,
 		), 
         tally: Map::new(
 		    context, 
@@ -37,15 +30,13 @@ contract EasyPrivateVoting {
             |context, slot| {
 			PublicState::new(
 			    context,
-                slot, 
-                FieldSerializationMethods,
+                slot,
 			)
 		    },
 		 ),
 		  voteEnded: PublicState::new(
 		    context, 
-            3, 
-            BoolSerializationMethods,
+            3
 		)
 	    } }
 	}
@@ -71,7 +62,7 @@ contract EasyPrivateVoting {
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
-        let secret = get_secret_key(context.msg_sender()); // get secret key of caller of function
+        let secret = context.request_nullifier_secret_key(context.msg_sender()); // get secret key of caller of function
         let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret.low, secret.high]); // compute nullifier with this secret key so others can't descrypt it
         context.push_new_nullifier(nullifier, 0); // push nullifier
         context.call_public_function(

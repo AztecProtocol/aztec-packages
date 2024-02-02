@@ -8,22 +8,20 @@ contract Child {
         log::emit_unencrypted_log,
         state_vars::{
             public_state::PublicState,
-            set::Set,
-        },
-        
-        types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
+            set::Set
+        }
     };
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::AztecAddress,
     };
     use dep::value_note::{
-        value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN},
+        value_note::{ValueNote, VALUE_NOTE_LEN},
     };
 
     struct Storage {
-        current_value: PublicState<Field, FIELD_SERIALIZED_LEN>,
-        a_private_value: Set<ValueNote, VALUE_NOTE_LEN>
+        current_value: PublicState<Field>,
+        a_private_value: Set<ValueNote>,
     }
 
     impl Storage {
@@ -32,12 +30,10 @@ contract Child {
                 current_value: PublicState::new(
                     context,
                     1,
-                    FieldSerializationMethods,
                 ),
                 a_private_value: Set::new(
                     context,
-                    2,
-                    ValueNoteMethods,
+                    2
                 ),
             }
         }
