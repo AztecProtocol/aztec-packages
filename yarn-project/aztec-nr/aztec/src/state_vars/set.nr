@@ -13,8 +13,9 @@ use crate::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_or_nullify,
+    utils::compute_note_hash_for_consumption,
 };
+use crate::state_vars::storage::Storage;
 
 // docs:start:struct
 struct Set<Note> {
@@ -22,6 +23,8 @@ struct Set<Note> {
     storage_slot: Field,
 }
 // docs:end:struct
+
+impl<T> Storage<T> for Set<T> {}
 
 impl<Note> Set<Note> {
     // docs:start:new
@@ -36,7 +39,6 @@ impl<Note> Set<Note> {
         }
     }
     // docs:end:new
-
     // docs:start:insert
     pub fn insert<N>(self,
         note: &mut Note,
@@ -74,7 +76,7 @@ impl<Note> Set<Note> {
     // docs:start:remove
     pub fn remove(self, note: Note) where Note: NoteInterface {
         let context = self.context.private.unwrap();
-        let note_hash = compute_note_hash_for_read_or_nullify(note);
+        let note_hash = compute_note_hash_for_consumption(note);
         let has_been_read = context.read_requests.any(|r: SideEffect| r.value == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 

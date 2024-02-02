@@ -3,7 +3,7 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_note_hash_for_read_or_nullify,
+        utils::compute_note_hash_for_consumption,
     },
     hash::{compute_secret_hash, pedersen_hash},
     context::PrivateContext,
@@ -42,12 +42,9 @@ impl Deserialize<TRANSPARENT_NOTE_LEN> for TransparentNote {
 
 impl NoteInterface for TransparentNote {
 
-    fn compute_note_hash(self) -> Field {
+    fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
-            self.amount,
-            self.secret_hash,
-        ],0)
+        pedersen_hash(self.serialize(), 0)
     }
 
     fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
@@ -55,8 +52,7 @@ impl NoteInterface for TransparentNote {
     }
 
     fn compute_nullifier_without_context(self) -> Field {
-        // TODO(#1386): should use `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
-        let siloed_note_hash = compute_note_hash_for_read_or_nullify(self);
+        let siloed_note_hash = compute_note_hash_for_consumption(self);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([self.secret, siloed_note_hash],0)
     }

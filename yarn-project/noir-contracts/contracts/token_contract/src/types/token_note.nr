@@ -8,7 +8,7 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_note_hash_for_read_or_nullify,
+        utils::compute_note_hash_for_consumption,
     },
     context::PrivateContext,
     state_vars::set::Set,
@@ -26,6 +26,12 @@ use dep::aztec::oracle::{
 };
 use dep::safe_math::SafeU120;
 use dep::std::option::Option;
+
+trait OwnedNote {
+    fn new(amount: SafeU120, owner: AztecAddress) -> Self;
+    fn get_amount(self) -> SafeU120;
+    fn get_owner(self) -> AztecAddress;
+}
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 
@@ -61,18 +67,14 @@ impl Deserialize<TOKEN_NOTE_LEN> for TokenNote {
 }
 
 impl NoteInterface for TokenNote {
-    fn compute_note_hash(self) -> Field {
+    fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
-            self.amount.value as Field, 
-            self.owner.to_field(),
-            self.randomness,
-        ],0)
+        pedersen_hash(self.serialize(), 0)
     }
 
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -84,7 +86,7 @@ impl NoteInterface for TokenNote {
     // docs:end:nullifier
 
     fn compute_nullifier_without_context(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -118,8 +120,8 @@ impl NoteInterface for TokenNote {
   }
 }
 
-impl TokenNote {
-    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
+impl OwnedNote for TokenNote {
+    fn new(amount: SafeU120, owner: AztecAddress) -> Self {
         Self {
             amount,
             owner,
@@ -128,5 +130,12 @@ impl TokenNote {
         }
     }
 
+    fn get_amount(self) -> SafeU120 {
+        self.amount
+    }
+
+    fn get_owner(self) -> AztecAddress {
+        self.owner
+    }
    
 }

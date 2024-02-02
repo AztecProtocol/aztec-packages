@@ -3,11 +3,12 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
+
 using namespace bb;
-using namespace bb::honk;
+
 namespace {
+
 auto& engine = numeric::get_debug_randomness();
-}
 
 template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
   public:
@@ -392,8 +393,9 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         decide_and_verify(second_accumulator, composer, false);
     }
 };
+} // namespace
 
-using FlavorTypes = testing::Types<flavor::Ultra, flavor::GoblinUltra>;
+using FlavorTypes = testing::Types<UltraFlavor, GoblinUltraFlavor>;
 TYPED_TEST_SUITE(ProtoGalaxyTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyTests, PerturbatorCoefficients)

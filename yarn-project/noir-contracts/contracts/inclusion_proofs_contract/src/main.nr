@@ -7,6 +7,7 @@ contract InclusionProofs {
             EthAddress,
         },
         grumpkin_point::GrumpkinPoint,
+        contract_class::ContractClassId,
     };
     use dep::aztec::{
         state_vars::{
@@ -52,28 +53,6 @@ contract InclusionProofs {
         private_values: Map<AztecAddress, Set<ValueNote>>,
         public_value: PublicState<Field>,
         public_unused_value: PublicState<Field>,
-    }
-
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                private_values: Map::new(
-                    context,
-                    1, // Storage slot
-                    |context, slot| {
-                        Set::new(context, slot)
-                    },
-                ),
-                public_value: PublicState::new(
-                    context,
-                    2, // Storage slot
-                ),
-                public_unused_value: PublicState::new(
-                    context,
-                    3, // Storage slot
-                ),
-            }
-        }
     }
 
     #[aztec(private)]
@@ -233,7 +212,7 @@ contract InclusionProofs {
     fn test_contract_inclusion_proof(
         public_key: GrumpkinPoint,
         contract_address_salt: Field,
-        contract_class_id: Field,
+        contract_class_id: ContractClassId,
         initialization_hash: Field,
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists

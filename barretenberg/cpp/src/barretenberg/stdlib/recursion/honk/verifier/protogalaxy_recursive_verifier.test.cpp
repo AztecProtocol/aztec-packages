@@ -11,14 +11,12 @@ namespace bb::stdlib::recursion::honk {
 template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public testing::Test {
   public:
     // Define types relevant for testing
-    using UltraFlavor = ::bb::honk::flavor::Ultra;
-    using GoblinUltraFlavor = ::bb::honk::flavor::GoblinUltra;
-    using UltraComposer = ::bb::honk::UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = ::bb::honk::UltraComposer_<GoblinUltraFlavor>;
+    using UltraComposer = ::bb::UltraComposer_<UltraFlavor>;
+    using GoblinUltraComposer = ::bb::UltraComposer_<GoblinUltraFlavor>;
 
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
-    using InnerComposer = ::bb::honk::UltraComposer_<InnerFlavor>;
-    using Instance = ::bb::honk::ProverInstance_<InnerFlavor>;
+    using InnerComposer = ::bb::UltraComposer_<InnerFlavor>;
+    using Instance = ::bb::ProverInstance_<InnerFlavor>;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = typename InnerFlavor::Commitment;
@@ -28,12 +26,12 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using OuterBuilder = GoblinUltraCircuitBuilder;
     using OuterComposer = GoblinUltraComposer;
 
-    using RecursiveVerifierInstances = ::bb::honk::VerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveVerifierInstances = ::bb::VerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
-    using DeciderVerifier = ::bb::honk::DeciderVerifier_<InnerFlavor>;
-    using NativeVerifierInstances = ::bb::honk::VerifierInstances_<InnerFlavor, 2>;
-    using NativeFoldingVerifier = bb::honk::ProtoGalaxyVerifier_<NativeVerifierInstances>;
+    using DeciderVerifier = DeciderVerifier_<InnerFlavor>;
+    using NativeVerifierInstances = VerifierInstances_<InnerFlavor, 2>;
+    using NativeFoldingVerifier = ProtoGalaxyVerifier_<NativeVerifierInstances>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
@@ -370,8 +368,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 };
 
-using FlavorTypes = testing::Types<::bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>,
-                                   ::bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
+using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
+                                   UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)
