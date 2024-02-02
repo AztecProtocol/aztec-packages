@@ -12,7 +12,6 @@ namespace bb {
 /**
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
  *
- * @tparam Flavor
  */
 template <typename Flavor> class MergeProver_ {
     using FF = typename Flavor::FF;
@@ -27,16 +26,15 @@ template <typename Flavor> class MergeProver_ {
 
   public:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<ECCOpQueue> op_queue;
-    std::shared_ptr<CommitmentKey> pcs_commitment_key;
 
-    explicit MergeProver_(const std::shared_ptr<CommitmentKey>&,
-                          const std::shared_ptr<ECCOpQueue>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    BBERG_PROFILE HonkProof& construct_proof();
+    explicit MergeProver_(const std::shared_ptr<ECCOpQueue>&);
+
+    BBERG_PROFILE HonkProof construct_proof();
 
   private:
-    HonkProof proof;
+    std::shared_ptr<ECCOpQueue> op_queue;
+    std::shared_ptr<CommitmentKey> pcs_commitment_key;
+    static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
 };
 
 } // namespace bb
