@@ -3,7 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { computePrivateCallStackItemHash } from '../abis/abis.js';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { GeneratorIndex } from '../constants.gen.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
@@ -94,8 +95,13 @@ export class PrivateCallStackItem {
    * Computes this call stack item hash.
    * @returns Hash.
    */
-  public hash() {
-    return computePrivateCallStackItemHash(this);
+  public hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFields().map(field => field.toBuffer()),
+        GeneratorIndex.CALL_STACK_ITEM,
+      ),
+    );
   }
 
   /**

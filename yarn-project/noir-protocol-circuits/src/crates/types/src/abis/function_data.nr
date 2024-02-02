@@ -51,3 +51,21 @@ impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
         }
     }
 }
+
+impl Hash for FunctionData {
+    fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__FUNCTION_DATA)
+    }
+}
+
+#[test]
+fn serialization_smoke() {
+    let data: FunctionData = dep::std::unsafe::zeroed();
+    let _serialized = data.serialize();
+}
+
+#[test]
+fn hash_smoke() {
+    let data: FunctionData = dep::std::unsafe::zeroed();
+    let _hashed = data.hash();
+}

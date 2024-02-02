@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { boolToBuffer, numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -20,14 +20,13 @@ import {
   FunctionData,
   FunctionLeafPreimage,
   NewContractData,
-  PrivateCallStackItem,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
-  VerificationKey,
+  VerificationKey
 } from '../structs/index.js';
 
 /**
@@ -345,24 +344,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
         data.portalContractAddress.toBuffer(),
       ],
       GeneratorIndex.CONTRACT_DEPLOYMENT_DATA,
-    ),
-  );
-}
-
-/**
- * Computes a call stack item hash.
- * @param callStackItem - The call stack item.
- * @returns The call stack item hash.
- */
-export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackItem): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        callStackItem.contractAddress.toBuffer(),
-        computeFunctionDataHash(callStackItem.functionData).toBuffer(),
-        callStackItem.publicInputs.hash().toBuffer(),
-      ],
-      GeneratorIndex.CALL_STACK_ITEM,
     ),
   );
 }
