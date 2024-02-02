@@ -203,7 +203,7 @@ macro_rules! chained_path {
         {
             ident_path($base)
         }
-    }; 
+    };
     ( $base:expr $(, $tail:expr)* ) => {
         {
             let mut base_path = ident_path($base);
