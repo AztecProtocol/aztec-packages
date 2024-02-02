@@ -1,12 +1,18 @@
-# Wallets
+---
+title: Wallets
+---
+
+In this page we will cover the main responsibilities of a wallet in the Aztec network. 
+
+Refer to [_writing an account contract_](./writing_an_account_contract.md) for a tutorial on how to write a contract to back a user's account.
+
+Go to [_wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
 
 Wallets are the applications through which users manage their accounts. Users rely on wallets to browse through their accounts, monitor their balances, and create new accounts. Wallets also store seed phrases and private keys, or interact with external keystores such as hardware wallets.
 
 Wallets also provide an interface for dapps. Dapps may request access to see the user accounts, in order to show the state of those accounts in the context of the application, and request to send transactions from those accounts as the user interacts with the dapp.
 
 In addition to these usual responsibilities, wallets in Aztec also need to track private state. This implies keeping a local database of all private notes encrypted for any of the user's accounts, so dapps and contracts can query the user's private state. Aztec wallets are also responsible for producing local proofs of execution for private functions.
-
-In this page we will cover the main responsibilities of a wallet in the Aztec network. Refer to [_writing an account contract_](./writing_an_account_contract.md) for a tutorial on how to write a contract to back a user's account, or to [_wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
 
 ## Account setup
 

@@ -272,6 +272,7 @@ const sidebars = {
           items: [
             "developers/sandbox/references/cli-commands",
             "developers/sandbox/references/sandbox-reference",
+            "developers/sandbox/references/cheat_codes",
             {
               label: "PXE Reference",
               type: "doc",
@@ -394,17 +395,7 @@ const sidebars = {
             "developers/contracts/deploying_contracts/how_to_deploy_contract",
                      ],
         },
-        {
-          label: "Testing Contracts",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "developers/contracts/testing_contracts/main",
-          },
-          items: [
-            "developers/contracts/testing_contracts/cheat_codes",
-                     ],
-        },
+         "developers/contracts/testing_contracts/main",
         {
           label: "References",
           type: "category",

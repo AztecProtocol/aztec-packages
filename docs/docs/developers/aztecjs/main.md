@@ -19,3 +19,7 @@ Aztec.js is a library that provides APIs for managing accounts and interacting w
 
 - [Aztec.js Reference](../../apis/aztec-js/index.md)
 - [Accounts Reference](../../apis/accounts/index.md)
+
+## Tutorials
+
+- [An example of testing with Aztec.js](../tutorials/testing.md)

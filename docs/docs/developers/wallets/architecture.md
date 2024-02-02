@@ -1,4 +1,14 @@
-# Architecture
+---
+title: Architecture
+---
+
+This page talks about the architecture of a wallet in Aztec. 
+
+To get an overview about wallets in Aztec, [go here](./main.md).
+
+To learn how to write an accounts contract, [go here](./writing_an_account_contract.md).
+
+To create a schnorr account in the sandbox, [go here](./creating_schnorr_accounts.md).
 
 Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions. Bear mind that, as in Ethereum, wallets should require user confirmation whenever carrying out a potentially sensitive action requested by a dapp.
 
