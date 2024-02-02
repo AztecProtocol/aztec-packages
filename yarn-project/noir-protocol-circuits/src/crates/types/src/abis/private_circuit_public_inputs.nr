@@ -69,6 +69,9 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.read_requests[i].serialize());
         } // 13 + (2 * 32) = 77
+        for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL{
+            fields.extend_from_array(self.nullifier_key_validation_requests[i].serialize());
+        } // 77 + (2 * 16) = 109
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
             fields.extend_from_array(self.new_commitments[i].serialize());
         } // 77 + (2 * 16) = 109
@@ -83,10 +86,10 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.extend_from_array(self.unencrypted_logs_hash); // 170 + 2 = 172
         fields.push(self.encrypted_log_preimages_length); // 173
         fields.push(self.unencrypted_log_preimages_length); // 174
-        fields.extend_from_array(self.historical_header.serialize());
-        fields.extend_from_array(self.contract_deployment_data.serialize());
-        fields.push(self.chain_id);
-        fields.push(self.version);
+        fields.extend_from_array(self.historical_header.serialize()); // 174 + 18 = 192
+        fields.extend_from_array(self.contract_deployment_data.serialize()); // 192 + 6 = 198
+        fields.push(self.chain_id); // 199
+        fields.push(self.version); // 200
 
         dep::std::println(fields.len());
 
