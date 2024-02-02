@@ -107,9 +107,9 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
 
 impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
     fn deserialize(serialized: [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> Self {
-        // TODO: This should accept a reader ^ to avoid copying data.
+        // TODO(#4390): This should accept a reader ^ to avoid copying data.
         let mut reader = Reader::new(serialized);
-        Self {
+        let inputs = Self {
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
@@ -129,7 +129,10 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             contract_deployment_data: reader.read_struct(ContractDeploymentData::deserialize),
             chain_id: reader.read(),
             version: reader.read(),
-        }
+        };
+
+        reader.finish();
+        inputs
     }
 }
 

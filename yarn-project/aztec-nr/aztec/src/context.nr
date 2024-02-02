@@ -380,21 +380,7 @@ impl PrivateContext {
         let item = PublicCallStackItem {
             contract_address:  AztecAddress::from_field(reader.read()),
             function_data: reader.read_struct(FunctionData::deserialize),
-            public_inputs: PublicCircuitPublicInputs {
-                call_context: reader.read_struct(CallContext::deserialize),
-                args_hash: reader.read(),
-                return_values: [0; RETURN_VALUES_LENGTH],
-                contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-                contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-                public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
-                new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
-                new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
-                unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
-                unencrypted_log_preimages_length: 0,
-                historical_header: Header::empty(),
-                prover_address: AztecAddress::zero(),
-            },
+            public_inputs: reader.read_struct(PublicCircuitPublicInputs::deserialize),
             is_execution_request: true,
         };
         reader.finish();
