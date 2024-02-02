@@ -120,6 +120,30 @@ class Goblin {
     };
 
     /**
+     * @brief Construct a GUH proof and a merge proof for the present circuit.
+     * @details If there is a previous merge proof, recursively verify it.
+     *
+     * @param circuit_builder
+     */
+    void merge(GoblinUltraCircuitBuilder& circuit_builder)
+    {
+        // Complete the circuit logic by recursively verifying previous merge proof if it exists
+        if (merge_proof_exists) {
+            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
+        }
+
+        // Construct and store the merge proof to be recursively verified on the next call to accumulate
+        GoblinUltraComposer composer;
+        auto merge_prover = composer.create_merge_prover(op_queue);
+        merge_proof = merge_prover.construct_proof();
+
+        if (!merge_proof_exists) {
+            merge_proof_exists = true;
+        }
+    };
+
+    /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
      *
      */

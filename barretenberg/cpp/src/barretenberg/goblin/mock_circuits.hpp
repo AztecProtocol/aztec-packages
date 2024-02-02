@@ -197,5 +197,20 @@ class GoblinMockCircuits {
             verifier2.verify_proof(prev_kernel_accum.proof);
         }
     }
+
+    static void construct_mock_kernel_small(GoblinUltraBuilder& builder,
+                                            const KernelInput& function_accum,
+                                            const KernelInput& prev_kernel_accum)
+    {
+        // Execute recursive aggregation of function proof
+        RecursiveVerifier verifier1{ &builder, function_accum.verification_key };
+        verifier1.verify_proof(function_accum.proof);
+
+        // Execute recursive aggregation of previous kernel proof if one exists
+        if (!prev_kernel_accum.proof.empty()) {
+            RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
+            verifier2.verify_proof(prev_kernel_accum.proof);
+        }
+    }
 };
 } // namespace bb
