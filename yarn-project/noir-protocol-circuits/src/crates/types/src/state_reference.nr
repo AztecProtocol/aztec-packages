@@ -3,6 +3,7 @@ use crate::{
         AppendOnlyTreeSnapshot,
         APPEND_ONLY_TREE_SNAPSHOT_LENGTH,
     },
+    constants::STATE_REFERENCE_LENGTH,
     partial_state_reference::{
         PartialStateReference,
         PARTIAL_STATE_REFERENCE_LENGTH,
@@ -22,8 +23,6 @@ struct StateReference {
     l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
     partial: PartialStateReference,
 }
-
-global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
 
 impl Eq for StateReference {
     fn eq(self, other: StateReference) -> bool {

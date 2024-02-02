@@ -98,6 +98,7 @@ global MAX_NOTES_PER_PAGE: Field = 10;
 // VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
 global VIEW_NOTE_ORACLE_RETURN_LENGTH: Field = 212;
 global CALL_CONTEXT_LENGTH: Field = 8;
+global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
 global HEADER_LENGTH: Field = 18; // 2 for last_archive, 2 for body hash, 10 for state reference, 4 for global vars 
 global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
