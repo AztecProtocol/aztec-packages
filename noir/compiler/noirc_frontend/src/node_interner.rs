@@ -1049,7 +1049,7 @@ impl NodeInterner {
         &self,
         object_type: Type,
         trait_id: TraitId,
-    ) -> Vec<TraitImplKind> {
+    ) -> Vec<&TraitImplKind> {
         let trait_impl = self.trait_implementation_map.get(&trait_id);
 
         trait_impl
@@ -1059,7 +1059,7 @@ impl NodeInterner {
                     .filter_map(|(typ, impl_kind)| match &typ {
                         Type::Forall(_, typ) => {
                             if typ.deref() == &object_type {
-                                Some(impl_kind.clone())
+                                Some(impl_kind)
                             } else {
                                 None
                             }

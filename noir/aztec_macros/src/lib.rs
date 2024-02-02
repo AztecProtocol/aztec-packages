@@ -802,7 +802,7 @@ fn get_serialized_length(
         return Ok(1);
     }
 
-    let trait_impl_kind = traits
+    let serialized_trait_impl_kind = traits
         .iter()
         .filter_map(|&trait_id| {
             let r#trait = interner.get_trait(trait_id);
@@ -822,15 +822,15 @@ fn get_serialized_length(
             secondary_message: Some("Stored data must implement Serialize trait".to_string()),
         })?;
 
-    let trait_impl_id = match trait_impl_kind {
+    let serialized_trait_impl_id = match serialized_trait_impl_kind {
         TraitImplKind::Normal(trait_impl_id) => Ok(trait_impl_id),
         _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
     }?;
 
-    let trait_impl_shared = interner.get_trait_implementation(trait_impl_id);
-    let trait_impl = trait_impl_shared.borrow();
+    let serialized_trait_impl_shared = interner.get_trait_implementation(*serialized_trait_impl_id);
+    let serialized_trait_impl = serialized_trait_impl_shared.borrow();
 
-    match trait_impl.trait_generics.get(0).unwrap() {
+    match serialized_trait_impl.trait_generics.get(0).unwrap() {
         Type::Constant(value) => Ok(*value),
         _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
     }
