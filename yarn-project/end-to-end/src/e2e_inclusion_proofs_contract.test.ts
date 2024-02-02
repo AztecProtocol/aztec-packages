@@ -52,87 +52,123 @@ describe('e2e_inclusion_proofs_contract', () => {
       owner = accounts[0].address;
     });
 
-    it('proves note existence and its nullifier non-existence and nullifier non-existence failure case', async () => {
+    describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
       // Owner of a note
       let noteCreationBlockNumber: number;
-      {
+      let newCommitments, visibleNotes: any;
+      const value = 100n;
+      let validNoteBlockNumber: any;
+
+      it('should return the correct values for creating a note', async  () => {
         // Create a note
-        const value = 100n;
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        const { newCommitments, visibleNotes } = receipt.debugInfo!;
+        ({ newCommitments, visibleNotes } = receipt.debugInfo!);
+      })
 
+
+      it('should return the correct values for creating a note', async () => {
         expect(newCommitments.length).toBe(1);
         expect(visibleNotes.length).toBe(1);
         const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
-      }
+      })
 
-      {
+
+      it('should not throw because the note is included', async () => {
         // Prove note inclusion in a given block.
         await contract.methods
-          .test_note_inclusion(owner, true, noteCreationBlockNumber)
+          .test_note_inclusion(owner, true, noteCreationBlockNumber, false)
           .send()
           .wait();
 
         await contract.methods
-          .test_note_inclusion(owner, false, 0n)
+          .test_note_inclusion(owner, false, 0n, false)
           .send()
           .wait();
-      }
+      })
 
-      {
+      it('should not throw because the note is not nullified', async () => {
         // Prove that the note has not been nullified with block_number
         // TODO(#3535): Prove the nullifier non-inclusion at older block to test archival node. This is currently not
         // possible because of issue https://github.com/AztecProtocol/aztec-packages/issues/3535
         const blockNumber = await pxe.getBlockNumber();
         await contract.methods.test_note_not_nullified(owner, true, blockNumber, false).send().wait();
         await contract.methods.test_note_not_nullified(owner, false, 0n, false).send().wait();
-      }
+      })
 
-      {
-        const blockNumber = await pxe.getBlockNumber();
-        await contract.methods.test_note_validity(owner, true, blockNumber).send().wait();
-        await contract.methods.test_note_validity(owner, false, 0n).send().wait();
-      }
+      it('should not throw because is both included, not nullified, and therefore valid', async () => {
+        validNoteBlockNumber = await pxe.getBlockNumber();
+        await contract.methods.test_note_validity(owner, true, validNoteBlockNumber, false).send().wait();
+        await contract.methods.test_note_validity(owner, false, 0n, false).send().wait();
+      })
 
-      {
-        // Prove that the note has not been nullified with block_number
-        // TODO(#3535): Prove the nullifier non-inclusion at older block to test archival node. This is currently not
-        // possible because of issue https://github.com/AztecProtocol/aztec-packages/issues/3535
-        const blockNumber = await pxe.getBlockNumber();
-        await contract.methods.test_note_not_nullified(owner, true, blockNumber, false).send().wait();
-        await contract.methods.test_note_not_nullified(owner, false, 0n, false).send().wait();
-      }
-
-      {
+      describe('we will test the vailure case by nullifying a note', () => {
+        let receipt: any;
+        let currentBlockNumber: any;
+        let randomBlockNumberSinceDeployment: any;
         // We test the failure case now --> The proof should fail when the nullifier already exists
-        const receipt = await contract.methods.nullify_note(owner).send().wait({ debug: true });
-        const { newNullifiers } = receipt.debugInfo!;
-        expect(newNullifiers.length).toBe(2);
+        it('nullifies a note and grabs block number', async () => {
+          receipt = await contract.methods.nullify_note(owner).send().wait({ debug: true });
+          currentBlockNumber = await pxe.getBlockNumber();
+          randomBlockNumberSinceDeployment = await getRandomBlockNumberSinceDeployment();
 
-        const currentBlockNumber = await pxe.getBlockNumber();
-        const nullifier = newNullifiers[1];
-        const randomBlockNumberSinceDeployment = await getRandomBlockNumberSinceDeployment();
+          const { newNullifiers } = receipt!.debugInfo!;
+          expect(newNullifiers.length).toBe(2);
+          const nullifier = newNullifiers[1];
+        })
+
 
         // Note: getLowNullifierMembershipWitness returns the membership witness of the nullifier itself and not
         // the low nullifier when the nullifier already exists in the tree and for this reason the execution fails
         // on low_nullifier.value < nullifier.value check.
-        await expect(
-          contract.methods.test_note_not_nullified(owner, true, currentBlockNumber, true).send().wait(),
-        ).rejects.toThrow(
-          /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
-        );
-        await expect(
-          contract.methods.test_note_not_nullified(owner, false, 0n, true).send().wait(),
-        ).rejects.toThrow(
-          /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
-        );
-        // This does not throw because we are checking nullified note before the note was nullified
-        await contract.methods.test_note_not_nullified(owner, true, randomBlockNumberSinceDeployment, true).send().wait();
-      }
+        it('should throw when testing if note is not nullified at the current block', async () => {
+          await expect(
+            contract.methods.test_note_not_nullified(owner, true, currentBlockNumber, true).send().wait(),
+          ).rejects.toThrow(
+            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+          );
+          await expect(
+            contract.methods.test_note_not_nullified(owner, false, 0n, true).send().wait(),
+          ).rejects.toThrow(
+            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+          );
+        })
+
+        it('should not throw when we test inclusion of nullified note', async () => {
+          const blockNumber = await pxe.getBlockNumber();
+          await contract.methods
+          .test_note_inclusion(owner, true, noteCreationBlockNumber, true)
+          .send()
+          .wait();
+
+        await contract.methods
+          .test_note_inclusion(owner, false, 0n, true)
+          .send()
+          .wait();
+        })
+
+        it('should throw when we test validity', async () => {
+          const blockNumber = await pxe.getBlockNumber();
+          await expect(
+            contract.methods.test_note_validity(owner, true, blockNumber, true).send().wait(),
+          ).rejects.toThrow(
+            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+          );
+          await expect(
+            contract.methods.test_note_validity(owner, false, 0n, true).send().wait(),
+          ).rejects.toThrow(
+            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+          );
+        })
+
+        it('should not throw because the note was not nullified yet at validNoteBlockNumber', async () => {
+          await contract.methods.test_note_not_nullified(owner, true, validNoteBlockNumber, true).send().wait();
+          await contract.methods.test_note_validity(owner, true, validNoteBlockNumber, true).send().wait();
+        }) 
+      })
     });
 
     it('proves note validity (note commitment inclusion and nullifier non-inclusion)', async () => {
@@ -156,8 +192,8 @@ describe('e2e_inclusion_proofs_contract', () => {
 
       {
         // Prove note validity
-        await contract.methods.test_note_validity(owner, true, noteCreationBlockNumber).send().wait();
-        await contract.methods.test_note_validity(owner, false, 0n).send().wait();
+        await contract.methods.test_note_validity(owner, true, noteCreationBlockNumber, false).send().wait();
+        await contract.methods.test_note_validity(owner, false, 0n, false).send().wait();
       }
     });
 

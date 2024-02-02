@@ -85,12 +85,16 @@ contract InclusionProofs {
     fn test_note_inclusion(
         owner: AztecAddress,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the note exists
+        block_number: u32, // The block at which we'll prove that the note exists
+        nullified: bool
     ) {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        if (nullified) {
+            options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
+        }
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
         // docs:end:get_note_from_pxe
@@ -152,11 +156,15 @@ contract InclusionProofs {
     fn test_note_validity(
         owner: AztecAddress,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the note exists and is not nullified
+        block_number: u32, // The block at which we'll prove that the note exists and is not nullified
+        nullified: bool
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        if (nullified) {
+            options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
+        }
         let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
 
