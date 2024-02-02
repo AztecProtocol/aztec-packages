@@ -273,7 +273,7 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .lhs = arg.lhs,
                     .rhs = arg.rhs,
                     .result = arg.output,
-                    .opcode = BigIntOperationType::Neg,
+                    .opcode = BigIntOperationType::Sub,
                 });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntMul>) {
                 af.bigint_operations.push_back(BigIntOperation{

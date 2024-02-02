@@ -16,7 +16,7 @@ struct BigIntFromLeBytes {
     friend bool operator==(BigIntFromLeBytes const& lhs, BigIntFromLeBytes const& rhs) = default;
 };
 
-enum BigIntOperationType { Add, Neg, Mul, Div };
+enum BigIntOperationType { Add, Sub, Mul, Div };
 
 struct BigIntOperation {
     uint32_t lhs;
@@ -196,7 +196,7 @@ void create_bigint_operations_constraint(const BigIntOperation& input, DSLBigInt
 template <typename Builder>
 void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigints);
 template <typename Builder>
-void create_bigint_neg_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigints);
+void create_bigint_sub_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigints);
 template <typename Builder>
 void create_bigint_mul_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigints);
 template <typename Builder>

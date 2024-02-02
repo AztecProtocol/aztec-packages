@@ -55,7 +55,7 @@ generate_big_int_op_constraint_with_modulus(
     case Add:
         value = witness_values[lhs_id] + witness_values[rhs_id];
         break;
-    case Neg:
+    case Sub:
         value = witness_values[lhs_id] - witness_values[rhs_id];
         break;
     case Mul:
@@ -138,7 +138,7 @@ std::tuple<BigIntOperation, BigIntToLeBytes> generate_big_int_op_constraint_with
     case Add:
         value = witness_values[lhs_id] + witness_values[rhs_id];
         break;
-    case Neg:
+    case Sub:
         value = witness_values[lhs_id] - witness_values[rhs_id];
         break;
     case Mul:
@@ -162,7 +162,7 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     WitnessVector witness;
     auto contraints = generate_big_int_op_constraint(BigIntOperationType::Add, fr(3), fr(1), witness);
     auto contraints2 = generate_big_int_op_constraint(BigIntOperationType::Add, fr(3), fr(1), witness);
-    auto contraints3 = generate_big_int_op_constraint(BigIntOperationType::Neg, fr(5), fr(2), witness);
+    auto contraints3 = generate_big_int_op_constraint(BigIntOperationType::Sub, fr(5), fr(2), witness);
     auto contraints4 = generate_big_int_op_constraint(BigIntOperationType::Mul, fr(5), fr(3), witness);
     auto contraints5 = generate_big_int_op_constraint(BigIntOperationType::Div, fr(8), fr(2), witness);
     AcirFormat constraint_system{
@@ -277,10 +277,10 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
 {
     WitnessVector witness;
     auto contraints = generate_big_int_op_constraint_secpk1_fr(BigIntOperationType::Add, fr(3), fr(1), witness);
-    auto contraints2 = generate_big_int_op_constraint_secpk1_fr(BigIntOperationType::Neg, fr(5), fr(2), witness);
+    auto contraints2 = generate_big_int_op_constraint_secpk1_fr(BigIntOperationType::Sub, fr(5), fr(2), witness);
     auto contraints3 = generate_big_int_op_constraint_with_id(BigIntOperationType::Mul, 0, 5, witness);
     auto contraints4 = generate_big_int_op_constraint_with_id(BigIntOperationType::Div, 0, 1, witness);
-    auto contraints5 = generate_big_int_op_constraint_with_id(BigIntOperationType::Neg, 7, 1, witness);
+    auto contraints5 = generate_big_int_op_constraint_with_id(BigIntOperationType::Sub, 7, 1, witness);
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
@@ -332,10 +332,10 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
 {
     WitnessVector witness;
     auto contraints = generate_big_int_op_constraint_secpk1_fq(BigIntOperationType::Add, fr(3), fr(1), witness);
-    auto contraints2 = generate_big_int_op_constraint_secpk1_fq(BigIntOperationType::Neg, fr(5), fr(2), witness);
+    auto contraints2 = generate_big_int_op_constraint_secpk1_fq(BigIntOperationType::Sub, fr(5), fr(2), witness);
     auto contraints3 = generate_big_int_op_constraint_with_id(BigIntOperationType::Add, 0, 5, witness);
-    auto contraints4 = generate_big_int_op_constraint_with_id(BigIntOperationType::Neg, 0, 1, witness);
-    auto contraints5 = generate_big_int_op_constraint_with_id(BigIntOperationType::Neg, 7, 1, witness);
+    auto contraints4 = generate_big_int_op_constraint_with_id(BigIntOperationType::Sub, 0, 1, witness);
+    auto contraints5 = generate_big_int_op_constraint_with_id(BigIntOperationType::Sub, 7, 1, witness);
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),

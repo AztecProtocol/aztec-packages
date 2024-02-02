@@ -54,9 +54,9 @@ template void create_bigint_addition_constraint<UltraCircuitBuilder>(const BigIn
                                                                      DSLBigInts<UltraCircuitBuilder>& dsl_bigint);
 template void create_bigint_addition_constraint<GoblinUltraCircuitBuilder>(
     const BigIntOperation& input, DSLBigInts<GoblinUltraCircuitBuilder>& dsl_bigint);
-template void create_bigint_neg_constraint<UltraCircuitBuilder>(const BigIntOperation& input,
+template void create_bigint_sub_constraint<UltraCircuitBuilder>(const BigIntOperation& input,
                                                                 DSLBigInts<UltraCircuitBuilder>& dsl_bigint);
-template void create_bigint_neg_constraint<GoblinUltraCircuitBuilder>(
+template void create_bigint_sub_constraint<GoblinUltraCircuitBuilder>(
     const BigIntOperation& input, DSLBigInts<GoblinUltraCircuitBuilder>& dsl_bigint);
 template void create_bigint_mul_constraint<UltraCircuitBuilder>(const BigIntOperation& input,
                                                                 DSLBigInts<UltraCircuitBuilder>& dsl_bigint);
@@ -114,7 +114,7 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
 }
 
 template <typename Builder>
-void create_bigint_neg_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigint)
+void create_bigint_sub_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigint)
 {
     switch (dsl_bigint.get_modulus_id(input.lhs)) {
     case ModulusId::BN254_FR: {
@@ -259,8 +259,8 @@ void create_bigint_operations_constraint(const BigIntOperation& input, DSLBigInt
         create_bigint_addition_constraint<Builder>(input, dsl_bigint);
         break;
     }
-    case BigIntOperationType::Neg: {
-        create_bigint_neg_constraint<Builder>(input, dsl_bigint);
+    case BigIntOperationType::Sub: {
+        create_bigint_sub_constraint<Builder>(input, dsl_bigint);
         break;
     }
     case BigIntOperationType::Mul: {
