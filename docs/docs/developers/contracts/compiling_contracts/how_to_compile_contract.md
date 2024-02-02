@@ -2,7 +2,7 @@
 title: How to compile a contract
 ---
 
-Once you have written a [contract](../contracts/main.md) in Aztec.nr, you will need to compile it into an [artifact](./artifacts.md) in order to use it.
+Once you have written a [contract](../main.md) in Aztec.nr, you will need to compile it into an [artifact](./artifacts.md) in order to use it.
 
 In this guide we will cover how to do so, both using the CLI and programmatically.
 
@@ -12,7 +12,7 @@ We'll also cover how to generate a helper [TypeScript interface](#typescript-int
 
 To compile a contract using the Aztec's build of nargo.
 
-Run the `aztec-nargo compile` command within your [contract project folder](./writing_a_contract/layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
+Run the `aztec-nargo compile` command within your [contract project folder](../writing_contracts/layout.md), which is the one that contains the `Nargo.toml` file:
 
 ```bash
 aztec-nargo compile
@@ -113,11 +113,11 @@ export class TokenContract extends ContractBase {
 }
 ```
 
-Read more about interacting with contracts using `aztec.js` [here](../getting_started/aztecjs-getting-started.md).
+Read more about interacting with contracts using `aztec.js` [here](../../getting_started/aztecjs-getting-started.md).
 
 ### Aztec.nr interfaces
 
-An Aztec.nr contract can [call a function](./writing_a_contract/functions/call_functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
+An Aztec.nr contract can [call a function](../writing_contracts/functions/call_functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
 
 To make this easier, the compiler can generate contract interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one. For each contract, two interface structs are generated: one to be used from private functions with a `PrivateContext`, and one to be used from open functions with a `PublicContext`.
 
@@ -211,7 +211,7 @@ impl TokenPublicContextInterface {
 }
 ```
 
-Read more about how to use the Aztec.nr interfaces [here](./writing_a_contract/functions/main.md).
+Read more about how to use the Aztec.nr interfaces [here](../writing_contracts/functions/main.md).
 
 :::info
 At the moment, the compiler generates these interfaces from already compiled ABIs, and not from source code. This means that you should not import a generated interface from within the same project as its source contract, or you risk circular references.
@@ -219,7 +219,7 @@ At the moment, the compiler generates these interfaces from already compiled ABI
 
 ## Next steps
 
-Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../sandbox/references/cli-commands.md#deploying-a-token-contract) and [interact](../sandbox/references/cli-commands.md#calling-an-unconstrained-view-function) with them.
+Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../sandbox/references/cli-commands.md#deploying-a-token-contract) and [interact](../../sandbox/references/cli-commands.md#calling-an-unconstrained-view-function) with them.
 
-import Disclaimer from "../../misc/common/\_disclaimer.mdx";
+import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>

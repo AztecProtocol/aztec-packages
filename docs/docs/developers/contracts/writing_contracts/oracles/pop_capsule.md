@@ -1,5 +1,5 @@
 ---
-title: Oracles
+title: How to use the popCapsule oracle
 ---
 
 On this page you will learn how to use the `popCapsule` oracle. To see what other oracles are available in Aztec.nr, go [here](./inbuilt_oracles.md).

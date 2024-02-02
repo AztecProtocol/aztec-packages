@@ -38,4 +38,4 @@ The Aztec CLI is a command-line tool allowing you to interact directly with the 
 
 It aims to provide all of the functionality required to deploy, and invoke contracts and query system state such as contract data, transactions and emitted logs.
 
-Use `aztec-nargo` for compiling contracts. See the [compiling contracts](../contracts/compiling.md) page for more information.
+Use `aztec-nargo` for compiling contracts. See the [compiling contracts](../contracts/compiling_contracts/how_to_compile_contract.md) page for more information.

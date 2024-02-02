@@ -1,5 +1,5 @@
 ---
-title: Emit an event
+title: How to emit an event
 ---
 
 Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.
@@ -56,7 +56,7 @@ await pxe.registerRecipient(completeAddress);
 </Tabs>
 
 :::info
-If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../deploying#deploying-private-token-contract)
+If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../../deploying_contracts/how_to_deploy_contract.md)
 
 At this point the Sandbox only enables the emitting of encrypted note preimages through encrypted events.
 In the future we will allow emitting arbitrary information.

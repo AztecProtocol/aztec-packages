@@ -1,5 +1,5 @@
 ---
-title: Deploy a contract with a Portal
+title: How to deploy a contract with a Portal
 ---
 
 - Deploy to L1 using Viem, Foundry or your preferred tool;

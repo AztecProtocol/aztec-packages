@@ -2,7 +2,7 @@
 title: Inbuilt Oracles
 ---
 
-This page goes over all the oracles that are available in Aztec.nr. If you'd like to read more about what oracles are, check out [this page](TODO).
+This page goes over all the oracles that are available in Aztec.nr. If you'd like to read more about what oracles are, check out [this page](../oracles/main.md).
 
 ## Inbuilt oracles
 

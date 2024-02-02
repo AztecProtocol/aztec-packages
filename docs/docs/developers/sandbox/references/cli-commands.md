@@ -37,7 +37,7 @@ The update command won't update the CLI itself. To update these follow the [upda
 
 ## Compile
 
-You can find more information about compiling contracts [on this page](../../contracts/compiling.md).
+You can find more information about compiling contracts [on this page](../../contracts/compiling_contracts/how_to_compile_contract.md).
 
 ## Creating Accounts
 

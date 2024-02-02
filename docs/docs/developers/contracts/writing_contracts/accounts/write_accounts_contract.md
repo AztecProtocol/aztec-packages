@@ -1,5 +1,5 @@
 ---
-title: Write an accounts contract
+title: How to write an accounts contract
 ---
 
 This tutorial will take you through the process of writing your own account contract in Aztec.nr, along with the Typescript glue code required for using it within a wallet.
@@ -25,7 +25,7 @@ For the sake of simplicity, we will hardcode the signing public key into the con
 
 ## The account contract
 
-Let's start with the account contract itself in Aztec.nr. Create [a new Aztec.nr contract project](../contracts/main.md) that will contain a file with the code for the account contract, with a hardcoded public key:
+Let's start with the account contract itself in Aztec.nr. Create [a new Aztec.nr contract project](../../main.md) that will contain a file with the code for the account contract, with a hardcoded public key:
 
 #include_code contract yarn-project/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 

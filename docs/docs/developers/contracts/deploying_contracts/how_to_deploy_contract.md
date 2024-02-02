@@ -4,13 +4,13 @@ title: How to deploy a contract
 
 # Deploying contracts
 
-Once you have [compiled](./compiling.md) your contracts you can proceed to deploying them using the aztec-cli or using aztec.js which is a Typescript client to interact with the sandbox.
+Once you have [compiled](../compiling_contracts/how_to_compile_contract.md) your contracts you can proceed to deploying them using the aztec-cli or using aztec.js which is a Typescript client to interact with the sandbox.
 
 ## Prerequisites
 
-- `aztec-cli` and `aztec-nargo` installed (go to [Sandbox and CLI section](../sandbox/main.md) for installation instructions)
-- contract artifacts ready (go to [Compiling contracts section](./compiling.md) for instructions on how to compile contracts)
-- Aztec Sandbox running (go to [Sandbox section](../getting_started/quickstart.md) for instructions on how to install and run the sandbox)
+- `aztec-cli` and `aztec-nargo` installed (go to [Sandbox and CLI section](../../sandbox/main.md) for installation instructions)
+- contract artifacts ready (go to [How to Compile Contract](../compiling_contracts/how_to_compile_contract.md) for instructions on how to compile contracts)
+- Aztec Sandbox running (go to [Sandbox section](../../getting_started/quickstart.md) for instructions on how to install and run the sandbox)
 
 ## Deploy
 
@@ -43,7 +43,7 @@ Generate the typescript class:
 aztec-cli codegen ./aztec-nargo/output/target/path -o src/artifacts --ts
 ```
 
-This would create a typescript file like `Example.ts` in `./src/artifacts`. Read more on the [compiling page](./compiling.md).
+This would create a typescript file like `Example.ts` in `./src/artifacts`. Read more on the [compiling page](../compiling_contracts/how_to_compile_contract.md).
 
 Now you can import it to easily deploy and interact with the contract.
 
@@ -88,7 +88,7 @@ Its arguments are `PXE` client and contract constructor arguments.
 
 Additionally the `.send()` method can have a few optional arguments too, which are specified in an optional object:
 
-- `portalContract?: EthAddress`: The L1 portal address to link the contract to. See the section on [Portals to learn more about them](./writing_a_contract/portals/portals.md).
+- `portalContract?: EthAddress`: The L1 portal address to link the contract to. See the section on [Portals to learn more about them](../writing_contracts/portals/portals.md).
 - `contractAddressSalt?: Fr`: A salt which is one of the inputs when computing a contract address of the contract to be deployed.
   By default is set to a random value.
   Set it, if you need a deterministic contract address (same functionality as Ethereum's `CREATE2` opcode).

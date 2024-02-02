@@ -1,5 +1,0 @@
----
-title: Write a constructor
----
-
-

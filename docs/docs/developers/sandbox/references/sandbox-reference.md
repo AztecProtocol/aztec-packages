@@ -172,7 +172,7 @@ To help with testing, the sandbox is shipped with a set of cheatcodes.
 
 Cheatcodes allow you to change the time of the Aztec block, load certain state or more easily manipulate Ethereum instead of having to write dedicated RPC calls to anvil or hardhat.
 
-You can find the cheat code reference [here](../../contracts/testing_a_contract/cheat_codes.md).
+You can find the cheat code reference [here](../../contracts/testing_contracts/cheat_codes.md).
 
 ## Contracts
 

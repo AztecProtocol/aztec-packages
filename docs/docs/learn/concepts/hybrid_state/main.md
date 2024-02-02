@@ -43,4 +43,4 @@ This is achieved with two main features:
 
 ## Further reading
 
-Read more about how to leverage the Aztec state model in Aztec contracts [here](../../../developers/contracts/writing_a_contract/storage/main.md).
+Read more about how to leverage the Aztec state model in Aztec contracts [here](../../../developers/contracts/writing_contracts/storage/main.md).

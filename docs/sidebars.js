@@ -22,7 +22,7 @@ const sidebars = {
     // ABOUT AZTEC
 
     {
-      type: "html",
+      type: "html", 
       className: "sidebar-title",
       value: "LEARN",
       defaultStyle: true,
@@ -301,31 +301,31 @@ const sidebars = {
               type: "category",
               link: {
                 type: "doc",
-                id: "developers/contracts/writing_a_contract/functions/main",
+                id: "developers/contracts/writing_contracts/functions/main",
               },
               items: [
-                "developers/contracts/writing_a_contract/functions/context",
-                "developers/contracts/writing_a_contract/functions/public_private_unconstrained",
-                "developers/contracts/writing_a_contract/functions/visibility",
-                "developers/contracts/writing_a_contract/functions/call_functions",
-                "developers/contracts/writing_a_contract/functions/call_functions",
-                "developers/contracts/writing_a_contract/functions/write_constructor",
-                "developers/contracts/writing_a_contract/functions/inner_workings",
+                "developers/contracts/writing_contracts/functions/context",
+                "developers/contracts/writing_contracts/functions/public_private_unconstrained",
+                "developers/contracts/writing_contracts/functions/visibility",
+                "developers/contracts/writing_contracts/functions/call_functions",
+                "developers/contracts/writing_contracts/functions/call_functions",
+                "developers/contracts/writing_contracts/functions/write_constructor",
+                "developers/contracts/writing_contracts/functions/inner_workings",
               ],
             },
             {
               label: "Storage",
               type: "category",
               items: [
-                "developers/contracts/writing_a_contract/storage/define_storage",
-                "developers/contracts/writing_a_contract/storage/storage_slots",
+                "developers/contracts/writing_contracts/storage/define_storage",
+                "developers/contracts/writing_contracts/storage/storage_slots",
               ],
             },
             {
               label: "Accounts and Account Contracts",
               type: "category",
               items: [
-                "developers/contracts/writing_a_contract/accounts/write_accounts_contract",
+                "developers/contracts/writing_contracts/accounts/write_accounts_contract",
       
               ],
             },
@@ -333,7 +333,7 @@ const sidebars = {
               label: "Events",
               type: "category",
               items: [
-                "developers/contracts/writing_a_contract/events/emit_event",
+                "developers/contracts/writing_contracts/events/emit_event",
               ],
             },
             {
@@ -341,11 +341,11 @@ const sidebars = {
               type: "category",
               link: {
                 type: "doc",
-                id: "developers/contracts/writing_a_contract/oracles/main",
+                id: "developers/contracts/writing_contracts/oracles/main",
               },
               items: [
-                "developers/contracts/writing_a_contract/oracles/inbuilt_oracles",
-                "developers/contracts/writing_a_contract/oracles/pop_capsule",
+                "developers/contracts/writing_contracts/oracles/inbuilt_oracles",
+                "developers/contracts/writing_contracts/oracles/pop_capsule",
               ],
             },
             {
@@ -357,10 +357,10 @@ const sidebars = {
                   type: "category",
                   link: {
                     type: "doc",
-                    id: "developers/contracts/writing_a_contract/historical_data/slow_updates_tree/main",
+                    id: "developers/contracts/writing_contracts/historical_data/slow_updates_tree/main",
                   },
                   items: [
-                    "developers/contracts/writing_a_contract/historical_data/slow_updates_tree/implement_slow_updates",
+                    "developers/contracts/writing_contracts/historical_data/slow_updates_tree/implement_slow_updates",
                   ],
                 },
                 {
@@ -368,10 +368,10 @@ const sidebars = {
                   type: "category",
                   link: {
                     type: "doc",
-                    id: "developers/contracts/writing_a_contract/historical_data/slow_updates_tree/main",
+                    id: "developers/contracts/writing_contracts/historical_data/slow_updates_tree/main",
                   },
                   items: [
-                    "developers/contracts/writing_a_contract/historical_data/archive_tree/how_to_prove_history",
+                    "developers/contracts/writing_contracts/historical_data/archive_tree/how_to_prove_history",
                   ],
                 },
               ],
@@ -379,18 +379,30 @@ const sidebars = {
            
           ],
         },
-        "developers/contracts/compiling",
-        "developers/contracts/deploying",
-        "developers/contracts/artifacts",
+        {
+          label: "Compiling Contracts",
+          type: "category",
+          items: [
+            "developers/contracts/compiling_contracts/how_to_compile_contract",
+            "developers/contracts/compiling_contracts/artifacts",
+                     ],
+        },
+        {
+          label: "Deploying Contracts",
+          type: "category",
+          items: [
+            "developers/contracts/deploying_contracts/how_to_deploy_contract",
+                     ],
+        },
         {
           label: "Testing Contracts",
           type: "category",
           link: {
             type: "doc",
-            id: "developers/contracts/testing_a_contract/main",
+            id: "developers/contracts/testing_contracts/main",
           },
           items: [
-            "developers/contracts/testing_a_contract/cheat_codes",
+            "developers/contracts/testing_contracts/cheat_codes",
                      ],
         },
         {
@@ -473,20 +485,31 @@ const sidebars = {
         id: "developers/aztecjs/main",
       },
       items: [
-        { label: "References",
-        type: "category",
-        items: [
-          {
-            label: "Aztec.js",
-            type: "category",
-            items: [{ dirName: "apis/aztec-js", type: "autogenerated" }],
-          },
-          {
-            label: "Accounts",
-            type: "category",
-            items: [{ dirName: "apis/accounts", type: "autogenerated" }],
-          },
-      ],
+        {
+          label: "Guides",
+          type: "category",
+          items: [
+            "developers/aztecjs/guides/create_account",
+            "developers/aztecjs/guides/deploy_contract",
+            "developers/aztecjs/guides/send_transaction",
+            "developers/aztecjs/guides/call_view_function",
+          ],
+        },
+        { 
+          label: "References",
+          type: "category",
+          items: [
+            {
+              label: "Aztec.js",
+              type: "category",
+              items: [{ dirName: "apis/aztec-js", type: "autogenerated" }],
+            },
+            {
+              label: "Accounts",
+              type: "category",
+              items: [{ dirName: "apis/accounts", type: "autogenerated" }],
+            },
+       ],
     },
     ],
     },

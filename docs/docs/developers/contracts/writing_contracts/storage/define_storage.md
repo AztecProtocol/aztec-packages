@@ -1,5 +1,5 @@
 ---
-title: Define contract storage
+title: How to define contract storage
 ---
 
 On this page, you will learn how to define storage in your smart contract.

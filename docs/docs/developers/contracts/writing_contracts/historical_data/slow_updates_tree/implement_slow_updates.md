@@ -1,5 +1,5 @@
 ---
-title: Implement a Slow Updates Tree
+title: How to implement a Slow Updates Tree
 ---
 
 To learn more about the Slow Updates Tree, go [here](./main.md)
