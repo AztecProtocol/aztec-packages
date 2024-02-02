@@ -31,7 +31,7 @@ export function computeContractClassId(contractClass: ContractClass): Fr {
 /** Returns the preimage of a contract class id given a contract class. */
 export function computeContractClassIdPreimage(contractClass: ContractClass): ContractClassIdPreimage {
   const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
-  const publicBytecodeCommitment = computeBytecodeCommitment(contractClass.packedBytecode);
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
   return { artifactHash: contractClass.artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }
 
@@ -43,6 +43,6 @@ export type ContractClassIdPreimage = {
 };
 
 // TODO(@spalladino): Replace with actual implementation
-function computeBytecodeCommitment(bytecode: Buffer) {
+export function computePublicBytecodeCommitment(bytecode: Buffer) {
   return Fr.fromBufferReduce(sha256(bytecode));
 }

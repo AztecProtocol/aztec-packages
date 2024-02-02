@@ -15,9 +15,14 @@ import {
   LogType,
   TxHash,
 } from '@aztec/circuit-types';
-import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import {
+  CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+  FunctionSelector,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -272,6 +277,15 @@ export class Archiver implements ArchiveSource {
       ),
     );
 
+    // Unroll all logs emitted during the retrieved blocks and filter them
+    // Log selectors
+    // TODO: properly deserialize! first bytes are not selector, may be the address, and then the 5.
+    const allLogs = L2BlockL2Logs.unrollLogs(retrievedBlocks.retrievedData.map(b => b.newUnencryptedLogs));
+    const contractClassRegisteredLogs = allLogs.filter(
+      log => toBigIntBE(log.subarray(0, 32)) == CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+    );
+    await this.storeRegisteredContractClasses(contractClassRegisteredLogs);
+
     // store contracts for which we have retrieved L2 blocks
     const lastKnownL2BlockNum = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
     await Promise.all(
@@ -301,6 +315,8 @@ export class Archiver implements ArchiveSource {
       }),
     );
   }
+
+  private async storeRegisteredContractClasses(contractClassRegisteredLogs: Buffer[]) {}
 
   /**
    * Stores extended contract data as classes and instances.

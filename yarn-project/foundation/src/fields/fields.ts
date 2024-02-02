@@ -95,6 +95,14 @@ abstract class BaseField {
     return this.asBigInt;
   }
 
+  toNumber(): number {
+    const value = this.toBigInt();
+    if (value > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Value >= than max safe integer`);
+    }
+    return Number(value);
+  }
+
   toShortString(): string {
     const str = this.toString();
     return `${str.slice(0, 10)}...${str.slice(-4)}`;
