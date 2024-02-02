@@ -206,6 +206,7 @@ contract InclusionProofs {
         prove_public_value_inclusion_at(
             0,
             storage.public_unused_value.storage_slot,
+            context.this_address(),
             block_number,
             context
         );
@@ -221,11 +222,17 @@ contract InclusionProofs {
             prove_public_value_inclusion_at(
                 public_value,
                 storage.public_value.storage_slot,
+                context.this_address(),
                 block_number,
                 context
             );
         } else {
-            prove_public_value_inclusion(public_value, storage.public_value.storage_slot, context);
+            prove_public_value_inclusion(
+                public_value,
+                storage.public_value.storage_slot,
+                context.this_address(),
+                context
+            );
         }
     }
 

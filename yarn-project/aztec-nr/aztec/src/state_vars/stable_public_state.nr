@@ -58,6 +58,7 @@ impl<T> StablePublicState<T> {
             prove_public_value_inclusion(
                 fields[i],
                 self.storage_slot + i,
+                (*private_context).this_address(),
                 (*private_context),
             )
         }
