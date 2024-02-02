@@ -10,7 +10,8 @@ contract AvmTest {
     fn constructor() {}
 
     // Function name prefix "avm_" flags it for transpilation
-    unconstrained fn avm_addArgsReturn(argA: Field, argB: Field) -> pub Field {
+    #[aztec(public-avm)]
+    fn addArgsReturn(argA: Field, argB: Field) -> pub Field {
         argA + argB
     }
 

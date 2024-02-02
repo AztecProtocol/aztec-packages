@@ -424,6 +424,10 @@ fn transform_module(
                 transform_function("Public", func, storage_defined)
                     .map_err(|err| (err, crate_graph.root_file_id))?;
                 has_transformed_module = true;
+            } else if is_custom_attribute(&secondary_attribute, "aztec(public-vm)") {
+                transform_vm_function(func, storage_defined)
+                    .map_err(|err| (err, crate_graph.root_file_id))?;
+                has_transformed_module = true;
             }
         }
         // Add the storage struct to the beginning of the function if it is unconstrained in an aztec contract
@@ -582,6 +586,14 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
     };
     module.impls.push(storage_impl);
 
+    Ok(())
+}
+
+// Transform a function to work with AVM bytecode
+fn transform_vm_function(func: &mut NoirFunction, _storage_defined: bool) -> Result<(), AztecMacroError> {
+    // No need to abstract the return values in this way
+
+    func.def.is_open = true;
     Ok(())
 }
 
