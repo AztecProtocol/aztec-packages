@@ -42,6 +42,7 @@ impl<N> Reader<N> {
         result
     }
 
+    // TODO(#4394)
     pub fn read_struct<T, K>(&mut self, deserialise: fn([Field; K]) -> T) -> T {
         let result = deserialise(self.read_array([0; K]));
         result
