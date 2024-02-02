@@ -38,6 +38,8 @@ struct BigIntToLeBytes {
     friend bool operator==(BigIntToLeBytes const& lhs, BigIntToLeBytes const& rhs) = default;
 };
 
+/// Enumerates the supported modulus types for big integer operations.
+/// Specifies whether a bigint refers to a BN254/SECP256K1/SECP256R1 Fq or Fr modulus.
 enum ModulusId {
     BN254_FQ = 0,
     BN254_FR,
@@ -48,6 +50,9 @@ enum ModulusId {
     UNKNOWN,
 };
 
+/// 256-bit modulus value for a field element
+/// The modulus is represented by 4 64-bits limbs
+/// Used to define the modulus for big integer operations.
 class ModulusParam {
   public:
     uint64_t modulus_0;
@@ -55,6 +60,7 @@ class ModulusParam {
     uint64_t modulus_2;
     uint64_t modulus_3;
 };
+
 template <typename Builder> class DSLBigInts {
     using big_bn254_fq = bb::stdlib::bigfield<Builder, bb::Bn254FqParams>;
     using big_bn254_fr = bb::stdlib::bigfield<Builder, bb::Bn254FrParams>;
