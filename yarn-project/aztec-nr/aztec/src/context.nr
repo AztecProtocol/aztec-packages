@@ -311,12 +311,7 @@ impl PrivateContext {
 
         let item = PrivateCallStackItem {
             contract_address: AztecAddress::from_field(reader.read()),
-            function_data: FunctionData {
-                selector: FunctionSelector::from_field(reader.read()),
-                is_internal: reader.read() as bool,
-                is_private: reader.read() as bool,
-                is_constructor: reader.read() as bool,
-            },
+            function_data: reader.read_struct(FunctionData::deserialize),
             public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize),
             is_execution_request: reader.read() as bool,
         };
@@ -384,12 +379,7 @@ impl PrivateContext {
 
         let item = PublicCallStackItem {
             contract_address:  AztecAddress::from_field(reader.read()),
-            function_data: FunctionData {
-                selector: FunctionSelector::from_field(reader.read()),
-                is_internal: reader.read() as bool,
-                is_private: reader.read() as bool,
-                is_constructor: reader.read() as bool,
-            },
+            function_data: reader.read_struct(FunctionData::deserialize),
             public_inputs: PublicCircuitPublicInputs {
                 call_context: reader.read_struct(CallContext::deserialize),
                 args_hash: reader.read(),
