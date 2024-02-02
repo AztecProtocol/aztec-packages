@@ -22,7 +22,7 @@ template <typename Flavor> class MergeProver_ {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using OpeningPair = OpeningPair<Curve>;
+    using OpeningPair = bb::OpeningPair<Curve>;
     using Transcript = NativeTranscript;
 
   public:
