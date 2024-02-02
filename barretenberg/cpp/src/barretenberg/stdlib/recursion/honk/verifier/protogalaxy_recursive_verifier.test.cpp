@@ -57,8 +57,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
      */
     static void create_inner_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
     {
-        using fr_ct = InnerCurve::ScalarField;
-        using fq_ct = InnerCurve::BaseField;
+        using fr_ct = typename InnerCurve::ScalarField;
+        using fq_ct = typename InnerCurve::BaseField;
         using public_witness_ct = InnerCurve::public_witness_ct;
         using witness_ct = InnerCurve::witness_ct;
         using byte_array_ct = InnerCurve::byte_array_ct;
