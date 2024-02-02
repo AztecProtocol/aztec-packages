@@ -328,7 +328,6 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     case BN254_FQ: {
         auto big = big_bn254_fq(bytes);
         dsl_bigints.set_bn254_fq(big, input.result);
-
         break;
     }
     case BN254_FR: {
