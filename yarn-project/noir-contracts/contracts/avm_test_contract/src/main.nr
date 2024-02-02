@@ -11,7 +11,7 @@ contract AvmTest {
 
     // Function name prefix "avm_" flags it for transpilation
     #[aztec(public-vm)]
-    fn avm_addArgsReturn(argA: Field, argB: Field) -> pub Field {
+    fn addArgsReturn(argA: Field, argB: Field) -> pub Field {
         argA + argB
     }
 
