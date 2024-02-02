@@ -32,7 +32,7 @@ export class KernelCircuitPublicInputsFinal {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.aggregationObject, this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(this.aggregationObject, this.endMeta, this.end, this.constants, this.isPrivate);
   }
 
   /**

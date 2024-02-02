@@ -395,7 +395,7 @@ export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): Ke
 export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
   return new PrivateKernelPublicInputsFinal(
     makeAggregationObject(seed),
-    FinalAccumulatedData.empty(),
+    makeFinalAccumulatedData(seed, true),
     makeFinalAccumulatedData(seed, true),
     makeConstantData(seed + 0x100),
   );
