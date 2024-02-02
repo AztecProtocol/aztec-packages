@@ -88,6 +88,8 @@ export class KernelProver {
   async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<KernelProverOutput> {
     const executionStack = [executionResult];
     const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
+    // pluck the meta high watermark from the public inputs of the first callstack item
+    const metaHwm = executionResult.callStackItem.publicInputs.metaHwm.toBigInt();
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
 
@@ -141,6 +143,7 @@ export class KernelProver {
         const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
+        assertLength(output.publicInputs.end.newCommitments, MAX_NEW_COMMITMENTS_PER_TX);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
         const previousKernelData = new PreviousKernelData(
@@ -170,15 +173,21 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
-      SideEffect,
-      typeof MAX_NEW_COMMITMENTS_PER_TX
-    >(output.publicInputs.end.newCommitments);
+    const {
+      appLogic: [sortedCommitments, sortedCommitmentsIndexes],
+    } = this.partitionAndSortSideEffects<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>(
+      output.publicInputs.end.newCommitments,
+      metaHwm,
+      SideEffect.empty(),
+    );
 
-    const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
-      SideEffectLinkedToNoteHash,
-      typeof MAX_NEW_NULLIFIERS_PER_TX
-    >(output.publicInputs.end.newNullifiers);
+    const {
+      appLogic: [sortedNullifiers, sortedNullifiersIndexes],
+    } = this.partitionAndSortSideEffects<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>(
+      output.publicInputs.end.newNullifiers,
+      metaHwm,
+      SideEffectLinkedToNoteHash.empty(),
+    );
 
     const readCommitmentHints = this.getReadRequestHints(output.publicInputs.end.readRequests, sortedCommitments);
 
@@ -230,6 +239,29 @@ export class KernelProver {
     });
 
     return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
+  }
+
+  private partitionAndSortSideEffects<T extends SideEffectType, K extends number>(
+    sideEffects: Tuple<T, K>,
+    metaHwm: bigint,
+    empty: T,
+  ): { meta: [Tuple<T, K>, Tuple<number, K>]; appLogic: [Tuple<T, K>, Tuple<number, K>] } {
+    const meta = makeTuple(sideEffects.length, () => empty) as Tuple<T, K>;
+    const appLogic = makeTuple(sideEffects.length, () => empty) as Tuple<T, K>;
+    const partitions = sideEffects.reduce(
+      (partitions, sideEffect) => {
+        const partition = sideEffect.counter.toBigInt() < metaHwm ? partitions.meta : partitions.appLogic;
+        const index = partition.findIndex(se => se.isEmpty());
+        if (index === -1) {
+          throw new Error('Too many side effects');
+        }
+        partition[index] = sideEffect;
+        return partitions;
+      },
+      { meta, appLogic },
+    );
+
+    return { meta: this.sortSideEffects(partitions.meta), appLogic: this.sortSideEffects(partitions.appLogic) };
   }
 
   private async createPrivateCallData(

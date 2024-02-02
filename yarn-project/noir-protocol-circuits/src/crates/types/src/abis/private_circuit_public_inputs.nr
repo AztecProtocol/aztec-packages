@@ -29,6 +29,8 @@ struct PrivateCircuitPublicInputs {
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
 
+    meta_hwm: u32,
+
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
 
@@ -65,6 +67,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
+
+        fields.push(self.meta_hwm as Field);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.read_requests[i].serialize());

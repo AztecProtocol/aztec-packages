@@ -7,8 +7,7 @@ use crate::{
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
-    mocked::AggregationObject
+    }
 };
 use crate::constants::{
     MAX_READ_REQUESTS_PER_TX,
@@ -26,8 +25,6 @@ use crate::constants::{
 };
 
 struct CombinedAccumulatedData {
-    aggregation_object: AggregationObject,
-
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
     nullifier_key_validation_requests: [NullifierKeyValidationRequestContext; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 
@@ -56,8 +53,6 @@ struct CombinedAccumulatedData {
 }
 
 struct FinalAccumulatedData {
-    aggregation_object: AggregationObject,
-
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
@@ -78,8 +73,6 @@ struct FinalAccumulatedData {
 }
 
 struct CombinedAccumulatedDataBuilder {
-    aggregation_object: AggregationObject,
-
     read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
 
@@ -110,7 +103,6 @@ struct CombinedAccumulatedDataBuilder {
 impl CombinedAccumulatedDataBuilder {
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            aggregation_object: self.aggregation_object,
 
             read_requests: self.read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
@@ -136,7 +128,7 @@ impl CombinedAccumulatedDataBuilder {
 
             public_data_reads: self.public_data_reads.storage,
         }
-    } 
+    }
 
     pub fn to_final(self) -> FinalAccumulatedData {
         assert_eq(self.read_requests.len, 0, "Final accumulated data: read requests not empty");
@@ -145,7 +137,6 @@ impl CombinedAccumulatedDataBuilder {
         assert_eq(self.public_data_reads.len, 0, "Final accumulated data: public data reads not empty");
 
         FinalAccumulatedData {
-            aggregation_object: self.aggregation_object,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
@@ -163,5 +154,5 @@ impl CombinedAccumulatedDataBuilder {
             new_contracts: self.new_contracts.storage,
             optionally_revealed_data: self.optionally_revealed_data,
         }
-    } 
+    }
 }

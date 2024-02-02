@@ -1,5 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { AggregationObject } from '../aggregation_object.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
@@ -8,6 +9,10 @@ import { CombinedConstantData } from './combined_constant_data.js';
  */
 export class KernelCircuitPublicInputs {
   constructor(
+    /**
+     * Aggregated proof of all the previous kernel iterations.
+     */
+    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * Data accumulated from both public and private circuits.
      */
@@ -23,7 +28,7 @@ export class KernelCircuitPublicInputs {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(this.aggregationObject, this.end, this.constants, this.isPrivate);
   }
 
   /**
@@ -34,6 +39,7 @@ export class KernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new KernelCircuitPublicInputs(
+      reader.readObject(AggregationObject),
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
@@ -41,7 +47,12 @@ export class KernelCircuitPublicInputs {
   }
 
   static empty() {
-    return new KernelCircuitPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty(), true);
+    return new KernelCircuitPublicInputs(
+      AggregationObject.makeFake(),
+      CombinedAccumulatedData.empty(),
+      CombinedConstantData.empty(),
+      true,
+    );
   }
 }
 
@@ -49,12 +60,16 @@ export class KernelCircuitPublicInputs {
  * Public inputs of the public kernel circuit.
  */
 export class PublicKernelPublicInputs extends KernelCircuitPublicInputs {
-  constructor(end: CombinedAccumulatedData, constants: CombinedConstantData) {
-    super(end, constants, false);
+  constructor(aggregationObject: AggregationObject, end: CombinedAccumulatedData, constants: CombinedConstantData) {
+    super(aggregationObject, end, constants, false);
   }
 
   static empty(): PublicKernelPublicInputs {
-    return new PublicKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
+    return new PublicKernelPublicInputs(
+      AggregationObject.makeFake(),
+      CombinedAccumulatedData.empty(),
+      CombinedConstantData.empty(),
+    );
   }
 }
 
@@ -62,11 +77,15 @@ export class PublicKernelPublicInputs extends KernelCircuitPublicInputs {
  * Public inputs of the private kernel circuit.
  */
 export class PrivateKernelPublicInputs extends KernelCircuitPublicInputs {
-  constructor(end: CombinedAccumulatedData, constants: CombinedConstantData) {
-    super(end, constants, true);
+  constructor(aggregationObject: AggregationObject, end: CombinedAccumulatedData, constants: CombinedConstantData) {
+    super(aggregationObject, end, constants, true);
   }
 
   static empty(): PrivateKernelPublicInputs {
-    return new PrivateKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
+    return new PrivateKernelPublicInputs(
+      AggregationObject.makeFake(),
+      CombinedAccumulatedData.empty(),
+      CombinedConstantData.empty(),
+    );
   }
 }

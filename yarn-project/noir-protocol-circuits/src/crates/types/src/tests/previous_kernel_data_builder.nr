@@ -12,7 +12,7 @@ use crate::{
     },
     address::{AztecAddress, EthAddress},
     header::Header,
-    mocked::{Proof, VerificationKey},
+    mocked::{AggregationObject, Proof, VerificationKey},
     tests::{
         fixtures,
         testing_harness::build_tx_context,
@@ -190,6 +190,7 @@ impl PreviousKernelDataBuilder {
 
     pub fn finish(self) -> PreviousKernelData {
         let public_inputs = KernelCircuitPublicInputs {
+            aggregation_object: AggregationObject {},
             end: self.end.finish(),
             constants: CombinedConstantData {
                 historical_header: self.historical_header,

@@ -72,6 +72,8 @@ struct PrivateContext {
     inputs: PrivateContextInputs,
     side_effect_counter: u32,
 
+    meta_hwm: u32,
+
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
@@ -101,6 +103,7 @@ impl PrivateContext {
         PrivateContext {
             inputs: inputs,
             side_effect_counter: inputs.call_context.start_side_effect_counter,
+            meta_hwm: 0,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
@@ -172,6 +175,7 @@ impl PrivateContext {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
+            meta_hwm: self.meta_hwm,
             read_requests: self.read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_commitments: self.new_commitments.storage,
@@ -330,6 +334,7 @@ impl PrivateContext {
                 },
                 args_hash: reader.read(),
                 return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
+                meta_hwm: reader.read() as u32,
                 read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
                 nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
                 new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),

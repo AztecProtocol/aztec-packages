@@ -642,6 +642,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
+    meta_hwm: mapFieldToNoir(Fr.ZERO),
   };
 }
 
@@ -880,8 +881,6 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    // TODO aggregation object
-    AggregationObject.makeFake(),
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.nullifier_key_validation_requests,
@@ -931,8 +930,6 @@ export function mapCombinedAccumulatedDataFromNoir(
  */
 export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccumulatedDataNoir): FinalAccumulatedData {
   return new FinalAccumulatedData(
-    // TODO aggregation object
-    AggregationObject.makeFake(),
     mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -968,7 +965,6 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    aggregation_object: {},
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
     nullifier_key_validation_requests: mapTuple(
       combinedAccumulatedData.nullifierKeyValidationRequests,
@@ -1069,6 +1065,8 @@ export function mapKernelCircuitPublicInputsFromNoir(
   kernelCircuitPublicInputs: KernelCircuitPublicInputsNoir,
 ): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
+    // TODO aggregation object
+    AggregationObject.makeFake(),
     mapCombinedAccumulatedDataFromNoir(kernelCircuitPublicInputs.end),
     mapCombinedConstantDataFromNoir(kernelCircuitPublicInputs.constants),
     kernelCircuitPublicInputs.is_private,
@@ -1084,6 +1082,7 @@ export function mapKernelCircuitPublicInputsToNoir(
   publicInputs: KernelCircuitPublicInputs,
 ): KernelCircuitPublicInputsNoir {
   return {
+    aggregation_object: {},
     end: mapCombinedAccumulatedDataToNoir(publicInputs.end),
     constants: mapCombinedConstantDataToNoir(publicInputs.constants),
     is_private: publicInputs.isPrivate,
@@ -1099,6 +1098,8 @@ export function mapKernelCircuitPublicInputsFinalFromNoir(
   publicInputs: KernelCircuitPublicInputsFinalNoir,
 ): KernelCircuitPublicInputsFinal {
   return new KernelCircuitPublicInputsFinal(
+    AggregationObject.makeFake(),
+    mapFinalAccumulatedDataFromNoir(publicInputs.end_meta),
     mapFinalAccumulatedDataFromNoir(publicInputs.end),
     mapCombinedConstantDataFromNoir(publicInputs.constants),
     publicInputs.is_private,
