@@ -59,14 +59,13 @@ describe('e2e_inclusion_proofs_contract', () => {
       const value = 100n;
       let validNoteBlockNumber: any;
 
-      it('should return the correct values for creating a note', async  () => {
+      it('should return the correct values for creating a note', async () => {
         // Create a note
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
         ({ newCommitments, visibleNotes } = receipt.debugInfo!);
-      })
-
+      });
 
       it('should return the correct values for creating a note', async () => {
         expect(newCommitments.length).toBe(1);
@@ -74,21 +73,14 @@ describe('e2e_inclusion_proofs_contract', () => {
         const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
-      })
-
+      });
 
       it('should not throw because the note is included', async () => {
         // Prove note inclusion in a given block.
-        await contract.methods
-          .test_note_inclusion(owner, true, noteCreationBlockNumber, false)
-          .send()
-          .wait();
+        await contract.methods.test_note_inclusion(owner, true, noteCreationBlockNumber, false).send().wait();
 
-        await contract.methods
-          .test_note_inclusion(owner, false, 0n, false)
-          .send()
-          .wait();
-      })
+        await contract.methods.test_note_inclusion(owner, false, 0n, false).send().wait();
+      });
 
       it('should not throw because the note is not nullified', async () => {
         // Prove that the note has not been nullified with block_number
@@ -97,13 +89,13 @@ describe('e2e_inclusion_proofs_contract', () => {
         const blockNumber = await pxe.getBlockNumber();
         await contract.methods.test_note_not_nullified(owner, true, blockNumber, false).send().wait();
         await contract.methods.test_note_not_nullified(owner, false, 0n, false).send().wait();
-      })
+      });
 
       it('should not throw because is both included, not nullified, and therefore valid', async () => {
         validNoteBlockNumber = await pxe.getBlockNumber();
         await contract.methods.test_note_validity(owner, true, validNoteBlockNumber, false).send().wait();
         await contract.methods.test_note_validity(owner, false, 0n, false).send().wait();
-      })
+      });
 
       describe('we will test the vailure case by nullifying a note', () => {
         let receipt: any;
@@ -118,8 +110,7 @@ describe('e2e_inclusion_proofs_contract', () => {
           const { newNullifiers } = receipt!.debugInfo!;
           expect(newNullifiers.length).toBe(2);
           const nullifier = newNullifiers[1];
-        })
-
+        });
 
         // Note: getLowNullifierMembershipWitness returns the membership witness of the nullifier itself and not
         // the low nullifier when the nullifier already exists in the tree and for this reason the execution fails
@@ -130,25 +121,17 @@ describe('e2e_inclusion_proofs_contract', () => {
           ).rejects.toThrow(
             /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
           );
-          await expect(
-            contract.methods.test_note_not_nullified(owner, false, 0n, true).send().wait(),
-          ).rejects.toThrow(
+          await expect(contract.methods.test_note_not_nullified(owner, false, 0n, true).send().wait()).rejects.toThrow(
             /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
           );
-        })
+        });
 
         it('should not throw when we test inclusion of nullified note', async () => {
           const blockNumber = await pxe.getBlockNumber();
-          await contract.methods
-          .test_note_inclusion(owner, true, noteCreationBlockNumber, true)
-          .send()
-          .wait();
+          await contract.methods.test_note_inclusion(owner, true, noteCreationBlockNumber, true).send().wait();
 
-        await contract.methods
-          .test_note_inclusion(owner, false, 0n, true)
-          .send()
-          .wait();
-        })
+          await contract.methods.test_note_inclusion(owner, false, 0n, true).send().wait();
+        });
 
         it('should throw when we test validity', async () => {
           const blockNumber = await pxe.getBlockNumber();
@@ -157,18 +140,16 @@ describe('e2e_inclusion_proofs_contract', () => {
           ).rejects.toThrow(
             /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
           );
-          await expect(
-            contract.methods.test_note_validity(owner, false, 0n, true).send().wait(),
-          ).rejects.toThrow(
+          await expect(contract.methods.test_note_validity(owner, false, 0n, true).send().wait()).rejects.toThrow(
             /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
           );
-        })
+        });
 
         it('should not throw because the note was not nullified yet at validNoteBlockNumber', async () => {
           await contract.methods.test_note_not_nullified(owner, true, validNoteBlockNumber, true).send().wait();
           await contract.methods.test_note_validity(owner, true, validNoteBlockNumber, true).send().wait();
-        }) 
-      })
+        });
+      });
     });
 
     it('proves note validity (note commitment inclusion and nullifier non-inclusion)', async () => {
@@ -209,9 +190,9 @@ describe('e2e_inclusion_proofs_contract', () => {
         contract.methods.test_note_inclusion_fail_case(owner, true, blockNumber).send().wait(),
       ).rejects.toThrow(/Leaf value: .* not found in NOTE_HASH_TREE/);
 
-      await expect(
-        contract.methods.test_note_inclusion_fail_case(owner, false, 0n).send().wait(),
-      ).rejects.toThrow(/Leaf value: .* not found in NOTE_HASH_TREE/);
+      await expect(contract.methods.test_note_inclusion_fail_case(owner, false, 0n).send().wait()).rejects.toThrow(
+        /Leaf value: .* not found in NOTE_HASH_TREE/,
+      );
     });
   });
 
@@ -262,9 +243,9 @@ describe('e2e_inclusion_proofs_contract', () => {
         contract.methods.test_nullifier_inclusion(randomNullifier, true, blockNumber).send().wait(),
       ).rejects.toThrow(`Low nullifier witness not found for nullifier ${randomNullifier.toString()} at block`);
 
-      await expect(
-        contract.methods.test_nullifier_inclusion(randomNullifier, false, 0n).send().wait(),
-      ).rejects.toThrow(`Low nullifier witness not found for nullifier ${randomNullifier.toString()} at block`);
+      await expect(contract.methods.test_nullifier_inclusion(randomNullifier, false, 0n).send().wait()).rejects.toThrow(
+        `Low nullifier witness not found for nullifier ${randomNullifier.toString()} at block`,
+      );
     });
   });
 
