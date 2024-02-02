@@ -59,9 +59,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     {
         using fr_ct = typename InnerCurve::ScalarField;
         using fq_ct = typename InnerCurve::BaseField;
-        using public_witness_ct = InnerCurve::public_witness_ct;
-        using witness_ct = InnerCurve::witness_ct;
-        using byte_array_ct = InnerCurve::byte_array_ct;
+        using public_witness_ct = typename InnerCurve::public_witness_ct;
+        using witness_ct = typename InnerCurve::witness_ct;
+        using byte_array_ct = typename InnerCurve::byte_array_ct;
         using fr = typename InnerCurve::ScalarFieldNative;
         using point = typename InnerCurve::AffineElementNative;
 
