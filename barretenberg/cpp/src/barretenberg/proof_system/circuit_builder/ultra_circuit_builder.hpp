@@ -674,7 +674,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     UltraCircuitBuilder_(const size_t size_hint,
                          auto& witness_values,
                          const std::vector<uint32_t>& public_inputs,
-                         size_t varnum)
+                         size_t varnum,
+                         bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
         selectors.reserve(size_hint);
@@ -697,6 +698,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         // incorporated into variables.
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+
+        this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
@@ -1169,5 +1172,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 
     bool check_circuit();
 };
-using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<bb::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

@@ -6,8 +6,7 @@ import {
   deserializeArrayFromVector,
   serializeBufferArrayToVector,
 } from '@aztec/foundation/serialize';
-
-import { Hasher } from '../interfaces/index.js';
+import { Hasher } from '@aztec/types/interfaces';
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.
@@ -77,7 +76,7 @@ export class SiblingPath<N extends number> {
    * Convert the Sibling Path object into an array of field elements.
    * @returns The field array representation of this object.
    */
-  public toFieldArray(): Fr[] {
+  public toFields(): Fr[] {
     return this.data.map(buf => Fr.fromBuffer(buf));
   }
 
@@ -86,7 +85,7 @@ export class SiblingPath<N extends number> {
    * @returns A tuple representation of the sibling path.
    */
   public toTuple<N extends number>(): Tuple<Fr, N> {
-    const array = this.toFieldArray();
+    const array = this.toFields();
     return makeTuple(array.length as N, i => array[i], 0);
   }
 

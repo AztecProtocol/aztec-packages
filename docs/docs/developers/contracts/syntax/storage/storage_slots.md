@@ -31,7 +31,7 @@ sequenceDiagram
     Set->>LifeCycle: create_note(derived_slot, note)
     LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, is_transient: true }
     LifeCycle->>Utils: compute_inner_note_hash(note)
-    Utils->>TokenNote: compute_note_hash(note)
+    Utils->>TokenNote: note.compute_note_content_hash()
     TokenNote->>Utils: note_hash = H(amount, to, randomness)
     Utils->>NoteHash: compute_inner_hash(derived_slot, note_hash)
     NoteHash->>LifeCycle: inner_note_hash = H(derived_slot, note_hash)
@@ -48,10 +48,6 @@ siloed_note_hash = H(contract_address, H(derived_slot, note_hash))
 siloed_note_hash = H(contract_address, H(H(map_slot, to), note_hash))
 siloed_note_hash = H(contract_address, H(H(map_slot, to), H(amount, to, randomness)))
 ```
-
-Where the `map_slot` is the slot specified in `Storage::init`, recall:
-
-#include_code storage_balances_init yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
 And `to` is the actor who receives the note, `amount` of the note and `randomness` is the randomness used to make the note hiding. Without the `randomness` the note could just as well be plaintext (computational cost of a preimage attack would be trivial in such a case).
 

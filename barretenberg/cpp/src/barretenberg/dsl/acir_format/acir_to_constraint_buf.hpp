@@ -256,6 +256,11 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .modulus = map(arg.modulus, [](auto& e) -> uint32_t { return e; }),
                     .result = arg.output,
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntToLeBytes>) {
+                af.bigint_to_le_bytes_constraints.push_back(BigIntToLeBytes{
+                    .input = arg.input,
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntAdd>) {
                 af.bigint_operations.push_back(BigIntOperation{
                     .lhs = arg.lhs,
@@ -268,7 +273,7 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .lhs = arg.lhs,
                     .rhs = arg.rhs,
                     .result = arg.output,
-                    .opcode = BigIntOperationType::Neg,
+                    .opcode = BigIntOperationType::Sub,
                 });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntMul>) {
                 af.bigint_operations.push_back(BigIntOperation{
@@ -340,6 +345,7 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
+    af.recursive = circuit.recursive;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     std::map<uint32_t, BlockConstraint> block_id_to_block_constraint;

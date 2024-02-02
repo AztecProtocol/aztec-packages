@@ -13,7 +13,7 @@
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
 
-namespace bb::honk {
+namespace bb {
 
 template <typename T, typename... U>
 concept Loggable = (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> ||
@@ -63,7 +63,7 @@ class TranscriptManifest {
 
 struct NativeTranscriptParams {
     using Fr = bb::fr;
-    using Proof = honk::proof;
+    using Proof = HonkProof;
     static inline Fr hash(const std::vector<Fr>& data)
     {
         return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
@@ -374,10 +374,10 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        /* constexpr */ size_t element_size = TranscriptParams::template calc_num_bn254_frs<T>();
+        const size_t element_size = TranscriptParams::template calc_num_bn254_frs<T>();
         ASSERT(num_frs_read + element_size <= proof_data.size());
 
-        std::span<Fr> element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
+        auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         num_frs_read += element_size;
 
         BaseTranscript::consume_prover_element_frs(label, element_frs);
@@ -435,17 +435,17 @@ template <typename TranscriptParams> class BaseTranscript {
 };
 
 template <typename Builder>
-static bb::honk::StdlibProof<Builder> convert_proof_to_witness(Builder* builder, const bb::honk::proof& proof)
+static bb::StdlibProof<Builder> convert_proof_to_witness(Builder* builder, const HonkProof& proof)
 {
-    bb::honk::StdlibProof<Builder> result;
+    bb::StdlibProof<Builder> result;
     for (const auto& element : proof) {
         result.push_back(bb::stdlib::witness_t<Builder>(builder, element));
     }
     return result;
 }
 
-using NativeTranscript = honk::BaseTranscript<NativeTranscriptParams>;
-using UltraStdlibTranscript = honk::BaseTranscript<StdlibTranscriptParams<UltraCircuitBuilder>>;
-using GoblinUltraStdlibTranscript = honk::BaseTranscript<StdlibTranscriptParams<GoblinUltraCircuitBuilder>>;
+using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
+using UltraStdlibTranscript = BaseTranscript<StdlibTranscriptParams<UltraCircuitBuilder>>;
+using GoblinUltraStdlibTranscript = BaseTranscript<StdlibTranscriptParams<GoblinUltraCircuitBuilder>>;
 
-} // namespace bb::honk
+} // namespace bb

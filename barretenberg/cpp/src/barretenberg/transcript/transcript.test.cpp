@@ -6,7 +6,7 @@ using namespace bb;
 using FF = bb::fr;
 using Fr = bb::fr;
 using Fq = bb::fq;
-using Transcript = bb::honk::NativeTranscript;
+using Transcript = NativeTranscript;
 
 /**
  * @brief Test sending, receiving, and exporting proofs

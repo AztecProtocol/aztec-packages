@@ -8,7 +8,15 @@ import {
   PublicDataWitness,
   StateInfoProvider,
 } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, EthAddress, Fr, FunctionSelector, Header } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  EthAddress,
+  Fr,
+  FunctionSelector,
+  Header,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -118,16 +126,12 @@ export class SimulatorOracle implements DBOracle {
    * @returns A promise that resolves to the message data, a sibling path and the
    *          index of the message in the l1ToL2MessageTree
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
+  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
-    const message = messageAndIndex.message.toFieldArray();
+    const message = messageAndIndex.message;
     const index = messageAndIndex.index;
     const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath('latest', index);
-    return {
-      message,
-      siblingPath: siblingPath.toFieldArray(),
-      index,
-    };
+    return new MessageLoadOracleInputs(message, index, siblingPath);
   }
 
   /**
@@ -151,15 +155,15 @@ export class SimulatorOracle implements DBOracle {
     // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
     switch (treeId) {
       case MerkleTreeId.CONTRACT_TREE:
-        return (await this.stateInfoProvider.getContractSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getContractSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.stateInfoProvider.getNullifierSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.NOTE_HASH_TREE:
-        return (await this.stateInfoProvider.getNoteHashSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getNoteHashSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.stateInfoProvider.getPublicDataSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getPublicDataSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.ARCHIVE:
-        return (await this.stateInfoProvider.getArchiveSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getArchiveSiblingPath(blockNumber, leafIndex)).toFields();
       default:
         throw new Error('Not implemented');
     }

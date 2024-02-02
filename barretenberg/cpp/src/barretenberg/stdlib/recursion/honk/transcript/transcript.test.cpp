@@ -10,11 +10,11 @@
 namespace bb::stdlib::recursion::honk {
 
 using Builder = UltraCircuitBuilder;
-using UltraFlavor = ::bb::honk::flavor::Ultra;
-using UltraRecursiveFlavor = ::bb::honk::flavor::UltraRecursive_<Builder>;
-using FF = bb::fr;
-using NativeTranscript = ::bb::honk::NativeTranscript;
-using StdlibTranscript = bb::honk::BaseTranscript<bb::honk::StdlibTranscriptParams<Builder>>;
+using UltraFlavor = UltraFlavor;
+using UltraRecursiveFlavor = UltraRecursiveFlavor_<Builder>;
+using FF = fr;
+using NativeTranscript = NativeTranscript;
+using StdlibTranscript = BaseTranscript<StdlibTranscriptParams<Builder>>;
 
 /**
  * @brief Create some mock data; add it to the provided prover transcript in various mock rounds
@@ -107,7 +107,7 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     EXPECT_EQ(prover_transcript.get_manifest(), native_transcript.get_manifest());
 
     // Instantiate a stdlib Transcript and perform the same operations
-    bb::honk::StdlibProof<Builder> stdlib_proof = bb::honk::convert_proof_to_witness(&builder, proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
     StdlibTranscript transcript{ stdlib_proof };
     perform_mock_verifier_transcript_operations<UltraRecursiveFlavor, LENGTH>(transcript);
 
@@ -160,7 +160,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     auto [native_alpha, native_beta] = native_transcript.template get_challenges<FF>("alpha", "beta");
 
     // Perform the same operations with the stdlib verifier transcript
-    bb::honk::StdlibProof<Builder> stdlib_proof = bb::honk::convert_proof_to_witness(&builder, proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
     StdlibTranscript stdlib_transcript{ stdlib_proof };
     auto stdlib_scalar = stdlib_transcript.template receive_from_prover<field_ct>("scalar");
     auto stdlib_commitment = stdlib_transcript.template receive_from_prover<element_ct>("commitment");

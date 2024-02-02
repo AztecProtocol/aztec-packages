@@ -10,12 +10,13 @@ use crate::hash::{compute_l2_to_l1_hash, sha256_to_field};
 use crate::abis::call_stack_item::PublicCallStackItem;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 use crate::abis::side_effect::SideEffect;
+use crate::contract_class::ContractClassId;
 
 #[test]
 fn compute_address() {
     let point = GrumpkinPoint { x: 1, y: 2 };
     let contract_address_salt = 3;
-    let contract_class_id = 4;
+    let contract_class_id = ContractClassId::from_field(4);
     let initialization_hash = 5;
     let portal_contract_address = EthAddress::from_field(6);
 
@@ -58,7 +59,7 @@ fn compute_tx_request_hash() {
             contract_deployment_data: ContractDeploymentData {
                 public_key: GrumpkinPoint { x: 1, y: 2 },
                 initialization_hash: 1,
-                contract_class_id: 2,
+                contract_class_id: ContractClassId::from_field(2),
                 contract_address_salt: 3,
                 portal_contract_address: EthAddress::from_field(1)
             },
@@ -118,7 +119,7 @@ fn compute_call_stack_item_request_hash() {
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
     // Value from abis.test.ts "Computes a callstack item request hash" test
-    assert_eq(call_stack_item.hash(), 0x05c5d32c38f3de19dbfa92e25746e1db1a887d5b02b79dd915c0f50e9fc51dcd);
+    assert_eq(call_stack_item.hash(), 0x2c36008a759d932a3a1986429aa295e2c2d4e62c33197a7d259750d29347bf30);
 }
 
 #[test]
@@ -135,5 +136,5 @@ fn compute_call_stack_item_hash() {
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
     // Value from abis.test.ts "Computes a callstack item hash" test
-    assert_eq(call_stack_item.hash(), 0x06dc9c35290e1868f41fc9f45bca49482bf5d5c000c789d6c74e53bce0f686f8);
+    assert_eq(call_stack_item.hash(), 0x037cb5ba672a7c461e23cf22ae618757ab4f1a912f3fdc93b2b2800cfe57bb91);
 }

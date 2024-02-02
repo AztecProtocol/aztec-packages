@@ -15,12 +15,12 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    using Transcript = bb::honk::BaseTranscript<bb::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = bb::BaseTranscript<bb::StdlibTranscriptParams<Builder>>;
 
   public:
     explicit DeciderRecursiveVerifier_(Builder* builder);
 
-    PairingPoints verify_proof(const bb::honk::proof& proof);
+    PairingPoints verify_proof(const HonkProof& proof);
 
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;

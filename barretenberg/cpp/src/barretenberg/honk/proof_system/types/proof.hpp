@@ -3,10 +3,10 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <vector>
 
-namespace bb::honk {
+namespace bb {
 
-using proof = std::vector<bb::fr>;
+using HonkProof = std::vector<bb::fr>;
 
 template <typename Builder> using StdlibProof = std::vector<bb::stdlib::field_t<Builder>>;
 
-} // namespace bb::honk
+} // namespace bb

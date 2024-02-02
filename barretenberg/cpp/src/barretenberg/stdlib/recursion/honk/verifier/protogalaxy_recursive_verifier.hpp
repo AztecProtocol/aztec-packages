@@ -21,7 +21,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    using Transcript = bb::honk::BaseTranscript<bb::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = bb::BaseTranscript<bb::StdlibTranscriptParams<Builder>>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -92,7 +92,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
 
      */
-    void verify_folding_proof(const bb::honk::proof& proof);
+    void verify_folding_proof(const HonkProof& proof);
 
     /**
      * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
