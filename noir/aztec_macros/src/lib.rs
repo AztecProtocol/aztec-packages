@@ -792,9 +792,7 @@ fn get_serialized_length(
     let is_note = traits.iter().any(|&trait_id| {
         let r#trait = interner.get_trait(trait_id);
         r#trait.name.0.contents == "NoteInterface"
-            && !interner
-                .lookup_all_trait_implementations(stored_in_state.clone(), trait_id)
-                .is_empty()
+            && !interner.lookup_all_trait_implementations(stored_in_state, trait_id).is_empty()
     });
 
     // Maps and (private) Notes always occupy a single slot. Someone could store a Note in PublicState for whatever reason though.
@@ -810,7 +808,7 @@ fn get_serialized_length(
                 && r#trait.borrow().generics.len() == 1
             {
                 interner
-                    .lookup_all_trait_implementations(stored_in_state.clone(), trait_id)
+                    .lookup_all_trait_implementations(stored_in_state, trait_id)
                     .into_iter()
                     .next()
             } else {

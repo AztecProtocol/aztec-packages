@@ -1047,7 +1047,7 @@ impl NodeInterner {
     /// applying any type bindings. Useful to look for a specific trait in a type that is used in a macro.
     pub fn lookup_all_trait_implementations(
         &self,
-        object_type: Type,
+        object_type: &Type,
         trait_id: TraitId,
     ) -> Vec<&TraitImplKind> {
         let trait_impl = self.trait_implementation_map.get(&trait_id);
@@ -1058,7 +1058,7 @@ impl NodeInterner {
                     .iter()
                     .filter_map(|(typ, impl_kind)| match &typ {
                         Type::Forall(_, typ) => {
-                            if typ.deref() == &object_type {
+                            if typ.deref() == object_type {
                                 Some(impl_kind)
                             } else {
                                 None
