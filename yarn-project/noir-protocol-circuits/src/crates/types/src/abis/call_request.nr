@@ -21,11 +21,9 @@ impl Empty for CallerContext {
             storage_contract_address: AztecAddress::zero(),
         }
     }
-}
 
-impl CallerContext {
-    pub fn is_empty(self) -> bool {
-        self.msg_sender.is_zero() & self.storage_contract_address.is_zero()
+    fn is_empty(self) -> bool {
+        self == CallerContext::empty()
     }
 }
 
@@ -57,10 +55,8 @@ impl Empty for CallRequest {
             end_side_effect_counter: 0,
         }
     }
-}
 
-impl CallRequest {
-    pub fn is_empty(self) -> bool {
+    fn is_empty(self) -> bool {
         self.hash == 0
     }
 }

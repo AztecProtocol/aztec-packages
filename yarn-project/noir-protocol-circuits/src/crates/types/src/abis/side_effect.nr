@@ -31,6 +31,10 @@ impl Empty for SideEffect {
             counter: 0,
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == SideEffect::empty()
+    }
 }
 
 impl Hash for SideEffect {
@@ -82,6 +86,10 @@ impl Empty for SideEffectLinkedToNoteHash {
             note_hash: 0,
             counter: 0,
         }
+    }
+
+    fn is_empty(self) -> bool {
+        self == SideEffectLinkedToNoteHash::empty()
     }
 }
 

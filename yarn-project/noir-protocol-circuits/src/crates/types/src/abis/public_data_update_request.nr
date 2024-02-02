@@ -23,6 +23,10 @@ impl Empty for PublicDataUpdateRequest {
             new_value : 0
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == PublicDataUpdateRequest::empty()
+    }
 }
 
 impl Hash for PublicDataUpdateRequest {
@@ -32,11 +36,5 @@ impl Hash for PublicDataUpdateRequest {
             self.old_value,
             self.new_value
         ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
-    }
-}
-
-impl PublicDataUpdateRequest {
-    pub fn is_empty(self) -> bool {
-        (self.leaf_slot == 0) & (self.old_value == 0) & (self.new_value == 0)
     }
 }

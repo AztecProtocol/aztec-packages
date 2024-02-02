@@ -65,6 +65,10 @@ impl Empty for StateReference {
             partial: PartialStateReference::empty(),
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == StateReference::empty()
+    }
 }
 
 #[test]

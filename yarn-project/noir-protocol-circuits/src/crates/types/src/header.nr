@@ -92,6 +92,13 @@ impl Empty for Header {
             global_variables: GlobalVariables::empty(),
         }
     }
+
+    fn is_empty(self) -> bool {
+        (self.last_archive == AppendOnlyTreeSnapshot::zero()) &
+        (self.body_hash == [0; NUM_FIELDS_PER_SHA256]) &
+        (self.state == StateReference::empty()) &
+        (self.global_variables == GlobalVariables::empty())
+    }
 }
 
 impl Hash for Header {

@@ -20,6 +20,10 @@ impl Empty for PublicDataRead {
             value : 0,
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == PublicDataRead::empty()
+    }
 }
 
 impl Hash for PublicDataRead {
@@ -28,11 +32,5 @@ impl Hash for PublicDataRead {
             self.leaf_slot,
             self.value,
         ], GENERATOR_INDEX__PUBLIC_DATA_READ)
-    }
-}
-
-impl PublicDataRead {
-    pub fn is_empty(self) -> bool {
-        (self.leaf_slot == 0) & (self.value == 0)
     }
 }

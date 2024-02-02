@@ -30,6 +30,10 @@ impl Empty for AztecAddress {
             inner : 0
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == AztecAddress::empty()
+    }
 }
 
 impl ToField for AztecAddress {
@@ -107,6 +111,10 @@ impl Empty for EthAddress {
         Self {
             inner : 0
         }
+    }
+
+    fn is_empty(self) -> bool {
+        self == EthAddress::empty()
     }
 }
 

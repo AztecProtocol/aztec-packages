@@ -13,21 +13,23 @@ use dep::std::cmp::Eq;
 // Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.
 trait Empty {
     fn empty() -> Self;
+
+    fn is_empty(self) -> bool;
 }
 
-impl Empty for Field { fn empty() -> Self {0} }
+impl Empty for Field { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() }}
 
-impl Empty for u1 { fn empty() -> Self {0} }
-impl Empty for u8 { fn empty() -> Self {0} }
-impl Empty for u16 { fn empty() -> Self {0} }
-impl Empty for u32 { fn empty() -> Self {0} }
-impl Empty for u64 { fn empty() -> Self {0} }
+impl Empty for u1 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
+impl Empty for u8 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
+impl Empty for u16 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
+impl Empty for u32 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
+impl Empty for u64 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
 
-pub fn is_empty<T>(item: T) -> bool where T: Empty + Eq {
-    item.eq(T::empty())
+pub fn is_empty<T>(item: T) -> bool where T: Empty {
+    item.is_empty()
 }
 
-pub fn is_empty_array<T, N>(array: [T; N]) -> bool where T: Empty + Eq {
+pub fn is_empty_array<T, N>(array: [T; N]) -> bool where T: Empty {
     array.all(|elem| is_empty(elem))
 }
 

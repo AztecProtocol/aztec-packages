@@ -36,6 +36,10 @@ impl Empty for StorageUpdateRequest {
             new_value: 0,
         }
     }
+
+    fn is_empty(self) -> bool {
+        self.storage_slot == 0
+    }
 }
 
 impl Hash for StorageUpdateRequest {
@@ -57,11 +61,5 @@ impl Deserialize<CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH> for StorageUpdateReques
             old_value: serialized[1],
             new_value: serialized[2],
         }
-    }
-}
-
-impl StorageUpdateRequest {
-    pub fn is_empty(self) -> bool {
-        self.storage_slot == 0
     }
 }

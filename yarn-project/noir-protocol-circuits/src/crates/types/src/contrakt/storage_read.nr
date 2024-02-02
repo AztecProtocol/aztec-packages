@@ -30,6 +30,10 @@ impl Empty for StorageRead {
             current_value: 0,
         }
     }
+
+    fn is_empty(self) -> bool {
+        self.storage_slot == 0
+    }
 }
 
 impl Hash for StorageRead {
@@ -50,11 +54,5 @@ impl Deserialize<CONTRACT_STORAGE_READ_LENGTH> for StorageRead {
             storage_slot: serialized[0],
             current_value: serialized[1],
         }
-    }
-}
-
-impl StorageRead {
-    pub fn is_empty(self) -> bool {
-        self.storage_slot == 0
     }
 }

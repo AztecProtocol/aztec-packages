@@ -26,6 +26,10 @@ impl Empty for NewContractData {
             contract_class_id: ContractClassId::from_field(0),
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == NewContractData::empty()
+    }
 }
 
 impl Hash for NewContractData {
@@ -40,13 +44,4 @@ impl Hash for NewContractData {
             ], GENERATOR_INDEX__CONTRACT_LEAF)
         }
     }
-}
-
-impl NewContractData {
-    pub fn is_empty(self) -> bool {
-        (self.contract_address.to_field() == 0) & 
-        (self.portal_contract_address.to_field() == 0) & 
-        (self.contract_class_id.to_field() == 0)
-    }
-
 }

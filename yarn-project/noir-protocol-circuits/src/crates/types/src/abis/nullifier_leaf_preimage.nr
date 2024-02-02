@@ -16,6 +16,10 @@ impl Empty for NullifierLeafPreimage {
             next_index : 0,
         }
     }
+
+    fn is_empty(self) -> bool {
+        (self.nullifier == 0) & (self.next_nullifier == 0) & (self.next_index == 0)
+    }
 }
 
 impl Hash for NullifierLeafPreimage {
@@ -29,10 +33,6 @@ impl Hash for NullifierLeafPreimage {
 }
 
 impl NullifierLeafPreimage {
-    pub fn is_empty(self) -> bool {
-        (self.nullifier == 0) & (self.next_nullifier == 0) & (self.next_index == 0)
-    }
-
     pub fn serialize(self) -> [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH] {
         [self.nullifier, self.next_nullifier, self.next_index as Field]
     }

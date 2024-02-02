@@ -73,6 +73,10 @@ impl Empty for GlobalVariables {
             fee_recipient: AztecAddress::empty(),
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == GlobalVariables::empty()
+    }
 }
 
 #[test]

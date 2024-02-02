@@ -73,6 +73,10 @@ impl Empty for PartialStateReference {
             public_data_tree: AppendOnlyTreeSnapshot::zero(),
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == PartialStateReference::empty()
+    }
 }
 
 #[test]

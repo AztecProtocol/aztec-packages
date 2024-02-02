@@ -28,6 +28,10 @@ impl Empty for NullifierKeyValidationRequest {
             secret_key: GrumpkinPrivateKey::zero(),
         }
     }
+
+    fn is_empty(self) -> bool {
+        self == NullifierKeyValidationRequest::empty()
+    }
 }
 
 impl Serialize<NULLIFIER_KEY_VALIDATION_REQUEST_SERIALIZED_LEN> for NullifierKeyValidationRequest {
@@ -81,6 +85,10 @@ impl Empty for NullifierKeyValidationRequestContext {
             secret_key: GrumpkinPrivateKey::zero(),
             contract_address: AztecAddress::zero(),
         }
+    }
+    
+    fn is_empty(self) -> bool {
+        self == NullifierKeyValidationRequestContext::empty()
     }
 }
 

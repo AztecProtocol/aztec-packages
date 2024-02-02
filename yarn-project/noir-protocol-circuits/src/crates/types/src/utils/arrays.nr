@@ -1,11 +1,11 @@
 use dep::std::array;
 use dep::std::cmp::Eq;
-use crate::traits::{Empty, is_empty};
+use crate::traits::Empty;
 
-pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Empty + Eq {
+pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Empty {
     let mut len = 0;
     for elem in array {
-        if !is_empty(elem) {
+        if !elem.is_empty() {
             len += 1;
         }
     }
@@ -23,7 +23,7 @@ pub fn validate_array<T, N>(array: [T; N]) where T: Empty + Eq {
     let mut last_non_zero_pos = 0;
 
     for i in 0..array_length {
-        let is_empty = is_empty(array[i]);
+        let is_empty = array[i].is_empty();
         if !is_empty {
             last_non_zero_pos = i;
         } else if is_empty & (first_zero_pos == array_length) {
@@ -35,11 +35,11 @@ pub fn validate_array<T, N>(array: [T; N]) where T: Empty + Eq {
 
 // Helper method to determine the number of non-zero/empty elements in a validated array (ie, validate_array(array) 
 // should be true).
-pub fn array_length<T, N>(array: [T; N]) -> Field where T: Empty + Eq {
+pub fn array_length<T, N>(array: [T; N]) -> Field where T: Empty {
     let mut length = 0;
     let mut end = false;
     for elem in array {
-        end |= is_empty(elem);
+        end |= elem.is_empty();
         if !end {
             length += 1;
         }

@@ -17,6 +17,10 @@ impl Empty for PublicDataTreeLeafPreimage {
             next_index: 0,
         }
     }
+
+    fn is_empty(self) -> bool {
+        (self.slot == 0) & (self.value == 0) & (self.next_slot == 0) & (self.next_index == 0)
+    }
 }
 
 impl Hash for PublicDataTreeLeafPreimage {
@@ -26,12 +30,6 @@ impl Hash for PublicDataTreeLeafPreimage {
         } else {
             dep::std::hash::pedersen_hash([self.slot, self.value, (self.next_index as Field), self.next_slot])
         }
-    }
-}
-
-impl PublicDataTreeLeafPreimage {
-    pub fn is_empty(self) -> bool {
-        (self.slot == 0) & (self.value == 0) & (self.next_slot == 0) & (self.next_index == 0)
     }
 }
 
@@ -53,10 +51,8 @@ impl Empty for PublicDataTreeLeaf  {
             value: 0,
         }
     }
-}
 
-impl PublicDataTreeLeaf {
-    pub fn is_empty(self) -> bool {
-        (self.slot == 0) & (self.value == 0)
+    fn is_empty(self) -> bool {
+        self == PublicDataTreeLeaf::empty()
     }
 }

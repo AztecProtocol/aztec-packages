@@ -14,6 +14,13 @@ impl Empty for NoteHeader {
     fn empty() -> Self {
         NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, is_transient: false }
     }
+
+    fn is_empty(self) -> bool {
+        (self.contract_address == AztecAddress::zero()) &
+        (self.nonce == 0) &
+        (self.storage_slot == 0) &
+        (self.is_transient == false) 
+    }
 }
 
 impl NoteHeader {
