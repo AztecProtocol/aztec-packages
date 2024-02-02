@@ -1,4 +1,12 @@
-import { AuthWitness, AztecNode, FunctionL2Logs, L1NotePayload, Note, NoteStatus, UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  AuthWitness,
+  AztecNode,
+  FunctionL2Logs,
+  L1NotePayload,
+  Note,
+  NoteStatus,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   CallContext,
   ContractDeploymentData,
