@@ -66,5 +66,4 @@ impl ContractDeploymentData {
         assert(self.contract_address_salt == 0);
         self.portal_contract_address.assert_is_zero();
     }
-
 }
