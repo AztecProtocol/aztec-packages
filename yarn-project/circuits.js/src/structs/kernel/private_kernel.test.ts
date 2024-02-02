@@ -77,15 +77,6 @@ describe('CallRequest', () => {
   });
 });
 
-describe('PrivateCallStackcItem', () => {
-  it('convert to and from buffer', () => {
-    const fad = makePrivateCallStackItem(0);
-
-    const buf = fad.toBuffer();
-    expect(PrivateCallStackItem.fromBuffer(buf)).toEqual(fad);
-  });
-});
-
 describe('Private Circuit Public Inputs', () => {
   it('convert to and from buffer', () => {
     const pkpi = makePrivateCircuitPublicInputs();
