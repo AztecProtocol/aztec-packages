@@ -9,7 +9,7 @@ import {
   NewContractData,
   PublicCallStackItem,
   SideEffect,
-  SideEffectLinkedToNoteHash
+  SideEffectLinkedToNoteHash,
 } from '../index.js';
 import {
   makeAztecAddress,

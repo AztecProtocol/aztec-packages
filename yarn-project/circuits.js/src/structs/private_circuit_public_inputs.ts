@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { isArrayEmpty } from '@aztec/foundation/collection';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {
   BufferReader,
@@ -25,7 +26,6 @@ import {
 import { CallContext } from './call_context.js';
 import { ContractDeploymentData, Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
 
 /**
  * Public inputs to a private circuit.

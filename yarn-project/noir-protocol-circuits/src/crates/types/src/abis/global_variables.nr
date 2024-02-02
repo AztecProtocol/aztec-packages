@@ -1,6 +1,9 @@
 use dep::std::cmp::Eq;
 use crate::{
-    constants::GENERATOR_INDEX__GLOBAL_VARIABLES,
+    constants::{
+        GENERATOR_INDEX__GLOBAL_VARIABLES,
+        GLOBAL_VARIABLES_LENGTH,
+    },
     traits::{
         Deserialize,
         Empty,
@@ -15,8 +18,6 @@ struct GlobalVariables {
     block_number : Field,
     timestamp : Field,
 }
-
-global GLOBAL_VARIABLES_LENGTH: Field = 4;
 
 impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
     fn serialize(self) -> [Field; GLOBAL_VARIABLES_LENGTH] {

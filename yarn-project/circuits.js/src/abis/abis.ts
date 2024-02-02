@@ -2,16 +2,12 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { boolToBuffer, numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
+import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
-import {
-  FUNCTION_SELECTOR_NUM_BYTES,
-  FUNCTION_TREE_HEIGHT,
-  GeneratorIndex
-} from '../constants.gen.js';
+import { FUNCTION_SELECTOR_NUM_BYTES, FUNCTION_TREE_HEIGHT, GeneratorIndex } from '../constants.gen.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 import {
   ContractDeploymentData,
@@ -25,7 +21,7 @@ import {
   SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
-  VerificationKey
+  VerificationKey,
 } from '../structs/index.js';
 
 /**
@@ -399,11 +395,7 @@ export function computePublicCallStackItemHash({
 
   return Fr.fromBuffer(
     pedersenHash(
-      [
-        contractAddress.toBuffer(),
-        computeFunctionDataHash(functionData).toBuffer(),
-        publicInputs.hash().toBuffer(),
-      ],
+      [contractAddress.toBuffer(), computeFunctionDataHash(functionData).toBuffer(), publicInputs.hash().toBuffer()],
       GeneratorIndex.CALL_STACK_ITEM,
     ),
   );
