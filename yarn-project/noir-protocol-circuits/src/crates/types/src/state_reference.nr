@@ -3,11 +3,11 @@ use crate::{
         AppendOnlyTreeSnapshot,
         APPEND_ONLY_TREE_SNAPSHOT_LENGTH,
     },
-    constants::STATE_REFERENCE_LENGTH,
-    partial_state_reference::{
-        PartialStateReference,
+    constants::{
         PARTIAL_STATE_REFERENCE_LENGTH,
+        STATE_REFERENCE_LENGTH,
     },
+    partial_state_reference::PartialStateReference,
     traits::{
         Deserialize,
         Empty,

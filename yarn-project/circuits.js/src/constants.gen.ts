@@ -56,6 +56,7 @@ export const GET_NOTE_ORACLE_RETURN_LENGTH = 23;
 export const MAX_NOTES_PER_PAGE = 10;
 export const VIEW_NOTE_ORACLE_RETURN_LENGTH = 212;
 export const CALL_CONTEXT_LENGTH = 8;
+export const PARTIAL_STATE_REFERENCE_LENGTH = 8;
 export const STATE_REFERENCE_LENGTH = 10;
 export const HEADER_LENGTH = 18;
 export const FUNCTION_DATA_LENGTH = 4;
