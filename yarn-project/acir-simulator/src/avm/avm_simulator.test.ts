@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts';
 
@@ -8,8 +9,16 @@ import { AvmSimulator } from './avm_simulator.js';
 import { initContext, initExecutionEnvironment } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { MockProxy, mock } from 'jest-mock-extended';
+import { AvmWorldStateJournal } from './journal/journal.js';
 
 describe('avm', () => {
+  let journal: MockProxy<AvmWorldStateJournal>;
+
+  beforeEach(() => {
+    journal = mock<AvmWorldStateJournal>();
+  });
+
   it('Should execute bytecode that performs basic addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
 
@@ -53,6 +62,24 @@ describe('avm', () => {
       const returnData = results.output;
       expect(returnData.length).toBe(1);
       expect(returnData).toEqual([new Fr(3)]);
+    });
+
+    it('Should execute contract function that returns data from the environment', async () => {
+      const getterArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_accessEnv');
+
+      // Decode
+      const instructions = decodeFromBytecode(Buffer.from(getterArtifact!.bytecode, 'base64'));
+
+      // Execute
+      const address = AztecAddress.fromField(new Fr(1234n));
+      const context = new AvmMachineState(initExecutionEnvironment({ address }));
+      const avmReturnData = await executeAvm(context, journal, instructions);
+
+      expect(avmReturnData.reverted).toBe(false);
+
+      const returnData = avmReturnData.output;
+      expect(returnData.length).toBe(1);
+      expect(returnData).toEqual([address]);
     });
   });
 });

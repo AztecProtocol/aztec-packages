@@ -6,6 +6,9 @@ contract AvmTest {
         address::AztecAddress,
     };
 
+    // avm lib
+    use dep::aztec::avm::context::AvmContext;
+
     #[aztec(private)]
     fn constructor() {}
 
@@ -13,6 +16,11 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn addArgsReturn(argA: Field, argB: Field) -> pub Field {
         argA + argB
+    }
+
+    #[aztec(public-vm)]
+    fn accessEnv() -> pub Field {
+        AvmContext::address()
     }
 
     // Function required for all contracts

@@ -1,7 +1,7 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::brillig::Brillig;
 
-use acvm::brillig_vm::brillig::{BinaryFieldOp, BinaryIntOp};
+use acvm::brillig_vm::brillig::{BinaryFieldOp, BinaryIntOp, ValueOrArray};
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, FIRST_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
@@ -252,6 +252,32 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     ],
                     ..Default::default()
                 });
+            },
+            BrilligOpcode::ForeignCall { function, destinations, inputs } => {
+                println!("{}", function);
+                match function.as_str() {
+                    "address" => {
+                        assert!(inputs.len() == 0);
+                        assert!(destinations.len() == 1);
+                        let dest_offset_maybe = destinations[0];
+                        let dest_offset = match dest_offset_maybe {
+                            ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+                            _ => panic!("ForeignCall address destination should be a single value"),
+                        };
+
+                        avm_instrs.push(AvmInstruction {
+                            opcode: AvmOpcode::ADDRESS,
+                            indirect: Some(0),
+                            operands: vec![
+                                AvmOperand::U32 { value: dest_offset as u32},
+                            ],
+                            ..Default::default()
+                        });
+                    }
+                    _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
+                }
+                println!("{:?}", destinations);
+                println!("{:?}", inputs);
             }
             _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
