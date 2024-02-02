@@ -1,7 +1,7 @@
-import { Header } from '@aztec/circuits.js';
 import {
   ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
+  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
