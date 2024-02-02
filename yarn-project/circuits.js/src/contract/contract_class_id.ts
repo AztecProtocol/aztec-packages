@@ -18,11 +18,13 @@ import { computePrivateFunctionsRoot } from './private_function.js';
  * @param contractClass - Contract class.
  * @returns The identifier.
  */
-export function computeContractClassId(contractClass: ContractClass): Fr {
-  const { privateFunctionsRoot, publicBytecodeCommitment } = computeContractClassIdPreimage(contractClass);
+export function computeContractClassId(contractClass: ContractClass | ContractClassIdPreimage): Fr {
+  const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } = isContractClassIdPreimage(contractClass)
+    ? contractClass
+    : computeContractClassIdPreimage(contractClass);
   return Fr.fromBuffer(
     pedersenHash(
-      [contractClass.artifactHash.toBuffer(), privateFunctionsRoot.toBuffer(), publicBytecodeCommitment.toBuffer()],
+      [artifactHash.toBuffer(), privateFunctionsRoot.toBuffer(), publicBytecodeCommitment.toBuffer()],
       GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
     ),
   );
@@ -41,6 +43,11 @@ export type ContractClassIdPreimage = {
   privateFunctionsRoot: Fr;
   publicBytecodeCommitment: Fr;
 };
+
+/** Returns whether the given object looks like a ContractClassIdPreimage. */
+function isContractClassIdPreimage(obj: any): obj is ContractClassIdPreimage {
+  return obj && obj.artifactHash && obj.privateFunctionsRoot && obj.publicBytecodeCommitment;
+}
 
 // TODO(@spalladino): Replace with actual implementation
 export function computePublicBytecodeCommitment(bytecode: Buffer) {
