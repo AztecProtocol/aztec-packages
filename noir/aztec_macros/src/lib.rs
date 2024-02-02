@@ -589,20 +589,6 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
     Ok(())
 }
 
-// Transform a function to work with AVM bytecode
-fn transform_vm_function(
-    func: &mut NoirFunction,
-    _storage_defined: bool,
-) -> Result<(), AztecMacroError> {
-    // We want the function to be seen as a public function
-    func.def.is_open = true;
-
-    // NOTE: the line below is a temporary hack to trigger external transpilation tools
-    // It will be removed once the transpiler is integrated into the Noir compiler
-    func.def.name.0.contents = format!("avm_{}", func.def.name.0.contents);
-    Ok(())
-}
-
 /// If it does, it will insert the following things:
 /// - A new Input that is provided for a kernel app circuit, named: {Public/Private}ContextInputs
 /// - Hashes all of the function input variables
@@ -651,6 +637,20 @@ fn transform_function(
         _ => (),
     }
 
+    Ok(())
+}
+
+/// Transform a function to work with AVM bytecode
+fn transform_vm_function(
+    func: &mut NoirFunction,
+    _storage_defined: bool,
+) -> Result<(), AztecMacroError> {
+    // We want the function to be seen as a public function
+    func.def.is_open = true;
+
+    // NOTE: the line below is a temporary hack to trigger external transpilation tools
+    // It will be removed once the transpiler is integrated into the Noir compiler
+    func.def.name.0.contents = format!("avm_{}", func.def.name.0.contents);
     Ok(())
 }
 

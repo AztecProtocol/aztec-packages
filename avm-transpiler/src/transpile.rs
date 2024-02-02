@@ -39,7 +39,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(0),
-                    // TEMPORARY - typescript wireFormat expects this
+                    // TODO(4268): TEMPORARY - typescript wireFormat expects this
                     dst_tag: Some(AvmTypeTag::UINT32),
                     operands: vec![
                         AvmOperand::U32 {
