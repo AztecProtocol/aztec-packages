@@ -167,6 +167,7 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     auto contraints5 = generate_big_int_op_constraint(BigIntOperationType::Div, fr(8), fr(2), witness);
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -232,6 +233,7 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
 
     AcirFormat constraint_system{
         .varnum = 5,
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -282,6 +284,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -336,6 +339,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
