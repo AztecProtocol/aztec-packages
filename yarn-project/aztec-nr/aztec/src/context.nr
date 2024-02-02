@@ -318,16 +318,7 @@ impl PrivateContext {
                 is_constructor: reader.read() as bool,
             },
             public_inputs: PrivateCircuitPublicInputs {
-                call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(reader.read()),
-                    storage_contract_address : AztecAddress::from_field(reader.read()),
-                    portal_contract_address : EthAddress::from_field(reader.read()),
-                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
-                    is_delegate_call : reader.read() as bool,
-                    is_static_call : reader.read() as bool,
-                    is_contract_deployment: reader.read() as bool,
-                    start_side_effect_counter: reader.read() as u32,
-                },
+                call_context: reader.read_struct(CallContext::deserialize),
                 args_hash: reader.read(),
                 return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
                 read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
@@ -429,16 +420,7 @@ impl PrivateContext {
                 is_constructor: reader.read() as bool,
             },
             public_inputs: PublicCircuitPublicInputs {
-                call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(reader.read()),
-                    storage_contract_address : AztecAddress::from_field(reader.read()),
-                    portal_contract_address : EthAddress::from_field(reader.read()),
-                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
-                    is_delegate_call : reader.read() as bool,
-                    is_static_call : reader.read() as bool,
-                    is_contract_deployment: reader.read() as bool,
-                    start_side_effect_counter: reader.read() as u32,
-                },
+                call_context: reader.read_struct(CallContext::deserialize),
                 args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
