@@ -13,12 +13,13 @@ use dep::aztec::{
     context::PrivateContext,
     protocol_types::{
         address::AztecAddress,
-        traits::Empty
+        traits::{Empty, Serialize}
     }
 };
 
 // Shows how to create a custom note
 
+global FULL_CARD_NOTE_LEN: Field = 7;
 global CARD_NOTE_LEN: Field = 3;
 
 // docs:start:state_vars-CardNote
@@ -38,6 +39,22 @@ impl CardNote {
             owner,
             header: NoteHeader::empty(),
         }
+    }
+}
+
+impl Serialize<FULL_CARD_NOTE_LEN> for CardNote {
+    fn serialize(self) -> [Field; FULL_CARD_NOTE_LEN] {
+        let fields = [
+            self.points as Field, 
+            self.randomness,
+            self.owner.to_field(),
+            self.header.contract_address.to_field(),
+            self.header.nonce,
+            self.header.storage_slot,
+            self.header.is_transient as Field,
+        ];
+
+        fields
     }
 }
 

@@ -33,6 +33,7 @@ contract DocsExample {
         card_note::{CardNote, CARD_NOTE_LEN},
         leader::Leader,
     };
+    use dep::aztec::oracle::debug_log::{debug_log_format, debug_log_array_with_prefix};
 
     struct Storage {
         // Shows how to create a custom struct in PublicState
@@ -206,6 +207,23 @@ contract DocsExample {
 
     unconstrained fn get_leader() -> pub Leader {
         storage.leader.read()
+    }
+
+    #[aztec(private)]
+    fn match_card(new_card: CardNote) {
+        let card = storage.legendary_card.get_note(false);
+        let fields = card.serialize();
+
+        debug_log_array_with_prefix("Card: ", fields);
+
+        assert(card.points == new_card.points, "Invalid points");
+        assert(card.randomness == new_card.randomness, "Invalid randomness");
+        assert(card.owner == new_card.owner, "Invalid owner");
+        assert(card.header.contract_address == new_card.header.contract_address, "Invalid contract address");
+        debug_log_format("CARD MATCHING: {0} != {1}", [card.header.nonce, new_card.header.nonce]);
+        assert(card.header.nonce == new_card.header.nonce, "Invalid nonce");
+        assert(card.header.storage_slot == new_card.header.storage_slot, "Invalid storage slot");
+        assert(card.header.is_transient == new_card.header.is_transient, "Invalid transient");
     }
 
     unconstrained fn get_legendary_card() -> pub CardNote {

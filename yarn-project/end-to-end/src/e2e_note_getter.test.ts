@@ -1,4 +1,4 @@
-import { AztecAddress, Comparator, Fr, Wallet, toBigInt } from '@aztec/aztec.js';
+import { AztecAddress, Comparator, Fr, TxStatus, Wallet, toBigInt } from '@aztec/aztec.js';
 import { DocsExampleContract, TestContract } from '@aztec/noir-contracts';
 
 import { setup } from './fixtures/utils.js';
@@ -24,6 +24,29 @@ describe('e2e_note_getter', () => {
   }, 25_000);
 
   afterAll(() => teardown());
+
+  describe.only('Get note and push into contract', () => {
+    let contract: DocsExampleContract;
+
+    beforeAll(async () => {
+      contract = await DocsExampleContract.deploy(wallet).send().deployed();
+      // sets card value to 1 and leader to sender.
+      await contract.methods.initialize_private(Fr.random(), 1).send().wait();
+    }, 25_000);
+
+    it('Issues with passing note as argument', async () => {
+      const card = await contract.methods.get_legendary_card().view();
+      console.log(card);
+      const a = contract.methods.match_card(card).request();
+      console.log("Request: ", a);
+
+      // eslint-disable-next-line camelcase
+      card.header.is_transient = new Fr(234);
+
+      const receipt = await contract.methods.match_card(card).send().wait();
+      expect(receipt.status).toEqual(TxStatus.MINED);
+    });
+  });
 
   describe('comparators', () => {
     let contract: DocsExampleContract;
