@@ -181,8 +181,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     FF& challenge,
     const FF& compressed_perturbator)
 {
-    static_cast<void>(challenge);
-
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
 
     // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}

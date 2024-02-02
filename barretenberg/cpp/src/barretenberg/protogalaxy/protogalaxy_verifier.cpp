@@ -88,7 +88,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        // Get  commitments to the ECC wire polynomials
+        // Get  commitments to the ECC wire polynomials and databus polynomials
         witness_commitments.ecc_op_wire_1 =
             transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_1);
         witness_commitments.ecc_op_wire_2 =

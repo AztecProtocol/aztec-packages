@@ -29,22 +29,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
-    // amongst test files in the proof system
-    static bb::Polynomial<FF> get_random_polynomial(size_t size)
-    {
-        auto poly = bb::Polynomial<FF>(size);
-        for (auto& coeff : poly) {
-            coeff = FF::random_element();
-        }
-        return poly;
-    }
-
     static void construct_circuit(Builder& builder)
     {
         if constexpr (IsGoblinFlavor<Flavor>) {
-            GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder);
             GoblinMockCircuits::construct_arithmetic_circuit(builder);
+            GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder);
 
         } else {
             FF a = FF::random_element();
@@ -97,20 +86,25 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         for (size_t i = 0; i < instance_size; i++) {
             expected_target_sum += expected_honk_evals[i] * expected_pows[i];
         }
-        info("expected_target_sum", expected_target_sum);
-
         EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
     }
+
     static void decide_and_verify(std::shared_ptr<Instance>& accumulator, Composer& composer, bool expected_result)
     {
         auto decider_prover = composer.create_decider_prover(accumulator);
         auto decider_verifier = composer.create_decider_verifier(accumulator);
-        auto decision = decider_prover.construct_proof();
-        auto verified = decider_verifier.verify_proof(decision);
+        auto decider_proof = decider_prover.construct_proof();
+        auto verified = decider_verifier.verify_proof(decider_proof);
         EXPECT_EQ(verified, expected_result);
     }
 
-    static void full_honk_evaluations_valid()
+    /**
+     * @brief For a valid circuit, ensures that computing the value of the full UH/UGH relation at each row in its
+     * execution trace (with the contribution of the linearly dependent one added tot he first row, in case of Goblin)
+     * will be 0.
+     *
+     */
+    static void test_full_honk_evaluations_valid_circuit()
     {
         auto builder = typename Flavor::CircuitBuilder();
         construct_circuit(builder);
@@ -140,6 +134,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
     }
 
+    /**
+     * @brief Check the coefficients of the perturbator computed from dummy \vec{β}, \vec{δ} and f_i(ω) will be the same
+     * as if computed manually.
+     *
+     */
     static void test_pertubator_coefficients()
     {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
@@ -153,6 +152,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
     }
 
+    /**
+     * @brief Create a dummy accumulator and ensure coefficient 0 of the computed perturbator is the same as the
+     * accumulator's target sum.
+     *
+     */
     static void test_pertubator_polynomial()
     {
         using RelationSeparator = typename Flavor::RelationSeparator;
@@ -160,7 +164,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         const size_t instance_size(1 << log_instance_size);
         std::array<bb::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> random_polynomials;
         for (auto& poly : random_polynomials) {
-            poly = get_random_polynomial(instance_size);
+            poly = bb::Polynomial<FF>::random(instance_size);
         }
         auto full_polynomials = construct_full_prover_polynomials(random_polynomials);
         auto relation_parameters = bb::RelationParameters<FF>::get_random();
@@ -200,6 +204,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         EXPECT_EQ(perturbator[0], target_sum);
     }
 
+    /**
+     * @brief Manually compute the expected evaluations of the combiner quotient, given evaluations of the combiner and
+     * check them against the evaluations returned by the function.
+     *
+     */
     static void test_combiner_quotient()
     {
         auto compressed_perturbator = FF(2); // F(\alpha) in the paper
@@ -228,6 +237,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
     }
 
+    /**
+     * @brief For two dummy instances with their relation parameter η set, check that combining them in a univariate,
+     * barycentrially extended to the desired number of evaluations, is performed correctly.
+     *
+     */
     static void test_combine_relation_parameters()
     {
         using Instances = ProverInstances_<Flavor, 2>;
@@ -249,6 +263,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
     }
 
+    /**
+     * @brief Given two dummy instances with the batching challenges alphas set (one for each subrelation) ensure
+     * combining them in a univariate of desired length works as expected.
+     */
     static void test_combine_alpha()
     {
         using Instances = ProverInstances_<Flavor, 2>;
@@ -272,6 +290,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
     }
 
+    /**
+     * @brief Testing two valid rounds of folding followed by the decider.
+     *
+     */
     static void test_full_protogalaxy()
     {
         auto composer = Composer();
@@ -300,6 +322,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         decide_and_verify(first_accumulator, composer, true);
     }
 
+    /**
+     * @brief Ensure tampering a commitment and then calling the decider causes the decider verification to fail.
+     *
+     */
     static void test_tampered_commitment()
     {
         auto composer = Composer();
@@ -331,6 +357,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         decide_and_verify(second_accumulator, composer, false);
     }
 
+    /**
+     * @brief Ensure tampering an accumulator and then calling fold again causes both the folding verification and
+     * decider verification to fail.
+     *
+     */
     static void test_tampered_accumulator_polynomial()
     {
         auto composer = Composer();
@@ -372,7 +403,7 @@ TYPED_TEST(ProtoGalaxyTests, PerturbatorCoefficients)
 
 TYPED_TEST(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
 {
-    TestFixture::full_honk_evaluations_valid();
+    TestFixture::test_full_honk_evaluations_valid_circuit();
 }
 
 TYPED_TEST(ProtoGalaxyTests, PerturbatorPolynomial)
@@ -395,7 +426,6 @@ TYPED_TEST(ProtoGalaxyTests, CombineAlpha)
     TestFixture::test_combine_alpha();
 }
 
-// Check both manually and using the protocol two rounds of folding
 TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyTest)
 {
     TestFixture::test_full_protogalaxy();

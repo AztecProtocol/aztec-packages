@@ -160,7 +160,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             // Sum relation evaluations, batched by their corresponding relation separator challenge, to get the value
             // of the full honk relation at a specific row
-            Utils::scale_and_batch_elements_without_linear_contributions(
+            Utils::scale_and_batch_elements(
                 relation_evaluations, alpha, running_challenge, output, linearly_dependent_contribution);
 
             full_honk_evaluations[row] = output;
@@ -170,9 +170,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     /**
-     * @brief  Recursively compute the parent nodes of each level in there, starting from the leaves. Note that at each
-     * level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an additional.
-     * factor of X.
+     * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
+     * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
+     * additional factor of X.
      */
     static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
                                                        const std::vector<FF>& deltas,
@@ -319,8 +319,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 FF pow_challenge = pow_betas[idx];
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
-                // function have already been folded
-                // This will not add pow stuff to relation dependent stuff
+                // function have already been folded. Moreover, linear-dependent relations that act over the entire
+                // execution trace rather than on rows, will not be multiplied by the pow challenge.
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
@@ -430,7 +430,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     /**
-     * @brief Compute the next accumulator (ϕ*, ω*\vec{\beta*}, e*), send the public data ϕ*  and the folding parameters
+     * @brief Compute the next accumulator (ϕ*, ω*, \vec{\beta*}, e*), send the public data ϕ*  and the folding
+     * parameters
      * (\vec{\beta*}, e*) to the verifier and return the complete accumulator
      *
      * @details At this stage, we assume that the instances have the same size and the same number of public parameter.s

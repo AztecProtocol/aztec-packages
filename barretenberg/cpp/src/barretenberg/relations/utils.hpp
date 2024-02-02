@@ -113,8 +113,7 @@ template <typename Flavor> class RelationUtils {
     template <typename... T>
     static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
     {
-        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>)
-        {
+        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
@@ -184,7 +183,7 @@ template <typename Flavor> class RelationUtils {
     };
 
     /**
-     * @brief Scale elements, representing evaluations of subrelations, by separate challenges and afterwards sum them
+     * @brief Scale elements, representing evaluations of subrelations, by separate challenges then sum them
      * @param challenges Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation does not need to be
      * scaled)
      * @param result Batched result
@@ -197,9 +196,7 @@ template <typename Flavor> class RelationUtils {
     {
         size_t idx = 0;
         std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-
         std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
                 result += entry * tmp[idx];
@@ -224,11 +221,11 @@ template <typename Flavor> class RelationUtils {
      * @param result
      * @param linearly_dependent_contribution
      */
-    static void scale_and_batch_elements_without_linear_contributions(auto& tuple,
-                                                                      const RelationSeparator& challenges,
-                                                                      FF current_scalar,
-                                                                      FF& result,
-                                                                      FF& linearly_dependent_contribution)
+    static void scale_and_batch_elements(auto& tuple,
+                                         const RelationSeparator& challenges,
+                                         FF current_scalar,
+                                         FF& result,
+                                         FF& linearly_dependent_contribution)
         requires bb::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
@@ -285,18 +282,25 @@ template <typename Flavor> class RelationUtils {
         }
     }
 
-    // Recursive template function to apply a specific operation on each element of several arrays in a tuple
+    /**
+     * @brief Recursive template function to apply a specific operation on each element of several arrays in a tuple
+     *
+     * @details We need this method in addition to the apply_to_tuple_of_arrays when we aim to perform different
+     * operations depending on the array element. More explicitly, in our codebase this method is used when the elements
+     * of array are values of subrelations and we want to accumulate some of these values separately (the linearly
+     * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
+     */
     template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
     static void apply_to_tuple_of_arrays_elements(Operation&& operation, std::tuple<Ts...>& tuple)
     {
         using Relation = typename std::tuple_element_t<outer_idx, Relations>;
-        const auto subrel = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
+        const auto subrelation_length = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
         auto& element = std::get<outer_idx>(tuple);
 
         // Invoke the operation with outer_idx (array index) and inner_idx (element index) as template arguments
         operation.template operator()<outer_idx, inner_idx>(element[inner_idx]);
 
-        if constexpr (inner_idx + 1 < subrel) {
+        if constexpr (inner_idx + 1 < subrelation_length) {
             // Recursively call for the next element within the same array
             apply_to_tuple_of_arrays_elements<outer_idx, inner_idx + 1, Operation>(std::forward<Operation>(operation),
                                                                                    tuple);
