@@ -8,7 +8,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 /**
  * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
@@ -18,20 +18,20 @@ class MergeVerifier {
     using Curve = curve::BN254;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using PCS = pcs::kzg::KZG<Curve>;
-    using OpeningClaim = pcs::OpeningClaim<Curve>;
-    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using PCS = bb::KZG<Curve>;
+    using OpeningClaim = bb::OpeningClaim<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = BaseTranscript;
 
   public:
     std::shared_ptr<Transcript> transcript;
 
     explicit MergeVerifier();
-    bool verify_proof(const honk::proof& proof);
+    bool verify_proof(const HonkProof& proof);
 
   private:
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    static constexpr size_t NUM_WIRES = flavor::GoblinUltra::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
 };
 
-} // namespace bb::honk
+} // namespace bb

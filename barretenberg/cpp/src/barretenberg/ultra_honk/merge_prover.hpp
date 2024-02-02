@@ -7,7 +7,7 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 /**
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
@@ -17,10 +17,10 @@ class MergeProver {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Polynomial = polynomial;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
     using Commitment = Curve::AffineElement;
-    using PCS = pcs::kzg::KZG<Curve>;
-    using OpeningClaim = typename pcs::ProverOpeningClaim<Curve>;
+    using PCS = bb::KZG<Curve>;
+    using OpeningClaim = typename bb::ProverOpeningClaim<Curve>;
     using Transcript = BaseTranscript;
 
   public:
@@ -28,12 +28,12 @@ class MergeProver {
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>&);
 
-    BBERG_PROFILE honk::proof construct_proof();
+    BBERG_PROFILE HonkProof construct_proof();
 
   private:
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
-    static constexpr size_t NUM_WIRES = flavor::GoblinUltra::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
 };
 
-} // namespace bb::honk
+} // namespace bb

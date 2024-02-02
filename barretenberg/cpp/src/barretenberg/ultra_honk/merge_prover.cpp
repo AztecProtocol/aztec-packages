@@ -1,6 +1,6 @@
 #include "merge_prover.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 /**
  * @brief Create MergeProver
@@ -29,7 +29,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue)
  *
  * @return honk::proof
  */
-honk::proof MergeProver::construct_proof()
+HonkProof MergeProver::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
@@ -117,4 +117,4 @@ honk::proof MergeProver::construct_proof()
     return transcript->proof_data;
 }
 
-} // namespace bb::honk
+} // namespace bb

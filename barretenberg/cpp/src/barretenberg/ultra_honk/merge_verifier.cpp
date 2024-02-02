@@ -1,6 +1,6 @@
 #include "merge_verifier.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 MergeVerifier::MergeVerifier()
     : pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory())){};
@@ -13,9 +13,9 @@ MergeVerifier::MergeVerifier()
  * M_{i-1}), where the shift magnitude M_{i-1} is the length of T_{i-1}. This protocol verfies that the aggregate op
  * queue has been constructed correctly via a simple Schwartz-Zippel check. Evaluations are checked via batched KZG.
  *
- * @return honk::proof&
+ * @return HonkProof&
  */
-bool MergeVerifier::verify_proof(const honk::proof& proof)
+bool MergeVerifier::verify_proof(const HonkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
 
@@ -38,16 +38,16 @@ bool MergeVerifier::verify_proof(const honk::proof& proof)
     std::vector<OpeningClaim> opening_claims;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, T_prev_evals[idx] }, C_T_prev[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, C_T_prev[idx] });
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         t_shift_evals[idx] = transcript->template receive_from_prover<FF>("t_shift_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, t_shift_evals[idx] }, C_t_shift[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, t_shift_evals[idx] }, C_t_shift[idx] });
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_current_evals[idx] =
             transcript->template receive_from_prover<FF>("T_current_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, T_current_evals[idx] }, C_T_current[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, C_T_current[idx] });
     }
 
     // Check the identity T_i(\kappa) = T_{i-1}(\kappa) + t_i^{shift}(\kappa). If it fails, return false
@@ -76,4 +76,4 @@ bool MergeVerifier::verify_proof(const honk::proof& proof)
     return identity_checked && verified;
 }
 
-} // namespace bb::honk
+} // namespace bb
