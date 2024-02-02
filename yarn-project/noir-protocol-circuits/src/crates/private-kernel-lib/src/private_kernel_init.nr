@@ -10,7 +10,6 @@ use dep::types::{
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
-    traits::is_empty_array,
 };
 
 // Initialization struct for private inputs to the private kernel

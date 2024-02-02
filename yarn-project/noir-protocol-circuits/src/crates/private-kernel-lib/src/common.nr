@@ -46,7 +46,6 @@ use dep::types::{
             validate_array,
         },
     },
-    traits::{is_empty, is_empty_array},
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
@@ -135,12 +134,8 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     let is_static_call = public_inputs.call_context.is_static_call;
     if is_static_call {
         // No state changes are allowed for static calls:
-        assert(
-            is_empty_array(public_inputs.new_commitments), "new_commitments must be empty for static calls"
-        );
-        assert(
-            is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls"
-        );
+        assert(public_inputs.new_commitments.is_empty(), "new_commitments must be empty for static calls");
+        assert(public_inputs.new_nullifiers.is_empty(), "new_nullifiers must be empty for static calls");
     }
 }
 
@@ -203,7 +198,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     // Nullifier key validation requests.
     for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
         let request = nullifier_key_validation_requests[i];
-        if !is_empty(request) {
+        if !request.is_empty() {
             public_inputs.end.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
         }
     }

@@ -29,7 +29,6 @@ use dep::types::{
     utils::{
         arrays::{array_length, array_to_bounded_vec},
     },
-    traits::is_empty_array
 };
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 

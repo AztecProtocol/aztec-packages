@@ -31,7 +31,7 @@ use dep::types::{
     utils::{
         arrays::{array_length, array_eq},
     },
-    traits::{Empty, is_empty}
+    traits::Empty
 };
 
 struct PrivateKernelInputsOrdering {
@@ -55,7 +55,7 @@ impl PrivateKernelInputsOrdering {
         let requests = self.previous_kernel.public_inputs.end.nullifier_key_validation_requests;
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i];
-            if !is_empty(request) {
+            if !request.is_empty() {
                 let master_secret_key = self.master_nullifier_secret_keys[i];
                 let computed_public_key = master_secret_key.derive_public_key();
                 assert(computed_public_key.eq(request.public_key), "Cannot derive nullifier public key from the master key.");
@@ -99,7 +99,7 @@ impl PrivateKernelInputsOrdering {
                 sorted[indexes[i]]
             };
             assert(item.eq(original[i]), "Sorted item is not equal");
-            let is_empty = is_empty(item);
+            let is_empty = item.is_empty();
 
             if prev_was_empty {
                 assert(is_empty, "Empty items must be at the end");
@@ -239,7 +239,7 @@ mod tests {
         utils::{
             arrays::{array_eq, array_length},
         },
-        traits::{Empty, is_empty, is_empty_array}
+        traits::Empty
     };
 
     struct PrivateKernelOrderingInputsBuilder {
@@ -303,9 +303,9 @@ mod tests {
             let sorted_indexes = indexes.sort_via(|a_index: u32, b_index: u32| {
                 let a = original[a_index];
                 let b = original[b_index];
-                if is_empty(b) {
+                if b.is_empty() {
                     true
-                } else if is_empty(a) {
+                } else if a.is_empty() {
                     false
                 } else {
                     a.counter() < b.counter()
@@ -399,7 +399,7 @@ mod tests {
         builder.nullify_transient_commitment(1, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_commitments));
+        assert(public_inputs.end.new_commitments.is_empty());
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
@@ -440,7 +440,7 @@ mod tests {
         builder.nullify_transient_commitment(2, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_commitments));
+        assert(public_inputs.end.new_commitments.is_empty());
         assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
     }
 

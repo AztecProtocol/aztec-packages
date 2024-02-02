@@ -25,12 +25,14 @@ impl Empty for u16 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == 
 impl Empty for u32 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
 impl Empty for u64 { fn empty() -> Self {0} fn is_empty(self) -> bool { self == Self::empty() } }
 
-pub fn is_empty<T>(item: T) -> bool where T: Empty {
-    item.is_empty()
-}
-
-pub fn is_empty_array<T, N>(array: [T; N]) -> bool where T: Empty {
-    array.all(|elem| is_empty(elem))
+impl<T, N> Empty for [T;N] where T: Empty {
+    fn empty() -> Self { 
+        [T::empty(); N]
+    }
+    
+    fn is_empty(self) -> bool {
+        self.all(|elem: T| elem.is_empty())
+    }
 }
 
 trait Hash {
