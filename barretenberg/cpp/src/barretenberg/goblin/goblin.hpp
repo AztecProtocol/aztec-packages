@@ -120,9 +120,11 @@ class Goblin {
         return { ultra_proof, instance->verification_key };
     };
 
-    /**
-     * @brief Construct a GUH proof and a merge proof for the present circuit.
-     * @details If there is a previous merge proof, recursively verify it.
+    /** WORKTODO
+     * @brief Similar to "accumulate" but only does merge-related stuff, no proving
+     * @details When this method is used, the "prover" functionality of the IVC scheme must be performed explicitly, but
+     * this method has to be called first so that the recursive merge verifier can be "appended" to the circuit being
+     * accumulated
      *
      * @param circuit_builder
      */
@@ -135,8 +137,7 @@ class Goblin {
         }
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        GoblinUltraComposer composer;
-        auto merge_prover = composer.create_merge_prover(op_queue);
+        MergeProver merge_prover{ op_queue };
         merge_proof = merge_prover.construct_proof();
 
         if (!merge_proof_exists) {
