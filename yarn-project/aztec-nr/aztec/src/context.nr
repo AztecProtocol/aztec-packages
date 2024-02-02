@@ -24,10 +24,10 @@ use dep::protocol_types::{
         function_data::FunctionData,
         function_selector::FunctionSelector,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
+        private_call_stack_item::PrivateCallStackItem,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        public_call_stack_item::PublicCallStackItem,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
-        call_stack_item::PrivateCallStackItem,
-        call_stack_item::PublicCallStackItem,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{

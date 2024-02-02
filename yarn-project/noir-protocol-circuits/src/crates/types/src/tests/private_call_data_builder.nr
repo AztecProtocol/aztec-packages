@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         call_request::{CallerContext, CallRequest},
-        call_stack_item::PrivateCallStackItem,
+        private_call_stack_item::PrivateCallStackItem,
         function_data::FunctionData,
         membership_witness::{
             ContractLeafMembershipWitness,
