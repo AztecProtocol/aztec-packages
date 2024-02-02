@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 /**
@@ -68,7 +68,7 @@ export class GlobalVariables {
   }
 
   toFields() {
-    return GlobalVariables.getFields(this);
+    return serializeToFields(...GlobalVariables.getFields(this));
   }
 
   toJSON() {
