@@ -113,38 +113,17 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         }
     };
 
-    static std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Instance>>& instances,
-                                                     InnerComposer& inner_composer)
+    static std::shared_ptr<Instance> fold_and_verify_native(const std::vector<std::shared_ptr<Instance>>& instances,
+                                                            InnerComposer& composer)
     {
-        // Generate a folding proof
-        auto inner_folding_prover = inner_composer.create_folding_prover(instances);
-        auto inner_folding_proof = inner_folding_prover.fold_instances();
+        auto folding_prover = composer.create_folding_prover(instances);
+        auto folding_verifier = composer.create_folding_verifier();
 
-        // Create a recursive folding verifier circuit for the folding proof of the two instances
-        OuterBuilder outer_folding_circuit;
-        FoldingRecursiveVerifier verifier{ &outer_folding_circuit };
-        verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        info("Folding Recursive Verifier: num gates = ", outer_folding_circuit.num_gates);
-
-        // Perform native folding verification and ensure it returns the same result (either true or false) as calling
-        // check_circuit on the recursive folding verifier
-        auto native_folding_verifier = inner_composer.create_folding_verifier();
-        auto native_folding_result = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        EXPECT_EQ(native_folding_result, outer_folding_circuit.check_circuit());
-
-        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring
-        // the manifests produced by each agree.
-        auto recursive_folding_manifest = verifier.transcript->get_manifest();
-        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
-
-        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
-        }
-
-        // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(outer_folding_circuit.failed(), false) << outer_folding_circuit.err();
-
-        return inner_folding_proof.accumulator;
+        auto proof = folding_prover.fold_instances();
+        auto next_accumulator = proof.accumulator;
+        auto res = folding_verifier.verify_folding_proof(proof.folding_data);
+        EXPECT_EQ(res, true);
+        return next_accumulator;
     }
 
     /**
@@ -206,14 +185,53 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto instance2 = inner_composer.create_instance(builder2);
         auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
 
-        fold_and_verify(instances, inner_composer);
+        // Generate a folding proof
+        auto inner_folding_prover = inner_composer.create_folding_prover(instances);
+        auto inner_folding_proof = inner_folding_prover.fold_instances();
+
+        // Create a recursive folding verifier circuit for the folding proof of the two instances
+        OuterBuilder outer_folding_circuit;
+        FoldingRecursiveVerifier verifier{ &outer_folding_circuit };
+        verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        info("Folding Recursive Verifier: num gates = ", outer_folding_circuit.num_gates);
+
+        // Perform native folding verification and ensure it returns the same result (either true or false) as calling
+        // check_circuit on the recursive folding verifier
+        auto native_folding_verifier = inner_composer.create_folding_verifier();
+        auto native_folding_result = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        EXPECT_EQ(native_folding_result, !outer_folding_circuit.failed());
+
+        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
+        // manifestsproduced by each agree.
+        auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+
+        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
+        }
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_folding_circuit.failed(), false) << outer_folding_circuit.err();
+
+        {
+            auto composer = OuterComposer();
+            auto instance = composer.create_instance(outer_folding_circuit);
+            auto prover = composer.create_prover(instance);
+            auto verifier = composer.create_verifier(instance);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
+
+            ASSERT(verified);
+        }
     };
 
     /**
-     * @brief Recursively verify two rounds of folding valid circuits and then recursive verify the final decider proof,
+     * @brief Perform two rounds of folding valid circuits and then recursive verify the final decider proof,
      * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
      * verifiers are identical by checking the manifests
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in tests once
+    // we can fold instances of different sizes.
     static void test_full_protogalaxy_recursive()
     {
         // Create two arbitrary circuits for the first round of folding
@@ -229,7 +247,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto instance2 = inner_composer.create_instance(builder2);
         auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
 
-        auto accumulator = fold_and_verify(instances, inner_composer);
+        auto accumulator = fold_and_verify_native(instances, inner_composer);
 
         // Create another circuit to do a second round of folding
         InnerBuilder builder3;
@@ -237,7 +255,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto instance3 = inner_composer.create_instance(builder3);
         instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance3 };
 
-        accumulator = fold_and_verify(instances, inner_composer);
+        accumulator = fold_and_verify_native(instances, inner_composer);
 
         // Create a decider proof for the relaxed instance obtained through folding
         auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
@@ -295,7 +313,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto instance2 = inner_composer.create_instance(builder2);
         auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
 
-        auto accumulator = fold_and_verify(instances, inner_composer);
+        auto accumulator = fold_and_verify_native(instances, inner_composer);
 
         // Tamper with the accumulator by changing the target sum
         accumulator->target_sum = FF::random_element();
@@ -329,7 +347,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto instance2 = inner_composer.create_instance(builder2);
         auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
 
-        auto accumulator = fold_and_verify(instances, inner_composer);
+        auto accumulator = fold_and_verify_native(instances, inner_composer);
 
         // Create another circuit to do a second round of folding
         InnerBuilder builder3;
