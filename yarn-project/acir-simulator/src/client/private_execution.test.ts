@@ -1,4 +1,4 @@
-import { L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { AztecNode, L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -66,6 +66,8 @@ jest.setTimeout(60_000);
 
 describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
+  let node: MockProxy<AztecNode>;
+
   let acirSimulator: AcirSimulator;
 
   let header = Header.empty();
@@ -218,7 +220,7 @@ describe('Private Execution test suite', () => {
     });
     oracle.getHeader.mockResolvedValue(header);
 
-    acirSimulator = new AcirSimulator(oracle);
+    acirSimulator = new AcirSimulator(oracle, node);
   });
 
   describe('empty constructor', () => {
