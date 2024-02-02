@@ -39,6 +39,19 @@ struct Header {
 }
 // docs:end:header
 
+impl Serialize<HEADER_LENGTH> for Header {
+    fn serialize(self) -> [Field; HEADER_LENGTH] {
+        let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new(0);
+
+        fields.extend_from_array(self.last_archive.serialize());
+        fields.extend_from_array(self.body_hash);
+        fields.extend_from_array(self.state.serialize());
+        fields.extend_from_array(self.global_variables.serialize());
+
+        fields.storage
+    }
+}
+
 impl Deserialize<HEADER_LENGTH> for Header {
     fn deserialize(serialized: [Field; HEADER_LENGTH]) -> Self {
         let mut offset = 0;
@@ -60,19 +73,6 @@ impl Deserialize<HEADER_LENGTH> for Header {
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
         }
-    }
-}
-
-impl Serialize<HEADER_LENGTH> for Header {
-    fn serialize(self) -> [Field; HEADER_LENGTH] {
-        let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new(0);
-
-        fields.extend_from_array(self.last_archive.serialize());
-        fields.extend_from_array(self.body_hash);
-        fields.extend_from_array(self.state.serialize());
-        fields.extend_from_array(self.global_variables.serialize());
-
-        fields.storage
     }
 }
 
