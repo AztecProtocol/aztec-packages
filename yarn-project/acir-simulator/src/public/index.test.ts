@@ -1,4 +1,4 @@
-import { L1ToL2Message } from '@aztec/circuit-types';
+import { L1ToL2Message, SiblingPath } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -21,6 +21,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 import { getFunctionSelector } from 'viem';
 
+import { MessageLoadOracleInputs } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
@@ -454,17 +455,17 @@ describe('ACIR public execution simulator', () => {
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
         publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
-        const siblingPath = Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random());
+        const siblingPathBuffers = Array(L1_TO_L2_MSG_TREE_HEIGHT)
+          .fill(Fr.random())
+          .map(f => f.toBuffer());
+        const siblingPath = new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, siblingPathBuffers);
+
         let root = messageKey ?? preimage.hash();
-        for (const sibling of siblingPath) {
-          root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling.toBuffer()]));
+        for (const sibling of siblingPathBuffers) {
+          root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling]));
         }
-        commitmentsDb.getL1ToL2Message.mockImplementation(async () => {
-          return await Promise.resolve({
-            message: preimage.toFieldArray(),
-            index: 0n,
-            siblingPath,
-          });
+        commitmentsDb.getL1ToL2Message.mockImplementation(() => {
+          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, siblingPath));
         });
 
         return new AppendOnlyTreeSnapshot(
