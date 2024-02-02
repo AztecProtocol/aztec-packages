@@ -3,7 +3,7 @@
 
 namespace bb::stdlib::merkle_tree {
 
-NullifierMemoryTree::NullifierMemoryTree(size_t depth)
+NullifierMemoryTree::NullifierMemoryTree(size_t depth, size_t initial_size)
     : MemoryTree(depth)
 {
     ASSERT(depth_ >= 1 && depth <= 32);
@@ -20,10 +20,12 @@ NullifierMemoryTree::NullifierMemoryTree(size_t depth)
         current = hash_pair_native(current, current);
     }
 
-    // Insert the initial leaf at index 0
-    auto initial_leaf = WrappedNullifierLeaf(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
-    leaves_.push_back(initial_leaf);
-    root_ = update_element(0, initial_leaf.hash());
+    // Insert the initial leaves
+    for (size_t i = 0; i < initial_size; i++) {
+        auto initial_leaf = WrappedNullifierLeaf(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
+        leaves_.push_back(initial_leaf);
+        root_ = update_element(i, initial_leaf.hash());
+    }
 }
 
 fr_hash_path NullifierMemoryTree::update_element(fr const& value)

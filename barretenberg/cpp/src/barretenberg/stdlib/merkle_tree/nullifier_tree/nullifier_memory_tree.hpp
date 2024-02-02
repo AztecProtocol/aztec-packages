@@ -66,7 +66,7 @@ namespace bb::stdlib::merkle_tree {
 class NullifierMemoryTree : public MemoryTree {
 
   public:
-    NullifierMemoryTree(size_t depth);
+    NullifierMemoryTree(size_t depth, size_t initial_size = 1);
 
     using MemoryTree::get_hash_path;
     using MemoryTree::root;

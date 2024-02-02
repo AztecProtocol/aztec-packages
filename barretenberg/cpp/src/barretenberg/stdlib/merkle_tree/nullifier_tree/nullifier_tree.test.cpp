@@ -143,88 +143,85 @@ TEST(stdlib_nullifier_tree, test_get_hash_path_layers)
 
 TEST(stdlib_indexed_tree, can_create)
 {
-    FixedMemoryStore store(32, 20);
+    FixedMemoryStore store(33, 20);
     // MemoryStore store;
-    IndexedTree tree = IndexedTree(store, 32);
+    IndexedTree<FixedMemoryStore> tree = IndexedTree<FixedMemoryStore>(store, 32);
     EXPECT_EQ(tree.get_size(), 1ULL);
 }
 
-// TEST(stdlib_indexed_tree, test_size)
-// {
-//     FixedMemoryStore store(32, 20);
-//     auto db = IndexedTree(store, 32);
+TEST(stdlib_indexed_tree, test_size)
+{
+    FixedMemoryStore store(33, 20);
+    auto db = IndexedTree(store, 32);
 
-//     // We assume that the first leaf is already filled with (0, 0, 0).
-//     EXPECT_EQ(db.get_size(), 1ULL);
+    // We assume that the first leaf is already filled with (0, 0, 0).
+    EXPECT_EQ(db.get_size(), 1ULL);
 
-//     // Add a new non-zero leaf at index 1.
-//     db.update_element(30);
-//     EXPECT_EQ(db.get_size(), 2ULL);
+    // Add a new non-zero leaf at index 1.
+    db.update_element(30);
+    EXPECT_EQ(db.get_size(), 2ULL);
 
-//     // Add third.
-//     db.update_element(10);
-//     EXPECT_EQ(db.get_size(), 3ULL);
+    // Add third.
+    db.update_element(10);
+    EXPECT_EQ(db.get_size(), 3ULL);
 
-//     // Add forth.
-//     db.update_element(20);
-//     EXPECT_EQ(db.get_size(), 4ULL);
+    // Add forth.
+    db.update_element(20);
+    EXPECT_EQ(db.get_size(), 4ULL);
 
-//     // Add forth but with same value.
-//     db.update_element(20);
-//     EXPECT_EQ(db.get_size(), 4ULL);
-// }
+    // Add forth but with same value.
+    db.update_element(20);
+    EXPECT_EQ(db.get_size(), 4ULL);
+}
 
-// TEST(stdlib_indexed_tree, test_get_hash_path)
-// {
-//     NullifierMemoryTree memdb(10);
+TEST(stdlib_indexed_tree, test_get_hash_path)
+{
+    NullifierMemoryTree memdb(10);
 
-//     FixedMemoryStore store(10, 512);
-//     auto db = IndexedTree(store, 10);
+    FixedMemoryStore store(11, 1024);
+    auto db = IndexedTree(store, 10);
 
-//     EXPECT_EQ(memdb.root(), db.get_root());
+    EXPECT_EQ(memdb.root(), db.get_root());
 
-//     EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
+    EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
 
-//     memdb.update_element(VALUES[512]);
-//     db.update_element(VALUES[512]);
+    memdb.update_element(VALUES[512]);
+    db.update_element(VALUES[512]);
 
-//     EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
+    EXPECT_EQ(db.get_hash_path(0), memdb.get_hash_path(0));
 
-//     for (size_t i = 0; i < 512; ++i) {
-//         memdb.update_element(VALUES[i]);
-//         db.update_element(VALUES[i]);
-//     }
+    for (size_t i = 0; i < 512; ++i) {
+        memdb.update_element(VALUES[i]);
+        db.update_element(VALUES[i]);
+    }
 
-//     EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
-// }
+    EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
+}
 
-// TEST(stdlib_indexed_tree, test_batch_insert)
-// {
-//     NullifierMemoryTree memdb(10);
+TEST(stdlib_indexed_tree, test_batch_insert)
+{
+    const size_t batch_size = 16;
+    size_t limit = 512;
+    NullifierMemoryTree memdb(10, batch_size);
 
-//     FixedMemoryStore store(10, 512);
-//     auto db = IndexedTree(store, 10);
+    FixedMemoryStore store(11, 1024);
+    auto db = IndexedTree(store, 10, batch_size);
 
-//     EXPECT_EQ(memdb.root(), db.get_root());
+    EXPECT_EQ(memdb.root(), db.get_root());
 
-//     EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
+    EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
 
-//     EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
+    EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
 
-//     for (size_t i = 0; i < 512; i += 16) {
-//         std::vector<fr_hash_path> mem_hash_paths;
-//         std::vector<fr_hash_path> db_hash_paths;
-//         for (size_t j = 0; j < 16; j++)
-//         {
-//             mem_hash_paths.push_back(memdb.update_element(VALUES[i + j]));
-//         }
-//         std::vector<fr>::const_iterator start = VALUES.begin() + uint32_t(i);
-//         std::vector<fr>::const_iterator end = start + 16;
-//         db_hash_paths = db.update_elements(std::vector<fr>(start, end));
-//         EXPECT_EQ(memdb.root(), db.get_root());
-//         for (size_t j = 0; j < 16; j++)
-//         {
-//             EXPECT_EQ(mem_hash_paths[j], db_hash_paths[j]);
-//         }
-//     }
-// }
+    for (size_t i = 0; i < limit; i += batch_size) {
+        std::vector<fr>::const_iterator start = VALUES.begin() + uint32_t(i);
+        std::vector<fr>::const_iterator end = start + int(batch_size);
+        for (size_t j = 0; j < batch_size; j++) {
+            memdb.update_element(VALUES[i + j]);
+        }
+
+        db.update_elements(std::vector<fr>(start, end));
+        EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
+        EXPECT_EQ(memdb.root(), db.get_root());
+    }
+}
