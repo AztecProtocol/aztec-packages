@@ -590,7 +590,10 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
 }
 
 // Transform a function to work with AVM bytecode
-fn transform_vm_function(func: &mut NoirFunction, _storage_defined: bool) -> Result<(), AztecMacroError> {
+fn transform_vm_function(
+    func: &mut NoirFunction,
+    _storage_defined: bool,
+) -> Result<(), AztecMacroError> {
     // We want the function to be seen as a public function
     func.def.is_open = true;
 

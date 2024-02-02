@@ -93,7 +93,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
                 let brillig = extract_brillig_from_acir(&acir_circuit.opcodes);
 
                 // Transpile to AVM
-                let avm_bytecode = brillig_to_avm(&brillig);
+                let avm_bytecode = brillig_to_avm(brillig);
 
                 // Push modified function entry to ABI
                 functions.push(AvmOrAcirContractFunction::Avm(AvmContractFunction {

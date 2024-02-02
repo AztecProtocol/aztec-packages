@@ -1,5 +1,5 @@
-use std::fmt::{Formatter, Debug};
 use std::fmt;
+use std::fmt::{Debug, Formatter};
 
 use crate::opcodes::AvmOpcode;
 
@@ -39,7 +39,7 @@ impl AvmInstruction {
         if let Some(dst_tag) = self.dst_tag {
             out_str += format!(", dst_tag: {}", dst_tag as u8).as_str();
         }
-        if self.operands.len() > 0 {
+        if !self.operands.is_empty() {
             out_str += ", operands: [";
             for operand in &self.operands {
                 out_str += format!("{}, ", operand.to_string()).as_str();
@@ -111,7 +111,6 @@ impl AvmOperand {
         match self {
             AvmOperand::U32 { value } => format!(" U32:{}", value),
             // TODO(4267): Support operands of size other than 32 bits (for SET)
-            //AvmOperand::U128 { value } => format!("U128:{}", value),
             AvmOperand::U128 { value } => format!(" U128:{}", value),
         }
     }
