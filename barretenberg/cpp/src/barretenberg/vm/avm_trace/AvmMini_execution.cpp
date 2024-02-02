@@ -212,12 +212,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             case AvmMemoryTag::U64: // value represented as 2 uint32_t operands
                 val = inst.operands.at(0);
                 val <<= 32;
-                val += inst.operands.at(1);
+                val |= inst.operands.at(1);
                 dst_offset = inst.operands.at(2);
                 break;
             case AvmMemoryTag::U128: // value represented as 4 uint32_t operands
                 for (size_t i = 0; i < 4; i++) {
-                    val += inst.operands.at(i);
+                    val |= inst.operands.at(i);
                     val <<= 32;
                 }
                 dst_offset = inst.operands.at(4);
