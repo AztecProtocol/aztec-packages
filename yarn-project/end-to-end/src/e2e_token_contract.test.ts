@@ -209,7 +209,7 @@ describe('e2e_token_contract', () => {
 
   describe('Minting', () => {
     describe('Public', () => {
-      it.only('as minter', async () => {
+      it('as minter', async () => {
         const amount = 10000n;
         const tx = asset.methods.mint_public(accounts[0].address, amount).send();
         const receipt = await tx.wait();

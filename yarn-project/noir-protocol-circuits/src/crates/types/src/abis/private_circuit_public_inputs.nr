@@ -88,6 +88,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.push(self.chain_id);
         fields.push(self.version);
 
+        dep::std::println(fields.len());
+
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
         fields.storage
