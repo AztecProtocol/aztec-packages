@@ -7,7 +7,12 @@ use crate::{
         PartialStateReference,
         PARTIAL_STATE_REFERENCE_LENGTH,
     },
-    traits::Empty,
+    traits::{
+        Deserialize,
+        Empty,
+        Hash,
+        Serialize,
+    },
     utils::{
         arr_copy_slice,
     },
@@ -20,12 +25,14 @@ struct StateReference {
 
 global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
 
-impl StateReference {
+impl Eq for StateReference {
     fn eq(self, other: StateReference) -> bool {
         self.l1_to_l2_message_tree.eq(other.l1_to_l2_message_tree) &
         self.partial.eq(other.partial)
     }
+}
 
+impl Serialize<STATE_REFERENCE_LENGTH> for StateReference {
     fn serialize(self) -> [Field; STATE_REFERENCE_LENGTH] {
         let mut fields: BoundedVec<Field, STATE_REFERENCE_LENGTH> = BoundedVec::new(0);
 
@@ -34,7 +41,9 @@ impl StateReference {
 
         fields.storage
     }
+}
 
+impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
     fn deserialize(serialized: [Field; STATE_REFERENCE_LENGTH]) -> StateReference {
         let mut offset = 0;
 
@@ -57,4 +66,11 @@ impl Empty for StateReference {
             partial: PartialStateReference::empty(),
         }
     }
+}
+
+#[test]
+fn serialization_deserialization_smoke() {
+    let state: StateReference = dep::std::unsafe::zeroed();
+    let _serialized = state.serialize();
+    let _deserialized = StateReference::deserialize(_serialized);
 }
