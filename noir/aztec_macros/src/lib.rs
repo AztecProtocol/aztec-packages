@@ -182,6 +182,11 @@ fn member_access(lhs: &str, rhs: &str) -> Expression {
     })))
 }
 
+fn return_type(path: Path) -> FunctionReturnType {
+    let ty = make_type(UnresolvedTypeData::Named(path, vec![]));
+    FunctionReturnType::Ty(ty)
+}
+
 fn lambda(parameters: Vec<(Pattern, UnresolvedType)>, body: Expression) -> Expression {
     expression(ExpressionKind::Lambda(Box::new(Lambda {
         parameters,
@@ -562,10 +567,7 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
         )],
         &BlockExpression(vec![storage_constructor_statement]),
         &vec![],
-        &FunctionReturnType::Ty(UnresolvedType {
-            typ: UnresolvedTypeData::Named(chained_path!("Self"), vec![]),
-            span: Some(Span::default()),
-        }),
+        &return_type(chained_path!("Self")),
     ));
 
     let storage_impl = TypeImpl {
@@ -1346,9 +1348,7 @@ fn make_castable_return_type(expression: Expression) -> Statement {
 /// }
 fn create_return_type(ty: &str) -> FunctionReturnType {
     let return_path = chained_path!("aztec", "abi", ty);
-
-    let ty = make_type(UnresolvedTypeData::Named(return_path, vec![]));
-    FunctionReturnType::Ty(ty)
+    return_type(return_path)
 }
 
 /// Create Context Finish
