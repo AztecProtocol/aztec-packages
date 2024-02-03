@@ -254,32 +254,9 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 });
             },
             BrilligOpcode::ForeignCall { function, destinations, inputs } => {
-                println!("{}", function);
-                match function.as_str() {
-                    "address" => {
-                        assert!(inputs.len() == 0);
-                        assert!(destinations.len() == 1);
-                        let dest_offset_maybe = destinations[0];
-                        let dest_offset = match dest_offset_maybe {
-                            ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
-                            _ => panic!("ForeignCall address destination should be a single value"),
-                        };
-
-                        avm_instrs.push(AvmInstruction {
-                            opcode: AvmOpcode::ADDRESS,
-                            indirect: Some(0),
-                            operands: vec![
-                                AvmOperand::U32 { value: dest_offset as u32},
-                            ],
-                            ..Default::default()
-                        });
-                    }
-                    _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
-                }
-                println!("{:?}", destinations);
-                println!("{:?}", inputs);
+                handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
             }
-            _ => panic!(
+        _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
                 brillig_instr
             ),
@@ -295,6 +272,48 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     }
     bytecode
 }
+
+fn handle_foreign_call(avm_instrs: &mut Vec<AvmInstruction>, function: &String, destinations: &Vec<ValueOrArray>, inputs: &Vec<ValueOrArray>) {
+    // For the foreign calls we want to handle, we do not want inputs, as they are getters
+    assert!(inputs.len() == 0);
+    assert!(destinations.len() == 1);
+    let dest_offset_maybe = destinations[0];
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        _ => panic!("ForeignCall address destination should be a single value"),
+    };
+
+    let opcode = match function.as_str() {
+        "address" => AvmOpcode::ADDRESS,
+        "storageAddress" => AvmOpcode::STORAGEADDRESS,
+        "origin" => AvmOpcode::ORIGIN,
+        "sender" => AvmOpcode::SENDER,
+        "portal" => AvmOpcode::PORTAL,
+        "feePerL1Gas" => AvmOpcode::FEEPERL1GAS,
+        "feePerL2Gas" => AvmOpcode::FEEPERL2GAS,
+        "feePerDaGas" => AvmOpcode::FEEPERDAGAS,
+        "chainId" => AvmOpcode::CHAINID,
+        "version" => AvmOpcode::VERSION,
+        "blockNumber" => AvmOpcode::BLOCKNUMBER,
+        "timestamp" => AvmOpcode::TIMESTAMP,
+        // "isStaticCall" => AvmOpcode::ISSTATICCALL,
+        // "isDelegateCall" => AvmOpcode::ISDELEGATECALL,
+        _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
+
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode,
+        indirect: Some(0),
+        operands: vec![
+            AvmOperand::U32 { value: dest_offset as u32},
+        ],
+        ..Default::default()
+    });
+
+
+}
+
 
 /// Compute an array that maps each Brillig pc to an AVM pc.
 /// This must be done before transpiling to properly transpile jump destinations.
