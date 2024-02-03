@@ -377,7 +377,7 @@ impl PrivateContext {
 
         let mut reader = Reader::new(fields);
 
-        // Note: Not using PublicCirclePublicInputs::deserialize here, because everything bellow args_hash is 0 and
+        // Note: Not using PublicCirclePublicInputs::deserialize here, because everything below args_hash is 0 and
         // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
         let item = PublicCallStackItem {
             contract_address:  AztecAddress::from_field(reader.read()),
