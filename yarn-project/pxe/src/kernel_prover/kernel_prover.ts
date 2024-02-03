@@ -88,7 +88,6 @@ export class KernelProver {
   async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<KernelProverOutput> {
     const executionStack = [executionResult];
     const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
-    // pluck the meta high watermark from the public inputs of the first callstack item
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
 
@@ -142,7 +141,6 @@ export class KernelProver {
         const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
-        assertLength(output.publicInputs.end.newCommitments, MAX_NEW_COMMITMENTS_PER_TX);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
         const previousKernelData = new PreviousKernelData(
