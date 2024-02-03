@@ -29,6 +29,8 @@ import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
+import { log } from 'console';
+
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_deploy_contract', () => {
@@ -253,10 +255,16 @@ describe('e2e_deploy_contract', () => {
   // Tests registering a new contract class on a node
   // All this dance will be hidden behind a nicer API in the near future!
   it('registers a new contract class via the class registerer contract', async () => {
-    const registerer = await registerContract(wallet, ContractClassRegistererContract);
+    const registerer = await registerContract(wallet, ContractClassRegistererContract, [], new Fr(1));
     const contractClass = getContractClassFromArtifact(ReaderContractArtifact);
     const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
     const publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
+
+    logger(`contractClass.id: ${contractClass.id}`);
+    logger(`contractClass.artifactHash: ${contractClass.artifactHash}`);
+    logger(`contractClass.privateFunctionsRoot: ${privateFunctionsRoot}`);
+    logger(`contractClass.publicBytecodeCommitment: ${publicBytecodeCommitment}`);
+    logger(`contractClass.packedBytecode.length: ${contractClass.packedBytecode.length}`);
 
     const tx = await registerer.methods
       .register(
@@ -269,8 +277,15 @@ describe('e2e_deploy_contract', () => {
       .wait();
 
     const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    const registeredLog = logs.logs[0].log; // We need a nicer API!
+    expect(registeredLog.contractAddress).toEqual(registerer.address);
 
-    // TODO: query aztec node
+    const registeredClass = await aztecNode.getContractClass(contractClass.id);
+    expect(registeredClass).toBeDefined();
+    expect(registeredClass?.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());
+    expect(registeredClass?.privateFunctionsRoot.toString()).toEqual(privateFunctionsRoot.toString());
+    expect(registeredClass?.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
+    expect(registeredClass?.publicFunctions).toEqual(contractClass.publicFunctions);
   });
 });
 
@@ -291,8 +306,9 @@ async function registerContract<T extends ContractBase>(
   wallet: Wallet,
   contractArtifact: ContractArtifactClass<T>,
   args: any[] = [],
+  salt?: Fr,
 ): Promise<T> {
-  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args);
+  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt);
   await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
   return contractArtifact.at(instance.address, wallet);
 }

@@ -1,10 +1,13 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { ContractClassPublic } from '@aztec/types/contracts';
+
+import chunk from 'lodash.chunk';
 
 import { CONTRACT_CLASS_REGISTERED_MAGIC_VALUE } from '../constants.gen.js';
 import { computeContractClassId, computePublicBytecodeCommitment } from './contract_class_id.js';
-import { unpackBytecode } from './public_bytecode.js';
+import { packedBytecodeFromFields, unpackBytecode } from './public_bytecode.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class ContractClassRegisteredEvent {
@@ -21,11 +24,18 @@ export class ContractClassRegisteredEvent {
   }
 
   static fromLogData(log: Buffer) {
-    const contractClassId = Fr.fromBuffer(log.subarray(32, 64));
-    const version = log.readUInt32BE(64);
-    const artifactHash = Fr.fromBuffer(log.subarray(68, 100));
-    const privateFunctionsRoot = Fr.fromBuffer(log.subarray(100, 132));
-    const packedPublicBytecode = log.subarray(132);
+    if (!this.isContractClassRegisteredEvent(log)) {
+      const magicValue = CONTRACT_CLASS_REGISTERED_MAGIC_VALUE.toString(16);
+      throw new Error(`Log data for ContractClassRegisteredEvent is not prefixed with magic value 0x${magicValue}`);
+    }
+    const reader = new BufferReader(log.subarray(32));
+    const contractClassId = reader.readObject(Fr);
+    const version = reader.readObject(Fr).toNumber();
+    const artifactHash = reader.readObject(Fr);
+    const privateFunctionsRoot = reader.readObject(Fr);
+    const packedPublicBytecode = packedBytecodeFromFields(
+      chunk(reader.readToEnd(), Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer),
+    );
 
     return new ContractClassRegisteredEvent(
       contractClassId,
@@ -43,10 +53,14 @@ export class ContractClassRegisteredEvent {
       publicBytecodeCommitment: computePublicBytecodeCommitment(this.packedPublicBytecode),
     });
 
-    if (computedClassId.equals(this.contractClassId)) {
+    if (!computedClassId.equals(this.contractClassId)) {
       throw new Error(
         `Invalid contract class id: computed ${computedClassId.toString()} but event broadcasted ${this.contractClassId.toString()}`,
       );
+    }
+
+    if (this.version !== 1) {
+      throw new Error(`Unexpected contract class version ${this.version}`);
     }
 
     return {
@@ -55,7 +69,7 @@ export class ContractClassRegisteredEvent {
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
       publicFunctions: unpackBytecode(this.packedPublicBytecode),
-      version: 1,
+      version: this.version,
     };
   }
 }
