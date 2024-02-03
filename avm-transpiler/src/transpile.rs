@@ -273,7 +273,12 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     bytecode
 }
 
-fn handle_foreign_call(avm_instrs: &mut Vec<AvmInstruction>, function: &String, destinations: &Vec<ValueOrArray>, inputs: &Vec<ValueOrArray>) {
+fn handle_foreign_call(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    function: &String,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
     assert!(inputs.len() == 0);
     assert!(destinations.len() == 1);
@@ -298,22 +303,21 @@ fn handle_foreign_call(avm_instrs: &mut Vec<AvmInstruction>, function: &String, 
         "timestamp" => AvmOpcode::TIMESTAMP,
         // "isStaticCall" => AvmOpcode::ISSTATICCALL,
         // "isDelegateCall" => AvmOpcode::ISDELEGATECALL,
-        _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
-
+        _ => panic!(
+            "Transpiler doesn't know how to process ForeignCall function {:?}",
+            function
+        ),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode,
         indirect: Some(0),
-        operands: vec![
-            AvmOperand::U32 { value: dest_offset as u32},
-        ],
+        operands: vec![AvmOperand::U32 {
+            value: dest_offset as u32,
+        }],
         ..Default::default()
     });
-
-
 }
-
 
 /// Compute an array that maps each Brillig pc to an AVM pc.
 /// This must be done before transpiling to properly transpile jump destinations.
