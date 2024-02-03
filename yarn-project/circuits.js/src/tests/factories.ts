@@ -8,6 +8,7 @@ import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
+  AccumulatedMetaData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
@@ -36,18 +37,22 @@ import {
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
@@ -284,6 +289,22 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
 }
 
 /**
+ * Creates arbitrary accumulated data for a Tx's meta phase.
+ * @param seed - The seed to use for generating the data.
+ * @returns An instance of AccumulatedMetaData.
+ */
+export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedMetaData {
+  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
+
+  return new AccumulatedMetaData(
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX_META, sideEffectFromNumber, seed + 0x101),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX_META, sideEffectLinkedFromNumber, seed + 0x201),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x401),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x501),
+  );
+}
+
+/**
  * Creates arbitrary contract data.
  * @param seed - The seed to use for generating the contract data.
  * @returns A contract data.
@@ -397,7 +418,7 @@ export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPubli
   return new PrivateKernelPublicInputsFinal(
     makeAggregationObject(seed),
     fr(seed + 0x100),
-    makeFinalAccumulatedData(seed, true),
+    makeAccumulatedMetaData(seed, true),
     makeFinalAccumulatedData(seed, true),
     makeConstantData(seed + 0x100),
   );

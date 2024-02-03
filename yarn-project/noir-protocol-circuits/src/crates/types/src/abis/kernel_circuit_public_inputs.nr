@@ -2,6 +2,8 @@ use crate::abis::{
     combined_accumulated_data::{
         CombinedAccumulatedData,
         FinalAccumulatedData,
+        AccumulatedMetaData,
+        AccumulatedMetaDataBuilder,
         CombinedAccumulatedDataBuilder,
     },
     combined_constant_data::CombinedConstantData
@@ -19,7 +21,7 @@ struct KernelCircuitPublicInputs {
 struct KernelCircuitPublicInputsFinal {
     aggregation_object: AggregationObject,
     meta_hwm: Field,
-    end_meta: FinalAccumulatedData,
+    end_meta: AccumulatedMetaData,
     // TODO(fees) change this to end_app_logic
     end: FinalAccumulatedData,
     constants: CombinedConstantData,
@@ -29,7 +31,7 @@ struct KernelCircuitPublicInputsFinal {
 struct KernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
     meta_hwm: Field,
-    end_meta: CombinedAccumulatedDataBuilder,
+    end_meta: AccumulatedMetaDataBuilder,
     end: CombinedAccumulatedDataBuilder,
     constants: CombinedConstantData,
     is_private: bool,
@@ -47,7 +49,7 @@ impl KernelCircuitPublicInputsBuilder {
     }
 
     pub fn to_final(self) -> KernelCircuitPublicInputsFinal {
-        let meta = self.end_meta.to_final();
+        let meta = self.end_meta.finish();
         let app = self.end.to_final();
         KernelCircuitPublicInputsFinal {
             aggregation_object: self.aggregation_object,

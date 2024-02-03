@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
-import { FinalAccumulatedData } from './combined_accumulated_data.js';
+import { AccumulatedMetaData, FinalAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
@@ -21,7 +21,7 @@ export class KernelCircuitPublicInputsFinal {
     /**
      * Final metadata accumulated for ordering private kernel circuit.
      */
-    public endMeta: FinalAccumulatedData,
+    public endMeta: AccumulatedMetaData,
     /**
      * Final data accumulated for ordering private kernel circuit.
      */
@@ -57,7 +57,7 @@ export class KernelCircuitPublicInputsFinal {
     return new KernelCircuitPublicInputsFinal(
       reader.readObject(AggregationObject),
       reader.readObject(Fr),
-      reader.readObject(FinalAccumulatedData),
+      reader.readObject(AccumulatedMetaData),
       reader.readObject(FinalAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
@@ -68,7 +68,7 @@ export class KernelCircuitPublicInputsFinal {
     return new KernelCircuitPublicInputsFinal(
       AggregationObject.makeFake(),
       Fr.zero(),
-      FinalAccumulatedData.empty(),
+      AccumulatedMetaData.empty(),
       FinalAccumulatedData.empty(),
       CombinedConstantData.empty(),
       true,
@@ -83,7 +83,7 @@ export class PrivateKernelPublicInputsFinal extends KernelCircuitPublicInputsFin
   constructor(
     aggregationObject: AggregationObject,
     metaHwm: Fr,
-    endMeta: FinalAccumulatedData,
+    endMeta: AccumulatedMetaData,
     end: FinalAccumulatedData,
     constants: CombinedConstantData,
   ) {
