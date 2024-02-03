@@ -29,8 +29,6 @@ import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
-import { log } from 'console';
-
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_deploy_contract', () => {
