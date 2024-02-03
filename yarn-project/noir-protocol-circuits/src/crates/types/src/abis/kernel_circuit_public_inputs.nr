@@ -10,6 +10,7 @@ use crate::mocked::AggregationObject;
 
 struct KernelCircuitPublicInputs {
     aggregation_object: AggregationObject,
+    meta_hwm: Field,
     end: CombinedAccumulatedData,
     constants: CombinedConstantData,
     is_private: bool,
@@ -17,6 +18,7 @@ struct KernelCircuitPublicInputs {
 
 struct KernelCircuitPublicInputsFinal {
     aggregation_object: AggregationObject,
+    meta_hwm: Field,
     end_meta: FinalAccumulatedData,
     // TODO(fees) change this to end_app_logic
     end: FinalAccumulatedData,
@@ -26,6 +28,7 @@ struct KernelCircuitPublicInputsFinal {
 
 struct KernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
+    meta_hwm: Field,
     end_meta: CombinedAccumulatedDataBuilder,
     end: CombinedAccumulatedDataBuilder,
     constants: CombinedConstantData,
@@ -36,6 +39,7 @@ impl KernelCircuitPublicInputsBuilder {
     pub fn finish(self) -> KernelCircuitPublicInputs {
         KernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
+            meta_hwm: self.meta_hwm,
             end: self.end.finish(),
             constants: self.constants,
             is_private: self.is_private,
@@ -47,6 +51,7 @@ impl KernelCircuitPublicInputsBuilder {
         let app = self.end.to_final();
         KernelCircuitPublicInputsFinal {
             aggregation_object: self.aggregation_object,
+            meta_hwm: self.meta_hwm,
             end_meta: meta,
             end: app,
             constants: self.constants,

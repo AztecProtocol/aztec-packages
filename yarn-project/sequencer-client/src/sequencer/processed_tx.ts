@@ -58,6 +58,7 @@ export async function makeProcessedTx(
       kernelOutput ??
       new PublicKernelPublicInputs(
         tx.data.aggregationObject,
+        tx.data.metaHwm,
         CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
         tx.data.constants,
       ),

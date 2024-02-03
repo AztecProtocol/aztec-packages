@@ -191,6 +191,7 @@ impl PreviousKernelDataBuilder {
     pub fn finish(self) -> PreviousKernelData {
         let public_inputs = KernelCircuitPublicInputs {
             aggregation_object: AggregationObject {},
+            meta_hwm: 0,
             end: self.end.finish(),
             constants: CombinedConstantData {
                 historical_header: self.historical_header,

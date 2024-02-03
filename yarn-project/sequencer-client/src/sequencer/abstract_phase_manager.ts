@@ -118,6 +118,7 @@ export abstract class AbstractPhaseManager {
     } else {
       const publicKernelOutput = new KernelCircuitPublicInputs(
         tx.data.aggregationObject,
+        tx.data.metaHwm,
         CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
         tx.data.constants,
         tx.data.isPrivate,

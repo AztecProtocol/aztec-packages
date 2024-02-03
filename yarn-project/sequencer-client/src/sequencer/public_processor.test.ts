@@ -102,6 +102,7 @@ describe('public_processor', () => {
           hash,
           data: new PublicKernelPublicInputs(
             tx.data.aggregationObject,
+            tx.data.metaHwm,
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
           ),

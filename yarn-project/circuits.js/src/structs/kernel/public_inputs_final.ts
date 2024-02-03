@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
@@ -13,6 +14,10 @@ export class KernelCircuitPublicInputsFinal {
      * Aggregated proof of all the previous kernel iterations.
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
+    /**
+     * The side effect counter that meta side effects are all beneath.
+     */
+    public metaHwm: Fr,
     /**
      * Final metadata accumulated for ordering private kernel circuit.
      */
@@ -32,7 +37,14 @@ export class KernelCircuitPublicInputsFinal {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.aggregationObject, this.endMeta, this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(
+      this.aggregationObject,
+      this.metaHwm,
+      this.endMeta,
+      this.end,
+      this.constants,
+      this.isPrivate,
+    );
   }
 
   /**
@@ -44,6 +56,7 @@ export class KernelCircuitPublicInputsFinal {
     const reader = BufferReader.asReader(buffer);
     return new KernelCircuitPublicInputsFinal(
       reader.readObject(AggregationObject),
+      reader.readObject(Fr),
       reader.readObject(FinalAccumulatedData),
       reader.readObject(FinalAccumulatedData),
       reader.readObject(CombinedConstantData),
@@ -54,6 +67,7 @@ export class KernelCircuitPublicInputsFinal {
   static empty() {
     return new KernelCircuitPublicInputsFinal(
       AggregationObject.makeFake(),
+      Fr.zero(),
       FinalAccumulatedData.empty(),
       FinalAccumulatedData.empty(),
       CombinedConstantData.empty(),
@@ -68,10 +82,11 @@ export class KernelCircuitPublicInputsFinal {
 export class PrivateKernelPublicInputsFinal extends KernelCircuitPublicInputsFinal {
   constructor(
     aggregationObject: AggregationObject,
+    metaHwm: Fr,
     endMeta: FinalAccumulatedData,
     end: FinalAccumulatedData,
     constants: CombinedConstantData,
   ) {
-    super(aggregationObject, endMeta, end, constants, true);
+    super(aggregationObject, metaHwm, endMeta, end, constants, true);
   }
 }

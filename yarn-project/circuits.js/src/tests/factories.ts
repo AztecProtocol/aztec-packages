@@ -381,6 +381,7 @@ export function makePublicCircuitPublicInputs(
 export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
     makeAggregationObject(seed),
+    fr(seed + 0x100),
     makeAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     true,
@@ -395,6 +396,7 @@ export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): Ke
 export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
   return new PrivateKernelPublicInputsFinal(
     makeAggregationObject(seed),
+    fr(seed + 0x100),
     makeFinalAccumulatedData(seed, true),
     makeFinalAccumulatedData(seed, true),
     makeConstantData(seed + 0x100),
