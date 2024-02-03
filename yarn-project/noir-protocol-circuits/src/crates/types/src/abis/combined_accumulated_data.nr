@@ -22,6 +22,11 @@ use crate::constants::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX,
     NUM_FIELDS_PER_SHA256,
+
+    MAX_NEW_COMMITMENTS_PER_TX_META,
+    MAX_NEW_NULLIFIERS_PER_TX_META,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
 };
 
 struct CombinedAccumulatedData {
@@ -70,6 +75,13 @@ struct FinalAccumulatedData {
 
     new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
     optionally_revealed_data: [OptionallyRevealedData; MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX]
+}
+
+struct AccumulatedMetaData {
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX_META],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX_META],
+    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META],
+    public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META],
 }
 
 struct CombinedAccumulatedDataBuilder {
@@ -153,6 +165,26 @@ impl CombinedAccumulatedDataBuilder {
 
             new_contracts: self.new_contracts.storage,
             optionally_revealed_data: self.optionally_revealed_data,
+        }
+    }
+}
+
+struct AccumulatedMetaDataBuilder {
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX_META>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX_META>,
+
+    private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META>,
+    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
+}
+
+impl AccumulatedMetaDataBuilder {
+    pub fn finish(self) -> AccumulatedMetaData {
+        AccumulatedMetaData {
+            new_commitments: self.new_commitments.storage,
+            new_nullifiers: self.new_nullifiers.storage,
+
+            private_call_stack: self.private_call_stack.storage,
+            public_call_stack: self.public_call_stack.storage,
         }
     }
 }

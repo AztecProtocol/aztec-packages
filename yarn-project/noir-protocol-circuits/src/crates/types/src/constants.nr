@@ -47,6 +47,11 @@ global MAX_READ_REQUESTS_PER_TX: Field = 128;
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX: Field = 4;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
+
+global MAX_NEW_COMMITMENTS_PER_TX_META: Field = 8;
+global MAX_NEW_NULLIFIERS_PER_TX_META: Field = 8;
+global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META: Field = 1;
+global MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META: Field = 2;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
@@ -101,7 +106,7 @@ global CALL_CONTEXT_LENGTH: Field = 8;
 global GLOBAL_VARIABLES_LENGTH: Field = 4;
 global PARTIAL_STATE_REFERENCE_LENGTH: Field = 8;
 global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
-global HEADER_LENGTH: Field = 18; // 2 for last_archive, 2 for body hash, 10 for state reference, 4 for global vars 
+global HEADER_LENGTH: Field = 18; // 2 for last_archive, 2 for body hash, 10 for state reference, 4 for global vars
 global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.

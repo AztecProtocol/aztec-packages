@@ -1,31 +1,32 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import {
-  AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionData,
-  NullifierKeyValidationRequestContext,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-} from '../index.js';
+import { FunctionData } from '../function_data.js';
+import { NullifierKeyValidationRequestContext } from '../nullifier_key_validation_request.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -380,7 +381,7 @@ export class CombinedAccumulatedData {
   }
 
   toString() {
-    return this.toBuffer().toString();
+    return this.toBuffer().toString('hex');
   }
 
   /**
@@ -531,7 +532,7 @@ export class FinalAccumulatedData {
   }
 
   toString() {
-    return this.toBuffer().toString();
+    return this.toBuffer().toString('hex');
   }
 
   /**
@@ -578,6 +579,59 @@ export class FinalAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
+    );
+  }
+}
+
+export class AccumulatedMetaData {
+  constructor(
+    /**
+     * The new commitments made in this transaction.
+     */
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX_META>,
+    /**
+     * The new nullifiers made in this transaction.
+     */
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX_META>,
+    /**
+     * Current private call stack.
+     * TODO(#3417): Given this field must empty, should we just remove it?
+     */
+    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META>,
+    /**
+     * Current public call stack.
+     */
+    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
+  ) {}
+
+  toBuffer() {
+    return serializeToBuffer(this.newCommitments, this.newNullifiers, this.privateCallStack, this.publicCallStack);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): AccumulatedMetaData {
+    const reader = BufferReader.asReader(buffer);
+    return new AccumulatedMetaData(
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
+    );
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(str: string) {
+    return AccumulatedMetaData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new AccumulatedMetaData(
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),
     );
   }
 }
