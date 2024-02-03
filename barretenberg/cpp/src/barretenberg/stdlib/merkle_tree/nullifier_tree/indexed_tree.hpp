@@ -16,7 +16,6 @@ template <typename Store> class IndexedTree {
     IndexedTree(IndexedTree&& other) = delete;
     ~IndexedTree();
 
-    fr_hash_path update_element(fr const& value);
     std::vector<fr_hash_path> update_elements(const std::vector<fr>& values);
 
     index_t get_size();
@@ -70,39 +69,6 @@ IndexedTree<Store>::IndexedTree(Store& store, size_t depth, size_t initial_size,
 
 template <typename Store> IndexedTree<Store>::~IndexedTree() {}
 
-template <typename Store> fr_hash_path IndexedTree<Store>::update_element(fr const& value)
-{
-    // Find the leaf with the value closest and less than `value`
-    fr_hash_path hash_path;
-    size_t current;
-    bool is_already_present;
-    std::tie(current, is_already_present) = find_closest_leaf(leaves_, value);
-
-    nullifier_leaf current_leaf = leaves_[current].unwrap();
-    WrappedNullifierLeaf new_leaf = WrappedNullifierLeaf(
-        { .value = value, .nextIndex = current_leaf.nextIndex, .nextValue = current_leaf.nextValue });
-    if (!is_already_present) {
-        // Update the current leaf to point it to the new leaf
-        current_leaf.nextIndex = leaves_.size();
-        current_leaf.nextValue = value;
-
-        leaves_[current].set(current_leaf);
-
-        // Insert the new leaf with (nextIndex, nextValue) of the current leaf
-        leaves_.push_back(new_leaf);
-    }
-    // hash_path = get_hash_path(current);
-    //  Update the old leaf in the tree
-    index_t old_leaf_index = current;
-    hash_path = update_leaf_and_hash_to_root(old_leaf_index, leaves_[current]);
-
-    // Insert the new leaf in the tree
-    index_t new_leaf_index = is_already_present ? old_leaf_index : leaves_.size() - 1;
-    update_leaf_and_hash_to_root(new_leaf_index, new_leaf);
-
-    return hash_path;
-}
-
 template <typename Store> std::vector<fr_hash_path> IndexedTree<Store>::update_elements(const std::vector<fr>& values)
 {
     struct {
@@ -123,99 +89,63 @@ template <typename Store> std::vector<fr_hash_path> IndexedTree<Store>::update_e
     std::vector<job> jobs;
     size_t old_size = leaves_.size();
 
-    {
+    leaves_.resize(leaves_.size() + values.size());
 
-        leaves_.resize(leaves_.size() + values.size());
-
-        info("Leaves size", leaves_.size(), " old size ", old_size);
-
-        for (size_t i = 0; i < values_sorted.size(); i++) {
-            info("start");
-            fr value = values_sorted[i];
-            index_t index_of_new_leaf = 0;
-            for (size_t i = 0; i < values.size(); i++) {
-                if (values[i] == value) {
-                    index_of_new_leaf = i + old_size;
-                }
+    for (size_t i = 0; i < values_sorted.size(); i++) {
+        fr value = values_sorted[i];
+        index_t index_of_new_leaf = 0;
+        for (size_t i = 0; i < values.size(); i++) {
+            if (values[i] == value) {
+                index_of_new_leaf = i + old_size;
             }
-
-            size_t current;
-            bool is_already_present;
-            std::tie(current, is_already_present) = find_closest_leaf(leaves_, value);
-            nullifier_leaf current_leaf = leaves_[current].unwrap();
-
-            info("Index of new leaf ", index_of_new_leaf, " current ", current);
-
-            nullifier_leaf new_leaf = nullifier_leaf{ .value = value,
-                                                      .nextIndex = current_leaf.nextIndex,
-                                                      .nextValue = current_leaf.nextValue };
-
-            if (!is_already_present) {
-                // Update the current leaf to point it to the new leaf
-                current_leaf.nextIndex = index_of_new_leaf;
-                current_leaf.nextValue = value;
-
-                leaves_[current].set(current_leaf);
-                info("Setting new leaf with value ", new_leaf.value, " at ", index_of_new_leaf);
-                leaves_[size_t(index_of_new_leaf)] = new_leaf;
-            }
-            nullifier_leaf current_leaf_copy = nullifier_leaf{ .value = current_leaf.value,
-                                                               .nextIndex = current_leaf.nextIndex,
-                                                               .nextValue = current_leaf.nextValue };
-
-            job j;
-            j.low_leaf_index = current;
-            j.low_leaf = current_leaf_copy;
-            j.new_leaf = new_leaf;
-            j.new_leaf_index = index_of_new_leaf;
-            jobs.push_back(j);
-            info("end");
         }
 
-        info("Finished");
+        size_t current;
+        bool is_already_present;
+        std::tie(current, is_already_present) = find_closest_leaf(leaves_, value);
+        nullifier_leaf current_leaf = leaves_[current].unwrap();
+
+        info("Index of new leaf ", index_of_new_leaf, " current ", current);
+
+        nullifier_leaf new_leaf =
+            nullifier_leaf{ .value = value, .nextIndex = current_leaf.nextIndex, .nextValue = current_leaf.nextValue };
+
+        if (!is_already_present) {
+            // Update the current leaf to point it to the new leaf
+            current_leaf.nextIndex = index_of_new_leaf;
+            current_leaf.nextValue = value;
+
+            leaves_[current].set(current_leaf);
+            info("Setting new leaf with value ", new_leaf.value, " at ", index_of_new_leaf);
+            leaves_[size_t(index_of_new_leaf)] = new_leaf;
+        }
+        nullifier_leaf current_leaf_copy = nullifier_leaf{ .value = current_leaf.value,
+                                                           .nextIndex = current_leaf.nextIndex,
+                                                           .nextValue = current_leaf.nextValue };
+
+        job j;
+        j.low_leaf_index = current;
+        j.low_leaf = current_leaf_copy;
+        j.new_leaf = new_leaf;
+        j.new_leaf_index = index_of_new_leaf;
+        jobs.push_back(j);
     }
 
     std::vector<fr_hash_path> paths;
-    {
-        for (size_t i = 0; i < jobs.size(); i++) {
-            job& j = jobs[i];
-
-            info("Inserting ",
-                 j.low_leaf.value,
-                 " next index ",
-                 j.low_leaf.nextIndex,
-                 " next value ",
-                 j.low_leaf.nextValue,
-                 " at ",
-                 j.low_leaf_index);
-            j.hash_path = update_leaf_and_hash_to_root(j.low_leaf_index, j.low_leaf);
-            info("Inserted");
-            info("Inserting ",
-                 j.new_leaf.value,
-                 " next index ",
-                 j.new_leaf.nextIndex,
-                 " next value ",
-                 j.new_leaf.nextValue,
-                 " at ",
-                 j.new_leaf_index);
-            // update_leaf_and_hash_to_root(j.new_leaf_index, j.new_leaf);
-            paths.push_back(j.hash_path);
-        }
+    for (size_t i = 0; i < jobs.size(); i++) {
+        job& j = jobs[i];
+        j.hash_path = update_leaf_and_hash_to_root(j.low_leaf_index, j.low_leaf);
+        paths.push_back(j.hash_path);
     }
 
-    info("Appending subtree");
     append_subtree(old_size);
-    info("All done!");
 
-    // for (const fr v : values) {
-    //     paths.push_back(update_element(v));
-    // }
     return paths;
 }
 
 template <typename Store> void IndexedTree<Store>::append_subtree(index_t start_index)
 {
-    info("Appending subtree at ", start_index);
+    // info("Appending subtree at ", start_index);
     size_t number_to_insert = size_t(index_t(leaves_.size()) - start_index);
     size_t level = depth_;
     std::vector<fr> hashes = std::vector<fr>(number_to_insert);
@@ -223,7 +153,7 @@ template <typename Store> void IndexedTree<Store>::append_subtree(index_t start_
     for (size_t i = 0; i < number_to_insert; i++) {
         index_t index_to_insert = start_index + i;
         hashes[i] = WrappedNullifierLeaf(leaves_[size_t(index_to_insert)]).hash();
-        info("Inserting leaf hash to ", index_to_insert);
+        // info("Inserting leaf hash to ", index_to_insert);
         write_node(level, index_to_insert, hashes[i]);
     }
 
@@ -238,7 +168,7 @@ template <typename Store> void IndexedTree<Store>::append_subtree(index_t start_
     }
 
     fr new_hash = hashes[0];
-    info("Hashing to root from level ", level);
+    // info("Hashing to root from level ", level);
     while (level > 0) {
         bool is_right = bool(start_index & 0x01);
         fr left_hash = is_right ? get_element_or_zero(level, start_index - 1) : new_hash;
@@ -285,9 +215,9 @@ fr_hash_path IndexedTree<Store>::update_leaf_and_hash_to_root(index_t leaf_index
         is_right = bool(index & 0x01);
         fr new_right_value = is_right ? new_hash : get_element_or_zero(level, index + 1);
         fr new_left_value = is_right ? get_element_or_zero(level, index - 1) : new_hash;
-        info("Hashing ", new_left_value, " : ", new_right_value);
+        // info("Hashing ", new_left_value, " : ", new_right_value);
         new_hash = hash_pair_native(new_left_value, new_right_value);
-        info("Hashed");
+        // info("Hashed");
         index >>= 1;
         --level;
         write_node(level, index, new_hash);
@@ -326,7 +256,7 @@ template <typename Store> fr IndexedTree<Store>::get_element_or_zero(size_t leve
     if (read_data.first) {
         return read_data.second;
     }
-    info("Returing zero hash for level ", level, " index ", index);
+    // info("Returing zero hash for level ", level, " index ", index);
     return zero_hashes_[level - 1];
 }
 
@@ -338,26 +268,26 @@ template <typename Store> void IndexedTree<Store>::create_key(size_t level, inde
 
 template <typename Store> void IndexedTree<Store>::write_node(size_t level, index_t index, const fr& value)
 {
-    info("Writing to ", level, " : ", index, " ", value);
-    // std::vector<uint8_t> key;
-    // create_key(level, index, key);
+    // info("Writing to ", level, " : ", index, " ", value);
+    //  std::vector<uint8_t> key;
+    //  create_key(level, index, key);
     std::vector<uint8_t> buf;
     write(buf, value);
     store_.put(level, size_t(index), buf);
 }
 template <typename Store> std::pair<bool, fr> IndexedTree<Store>::read_node(size_t level, index_t index)
 {
-    info("Reading from ", level, " : ", index);
-    // std::vector<uint8_t> key;
-    // create_key(level, index, key);
+    // info("Reading from ", level, " : ", index);
+    //  std::vector<uint8_t> key;
+    //  create_key(level, index, key);
     std::vector<uint8_t> buf;
     bool available = store_.get(level, size_t(index), buf);
     if (!available) {
-        info("not found");
+        // info("not found");
         return std::make_pair(false, fr::zero());
     }
     fr value = from_buffer<fr>(buf, 0);
-    info("Found ", value);
+    // info("Found ", value);
     return std::make_pair(true, value);
 }
 
