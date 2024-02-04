@@ -13,7 +13,7 @@ export class And extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    Instruction.checkTags(context.machineState, this.inTag, this.aOffset, this.bOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
     const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
@@ -34,7 +34,7 @@ export class Or extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    Instruction.checkTags(context.machineState, this.inTag, this.aOffset, this.bOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
     const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
@@ -55,7 +55,7 @@ export class Xor extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    Instruction.checkTags(context.machineState, this.inTag, this.aOffset, this.bOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
     const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
@@ -76,7 +76,7 @@ export class Not extends TwoOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    Instruction.checkTags(context.machineState, this.inTag, this.aOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
 
@@ -96,7 +96,7 @@ export class Shl extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    Instruction.checkTags(context.machineState, this.inTag, this.aOffset, this.bOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
     const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
@@ -117,7 +117,7 @@ export class Shr extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    Instruction.checkTags(context.machineState, this.inTag, this.aOffset, this.bOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
     const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);

@@ -6,8 +6,8 @@ import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
-import { InstructionExecutionError } from './instruction.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
+import { TagCheckError } from '../errors.js';
 
 describe('Memory instructions', () => {
   let context: AvmContext;
@@ -74,7 +74,7 @@ describe('Memory instructions', () => {
       for (const tag of [TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID]) {
         await expect(
           new Set(/*indirect=*/ 0, /*inTag=*/ tag, /*value=*/ 1234n, /*offset=*/ 1).execute(context),
-        ).rejects.toThrow(InstructionExecutionError);
+        ).rejects.toThrow(TagCheckError);
       }
     });
   });

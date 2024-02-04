@@ -1,4 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js';
+import { type TypeTag } from './avm_memory_types.js';
 
 /**
  * Avm-specific errors should derive from this
@@ -25,5 +26,25 @@ export class InvalidProgramCounterError extends AvmExecutionError {
   constructor(pc: number, max: number) {
     super(`Invalid program counter ${pc}, max is ${max}`);
     this.name = 'InvalidProgramCounterError';
+  }
+}
+
+/**
+ * Error thrown during an instruction's execution (during its execute()).
+ */
+export class InstructionExecutionError extends AvmExecutionError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InstructionExecutionError';
+  }
+}
+
+/**
+ * Error thrown during an instruction's execution (during its execute()).
+ */
+export class TagCheckError extends AvmExecutionError {
+  constructor(offset: number, gotTag: string, expectedTag: string) {
+    super(`Memory offset ${offset} has tag ${gotTag}, expected ${expectedTag}`);
+    this.name = 'TagCheckError';
   }
 }

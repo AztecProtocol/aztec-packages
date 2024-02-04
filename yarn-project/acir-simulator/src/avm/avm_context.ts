@@ -92,7 +92,7 @@ export class AvmContext {
       return results;
     } catch (e) {
       this.log('Exceptional halt');
-      if (!(e instanceof AvmExecutionError || e instanceof InstructionExecutionError)) {
+      if (!(e instanceof AvmExecutionError)) {
         this.log(`Unknown error thrown by avm: ${e}`);
         throw e;
       }

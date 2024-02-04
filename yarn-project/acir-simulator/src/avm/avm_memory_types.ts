@@ -1,5 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
+import { TagCheckError } from './errors.js';
+
 import { strict as assert } from 'assert';
 
 export abstract class MemoryValue {
@@ -268,6 +270,35 @@ export class TaggedMemory {
     return TaggedMemory.getTag(this._mem[offset]);
   }
 
+
+  /**
+   * Check that the memory at the given offset matches the specified tag.
+   */
+  public checkTag(tag: TypeTag, offset: number) {
+    if (this.getTag(offset) !== tag) {
+      const error = `Offset ${offset} has tag ${TypeTag[this.getTag(offset)]}, expected ${TypeTag[tag]}`;
+      throw new TagCheckError(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+    }
+  }
+
+  /**
+   * Check tags for memory at all of the specified offsets.
+   */
+  public checkTags(tag: TypeTag, ...offsets: number[]) {
+    for (const offset of offsets) {
+      this.checkTag(tag, offset);
+    }
+  }
+
+  /**
+   * Check tags for all memory in the specified range.
+   */
+  public checkTagsRange(tag: TypeTag, startOffset: number, size: number) {
+    for (let offset = startOffset; offset < startOffset + size; offset++) {
+      this.checkTag(tag, offset);
+    }
+  }
+
   // TODO: this might be slow, but I don't want to have the types know of their tags.
   // It might be possible to have a map<Prototype, TypeTag>.
   public static getTag(v: MemoryValue | undefined): TypeTag {
@@ -311,3 +342,4 @@ export class TaggedMemory {
     }
   }
 }
+
