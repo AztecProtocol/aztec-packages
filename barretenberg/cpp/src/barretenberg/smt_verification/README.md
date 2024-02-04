@@ -2,14 +2,7 @@
 
 As for now it's required to build cvc5 library manually.
 
-<!-- 
-- navigate yourself into barretenberg/cpp/src/cvc5 directory
-- run `./configure.sh production --auto-download --cocoa --cryptominisat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix="./tmp-lib"`
-- `cd build && make -j4`
-- `make install` 
--->
-
-- inside your home repository do `git clone git@github.com:Sarkoxed/cvc5.git` (temporarily, since they have been merging my patch for a month now)
+- inside your home repository do `git clone git@github.com:cvc5/cvc5.git` (temporarily, since they have been merging my patch for a month now)
 - inside the cvc5 repo: 
     - `git checkout finite-field-base-support`
     - `./configure.sh production --auto-download --cocoa --cryptominisat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix="./tmp-lib"`
@@ -55,13 +48,19 @@ To store it on the disk just do
 
 2. Initialize the Solver:
 
-	`smt_solver::Solver s(str modulus, bool produce_model=false, u32 base=16, u64 timeout)`
+    ```cpp
+    smt_solver::SolverConfiguration config = {
+        true, // bool, produce_model
+        0     // u32, timeout
+    }```
+
+	`smt_solver::Solver s(str modulus, config, 16)`
 	
-	!note that there should be no "0x" part in the modulus hex representation if you put it manually. Otherwise you can use `CircuitSchema.modulus` member.
+	!note that there should be no "0x" part in the modulus hex representation if you put it manually. Otherwise you can use `CircuitSchema.modulus` member that is imported directly from circuit.
 	
 	`produce_model` flag should be initialized as `true` if you want to check the values obtained using the solver when the result of the check does not meet your expectations. **All the public variables will be constrained to be equal their real value**.
 	
-	`base` can be any positive integer, it will mostly be 10 or 16, I guess.
+	`base` can be any positive integer, it will mostly be 10 or 16, I guess. Default value is 16.
 
     `timeout` solver timeout in milliseconds
 	
@@ -82,14 +81,14 @@ To store it on the disk just do
         In case you want to create two similar circuits with the same solver and schema, then you should specify the tag(name) of a circuit. 
         FFTerm/FFITerm templates will define what theory core the solver should use.
 
-	Then you can get the previously named variables via `circuit[name]` or any other variable by `circuit[idx]`.
+	Then you can get the previously named variables via `circuit[name]` or any variable by `circuit[idx]`.
 4. Terms creation
 
 	You are able to create two types of ff terms:
 	- `FFTerm Var(str name, Solver* s)`  - creates a symbolic finite field variable
 	- `FFTerm Const(str val, Solver*  s, u32 base=16)` - creates a numeric value.
 
-	You can add, subtract, multiply and divide these variables(including !+, !-, etc);
+	You can add, subtract, multiply and divide these variables(including +=, -=, etc);
 	Also there are two functions :
 	- `batch_add(std::vector<FFTerm>& terms)`
 	- `batch_mul(std::vector<FFTerm>& terms)` 
@@ -98,6 +97,9 @@ To store it on the disk just do
 	You can create a constraint `==` or `!=` that will be included directly into solver.	
 
     `FFITerm` works the same as `FFTerm`.
+    Except that you need to use `.mod()` method each time you want the constraint to be created. Note that you should not create a new variable using `Var` and execute `.mod()` immediately. 
+    You can create `^` and `>,<,<=,>=` constraints with `FFITerm`s.
+    
 	
 	Also there is a Bool type:
 	- `Bool Bool(FFTerm/FFITerm t)` or `Bool Bool(bool b, Solver* s)`
@@ -119,7 +121,9 @@ To store it on the disk just do
 
 6. Automated verification of a unique witness
 
-    There's also a function `pair<Circuit, Circuit> unique_witness<FFTerm/FFITerm>(CircuitSchema circuit_info, Solver* s, vector<str> equall_variables, vector<str> nequal_variables, vector<str> at_least_one_equal_variable, vector<str> at_least_one_nequal_variable)` that will create two separate circuits and constrain the provided variables. Then later you can run `s.check()` and `s.model()` if you wish.
+    There's also a function `pair<Circuit, Circuit> unique_witness_ext<FFTerm/FFITerm>(CircuitSchema circuit_info, Solver* s, vector<str> equall_variables, vector<str> nequal_variables, vector<str> at_least_one_equal_variable, vector<str> at_least_one_nequal_variable)` that will create two separate circuits and constrain the provided variables. Then later you can run `s.check()` and `s.model()` if you wish.
+
+    And an alternate version `pair<Circuit, Circuit>unique_witness(CircuitSchema circuit_info, Solver* s, vector<str> equal)` which asserts that `equal` variables are equal and all other are not equal at the same time.
 
 ## 3. Simple examples
 
