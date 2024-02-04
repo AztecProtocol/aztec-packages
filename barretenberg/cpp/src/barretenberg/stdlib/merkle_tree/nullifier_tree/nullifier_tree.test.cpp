@@ -15,10 +15,11 @@ auto& engine = numeric::get_debug_randomness();
 auto& random_engine = numeric::get_randomness();
 } // namespace
 
+const size_t NUM_VALUES = 100 * 1024;
 static std::vector<fr> VALUES = []() {
-    std::vector<fr> values(1024);
-    for (size_t i = 0; i < 1024; ++i) {
-        values[i] = fr(random_engine.get_random_uint64());
+    std::vector<fr> values(NUM_VALUES);
+    for (size_t i = 0; i < NUM_VALUES; ++i) {
+        values[i] = fr(random_engine.get_random_uint256());
     }
     return values;
 }();
@@ -201,8 +202,8 @@ TEST(stdlib_indexed_tree, test_get_hash_path)
 TEST(stdlib_indexed_tree, test_batch_insert)
 {
     const size_t batch_size = 16;
-    size_t limit = 1024 * 16;
-    // NullifierMemoryTree memdb(40, batch_size);
+    size_t limit = 96 * 1024;
+    // NullifierMemoryTree memdb(10, batch_size);
 
     FixedMemoryStore store(41, 1024 * 1024);
     auto db = IndexedTree(store, 40, batch_size);

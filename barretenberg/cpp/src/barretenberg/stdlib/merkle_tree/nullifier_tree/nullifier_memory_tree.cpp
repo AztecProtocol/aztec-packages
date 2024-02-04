@@ -22,7 +22,7 @@ NullifierMemoryTree::NullifierMemoryTree(size_t depth, size_t initial_size)
 
     // Insert the initial leaves
     for (size_t i = 0; i < initial_size; i++) {
-        auto initial_leaf = WrappedNullifierLeaf(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
+        auto initial_leaf = WrappedNullifierLeaf(nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
         leaves_.push_back(initial_leaf);
         root_ = update_element(i, initial_leaf.hash());
     }
