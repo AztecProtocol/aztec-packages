@@ -3,7 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
-import { Instruction, InstructionExecutionError } from './instruction.js';
+import { Instruction } from './instruction.js';
+import { InstructionExecutionError } from '../errors.js';
 
 abstract class BaseStorageInstruction extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.

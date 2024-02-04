@@ -47,7 +47,7 @@ export class AvmContext {
   }
 
   /**
-   * Set instructions directly (then can skip bytecode decoding)
+   * Set instructions directly (execute() will then skip bytecode fetch & decode)
    * Warning: FOR TESTING PURPOSES ONLY!
    * @param instructions - The decoded instructions to inject into this context
    */
@@ -58,8 +58,10 @@ export class AvmContext {
   /**
    * Execute the contract code within the current context.
    */
-  async execute(skipBytecodeFetch: boolean): Promise<AvmContractCallResults> {
-    if (!skipBytecodeFetch) {
+  async execute(): Promise<AvmContractCallResults> {
+    if (this.instructions.length == 0) {
+      // Note: contract code may have been loaded for a test via setInstructions in which case
+      // fetch is skipped
       // TODO(4409): decide what happens if contract instance does not exist (has no code)
       await this.fetchAndDecodeBytecode();
     }

@@ -6,7 +6,7 @@ import { AvmContext } from '../avm_context.js';
 import { Field, Uint16 } from '../avm_memory_types.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { InternalCall, InternalReturn, Jump, JumpI, Return, Revert } from './control_flow.js';
-import { InstructionExecutionError } from './instruction.js';
+import { InstructionExecutionError } from '../errors.js';
 
 describe('Control Flow Opcodes', () => {
   let context: AvmContext;

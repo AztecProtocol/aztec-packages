@@ -4,7 +4,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
-import { TagCheckError } from '../errors.js';
+import { InstructionExecutionError } from '../errors.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
@@ -74,7 +74,7 @@ describe('Memory instructions', () => {
       for (const tag of [TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID]) {
         await expect(
           new Set(/*indirect=*/ 0, /*inTag=*/ tag, /*value=*/ 1234n, /*offset=*/ 1).execute(context),
-        ).rejects.toThrow(TagCheckError);
+        ).rejects.toThrow(InstructionExecutionError);
       }
     });
   });

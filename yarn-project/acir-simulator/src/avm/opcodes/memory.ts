@@ -1,7 +1,8 @@
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
-import { Instruction, InstructionExecutionError } from './instruction.js';
+import { Instruction } from './instruction.js';
 import { TwoOperandInstruction } from './instruction_impl.js';
 
 export class Set extends Instruction {

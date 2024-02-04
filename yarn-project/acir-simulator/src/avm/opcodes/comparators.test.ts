@@ -4,7 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { Eq, Lt, Lte } from './comparators.js';
-import { InstructionExecutionError } from './instruction.js';
+import { TagCheckError } from '../errors.js';
 
 describe('Comparators', () => {
   let context: AvmContext;
@@ -74,7 +74,7 @@ describe('Comparators', () => {
       ];
 
       for (const o of ops) {
-        await expect(() => o.execute(context)).rejects.toThrow(InstructionExecutionError);
+        await expect(() => o.execute(context)).rejects.toThrow(TagCheckError);
       }
     });
   });
@@ -138,7 +138,7 @@ describe('Comparators', () => {
       ];
 
       for (const o of ops) {
-        await expect(() => o.execute(context)).rejects.toThrow(InstructionExecutionError);
+        await expect(() => o.execute(context)).rejects.toThrow(TagCheckError);
       }
     });
   });
@@ -202,7 +202,7 @@ describe('Comparators', () => {
       ];
 
       for (const o of ops) {
-        await expect(() => o.execute(context)).rejects.toThrow(InstructionExecutionError);
+        await expect(() => o.execute(context)).rejects.toThrow(TagCheckError);
       }
     });
   });

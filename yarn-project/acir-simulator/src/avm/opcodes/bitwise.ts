@@ -75,7 +75,7 @@ export class Not extends TwoOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
+    context.machineState.memory.checkTags(this.inTag, this.aOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
 

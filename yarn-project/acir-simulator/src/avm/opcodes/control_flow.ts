@@ -1,7 +1,8 @@
 import type { AvmContext } from '../avm_context.js';
 import { IntegralValue } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
-import { Instruction, InstructionExecutionError } from './instruction.js';
+import { Instruction } from './instruction.js';
 
 export class Return extends Instruction {
   static type: string = 'RETURN';
