@@ -1,8 +1,10 @@
 #pragma once
-#include <cvc5/cvc5.h>
 #include <string>
 #include <unordered_map>
 
+#include <cvc5/cvc5.h>
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 namespace smt_solver {
 
 /**
@@ -52,7 +54,7 @@ class Solver {
 
     bool check();
 
-    [[nodiscard]] std::string getResult() const
+    [[nodiscard]] const char* getResult() const
     {
         if (!checked) {
             return "No result, yet";
@@ -61,6 +63,8 @@ class Solver {
     }
 
     std::unordered_map<std::string, std::string> model(std::unordered_map<std::string, cvc5::Term>& terms) const;
+    std::unordered_map<std::string, std::string> model(std::vector<cvc5::Term>& terms) const;
+
     ~Solver() = default;
 };
 }; // namespace smt_solver
