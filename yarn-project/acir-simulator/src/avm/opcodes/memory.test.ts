@@ -5,17 +5,17 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { InstructionExecutionError } from './instruction.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 import { init } from '@aztec/foundation/crypto';
 
 describe('Memory instructions', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmJournal>;
+  let journal: MockProxy<AvmWorldStateJournal>;
 
   beforeEach(async () => {
-    journal = mock<AvmJournal>();
+    journal = mock<AvmWorldStateJournal>();
     context = new AvmContext(journal)
   });
 

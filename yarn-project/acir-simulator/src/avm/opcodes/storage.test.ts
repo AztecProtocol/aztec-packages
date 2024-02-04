@@ -6,16 +6,16 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { initExecutionEnvironment } from '../fixtures/index.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { SLoad, SStore, StaticCallStorageAlterError } from './storage.js';
 
 describe('Storage Instructions', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmJournal>;
+  let journal: MockProxy<AvmWorldStateJournal>;
   const address = AztecAddress.random();
 
   beforeEach(async () => {
-    journal = mock<AvmJournal>();
+    journal = mock<AvmWorldStateJournal>();
     context = new AvmContext(journal, initExecutionEnvironment({ address, storageAddress: address }));
   });
 

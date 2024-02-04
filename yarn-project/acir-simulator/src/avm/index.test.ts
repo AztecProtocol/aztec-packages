@@ -8,13 +8,13 @@ import { TypeTag } from './avm_memory_types.js';
 import { AvmContext } from './avm_context.js';
 import { initExecutionEnvironment } from './fixtures/index.js';
 import { HostStorage } from './journal/host_storage.js';
-import { AvmJournal } from './journal/journal.js';
+import { AvmWorldStateJournal } from './journal/journal.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../index.js';
 
 describe('avm', () => {
-  let journal: AvmJournal;
+  let journal: AvmWorldStateJournal;
   let contractsDb: MockProxy<PublicContractsDB>;
 
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe('avm', () => {
     const commitmentsDb = mock<CommitmentsDB>();
     const publicStateDb = mock<PublicStateDB>();
     const hostStorage = new HostStorage(publicStateDb, contractsDb, commitmentsDb);
-    journal = new AvmJournal(hostStorage);
+    journal = new AvmWorldStateJournal(hostStorage);
   });
 
   it('Should execute bytecode that performs basic addition', async () => {

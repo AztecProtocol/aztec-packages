@@ -4,17 +4,17 @@ import { Field } from '../avm_memory_types.js';
 import { AvmContext } from '../avm_context.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
-  let journal: AvmJournal;
+  let journal: AvmWorldStateJournal;
 
   beforeEach(() => {
     const hostStorage = mock<HostStorage>();
-    journal = new AvmJournal(hostStorage);
+    journal = new AvmWorldStateJournal(hostStorage);
     context = new AvmContext(journal)
   });
 
@@ -37,7 +37,7 @@ describe('Accrued Substate', () => {
 
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
-      const journalState = context.journal.flush();
+      const journalState = context.worldState.flush();
       const expected = [value.toFr()];
       expect(journalState.newNoteHashes).toEqual(expected);
     });
@@ -62,7 +62,7 @@ describe('Accrued Substate', () => {
 
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
-      const journalState = context.journal.flush();
+      const journalState = context.worldState.flush();
       const expected = [value.toFr()];
       expect(journalState.newNullifiers).toEqual(expected);
     });
@@ -92,7 +92,7 @@ describe('Accrued Substate', () => {
 
       await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, length).execute(context);
 
-      const journalState = context.journal.flush();
+      const journalState = context.worldState.flush();
       const expected = values.map(v => v.toFr());
       expect(journalState.newLogs).toEqual([expected]);
     });
@@ -122,7 +122,7 @@ describe('Accrued Substate', () => {
 
       await new SendL2ToL1Message(/*indirect=*/ 0, /*offset=*/ startOffset, length).execute(context);
 
-      const journalState = context.journal.flush();
+      const journalState = context.worldState.flush();
       const expected = values.map(v => v.toFr());
       expect(journalState.newL1Messages).toEqual([expected]);
     });

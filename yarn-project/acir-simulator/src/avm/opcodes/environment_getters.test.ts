@@ -4,7 +4,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { initExecutionEnvironment, initGlobalVariables, initMachineState } from '../fixtures/index.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import {
   Address,
   BlockNumber,
@@ -22,10 +22,10 @@ import {
 
 describe('Environment getters instructions', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmJournal>;
+  let journal: MockProxy<AvmWorldStateJournal>;
 
   beforeEach(() => {
-    journal = mock<AvmJournal>();
+    journal = mock<AvmWorldStateJournal>();
   });
 
   type EnvInstruction = Portal | FeePerL1Gas | FeePerL2Gas | FeePerDAGas | Origin | Sender | StorageAddress | Address;

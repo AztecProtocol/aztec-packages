@@ -4,6 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
+import { initMachineState } from '../fixtures/index.js';
 
 
 export class Call extends Instruction {
@@ -44,8 +45,8 @@ export class Call extends Instruction {
       new Fr(callAddress.toBigInt()),
       calldata,
       context.environment,
-      { l1GasLeft: 0, l2GasLeft: 0, daGasLeft: 0},
-      context.journal,
+      initMachineState(),
+      context.worldState,
     );
 
     const nestedCallResults = await nestedContext.execute();
@@ -60,9 +61,9 @@ export class Call extends Instruction {
     context.machineState.memory.setSlice(this.retOffset, convertedReturnData);
 
     if (success) {
-      nestedContext.mergeJournalSuccess();
+      context.worldState.acceptNestedWorldState(nestedContext.worldState);
     } else {
-      nestedContext.mergeJournalFailure();
+      context.worldState.rejectNestedWorldState(nestedContext.worldState);
     }
 
     context.machineState.incrementPc();
@@ -106,8 +107,8 @@ export class StaticCall extends Instruction {
       new Fr(callAddress.toBigInt()),
       calldata,
       context.environment,
-      { l1GasLeft: 0, l2GasLeft: 0, daGasLeft: 0},
-      context.journal,
+      initMachineState(),
+      context.worldState,
     );
 
     const nestedCallResults = await nestedContext.execute();
@@ -122,9 +123,9 @@ export class StaticCall extends Instruction {
     context.machineState.memory.setSlice(this.retOffset, convertedReturnData);
 
     if (success) {
-      nestedContext.mergeJournalSuccess();
+      context.worldState.acceptNestedWorldState(nestedContext.worldState);
     } else {
-      nestedContext.mergeJournalFailure();
+      context.worldState.rejectNestedWorldState(nestedContext.worldState);
     }
 
     context.machineState.incrementPc();

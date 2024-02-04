@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState, InitialAvmMachineState } from './avm_machine_state.js';
-import { AvmJournal } from './journal/journal.js';
+import { AvmWorldStateJournal } from './journal/journal.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 import { InstructionExecutionError, type Instruction } from './opcodes/index.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
@@ -22,7 +22,7 @@ export class AvmContext {
   /** VM state that is modified on an instruction-by-instruction basis */
   public machineState: AvmMachineState;
   /** Manages mutable state during execution - (caching, fetching) */
-  public journal: AvmJournal;
+  public worldState: AvmWorldStateJournal;
 
   /** The public contract code corresponding to this context's contract class */
   private instructions: Instruction[];
@@ -32,13 +32,13 @@ export class AvmContext {
   //private nestedExecutions: PublicExecutionResult[] = [];
 
   constructor(
-    journal: AvmJournal,
+    worldState: AvmWorldStateJournal,
     environment: AvmExecutionEnvironment = initExecutionEnvironment(),
     /** Some initial values for machine state */
     initialMachineState: InitialAvmMachineState = initInitialMachineState(),
     private log = createDebugLogger('aztec:avm_simulator:avm_context'),
   ) {
-    this.journal = journal;
+    this.worldState = worldState;
     this.environment = environment;
     this.machineState = new AvmMachineState(initialMachineState);
     // Bytecode is fetched and instructions are decoded in async init()
@@ -48,7 +48,7 @@ export class AvmContext {
   async init() {
     // NOTE: the following is mocked as getPublicBytecode does not exist yet
     const selector = new FunctionSelector(0);
-    const bytecode = await this.journal.hostStorage.contractsDb.getBytecode(
+    const bytecode = await this.worldState.hostStorage.contractsDb.getBytecode(
       this.environment.address,
       selector,
     );
@@ -115,50 +115,14 @@ export class AvmContext {
   }
 
   /**
-   * Merge the journal of this call with it's parent
-   * NOTE: this should never be called on a root context - only from within a nested call
-   */
-  mergeJournalSuccess() {
-    this.journal.mergeSuccessWithParent();
-  }
-
-  /**
-   * Merge the journal of this call with it's parent
-   * For when the child call fails ( we still must track state accesses )
-   */
-  mergeJournalFailure() {
-    this.journal.mergeFailureWithParent();
-  }
-
-  /**
-   * Create a new forked avm context - for internal calls
-   */
-  //public newWithForkedState(): AvmContext {
-  //  const forkedState = AvmJournal.branchParent(this.journal);
-  //  return new AvmContext(this.environment, forkedState);
-  //}
-
-  /**
-   * Create a new forked avm context - for external calls
-   */
-  public static newWithForkedState(
-    environment: AvmExecutionEnvironment,
-    initialMachineState: InitialAvmMachineState,
-    journal: AvmJournal
-  ): AvmContext {
-    const forkedState = AvmJournal.branchParent(journal);
-    return new AvmContext(forkedState);
-  }
-
-  /**
    * Prepare a new AVM context that will be ready for an external call
-   * - It will fork the journal
-   * - It will set the correct execution Environment Variables for a call
+   * - Fork the world state journal
+   * - Set the correct execution environment variables for a call
    *    - Alter both address and storageAddress
    *
    * @param address - The contract to call
    * @param parentEnvironment - The current execution environment
-   * @param journal - The current journal
+   * @param parentWorldState - The current world state (journal)
    * @returns new AvmContext instance
    */
   public static async createNestedContractCallContext(
@@ -166,10 +130,10 @@ export class AvmContext {
     calldata: Fr[],
     parentEnvironment: AvmExecutionEnvironment,
     initialMachineState: InitialAvmMachineState,
-    journal: AvmJournal,
+    parentWorldState: AvmWorldStateJournal,
   ): Promise<AvmContext> {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedCall(address, calldata);
-    const forkedState = AvmJournal.branchParent(journal);
+    const forkedState = parentWorldState.fork();
     const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
     await nestedContext.init();
     return nestedContext;
@@ -177,13 +141,13 @@ export class AvmContext {
 
   /**
    * Prepare a new AVM context that will be ready for an external static call
-   * - It will fork the journal
-   * - It will set the correct execution Environment Variables for a call
+   * - Fork the world state journal
+   * - Set the correct execution environment variables for a call
    *    - Alter both address and storageAddress
    *
    * @param address - The contract to call
    * @param parentEnvironment - The current execution environment
-   * @param journal - The current journal
+   * @param parentWorldState - The current world state (journal)
    * @returns new AvmContext instance
    */
   public static async createNestedStaticCallContext(
@@ -191,10 +155,10 @@ export class AvmContext {
     calldata: Fr[],
     parentEnvironment: AvmExecutionEnvironment,
     initialMachineState: InitialAvmMachineState,
-    journal: AvmJournal,
+    parentWorldState: AvmWorldStateJournal,
   ): Promise<AvmContext> {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedStaticCall(address, calldata);
-    const forkedState = AvmJournal.branchParent(journal);
+    const forkedState = parentWorldState.fork();
     const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
     await nestedContext.init();
     return nestedContext;
