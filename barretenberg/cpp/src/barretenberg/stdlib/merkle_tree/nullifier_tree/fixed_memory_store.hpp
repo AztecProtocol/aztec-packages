@@ -15,10 +15,22 @@ class FixedMemoryStore {
 
     void put(size_t level, size_t index, const std::vector<uint8_t>& data)
     {
+        if (level < 0 || level >= map_.size()) {
+            info("Level ", level, " out of bounds");
+        }
+        if (index < 0 || index >= map_[level].size()) {
+            info("Index ", index, " out of bounds");
+        }
         map_[level][index] = std::make_pair(true, data);
     }
     bool get(size_t level, size_t index, std::vector<uint8_t>& data)
     {
+        if (level < 0 || level >= map_.size()) {
+            info("Level ", level, " out of bounds");
+        }
+        if (index < 0 || index >= map_[level].size()) {
+            info("Index ", index, " out of bounds");
+        }
         const std::pair<bool, std::vector<uint8_t>>& slot = map_[level][index];
         if (slot.first) {
             data = slot.second;

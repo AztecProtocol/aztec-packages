@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -12,7 +13,8 @@ namespace bb::stdlib::merkle_tree {
 
 inline bb::fr hash_pair_native(bb::fr const& lhs, bb::fr const& rhs)
 {
-    return crypto::pedersen_hash::hash({ lhs, rhs }); // uses lookup tables
+    // return crypto::pedersen_hash::hash({ lhs, rhs }); // uses lookup tables
+    return bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash({ lhs, rhs });
 }
 
 inline bb::fr hash_native(std::vector<bb::fr> const& inputs)

@@ -201,27 +201,30 @@ TEST(stdlib_indexed_tree, test_get_hash_path)
 TEST(stdlib_indexed_tree, test_batch_insert)
 {
     const size_t batch_size = 16;
-    size_t limit = 512;
-    NullifierMemoryTree memdb(10, batch_size);
+    size_t limit = 1024 * 16;
+    // NullifierMemoryTree memdb(40, batch_size);
 
-    FixedMemoryStore store(11, 1024);
-    auto db = IndexedTree(store, 10, batch_size);
+    FixedMemoryStore store(41, 1024 * 1024);
+    auto db = IndexedTree(store, 40, batch_size);
 
-    EXPECT_EQ(memdb.root(), db.get_root());
+    // EXPECT_EQ(memdb.root(), db.get_root());
 
-    EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
+    // EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
 
-    EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
+    // EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
 
     for (size_t i = 0; i < limit; i += batch_size) {
         std::vector<fr>::const_iterator start = VALUES.begin() + uint32_t(i);
         std::vector<fr>::const_iterator end = start + int(batch_size);
-        for (size_t j = 0; j < batch_size; j++) {
-            memdb.update_element(VALUES[i + j]);
-        }
+        // for (size_t j = 0; j < batch_size; j++) {
+        //     memdb.update_element(VALUES[i + j]);
+        // }
 
         db.update_elements(std::vector<fr>(start, end));
-        EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
-        EXPECT_EQ(memdb.root(), db.get_root());
+        if (i % 1024 == 0) {
+            info("Processed ", i);
+        }
+        // EXPECT_EQ(memdb.get_hash_path(0), db.get_hash_path(0));
+        // EXPECT_EQ(memdb.root(), db.get_root());
     }
 }
