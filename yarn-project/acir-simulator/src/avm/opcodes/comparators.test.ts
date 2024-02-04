@@ -2,9 +2,9 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
+import { TagCheckError } from '../errors.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { Eq, Lt, Lte } from './comparators.js';
-import { TagCheckError } from '../errors.js';
 
 describe('Comparators', () => {
   let context: AvmContext;
