@@ -2,12 +2,13 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { AvmContext, AvmContextInputs } from '../avm_context.js';
+import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
 import { AvmJournal } from '../journal/journal.js';
 import { InstructionExecutionError } from './instruction.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
+import { init } from '@aztec/foundation/crypto';
 
 describe('Memory instructions', () => {
   let context: AvmContext;
@@ -15,11 +16,7 @@ describe('Memory instructions', () => {
 
   beforeEach(async () => {
     journal = mock<AvmJournal>();
-    const contextInputs = {
-      environment: initExecutionEnvironment(),
-      initialMachineState: initMachineState(),
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal)
   });
 
   describe('SET', () => {
@@ -356,11 +353,7 @@ describe('Memory instructions', () => {
 
     it('Writes nothing if size is 0', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
-      const contextInputs: AvmContextInputs = {
-        environment: initExecutionEnvironment({ calldata }),
-        initialMachineState: initMachineState(),
-      };
-      context = new AvmContext(contextInputs, journal);
+      context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
       context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
 
       await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 0, /*dstOffset=*/ 0).execute(context);
@@ -371,11 +364,7 @@ describe('Memory instructions', () => {
 
     it('Copies all calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
-      const contextInputs: AvmContextInputs = {
-        environment: initExecutionEnvironment({ calldata }),
-        initialMachineState: initMachineState(),
-      };
-      context = new AvmContext(contextInputs, journal);
+      context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
       context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
 
       await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 3, /*dstOffset=*/ 0).execute(context);
@@ -386,11 +375,7 @@ describe('Memory instructions', () => {
 
     it('Copies slice of calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
-      const contextInputs: AvmContextInputs = {
-        environment: initExecutionEnvironment({ calldata }),
-        initialMachineState: initMachineState(),
-      };
-      context = new AvmContext(contextInputs, journal);
+      context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
       context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
 
       await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 1, /*copySize=*/ 2, /*dstOffset=*/ 0).execute(context);

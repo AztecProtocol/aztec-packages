@@ -12,11 +12,7 @@ describe('Arithmetic Instructions', () => {
 
   beforeEach(() => {
     journal = mock<AvmJournal>();
-    const contextInputs = {
-      environment: initExecutionEnvironment(),
-      initialMachineState: initMachineState(),
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal)
   });
 
   describe('Add', () => {

@@ -1,33 +1,23 @@
 import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState, InitialAvmMachineState } from './avm_machine_state.js';
 import { AvmJournal } from './journal/journal.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
-import { PublicExecutionResult } from '../index.js';
 import { InstructionExecutionError, type Instruction } from './opcodes/index.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
-import { assert } from 'console';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { initExecutionEnvironment, initInitialMachineState } from './fixtures/index.js';
 
-export type AvmContextInputs = {
-  environment: AvmExecutionEnvironment,
-  initialMachineState: InitialAvmMachineState,
-}
+import { assert } from 'console';
 
 /**
  * Avm Context manages the state and execution of the AVM
  */
 export class AvmContext {
-  /** Contains constant variables provided by the kernel */
-  public environment: AvmExecutionEnvironment;
   /** VM state that is modified on an instruction-by-instruction basis */
   public machineState: AvmMachineState;
-  //public results: AvmContractCallResults = { reverted: false, output: []};
-
-  /** Manages mutable state during execution - (caching, fetching) */
-  public journal: AvmJournal;
 
   /** The public contract code corresponding to this context's contract class */
   private instructions: Instruction[];
@@ -37,14 +27,16 @@ export class AvmContext {
   //private nestedExecutions: PublicExecutionResult[] = [];
 
   constructor(
-    // TODO: just accept environment and initial machine state as separate inputs
-    // TODO: add AvmSession that accepts the equivalent of "circuit inputs"
-    contextInputs: AvmContextInputs,
-    journal: AvmJournal,
+    /** Manages mutable state during execution - (caching, fetching) */
+    public journal: AvmJournal,
+    /** Contains constant variables provided by the kernel */
+    public environment: AvmExecutionEnvironment = initExecutionEnvironment(),
+    /** Some initial values for machine state */
+    initialMachineState: InitialAvmMachineState = initInitialMachineState(),
     private log = createDebugLogger('aztec:avm_simulator:avm_context'),
   ) {
-    this.environment = contextInputs.environment;
-    this.machineState = new AvmMachineState(contextInputs.initialMachineState);
+    this.environment = environment;
+    this.machineState = new AvmMachineState(initialMachineState);
     this.journal = journal;
     // Bytecode is fetched and instructions are decoded in async init()
     this.instructions = [];
@@ -145,9 +137,13 @@ export class AvmContext {
   /**
    * Create a new forked avm context - for external calls
    */
-  public static newWithForkedState(contextInputs: AvmContextInputs, journal: AvmJournal): AvmContext {
+  public static newWithForkedState(
+    environment: AvmExecutionEnvironment,
+    initialMachineState: InitialAvmMachineState,
+    journal: AvmJournal
+  ): AvmContext {
     const forkedState = AvmJournal.branchParent(journal);
-    return new AvmContext(contextInputs, forkedState);
+    return new AvmContext(forkedState);
   }
 
   /**
@@ -169,9 +165,8 @@ export class AvmContext {
     journal: AvmJournal,
   ): Promise<AvmContext> {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedCall(address, calldata);
-    const newContextInputs = { environment: newExecutionEnvironment, initialMachineState };
     const forkedState = AvmJournal.branchParent(journal);
-    const nestedContext = new AvmContext(newContextInputs, forkedState);
+    const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
     await nestedContext.init();
     return nestedContext;
   }
@@ -195,9 +190,8 @@ export class AvmContext {
     journal: AvmJournal,
   ): Promise<AvmContext> {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedStaticCall(address, calldata);
-    const newContextInputs: AvmContextInputs = { environment: newExecutionEnvironment, initialMachineState };
     const forkedState = AvmJournal.branchParent(journal);
-    const nestedContext = new AvmContext(newContextInputs, forkedState);
+    const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
     await nestedContext.init();
     return nestedContext;
   }

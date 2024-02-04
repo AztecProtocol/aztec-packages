@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { AvmContext, AvmContextInputs } from '../avm_context.js';
+import { AvmContext } from '../avm_context.js';
 import { initExecutionEnvironment, initGlobalVariables, initMachineState } from '../fixtures/index.js';
 import { AvmJournal } from '../journal/journal.js';
 import {
@@ -30,11 +30,7 @@ describe('Environment getters instructions', () => {
 
   type EnvInstruction = Portal | FeePerL1Gas | FeePerL2Gas | FeePerDAGas | Origin | Sender | StorageAddress | Address;
   const envGetterTest = async (key: string, value: Fr, instruction: EnvInstruction) => {
-    const contextInputs: AvmContextInputs = {
-      environment: initExecutionEnvironment({ [key]: value }),
-      initialMachineState: initMachineState()
-    };
-    context = new AvmContext(contextInputs, journal);
+    context = new AvmContext(journal, initExecutionEnvironment({ [key]: value }));
 
     await instruction.execute(context);
     const actual = context.machineState.memory.get(0).toFr();
@@ -197,11 +193,7 @@ describe('Environment getters instructions', () => {
     type GlobalsInstruction = ChainId | Version | BlockNumber | Timestamp;
     const readGlobalVariableTest = async (key: string, value: Fr, instruction: GlobalsInstruction) => {
       const globals = initGlobalVariables({ [key]: value });
-      const contextInputs: AvmContextInputs = {
-        environment: initExecutionEnvironment({ globals }),
-        initialMachineState: initMachineState()
-      };
-      context = new AvmContext(contextInputs, journal);
+      context = new AvmContext(journal, initExecutionEnvironment({ globals }));
 
       await instruction.execute(context);
       const actual = context.machineState.memory.get(0).toFr();

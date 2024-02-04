@@ -5,8 +5,8 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { TypeTag } from './avm_memory_types.js';
-import { AvmContext, AvmContextInputs } from './avm_context.js';
-import { initExecutionEnvironment, initMachineState } from './fixtures/index.js';
+import { AvmContext } from './avm_context.js';
+import { initExecutionEnvironment } from './fixtures/index.js';
 import { HostStorage } from './journal/host_storage.js';
 import { AvmJournal } from './journal/journal.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
@@ -41,11 +41,7 @@ describe('avm', () => {
       .mockReturnValue(Promise.resolve(bytecode));
 
     // Initialize AVM context
-    const contextInputs: AvmContextInputs = {
-      environment: initExecutionEnvironment({ calldata }),
-      initialMachineState: initMachineState(),
-    };
-    const context = new AvmContext(contextInputs, journal);
+    const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
     await context.init();
 
     // Execute AVM
@@ -74,11 +70,7 @@ describe('avm', () => {
         .mockReturnValue(Promise.resolve(bytecode));
 
       // Initialize AVM context
-      const contextInputs: AvmContextInputs = {
-        environment: initExecutionEnvironment({ calldata }),
-        initialMachineState: initMachineState(),
-      };
-      const context = new AvmContext(contextInputs, journal);
+      const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
       await context.init();
 
       // Execute AVM

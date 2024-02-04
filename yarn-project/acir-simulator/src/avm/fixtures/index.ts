@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
-import { AvmMachineState } from '../avm_machine_state.js';
+import { AvmMachineState, InitialAvmMachineState } from '../avm_machine_state.js';
 
 /**
  * Create an empty instance of the Execution Environment where all values are zero, unless overridden in the overrides object
@@ -38,6 +38,17 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.blockNumber ?? Fr.zero(),
     overrides?.timestamp ?? Fr.zero(),
   );
+}
+
+/**
+ * Create an empty instance of the "Initial" Machine State where all values are zero, unless overridden in the overrides object
+ */
+export function initInitialMachineState(overrides?: Partial<InitialAvmMachineState>): InitialAvmMachineState {
+  return {
+    l1GasLeft: overrides?.l1GasLeft ?? 0,
+    l2GasLeft: overrides?.l2GasLeft ?? 0,
+    daGasLeft: overrides?.daGasLeft ?? 0,
+  };
 }
 
 /**

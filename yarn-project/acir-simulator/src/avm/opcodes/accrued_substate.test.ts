@@ -15,11 +15,7 @@ describe('Accrued Substate', () => {
   beforeEach(() => {
     const hostStorage = mock<HostStorage>();
     journal = new AvmJournal(hostStorage);
-    const contextInputs = {
-      environment: initExecutionEnvironment(),
-      initialMachineState: initMachineState(),
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal)
   });
 
   describe('EmitNoteHash', () => {
@@ -133,11 +129,7 @@ describe('Accrued Substate', () => {
   });
 
   it('All substate instructions should fail within a static call', async () => {
-    const contextInputs = {
-      environment: initExecutionEnvironment({ isStaticCall: true }),
-      initialMachineState: { l1GasLeft: 0, l2GasLeft: 0, daGasLeft: 0 },
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal, initExecutionEnvironment({ isStaticCall: true }));
 
     const instructions = [
       new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),

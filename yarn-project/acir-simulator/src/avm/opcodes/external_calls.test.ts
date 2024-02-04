@@ -29,12 +29,7 @@ describe('External Calls', () => {
     const publicStateDb = mock<PublicStateDB>();
     const hostStorage = new HostStorage(publicStateDb, contractsDb, commitmentsDb);
     journal = new AvmJournal(hostStorage);
-
-    const contextInputs = {
-      environment: initExecutionEnvironment(),
-      initialMachineState: initMachineState(),
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal)
   });
 
   describe('Call', () => {

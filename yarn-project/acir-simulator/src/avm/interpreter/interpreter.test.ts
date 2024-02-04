@@ -17,11 +17,7 @@ describe('interpreter', () => {
 
   beforeEach(() => {
     journal = mock<AvmJournal>();
-    const contextInputs = {
-      environment: initExecutionEnvironment(),
-      initialMachineState: initMachineState(),
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal)
   });
 
   it('Should execute a series of instructions', async () => {
@@ -37,7 +33,7 @@ describe('interpreter', () => {
       environment: initExecutionEnvironment({ calldata }),
       initialMachineState: initMachineState(),
     };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
     // Set instructions (skip bytecode decoding)
     context.setInstructions(instructions);
     const results = await context.execute()
@@ -54,11 +50,7 @@ describe('interpreter', () => {
 
     const instructions: Instruction[] = [new Jump(invalidJumpDestination)];
 
-    const contextInputs = {
-      environment: initExecutionEnvironment({ calldata }),
-      initialMachineState: initMachineState(),
-    };
-    context = new AvmContext(contextInputs, journal)
+    context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
     // Set instructions (skip bytecode decoding)
     context.setInstructions(instructions);
     const results = await context.execute()
