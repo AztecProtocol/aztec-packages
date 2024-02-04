@@ -14,7 +14,7 @@ describe('Control Flow Opcodes', () => {
 
   beforeEach(() => {
     journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal)
+    context = new AvmContext(journal);
   });
 
   describe('JUMP', () => {

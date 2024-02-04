@@ -1,8 +1,8 @@
 import { mock } from 'jest-mock-extended';
 
-import { Field } from '../avm_memory_types.js';
 import { AvmContext } from '../avm_context.js';
-import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
+import { Field } from '../avm_memory_types.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
@@ -15,7 +15,7 @@ describe('Accrued Substate', () => {
   beforeEach(() => {
     const hostStorage = mock<HostStorage>();
     journal = new AvmWorldStateJournal(hostStorage);
-    context = new AvmContext(journal)
+    context = new AvmContext(journal);
   });
 
   describe('EmitNoteHash', () => {

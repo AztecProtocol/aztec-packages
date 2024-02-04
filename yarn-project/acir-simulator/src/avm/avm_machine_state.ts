@@ -1,15 +1,15 @@
 //import { Fr } from '@aztec/foundation/fields';
-
 //import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { Fr } from '@aztec/circuits.js';
+
 import { TaggedMemory } from './avm_memory_types.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
 
 export type InitialAvmMachineState = {
-  l1GasLeft: number,
-  l2GasLeft: number,
-  daGasLeft: number,
-}
+  l1GasLeft: number;
+  l2GasLeft: number;
+  daGasLeft: number;
+};
 
 /**
  * Store's data for an Avm execution frame
@@ -20,7 +20,6 @@ export class AvmMachineState {
   // * Items like, the block header and global variables fall within this category
   // */
   //public readonly executionEnvironment: AvmExecutionEnvironment;
-
 
   public l1GasLeft: number;
   public l2GasLeft: number;

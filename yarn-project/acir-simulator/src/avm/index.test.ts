@@ -4,14 +4,14 @@ import { AvmTestContractArtifact } from '@aztec/noir-contracts';
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { TypeTag } from './avm_memory_types.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../index.js';
 import { AvmContext } from './avm_context.js';
+import { TypeTag } from './avm_memory_types.js';
 import { initExecutionEnvironment } from './fixtures/index.js';
 import { HostStorage } from './journal/host_storage.js';
 import { AvmWorldStateJournal } from './journal/journal.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../index.js';
 
 describe('avm', () => {
   let journal: AvmWorldStateJournal;
@@ -36,9 +36,7 @@ describe('avm', () => {
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
 
-    jest
-      .spyOn(journal.hostStorage.contractsDb, 'getBytecode')
-      .mockReturnValue(Promise.resolve(bytecode));
+    jest.spyOn(journal.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
 
     // Initialize AVM context
     const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
@@ -65,9 +63,7 @@ describe('avm', () => {
       // Decode bytecode into instructions
       const bytecode = Buffer.from(addArtifact.bytecode, 'base64');
 
-      jest
-        .spyOn(journal.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValue(Promise.resolve(bytecode));
+      jest.spyOn(journal.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
 
       // Initialize AVM context
       const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));

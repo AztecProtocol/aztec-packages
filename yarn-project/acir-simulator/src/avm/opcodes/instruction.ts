@@ -1,10 +1,10 @@
 import { assert } from 'console';
 
+import type { AvmContext } from '../avm_context.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
-import type { AvmContext } from '../avm_context.js';
 
 /**
  * Parent class for all AVM instructions.
@@ -14,13 +14,12 @@ export abstract class Instruction {
   static readonly type: string | undefined;
 
   public static getName(): string {
-    return this.type ? this.type: 'INVALID INSTRUCTION';
+    return this.type ? this.type : 'INVALID INSTRUCTION';
   }
   public toString(): string {
     let instructionStr = this.constructor.name + ': ';
     for (const prop of Object.getOwnPropertyNames(this) as (keyof Instruction)[]) {
       instructionStr += `${prop}:${this[prop].toString()}, `;
-
     }
     return instructionStr;
   }

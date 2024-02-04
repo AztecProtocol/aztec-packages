@@ -6,7 +6,6 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
@@ -29,7 +28,7 @@ describe('External Calls', () => {
     const publicStateDb = mock<PublicStateDB>();
     const hostStorage = new HostStorage(publicStateDb, contractsDb, commitmentsDb);
     journal = new AvmWorldStateJournal(hostStorage);
-    context = new AvmContext(journal)
+    context = new AvmContext(journal);
   });
 
   describe('Call', () => {

@@ -2,7 +2,6 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
-import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 
@@ -12,7 +11,7 @@ describe('Bitwise instructions', () => {
 
   beforeEach(async () => {
     journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal)
+    context = new AvmContext(journal);
   });
 
   describe('AND', () => {
@@ -47,7 +46,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Uint32(0b11100100010001000100n));
@@ -89,7 +88,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint32(0b11111110111011101111n);
       const actual = context.machineState.memory.get(2);
@@ -132,7 +131,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint32(0b00011010101010101011n);
       const actual = context.machineState.memory.get(2);
@@ -175,7 +174,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = a;
       const actual = context.machineState.memory.get(2);
@@ -195,7 +194,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint32(0b00111111100100111001n);
       const actual = context.machineState.memory.get(2);
@@ -215,7 +214,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint32(0b01n);
       const actual = context.machineState.memory.get(2);
@@ -258,7 +257,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = a;
       const actual = context.machineState.memory.get(2);
@@ -278,7 +277,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint32(0b1111111001001110010000n);
       const actual = context.machineState.memory.get(2);
@@ -298,7 +297,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint16(0n);
       const actual = context.machineState.memory.get(2);
@@ -318,7 +317,7 @@ describe('Bitwise instructions', () => {
         /*aOffset=*/ 0,
         /*bOffset=*/ 1,
         /*dstOffset=*/ 2,
-      ).execute(context)
+      ).execute(context);
 
       const expected = new Uint16(0b1001001110011100n);
       const actual = context.machineState.memory.get(2);

@@ -19,9 +19,7 @@ export class Return extends Instruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    const output = context.machineState.memory
-      .getSlice(this.returnOffset, this.copySize)
-      .map(word => word.toFr());
+    const output = context.machineState.memory.getSlice(this.returnOffset, this.copySize).map(word => word.toFr());
 
     context.machineState.return(output);
   }

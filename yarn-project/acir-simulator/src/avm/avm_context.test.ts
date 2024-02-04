@@ -4,13 +4,13 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from './avm_context.js';
 import { TypeTag } from './avm_memory_types.js';
+import { InvalidProgramCounterError } from './errors.js';
 import { initExecutionEnvironment } from './fixtures/index.js';
 import { AvmWorldStateJournal } from './journal/journal.js';
 import { Add } from './opcodes/arithmetic.js';
 import { Jump, Return } from './opcodes/control_flow.js';
 import { Instruction } from './opcodes/instruction.js';
 import { CalldataCopy } from './opcodes/memory.js';
-import { InvalidProgramCounterError } from './errors.js';
 
 describe('avm context', () => {
   let context: AvmContext;
@@ -18,7 +18,7 @@ describe('avm context', () => {
 
   beforeEach(() => {
     journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal)
+    context = new AvmContext(journal);
   });
 
   it('Should execute a series of instructions', async () => {
@@ -33,7 +33,7 @@ describe('avm context', () => {
     context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
     // Set instructions (skip bytecode decoding)
     context.setInstructions(instructions);
-    const results = await context.execute()
+    const results = await context.execute();
 
     expect(results.reverted).toBe(false);
     expect(results.revertReason).toBeUndefined();
@@ -50,11 +50,10 @@ describe('avm context', () => {
     context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
     // Set instructions (skip bytecode decoding)
     context.setInstructions(instructions);
-    const results = await context.execute()
+    const results = await context.execute();
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeInstanceOf(InvalidProgramCounterError);
     expect(results.output).toHaveLength(0);
   });
 });
-

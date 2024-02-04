@@ -4,11 +4,10 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
-import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
+import { initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { InstructionExecutionError } from './instruction.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
-import { init } from '@aztec/foundation/crypto';
 
 describe('Memory instructions', () => {
   let context: AvmContext;
@@ -16,7 +15,7 @@ describe('Memory instructions', () => {
 
   beforeEach(async () => {
     journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal)
+    context = new AvmContext(journal);
   });
 
   describe('SET', () => {
@@ -283,7 +282,9 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint16(456)); // B
       context.machineState.memory.set(2, new Uint8(2)); // Condition
 
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(context);
+      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
+        context,
+      );
 
       const actual = context.machineState.memory.get(3);
       const tag = context.machineState.memory.getTag(3);
@@ -296,7 +297,9 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint16(456)); // B
       context.machineState.memory.set(2, new Uint8(0)); // Condition
 
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(context);
+      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
+        context,
+      );
 
       const actual = context.machineState.memory.get(3);
       const tag = context.machineState.memory.getTag(3);
@@ -309,7 +312,9 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint16(456)); // B
       context.machineState.memory.set(2, new Field(1)); // Condition
 
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(context);
+      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
+        context,
+      );
 
       const actual = context.machineState.memory.get(3);
       const tag = context.machineState.memory.getTag(3);
@@ -322,7 +327,9 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint16(456)); // B
       context.machineState.memory.set(2, new Field(0)); // Condition
 
-      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(context);
+      await new CMov(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*condOffset=*/ 2, /*dstOffset=*/ 3).execute(
+        context,
+      );
 
       const actual = context.machineState.memory.get(3);
       const tag = context.machineState.memory.getTag(3);

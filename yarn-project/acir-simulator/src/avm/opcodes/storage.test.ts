@@ -46,7 +46,7 @@ describe('Storage Instructions', () => {
     });
 
     it('Should not be able to write to storage in a static call', async () => {
-      context = new AvmContext(journal, initExecutionEnvironment( { isStaticCall: true }));
+      context = new AvmContext(journal, initExecutionEnvironment({ isStaticCall: true }));
 
       const a = new Field(1n);
       const b = new Field(2n);
@@ -54,8 +54,7 @@ describe('Storage Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      const instruction = () =>
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
+      const instruction = () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
       await expect(instruction()).rejects.toThrow(StaticCallStorageAlterError);
     });
   });

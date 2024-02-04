@@ -2,10 +2,9 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
+import { initMachineState } from '../fixtures/index.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
-import { initMachineState } from '../fixtures/index.js';
-
 
 export class Call extends Instruction {
   static type: string = 'CALL';
@@ -39,7 +38,9 @@ export class Call extends Instruction {
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3992): there is no concept of remaining / available gas at this moment
   async execute(context: AvmContext): Promise<void> {
     const callAddress = context.machineState.memory.getAs<Field>(this.addrOffset);
-    const calldata = context.machineState.memory.getSlice(this.argsOffset, this.argsSize).map(f => new Fr(f.toBigInt()));
+    const calldata = context.machineState.memory
+      .getSlice(this.argsOffset, this.argsSize)
+      .map(f => new Fr(f.toBigInt()));
 
     const nestedContext = await AvmContext.createNestedContractCallContext(
       new Fr(callAddress.toBigInt()),
@@ -101,7 +102,9 @@ export class StaticCall extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     const callAddress = context.machineState.memory.get(this.addrOffset);
-    const calldata = context.machineState.memory.getSlice(this.argsOffset, this.argsSize).map(f => new Fr(f.toBigInt()));
+    const calldata = context.machineState.memory
+      .getSlice(this.argsOffset, this.argsSize)
+      .map(f => new Fr(f.toBigInt()));
 
     const nestedContext = await AvmContext.createNestedStaticCallContext(
       new Fr(callAddress.toBigInt()),

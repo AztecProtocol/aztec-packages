@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
-import { initExecutionEnvironment, initGlobalVariables, initMachineState } from '../fixtures/index.js';
+import { initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import {
   Address,
