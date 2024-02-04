@@ -31,6 +31,17 @@ class FFTerm {
     static FFTerm Var(const std::string& name, Solver* slv);
     static FFTerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
+    FFTerm(bb::fr value, Solver* s){
+        std::stringstream buf; // TODO(alex): looks bad. Would be great to create tostring() converter
+        buf << value;
+        std::string tmp = buf.str();
+        tmp[1] = '0';          // avoiding `x` in 0x prefix
+        
+        *this = Const(tmp, s);
+    }
+    
+    void mod(){};
+
     FFTerm& operator=(const FFTerm& right) = default;
     FFTerm& operator=(FFTerm&& right) = default;
 
@@ -38,6 +49,7 @@ class FFTerm {
     void operator+=(const FFTerm& other);
     FFTerm operator-(const FFTerm& other) const;
     void operator-=(const FFTerm& other);
+    FFTerm operator-() const;
     FFTerm operator*(const FFTerm& other) const;
     void operator*=(const FFTerm& other);
     FFTerm operator/(const FFTerm& other) const;
@@ -45,6 +57,38 @@ class FFTerm {
 
     void operator==(const FFTerm& other) const;
     void operator!=(const FFTerm& other) const;
+
+    FFTerm operator+(const bb::fr& rhs) const{
+        return *this + FFTerm(rhs, this->solver);
+    }
+    void operator+=(const bb::fr& other){
+        *this += FFTerm(other, this->solver);
+    }
+    FFTerm operator-(const bb::fr& other) const{
+        return *this - FFTerm(other, this->solver);
+    }
+    void operator-=(const bb::fr& other){
+        *this -= FFTerm(other, this->solver);
+    }
+    FFTerm operator*(const bb::fr& other) const{
+        return *this * FFTerm(other, this->solver);
+    }
+    void operator*=(const bb::fr& other){
+        *this *= FFTerm(other, this->solver);
+    }
+    FFTerm operator/(const bb::fr& other) const{
+        return *this / FFTerm(other, this->solver);
+    }
+    void operator/=(const bb::fr& other){
+        *this /= FFTerm(other, this->solver);
+    }
+
+    void operator==(const bb::fr& other) const{
+        *this == FFTerm(other, this->solver);
+    }
+    void operator!=(const bb::fr& other) const{
+        *this != FFTerm(other, this->solver);
+    }
 
     operator std::string() const { return term.isFiniteFieldValue() ? term.getFiniteFieldValue() : term.toString(); };
     operator cvc5::Term() const { return term; };
@@ -68,5 +112,12 @@ class FFTerm {
         return { res, slv };
     }
 };
+
+FFTerm operator+(const bb::fr& lhs, const FFTerm& rhs);
+FFTerm operator-(const bb::fr& lhs, const FFTerm& rhs);
+FFTerm operator*(const bb::fr& lhs, const FFTerm& rhs);
+FFTerm operator/(const bb::fr& lhs, const FFTerm& rhs);
+void operator==(const bb::fr& lhs, const FFTerm& rhs);
+void operator!=(const bb::fr& lhs, const FFTerm& rhs);
 
 } // namespace smt_terms
