@@ -3,11 +3,12 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState, InitialAvmMachineState } from './avm_machine_state.js';
-import { AvmJournal } from './journal/journal.js';
+import { AvmWorldStateJournal } from './journal/journal.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
-import { PublicExecutionResult } from '../index.js';
 import { InstructionExecutionError, type Instruction } from './opcodes/index.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
+import { AvmInterpreterError, InvalidProgramCounterError, NoBytecodeFoundInterpreterError } from './errors.js';
+
 import { assert } from 'console';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -27,7 +28,7 @@ export class AvmContext {
   //public results: AvmContractCallResults = { reverted: false, output: []};
 
   /** Manages mutable state during execution - (caching, fetching) */
-  public journal: AvmJournal;
+  public journal: AvmWorldStateJournal;
 
   /** The public contract code corresponding to this context's contract class */
   private instructions: Instruction[];
@@ -40,7 +41,7 @@ export class AvmContext {
     // TODO: just accept environment and initial machine state as separate inputs
     // TODO: add AvmSession that accepts the equivalent of "circuit inputs"
     contextInputs: AvmContextInputs,
-    journal: AvmJournal,
+    journal: AvmWorldStateJournal,
     private log = createDebugLogger('aztec:avm_simulator:avm_context'),
   ) {
     this.environment = contextInputs.environment;
@@ -119,38 +120,6 @@ export class AvmContext {
   }
 
   /**
-   * Merge the journal of this call with it's parent
-   * NOTE: this should never be called on a root context - only from within a nested call
-   */
-  mergeJournalSuccess() {
-    this.journal.mergeSuccessWithParent();
-  }
-
-  /**
-   * Merge the journal of this call with it's parent
-   * For when the child call fails ( we still must track state accesses )
-   */
-  mergeJournalFailure() {
-    this.journal.mergeFailureWithParent();
-  }
-
-  /**
-   * Create a new forked avm context - for internal calls
-   */
-  //public newWithForkedState(): AvmContext {
-  //  const forkedState = AvmJournal.branchParent(this.journal);
-  //  return new AvmContext(this.environment, forkedState);
-  //}
-
-  /**
-   * Create a new forked avm context - for external calls
-   */
-  public static newWithForkedState(contextInputs: AvmContextInputs, journal: AvmJournal): AvmContext {
-    const forkedState = AvmJournal.branchParent(journal);
-    return new AvmContext(contextInputs, forkedState);
-  }
-
-  /**
    * Prepare a new AVM context that will be ready for an external call
    * - It will fork the journal
    * - It will set the correct execution Environment Variables for a call
@@ -166,11 +135,11 @@ export class AvmContext {
     calldata: Fr[],
     parentEnvironment: AvmExecutionEnvironment,
     initialMachineState: InitialAvmMachineState,
-    journal: AvmJournal,
+    journal: AvmWorldStateJournal,
   ): Promise<AvmContext> {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedCall(address, calldata);
     const newContextInputs = { environment: newExecutionEnvironment, initialMachineState };
-    const forkedState = AvmJournal.branchParent(journal);
+    const forkedState = AvmWorldStateJournal.branchParent(journal);
     const nestedContext = new AvmContext(newContextInputs, forkedState);
     await nestedContext.init();
     return nestedContext;
@@ -192,42 +161,13 @@ export class AvmContext {
     calldata: Fr[],
     parentEnvironment: AvmExecutionEnvironment,
     initialMachineState: InitialAvmMachineState,
-    journal: AvmJournal,
+    journal: AvmWorldStateJournal,
   ): Promise<AvmContext> {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedStaticCall(address, calldata);
     const newContextInputs: AvmContextInputs = { environment: newExecutionEnvironment, initialMachineState };
-    const forkedState = AvmJournal.branchParent(journal);
+    const forkedState = AvmWorldStateJournal.branchParent(journal);
     const nestedContext = new AvmContext(newContextInputs, forkedState);
     await nestedContext.init();
     return nestedContext;
-  }
-}
-
-
-/**
- * Avm-specific errors should derive from this
- */
-export abstract class AvmInterpreterError extends Error {
-  constructor(message: string, ...rest: any[]) {
-    super(message, ...rest);
-    this.name = 'AvmInterpreterError';
-  }
-}
-
-class NoBytecodeFoundInterpreterError extends AvmInterpreterError {
-  constructor(contractAddress: AztecAddress) {
-    super(`No bytecode found at: ${contractAddress}`);
-    this.name = 'NoBytecodeFoundInterpreterError';
-  }
-}
-
-/**
- * Error is thrown when the program counter goes to an invalid location.
- * There is no instruction at the provided pc
- */
-export class InvalidProgramCounterError extends AvmInterpreterError {
-  constructor(pc: number, max: number) {
-    super(`Invalid program counter ${pc}, max is ${max}`);
-    this.name = 'InvalidProgramCounterError';
   }
 }

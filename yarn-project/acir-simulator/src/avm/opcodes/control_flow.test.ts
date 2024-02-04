@@ -5,16 +5,16 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { AvmContext } from '../avm_context.js';
 import { Field, Uint16 } from '../avm_memory_types.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { InternalCall, InternalReturn, Jump, JumpI, Return, Revert } from './control_flow.js';
 import { InstructionExecutionError } from './instruction.js';
 
 describe('Control Flow Opcodes', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmJournal>;
+  let journal: MockProxy<AvmWorldStateJournal>;
 
   beforeEach(() => {
-    journal = mock<AvmJournal>();
+    journal = mock<AvmWorldStateJournal>();
     const contextInputs = {
       environment: initExecutionEnvironment(),
       initialMachineState: initMachineState(),

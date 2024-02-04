@@ -8,7 +8,7 @@ import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Return } from './control_flow.js';
 import { Call, StaticCall } from './external_calls.js';
@@ -18,7 +18,7 @@ import { SStore } from './storage.js';
 
 describe('External Calls', () => {
   let context: AvmContext;
-  let journal: AvmJournal;
+  let journal: AvmWorldStateJournal;
 
   let contractsDb: MockProxy<PublicContractsDB>;
 
@@ -28,7 +28,7 @@ describe('External Calls', () => {
     const commitmentsDb = mock<CommitmentsDB>();
     const publicStateDb = mock<PublicStateDB>();
     const hostStorage = new HostStorage(publicStateDb, contractsDb, commitmentsDb);
-    journal = new AvmJournal(hostStorage);
+    journal = new AvmWorldStateJournal(hostStorage);
 
     const contextInputs = {
       environment: initExecutionEnvironment(),

@@ -60,9 +60,9 @@ export class Call extends Instruction {
     context.machineState.memory.setSlice(this.retOffset, convertedReturnData);
 
     if (success) {
-      nestedContext.mergeJournalSuccess();
+      context.journal.acceptNestedWorldState(nestedContext.journal);
     } else {
-      nestedContext.mergeJournalFailure();
+      context.journal.rejectNestedWorldState(nestedContext.journal);
     }
 
     context.machineState.incrementPc();
@@ -122,9 +122,9 @@ export class StaticCall extends Instruction {
     context.machineState.memory.setSlice(this.retOffset, convertedReturnData);
 
     if (success) {
-      nestedContext.mergeJournalSuccess();
+      context.journal.acceptNestedWorldState(nestedContext.journal);
     } else {
-      nestedContext.mergeJournalFailure();
+      context.journal.rejectNestedWorldState(nestedContext.journal);
     }
 
     context.machineState.incrementPc();

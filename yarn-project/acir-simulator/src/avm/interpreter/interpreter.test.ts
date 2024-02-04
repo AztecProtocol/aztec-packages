@@ -2,21 +2,22 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { AvmContext, InvalidProgramCounterError } from '../avm_context.js';
+import { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { Add } from '../opcodes/arithmetic.js';
 import { Jump, Return } from '../opcodes/control_flow.js';
 import { Instruction } from '../opcodes/instruction.js';
 import { CalldataCopy } from '../opcodes/memory.js';
+import { InvalidProgramCounterError } from '../errors.js';
 
 describe('interpreter', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmJournal>;
+  let journal: MockProxy<AvmWorldStateJournal>;
 
   beforeEach(() => {
-    journal = mock<AvmJournal>();
+    journal = mock<AvmWorldStateJournal>();
     const contextInputs = {
       environment: initExecutionEnvironment(),
       initialMachineState: initMachineState(),

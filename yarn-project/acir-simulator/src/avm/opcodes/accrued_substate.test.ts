@@ -4,17 +4,17 @@ import { Field } from '../avm_memory_types.js';
 import { AvmContext } from '../avm_context.js';
 import { initExecutionEnvironment, initMachineState } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
-import { AvmJournal } from '../journal/journal.js';
+import { AvmWorldStateJournal } from '../journal/journal.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
-  let journal: AvmJournal;
+  let journal: AvmWorldStateJournal;
 
   beforeEach(() => {
     const hostStorage = mock<HostStorage>();
-    journal = new AvmJournal(hostStorage);
+    journal = new AvmWorldStateJournal(hostStorage);
     const contextInputs = {
       environment: initExecutionEnvironment(),
       initialMachineState: initMachineState(),
