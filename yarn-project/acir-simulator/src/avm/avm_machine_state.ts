@@ -1,5 +1,3 @@
-//import { Fr } from '@aztec/foundation/fields';
-//import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { Fr } from '@aztec/circuits.js';
 
 import { TaggedMemory } from './avm_memory_types.js';
@@ -12,45 +10,35 @@ export type InitialAvmMachineState = {
 };
 
 /**
- * Store's data for an Avm execution frame
+ * Avm state modified on an instruction-per-instruction basis.
  */
 export class AvmMachineState {
-  ///**
-  // * Execution environment contains hard coded information that is received from the kernel
-  // * Items like, the block header and global variables fall within this category
-  // */
-  //public readonly executionEnvironment: AvmExecutionEnvironment;
-
   public l1GasLeft: number;
+  /** gas remaining of the gas allocated for a contract call */
   public l2GasLeft: number;
   public daGasLeft: number;
-
+  /** program counter */
   public pc: number = 0;
 
   /**
-   * When an internal_call is invoked, the internal call stack is added to with the current pc + 1
-   * When internal_return is invoked, the latest value is popped from the internal call stack and set to the pc.
+   * On INTERNALCALL, internal call stack is pushed to with the current pc + 1
+   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the pc.
    */
   public internalCallStack: number[] = [];
 
+  /** Memory accessible to user code */
   public readonly memory: TaggedMemory = new TaggedMemory();
 
-  /**
-   * If an instruction triggers a halt, then it ends execution of the VM
-   */
+  /** If an instruction triggers a halt, context execution ends */
   public halted: boolean = false;
-  /**
-   * Signifies if the execution has reverted ( due to a revert instruction )
-   */
+  /** Flags whether the execution has reverted normally (this does nto cover exceptional halts) */
   private reverted: boolean = false;
 
-  /**
-   * Output data must NOT be modified once it is set
-   */
+  /** Output data must NOT be modified once it is set */
   private output: Fr[] = [];
 
   /**
-   * Create a new avm context
+   * Create a new machine state
    * @param initialMachineState - The initial machine state passed to the avm
    */
   constructor(initialMachineState: InitialAvmMachineState) {
@@ -59,6 +47,9 @@ export class AvmMachineState {
     this.daGasLeft = initialMachineState.daGasLeft;
   }
 
+  /**
+   * Most instructions just increment PC before they complete
+   */
   public incrementPc() {
     this.pc++;
   }
@@ -84,7 +75,14 @@ export class AvmMachineState {
     this.output = output;
   }
 
+  /**
+   * Get a summary of execution results for a halted machine state
+   * @returns summary of execution results
+   */
   public getResults(): AvmContractCallResults {
+    if (!this.halted) {
+      throw new Error('Execution results are not ready! Execution is ongoing.');
+    }
     return new AvmContractCallResults(this.reverted, this.output);
   }
 }
