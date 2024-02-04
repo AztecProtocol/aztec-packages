@@ -11,7 +11,8 @@ using namespace smt_solver;
  * Both of them support basic arithmetic operations: +, -, *, /.
  * Check the satisfability of a system and get it's model.
  *
- * @todo TODO(alex): mayb.. Have to patch cvc5 to create integers from hex...
+ * @todo TODO(alex): Have to patch cvc5 to create integers from hex...
+ * @todo TODO(alex): Add <=, xor operators
  */
 class FFITerm {
   public:
@@ -37,6 +38,17 @@ class FFITerm {
     static FFITerm Var(const std::string& name, Solver* slv);
     static FFITerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
+    FFITerm(bb::fr value, Solver* s){
+        std::stringstream buf; // TODO(alex): looks bad. Would be great to create tostring() converter
+        buf << value;
+        std::string tmp = buf.str();
+        tmp[1] = '0';          // avoiding `x` in 0x prefix
+        
+        *this = Const(tmp, s);
+    }
+
+    void mod();
+
     FFITerm& operator=(const FFITerm& right) = default;
     FFITerm& operator=(FFITerm&& right) = default;
 
@@ -44,6 +56,8 @@ class FFITerm {
     void operator+=(const FFITerm& other);
     FFITerm operator-(const FFITerm& other) const;
     void operator-=(const FFITerm& other);
+    FFITerm operator-() const;
+    
     FFITerm operator*(const FFITerm& other) const;
     void operator*=(const FFITerm& other);
     FFITerm operator/(const FFITerm& other) const;
@@ -52,7 +66,65 @@ class FFITerm {
     void operator==(const FFITerm& other) const;
     void operator!=(const FFITerm& other) const;
 
-    operator std::string() const { return term.isIntegerValue() ? term.getIntegerValue() : term.toString(); };
+    FFITerm operator^(const FFITerm& other) const;
+    void operator^=(const FFITerm& other);
+
+    FFITerm& operator=(const bb::fr& right){
+        *this = FFITerm(right, this->solver);
+        return *this;
+    }
+    FFITerm& operator=(bb::fr&& right){
+        *this = FFITerm(right, this->solver);
+        return *this;
+    }
+
+    FFITerm operator+(const bb::fr& other) const{
+        return *this + FFITerm(other, this->solver);
+    }
+    void operator+=(const bb::fr& other){
+        *this += FFITerm(other, this->solver);
+    }
+    FFITerm operator-(const bb::fr& other) const{
+        return *this - FFITerm(other, this->solver);
+    }
+    void operator-=(const bb::fr& other){
+        *this -= FFITerm(other, this->solver);
+    }
+    FFITerm operator*(const bb::fr& other) const{
+        return *this * FFITerm(other, this->solver);
+    }
+    void operator*=(const bb::fr& other){
+        *this *= FFITerm(other, this->solver);
+    }
+    FFITerm operator/(const bb::fr& other) const{
+        return *this / FFITerm(other, this->solver);
+    }
+    void operator/=(const bb::fr& other){
+        *this /= FFITerm(other, this->solver);
+    }
+
+    void operator==(const bb::fr& other) const{
+        *this == FFITerm(other, this->solver);
+    }
+    void operator!=(const bb::fr& other) const{
+        *this != FFITerm(other, this->solver);
+    }
+    FFITerm operator^(const bb::fr& other) const{
+        return *this ^ FFITerm(other, this->solver);
+    }
+    void operator^=(const bb::fr& other){
+        *this ^= FFITerm(other, this->solver);
+    }
+    void operator<(const bb::fr& other) const;
+    void operator<=(const bb::fr& other) const;
+    void operator>(const bb::fr& other) const;
+    void operator>=(const bb::fr& other) const;
+
+    operator std::string() const
+    {
+        return term.isIntegerValue() ? term.getIntegerValue() : term.toString();
+    };
+    
     operator cvc5::Term() const { return term; };
 
     ~FFITerm() = default;
@@ -76,5 +148,13 @@ class FFITerm {
         return { res, slv };
     }
 };
+
+FFITerm operator+(const bb::fr& lhs, const FFITerm& rhs);
+FFITerm operator-(const bb::fr& lhs, const FFITerm& rhs);
+FFITerm operator*(const bb::fr& lhs, const FFITerm& rhs);
+FFITerm operator^(const bb::fr& lhs, const FFITerm& rhs);
+FFITerm operator/(const bb::fr& lhs, const FFITerm& rhs);
+void operator==(const bb::fr& lhs, const FFITerm& rhs);
+void operator!=(const bb::fr& lhs, const FFITerm& rhs);
 
 } // namespace smt_terms
