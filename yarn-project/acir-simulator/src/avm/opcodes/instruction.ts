@@ -2,29 +2,29 @@ import { assert } from 'console';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { TypeTag } from '../avm_memory_types.js';
-import { AvmJournal } from '../journal/index.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
+import type { AvmContext } from '../avm_context.js';
 
 /**
  * Parent class for all AVM instructions.
  * It's most important aspects are execution and (de)serialization.
  */
 export abstract class Instruction {
-  public abstract execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void>;
+  static readonly type: string | undefined;
 
-  incrementPc(machineState: AvmMachineState): void {
-    machineState.pc++;
+  public static getName(): string {
+    return this.type ? this.type: 'INVALID INSTRUCTION';
   }
+  public toString(): string {
+    let instructionStr = this.constructor.name + ': ';
+    for (const prop of Object.getOwnPropertyNames(this) as (keyof Instruction)[]) {
+      instructionStr += `${prop}:${this[prop].toString()}, `;
 
-  halt(machineState: AvmMachineState): void {
-    machineState.halted = true;
+    }
+    return instructionStr;
   }
-
-  revert(machineState: AvmMachineState): void {
-    machineState.halted = true;
-    machineState.reverted = true;
-  }
+  public abstract execute(context: AvmContext): Promise<void>;
 
   static checkTags(machineState: AvmMachineState, tag: TypeTag, ...offsets: number[]) {
     for (const offset of offsets) {

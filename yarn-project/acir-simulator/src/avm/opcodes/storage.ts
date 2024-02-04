@@ -1,8 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { AvmMachineState } from '../avm_machine_state.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { AvmJournal } from '../journal/journal.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction, InstructionExecutionError } from './instruction.js';
 
@@ -28,21 +27,21 @@ export class SStore extends BaseStorageInstruction {
     super(indirect, srcOffset, slotOffset);
   }
 
-  async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
-    if (machineState.executionEnvironment.isStaticCall) {
+  async execute(context: AvmContext): Promise<void> {
+    if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
 
-    const slot = machineState.memory.get(this.aOffset);
-    const data = machineState.memory.get(this.bOffset);
+    const slot = context.machineState.memory.get(this.aOffset);
+    const data = context.machineState.memory.get(this.bOffset);
 
-    journal.writeStorage(
-      machineState.executionEnvironment.storageAddress,
+    context.journal.writeStorage(
+      context.environment.storageAddress,
       new Fr(slot.toBigInt()),
       new Fr(data.toBigInt()),
     );
 
-    this.incrementPc(machineState);
+    context.machineState.incrementPc();
   }
 }
 
@@ -54,17 +53,17 @@ export class SLoad extends BaseStorageInstruction {
     super(indirect, slotOffset, dstOffset);
   }
 
-  async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
-    const slot = machineState.memory.get(this.aOffset);
+  async execute(context: AvmContext): Promise<void> {
+    const slot = context.machineState.memory.get(this.aOffset);
 
-    const data: Fr = await journal.readStorage(
-      machineState.executionEnvironment.storageAddress,
+    const data: Fr = await context.journal.readStorage(
+      context.environment.storageAddress,
       new Fr(slot.toBigInt()),
     );
 
-    machineState.memory.set(this.bOffset, new Field(data));
+    context.machineState.memory.set(this.bOffset, new Field(data));
 
-    this.incrementPc(machineState);
+    context.machineState.incrementPc();
   }
 }
 

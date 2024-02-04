@@ -5,9 +5,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import { AvmMachineState } from '../avm_machine_state.js';
 
 /**
- * Create an empty instance of the Execution Environment where all values are zero, unless overriden in the overrides object
+ * Create an empty instance of the Execution Environment where all values are zero, unless overridden in the overrides object
  */
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
@@ -28,7 +29,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
 }
 
 /**
- * Create an empty instance of the Execution Environment where all values are zero, unless overriden in the overrides object
+ * Create an empty instance of the Execution Environment where all values are zero, unless overridden in the overrides object
  */
 export function initGlobalVariables(overrides?: Partial<GlobalVariables>): GlobalVariables {
   return new GlobalVariables(
@@ -37,4 +38,15 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.blockNumber ?? Fr.zero(),
     overrides?.timestamp ?? Fr.zero(),
   );
+}
+
+/**
+ * Create an empty instance of the Machine State where all values are zero, unless overridden in the overrides object
+ */
+export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
+  return new AvmMachineState({
+    l1GasLeft: overrides?.l1GasLeft ?? 0,
+    l2GasLeft: overrides?.l2GasLeft ?? 0,
+    daGasLeft: overrides?.daGasLeft ?? 0,
+  });
 }

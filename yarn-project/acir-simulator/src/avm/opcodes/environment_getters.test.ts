@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { AvmMachineState } from '../avm_machine_state.js';
-import { initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
+import { AvmContext, AvmContextInputs } from '../avm_context.js';
+import { initExecutionEnvironment, initGlobalVariables, initMachineState } from '../fixtures/index.js';
 import { AvmJournal } from '../journal/journal.js';
 import {
   Address,
@@ -21,19 +21,23 @@ import {
 } from './environment_getters.js';
 
 describe('Environment getters instructions', () => {
-  let machineState: AvmMachineState;
+  let context: AvmContext;
   let journal: MockProxy<AvmJournal>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     journal = mock<AvmJournal>();
   });
 
   type EnvInstruction = Portal | FeePerL1Gas | FeePerL2Gas | FeePerDAGas | Origin | Sender | StorageAddress | Address;
   const envGetterTest = async (key: string, value: Fr, instruction: EnvInstruction) => {
-    machineState = new AvmMachineState(initExecutionEnvironment({ [key]: value }));
+    const contextInputs: AvmContextInputs = {
+      environment: initExecutionEnvironment({ [key]: value }),
+      initialMachineState: initMachineState()
+    };
+    context = new AvmContext(contextInputs, journal);
 
-    await instruction.execute(machineState, journal);
-    const actual = machineState.memory.get(0).toFr();
+    await instruction.execute(context);
+    const actual = context.machineState.memory.get(0).toFr();
     expect(actual).toEqual(value);
   };
 
@@ -193,10 +197,14 @@ describe('Environment getters instructions', () => {
     type GlobalsInstruction = ChainId | Version | BlockNumber | Timestamp;
     const readGlobalVariableTest = async (key: string, value: Fr, instruction: GlobalsInstruction) => {
       const globals = initGlobalVariables({ [key]: value });
-      machineState = new AvmMachineState(initExecutionEnvironment({ globals }));
+      const contextInputs: AvmContextInputs = {
+        environment: initExecutionEnvironment({ globals }),
+        initialMachineState: initMachineState()
+      };
+      context = new AvmContext(contextInputs, journal);
 
-      await instruction.execute(machineState, journal);
-      const actual = machineState.memory.get(0).toFr();
+      await instruction.execute(context);
+      const actual = context.machineState.memory.get(0).toFr();
       expect(actual).toEqual(value);
     };
 
