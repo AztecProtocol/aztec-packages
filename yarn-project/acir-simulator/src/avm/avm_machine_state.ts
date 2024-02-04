@@ -29,9 +29,9 @@ export class AvmMachineState {
   /** Memory accessible to user code */
   public readonly memory: TaggedMemory = new TaggedMemory();
 
-  /** If an instruction triggers a halt, context execution ends */
+  /** Signifies that execution should end */
   public halted: boolean = false;
-  /** Flags whether the execution has reverted normally (this does nto cover exceptional halts) */
+  /** Signifies that execution has reverted normally (this does not cover exceptional halts) */
   private reverted: boolean = false;
 
   /** Output data must NOT be modified once it is set */

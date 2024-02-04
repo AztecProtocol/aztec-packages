@@ -2,8 +2,6 @@ import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { assert } from 'console';
-
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState, InitialAvmMachineState } from './avm_machine_state.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
@@ -12,6 +10,9 @@ import { initExecutionEnvironment, initInitialMachineState } from './fixtures/in
 import { AvmWorldStateJournal } from './journal/journal.js';
 import { type Instruction, InstructionExecutionError } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
+
+import { assert } from 'console';
+
 
 /**
  * Avm Context manages the state and execution of the AVM
@@ -61,7 +62,8 @@ export class AvmContext {
 
   /**
    * Set instructions directly (then can skip bytecode decoding)
-   * For testing purposes only!
+   * Warning: FOR TESTING PURPOSES ONLY!
+   * @param instructions - The decoded instructions to inject into this context
    */
   setInstructions(instructions: Instruction[]) {
     this.instructions = instructions;
@@ -69,22 +71,22 @@ export class AvmContext {
 
   /**
    * Execute the contract code within the current context.
-   *
-   * - Retrieve and decode bytecode
-   * - Interpret the bytecode
-   * - Execute
-   *
    */
   async execute(): Promise<AvmContractCallResults> {
     // Cannot execute empty contract or uninitialized context
     assert(this.instructions.length > 0);
 
     try {
+      // Execute instruction pointed to by the current program counter
+      // continuing until the machine state signifies a halt
       while (!this.machineState.halted) {
         const instruction = this.instructions[this.machineState.pc];
         assert(!!instruction); // This should never happen
 
         this.log(`Executing PC=${this.machineState.pc}: ${instruction.toString()}`);
+        // Execute the instruction.
+        // Normal returns and reverts will return normally here.
+        // "Exceptional halts" will throw.
         await instruction.execute(this);
 
         if (this.machineState.pc >= this.instructions.length) {
@@ -93,7 +95,7 @@ export class AvmContext {
         }
       }
 
-      // return results for processing by calling context
+      // Return results for processing by calling context
       const results = this.machineState.getResults();
       this.log(`Context execution results: ${results.toString()}`);
       return results;
@@ -104,7 +106,8 @@ export class AvmContext {
         throw e;
       }
 
-      // Exceptional halts cannot return data
+      // Return results for processing by calling context
+      // Note: "exceptional halts" cannot return data
       const results = new AvmContractCallResults(/*reverted=*/ true, /*output*/ [], /*revertReason=*/ e);
       this.log(`Context execution results: ${results.toString()}`);
       return results;
@@ -112,14 +115,16 @@ export class AvmContext {
   }
 
   /**
-   * Prepare a new AVM context that will be ready for an external call
+   * Prepare a new AVM context that will be ready for an external/nested call
    * - Fork the world state journal
-   * - Set the correct execution environment variables for a call
+   * - Derive an execution environment from the caller/parent
    *    - Alter both address and storageAddress
    *
-   * @param address - The contract to call
-   * @param parentEnvironment - The current execution environment
-   * @param parentWorldState - The current world state (journal)
+   * @param address - The contract instance to initialize a context for
+   * @param calldata - Data/arguments for nested call
+   * @param parentEnvironment - The caller/parent environment
+   * @param initialMachineState - The initial machine state (derived from call instruction args)
+   * @param parentWorldState - The caller/parent world state (journal)
    * @returns new AvmContext instance
    */
   public static async createNestedContractCallContext(
@@ -137,14 +142,16 @@ export class AvmContext {
   }
 
   /**
-   * Prepare a new AVM context that will be ready for an external static call
+   * Prepare a new AVM context that will be ready for an external/nested static call
    * - Fork the world state journal
-   * - Set the correct execution environment variables for a call
+   * - Derive an execution environment from the caller/parent
    *    - Alter both address and storageAddress
    *
-   * @param address - The contract to call
-   * @param parentEnvironment - The current execution environment
-   * @param parentWorldState - The current world state (journal)
+   * @param address - The contract instance to initialize a context for
+   * @param calldata - Data/arguments for nested call
+   * @param parentEnvironment - The caller/parent environment
+   * @param initialMachineState - The initial machine state (derived from call instruction args)
+   * @param parentWorldState - The caller/parent world state (journal)
    * @returns new AvmContext instance
    */
   public static async createNestedStaticCallContext(
