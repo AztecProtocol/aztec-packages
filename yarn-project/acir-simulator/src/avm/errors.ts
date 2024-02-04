@@ -10,7 +10,7 @@ export abstract class AvmExecutionError extends Error {
   }
 }
 
-export class NoBytecodeFoundInterpreterError extends AvmExecutionError {
+export class NoBytecodeForContractError extends AvmExecutionError {
   constructor(contractAddress: AztecAddress) {
     super(`No bytecode found at: ${contractAddress}`);
     this.name = 'NoBytecodeFoundInterpreterError';

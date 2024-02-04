@@ -3,6 +3,9 @@ import { Fr } from '@aztec/circuits.js';
 import { TaggedMemory } from './avm_memory_types.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
 
+/**
+ * A few fields of machine state are initialized from AVM session inputs or call instruction arguments
+ */
 export type InitialAvmMachineState = {
   l1GasLeft: number;
   l2GasLeft: number;
@@ -29,11 +32,13 @@ export class AvmMachineState {
   /** Memory accessible to user code */
   public readonly memory: TaggedMemory = new TaggedMemory();
 
-  /** Signifies that execution should end */
+  /**
+   * Signals that execution should end.
+   * AvmContext execution continues executing instructions until the machine state signals "halted"
+   * */
   public halted: boolean = false;
-  /** Signifies that execution has reverted normally (this does not cover exceptional halts) */
+  /** Signals that execution has reverted normally (this does not cover exceptional halts) */
   private reverted: boolean = false;
-
   /** Output data must NOT be modified once it is set */
   private output: Fr[] = [];
 

@@ -5,7 +5,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState, InitialAvmMachineState } from './avm_machine_state.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
-import { AvmExecutionError, InvalidProgramCounterError, NoBytecodeFoundInterpreterError } from './errors.js';
+import { AvmExecutionError, InvalidProgramCounterError, NoBytecodeForContractError } from './errors.js';
 import { initExecutionEnvironment, initInitialMachineState } from './fixtures/index.js';
 import { AvmWorldStateJournal } from './journal/journal.js';
 import { type Instruction, InstructionExecutionError } from './opcodes/index.js';
@@ -30,6 +30,7 @@ export class AvmContext {
 
   /** Stage data for public kernel (1-kernel-per-call).
    *  Shouldn't be necessary once kernel processes an entire AVM Session. */
+  // TODO(4293): Integrate simulator with public kernel
   //private nestedExecutions: PublicExecutionResult[] = [];
 
   constructor(
@@ -46,20 +47,6 @@ export class AvmContext {
     this.instructions = [];
   }
 
-  async init() {
-    // NOTE: the following is mocked as getPublicBytecode does not exist yet
-    const selector = new FunctionSelector(0);
-    const bytecode = await this.worldState.hostStorage.contractsDb.getBytecode(this.environment.address, selector);
-
-    // This assumes that we will not be able to send messages to accounts without code
-    // Pending classes and instances impl details
-    if (!bytecode) {
-      throw new NoBytecodeFoundInterpreterError(this.environment.address);
-    }
-
-    this.instructions = decodeFromBytecode(bytecode);
-  }
-
   /**
    * Set instructions directly (then can skip bytecode decoding)
    * Warning: FOR TESTING PURPOSES ONLY!
@@ -72,7 +59,11 @@ export class AvmContext {
   /**
    * Execute the contract code within the current context.
    */
-  async execute(): Promise<AvmContractCallResults> {
+  async execute(skipBytecodeFetch: boolean): Promise<AvmContractCallResults> {
+    if (!skipBytecodeFetch) {
+      // TODO(4409): decide what happens if contract instance does not exist (has no code)
+      await this.fetchAndDecodeBytecode();
+    }
     // Cannot execute empty contract or uninitialized context
     assert(this.instructions.length > 0);
 
@@ -115,6 +106,23 @@ export class AvmContext {
   }
 
   /**
+   * Fetch contract bytecode from world state and decode into executable instructions.
+   */
+  private async fetchAndDecodeBytecode() {
+    // NOTE: the following is mocked as getPublicBytecode does not exist yet
+    const selector = new FunctionSelector(0);
+    const bytecode = await this.worldState.hostStorage.contractsDb.getBytecode(this.environment.address, selector);
+
+    // This assumes that we will not be able to send messages to accounts without code
+    // Pending classes and instances impl details
+    if (!bytecode) {
+      throw new NoBytecodeForContractError(this.environment.address);
+    }
+
+    this.instructions = decodeFromBytecode(bytecode);
+  }
+
+  /**
    * Prepare a new AVM context that will be ready for an external/nested call
    * - Fork the world state journal
    * - Derive an execution environment from the caller/parent
@@ -137,7 +145,7 @@ export class AvmContext {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedCall(address, calldata);
     const forkedState = parentWorldState.fork();
     const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
-    await nestedContext.init();
+    await nestedContext.fetchAndDecodeBytecode();
     return nestedContext;
   }
 
@@ -164,7 +172,7 @@ export class AvmContext {
     const newExecutionEnvironment = parentEnvironment.deriveEnvironmentForNestedStaticCall(address, calldata);
     const forkedState = parentWorldState.fork();
     const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
-    await nestedContext.init();
+    await nestedContext.fetchAndDecodeBytecode();
     return nestedContext;
   }
 }

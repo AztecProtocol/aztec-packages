@@ -40,7 +40,7 @@ describe('avm', () => {
 
     // Initialize AVM context
     const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
-    await context.init();
+    await context.fetchAndDecodeBytecode();
 
     // Execute AVM
     const results = await context.execute();
@@ -67,7 +67,7 @@ describe('avm', () => {
 
       // Initialize AVM context
       const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
-      await context.init();
+      await context.fetchAndDecodeBytecode();
 
       // Execute AVM
       const results = await context.execute();
