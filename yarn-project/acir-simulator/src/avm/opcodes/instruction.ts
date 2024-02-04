@@ -11,18 +11,6 @@ import { OperandType, deserialize, serialize } from '../serialization/instructio
  * It's most important aspects are execution and (de)serialization.
  */
 export abstract class Instruction {
-  static readonly type: string | undefined;
-
-  public static getName(): string {
-    return this.type ? this.type : 'INVALID INSTRUCTION';
-  }
-  public toString(): string {
-    let instructionStr = this.constructor.name + ': ';
-    for (const prop of Object.getOwnPropertyNames(this) as (keyof Instruction)[]) {
-      instructionStr += `${prop}:${this[prop].toString()}, `;
-    }
-    return instructionStr;
-  }
   public abstract execute(context: AvmContext): Promise<void>;
 
   static checkTags(machineState: AvmMachineState, tag: TypeTag, ...offsets: number[]) {
@@ -56,6 +44,20 @@ export abstract class Instruction {
   public serialize(this: any): Buffer {
     assert(this instanceof Instruction);
     return serialize(this.constructor.wireFormat, this);
+  }
+
+  /**
+   * Generate a string representation of the instruction including
+   * the instruction sub-class name all of its flags and operands.
+   * @returns Thee string representation.
+   */
+  public toString(): string {
+    let instructionStr = this.constructor.name + ': ';
+    // assumes that all properties are flags or operands
+    for (const prop of Object.getOwnPropertyNames(this) as (keyof Instruction)[]) {
+      instructionStr += `${prop}:${this[prop].toString()}, `;
+    }
+    return instructionStr;
   }
 }
 
