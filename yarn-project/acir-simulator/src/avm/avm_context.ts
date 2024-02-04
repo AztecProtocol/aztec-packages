@@ -9,6 +9,7 @@ import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 import { InstructionExecutionError, type Instruction } from './opcodes/index.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
 import { initExecutionEnvironment, initInitialMachineState } from './fixtures/index.js';
+import { AvmExecutionError, InvalidProgramCounterError, NoBytecodeFoundInterpreterError } from './errors.js';
 
 import { assert } from 'console';
 
@@ -16,8 +17,12 @@ import { assert } from 'console';
  * Avm Context manages the state and execution of the AVM
  */
 export class AvmContext {
+  /** Contains constant variables provided by the kernel */
+  public environment: AvmExecutionEnvironment = initExecutionEnvironment();
   /** VM state that is modified on an instruction-by-instruction basis */
   public machineState: AvmMachineState;
+  /** Manages mutable state during execution - (caching, fetching) */
+  public journal: AvmJournal;
 
   /** The public contract code corresponding to this context's contract class */
   private instructions: Instruction[];
@@ -27,17 +32,15 @@ export class AvmContext {
   //private nestedExecutions: PublicExecutionResult[] = [];
 
   constructor(
-    /** Manages mutable state during execution - (caching, fetching) */
-    public journal: AvmJournal,
-    /** Contains constant variables provided by the kernel */
-    public environment: AvmExecutionEnvironment = initExecutionEnvironment(),
+    journal: AvmJournal,
+    environment: AvmExecutionEnvironment = initExecutionEnvironment(),
     /** Some initial values for machine state */
     initialMachineState: InitialAvmMachineState = initInitialMachineState(),
     private log = createDebugLogger('aztec:avm_simulator:avm_context'),
   ) {
+    this.journal = journal;
     this.environment = environment;
     this.machineState = new AvmMachineState(initialMachineState);
-    this.journal = journal;
     // Bytecode is fetched and instructions are decoded in async init()
     this.instructions = [];
   }
@@ -60,7 +63,8 @@ export class AvmContext {
   }
 
   /**
-   * For testing purposes (to skip bytecode decoding)
+   * Set instructions directly (then can skip bytecode decoding)
+   * For testing purposes only!
    */
   setInstructions(instructions: Instruction[]) {
     this.instructions = instructions;
@@ -98,7 +102,7 @@ export class AvmContext {
       return results;
     } catch (e) {
       this.log('Exceptional halt');
-      if (!(e instanceof AvmInterpreterError || e instanceof InstructionExecutionError)) {
+      if (!(e instanceof AvmExecutionError || e instanceof InstructionExecutionError)) {
         this.log(`Unknown error thrown by avm: ${e}`);
         throw e;
       }
@@ -194,34 +198,5 @@ export class AvmContext {
     const nestedContext = new AvmContext(forkedState, newExecutionEnvironment, initialMachineState);
     await nestedContext.init();
     return nestedContext;
-  }
-}
-
-
-/**
- * Avm-specific errors should derive from this
- */
-export abstract class AvmInterpreterError extends Error {
-  constructor(message: string, ...rest: any[]) {
-    super(message, ...rest);
-    this.name = 'AvmInterpreterError';
-  }
-}
-
-class NoBytecodeFoundInterpreterError extends AvmInterpreterError {
-  constructor(contractAddress: AztecAddress) {
-    super(`No bytecode found at: ${contractAddress}`);
-    this.name = 'NoBytecodeFoundInterpreterError';
-  }
-}
-
-/**
- * Error is thrown when the program counter goes to an invalid location.
- * There is no instruction at the provided pc
- */
-export class InvalidProgramCounterError extends AvmInterpreterError {
-  constructor(pc: number, max: number) {
-    super(`Invalid program counter ${pc}, max is ${max}`);
-    this.name = 'InvalidProgramCounterError';
   }
 }
