@@ -37,16 +37,21 @@ struct CircuitSchema {
 template <typename FF> class Circuit {
   private:
     void init();
+    void init_graph();
     void add_gates();
+    void prepare_gates();
+    void quadratic_polynomial_handler(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w);
 
   public:
-    std::vector<std::string> variables;                         // circuit witness
-    std::vector<uint32_t> public_inps;                          // public inputs from the circuit
-    std::unordered_map<uint32_t, std::string> vars_of_interest; // names of the variables
-    std::unordered_map<std::string, uint32_t> terms;            // inverse map of the previous memeber
-    std::vector<std::vector<std::string>> selectors;            // selectors from the circuit
-    std::vector<std::vector<uint32_t>> wires_idxs;              // values of the gates' wires
-    std::vector<FF> vars;                                       // all the symbolic variables from the circuit
+    std::vector<bb::fr> variables;                          // circuit witness
+    std::vector<uint32_t> public_inps;                                // public inputs from the circuit
+    std::unordered_map<uint32_t, std::string> variable_names;         // names of the variables
+    std::unordered_map<std::string, uint32_t> variable_names_inverse; // inverse map of the previous memeber
+    std::vector<std::vector<bb::fr>> selectors;             // selectors from the circuit
+    std::vector<std::vector<uint32_t>> wires_idxs;                    // values of the gates' wires
+    std::vector<FF> symbolic_vars;                                    // all the symbolic variables from the circuit
+    std::vector<std::vector<uint32_t>> graph;
+
 
     Solver* solver;  // pointer to the solver
     std::string tag; // tag of the symbolic circuit.
@@ -56,9 +61,9 @@ template <typename FF> class Circuit {
     explicit Circuit(CircuitSchema& circuit_info, Solver* solver, const std::string& tag = "");
 
     FF operator[](const std::string& name);
-    FF operator[](const uint32_t& idx) { return vars[idx]; };
+    FF operator[](const uint32_t& idx) { return symbolic_vars[idx]; };
     inline uint32_t get_num_gates() const { return static_cast<uint32_t>(selectors.size()); };
-    inline uint32_t get_num_vars() const { return static_cast<uint32_t>(vars.size()); };
+    inline uint32_t get_num_vars() const { return static_cast<uint32_t>(symbolic_vars.size()); };
 };
 
 /**
@@ -70,8 +75,10 @@ template <typename FF> class Circuit {
  */
 template <typename FF>
 Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::string& tag)
-    : public_inps(circuit_info.public_inps)
-    , vars_of_interest(circuit_info.vars_of_interest)
+    : variables(circuit_info.variables)
+    , public_inps(circuit_info.public_inps)
+    , variable_names(circuit_info.vars_of_interest)
+    , selectors(circuit_info.selectors)
     , wires_idxs(circuit_info.wires)
     , solver(solver)
     , tag(tag)
@@ -82,36 +89,17 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
         }
     }
 
-    for (auto var : circuit_info.variables) {
-        std::stringstream buf; // TODO(alex): looks bad. Would be great to create tostring() converter
-        buf << var;
-        std::string tmp = buf.str();
-        tmp[1] = '0'; // avoiding `x` in 0x prefix
-        variables.push_back(tmp);
+    for (auto& x : variable_names) {
+        variable_names_inverse.insert({ x.second, x.first });
     }
 
-    for (auto& x : vars_of_interest) {
-        terms.insert({ x.second, x.first });
-    }
-
-    vars_of_interest.insert({ 0, "zero" });
-    vars_of_interest.insert({ 1, "one" });
-    terms.insert({ "zero", 0 });
-    terms.insert({ "one", 1 });
-
-    for (auto sel : circuit_info.selectors) {
-        std::vector<std::string> tmp_sel;
-        for (size_t j = 0; j < 5; j++) {
-            std::stringstream buf; // TODO(alex): #2
-            buf << sel[j];
-            std::string q_i = buf.str();
-            q_i[1] = '0'; // avoiding `x` in 0x prefix
-            tmp_sel.push_back(q_i);
-        }
-        selectors.push_back(tmp_sel);
-    }
-
+    variable_names.insert({ 0, "zero" });
+    variable_names.insert({ 1, "one" });
+    variable_names_inverse.insert({ "zero", 0 });
+    variable_names_inverse.insert({ "one", 1 });
+    this->graph = std::vector<std::vector<uint32_t>>(this->variables.size());
     this->init();
+    this->init_graph();
     this->add_gates();
 }
 
@@ -124,24 +112,76 @@ template <typename FF> void Circuit<FF>::init()
 {
     size_t num_vars = variables.size();
 
-    vars.push_back(FF::Var("zero" + this->tag, this->solver));
-    vars.push_back(FF::Var("one" + this->tag, this->solver));
+    symbolic_vars.push_back(FF::Var("zero" + this->tag, this->solver));
+    symbolic_vars.push_back(FF::Var("one" + this->tag, this->solver));
 
     for (size_t i = 2; i < num_vars; i++) {
-        if (vars_of_interest.contains(static_cast<uint32_t>(i))) {
-            std::string name = vars_of_interest[static_cast<uint32_t>(i)];
-            vars.push_back(FF::Var(name + this->tag, this->solver));
+        if (variable_names.contains(static_cast<uint32_t>(i))) {
+            std::string name = variable_names[static_cast<uint32_t>(i)];
+            symbolic_vars.push_back(FF::Var(name + this->tag, this->solver));
         } else {
-            vars.push_back(FF::Var("var_" + std::to_string(i) + this->tag, this->solver));
+            symbolic_vars.push_back(FF::Var("var_" + std::to_string(i) + this->tag, this->solver));
+            // TODO(alex): thinking on storing these names too.
         }
     }
 
-    vars[0] == FF::Const("0", this->solver);
-    vars[1] == FF::Const("1", this->solver);
+    symbolic_vars[0] == bb::fr(0);
+    symbolic_vars[1] == bb::fr(1);
 
     for (auto i : public_inps) {
-        vars[i] == FF::Const(variables[i], this->solver);
+        symbolic_vars[i] == variables[i];
     }
+}
+
+template <typename FF> void Circuit<FF>::init_graph(){
+    for(uint32_t i = 0; i < this->get_num_vars(); i++){
+        this->graph[i] = std::vector<uint32_t>(this->get_num_vars(), 0);
+    }
+
+    for(uint32_t i = 0; i < this->wires_idxs.size(); i++){
+        uint32_t wl = this->wires_idxs[i][0];
+        uint32_t wr = this->wires_idxs[i][1];
+        uint32_t wo = this->wires_idxs[i][2];
+        this->graph[wl][wo] = i; // TODO(alex): sometimes it's breaking the logic. I think I might need to use multigraph structure.
+        this->graph[wr][wo] = i;
+        this->graph[wo][wl] = -i;
+        this->graph[wo][wr] = -i;
+    }
+}
+
+
+/**
+ * @brief Relaxes quadratic polynomial constraint.
+ *
+ * @param q_m multiplication selector
+ * @param q_1 l selector
+ * @param q_2 r selector
+ * @param q_3 o selector
+ * @param q_c constant
+ * @param w   witness index
+ */
+template <typename FF>
+void Circuit<FF>::quadratic_polynomial_handler(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w){
+    bb::fr b = q_1 + q_2 + q_3;
+
+    if (q_m == 0){
+        symbolic_vars[w] == -q_c / b;
+        return;
+    }
+
+    std::pair<bool, bb::fr> d = (b*b - bb::fr(4) * q_m * q_c).sqrt();
+    if(!d.first){
+        throw std::invalid_argument("There're no roots of quadratic polynomial");
+    }
+    bb::fr x1 = (-b + d.second) / (bb::fr(2) * q_m);
+    bb::fr x2 = (-b - d.second) / (bb::fr(2) * q_m);
+
+    ((Bool(symbolic_vars[w]) == Bool(FF(x1, this->solver))) |
+     (Bool(symbolic_vars[w]) == Bool(FF(x2, this->solver)))).assert_term();
+}
+
+template <typename FF> void Circuit<FF>::prepare_gates(){
+    return;
 }
 
 /**
@@ -150,53 +190,56 @@ template <typename FF> void Circuit<FF>::init()
  */
 template <typename FF> void Circuit<FF>::add_gates()
 {
+    this->prepare_gates();
+
     for (size_t i = 0; i < get_num_gates(); i++) {
-        FF q_m = FF::Const(selectors[i][0], this->solver);
-        FF q_1 = FF::Const(selectors[i][1], this->solver);
-        FF q_2 = FF::Const(selectors[i][2], this->solver);
-        FF q_3 = FF::Const(selectors[i][3], this->solver);
-        FF q_c = FF::Const(selectors[i][4], this->solver);
+        bb::fr q_m = selectors[i][0];
+        bb::fr q_1 = selectors[i][1];
+        bb::fr q_2 = selectors[i][2];
+        bb::fr q_3 = selectors[i][3];
+        bb::fr q_c = selectors[i][4];
 
         uint32_t w_l = wires_idxs[i][0];
         uint32_t w_r = wires_idxs[i][1];
         uint32_t w_o = wires_idxs[i][2];
 
-        // Binary gate. Relaxes the solver.
+        // Binary gate. Relaxes the solver. 
         // TODO(alex): Probably we can add other basic gates here too to relax the stuff.
         // TODO(alex): Theoretically this can be applyed after we ensure that the block of polynomial equations holds
-        // and then simplify that block in future to relax the solver constraint system. Seems like a hard one to
-        // implement or actually to automate, but I'll think on it for a while. it will probably require to split
-        // add_gates and init methods into more complex/generalized parts.
-        if (w_l == w_r && w_r == w_o) {
-            if (std::string(q_m) == "1" && std::string(q_1) == "0" && std::string(q_2) == "0" &&
-                std::string(q_3) == "-1" && std::string(q_c) == "0") { // squaring gate
-                (Bool(vars[w_l]) == Bool(vars[0]) | Bool(vars[w_l]) == Bool(vars[1])).assert_term();
+        // and then simplify that block in future to relax the solver constraint system. Seems like a hard one to implement or actually to automate, but I'll think on it for a while.
+        // it will probably require to split add_gates and init methods into more complex/generalized parts.
+        if(w_l == w_r && w_r == w_o){
+            if(q_m == 1 && q_1 == 0 && q_2 == 0 && q_3 == -1 && q_c == 0){
+                (Bool(symbolic_vars[w_l]) == Bool(symbolic_vars[0]) | Bool(symbolic_vars[w_l]) == Bool(symbolic_vars[1])).assert_term();
+            }else{
+                quadratic_polynomial_handler(q_m, q_1, q_2, q_3, q_c, w_l);
             }
-        }
+        }else{
+            FF eq = symbolic_vars[0];
 
-        FF eq = vars[0];
-
-        // mult selector
-        if (std::string(q_m) != "0") {
-            eq += q_m * vars[w_l] * vars[w_r];
+            // mult selector
+            if (q_m != 0) {
+                eq += symbolic_vars[w_l] * symbolic_vars[w_r] * q_m; // TODO(alex): Is there a way to do lmul?
+            }
+            // w_l selector
+            if (q_1 != 0) {
+                eq += symbolic_vars[w_l] * q_1;
+            }
+            // w_r selector
+            if (q_2 != 0) {
+                eq += symbolic_vars[w_r] * q_2;
+            }
+            // w_o selector
+            if (q_3 != 0) {
+                eq += symbolic_vars[w_o] * q_3;
+            }
+            // w_c selector
+            if (q_c != 0) {
+                eq += q_c;
+            }
+            eq.mod();
+            eq == symbolic_vars[0];
         }
-        // w_l selector
-        if (std::string(q_1) != "0") {
-            eq += q_1 * vars[w_l];
-        }
-        // w_r selector
-        if (std::string(q_2) != "0") {
-            eq += q_2 * vars[w_r];
-        }
-        // w_o selector
-        if (std::string(q_3) != "0") {
-            eq += q_3 * vars[w_o];
-        }
-        // w_c selector
-        if (std::string(q_c) != "0") {
-            eq += q_c;
-        }
-        eq == vars[0];
     }
 }
 
@@ -208,22 +251,54 @@ template <typename FF> void Circuit<FF>::add_gates()
  */
 template <typename FF> FF Circuit<FF>::operator[](const std::string& name)
 {
-    if (!this->terms.contains(name)) {
-        throw std::length_error("No such an item " + name + " in vars or it vas not declared as interesting");
+    if (!this->variable_names_inverse.contains(name)) {
+        throw std::length_error("No such an item `" + name + "` in vars or it vas not declared as interesting");
     }
-    uint32_t idx = this->terms[name];
-    return this->vars[idx];
+    uint32_t idx = this->variable_names_inverse[name];
+    return this->symbolic_vars[idx];
 }
 
 CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf);
-CircuitSchema unpack_from_file(const std::string& fname);
+CircuitSchema unpack_from_file(const std::string& filename);
+void schema_to_python(CircuitSchema& cir);
 
 template <typename FF>
-std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
+std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_info_ext,
                                                    Solver* s,
                                                    const std::vector<std::string>& equal = {},
                                                    const std::vector<std::string>& not_equal = {},
                                                    const std::vector<std::string>& equal_at_the_same_time = {},
                                                    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
+
+extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness_ext(
+    CircuitSchema& circuit_info,
+    Solver* s,
+    const std::vector<std::string>& equal = {},
+    const std::vector<std::string>& not_equal = {},
+    const std::vector<std::string>& equal_at_the_same_time = {},
+    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
+
+extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness_ext(
+    CircuitSchema& circuit_info,
+    Solver* s,
+    const std::vector<std::string>& equal = {},
+    const std::vector<std::string>& not_equal = {},
+    const std::vector<std::string>& equal_at_the_same_time = {},
+    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
+
+template <typename FF>
+std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
+                                                   Solver* s,
+                                                   const std::vector<std::string>& equal = {});
+
+extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
+    CircuitSchema& circuit_info,
+    Solver* s,
+    const std::vector<std::string>& equal = {});
+
+extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
+    CircuitSchema& circuit_info,
+    Solver* s,
+    const std::vector<std::string>& equal = {});
 
 }; // namespace smt_circuit
