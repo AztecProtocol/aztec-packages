@@ -1,5 +1,4 @@
 import { AztecAddress } from '@aztec/circuits.js';
-import { type TypeTag } from './avm_memory_types.js';
 
 /**
  * Avm-specific errors should derive from this
@@ -40,7 +39,7 @@ export class InstructionExecutionError extends AvmExecutionError {
 }
 
 /**
- * Error thrown during an instruction's execution (during its execute()).
+ * Error thrown on failed AVM memory tag check.
  */
 export class TagCheckError extends AvmExecutionError {
   constructor(offset: number, gotTag: string, expectedTag: string) {

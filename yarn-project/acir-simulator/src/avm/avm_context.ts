@@ -2,17 +2,16 @@ import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { assert } from 'console';
+
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState, InitialAvmMachineState } from './avm_machine_state.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
 import { AvmExecutionError, InvalidProgramCounterError, NoBytecodeForContractError } from './errors.js';
 import { initExecutionEnvironment, initInitialMachineState } from './fixtures/index.js';
 import { AvmWorldStateJournal } from './journal/journal.js';
-import { type Instruction, InstructionExecutionError } from './opcodes/index.js';
+import { type Instruction } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
-
-import { assert } from 'console';
-
 
 /**
  * Avm Context manages the state and execution of the AVM

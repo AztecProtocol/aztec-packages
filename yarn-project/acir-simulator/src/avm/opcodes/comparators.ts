@@ -1,6 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { Instruction } from './instruction.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
 export class Eq extends ThreeOperandInstruction {

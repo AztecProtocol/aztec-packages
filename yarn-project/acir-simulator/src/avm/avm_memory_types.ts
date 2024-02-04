@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { TagCheckError } from './errors.js';
-
 import { strict as assert } from 'assert';
+
+import { TagCheckError } from './errors.js';
 
 export abstract class MemoryValue {
   public abstract add(rhs: MemoryValue): MemoryValue;
@@ -270,13 +270,11 @@ export class TaggedMemory {
     return TaggedMemory.getTag(this._mem[offset]);
   }
 
-
   /**
    * Check that the memory at the given offset matches the specified tag.
    */
   public checkTag(tag: TypeTag, offset: number) {
     if (this.getTag(offset) !== tag) {
-      const error = `Offset ${offset} has tag ${TypeTag[this.getTag(offset)]}, expected ${TypeTag[tag]}`;
       throw new TagCheckError(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
     }
   }
@@ -342,4 +340,3 @@ export class TaggedMemory {
     }
   }
 }
-

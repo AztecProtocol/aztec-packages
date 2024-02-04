@@ -1,7 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
 import { IntegralValue } from '../avm_memory_types.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { Instruction } from './instruction.js';
 import { ThreeOperandInstruction, TwoOperandInstruction } from './instruction_impl.js';
 
 export class And extends ThreeOperandInstruction {
