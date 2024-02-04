@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 
 namespace bb::stdlib::merkle_tree {
 
@@ -22,7 +23,12 @@ struct nullifier_leaf {
         return os;
     }
 
-    bb::fr hash() const { return stdlib::merkle_tree::hash_native({ value, nextIndex, nextValue }); }
+    // bb::fr hash() const { return stdlib::merkle_tree::hash_native({ value, nextIndex, nextValue }); }
+    bb::fr hash() const
+    {
+        std::vector<fr> to_hash{ value, nextIndex, nextValue };
+        return bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_hash);
+    }
 };
 
 /**

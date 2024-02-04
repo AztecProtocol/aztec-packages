@@ -41,9 +41,9 @@ class LevelSignal {
 
 class LeavesCache {
   public:
-    index_t get_size();
-    std::pair<bool, index_t> find_low_value(fr new_value);
-    nullifier_leaf get_leaf(index_t index);
+    index_t get_size() const;
+    std::pair<bool, index_t> find_low_value(fr new_value) const;
+    nullifier_leaf get_leaf(index_t index) const;
     void set_at_index(index_t index, const nullifier_leaf& leaf, bool add_to_index);
     void append_leaf(const nullifier_leaf& leaf);
 
@@ -52,12 +52,12 @@ class LeavesCache {
     std::vector<nullifier_leaf> leaves_;
 };
 
-index_t LeavesCache::get_size()
+index_t LeavesCache::get_size() const
 {
     return index_t(leaves_.size());
 }
 
-std::pair<bool, index_t> LeavesCache::find_low_value(fr new_value)
+std::pair<bool, index_t> LeavesCache::find_low_value(fr new_value) const
 {
     std::map<uint256_t, index_t>::const_iterator it = indices_.lower_bound(new_value);
     if (it == indices_.end()) {
@@ -77,7 +77,7 @@ std::pair<bool, index_t> LeavesCache::find_low_value(fr new_value)
     //  it now points to the value less than that requested
     return std::make_pair(false, it->second);
 }
-nullifier_leaf LeavesCache::get_leaf(index_t index)
+nullifier_leaf LeavesCache::get_leaf(index_t index) const
 {
     ASSERT(index >= 0 && index < leaves_.size());
     return leaves_[size_t(index)];
@@ -187,6 +187,14 @@ template <typename Store> std::vector<fr_hash_path> IndexedTree<Store>::update_e
 
     std::vector<job> jobs(values.size());
     index_t old_size = leaves_.get_size();
+    std::vector<std::pair<bool, index_t>> low_indices(values.size());
+
+    // parallel_for(values_sorted.size(), [&](size_t i){
+    //     low_indices[i] = leaves_.find_low_value(values_sorted[i]);
+    // });
+    for (size_t i = 0; i < values_sorted.size(); i++) {
+        low_indices[i] = leaves_.find_low_value(values_sorted[i]);
+    }
 
     for (size_t i = 0; i < values_sorted.size(); i++) {
         fr value = values_sorted[i];
@@ -199,7 +207,7 @@ template <typename Store> std::vector<fr_hash_path> IndexedTree<Store>::update_e
 
         index_t current;
         bool is_already_present;
-        std::tie(is_already_present, current) = leaves_.find_low_value(value);
+        std::tie(is_already_present, current) = low_indices[i];
         nullifier_leaf current_leaf = leaves_.get_leaf(current);
 
         // info("Index of new leaf ", index_of_new_leaf, " current ", current);
