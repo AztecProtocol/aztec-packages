@@ -30,9 +30,9 @@ msgpack::sbuffer create_circuit(size_t n, bool pub_coeffs)
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     std::vector<fr> coeffs;
     std::vector<uint32_t> idxs;
+    uint32_t idx = 0;
     for (size_t i = 0; i < n; i++) {
         fr tmp_coeff = fr::random_element();
-        uint32_t idx;
         if (pub_coeffs) {
             idx = builder.add_public_variable(tmp_coeff);
         } else {
@@ -113,7 +113,7 @@ void model_variables(Circuit<smt_terms::FFTerm>& c, Solver* s, FFTerm& evaluatio
     info("function_evaluation = ", values["evaluation"]);
 }
 
-TEST(polynomial_evaluation, correct)
+TEST(polynomial, correctEvaluation)
 {
     size_t n = 30;
     auto buf = create_circuit(n, true);
@@ -136,7 +136,7 @@ TEST(polynomial_evaluation, correct)
     info("Time elapsed: ", static_cast<double>(duration.count()) / 1e6, " sec");
 }
 
-TEST(polynomial_evaluation, incorrect)
+TEST(polynomial, incorrectEvaluation)
 {
     size_t n = 30;
     auto buf = create_circuit(n, true);
