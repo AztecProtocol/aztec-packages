@@ -9,7 +9,10 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         global_variables::GlobalVariables,
     },
-    address::AztecAddress,
+    address::{
+        AztecAddress,
+        EthAddress,
+    },
     constants::NUM_FIELDS_PER_SHA256,
     grumpkin_point::GrumpkinPoint,
     header::Header,
@@ -49,6 +52,8 @@ global HEADER = Header {
         chain_id: 0,
         version: 0,
         block_number: 0,
-        timestamp: 0
+        timestamp: 0,
+        coinbase: EthAddress::empty(),
+        feeRecipient: AztecAddress::empty()
     }
 };
