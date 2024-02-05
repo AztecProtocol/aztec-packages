@@ -27,7 +27,7 @@ enum {
  * @param prover - The ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BBERG_PROFILE static void test_round_inner(State& state, UltraProver& prover, size_t index) noexcept
+BB_PROFILE static void test_round_inner(State& state, UltraProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
@@ -47,7 +47,7 @@ BBERG_PROFILE static void test_round_inner(State& state, UltraProver& prover, si
     time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
     time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
 }
-BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
+BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
     bb::srs::init_crs_factory("../srs_db/ignition");
 
