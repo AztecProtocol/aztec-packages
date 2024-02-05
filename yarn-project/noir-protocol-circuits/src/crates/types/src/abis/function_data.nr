@@ -21,12 +21,6 @@ struct FunctionData {
     is_constructor : bool,
 }
 
-impl Hash for FunctionData {
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__FUNCTION_DATA)
-    }
-}
-
 impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
     // A field is ~256 bits
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3057): Since, function data can fit into a Field,
