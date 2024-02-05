@@ -1,5 +1,4 @@
 
-#pragma once
 #ifndef NO_OP_COUNTS
 #include "op_count.hpp"
 #include <iostream>
@@ -9,10 +8,11 @@
 namespace {
 void print_op_counts()
 {
-    __GLOBAL_OP_COUNTS.print();
+    bb::detail::GLOBAL_OP_COUNTS.print();
 }
 } // namespace
 
+namespace bb::detail {
 GlobalOpCountContainer::GlobalOpCountContainer()
 {
     (void)std::atexit(print_op_counts);
@@ -34,6 +34,6 @@ void GlobalOpCountContainer::print() const
 }
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-GlobalOpCountContainer __GLOBAL_OP_COUNTS;
-
+GlobalOpCountContainer GLOBAL_OP_COUNTS;
+} // namespace bb::detail
 #endif

@@ -17,9 +17,15 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
+namespace bb::detail {
 template <std::size_t N> struct OperationLabel {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    constexpr OperationLabel(const char (&str)[N]) { std::copy_n(str, str + N, value); }
+    constexpr OperationLabel(const char (&str)[N])
+    {
+        for (std::size_t i = 0; i != N; ++i) {
+            value[i] = str[i];
+        }
+    }
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     char value[N];
@@ -41,29 +47,31 @@ struct GlobalOpCountContainer {
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern GlobalOpCountContainer __GLOBAL_OP_COUNTS;
+extern GlobalOpCountContainer GLOBAL_OP_COUNTS;
 
 template <OperationLabel Op> struct GlobalOpCount {
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static std::atomic_size_t global_count;
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    // static std::mutex thread_counts_mutex;
-    // // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    // static std::vector<ThreadOpCount<Op>*> thread_counts;
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     static thread_local std::size_t* thread_local_count;
 
-    static void increment_op_count()
+    static constexpr void increment_op_count()
     {
+        if (std::is_constant_evaluated()) {
+            // We do nothing if the compiler tries to run this
+            return;
+        }
         if (BB_UNLIKELY(thread_local_count == nullptr)) {
             thread_local_count = new std::size_t();
-            __GLOBAL_OP_COUNTS.add_entry(Op.value, thread_local_count);
+            GLOBAL_OP_COUNTS.add_entry(Op.value, thread_local_count);
         }
         (*thread_local_count)++;
     }
 };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+template <OperationLabel Op> thread_local std::size_t* GlobalOpCount<Op>::thread_local_count;
+
+} // namespace bb::detail
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define INCREMENT_OP_COUNT() GlobalOpCount<__func__>::increment_op_count()
+#define INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
 #endif
