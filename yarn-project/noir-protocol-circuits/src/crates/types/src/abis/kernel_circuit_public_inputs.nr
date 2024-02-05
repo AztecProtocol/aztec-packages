@@ -22,8 +22,7 @@ struct KernelCircuitPublicInputsFinal {
     aggregation_object: AggregationObject,
     meta_hwm: Field,
     end_meta: AccumulatedMetaData,
-    // TODO(fees) change this to end_app_logic
-    end: FinalAccumulatedData,
+    end_app: FinalAccumulatedData,
     constants: CombinedConstantData,
     is_private: bool,
 }
@@ -55,7 +54,7 @@ impl KernelCircuitPublicInputsBuilder {
             aggregation_object: self.aggregation_object,
             meta_hwm: self.meta_hwm,
             end_meta: meta,
-            end: app,
+            end_app: app,
             constants: self.constants,
             is_private: self.is_private,
         }

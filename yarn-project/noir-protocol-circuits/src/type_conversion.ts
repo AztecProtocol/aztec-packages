@@ -1124,7 +1124,7 @@ export function mapKernelCircuitPublicInputsFinalFromNoir(
     AggregationObject.makeFake(),
     mapFieldFromNoir(publicInputs.meta_hwm),
     mapAccumulatedMetaDataFromNoir(publicInputs.end_meta),
-    mapFinalAccumulatedDataFromNoir(publicInputs.end),
+    mapFinalAccumulatedDataFromNoir(publicInputs.end_app),
     mapCombinedConstantDataFromNoir(publicInputs.constants),
     publicInputs.is_private,
   );

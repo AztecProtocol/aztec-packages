@@ -119,7 +119,7 @@ impl PrivateKernelInputsOrdering {
     }
 
     fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
-        // Remark: The commitments in public_inputs.end have already been siloed by contract address!
+        // Remark: The commitments in public_inputs.end_app have already been siloed by contract address!
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
         let mut new_commitments = public_inputs.end.new_commitments.storage;
         let mut new_nullifiers = public_inputs.end.new_nullifiers.storage;
@@ -173,7 +173,7 @@ impl PrivateKernelInputsOrdering {
     }
 
     fn apply_commitment_nonces(public_inputs: &mut KernelCircuitPublicInputsBuilder) {
-        // Remark: The commitments in public_inputs.end have already been siloed by contract address!
+        // Remark: The commitments in public_inputs.end_app have already been siloed by contract address!
         // tx hash
         let first_nullifier = public_inputs.end.new_nullifiers.get(0);
         let mut unique_commitments = public_inputs.end.new_commitments.storage;
@@ -359,8 +359,8 @@ mod tests {
         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
 
         let public_inputs = builder.execute();
-        assert(array_length(public_inputs.end.new_commitments) == 1);
-        assert(public_inputs.end.new_commitments[0].eq(unique_siloed_commitments[0]));
+        assert(array_length(public_inputs.end_app.new_commitments) == 1);
+        assert(public_inputs.end_app.new_commitments[0].eq(unique_siloed_commitments[0]));
     }
 
     #[test]
@@ -373,9 +373,9 @@ mod tests {
         builder.add_transient_read(3);
         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
         let public_inputs = builder.execute();
-        assert_eq(array_length(public_inputs.end.new_commitments), MAX_NEW_COMMITMENTS_PER_TX);
+        assert_eq(array_length(public_inputs.end_app.new_commitments), MAX_NEW_COMMITMENTS_PER_TX);
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            assert(public_inputs.end.new_commitments[i].eq(unique_siloed_commitments[i]));
+            assert(public_inputs.end_app.new_commitments[i].eq(unique_siloed_commitments[i]));
         }
     }
 
@@ -399,11 +399,11 @@ mod tests {
         builder.nullify_transient_commitment(1, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_commitments));
+        assert(is_empty_array(public_inputs.end_app.new_commitments));
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers));
+        assert(array_eq(public_inputs.end_app.new_nullifiers, expected_new_nullifiers));
     }
 
     #[test]
@@ -420,13 +420,13 @@ mod tests {
         let public_inputs = builder.execute();
         assert(
             array_eq(
-                public_inputs.end.new_commitments,
+                public_inputs.end_app.new_commitments,
                 [unique_siloed_commitments[0]]
             )
         );
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers));
+        assert(array_eq(public_inputs.end_app.new_nullifiers, expected_new_nullifiers));
     }
 
     #[test]
@@ -440,8 +440,8 @@ mod tests {
         builder.nullify_transient_commitment(2, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_commitments));
-        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        assert(is_empty_array(public_inputs.end_app.new_commitments));
+        assert(array_eq(public_inputs.end_app.new_nullifiers, [new_nullifiers[0]]));
     }
 
     #[test]
@@ -464,14 +464,14 @@ mod tests {
         let public_inputs = builder.execute();
 
         let sorted_unique_commitments = compute_unique_siloed_commitments(
-            public_inputs.end.new_nullifiers[0].value,
+            public_inputs.end_app.new_nullifiers[0].value,
             sorted_new_commitments
         );
 
         for i in 0..10 {
-            assert(public_inputs.end.new_commitments[i].eq(sorted_unique_commitments[i]));
+            assert(public_inputs.end_app.new_commitments[i].eq(sorted_unique_commitments[i]));
             // +1 due to the 0th nullifier being the tx hash
-            assert(public_inputs.end.new_nullifiers[i + 1].eq(sorted_new_nullifiers[i]));
+            assert(public_inputs.end_app.new_nullifiers[i + 1].eq(sorted_new_nullifiers[i]));
         }
     }
 
@@ -481,8 +481,8 @@ mod tests {
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
         let public_inputs = builder.execute();
-        assert_eq(array_length(public_inputs.end.new_commitments), 2);
-        assert_eq(array_length(public_inputs.end.new_nullifiers), 3);
+        assert_eq(array_length(public_inputs.end_app.new_commitments), 2);
+        assert_eq(array_length(public_inputs.end_app.new_nullifiers), 3);
     }
     // same as previous test, but this time there are 0 commitments!
     // (Do we really need this test?)
@@ -492,8 +492,8 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_nullifiers(2);
         let public_inputs = builder.execute();
-        assert(array_length(public_inputs.end.new_commitments) == 0);
-        assert(array_length(public_inputs.end.new_nullifiers) == 3);
+        assert(array_length(public_inputs.end_app.new_commitments) == 0);
+        assert(array_length(public_inputs.end_app.new_nullifiers) == 3);
     }
 
     #[test(should_fail)]
