@@ -52,6 +52,7 @@ fn addition_circuit() {
         128, 33, 83, 195, 46, 70, 125, 200, 226, 186, 94, 16, 134, 231, 222, 26, 166, 47, 253, 235,
         211, 135, 11, 47, 121, 122, 165, 121, 1, 0, 0,
     ];
+
     assert_eq!(bytes, expected_serialization)
 }
 
@@ -159,6 +160,7 @@ fn schnorr_verify_circuit() {
         109, 219, 110, 218, 113, 203, 174, 27, 14, 110, 54, 184, 91, 226, 150, 127, 207, 47, 78,
         22, 245, 106, 221, 3, 0, 0,
     ];
+
     assert_eq!(bytes, expected_serialization)
 }
 
@@ -258,6 +260,7 @@ fn complex_brillig_foreign_call() {
             brillig::Opcode::Const {
                 destination: MemoryAddress(0),
                 value: brillig::Value::from(32_usize),
+                bit_size: 32,
             },
             brillig::Opcode::CalldataCopy {
                 destination_address: MemoryAddress(1),
