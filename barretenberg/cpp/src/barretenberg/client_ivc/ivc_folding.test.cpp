@@ -91,7 +91,7 @@ class ClientIVCTests : public ::testing::Test {
  * @brief A full Goblin test using PG that mimicks the basic aztec client architecture
  * @details
  */
-TEST_F(GoblinFoldingTests, Full)
+TEST_F(ClientIVCTests, Full)
 {
     Goblin goblin;
 
