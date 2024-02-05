@@ -172,7 +172,7 @@
       "description": "Build with op counting",
       "inherits": "clang16",
       "binaryDir": "build-op-counting",
-      "cacheVariables": {
+      "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT"
       }
     },
