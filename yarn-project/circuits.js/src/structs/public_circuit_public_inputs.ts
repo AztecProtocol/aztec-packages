@@ -209,10 +209,7 @@ export class PublicCircuitPublicInputs {
       CallContext.fromFields(reader),
       reader.readField(),
       reader.readFieldArray(RETURN_VALUES_LENGTH),
-      reader.readArray(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        ContractStorageUpdateRequest,
-      ),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),

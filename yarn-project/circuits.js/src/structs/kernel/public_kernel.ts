@@ -11,8 +11,8 @@ import {
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
-import { PreviousKernelData } from './previous_kernel_data.js';
 import { PublicCallStackItem } from '../public_call_stack_item.js';
+import { PreviousKernelData } from './previous_kernel_data.js';
 
 /**
  * Inputs to the public kernel circuit.

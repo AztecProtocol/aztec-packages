@@ -15,13 +15,13 @@ import {
 import { GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
+import { PrivateCallStackItem } from '../private_call_stack_item.js';
 import { Proof } from '../proof.js';
 import { ReadRequestMembershipWitness } from '../read_request_membership_witness.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { TxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
-import { PrivateCallStackItem } from '../private_call_stack_item.js';
 
 /**
  * Private call data.

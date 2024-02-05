@@ -16,7 +16,7 @@ import {
   makeEthAddress,
   makePublicCallStackItem,
   makeTxRequest,
-  makeVerificationKey
+  makeVerificationKey,
 } from '../tests/factories.js';
 import {
   computeCommitmentNonce,

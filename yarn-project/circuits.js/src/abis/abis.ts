@@ -153,10 +153,7 @@ export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
  */
 export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
   return Fr.fromBuffer(
-    pedersenHash(
-      [functionData.hash().toBuffer(), argsHash.toBuffer(), constructorVKHash],
-      GeneratorIndex.CONSTRUCTOR,
-    ),
+    pedersenHash([functionData.hash().toBuffer(), argsHash.toBuffer(), constructorVKHash], GeneratorIndex.CONSTRUCTOR),
   );
 }
 
