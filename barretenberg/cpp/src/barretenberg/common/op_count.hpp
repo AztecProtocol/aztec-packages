@@ -20,28 +20,30 @@
 #include <mutex>
 #include <vector>
 namespace bb::detail {
-// template <std::size_t N> struct OperationLabel {
-//     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-//     constexpr OperationLabel(const char (&str)[N])
-//     {
-//         for (std::size_t i = 0; i != N; ++i) {
-//             value[i] = str[i];
-//         }
-//     }
+template <std::size_t N> struct OperationLabel {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    constexpr OperationLabel(const char (&str)[N])
+    {
+        for (std::size_t i = 0; i < N; ++i) {
+            value[i] = str[i];
+        }
+    }
 
-//     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-//     char value[N];
-// };
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    char value[N];
+};
 
 // Contains all statically known op counts
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 struct GlobalOpCountContainer {
   public:
     struct Entry {
-        const char* key;
+        std::string key;
         std::string thread_id;
         const std::size_t* count;
     };
-    GlobalOpCountContainer();
+    // print on destructor
+    ~GlobalOpCountContainer();
     std::mutex mutex;
     std::vector<Entry> counts;
     void print() const;
@@ -52,7 +54,7 @@ struct GlobalOpCountContainer {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern GlobalOpCountContainer GLOBAL_OP_COUNTS;
 
-template <const char* Op> struct GlobalOpCount {
+template <OperationLabel Op> struct GlobalOpCount {
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     static thread_local std::size_t* thread_local_count;
@@ -65,13 +67,13 @@ template <const char* Op> struct GlobalOpCount {
         }
         if (BB_UNLIKELY(thread_local_count == nullptr)) {
             thread_local_count = new std::size_t();
-            GLOBAL_OP_COUNTS.add_entry(Op, thread_local_count);
+            GLOBAL_OP_COUNTS.add_entry(Op.value, thread_local_count);
         }
         (*thread_local_count)++;
     }
 };
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-template <const char* Op> thread_local std::size_t* GlobalOpCount<Op>::thread_local_count;
+template <OperationLabel Op> thread_local std::size_t* GlobalOpCount<Op>::thread_local_count;
 
 } // namespace bb::detail
 

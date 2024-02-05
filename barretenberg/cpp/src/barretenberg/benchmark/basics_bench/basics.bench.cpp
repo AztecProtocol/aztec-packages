@@ -20,6 +20,7 @@
  *      sequential_copy:                        3.3
  *
  */
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include <benchmark/benchmark.h>
@@ -272,6 +273,9 @@ void projective_point_accidental_doubling(State& state)
     }
 }
 
+template <bb::detail::OperationLabel Op> struct GlobalOpCount {
+    void print() { std::cout << Op.value << std::endl; }
+};
 /**
  * @brief Evaluate how much projective point doubling costs (in cache)
  *
@@ -280,7 +284,6 @@ void projective_point_accidental_doubling(State& state)
  */
 void projective_point_doubling(State& state)
 {
-    BB_INCREMENT_OP_COUNT();
     numeric::RNG& engine = numeric::get_debug_randomness();
     std::vector<Curve::Element> copy_vector(2);
     for (size_t j = 0; j < 2; j++) {

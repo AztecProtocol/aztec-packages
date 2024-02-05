@@ -15,9 +15,9 @@ void print_op_counts()
 } // namespace
 
 namespace bb::detail {
-GlobalOpCountContainer::GlobalOpCountContainer()
+GlobalOpCountContainer::~GlobalOpCountContainer()
 {
-    (void)std::atexit(print_op_counts);
+    print_op_counts();
 }
 
 void GlobalOpCountContainer::add_entry(const char* key, const std::size_t* count)
@@ -31,7 +31,7 @@ void GlobalOpCountContainer::add_entry(const char* key, const std::size_t* count
 void GlobalOpCountContainer::print() const
 {
     for (const Entry& entry : counts) {
-        std::cout << entry.key << ": " << *entry.count << "@" << entry.thread_id << std::endl;
+        std::cout << entry.key << "\t" << *entry.count << "\t[thread=" << entry.thread_id << "]" << std::endl;
     }
 }
 
