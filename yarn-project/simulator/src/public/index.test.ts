@@ -264,7 +264,14 @@ describe('ACIR public execution simulator', () => {
         });
 
         const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
-        const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7));
+        const globalVariables = new GlobalVariables(
+          new Fr(69),
+          new Fr(420),
+          new Fr(1),
+          new Fr(7),
+          EthAddress.fromField(new Fr(8)),
+          AztecAddress.fromField(new Fr(9)),
+        );
 
         if (isInternal === undefined) {
           await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError(/Method not found -/);
@@ -449,7 +456,14 @@ describe('ACIR public execution simulator', () => {
         });
 
       const computeGlobalVariables = () =>
-        new GlobalVariables(new Fr(preimage.sender.chainId), new Fr(preimage.recipient.version), Fr.ZERO, Fr.ZERO);
+        new GlobalVariables(
+          new Fr(preimage.sender.chainId),
+          new Fr(preimage.recipient.version),
+          Fr.ZERO,
+          Fr.ZERO,
+          EthAddress.ZERO,
+          AztecAddress.ZERO,
+        );
 
       const mockOracles = () => {
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));

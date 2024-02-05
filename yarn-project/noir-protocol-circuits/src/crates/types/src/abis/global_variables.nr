@@ -22,7 +22,7 @@ struct GlobalVariables {
     block_number : Field,
     timestamp : Field,
     coinbase : EthAddress,
-    feeRecipient : AztecAddress,
+    fee_recipient : AztecAddress,
 }
 
 impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
@@ -33,7 +33,7 @@ impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
             self.block_number,
             self.timestamp,
             self.coinbase.to_field(),
-            self.feeRecipient.to_field(),
+            self.fee_recipient.to_field(),
         ]
     }
 }
@@ -46,7 +46,7 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
             block_number: serialized[2],
             timestamp: serialized[3],
             coinbase: EthAddress::from_field(serialized[4]),
-            feeRecipient: AztecAddress::from_field(serialized[5]),
+            fee_recipient: AztecAddress::from_field(serialized[5]),
         }
     }
 }
@@ -58,7 +58,7 @@ impl Eq for GlobalVariables {
         (self.block_number == other.block_number) &
         (self.timestamp == other.timestamp) &
         (self.coinbase == other.coinbase) &
-        (self.feeRecipient == other.feeRecipient)
+        (self.fee_recipient == other.fee_recipient)
     }
 }
 
@@ -70,7 +70,7 @@ impl Empty for GlobalVariables {
             block_number: 0,
             timestamp: 0,
             coinbase: EthAddress::empty(),
-            feeRecipient: AztecAddress::empty(),
+            fee_recipient: AztecAddress::empty(),
         }
     }
 }

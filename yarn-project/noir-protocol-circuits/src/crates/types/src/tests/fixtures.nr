@@ -53,7 +53,14 @@ global HEADER = Header {
         version: 0,
         block_number: 0,
         timestamp: 0,
-        coinbase: EthAddress::empty(),
-        feeRecipient: AztecAddress::empty()
+        coinbase: EthAddress {
+            inner: 0
+        },
+        fee_recipient: AztecAddress {
+            inner: 0
+        },
+        // TODO(benesjan): figure out why this doesn't work
+        // coinbase: EthAddress::empty(),
+        // fee_recipient: AztecAddress::empty(),
     }
 };

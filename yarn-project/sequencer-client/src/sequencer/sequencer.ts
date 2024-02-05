@@ -1,6 +1,6 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { GlobalVariables } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, GlobalVariables } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -155,7 +155,14 @@ export class Sequencer {
         }
       };
 
-      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(newBlockNumber));
+      // TODO(benesjan): populate these values from config.
+      const coinbase = EthAddress.ZERO;
+      const feeRecipient = AztecAddress.ZERO;
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+        new Fr(newBlockNumber),
+        coinbase,
+        feeRecipient,
+      );
 
       // Filter out invalid txs
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here

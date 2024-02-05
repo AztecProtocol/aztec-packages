@@ -10,6 +10,7 @@ import {
   to2Fields,
 } from '@aztec/aztec.js';
 import {
+  EthAddress,
   Header,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -358,11 +359,17 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
         await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
+
+      // TODO(benesjan): populate these values from config.
+      const coinbase = EthAddress.ZERO;
+      const feeRecipient = AztecAddress.ZERO;
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
+        coinbase,
+        feeRecipient,
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
@@ -440,11 +447,17 @@ describe('L1Publisher integration', () => {
         await makeEmptyProcessedTx(),
         await makeEmptyProcessedTx(),
       ];
+
+      // TODO(benesjan): populate these values from config.
+      const coinbase = EthAddress.ZERO;
+      const feeRecipient = AztecAddress.ZERO;
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
+        coinbase,
+        feeRecipient,
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
