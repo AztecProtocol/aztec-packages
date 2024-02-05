@@ -4,7 +4,9 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "fixed_memory_store.hpp"
+#include "hasher.hpp"
 #include "indexed_tree.hpp"
+#include "leaves_cache.hpp"
 #include "nullifier_memory_tree.hpp"
 
 using namespace bb;
@@ -145,15 +147,17 @@ TEST(stdlib_nullifier_tree, test_get_hash_path_layers)
 TEST(stdlib_indexed_tree, can_create)
 {
     FixedMemoryStore store(33, 20);
+    Poseidon2Hasher hasher;
     // MemoryStore store;
-    IndexedTree<FixedMemoryStore> tree = IndexedTree<FixedMemoryStore>(store, 32);
+    IndexedTree<FixedMemoryStore, LeavesCache> tree = IndexedTree<FixedMemoryStore, LeavesCache>(hasher, store, 32);
     EXPECT_EQ(tree.get_size(), 1ULL);
 }
 
 TEST(stdlib_indexed_tree, test_size)
 {
+    Poseidon2Hasher hasher;
     FixedMemoryStore store(33, 20);
-    auto db = IndexedTree(store, 32);
+    auto db = IndexedTree<FixedMemoryStore, LeavesCache>(hasher, store, 32);
 
     // We assume that the first leaf is already filled with (0, 0, 0).
     EXPECT_EQ(db.get_size(), 1ULL);
@@ -179,8 +183,9 @@ TEST(stdlib_indexed_tree, test_get_hash_path)
 {
     NullifierMemoryTree memdb(10);
 
+    Poseidon2Hasher hasher;
     FixedMemoryStore store(11, 1024);
-    auto db = IndexedTree(store, 10);
+    auto db = IndexedTree<FixedMemoryStore, LeavesCache>(hasher, store, 10);
 
     EXPECT_EQ(memdb.root(), db.get_root());
 
@@ -205,8 +210,9 @@ TEST(stdlib_indexed_tree, test_batch_insert)
     size_t limit = 96 * 1024;
     // NullifierMemoryTree memdb(10, batch_size);
 
+    Poseidon2Hasher hasher;
     FixedMemoryStore store(41, 1024 * 1024);
-    auto db = IndexedTree(store, 40, batch_size);
+    auto db = IndexedTree<FixedMemoryStore, LeavesCache>(hasher, store, 40, batch_size);
 
     // EXPECT_EQ(memdb.root(), db.get_root());
 

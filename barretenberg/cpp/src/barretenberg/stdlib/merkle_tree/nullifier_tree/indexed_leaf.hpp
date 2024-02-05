@@ -1,0 +1,25 @@
+#pragma once
+
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+
+namespace bb::stdlib::merkle_tree {
+
+using namespace bb;
+
+typedef uint256_t index_t;
+
+struct indexed_leaf {
+    fr value;
+    index_t nextIndex;
+    fr nextValue;
+
+    bool operator==(indexed_leaf const&) const = default;
+
+    std::ostream& operator<<(std::ostream& os)
+    {
+        os << "value = " << value << "\nnextIdx = " << nextIndex << "\nnextVal = " << nextValue;
+        return os;
+    }
+};
+
+} // namespace bb::stdlib::merkle_tree
