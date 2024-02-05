@@ -1,10 +1,10 @@
 mod private;
 mod public;
-mod public_vm;
+mod avm;
 
 use public::PublicContext;
 use private::PrivateContext;
-use public_vm::PublicVmContext;
+use avm::AVMContext;
 
 struct Context {
     private: Option<&mut PrivateContext>,

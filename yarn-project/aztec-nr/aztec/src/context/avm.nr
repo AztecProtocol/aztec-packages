@@ -5,12 +5,12 @@ use dep::protocol_types::address::{
 
 // Getters that will be converted by the transpiler into their
 // own opcodes
-struct PublicVmContext {}
+struct AVMContext {}
 
-impl PublicVmContext  {
+impl AVMContext {
     // Empty new function enables retaining context.<value> syntax
     pub fn new() -> Self {
-        PublicVmContext {}
+        Self {}
     }
 
     #[oracle(address)]

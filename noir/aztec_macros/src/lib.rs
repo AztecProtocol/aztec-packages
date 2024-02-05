@@ -1162,12 +1162,29 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
     Ok(injected_expressions)
 }
 
+/// Creates an mutable avm context
+///
+/// ```noir
+/// /// Before
+/// #[aztec(public-vm)]
+/// fn foo() -> Field {
+///   let mut context = aztec::context::AVMContext::new();
+///   let timestamp = context.timestamp();
+///   // ...
+/// }
+///
+/// /// After
+/// #[aztec(private)]
+/// fn foo() -> Field {
+///     let mut timestamp = context.timestamp();
+///     // ...
+/// }
 fn create_avm_context() -> Result<Statement, AztecMacroError> {
     let let_context = mutable_assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_path!("aztec", "context", "PublicVmContext", "new")), // Path
-            vec![],                                                                     // args
+            variable_path(chained_path!("aztec", "context", "AVMContext", "new")), // Path
+            vec![],                                                                // args
         ),
     );
 

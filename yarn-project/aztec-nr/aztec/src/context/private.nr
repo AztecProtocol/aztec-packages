@@ -1,14 +1,10 @@
 use crate::{
-    abi::{
-        PrivateContextInputs,
-        PublicContextInputs,
-    },
+    abi::PrivateContextInputs,
     key::nullifier_key::validate_nullifier_key_against_address,
     messaging::process_l1_to_l2_message,
     oracle::{
         arguments,
         call_private_function::call_private_function_internal,
-        public_call::call_public_function_internal,
         enqueue_public_function_call::enqueue_public_function_call_internal,
         context::get_portal_address,
         header::get_header_at,
@@ -17,9 +13,7 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         call_context::CallContext,
-        global_variables::GlobalVariables,
         function_data::FunctionData,
         function_selector::FunctionSelector,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
@@ -52,16 +46,12 @@ use dep::protocol_types::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
-    grumpkin_point::GrumpkinPoint,
     grumpkin_private_key::GrumpkinPrivateKey,
     hash::hash_args,
     header::Header,
-    state_reference::StateReference,
     utils::reader::Reader,
 };
-use dep::std::{
-    option::Option,
-};
+use dep::std::option::Option;
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
 // use dep::std::collections::vec::Vec;

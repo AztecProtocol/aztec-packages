@@ -1,24 +1,15 @@
 use crate::{
     abi::PublicContextInputs,
-    key::nullifier_key::validate_nullifier_key_against_address,
     messaging::process_l1_to_l2_message,
     oracle::{
         arguments,
         public_call::call_public_function_internal,
-        context::get_portal_address,
-        header::get_header_at,
-        nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
     },
 };
 use dep::protocol_types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        call_context::CallContext,
         global_variables::GlobalVariables,
-        function_data::FunctionData,
         function_selector::FunctionSelector,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
-        private_call_stack_item::PrivateCallStackItem,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_call_stack_item::PublicCallStackItem,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
@@ -32,30 +23,20 @@ use dep::protocol_types::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
-    contract_class::ContractClassId,
     contrakt::{
-        deployment_data::ContractDeploymentData,
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
-    grumpkin_point::GrumpkinPoint,
-    grumpkin_private_key::GrumpkinPrivateKey,
     hash::hash_args,
     header::Header,
-    state_reference::StateReference,
     utils::reader::Reader,
-};
-use dep::std::{
-    option::Option,
 };
 
 struct PublicContext {
