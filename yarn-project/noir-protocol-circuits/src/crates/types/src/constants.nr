@@ -120,8 +120,8 @@ global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well CALL_PRIVATE_FUNCTION_RETURN_SIZE
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 206;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: Field = 209;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 205;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: Field = 210;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 3;
 global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
