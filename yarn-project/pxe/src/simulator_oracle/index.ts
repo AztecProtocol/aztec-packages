@@ -152,7 +152,6 @@ export class SimulatorOracle implements DBOracle {
   }
 
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
-    // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
     switch (treeId) {
       case MerkleTreeId.CONTRACT_TREE:
         return (await this.aztecNode.getContractSiblingPath(blockNumber, leafIndex)).toFields();

@@ -45,7 +45,6 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getContractSiblingPath(
     blockNumber: BlockNumber,
@@ -57,7 +56,6 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getNullifierSiblingPath(
     blockNumber: BlockNumber,
@@ -69,7 +67,6 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getNoteHashSiblingPath(
     blockNumber: BlockNumber,
@@ -89,7 +86,6 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getL1ToL2MessageSiblingPath(
     blockNumber: BlockNumber,
@@ -101,7 +97,6 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getArchiveSiblingPath(blockNumber: BlockNumber, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
 
@@ -110,7 +105,6 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getPublicDataSiblingPath(
     blockNumber: BlockNumber,
