@@ -1,12 +1,12 @@
 
 #pragma once
 
-#ifdef NO_OP_COUNTS
+#ifndef BB_USE_OP_COUNT
 // require a semicolon to appease formatters
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TRACK() (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TRACK_NAME() (void)0
+#define BB_OP_COUNT_TRACK_NAME(name) (void)0
 #else
 /**
  * Provides an abstraction that counts operations based on function names.

@@ -1,6 +1,6 @@
 
 #include <cstddef>
-#ifndef NO_OP_COUNTS
+#ifdef BB_USE_OP_COUNT
 #include "op_count.hpp"
 #include <iostream>
 #include <sstream>

@@ -2,11 +2,10 @@
 #pragma once
 #include <benchmark/benchmark.h>
 
-#ifdef NO_OP_COUNTS
+#ifndef BB_USE_OP_COUNT
 namespace bb {
 struct GoogleBenchOpCountReporter {
     GoogleBenchOpCountReporter(::benchmark::State& state)
-        : state(state)
     {
         // unused, we don't have op counts on
         (void)state;
