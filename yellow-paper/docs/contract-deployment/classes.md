@@ -75,11 +75,13 @@ unconstrained_functions_artifact_tree_root = merkleize(unconstrained_functions_a
 artifact_hash = sha256(
   private_functions_artifact_tree_root,
   unconstrained_functions_artifact_tree_root, 
-  artifact_metadata,
+  artifact_metadata_hash,
 )
 ```
 
 For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly. Fields are left-padded with zeros to 256 bits before being hashed. Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
+
+<!-- TODO: Sure, sha256 is nice, but its output does not fit in a single field. Is it ok to wrap around the field modulus? Should we use sha224 instead? Should we use pedersen (or poseidon) everywhere instead? -->
 
 Bytecode for private functions is a mix of ACIR and Brillig, whereas unconstrained function bytecode is Brillig exclusively, as described on the [bytecode section](../bytecode/index.md).
 
@@ -124,13 +126,16 @@ In pseudocode:
 function register(
   artifact_hash: Field,
   private_functions_root: Field,
+  public_bytecode_commitment: Field,
   packed_public_bytecode: Field[],
 ) 
-  assert is_valid_packed_public_bytecode(packed_public_bytecode)
-
   version = 1
-  bytecode_commitment = calculate_commitment(packed_public_bytecode)
-  contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
+
+  assert is_valid_packed_public_bytecode(packed_public_bytecode)
+  computed_bytecode_commitment = calculate_commitment(packed_public_bytecode)
+  assert public_bytecode_commitment == computed_bytecode_commitment
+  
+  contract_class_id = pedersen([version, artifact_hash, private_functions_root, computed_bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
 
   emit_nullifier contract_class_id
   emit_unencrypted_event ContractClassRegistered(contract_class_id, version, artifact_hash, private_functions_root, packed_public_bytecode)
@@ -157,13 +162,13 @@ Broadcasted contract artifacts that do not match with their corresponding `artif
 ```
 function broadcast_all_private_functions(
   contract_class_id: Field,
-  artifact_metadata: Field,
+  artifact_metadata_hash: Field,
   unconstrained_functions_artifact_tree_root: Field,
-  functions: { selector: Field, metadata: Field, vk_hash: Field, bytecode: Field[] }[],
+  functions: { selector: Field, metadata_hash: Field, vk_hash: Field, bytecode: Field[] }[],
 )
   emit_unencrypted_event ClassPrivateFunctionsBroadcasted(
     contract_class_id,
-    artifact_metadata,
+    artifact_metadata_hash,
     unconstrained_functions_artifact_tree_root,
     functions,
   )
@@ -172,19 +177,19 @@ function broadcast_all_private_functions(
 ```
 function broadcast_all_unconstrained_functions(
   contract_class_id: Field,
-  artifact_metadata: Field,
+  artifact_metadata_hash: Field,
   private_functions_artifact_tree_root: Field,
-  functions:{ selector: Field, metadata: Field, bytecode: Field[] }[],
+  functions:{ selector: Field, metadata_hash: Field, bytecode: Field[] }[],
 )
   emit_unencrypted_event ClassUnconstrainedFunctionsBroadcasted(
     contract_class_id,
-    artifact_metadata,
+    artifact_metadata_hash,
     unconstrained_functions_artifact_tree_root,
     functions,
   )
 ```
 
-<!-- TODO: What representation of bytecode can we use here?  -->
+<!-- TODO: What representation of bytecode can we use here? -->
 
 The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
 
@@ -193,16 +198,18 @@ The `ContractClassRegisterer` contract also allows broadcasting individual funct
 ```
 function broadcast_private_function(
   contract_class_id: Field,
-  artifact_metadata: Field,
+  artifact_metadata_hash: Field,
   unconstrained_functions_artifact_tree_root: Field,
-  function_leaf_sibling_path: Field,
-  function: { selector: Field, metadata: Field, vk_hash: Field, bytecode: Field[] },
+  private_function_tree_sibling_path: Field[],
+  artifact_function_tree_sibling_path: Field[],
+  function: { selector: Field, metadata_hash: Field, vk_hash: Field, bytecode: Field[] },
 )
   emit_unencrypted_event ClassPrivateFunctionBroadcasted(
     contract_class_id,
-    artifact_metadata,
+    artifact_metadata_hash,
     unconstrained_functions_artifact_tree_root,
-    function_leaf_sibling_path,
+    private_function_tree_sibling_path,
+    artifact_function_tree_sibling_path,
     function,
   )
 ```
@@ -210,16 +217,16 @@ function broadcast_private_function(
 ```
 function broadcast_unconstrained_function(
   contract_class_id: Field,
-  artifact_metadata: Field,
+  artifact_metadata_hash: Field,
   private_functions_artifact_tree_root: Field,
-  function_leaf_sibling_path: Field,
-  function: { selector: Field, metadata: Field, bytecode: Field[] }[],
+  artifact_function_tree_sibling_path: Field[],
+  function: { selector: Field, metadata_hash: Field, bytecode: Field[] }[],
 )
   emit_unencrypted_event ClassUnconstrainedFunctionBroadcasted(
     contract_class_id,
-    artifact_metadata,
-    unconstrained_functions_artifact_tree_root,
-    function_leaf_sibling_path: Field,
+    artifact_metadata_hash,
+    private_functions_artifact_tree_root,
+    artifact_function_tree_sibling_path,
     function,
   )
 ```
