@@ -75,7 +75,11 @@ fn serialization_smoke() {
 }
 
 #[test]
-fn hash_smoke() {
-    let item: PrivateCallStackItem = dep::std::unsafe::zeroed();
-    let _hashed = item.hash();
+fn empty_hash() {
+    let mut item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    item.function_data.is_private = true;
+    let hash = item.hash();
+
+    // Value from private_call_stack_item.test.ts "computes empty item hash" test
+    assert_eq(hash, 0x059cec98e99de84399e51ba84bc3b7fe6f0afa407a8da6ae30b07d40cd4356cd);
 }
