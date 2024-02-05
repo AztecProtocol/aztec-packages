@@ -2,6 +2,7 @@
 #include "AvmMini_common.test.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_common.hpp"
+#include "barretenberg/vm/avm_trace/AvmMini_deserialization.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_opcode.hpp"
 #include "barretenberg/vm/tests/helpers.test.hpp"
@@ -60,24 +61,28 @@ TEST_F(AvmMiniExecutionTests, basicAddReturn)
                                "00000000"; // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Execution::parse(bytecode);
+    auto instructions = Deserialization::parse(bytecode);
 
     // 2 instructions
     EXPECT_EQ(instructions.size(), 2);
 
     // ADD
     EXPECT_EQ(instructions.at(0).op_code, OpCode::ADD);
-    EXPECT_EQ(instructions.at(0).operands.size(), 3);
-    EXPECT_EQ(instructions.at(0).operands.at(0), 7);
-    EXPECT_EQ(instructions.at(0).operands.at(1), 9);
-    EXPECT_EQ(instructions.at(0).operands.at(2), 1);
-    EXPECT_EQ(instructions.at(0).in_tag, AvmMemoryTag::U8);
+
+    auto operands = instructions.at(0).operands;
+    EXPECT_EQ(operands.size(), 4);
+    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U8);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 7);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 9);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
 
     // RETURN
     EXPECT_EQ(instructions.at(1).op_code, OpCode::RETURN);
-    EXPECT_EQ(instructions.at(1).operands.size(), 2);
-    EXPECT_EQ(instructions.at(1).operands.at(0), 0);
-    EXPECT_EQ(instructions.at(1).operands.at(0), 0);
+
+    operands = instructions.at(1).operands;
+    EXPECT_EQ(operands.size(), 2);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
 
@@ -105,30 +110,37 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
                                "00000000"; // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Execution::parse(bytecode);
+    auto instructions = Deserialization::parse(bytecode);
 
     EXPECT_EQ(instructions.size(), 4);
 
     // SET
     EXPECT_EQ(instructions.at(0).op_code, OpCode::SET);
-    EXPECT_EQ(instructions.at(0).operands.size(), 2);
-    EXPECT_EQ(instructions.at(0).operands.at(0), 47123);
-    EXPECT_EQ(instructions.at(0).operands.at(1), 170);
-    EXPECT_EQ(instructions.at(0).in_tag, AvmMemoryTag::U16);
+
+    auto operands = instructions.at(0).operands;
+    EXPECT_EQ(operands.size(), 3);
+    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U16);
+    EXPECT_EQ(std::get<uint16_t>(operands.at(1)), 47123);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 170);
 
     // SET
     EXPECT_EQ(instructions.at(1).op_code, OpCode::SET);
-    EXPECT_EQ(instructions.at(1).operands.size(), 2);
-    EXPECT_EQ(instructions.at(1).operands.at(0), 37123);
-    EXPECT_EQ(instructions.at(1).operands.at(1), 51);
-    EXPECT_EQ(instructions.at(1).in_tag, AvmMemoryTag::U16);
+
+    operands = instructions.at(1).operands;
+    EXPECT_EQ(operands.size(), 3);
+    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U16);
+    EXPECT_EQ(std::get<uint16_t>(operands.at(1)), 37123);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 51);
 
     // SUB
     EXPECT_EQ(instructions.at(2).op_code, OpCode::SUB);
-    EXPECT_EQ(instructions.at(2).operands.size(), 3);
-    EXPECT_EQ(instructions.at(2).operands.at(0), 170);
-    EXPECT_EQ(instructions.at(2).operands.at(1), 51);
-    EXPECT_EQ(instructions.at(2).in_tag, AvmMemoryTag::U16);
+
+    operands = instructions.at(2).operands;
+    EXPECT_EQ(operands.size(), 4);
+    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U16);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 170);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 51);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
 
@@ -176,31 +188,37 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
     bytecode_hex.append(ret_hex);
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Execution::parse(bytecode);
+    auto instructions = Deserialization::parse(bytecode);
 
     EXPECT_EQ(instructions.size(), 15);
 
     // MUL first pos
     EXPECT_EQ(instructions.at(2).op_code, OpCode::MUL);
-    EXPECT_EQ(instructions.at(2).operands.size(), 3);
-    EXPECT_EQ(instructions.at(2).operands.at(0), 0);
-    EXPECT_EQ(instructions.at(2).operands.at(1), 1);
-    EXPECT_EQ(instructions.at(2).operands.at(2), 1);
-    EXPECT_EQ(instructions.at(2).in_tag, AvmMemoryTag::U64);
+
+    auto operands = instructions.at(2).operands;
+    EXPECT_EQ(operands.size(), 4);
+    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U64);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 1);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
 
     // MUL last pos
     EXPECT_EQ(instructions.at(13).op_code, OpCode::MUL);
-    EXPECT_EQ(instructions.at(13).operands.size(), 3);
-    EXPECT_EQ(instructions.at(13).operands.at(0), 0);
-    EXPECT_EQ(instructions.at(13).operands.at(1), 1);
-    EXPECT_EQ(instructions.at(13).operands.at(2), 1);
-    EXPECT_EQ(instructions.at(13).in_tag, AvmMemoryTag::U64);
+
+    operands = instructions.at(13).operands;
+    EXPECT_EQ(operands.size(), 4);
+    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U64);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 1);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
 
     // RETURN
     EXPECT_EQ(instructions.at(14).op_code, OpCode::RETURN);
-    EXPECT_EQ(instructions.at(14).operands.size(), 2);
-    EXPECT_EQ(instructions.at(14).operands.at(0), 0);
-    EXPECT_EQ(instructions.at(14).operands.at(0), 0);
+    operands = instructions.at(14).operands;
+
+    EXPECT_EQ(operands.size(), 2);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
 
@@ -245,7 +263,7 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Execution::parse(bytecode);
+    auto instructions = Deserialization::parse(bytecode);
 
     EXPECT_EQ(instructions.size(), 6);
 
@@ -254,7 +272,7 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
     // INTERNALCALL
     EXPECT_EQ(instructions.at(1).op_code, OpCode::INTERNALCALL);
     EXPECT_EQ(instructions.at(1).operands.size(), 1);
-    EXPECT_EQ(instructions.at(1).operands.at(0), 4);
+    EXPECT_EQ(std::get<uint32_t>(instructions.at(1).operands.at(0)), 4);
 
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
@@ -322,7 +340,7 @@ TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
                                bytecode_f2 + bytecode_f1 + bytecode_g;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Execution::parse(bytecode);
+    auto instructions = Deserialization::parse(bytecode);
 
     EXPECT_EQ(instructions.size(), 12);
 
@@ -385,7 +403,7 @@ TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Execution::parse(bytecode);
+    auto instructions = Deserialization::parse(bytecode);
 
     EXPECT_EQ(instructions.size(), 5);
 
@@ -394,14 +412,16 @@ TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
     // CALLDATACOPY
     EXPECT_EQ(instructions.at(0).op_code, OpCode::CALLDATACOPY);
     EXPECT_EQ(instructions.at(0).operands.size(), 3);
-    EXPECT_EQ(instructions.at(0).operands.at(0), 0);
-    EXPECT_EQ(instructions.at(0).operands.at(1), 2);
-    EXPECT_EQ(instructions.at(0).operands.at(2), 10);
+
+    auto operands = instructions.at(0).operands;
+    EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 2);
+    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 10);
 
     // JUMP
     EXPECT_EQ(instructions.at(1).op_code, OpCode::JUMP);
     EXPECT_EQ(instructions.at(1).operands.size(), 1);
-    EXPECT_EQ(instructions.at(1).operands.at(0), 3);
+    EXPECT_EQ(std::get<uint32_t>(instructions.at(1).operands.at(0)), 3);
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{ 13, 156 });
 
@@ -437,7 +457,7 @@ TEST_F(AvmMiniExecutionTests, invalidOpcode)
                                "00000000"; // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    EXPECT_THROW_WITH_MESSAGE(Execution::parse(bytecode), "opcode");
+    EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Invalid opcode");
 }
 
 // Negative test detecting an invalid memmory instruction tag.
@@ -453,7 +473,7 @@ TEST_F(AvmMiniExecutionTests, invalidInstructionTag)
                                "00000000"; // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    EXPECT_THROW_WITH_MESSAGE(Execution::parse(bytecode), "Instruction tag is invalid");
+    EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Instruction tag is invalid");
 }
 
 // Negative test detecting SET opcode with instruction memory tag set to FF.
@@ -469,7 +489,21 @@ TEST_F(AvmMiniExecutionTests, ffInstructionTagSetOpcode)
                                "00002344"; //
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    EXPECT_THROW_WITH_MESSAGE(Execution::parse(bytecode), "Instruction tag for SET opcode is invalid");
+    EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Instruction tag for SET opcode is invalid");
+}
+
+// Negative test detecting SET opcode without any operand.
+TEST_F(AvmMiniExecutionTests, SetOpcodeNoOperand)
+{
+    std::string bytecode_hex = "00"       // ADD
+                               "05"       // U128
+                               "00000007" // addr a 7
+                               "00000009" // addr b 9
+                               "00000001" // addr c 1
+                               "27";      // SET 39 = 0x27
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Operand for SET opcode is missing");
 }
 
 // Negative test detecting an incomplete instruction: missing instruction tag
@@ -483,7 +517,7 @@ TEST_F(AvmMiniExecutionTests, truncatedInstructionNoTag)
                                "01";      // SUB
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    EXPECT_THROW_WITH_MESSAGE(Execution::parse(bytecode), "Instruction tag missing");
+    EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Operand is missing");
 }
 
 // Negative test detecting an incomplete instruction: instruction tag present but an operand is missing
@@ -500,7 +534,7 @@ TEST_F(AvmMiniExecutionTests, truncatedInstructionNoOperand)
                                "FFFFFFBB"; // addr b and missing address for c = a-b
 
     auto bytecode = hex_to_bytes(bytecode_hex);
-    EXPECT_THROW_WITH_MESSAGE(Execution::parse(bytecode), "Operand is missing");
+    EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Operand is missing");
 }
 
 } // namespace tests_avm
