@@ -5,13 +5,12 @@ use crate::{
     context::PrivateContext,
     note::{
         utils::compute_note_hash_for_consumption,
-        note_header::NoteHeader,
         note_interface::NoteInterface,
     },
     oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 
-fn _note_inclusion<Note>(note: Note, header: Header) where Note: NoteInterface {
+fn _note_inclusion<Note, N>(note: Note, header: Header) where Note: NoteInterface<N> {
     // 1) Compute note_hash
     let note_hash = compute_note_hash_for_consumption(note);
 
@@ -24,15 +23,15 @@ fn _note_inclusion<Note>(note: Note, header: Header) where Note: NoteInterface {
     );
 }
 
-pub fn prove_note_inclusion<Note>(note: Note, context: PrivateContext) where Note: NoteInterface {
+pub fn prove_note_inclusion<Note, N>(note: Note, context: PrivateContext) where Note: NoteInterface<N> {
     _note_inclusion(note, context.historical_header);
 }
 
-pub fn prove_note_inclusion_at<Note>(
+pub fn prove_note_inclusion_at<Note, N>(
     note: Note,
     block_number: u32, // The block at which we'll prove that the note exists
     context: PrivateContext
-) where Note: NoteInterface {
+) where Note: NoteInterface<N> {
     let header = context.get_header_at(block_number);
 
     _note_inclusion(note, header);

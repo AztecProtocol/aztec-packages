@@ -3,8 +3,7 @@ use dep::protocol_types::{
     header::Header,
     hash::pedersen_hash,
         address::{
-        AztecAddress,
-        EthAddress,
+        AztecAddress
     },
 };
 use dep::std::merkle::compute_merkle_root;
@@ -13,7 +12,6 @@ use crate::{
     context::PrivateContext,
     oracle::get_public_data_witness::{
         get_public_data_witness,
-        PublicDataWitness,
     },
     utils::{
         full_field_less_than,

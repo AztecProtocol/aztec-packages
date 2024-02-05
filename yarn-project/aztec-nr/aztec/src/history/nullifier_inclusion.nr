@@ -6,7 +6,6 @@ use crate::{
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
     note::{
         utils::compute_siloed_nullifier,
-        note_header::NoteHeader,
         note_interface::NoteInterface,
     },
 };
@@ -44,20 +43,20 @@ pub fn prove_nullifier_inclusion_at(
     _nullifier_inclusion(nullifier, header);
 }
 
-pub fn prove_note_is_nullified<Note>(
+pub fn prove_note_is_nullified<Note, N>(
     note: Note,
     context: &mut PrivateContext
-) where Note: NoteInterface {
+) where Note: NoteInterface<N> {
     let nullifier = compute_siloed_nullifier(note, context);
 
     _nullifier_inclusion(nullifier, context.historical_header);
 }
 
-pub fn prove_note_is_nullified_at<Note>(
+pub fn prove_note_is_nullified_at<Note, N>(
     note: Note,
     block_number: u32,
     context: &mut PrivateContext
-) where Note: NoteInterface {
+) where Note: NoteInterface<N> {
     let nullifier = compute_siloed_nullifier(note, context);
     let header = context.get_header_at(block_number);
 
