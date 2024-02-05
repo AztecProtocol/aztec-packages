@@ -1,3 +1,4 @@
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
@@ -16,35 +17,39 @@ class ClientIVCTests : public ::testing::Test {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    using Curve = curve::BN254;
-    using FF = Curve::ScalarField;
+    using Flavor = GoblinUltraFlavor;
+    using Curve = typename Flavor::Curve;
+    using FF = typename Flavor::FF;
     using Builder = GoblinUltraCircuitBuilder;
     using Composer = GoblinUltraComposer;
-    using KernelInput = Goblin::AccumulationOutput;
     using Instance = ProverInstance_<GoblinUltraFlavor>;
-    using FoldingOutput = FoldingResult<GoblinUltraFlavor>;
-    using FoldProof = HonkProof;
+    using AccumulationProof = HonkProof;
+    using AccumulatorWithProof = FoldingResult<GoblinUltraFlavor>;
 
     using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<Builder>;
     using RecursiveVerifierInstances = ::bb::VerifierInstances_<GURecursiveFlavor, 2>;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
 
+    using ClientCircuit = typename ClientIVC::Circuit;
+
     // Currently default sized to 2^16 to match kernel. (Note: op gates will bump size to next power of 2)
-    static void create_mock_function_circuit(Builder& builder, size_t num_gates = 1 << 15)
+    static Builder create_mock_circuit(ClientIVC& ivc, size_t num_gates = 1 << 15)
     {
-        GoblinMockCircuits::construct_arithmetic_circuit(builder, num_gates);
-        GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder);
+        ClientCircuit circuit; // WORKTODO: write constructor
+        GoblinMockCircuits::construct_arithmetic_circuit(circuit, num_gates);
+        GoblinMockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        return circuit;
     }
 
-    static FoldingOutput construct_fold_proof_and_update_accumulator(std::shared_ptr<Instance>& accumulator,
-                                                                     Builder& circuit_to_fold)
+    // WORKTODO: this moves in
+    static AccumulatorWithProof fold(std::shared_ptr<Instance>& accumulator, Builder& circuit_to_fold)
     {
         Composer composer;
         auto instance = composer.create_instance(circuit_to_fold);
         std::vector<std::shared_ptr<Instance>> instances{ accumulator, instance };
         auto folding_prover = composer.create_folding_prover(instances);
-        FoldingOutput output = folding_prover.fold_instances();
+        AccumulatorWithProof output = folding_prover.fold_instances();
         return output;
     }
 
@@ -59,8 +64,8 @@ class ClientIVCTests : public ::testing::Test {
     }
 
     static void construct_mock_folding_kernel(Builder& builder,
-                                              FoldProof& fctn_fold_proof,
-                                              FoldProof& kernel_fold_proof)
+                                              AccumulationProof& fctn_fold_proof,
+                                              AccumulationProof& kernel_fold_proof)
     {
         FoldingRecursiveVerifier verifier_1{ &builder };
         verifier_1.verify_folding_proof(fctn_fold_proof);
@@ -70,7 +75,7 @@ class ClientIVCTests : public ::testing::Test {
     }
 
     // DEBUG only: perform native fold verification and run decider prover/verifier
-    static void EXEPECT_FOLDING_AND_DECIDING_VERIFIED(FoldingOutput& folding_output)
+    static void EXEPECT_FOLDING_AND_DECIDING_VERIFIED(AccumulatorWithProof& folding_output)
     {
         // Verify fold proof
         Composer composer;
@@ -93,51 +98,37 @@ class ClientIVCTests : public ::testing::Test {
  */
 TEST_F(ClientIVCTests, Full)
 {
-    Goblin goblin;
+    // WORKTODO move these up
+    const auto EXPECT_ACCUMULATION_VERIFIED = [](AccumulatorWithProof& folding_output) {
+        EXPECT_TRUE(ivc.verify_accumulation(folding_output));
+    };
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723):
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    const auto EXPECT_ACCUMULATOR_VERIFIED = [](AccumulatorWithProof& folding_output) {
+        EXPECT_TRUE(ivc.verify_accumulator(folding_output));
+    };
 
-    // "Round 0"
-    // Initialize accumulator with function instance
-    Builder function_circuit{ goblin.op_queue };
-    create_mock_function_circuit(function_circuit);
-    FoldingOutput function_folding_output;
-    Composer composer;
-    function_folding_output.accumulator = composer.create_instance(function_circuit);
-    info("function circuit num_gates = ", function_folding_output.accumulator->proving_key->circuit_size);
+    ClientIVC ivc; // mock opqueue  happens inside
+    Builder function_circuit = create_mock_circuit(ivc);
+    ivc.initialize(function_circuit);
 
-    // Fold kernel circuit into function instance
-    Builder kernel_circuit{ goblin.op_queue };
-    create_mock_function_circuit(kernel_circuit);
-    FoldingOutput kernel_folding_output =
-        construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
-    info("kernel circuit num_gates = ", kernel_folding_output.accumulator->instance_size);
-    EXEPECT_FOLDING_AND_DECIDING_VERIFIED(kernel_folding_output);
+    Builder kernel_circuit = create_mock_circuit(ivc);
+    AccumulatorWithProof kernel_acc_with_proof = ivc.accumulate(kernel_circuit); // handles merge base case
+    EXPECT_ACCUMULATION_VERIFIED(kernel_acc_with_proof);
 
-    // "Round i"
-    size_t NUM_CIRCUITS = 1;
-    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+    size_t NUM_KERNEL_ITERATIONS_MINUS_1 = 1;
+    for (size_t circuit_idx = 0; circuit_idx < NUM_KERNEL_ITERATIONS_MINUS_1; ++circuit_idx) {
         // Construct and accumulate a mock function circuit
-        Builder function_circuit{ goblin.op_queue };
-        create_mock_function_circuit(function_circuit);
-        goblin.merge(function_circuit); // must be called prior to folding
-        function_folding_output =
-            construct_fold_proof_and_update_accumulator(kernel_folding_output.accumulator, function_circuit);
+        Builder function_circuit = create_mock_circuit(ivc);
+        function_folding_output = ivc.accumulate(function_circuit);
         EXEPECT_FOLDING_AND_DECIDING_VERIFIED(function_folding_output);
 
         // Construct and accumulate the mock kernel circuit
-        Builder kernel_circuit{ goblin.op_queue };
-        construct_mock_folding_kernel(
-            kernel_circuit, function_folding_output.folding_data, kernel_folding_output.folding_data);
-        goblin.merge(kernel_circuit); // must be called prior to folding
-        kernel_folding_output =
-            construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
-        EXEPECT_FOLDING_AND_DECIDING_VERIFIED(kernel_folding_output);
+        // WORKNOTE: this is the reason to track two
+        Builder kernel_circuit =
+            construct_mock_folding_kernel(function_folding_output.folding_data, kernel_acc_with_proof.folding_data);
+        kernel_acc_with_proof = ivc.accumulate(kernel_circuit);
+        EXEPECT_FOLDING_AND_DECIDING_VERIFIED(kernel_acc_with_proof);
     }
 
-    // Verify the goblin proof (eccvm, translator, merge)
-    Goblin::Proof proof = goblin.prove();
-    bool goblin_verified = goblin.verify(proof);
-    EXPECT_TRUE(goblin_verified);
+    EXPECT_ACCUMULATOR_VERIFIED(kernel_accumulation_output);
 }
