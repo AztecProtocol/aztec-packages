@@ -9,8 +9,8 @@ impl BigInt {
     #[builtin(bigint_add)]
     pub fn bigint_add(self, other: BigInt) -> BigInt {
     }
-    #[builtin(bigint_neg)]
-    pub fn bigint_neg(self, other: BigInt) -> BigInt {
+    #[builtin(bigint_sub)]
+    pub fn bigint_sub(self, other: BigInt) -> BigInt {
     }
     #[builtin(bigint_mul)]
     pub fn bigint_mul(self, other: BigInt) -> BigInt {
