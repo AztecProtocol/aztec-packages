@@ -1,12 +1,13 @@
 
 #pragma once
-#include <cstdlib>
-#include <string>
 
 #ifdef NO_OP_COUNTS
 // require a semicolon to appease formatters
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_INCREMENT_OP_COUNT() (void)0
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_PRINT_OP_COUNTS() (void)0
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_CLEAR_OP_COUNTS() (void)0
 #else
 /**
@@ -17,7 +18,10 @@
 #include "barretenberg/common/compiler_hints.hpp"
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
+#include <map>
 #include <mutex>
+#include <string>
 #include <vector>
 namespace bb::detail {
 template <std::size_t N> struct OperationLabel {
@@ -49,6 +53,7 @@ struct GlobalOpCountContainer {
     void print() const;
     void clear();
     void add_entry(const char* key, const std::size_t* count);
+    std::map<std::string, std::size_t> get_aggregate_counts() const;
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
