@@ -231,4 +231,37 @@ function broadcast_unconstrained_function(
   )
 ```
 
+A node that captures a `ClassPrivateFunctionBroadcasted` should perform the following validation steps before storing the private function information in its database:
+
+```
+// Load contract class from local db
+contract_class = db.get_contract_class(contract_class_id)
+
+// Compute function leaf and assert it belongs to the private functions tree
+function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__FUNCTION_LEAF)
+computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path)
+assert computed_private_function_tree_root == contract_class.private_function_root
+
+// Compute artifact leaf and assert it belongs to the artifact
+artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
+computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path)
+computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
+assert computed_artifact_hash == contract_class.artifact_hash
+```
+
+<!-- TODO: Requiring two sibling paths isn't nice. This is because we are splitting private function information across two trees: one for the protocol, that deals only with selectors and vk hashes, and one for the artifact, which deals with bytecode and metadata. If we are fine adding a `function_stuff_hash` to the function leaf that goes into the protocol tree, we could get rid of the second sibling path, but that introduces stuff into the private function tree that is not strictly needed and requires unnecessary hashing in the kernel. -->
+
+The check for an unconstrained function is similar:
+
+```
+// Load contract class from local db
+contract_class = db.get_contract_class(contract_class_id)
+
+// Compute artifact leaf and assert it belongs to the artifact
+artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
+computed_artifact_unconstrained_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path)
+computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_unconstrained_function_tree_root, artifact_metadata_hash)
+assert computed_artifact_hash == contract_class.artifact_hash
+```
+
 It is strongly recommended for developers registering new classes to broadcast the code for `compute_hash_and_nullifier`, so any private message recipients have the code available to process their incoming notes. However, the `ContractClassRegisterer` contract does not enforce this during registration, since it is difficult to check the multiple signatures for `compute_hash_and_nullifier` as they may evolve over time to account for new note sizes.
