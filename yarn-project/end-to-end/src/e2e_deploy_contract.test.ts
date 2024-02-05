@@ -388,18 +388,29 @@ describe('e2e_deploy_contract', () => {
       const deployer = await registerContract(wallet, ContractInstanceDeployerContract, [], new Fr(1));
 
       const salt = Fr.random();
-      const initArgs = Fr.ZERO;
       const portalAddress = EthAddress.random();
-      const publicKeysHash = computePublicKeysHash(Point.random());
+      const publicKey = Point.random();
+      const publicKeysHash = computePublicKeysHash(publicKey);
+
+      const expected = getContractInstanceFromDeployParams(artifact, [], salt, publicKey, portalAddress);
 
       const tx = await deployer.methods
-        .deploy(salt, contractClass.id, initArgs, portalAddress, publicKeysHash, false)
+        .deploy(salt, contractClass.id, expected.initializationHash, portalAddress, publicKeysHash, false)
         .send()
         .wait();
 
       const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
       const deployedLog = logs.logs[0].log;
       expect(deployedLog.contractAddress).toEqual(deployer.address);
+
+      const instance = await aztecNode.getContract(expected.address);
+      expect(instance).toBeDefined();
+      expect(instance!.address).toEqual(expected.address);
+      expect(instance!.contractClassId).toEqual(contractClass.id);
+      expect(instance!.initializationHash).toEqual(expected.initializationHash);
+      expect(instance!.portalContractAddress).toEqual(portalAddress);
+      expect(instance!.publicKeysHash).toEqual(publicKeysHash);
+      expect(instance!.salt).toEqual(salt);
     });
   });
 });
