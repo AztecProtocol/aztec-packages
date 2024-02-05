@@ -67,11 +67,6 @@ class GoblinFoldingTests : public ::testing::Test {
 
         FoldingRecursiveVerifier verifier_2{ &builder };
         verifier_2.verify_folding_proof(kernel_fold_proof);
-
-        Composer composer;
-        // auto instance = composer.create_instance(builder);
-        // info("kernel size = ", instance->proving_key->circuit_size);
-        // info("kernel num ecc op gates = ", instance->proving_key->num_ecc_op_gates);
     }
 
     // DEBUG only: perform native fold verification and run decider prover/verifier
@@ -106,7 +101,9 @@ TEST_F(GoblinFoldingTests, Full)
     // Perform "Round 0"
     Builder function_circuit{ goblin.op_queue };
     create_mock_function_circuit(function_circuit);
-    Composer composer; // This is annoying
+    Composer composer;
+
+    // initialize accumulator
     FoldingOutput function_folding_output;
     function_folding_output.accumulator = composer.create_instance(function_circuit);
     info("function circuit num_gates = ", function_folding_output.accumulator->proving_key->circuit_size);
@@ -115,6 +112,7 @@ TEST_F(GoblinFoldingTests, Full)
     create_mock_function_circuit(kernel_circuit);
     FoldingOutput kernel_folding_output =
         construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
+    info("kernel circuit num_gates = ", kernel_folding_output.accumulator->proving_key->circuit_size);
 
     // DEBUG only
     verify_fold_and_decide(kernel_folding_output);
@@ -145,15 +143,9 @@ TEST_F(GoblinFoldingTests, Full)
         verify_fold_and_decide(kernel_folding_output);
     }
 
-    // // WORKTODO: execute the decider prover here?
+    // WORKTODO: execute the decider prover here?
 
-    // info("goblin prove");
-    // Goblin::Proof proof = goblin.prove();
-    // // WORKTODO: Execute the decider verifier
-    // // Verify the goblin proof (eccvm, translator, merge)
-    // info("goblin verify");
-    // bool verified = goblin.verify(proof);
-    // EXPECT_TRUE(verified);
-    // // WORKTODO: check decider result as well
-    // // EXPECT_TRUE(ultra_verified && verified);
+    Goblin::Proof proof = goblin.prove();
+    bool goblin_verified = goblin.verify(proof);
+    EXPECT_TRUE(goblin_verified);
 }
