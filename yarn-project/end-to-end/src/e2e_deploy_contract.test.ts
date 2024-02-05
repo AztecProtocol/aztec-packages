@@ -24,6 +24,7 @@ import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+  Point,
   computeArtifactFunctionTree,
   computeArtifactFunctionTreeRoot,
   computeArtifactMetadataHash,
@@ -31,11 +32,17 @@ import {
   computePrivateFunctionsRoot,
   computePrivateFunctionsTree,
   computePublicBytecodeCommitment,
+  computePublicKeysHash,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { ContractClassRegistererContract, ReaderContractArtifact, StatefulTestContract } from '@aztec/noir-contracts';
+import {
+  ContractClassRegistererContract,
+  ContractInstanceDeployerContract,
+  ReaderContractArtifact,
+  StatefulTestContract,
+} from '@aztec/noir-contracts';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -263,7 +270,7 @@ describe('e2e_deploy_contract', () => {
 
   // Tests registering a new contract class on a node
   // All this dance will be hidden behind a nicer API in the near future!
-  describe('registering a new contract class', () => {
+  describe('public registration and deployment', () => {
     let registerer: ContractClassRegistererContract;
     let artifact: ContractArtifact;
     let contractClass: ContractClassWithId;
@@ -376,6 +383,24 @@ describe('e2e_deploy_contract', () => {
         .send()
         .wait();
     }, 60_000);
+
+    it('deploys a new instance of the registered class via the deployer', async () => {
+      const deployer = await registerContract(wallet, ContractInstanceDeployerContract, [], new Fr(1));
+
+      const salt = Fr.random();
+      const initArgs = Fr.ZERO;
+      const portalAddress = EthAddress.random();
+      const publicKeysHash = computePublicKeysHash(Point.random());
+
+      const tx = await deployer.methods
+        .deploy(salt, contractClass.id, initArgs, portalAddress, publicKeysHash, false)
+        .send()
+        .wait();
+
+      const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+      const deployedLog = logs.logs[0].log;
+      expect(deployedLog.contractAddress).toEqual(deployer.address);
+    });
   });
 });
 
