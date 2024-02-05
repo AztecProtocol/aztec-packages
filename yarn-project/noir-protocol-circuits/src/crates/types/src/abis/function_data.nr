@@ -21,6 +21,15 @@ struct FunctionData {
     is_constructor : bool,
 }
 
+impl Eq for FunctionData {
+    fn eq(self, other: Self) -> bool {
+        self.selector.eq(other.selector) &
+        self.is_internal == other.is_internal &
+        self.is_private == other.is_private &
+        self.is_constructor == other.is_constructor
+    }
+}
+
 impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
     // A field is ~256 bits
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3057): Since, function data can fit into a Field,
@@ -53,9 +62,11 @@ impl Hash for FunctionData {
 }
 
 #[test]
-fn serialization_smoke() {
+fn serialization_of_empty() {
     let data: FunctionData = dep::std::unsafe::zeroed();
-    let _serialized = data.serialize();
+    let serialized = data.serialize();
+    let deserialized = FunctionData::deserialize(serialized);
+    assert(data.eq(deserialized));
 }
 
 #[test]

@@ -30,6 +30,15 @@ struct PrivateCallStackItem {
     is_execution_request: bool,
 }
 
+impl Eq for PrivateCallStackItem {
+    fn eq(self, other: Self) -> bool {
+        self.contract_address.eq(other.contract_address) &
+        self.function_data.eq(other.function_data) &
+        self.public_inputs.eq(other.public_inputs) &
+        self.is_execution_request == other.is_execution_request
+    }
+}
+
 impl Serialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
     fn serialize(self) -> [Field; PRIVATE_CALL_STACK_ITEM_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_CALL_STACK_ITEM_LENGTH> = BoundedVec::new(0); 
@@ -69,9 +78,11 @@ impl Hash for PrivateCallStackItem {
 }
 
 #[test]
-fn serialization_smoke() {
+fn serialization_of_empty() {
     let item: PrivateCallStackItem = dep::std::unsafe::zeroed();
-    let _serialized = item.serialize();
+    let serialized = item.serialize();
+    let deserialized = PrivateCallStackItem::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
 
 #[test]
