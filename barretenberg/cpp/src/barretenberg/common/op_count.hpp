@@ -4,11 +4,9 @@
 #ifdef NO_OP_COUNTS
 // require a semicolon to appease formatters
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_INCREMENT_OP_COUNT() (void)0
+#define BB_OP_COUNT_TRACK() (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_PRINT_OP_COUNTS() (void)0
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_CLEAR_OP_COUNTS() (void)0
+#define BB_OP_COUNT_TRACK_NAME() (void)0
 #else
 /**
  * Provides an abstraction that counts operations based on function names.
@@ -83,11 +81,7 @@ template <OperationLabel Op> thread_local std::size_t* GlobalOpCount<Op>::thread
 } // namespace bb::detail
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
+#define BB_OP_COUNT_TRACK() bb::detail::GlobalOpCount<__func__>::increment_op_count()
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_PRINT_OP_COUNTS() bb::detail::GLOBAL_OP_COUNTS.print()
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_CLEAR_OP_COUNTS() bb::detail::GLOBAL_OP_COUNTS.clear()
+#define BB_OP_COUNT_TRACK_NAME(name) bb::detail::GlobalOpCount<name>::increment_op_count()
 #endif
