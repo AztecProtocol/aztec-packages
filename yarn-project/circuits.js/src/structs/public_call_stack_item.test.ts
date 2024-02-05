@@ -21,8 +21,8 @@ describe('PublicCallStackItem', () => {
 
   it('computes hash', () => {
     const seed = 9870243;
-    const PublicCallStackItem = makePublicCallStackItem(seed);
-    const hash = PublicCallStackItem.hash();
+    const item = makePublicCallStackItem(seed);
+    const hash = item.hash();
     expect(hash).toMatchSnapshot();
   });
 });
