@@ -26,18 +26,10 @@ export class PrivateCallStackItem {
      * Public inputs to the private kernel circuit.
      */
     public publicInputs: PrivateCircuitPublicInputs,
-    /**
-     * Whether the current callstack item should be considered a public fn execution request.
-     */
-    public readonly isExecutionRequest: boolean,
-  ) {
-    if (isExecutionRequest) {
-      throw new Error('boolean isExecutionRequest must be set to true for a PrivateCallStackItem object');
-    }
-  }
+  ) {}
 
   static getFields(fields: FieldsOf<PrivateCallStackItem>) {
-    return [fields.contractAddress, fields.functionData, fields.publicInputs, fields.isExecutionRequest] as const;
+    return [fields.contractAddress, fields.functionData, fields.publicInputs] as const;
   }
 
   toBuffer() {
@@ -59,7 +51,6 @@ export class PrivateCallStackItem {
       reader.readObject(AztecAddress),
       reader.readObject(FunctionData),
       reader.readObject(PrivateCircuitPublicInputs),
-      reader.readBoolean(),
     );
   }
 
@@ -69,7 +60,6 @@ export class PrivateCallStackItem {
       AztecAddress.fromFields(reader),
       FunctionData.fromFields(reader),
       PrivateCircuitPublicInputs.fromFields(reader),
-      reader.readBoolean(),
     );
   }
 
@@ -82,7 +72,6 @@ export class PrivateCallStackItem {
       AztecAddress.ZERO,
       FunctionData.empty({ isPrivate: true }),
       PrivateCircuitPublicInputs.empty(),
-      false,
     );
   }
 

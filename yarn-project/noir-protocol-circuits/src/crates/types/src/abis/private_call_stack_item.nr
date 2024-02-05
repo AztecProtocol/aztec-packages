@@ -26,16 +26,13 @@ struct PrivateCallStackItem {
     contract_address: AztecAddress,
     function_data: FunctionData,
     public_inputs: PrivateCircuitPublicInputs,
-    // Not really needed for PrivateCallStackItem.
-    is_execution_request: bool,
 }
 
 impl Eq for PrivateCallStackItem {
     fn eq(self, other: Self) -> bool {
         self.contract_address.eq(other.contract_address) &
         self.function_data.eq(other.function_data) &
-        self.public_inputs.eq(other.public_inputs) &
-        self.is_execution_request == other.is_execution_request
+        self.public_inputs.eq(other.public_inputs)
     }
 }
 
@@ -46,7 +43,6 @@ impl Serialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
         fields.push(self.contract_address.to_field());
         fields.extend_from_array(self.function_data.serialize());
         fields.extend_from_array(self.public_inputs.serialize());
-        fields.push(self.is_execution_request as Field);
 
         assert_eq(fields.len(), PRIVATE_CALL_STACK_ITEM_LENGTH);
 
@@ -63,7 +59,6 @@ impl Deserialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
             contract_address: reader.read_struct(AztecAddress::deserialize),
             function_data: reader.read_struct(FunctionData::deserialize),
             public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize),
-            is_execution_request: reader.read() as bool,
         };
 
         reader.finish();
@@ -92,5 +87,5 @@ fn empty_hash() {
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x059cec98e99de84399e51ba84bc3b7fe6f0afa407a8da6ae30b07d40cd4356cd);
+    assert_eq(hash, 0x2ef036e5dd1b16cd74bccd80712b63fde12aa2e64b08f3a0964195c8b34f64d1);
 }
