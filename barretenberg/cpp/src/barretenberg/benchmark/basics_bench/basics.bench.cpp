@@ -280,6 +280,7 @@ void projective_point_accidental_doubling(State& state)
  */
 void projective_point_doubling(State& state)
 {
+    BB_INCREMENT_OP_COUNT();
     numeric::RNG& engine = numeric::get_debug_randomness();
     std::vector<Curve::Element> copy_vector(2);
     for (size_t j = 0; j < 2; j++) {
