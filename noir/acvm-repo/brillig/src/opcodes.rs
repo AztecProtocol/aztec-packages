@@ -77,6 +77,11 @@ pub enum BrilligOpcode {
         lhs: MemoryAddress,
         rhs: MemoryAddress,
     },
+    Cast {
+        destination: MemoryAddress,
+        source: MemoryAddress,
+        bit_size: u32,
+    },
     JumpIfNot {
         condition: MemoryAddress,
         location: Label,
