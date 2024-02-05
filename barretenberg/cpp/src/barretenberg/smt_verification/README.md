@@ -2,9 +2,8 @@
 
 As for now it's required to build cvc5 library manually.
 
-- inside your home repository do `git clone git@github.com:cvc5/cvc5.git` (temporarily, since they have been merging my patch for a month now)
+- inside your home repository do `git clone git@github.com:cvc5/cvc5.git`
 - inside the cvc5 repo: 
-    - `git checkout finite-field-base-support`
     - `./configure.sh production --auto-download --cocoa --cryptominisat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix="./tmp-lib"`
     - `cd build && make`
     - `make install`
@@ -56,13 +55,13 @@ To store it on the disk just do
 
 	`smt_solver::Solver s(str modulus, config, 16)`
 	
-	!note that there should be no "0x" part in the modulus hex representation if you put it manually. Otherwise you can use `CircuitSchema.modulus` member that is imported directly from circuit.
+	!note that there should be no "0x" part in the modulus hex representation if you put it manually. Otherwise you can use `CircuitSchema.modulus` member that is exported directly from circuit.
 	
 	`produce_model` flag should be initialized as `true` if you want to check the values obtained using the solver when the result of the check does not meet your expectations. **All the public variables will be constrained to be equal their real value**.
 	
 	`base` can be any positive integer, it will mostly be 10 or 16, I guess. Default value is 16.
 
-    `timeout` solver timeout in milliseconds
+    `timeout` solver timeout in milliseconds. 0 for no timeout.
 	
 3. Initialize the Circuit 
 
@@ -70,7 +69,7 @@ To store it on the disk just do
     
     `FFTerm` - the symbolic value that simulates finite field elements. 
 
-    `FFTerm` - the symbolic value that simulates integer elements which behave like finite field ones. Useful, when you want to create range constraints or perform operations like XOR.
+    `FFTerm` - the symbolic value that simulates integer elements which behave like finite field ones. Useful, when you want to create range constraints or perform operations like XOR on symbolic variables.
     
     `Bool` - simulates the boolean values and mostly will be used only to simulate complex `if` statements if needed.
 	
@@ -82,6 +81,8 @@ To store it on the disk just do
         FFTerm/FFITerm templates will define what theory core the solver should use.
 
 	Then you can get the previously named variables via `circuit[name]` or any variable by `circuit[idx]`.
+
+    There is a method `Circuit.simulate_circuit_eval(vector<fr> w)` that checks that the circuit. Similar to `check_circuit()` method in circuit builder.
 4. Terms creation
 
 	You are able to create two types of ff terms:
@@ -99,6 +100,8 @@ To store it on the disk just do
     `FFITerm` works the same as `FFTerm`.
     Except that you need to use `.mod()` method each time you want the constraint to be created. Note that you should not create a new variable using `Var` and execute `.mod()` immediately. 
     You can create `^` and `>,<,<=,>=` constraints with `FFITerm`s.
+
+    Both of these classes are arithmetically compatible with the `fr` type, so in most cases there is no need to use `Const` terms. However, If you want to use values produced by model, you will have to use `Const`
     
 	
 	Also there is a Bool type:
@@ -118,6 +121,13 @@ To store it on the disk just do
 	In case you expected `false` but `true` was returned you can then check what went wrong.
 	You should generate an unordered map with `str->term` values and ask the solver to obtain `unoredered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`. 
 	Now you have the values of the specified terms, which resulted into `true` result. 
+
+    Also, there is a header file "barretenberg/common/smt_model.hpp" with two functions:
+        - `default_model(vector<str> special_names, circuit1, circuit2, *solver)`
+        - `default_model_single(vector<str> special_names, circuit, *solver)`
+
+    These functions will output witness variables in c-like array format, and special values will be output at the end.
+    The vector of names here is the values that you want to see at the bottom of the (names included).
 
 6. Automated verification of a unique witness
 
@@ -254,4 +264,4 @@ void model_variables(Circuit<smt_terms::FFTerm>& c, Solver* s, FFTerm& evaluatio
 }
 ```
 
-More examples can be found in *.test.cpp files
+More examples can be found in *.test.cpp files all over the directory
