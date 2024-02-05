@@ -244,9 +244,8 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 for ((destination, value_type), output) in
                     destinations.iter().zip(destination_value_types).zip(values)
                 {
-                    match destination {
-                        ValueOrArray::MemoryAddress(value_index) => {
-                            assert!(*value_type == HeapValueType::Simple);
+                    match (destination, value_type) {
+                        (ValueOrArray::MemoryAddress(value_index), HeapValueType::Simple) => {
                             match output {
                                 ForeignCallParam::Single(value) => {
                                     self.memory.write(*value_index, *value);
@@ -256,11 +255,10 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                                 ),
                             }
                         }
-                        ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }) => {
-                            let HeapValueType::Array { value_types, size: type_size } = value_type else {
-                                unreachable!("Expected array heap type");
-                            };
-                            assert!(size == type_size);
+                        (
+                            ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }),
+                            HeapValueType::Array { value_types, size: type_size },
+                        ) if size == type_size => {
                             if HeapValueType::all_simple(value_types) {
                                 match output {
                                     ForeignCallParam::Array(values) => {
@@ -281,13 +279,10 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                                 unimplemented!("deflattening heap arrays from foreign calls");
                             }
                         }
-                        ValueOrArray::HeapVector(HeapVector {
-                            pointer: pointer_index,
-                            size: size_index,
-                        }) => {
-                            let HeapValueType::Vector { value_types } = value_type else {
-                                unreachable!("Expected vector heap type");
-                            };
+                        (
+                            ValueOrArray::HeapVector(HeapVector {pointer: pointer_index, size: size_index }),
+                            HeapValueType::Vector { value_types },
+                        ) => {
                             if HeapValueType::all_simple(value_types) {
                                 match output {
                                     ForeignCallParam::Array(values) => {
@@ -305,6 +300,9 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                             } else {
                                 unimplemented!("deflattening heap vectors from foreign calls");
                             }
+                        }
+                        _ => {
+                            unreachable!("Unexpected value type {value_type:?} for destination {destination:?}");
                         }
                     }
                 }
@@ -389,26 +387,27 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         input: ValueOrArray,
         value_type: &HeapValueType,
     ) -> ForeignCallParam {
-        match input {
-            ValueOrArray::MemoryAddress(value_index) => {
-                assert!(*value_type == HeapValueType::Simple);
+        match (input, value_type) {
+            (ValueOrArray::MemoryAddress(value_index), HeapValueType::Simple) => {
                 self.memory.read(value_index).into()
             }
-            ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }) => {
-                let HeapValueType::Array { value_types, size: type_size } = value_type else {
-                    unreachable!("expected array heap value type");
-                };
-                assert!(*type_size == size);
+            (
+                ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }),
+                HeapValueType::Array { value_types, size: type_size },
+            ) if *type_size == size => {
                 let start = self.memory.read_ref(pointer_index);
                 self.read_slice_of_values_from_memory(start, size, value_types).into()
             }
-            ValueOrArray::HeapVector(HeapVector { pointer: pointer_index, size: size_index }) => {
-                let HeapValueType::Vector { value_types } = value_type else {
-                    unreachable!("expected vector heap value type");
-                };
+            (
+                ValueOrArray::HeapVector(HeapVector { pointer: pointer_index, size: size_index }),
+                HeapValueType::Vector { value_types },
+            ) => {
                 let start = self.memory.read_ref(pointer_index);
                 let size = self.memory.read(size_index).to_usize();
                 self.read_slice_of_values_from_memory(start, size, value_types).into()
+            }
+            _ => {
+                unreachable!("Unexpected value type {value_type:?} for input {input:?}");
             }
         }
     }
