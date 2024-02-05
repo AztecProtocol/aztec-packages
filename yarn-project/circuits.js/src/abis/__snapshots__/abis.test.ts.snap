@@ -8,49 +8,6 @@ exports[`abis Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781ded
 
 exports[`abis Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed"`;
 
-exports[`abis compute private call stack item hash 1`] = `
-Fr {
-  "asBigInt": 1058108273519211057958983017403656079426177248613466485863012056136969809881n,
-  "asBuffer": {
-    "data": [
-      2,
-      86,
-      222,
-      57,
-      41,
-      140,
-      244,
-      156,
-      248,
-      127,
-      77,
-      151,
-      136,
-      165,
-      186,
-      107,
-      37,
-      17,
-      119,
-      4,
-      83,
-      102,
-      195,
-      226,
-      180,
-      18,
-      253,
-      220,
-      202,
-      174,
-      239,
-      217,
-    ],
-    "type": "Buffer",
-  },
-}
-`;
-
 exports[`abis compute public call stack item hash 1`] = `
 Fr {
   "asBigInt": 4942803204430729321299247114280769628204291639882373728884145897482860239103n,
