@@ -1,18 +1,17 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts';
 
 import { jest } from '@jest/globals';
-import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { initContext, initExecutionEnvironment } from './fixtures/index.js';
+import { initContext, initExecutionEnvironment, initGlobalVariables } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
-import {encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 
 describe('avm', () => {
-
   it('Should execute bytecode that performs basic addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
 
@@ -59,26 +58,34 @@ describe('avm', () => {
     });
 
     describe('Test env getters from noir contract', () => {
-      const testEnvGetter = async (valueName: string, value: any, functionName: string) => {
-      const getterArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+      const testEnvGetter = async (valueName: string, value: any, functionName: string, globalVar: boolean = false) => {
+        const getterArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
 
-      // Execute 
-      const overrides = {[valueName]: value};
-      const context = initContext({ env: initExecutionEnvironment(overrides) });
+        // Execute
+        let overrides = {};
+        if (globalVar === true) {
+          const globals = initGlobalVariables({ [valueName]: value });
+          overrides = { globals };
+        } else {
+          overrides = { [valueName]: value };
+        }
+        const context = initContext({ env: initExecutionEnvironment(overrides) });
 
-      // Decode bytecode into instructions
-      const bytecode = Buffer.from(getterArtifact.bytecode, 'base64');
-      jest.spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(getterArtifact.bytecode, 'base64');
+        jest
+          .spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+        // Execute
 
-      const results = await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
 
-      expect(results.reverted).toBe(false);
+        expect(results.reverted).toBe(false);
 
-      const returnData = results.output;
-      expect(returnData.length).toBe(1);
-      expect(returnData).toEqual([value.toField()]);
-
-      }
+        const returnData = results.output;
+        expect(returnData.length).toBe(1);
+        expect(returnData).toEqual([value.toField()]);
+      };
 
       it('address', async () => {
         const address = AztecAddress.fromField(new Fr(1));
@@ -120,25 +127,25 @@ describe('avm', () => {
         await testEnvGetter('feePerDaGas', fee, 'avm_getFeePerDaGas');
       });
 
-      // it('chainId', async () => {
-      //   const chainId = new Fr(1);
-      //   await testEnvGetter('chainId', chainId, 'avm_getChainId');
-      // });
+      it('chainId', async () => {
+        const chainId = new Fr(1);
+        await testEnvGetter('chainId', chainId, 'avm_getChainId', /*globalVar=*/ true);
+      });
 
-      // it('version', async () => {
-      //   const version = new Fr(1);
-      //   await testEnvGetter('version', version, 'avm_getVersion');
-      // });
+      it('version', async () => {
+        const version = new Fr(1);
+        await testEnvGetter('version', version, 'avm_getVersion', /*globalVar=*/ true);
+      });
 
-      // it('blockNumber', async () => {
-      //   const blockNumber = new Fr(1);
-      //   await testEnvGetter('blockNumber', blockNumber, 'avm_getBlockNumber');
-      // });
+      it('blockNumber', async () => {
+        const blockNumber = new Fr(1);
+        await testEnvGetter('blockNumber', blockNumber, 'avm_getBlockNumber', /*globalVar=*/ true);
+      });
 
-      // it('timestamp', async () => {
-      //   const timestamp = new Fr(1);
-      //   await testEnvGetter('timestamp', timestamp, 'avm_getTimestamp');
-      // });
+      it('timestamp', async () => {
+        const timestamp = new Fr(1);
+        await testEnvGetter('timestamp', timestamp, 'avm_getTimestamp', /*globalVar=*/ true);
+      });
     });
   });
 });

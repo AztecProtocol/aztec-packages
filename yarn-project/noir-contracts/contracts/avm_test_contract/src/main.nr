@@ -28,17 +28,17 @@ contract AvmTest {
     }
 
     #[aztec(public-vm)]
-    fn getStorageAddress() -> pub AztecAddress  {
+    fn getStorageAddress() -> pub AztecAddress {
         AvmContext::storage_address()
     }
 
     #[aztec(public-vm)]
-    fn getSender() -> pub AztecAddress  {
+    fn getSender() -> pub AztecAddress {
         AvmContext::sender()
     }
 
     #[aztec(public-vm)]
-    fn getOrigin() -> pub AztecAddress  {
+    fn getOrigin() -> pub AztecAddress {
         AvmContext::origin()
     }
 
@@ -81,16 +81,6 @@ contract AvmTest {
     fn getTimestamp() -> pub Field {
         AvmContext::timestamp()
     }
-
-    // #[aztec(public-vm)]
-    // fn getIsStaticCall() -> pub Field {
-    //     AvmContext::is_static_call()
-    // }
-
-    // #[aztec(public-vm)]
-    // fn getIsDelegateCall() -> pub Field {
-    //     AvmContext::is_delegate_call()
-    // }
 
     // #[aztec(public-vm)]
     // fn getContractCallDepth() -> pub Field {

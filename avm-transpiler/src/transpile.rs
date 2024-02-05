@@ -273,6 +273,9 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     bytecode
 }
 
+/// Handle foreign function calls
+/// - Environment getting opcodes will be represented as foreign calls
+/// - TODO: support for avm external calls through this function
 fn handle_foreign_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &String,
@@ -301,8 +304,7 @@ fn handle_foreign_call(
         "version" => AvmOpcode::VERSION,
         "blockNumber" => AvmOpcode::BLOCKNUMBER,
         "timestamp" => AvmOpcode::TIMESTAMP,
-        // "isStaticCall" => AvmOpcode::ISSTATICCALL,
-        // "isDelegateCall" => AvmOpcode::ISDELEGATECALL,
+        // "callStackDepth" => AvmOpcode::CallStackDepth,
         _ => panic!(
             "Transpiler doesn't know how to process ForeignCall function {:?}",
             function
