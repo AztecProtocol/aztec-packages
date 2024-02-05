@@ -70,7 +70,7 @@ class GoblinFoldingTests : public ::testing::Test {
     }
 
     // DEBUG only: perform native fold verification and run decider prover/verifier
-    static void verify_fold_and_decide(FoldingOutput& folding_output)
+    static void EXEPCT_FOLDING_AND_DECIDING_VERIFIED(FoldingOutput& folding_output)
     {
         // Verify fold proof
         Composer composer;
@@ -98,24 +98,22 @@ TEST_F(GoblinFoldingTests, Full)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/723):
     GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
 
-    // Perform "Round 0"
+    // "Round 0"
+    // Initialize accumulator with function instance
     Builder function_circuit{ goblin.op_queue };
     create_mock_function_circuit(function_circuit);
-    Composer composer;
-
-    // initialize accumulator
     FoldingOutput function_folding_output;
+    Composer composer;
     function_folding_output.accumulator = composer.create_instance(function_circuit);
     info("function circuit num_gates = ", function_folding_output.accumulator->proving_key->circuit_size);
 
+    // Fold kernel circuit into function instance
     Builder kernel_circuit{ goblin.op_queue };
     create_mock_function_circuit(kernel_circuit);
     FoldingOutput kernel_folding_output =
         construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
     info("kernel circuit num_gates = ", kernel_folding_output.accumulator->proving_key->circuit_size);
-
-    // DEBUG only
-    verify_fold_and_decide(kernel_folding_output);
+    EXEPCT_FOLDING_AND_DECIDING_VERIFIED(kernel_folding_output);
 
     // "Round i"
     size_t NUM_CIRCUITS = 1;
@@ -126,25 +124,19 @@ TEST_F(GoblinFoldingTests, Full)
         goblin.merge(function_circuit); // must be called prior to folding
         function_folding_output =
             construct_fold_proof_and_update_accumulator(kernel_folding_output.accumulator, function_circuit);
+        EXEPCT_FOLDING_AND_DECIDING_VERIFIED(function_folding_output);
 
-        // DEBUG only
-        verify_fold_and_decide(function_folding_output);
-
-        // Construct and accumulate the mock kernel circuit (no kernel accum in first round)
+        // Construct and accumulate the mock kernel circuit
         Builder kernel_circuit{ goblin.op_queue };
         construct_mock_folding_kernel(
             kernel_circuit, function_folding_output.folding_data, kernel_folding_output.folding_data);
         goblin.merge(kernel_circuit); // must be called prior to folding
-        // WORKTODO: Getting an issue in the fold prover here; making standalone test to debug
         kernel_folding_output =
             construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
-
-        // DEBUG only
-        verify_fold_and_decide(kernel_folding_output);
+        EXEPCT_FOLDING_AND_DECIDING_VERIFIED(kernel_folding_output);
     }
 
-    // WORKTODO: execute the decider prover here?
-
+    // Verify the goblin proof (eccvm, translator, merge)
     Goblin::Proof proof = goblin.prove();
     bool goblin_verified = goblin.verify(proof);
     EXPECT_TRUE(goblin_verified);
