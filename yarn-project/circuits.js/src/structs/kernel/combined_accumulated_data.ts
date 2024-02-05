@@ -15,7 +15,6 @@ import {
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -594,18 +593,13 @@ export class AccumulatedMetaData {
      */
     public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX_META>,
     /**
-     * Current private call stack.
-     * TODO(#3417): Given this field must empty, should we just remove it?
-     */
-    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META>,
-    /**
      * Current public call stack.
      */
     public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.newCommitments, this.newNullifiers, this.privateCallStack, this.publicCallStack);
+    return serializeToBuffer(this.newCommitments, this.newNullifiers, this.publicCallStack);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): AccumulatedMetaData {
@@ -613,7 +607,6 @@ export class AccumulatedMetaData {
     return new AccumulatedMetaData(
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
     );
   }
@@ -630,7 +623,6 @@ export class AccumulatedMetaData {
     return new AccumulatedMetaData(
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),
     );
   }

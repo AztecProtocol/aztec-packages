@@ -36,7 +36,6 @@ import {
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -971,11 +970,6 @@ export function mapAccumulatedMetaDataFromNoir(accumulatedMetaData: AccumulatedM
   return new AccumulatedMetaData(
     mapTupleFromNoir(accumulatedMetaData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX_META, mapSideEffectFromNoir),
     mapTupleFromNoir(accumulatedMetaData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX_META, mapSideEffectLinkedFromNoir),
-    mapTupleFromNoir(
-      accumulatedMetaData.private_call_stack,
-      MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
-      mapCallRequestFromNoir,
-    ),
     mapTupleFromNoir(
       accumulatedMetaData.public_call_stack,
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,

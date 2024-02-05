@@ -49,7 +49,6 @@ import {
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
@@ -299,7 +298,6 @@ export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedMeta
   return new AccumulatedMetaData(
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX_META, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX_META, sideEffectLinkedFromNumber, seed + 0x201),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x401),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x501),
   );
 }
