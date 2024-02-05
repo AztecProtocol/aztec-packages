@@ -24,21 +24,6 @@ contract Child {
         a_private_value: Set<ValueNote>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                current_value: PublicState::new(
-                    context,
-                    1,
-                ),
-                a_private_value: Set::new(
-                    context,
-                    2
-                ),
-            }
-        }
-    }
-
     #[aztec(private)]
     fn constructor() {}
 

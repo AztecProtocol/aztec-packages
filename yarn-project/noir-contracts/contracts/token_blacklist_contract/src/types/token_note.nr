@@ -1,6 +1,10 @@
-use dep::aztec::protocol_types::constants::MAX_READ_REQUESTS_PER_CALL;
-use dep::aztec::protocol_types::address::AztecAddress;
 use dep::aztec::{
+    protocol_types::{
+        address::AztecAddress,
+        constants::{
+            MAX_READ_REQUESTS_PER_CALL
+        },
+    },
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
@@ -10,7 +14,6 @@ use dep::aztec::{
     state_vars::set::Set,
     log::emit_encrypted_log,
     hash::pedersen_hash,
-    protocol_types::traits::{Serialize, Deserialize}
 };
 use dep::aztec::oracle::{
     rand::rand,
@@ -19,6 +22,12 @@ use dep::aztec::oracle::{
 };
 use dep::safe_math::SafeU120;
 use dep::std::option::Option;
+
+trait OwnedNote {
+    fn new(amount: SafeU120, owner: AztecAddress) -> Self;
+    fn get_amount(self) -> SafeU120;
+    fn get_owner(self) -> AztecAddress;
+}
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 
@@ -36,27 +45,23 @@ struct TokenNote {
     header: NoteHeader,
 }
 
-impl Serialize<TOKEN_NOTE_LEN> for TokenNote {
-    fn serialize(self) -> [Field; TOKEN_NOTE_LEN] {
+impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
+    fn serialize_content(self) -> [Field; TOKEN_NOTE_LEN] {
         [self.amount.value as Field, self.owner.to_field(), self.randomness]
     }
-}
 
-impl Deserialize<TOKEN_NOTE_LEN> for TokenNote {
-    fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
+    fn deserialize_content(serialized_note: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
-            amount: SafeU120::new(preimage[0]),
-            owner: AztecAddress::from_field(preimage[1]),
-            randomness: preimage[2],
+            amount: SafeU120::new(serialized_note[0]),
+            owner: AztecAddress::from_field(serialized_note[1]),
+            randomness: serialized_note[2],
             header: NoteHeader::empty(),
         }
     }
-}
-
-impl NoteInterface for TokenNote {
+    
       fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize(), 0)
+        pedersen_hash(self.serialize_content(), 0)
     }
 
     // docs:start:nullifier
@@ -87,7 +92,6 @@ impl NoteInterface for TokenNote {
         self.header = header;
     }
 
-
     fn get_header(note: TokenNote) -> NoteHeader {
         note.header
     }
@@ -102,14 +106,14 @@ impl NoteInterface for TokenNote {
               (*context).this_address(),
               slot,
               encryption_pub_key,
-              self.serialize(),
+              self.serialize_content(),
           );
       }
   }
 }
 
-impl TokenNote {
-    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
+impl OwnedNote for TokenNote {
+    fn new(amount: SafeU120, owner: AztecAddress) -> Self {
         Self {
             amount,
             owner,
@@ -117,4 +121,13 @@ impl TokenNote {
             header: NoteHeader::empty(),
         }
     }
+
+    fn get_amount(self) -> SafeU120 {
+        self.amount
+    }
+
+    fn get_owner(self) -> AztecAddress {
+        self.owner
+    }
+   
 }
