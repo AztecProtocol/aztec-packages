@@ -301,22 +301,12 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let fields = call_private_function_internal(
+        let item = call_private_function_internal(
             contract_address,
             function_selector, 
             args_hash,
             self.side_effect_counter,
         );
-        let mut reader = Reader::new(fields);
-
-        let item = PrivateCallStackItem {
-            contract_address: AztecAddress::from_field(reader.read()),
-            function_data: reader.read_struct(FunctionData::deserialize),
-            public_inputs: reader.read_struct(PrivateCircuitPublicInputs::deserialize),
-            is_execution_request: reader.read() as bool,
-        };
-
-        reader.finish();
 
         assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;

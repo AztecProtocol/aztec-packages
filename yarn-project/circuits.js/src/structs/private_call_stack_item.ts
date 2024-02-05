@@ -1,9 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { pedersenHash } from '@aztec/foundation/crypto';
 import { GeneratorIndex } from '../constants.gen.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
@@ -65,13 +65,12 @@ export class PrivateCallStackItem {
 
   static fromFields(fields: Fr[] | FieldReader): PrivateCallStackItem {
     const reader = FieldReader.asReader(fields);
-
-    const contractAddress = AztecAddress.fromFields(reader);
-    const functionData = FunctionData.fromFields(reader);
-    const publicInputs = PrivateCircuitPublicInputs.fromFields(reader);
-    const isExecutionRequest = reader.readBoolean();
-
-    return new PrivateCallStackItem(contractAddress, functionData, publicInputs, isExecutionRequest);
+    return new PrivateCallStackItem(
+      AztecAddress.fromFields(reader),
+      FunctionData.fromFields(reader),
+      PrivateCircuitPublicInputs.fromFields(reader),
+      reader.readBoolean(),
+    );
   }
 
   /**
