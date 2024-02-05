@@ -66,7 +66,7 @@ pub fn prove_note_not_nullified_at<Note, N>(
     note_with_header: Note,
     block_number: u32, // The block at which we'll prove that the note was not nullified
     context: &mut PrivateContext
-) where Note: NoteInterface {
+) where Note: NoteInterface<N> {
     let nullifier = compute_siloed_nullifier(note_with_header, context);
     let header = context.get_header_at(block_number);
 
