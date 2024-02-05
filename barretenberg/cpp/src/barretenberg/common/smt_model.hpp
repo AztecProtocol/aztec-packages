@@ -7,7 +7,7 @@ void default_model(std::vector<std::string> special, smt_circuit::Circuit<FF> &c
     std::vector<cvc5::Term> vterms2(c2.symbolic_vars.cbegin(), c2.symbolic_vars.cend());
     std::unordered_map<std::string, std::string> mmap2 = s->model(vterms2);
 
-    info("w1 = {");
+    info("w12 = {");
     for(size_t i = 0; i < c1.symbolic_vars.size(); i++){
         std::string vname1 = c1[static_cast<uint32_t>(i)];
         std::string vname2 = c2[static_cast<uint32_t>(i)];

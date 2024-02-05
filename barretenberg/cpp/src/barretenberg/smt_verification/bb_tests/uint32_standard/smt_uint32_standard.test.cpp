@@ -16,9 +16,9 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-// TODO(alex): shifts, add_const
+// TODO(alex): shifts, operations with constants
 
-TEST(uint, xor_unique_witness){
+TEST(uint, xor_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
@@ -76,7 +76,7 @@ TEST(uint, xor_special_witness){
     default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
 }
 
-TEST(uint, xor_unique_random_solution){
+TEST(uint, xor_unique_random_solution){ // TODO(alex): weird stuff happening here
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));

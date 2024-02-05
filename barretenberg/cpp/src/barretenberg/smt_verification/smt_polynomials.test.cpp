@@ -162,5 +162,3 @@ TEST(polynomial, incorrectEvaluation)
         model_variables(circuit, &s, ev);
     }
 }
-
-// TODO(alex) try with arbitrary coefficients

@@ -128,7 +128,7 @@ TEST(sha256, equality2){
 //    Circuit<FFTerm> circuit(circuit_info, &s);
 //
 //     
-//}//:wq
+//}
 
 
 TEST(sha256, unique_witness){
@@ -144,7 +144,7 @@ TEST(sha256, unique_witness){
     equal.reserve(64);
     for(size_t i = 0; i < 64; i++){
         builder.set_variable_name(slices[i].get_witness_index(), "in" + std::to_string(i));
-        equal[i] = "in" + std::to_string(i);
+        equal.push_back("in" + std::to_string(i));
     }
     input = stdlib::sha256<StandardCircuitBuilder>(input);
 
