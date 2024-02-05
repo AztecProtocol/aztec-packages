@@ -10,6 +10,10 @@ use num_bigint::BigUint;
 
 use crate::pwg::OpcodeResolutionError;
 
+/// Resolve BigInt opcodes by storing BigInt values (and their moduli) by their ID in a HashMap:
+/// - When it encounters a bigint operation opcode, it performs the operation on the stored values
+/// and store the result using the provided ID.
+/// - When it gets a to_bytes opcode, it simply looks up the value and resolves the output witness accordingly.
 #[derive(Default)]
 pub(crate) struct BigIntSolver {
     bigint_id_to_value: HashMap<u32, BigUint>,
