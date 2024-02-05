@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { boolToBuffer, numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
+import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -26,7 +26,7 @@ import {
   SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
-  VerificationKey
+  VerificationKey,
 } from '../structs/index.js';
 
 /**
@@ -154,7 +154,7 @@ export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
 export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
   return Fr.fromBuffer(
     pedersenHash(
-      [computeFunctionDataHash(functionData).toBuffer(), argsHash.toBuffer(), constructorVKHash],
+      [functionData.hash().toBuffer(), argsHash.toBuffer(), constructorVKHash],
       GeneratorIndex.CONSTRUCTOR,
     ),
   );
@@ -293,25 +293,11 @@ export function computeTxHash(txRequest: TxRequest): Fr {
     pedersenHash(
       [
         txRequest.origin.toBuffer(),
-        computeFunctionDataHash(txRequest.functionData).toBuffer(),
+        txRequest.functionData.hash().toBuffer(),
         txRequest.argsHash.toBuffer(),
         computeTxContextHash(txRequest.txContext).toBuffer(),
       ],
       GeneratorIndex.TX_REQUEST,
-    ),
-  );
-}
-
-function computeFunctionDataHash(functionData: FunctionData): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        functionData.selector.toBuffer(32),
-        new Fr(functionData.isInternal).toBuffer(),
-        new Fr(functionData.isPrivate).toBuffer(),
-        new Fr(functionData.isConstructor).toBuffer(),
-      ],
-      GeneratorIndex.FUNCTION_DATA,
     ),
   );
 }
@@ -379,7 +365,7 @@ export function computePublicCallStackItemHash({
 
   return Fr.fromBuffer(
     pedersenHash(
-      [contractAddress.toBuffer(), computeFunctionDataHash(functionData).toBuffer(), publicInputs.hash().toBuffer()],
+      [contractAddress, functionData.hash(), publicInputs.hash()].map(f => f.toBuffer()),
       GeneratorIndex.CALL_STACK_ITEM,
     ),
   );

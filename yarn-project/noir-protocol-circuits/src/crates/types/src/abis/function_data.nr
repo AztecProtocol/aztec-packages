@@ -59,7 +59,10 @@ fn serialization_smoke() {
 }
 
 #[test]
-fn hash_smoke() {
+fn empty_hash() {
     let data: FunctionData = dep::std::unsafe::zeroed();
-    let _hashed = data.hash();
+    let hash = data.hash();
+
+    // Value from function_data.test.ts "computes empty item hash" test
+    assert_eq(hash, 0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d);
 }
