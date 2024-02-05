@@ -6,9 +6,13 @@ use crate::{
         GENERATOR_INDEX__CALL_CONTEXT,
     },
     hash::pedersen_hash,
+    traits::{
+        Deserialize,
+        Hash,
+        Serialize,
+    },
 };
 use dep::std::cmp::Eq;
-use crate::traits::Hash;
 
 // docs:start:call-context
 struct CallContext {
@@ -25,6 +29,20 @@ struct CallContext {
     start_side_effect_counter : u32,
 }
 // docs:end:call-context
+
+impl CallContext {
+    fn assert_is_zero(self) {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3595)
+        assert(self.msg_sender.to_field() == 0);
+        assert(self.storage_contract_address.to_field() == 0);
+        assert(self.portal_contract_address.to_field() == 0);
+        assert(self.function_selector.to_field() == 0);
+        assert(self.is_delegate_call == false);
+        assert(self.is_static_call == false);
+        assert(self.is_contract_deployment == false);
+        assert(self.start_side_effect_counter == 0);
+    }
+}
 
 impl Eq for CallContext {
     fn eq(self, call_context: CallContext) -> bool {
@@ -46,7 +64,7 @@ impl Hash for CallContext {
     }
 }
 
-impl CallContext {
+impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
     fn serialize(self) -> [Field; CALL_CONTEXT_LENGTH] {
         [
             self.msg_sender.to_field(),
@@ -59,16 +77,31 @@ impl CallContext {
             self.start_side_effect_counter as Field,
         ]
     }
+}
 
-    fn assert_is_zero(self) {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3595)
-        assert(self.msg_sender.to_field() == 0);
-        assert(self.storage_contract_address.to_field() == 0);
-        assert(self.portal_contract_address.to_field() == 0);
-        assert(self.function_selector.to_field() == 0);
-        assert(self.is_delegate_call == false);
-        assert(self.is_static_call == false);
-        assert(self.is_contract_deployment == false);
-        assert(self.start_side_effect_counter == 0);
+impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
+    fn deserialize(serialized: [Field; CALL_CONTEXT_LENGTH]) -> CallContext {
+        CallContext {
+            msg_sender: AztecAddress::from_field(serialized[0]),
+            storage_contract_address: AztecAddress::from_field(serialized[1]),
+            portal_contract_address: EthAddress::from_field(serialized[2]),
+            function_selector: FunctionSelector::from_field(serialized[3]),
+            is_delegate_call: serialized[4] as bool,
+            is_static_call: serialized[5] as bool,
+            is_contract_deployment: serialized[6] as bool,
+            start_side_effect_counter: serialized[7] as u32,
+        }
     }
+}
+
+#[test]
+fn serialization_smoke() {
+    let context: CallContext = dep::std::unsafe::zeroed();
+    let _serialized = context.serialize();
+}
+
+#[test]
+fn hash_smoke() {
+    let context: CallContext = dep::std::unsafe::zeroed();
+    let _hashed = context.hash();
 }

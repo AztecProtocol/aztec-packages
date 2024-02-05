@@ -89,7 +89,7 @@ export class Oracle {
         `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
       );
     }
-    return witness.toFieldArray().map(toACVMField);
+    return witness.toFields().map(toACVMField);
   }
 
   async getLowNullifierMembershipWitness(
@@ -105,7 +105,7 @@ export class Oracle {
         `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
       );
     }
-    return witness.toFieldArray().map(toACVMField);
+    return witness.toFields().map(toACVMField);
   }
 
   async getPublicDataTreeWitness([blockNumber]: ACVMField[], [leafSlot]: ACVMField[]): Promise<ACVMField[]> {
@@ -116,7 +116,7 @@ export class Oracle {
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
-    return witness.toFieldArray().map(toACVMField);
+    return witness.toFields().map(toACVMField);
   }
 
   async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
@@ -258,7 +258,7 @@ export class Oracle {
   }
 
   emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(charBuffer => Fr.fromString(charBuffer).toBuffer().subarray(-1)));
+    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(
       AztecAddress.fromString(contractAddress),
       EventSelector.fromField(fromACVMField(eventSelector)),

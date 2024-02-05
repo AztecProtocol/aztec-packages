@@ -17,6 +17,7 @@ pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
     rhs.lt(lhs)
 }
 
+// TODO(benesjan): also in circuits. NUKE THIS!
 struct Reader<N> {
     data: [Field; N],
     offset: Field,
@@ -41,6 +42,7 @@ impl<N> Reader<N> {
         result
     }
 
+    // TODO(#4394)
     pub fn read_struct<T, K>(&mut self, deserialise: fn([Field; K]) -> T) -> T {
         let result = deserialise(self.read_array([0; K]));
         result
