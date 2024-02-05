@@ -24,6 +24,8 @@
 #include <string>
 #include <vector>
 namespace bb::detail {
+// Compile-time string
+// See e.g. https://www.reddit.com/r/cpp_questions/comments/pumi9r/does_c20_not_support_string_literals_as_template/
 template <std::size_t N> struct OperationLabel {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     constexpr OperationLabel(const char (&str)[N])
@@ -38,7 +40,6 @@ template <std::size_t N> struct OperationLabel {
 };
 
 // Contains all statically known op counts
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 struct GlobalOpCountContainer {
   public:
     struct Entry {
@@ -46,8 +47,6 @@ struct GlobalOpCountContainer {
         std::string thread_id;
         const std::size_t* count;
     };
-    // print on destructor
-    ~GlobalOpCountContainer();
     std::mutex mutex;
     std::vector<Entry> counts;
     void print() const;
