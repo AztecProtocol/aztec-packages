@@ -1167,7 +1167,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
         "context", // Assigned to
         call(
             variable_path(chained_path!("aztec", "context", "PublicVmContext", "new")), // Path
-            vec![],                                                         // args
+            vec![],                                                                     // args
         ),
     );
 
