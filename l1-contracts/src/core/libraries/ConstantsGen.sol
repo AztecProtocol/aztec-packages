@@ -62,7 +62,10 @@ library Constants {
   uint256 internal constant MAPPING_SLOT_PEDERSEN_SEPARATOR = 4;
   uint256 internal constant NUM_FIELDS_PER_SHA256 = 2;
   uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 32;
-  uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
+  uint256 internal constant ARGS_HASH_CHUNK_COUNT = 32;
+  uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 1000;
+  uint256 internal constant CONTRACT_CLASS_REGISTERED_MAGIC_VALUE =
+    0x6999d1e02b08a447a463563453cb36919c9dd7150336fc7c4d2b52f8;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 8;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 25;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
@@ -77,11 +80,11 @@ library Constants {
   uint256 internal constant FUNCTION_DATA_LENGTH = 4;
   uint256 internal constant CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 204;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 209;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 201;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
-  uint256 internal constant CALL_PRIVATE_FUNCTION_RETURN_SIZE = 210;
   uint256 internal constant COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP = 1024;

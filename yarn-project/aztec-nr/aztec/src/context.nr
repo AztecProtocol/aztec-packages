@@ -14,7 +14,6 @@ use crate::{
         header::get_header_at,
         nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
     },
-    utils::Reader,
 };
 use dep::protocol_types::{
     abis::{
@@ -24,10 +23,10 @@ use dep::protocol_types::{
         function_data::FunctionData,
         function_selector::FunctionSelector,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
+        private_call_stack_item::PrivateCallStackItem,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        public_call_stack_item::PublicCallStackItem,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
-        call_stack_item::PrivateCallStackItem,
-        call_stack_item::PublicCallStackItem,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{
@@ -58,6 +57,7 @@ use dep::protocol_types::{
     hash::hash_args,
     header::Header,
     state_reference::StateReference,
+    utils::reader::Reader,
 };
 use dep::std::{
     option::Option,
@@ -301,65 +301,12 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let fields = call_private_function_internal(
+        let item = call_private_function_internal(
             contract_address,
             function_selector, 
             args_hash,
             self.side_effect_counter,
         );
-        let mut reader = Reader::new(fields);
-
-        let item = PrivateCallStackItem {
-            contract_address: AztecAddress::from_field(reader.read()),
-            function_data: FunctionData {
-                selector: FunctionSelector::from_field(reader.read()),
-                is_internal: reader.read() as bool,
-                is_private: reader.read() as bool,
-                is_constructor: reader.read() as bool,
-            },
-            public_inputs: PrivateCircuitPublicInputs {
-                call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(reader.read()),
-                    storage_contract_address : AztecAddress::from_field(reader.read()),
-                    portal_contract_address : EthAddress::from_field(reader.read()),
-                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
-                    is_delegate_call : reader.read() as bool,
-                    is_static_call : reader.read() as bool,
-                    is_contract_deployment: reader.read() as bool,
-                    start_side_effect_counter: reader.read() as u32,
-                },
-                args_hash: reader.read(),
-                return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
-                read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
-                nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
-                new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
-                new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
-                private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
-                public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
-                new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
-                end_side_effect_counter: reader.read() as u32,
-                encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
-                unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
-                encrypted_log_preimages_length: reader.read(),
-                unencrypted_log_preimages_length: reader.read(),
-                historical_header: reader.read_struct(Header::deserialize),
-                contract_deployment_data: ContractDeploymentData {
-                    public_key: GrumpkinPoint {
-                      x: reader.read(), 
-                      y: reader.read()
-                    },
-                    initialization_hash : reader.read(),
-                    contract_class_id : ContractClassId::from_field(reader.read()),
-                    contract_address_salt : reader.read(),
-                    portal_contract_address : EthAddress::from_field(reader.read()),
-                },
-                chain_id: reader.read(),
-                version: reader.read(),
-            },
-            is_execution_request: reader.read() as bool,
-        };
-
-        reader.finish();
 
         assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
@@ -368,8 +315,6 @@ impl PrivateContext {
         assert(function_selector.eq(item.function_data.selector));
 
         assert(args_hash == item.public_inputs.args_hash);
-
-        assert(item.is_execution_request == false);
 
         // Assert that the call context of the enqueued call generated by the oracle matches our request.
         // We are issuing a regular call which is not delegate, static, or deployment. We also constrain
@@ -420,25 +365,13 @@ impl PrivateContext {
 
         let mut reader = Reader::new(fields);
 
+        // Note: Not using PublicCirclePublicInputs::deserialize here, because everything below args_hash is 0 and
+        // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
         let item = PublicCallStackItem {
             contract_address:  AztecAddress::from_field(reader.read()),
-            function_data: FunctionData {
-                selector: FunctionSelector::from_field(reader.read()),
-                is_internal: reader.read() as bool,
-                is_private: reader.read() as bool,
-                is_constructor: reader.read() as bool,
-            },
+            function_data: reader.read_struct(FunctionData::deserialize),
             public_inputs: PublicCircuitPublicInputs {
-                call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(reader.read()),
-                    storage_contract_address : AztecAddress::from_field(reader.read()),
-                    portal_contract_address : EthAddress::from_field(reader.read()),
-                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
-                    is_delegate_call : reader.read() as bool,
-                    is_static_call : reader.read() as bool,
-                    is_contract_deployment: reader.read() as bool,
-                    start_side_effect_counter: reader.read() as u32,
-                },
+                call_context: reader.read_struct(CallContext::deserialize),
                 args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
