@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { initMachineState } from '../fixtures/index.js';
+import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
@@ -38,19 +38,11 @@ export class Call extends Instruction {
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3992): there is no concept of remaining / available gas at this moment
   async execute(context: AvmContext): Promise<void> {
     const callAddress = context.machineState.memory.getAs<Field>(this.addrOffset);
-    const calldata = context.machineState.memory
-      .getSlice(this.argsOffset, this.argsSize)
-      .map(f => new Fr(f.toBigInt()));
+    const calldata = context.machineState.memory.getSlice(this.argsOffset, this.argsSize).map(f => f.toFr());
 
-    const nestedContext = await AvmContext.createNestedContractCallContext(
-      new Fr(callAddress.toBigInt()),
-      calldata,
-      context.environment,
-      initMachineState(),
-      context.worldState,
-    );
+    const nestedContext = context.createNestedContractCallContext(callAddress.toFr(), calldata);
 
-    const nestedCallResults = await nestedContext.execute();
+    const nestedCallResults = await new AvmSimulator(nestedContext).execute();
     const success = !nestedCallResults.reverted;
 
     // We only take as much data as was specified in the return size -> TODO: should we be reverting here
@@ -106,15 +98,9 @@ export class StaticCall extends Instruction {
       .getSlice(this.argsOffset, this.argsSize)
       .map(f => new Fr(f.toBigInt()));
 
-    const nestedContext = await AvmContext.createNestedStaticCallContext(
-      new Fr(callAddress.toBigInt()),
-      calldata,
-      context.environment,
-      initMachineState(),
-      context.worldState,
-    );
+    const nestedContext = context.createNestedContractStaticCallContext(callAddress.toFr(), calldata);
 
-    const nestedCallResults = await nestedContext.execute();
+    const nestedCallResults = await new AvmSimulator(nestedContext).execute();
     const success = !nestedCallResults.reverted;
 
     // We only take as much data as was specified in the return size -> TODO: should we be reverting here

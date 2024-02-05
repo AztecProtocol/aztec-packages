@@ -42,14 +42,18 @@ export class AvmMachineState {
   /** Output data must NOT be modified once it is set */
   private output: Fr[] = [];
 
-  /**
-   * Create a new machine state
-   * @param initialMachineState - The initial machine state passed to the avm
-   */
-  constructor(initialMachineState: InitialAvmMachineState) {
-    this.l1GasLeft = initialMachineState.l1GasLeft;
-    this.l2GasLeft = initialMachineState.l2GasLeft;
-    this.daGasLeft = initialMachineState.daGasLeft;
+  constructor(l1GasLeft: number, l2GasLeft: number, daGasLeft: number) {
+    this.l1GasLeft = l1GasLeft;
+    this.l2GasLeft = l2GasLeft;
+    this.daGasLeft = daGasLeft;
+  }
+
+  public static fromState(state: InitialAvmMachineState): AvmMachineState {
+    return new AvmMachineState(state.l1GasLeft, state.l2GasLeft, state.daGasLeft);
+  }
+
+  public static ZERO() {
+    return new AvmMachineState(/*l1GasLeft=*/ 0, /*l2GasLeft=*/ 0, /*daGasLeft=*/ 0);
   }
 
   /**

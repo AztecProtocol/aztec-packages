@@ -6,7 +6,9 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../index.js';
 import { AvmContext } from './avm_context.js';
+import { AvmMachineState } from './avm_machine_state.js';
 import { TypeTag } from './avm_memory_types.js';
+import { AvmSimulator } from './avm_simulator.js';
 import { initExecutionEnvironment } from './fixtures/index.js';
 import { HostStorage } from './journal/host_storage.js';
 import { AvmWorldStateJournal } from './journal/journal.js';
@@ -38,11 +40,8 @@ describe('avm', () => {
 
     jest.spyOn(journal.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
 
-    // Initialize AVM context
-    const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
-
-    // Execute AVM
-    const results = await context.execute();
+    const context = new AvmContext(initExecutionEnvironment({ calldata }), AvmMachineState.ZERO(), journal);
+    const results = await new AvmSimulator(context).execute();
 
     expect(results.reverted).toBe(false);
 
@@ -64,11 +63,8 @@ describe('avm', () => {
 
       jest.spyOn(journal.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
 
-      // Initialize AVM context
-      const context = new AvmContext(journal, initExecutionEnvironment({ calldata }));
-
-      // Execute AVM
-      const results = await context.execute();
+      const context = new AvmContext(initExecutionEnvironment({ calldata }), AvmMachineState.ZERO(), journal);
+      const results = await new AvmSimulator(context).execute();
 
       expect(results.reverted).toBe(false);
 
