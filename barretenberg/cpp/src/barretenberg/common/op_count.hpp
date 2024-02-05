@@ -79,6 +79,10 @@ template <OperationLabel Op> thread_local std::size_t* GlobalOpCount<Op>::thread
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define BB_INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_PRINT_OP_COUNTS() bb::detail::GLOBAL_OP_COUNTS.print()
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_CLEAR_OP_COUNTS() bb::detail::GLOBAL_OP_COUNTS.clear()
 #endif
