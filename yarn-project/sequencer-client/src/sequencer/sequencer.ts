@@ -31,6 +31,9 @@ export class Sequencer {
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
+  // TODO(benesjan): The following values should not default to zero.
+  private coinbase = EthAddress.ZERO;
+  private feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
 
@@ -63,6 +66,12 @@ export class Sequencer {
     }
     if (config.minTxsPerBlock) {
       this.minTxsPerBLock = config.minTxsPerBlock;
+    }
+    if (config.coinbase) {
+      this.coinbase = config.coinbase;
+    }
+    if (config.feeRecipient) {
+      this.feeRecipient = config.feeRecipient;
     }
   }
 
@@ -155,13 +164,10 @@ export class Sequencer {
         }
       };
 
-      // TODO(benesjan): populate these values from config.
-      const coinbase = EthAddress.ZERO;
-      const feeRecipient = AztecAddress.ZERO;
       const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
         new Fr(newBlockNumber),
-        coinbase,
-        feeRecipient,
+        this.coinbase,
+        this.feeRecipient,
       );
 
       // Filter out invalid txs

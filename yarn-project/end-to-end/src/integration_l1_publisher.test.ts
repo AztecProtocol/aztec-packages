@@ -99,6 +99,9 @@ describe('L1Publisher integration', () => {
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
+  let coinbase: EthAddress;
+  let feeRecipient: AztecAddress;
+
   // To overwrite the test data, set this to true and run the tests.
   const OVERWRITE_TEST_DATA = false;
 
@@ -149,6 +152,9 @@ describe('L1Publisher integration', () => {
       publisherPrivateKey: sequencerPK,
       l1BlockPublishRetryIntervalMS: 100,
     });
+
+    coinbase = config.coinbase || EthAddress.ZERO;
+    feeRecipient = config.feeRecipient || AztecAddress.ZERO;
 
     prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
@@ -360,9 +366,6 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
 
-      // TODO(benesjan): populate these values from config.
-      const coinbase = EthAddress.ZERO;
-      const feeRecipient = AztecAddress.ZERO;
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
