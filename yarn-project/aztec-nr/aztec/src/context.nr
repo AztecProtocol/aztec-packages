@@ -14,7 +14,6 @@ use crate::{
         header::get_header_at,
         nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
     },
-    utils::Reader,
 };
 use dep::protocol_types::{
     abis::{
@@ -58,6 +57,7 @@ use dep::protocol_types::{
     hash::hash_args,
     header::Header,
     state_reference::StateReference,
+    utils::reader::Reader,
 };
 use dep::std::{
     option::Option,
