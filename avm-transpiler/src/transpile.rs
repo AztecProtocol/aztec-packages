@@ -255,8 +255,8 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
             },
             BrilligOpcode::ForeignCall { function, destinations, inputs } => {
                 handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
-            }
-        _ => panic!(
+            },
+            _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
                 brillig_instr
             ),
