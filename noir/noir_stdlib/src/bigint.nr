@@ -59,7 +59,7 @@ impl Add for BigInt {
 }
 impl Sub for BigInt { 
     fn sub(self: Self, other: BigInt) -> BigInt {
-        self.bigint_neg(other)
+        self.bigint_sub(other)
     }
 }
 impl Mul for BigInt { 
@@ -75,7 +75,7 @@ impl Div for BigInt {
 impl Rem for BigInt { 
     fn rem(self: Self, other: BigInt) -> BigInt {
         let quotient = self.bigint_div(other);
-        self.bigint_neg(quotient.bigint_mul(other))
+        self.bigint_sub(quotient.bigint_mul(other))
     }
 }
 

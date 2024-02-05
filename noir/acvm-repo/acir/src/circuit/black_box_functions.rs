@@ -120,7 +120,7 @@ impl BlackBoxFunc {
             "keccakf1600" => Some(BlackBoxFunc::Keccakf1600),
             "recursive_aggregation" => Some(BlackBoxFunc::RecursiveAggregation),
             "bigint_add" => Some(BlackBoxFunc::BigIntAdd),
-            "bigint_neg" => Some(BlackBoxFunc::BigIntSub),
+            "bigint_sub" => Some(BlackBoxFunc::BigIntSub),
             "bigint_mul" => Some(BlackBoxFunc::BigIntMul),
             "bigint_div" => Some(BlackBoxFunc::BigIntDiv),
             "bigint_from_le_bytes" => Some(BlackBoxFunc::BigIntFromLeBytes),
