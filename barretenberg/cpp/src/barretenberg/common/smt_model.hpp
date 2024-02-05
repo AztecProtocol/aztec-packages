@@ -13,7 +13,7 @@ void default_model(std::vector<std::string> special, smt_circuit::Circuit<FF> &c
         std::string vname2 = c2[static_cast<uint32_t>(i)];
         info("{", mmap1[vname1], ", ", mmap2[vname2], "}", ",           //", vname1, ", ", vname2);
     }     
-    info("}");
+    info("};");
 
     std::unordered_map<std::string, cvc5::Term> vterms;    
     for(auto &vname: special){
@@ -23,7 +23,7 @@ void default_model(std::vector<std::string> special, smt_circuit::Circuit<FF> &c
 
     std::unordered_map<std::string, std::string> mmap = s->model(vterms);
     for(auto &vname: special){
-        info(vname + "1", ", ", vname + "2", " = ", mmap[vname + "1"], ", ", mmap[vname + "2"]);
+        info("// ", vname + "1", ", ", vname + "2", " = ", mmap[vname + "1"], ", ", mmap[vname + "2"]);
     }
 }
 
@@ -37,7 +37,7 @@ void default_model_single(std::vector<std::string> special, smt_circuit::Circuit
         std::string vname = c[static_cast<uint32_t>(i)];
         info(mmap[vname], ",              //", vname);
     }     
-    info("}");
+    info("};");
 
     std::unordered_map<std::string, cvc5::Term> vterms1;    
     for(auto &vname: special){
@@ -46,6 +46,6 @@ void default_model_single(std::vector<std::string> special, smt_circuit::Circuit
 
     std::unordered_map<std::string, std::string> mmap1 = s->model(vterms);
     for(auto &vname: special){
-        info(vname, ": ", mmap1[vname]);
+        info("// ", vname, ": ", mmap1[vname]);
     }
 }
