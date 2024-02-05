@@ -273,9 +273,6 @@ void projective_point_accidental_doubling(State& state)
     }
 }
 
-template <bb::detail::OperationLabel Op> struct GlobalOpCount {
-    void print() { std::cout << Op.value << std::endl; }
-};
 /**
  * @brief Evaluate how much projective point doubling costs (in cache)
  *
