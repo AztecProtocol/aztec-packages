@@ -37,17 +37,15 @@ class GoblinFoldingTests : public ::testing::Test {
         GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
-    static HonkProof construct_fold_proof_and_update_accumulator(std::shared_ptr<Instance>& accumulator,
-                                                                 Builder& circuit_to_fold)
+    static FoldingOutput construct_fold_proof_and_update_accumulator(std::shared_ptr<Instance>& accumulator,
+                                                                     Builder& circuit_to_fold)
     {
         Composer composer;
         auto instance = composer.create_instance(circuit_to_fold);
         std::vector<std::shared_ptr<Instance>> instances{ accumulator, instance };
         auto folding_prover = composer.create_folding_prover(instances);
-        auto output = folding_prover.fold_instances();
-        accumulator = output.accumulator;
-        auto fold_proof = output.folding_data;
-        return fold_proof;
+        FoldingOutput output = folding_prover.fold_instances();
+        return output;
     }
 
     static bool decide_and_verify(std::shared_ptr<Instance>& accumulator)
@@ -71,23 +69,23 @@ class GoblinFoldingTests : public ::testing::Test {
         verifier_2.verify_folding_proof(kernel_fold_proof);
 
         Composer composer;
-        auto instance = composer.create_instance(builder);
-        info("kernel size = ", instance->proving_key->circuit_size);
-        info("kernel num ecc op gates = ", instance->proving_key->num_ecc_op_gates);
+        // auto instance = composer.create_instance(builder);
+        // info("kernel size = ", instance->proving_key->circuit_size);
+        // info("kernel num ecc op gates = ", instance->proving_key->num_ecc_op_gates);
     }
 
     // DEBUG only: perform native fold verification and run decider prover/verifier
-    static void verify_fold_and_decide(FoldProof& fold_proof, std::shared_ptr<Instance>& accumulator)
+    static void verify_fold_and_decide(FoldingOutput& folding_output)
     {
         // Verify fold proof
         Composer composer;
         auto folding_verifier = composer.create_folding_verifier();
-        bool folding_verified = folding_verifier.verify_folding_proof(fold_proof);
+        bool folding_verified = folding_verifier.verify_folding_proof(folding_output.folding_data);
         EXPECT_TRUE(folding_verified);
 
         // Run decider
-        auto decider_prover = composer.create_decider_prover(accumulator);
-        auto decider_verifier = composer.create_decider_verifier(accumulator);
+        auto decider_prover = composer.create_decider_prover(folding_output.accumulator);
+        auto decider_verifier = composer.create_decider_verifier(folding_output.accumulator);
         auto decider_proof = decider_prover.construct_proof();
         bool decision = decider_verifier.verify_proof(decider_proof);
         EXPECT_TRUE(decision);
@@ -109,38 +107,42 @@ TEST_F(GoblinFoldingTests, Full)
     Builder function_circuit{ goblin.op_queue };
     create_mock_function_circuit(function_circuit);
     Composer composer; // This is annoying
-    auto accum_instance = composer.create_instance(function_circuit);
-    info("function circuit num_gates = ", accum_instance->proving_key->circuit_size);
+    FoldingOutput function_folding_output;
+    function_folding_output.accumulator = composer.create_instance(function_circuit);
+    info("function circuit num_gates = ", function_folding_output.accumulator->proving_key->circuit_size);
 
     Builder kernel_circuit{ goblin.op_queue };
     create_mock_function_circuit(kernel_circuit);
-    auto kernel_fold_proof = construct_fold_proof_and_update_accumulator(accum_instance, kernel_circuit);
+    FoldingOutput kernel_folding_output =
+        construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
 
     // DEBUG only
-    verify_fold_and_decide(kernel_fold_proof, accum_instance);
+    verify_fold_and_decide(kernel_folding_output);
 
     // "Round i"
     size_t NUM_CIRCUITS = 1;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-
         // Construct and accumulate a mock function circuit
         Builder function_circuit{ goblin.op_queue };
         create_mock_function_circuit(function_circuit);
         goblin.merge(function_circuit); // must be called prior to folding
-        auto fctn_fold_proof = construct_fold_proof_and_update_accumulator(accum_instance, function_circuit);
+        function_folding_output =
+            construct_fold_proof_and_update_accumulator(kernel_folding_output.accumulator, function_circuit);
 
         // DEBUG only
-        verify_fold_and_decide(fctn_fold_proof, accum_instance);
+        verify_fold_and_decide(function_folding_output);
 
         // Construct and accumulate the mock kernel circuit (no kernel accum in first round)
         Builder kernel_circuit{ goblin.op_queue };
-        construct_mock_folding_kernel(kernel_circuit, fctn_fold_proof, kernel_fold_proof);
+        construct_mock_folding_kernel(
+            kernel_circuit, function_folding_output.folding_data, kernel_folding_output.folding_data);
         goblin.merge(kernel_circuit); // must be called prior to folding
         // WORKTODO: Getting an issue in the fold prover here; making standalone test to debug
-        // auto kernel_fold_proof = construct_fold_proof_and_update_accumulator(accum_instance, kernel_circuit);
+        kernel_folding_output =
+            construct_fold_proof_and_update_accumulator(function_folding_output.accumulator, kernel_circuit);
 
-        // // DEBUG only
-        // verify_fold_and_decide(kernel_fold_proof, accum_instance);
+        // DEBUG only
+        verify_fold_and_decide(kernel_folding_output);
     }
 
     // // WORKTODO: execute the decider prover here?
@@ -154,55 +156,4 @@ TEST_F(GoblinFoldingTests, Full)
     // EXPECT_TRUE(verified);
     // // WORKTODO: check decider result as well
     // // EXPECT_TRUE(ultra_verified && verified);
-}
-
-/**
- * @brief Check that we can fold a recursive folding verifier circuit
- * @details This has not been checked elsewhere and seems to be the failure point of the full test above
- */
-TEST_F(GoblinFoldingTests, FoldRecursiveFoldingVerifier)
-{
-    Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723):
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-
-    // Construct two arbirary circuits (sized to match size of single recursive verifier = 2^15)
-    Builder circuit1{ goblin.op_queue };
-    Builder circuit2{ goblin.op_queue };
-    create_mock_function_circuit(circuit1, 1 << 14); // 2^14 here results in 2^15
-    create_mock_function_circuit(circuit2, 1 << 14); // 2^14 here results in 2^15
-    Composer composer;
-    auto instance1 = composer.create_instance(circuit1);
-    auto instance2 = composer.create_instance(circuit2);
-    std::vector<std::shared_ptr<Instance>> instances{ instance1, instance2 };
-    info("function circuit num_gates = ", instance1->proving_key->circuit_size);
-
-    // Fold the first two arbitrary circuits
-    auto folding_prover = composer.create_folding_prover(instances);
-    auto output = folding_prover.fold_instances();
-    auto accumulator = output.accumulator;
-    auto fold_proof = output.folding_data;
-
-    // DEBUG only: check the folding all the way through decider
-    verify_fold_and_decide(fold_proof, accumulator);
-
-    // Construct a recursive folding verifier circuit
-    Builder rec_verifier_circuit{ goblin.op_queue };
-    FoldingRecursiveVerifier verifier{ &rec_verifier_circuit };
-    verifier.verify_folding_proof(fold_proof);
-    // WORKTODO: DEBUG: try adding a public input via the mock function circuit; Without this we don't get through fold
-    // proving; with it we get through but decider fails
-    create_mock_function_circuit(rec_verifier_circuit, 2);
-
-    // Check size of recursive verifier circuit
-    Composer composer2;
-    auto ver_instance = composer.create_instance(rec_verifier_circuit);
-    info("rec verifier size = ", ver_instance->proving_key->circuit_size);
-
-    // Fold recursive verifier circuit into the accumulator instance
-    auto verifier_fold_proof = construct_fold_proof_and_update_accumulator(accumulator, rec_verifier_circuit);
-
-    // DEBUG only
-    verify_fold_and_decide(verifier_fold_proof, accumulator);
 }
