@@ -33,6 +33,12 @@ void GlobalOpCountContainer::print() const
     }
 }
 
+void GlobalOpCountContainer::clear()
+{
+    std::unique_lock<std::mutex> lock(mutex);
+    counts.clear();
+}
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 GlobalOpCountContainer GLOBAL_OP_COUNTS;
 } // namespace bb::detail

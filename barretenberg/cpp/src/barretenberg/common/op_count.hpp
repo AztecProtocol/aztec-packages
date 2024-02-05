@@ -5,7 +5,9 @@
 
 #ifdef NO_OP_COUNTS
 // require a semicolon to appease formatters
-#define INCREMENT_OP_COUNT() (void)0
+#define BB_INCREMENT_OP_COUNT() (void)0
+#define BB_PRINT_OP_COUNTS() (void)0
+#define BB_CLEAR_OP_COUNTS() (void)0
 #else
 /**
  * Provides an abstraction that counts operations based on function names.
@@ -43,6 +45,7 @@ struct GlobalOpCountContainer {
     std::mutex mutex;
     std::vector<Entry> counts;
     void print() const;
+    void clear();
     void add_entry(const char* key, const std::size_t* count);
 };
 
@@ -73,5 +76,7 @@ template <OperationLabel Op> thread_local std::size_t* GlobalOpCount<Op>::thread
 } // namespace bb::detail
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
+#define BB_INCREMENT_OP_COUNT() bb::detail::GlobalOpCount<__func__>::increment_op_count()
+#define BB_PRINT_OP_COUNTS() bb::detail::GLOBAL_OP_COUNTS.print()
+#define BB_CLEAR_OP_COUNTS() bb::detail::GLOBAL_OP_COUNTS.clear()
 #endif
