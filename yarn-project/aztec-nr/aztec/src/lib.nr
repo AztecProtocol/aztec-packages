@@ -1,5 +1,4 @@
 mod abi;
-mod avm;
 mod context;
 mod hash;
 mod history;
