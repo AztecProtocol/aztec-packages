@@ -1,18 +1,14 @@
-import { MockProxy, mock } from 'jest-mock-extended';
-
 import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
 import { TagCheckError } from '../errors.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { initContext } from '../fixtures/index.js';
 import { Eq, Lt, Lte } from './comparators.js';
 
 describe('Comparators', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmWorldStateJournal>;
 
-  beforeEach(async () => {
-    journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal);
+  beforeEach(() => {
+    context = initContext();
   });
 
   describe('Eq', () => {

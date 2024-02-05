@@ -2,32 +2,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts';
 
 import { jest } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
 
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../index.js';
-import { AvmContext } from './avm_context.js';
-import { AvmMachineState } from './avm_machine_state.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { initExecutionEnvironment } from './fixtures/index.js';
-import { HostStorage } from './journal/host_storage.js';
-import { AvmWorldStateJournal } from './journal/journal.js';
+import { initContext, initExecutionEnvironment } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 
 describe('avm', () => {
-  let journal: AvmWorldStateJournal;
-  let contractsDb: MockProxy<PublicContractsDB>;
-
-  beforeEach(() => {
-    contractsDb = mock<PublicContractsDB>();
-
-    const commitmentsDb = mock<CommitmentsDB>();
-    const publicStateDb = mock<PublicStateDB>();
-    const hostStorage = new HostStorage(publicStateDb, contractsDb, commitmentsDb);
-    journal = new AvmWorldStateJournal(hostStorage);
-  });
-
   it('Should execute bytecode that performs basic addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
 
@@ -38,9 +20,9 @@ describe('avm', () => {
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
 
-    jest.spyOn(journal.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+    jest.spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
 
-    const context = new AvmContext(initExecutionEnvironment({ calldata }), AvmMachineState.ZERO(), journal);
     const results = await new AvmSimulator(context).execute();
 
     expect(results.reverted).toBe(false);
@@ -61,9 +43,9 @@ describe('avm', () => {
       // Decode bytecode into instructions
       const bytecode = Buffer.from(addArtifact.bytecode, 'base64');
 
-      jest.spyOn(journal.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest.spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
 
-      const context = new AvmContext(initExecutionEnvironment({ calldata }), AvmMachineState.ZERO(), journal);
       const results = await new AvmSimulator(context).execute();
 
       expect(results.reverted).toBe(false);

@@ -1,20 +1,13 @@
-import { mock } from 'jest-mock-extended';
-
 import { AvmContext } from '../avm_context.js';
-import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, TypeTag } from '../avm_memory_types.js';
-import { initExecutionEnvironment } from '../fixtures/index.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { initContext } from '../fixtures/index.js';
 import { Add, Div, Mul, Sub } from './arithmetic.js';
 
 describe('Arithmetic Instructions', () => {
   let context: AvmContext;
 
   beforeEach(() => {
-    const journal = mock<AvmWorldStateJournal>();
-    const machineState = AvmMachineState.ZERO();
-    const env = initExecutionEnvironment();
-    context = new AvmContext(env, machineState, journal);
+    context = initContext();
   });
 
   describe('Add', () => {

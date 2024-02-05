@@ -6,55 +6,58 @@ import { AvmMachineState } from './avm_machine_state.js';
 import { AvmWorldStateJournal } from './journal/journal.js';
 
 /**
- * Avm Context manages the state and execution of the AVM
+ * An execution context includes the information necessary to initiate AVM
+ * execution along with all state maintained by the AVM throughout execution.
  */
 export class AvmContext {
-  /** Contains constant variables provided by the kernel */
-  public environment: AvmExecutionEnvironment;
-  /** VM state that is modified on an instruction-by-instruction basis */
-  public machineState: AvmMachineState;
-  /** Manages mutable state during execution - (caching, fetching) */
-  public worldState: AvmWorldStateJournal;
-
-  constructor(environment: AvmExecutionEnvironment, machineState: AvmMachineState, worldState: AvmWorldStateJournal) {
-    this.environment = environment;
-    this.machineState = machineState;
-    this.worldState = worldState;
-  }
+  /**
+   * Create a new AVM context
+   * @param worldState - Manages mutable state during execution - (caching, fetching)
+   * @param environment - Contains constant variables provided by the kernel
+   * @param machineState - VM state that is modified on an instruction-by-instruction basis
+   * @returns new AvmContext instance
+   */
+  constructor(
+    public worldState: AvmWorldStateJournal,
+    public environment: AvmExecutionEnvironment,
+    public machineState: AvmMachineState,
+  ) {}
 
   /**
    * Prepare a new AVM context that will be ready for an external/nested call
    * - Fork the world state journal
+   * - Derive a machine state from the current state
+   *   - E.g., gas metering is preserved but pc is reset
    * - Derive an execution environment from the caller/parent
-   *    - Alter both address and storageAddress
+   *   - Alter both address and storageAddress
    *
    * @param address - The contract instance to initialize a context for
    * @param calldata - Data/arguments for nested call
-   * @param initialMachineState - The initial machine state (derived from call instruction args)
    * @returns new AvmContext instance
    */
   public createNestedContractCallContext(address: AztecAddress, calldata: Fr[]): AvmContext {
     const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedCall(address, calldata);
-    const forkedState = this.worldState.fork();
+    const forkedWorldState = this.worldState.fork();
     const machineState = AvmMachineState.fromState(this.machineState);
-    return new AvmContext(newExecutionEnvironment, machineState, forkedState);
+    return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }
 
   /**
    * Prepare a new AVM context that will be ready for an external/nested static call
    * - Fork the world state journal
+   * - Derive a machine state from the current state
+   *   - E.g., gas metering is preserved but pc is reset
    * - Derive an execution environment from the caller/parent
-   *    - Alter both address and storageAddress
+   *   - Alter both address and storageAddress
    *
    * @param address - The contract instance to initialize a context for
    * @param calldata - Data/arguments for nested call
-   * @param initialMachineState - The initial machine state (derived from call instruction args)
    * @returns new AvmContext instance
    */
   public createNestedContractStaticCallContext(address: AztecAddress, calldata: Fr[]): AvmContext {
     const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedStaticCall(address, calldata);
-    const forkedState = this.worldState.fork();
+    const forkedWorldState = this.worldState.fork();
     const machineState = AvmMachineState.fromState(this.machineState);
-    return new AvmContext(newExecutionEnvironment, machineState, forkedState);
+    return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }
 }

@@ -5,7 +5,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { initExecutionEnvironment } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { AvmWorldStateJournal } from '../journal/journal.js';
 import { SLoad, SStore, StaticCallStorageAlterError } from './storage.js';
 
@@ -16,7 +16,7 @@ describe('Storage Instructions', () => {
 
   beforeEach(async () => {
     journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal, initExecutionEnvironment({ address, storageAddress: address }));
+    context = initContext({ worldState: journal, env: initExecutionEnvironment({ address, storageAddress: address }) });
   });
 
   describe('SSTORE', () => {
@@ -46,7 +46,10 @@ describe('Storage Instructions', () => {
     });
 
     it('Should not be able to write to storage in a static call', async () => {
-      context = new AvmContext(journal, initExecutionEnvironment({ isStaticCall: true }));
+      context = initContext({
+        worldState: journal,
+        env: initExecutionEnvironment({ address, storageAddress: address, isStaticCall: true }),
+      });
 
       const a = new Field(1n);
       const b = new Field(2n);

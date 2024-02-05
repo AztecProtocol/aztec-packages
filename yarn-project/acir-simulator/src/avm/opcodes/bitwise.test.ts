@@ -1,17 +1,13 @@
-import { MockProxy, mock } from 'jest-mock-extended';
-
 import { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { initContext } from '../fixtures/index.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 
 describe('Bitwise instructions', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmWorldStateJournal>;
 
-  beforeEach(async () => {
-    journal = mock<AvmWorldStateJournal>();
-    context = new AvmContext(journal);
+  beforeEach(() => {
+    context = initContext();
   });
 
   describe('AND', () => {

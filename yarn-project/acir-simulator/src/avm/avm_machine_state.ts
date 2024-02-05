@@ -52,10 +52,6 @@ export class AvmMachineState {
     return new AvmMachineState(state.l1GasLeft, state.l2GasLeft, state.daGasLeft);
   }
 
-  public static ZERO() {
-    return new AvmMachineState(/*l1GasLeft=*/ 0, /*l2GasLeft=*/ 0, /*daGasLeft=*/ 0);
-  }
-
   /**
    * Most instructions just increment PC before they complete
    */

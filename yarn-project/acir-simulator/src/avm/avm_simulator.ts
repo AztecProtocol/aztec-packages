@@ -1,6 +1,5 @@
 import { FunctionSelector } from '@aztec/circuits.js';
-// import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
@@ -11,21 +10,25 @@ import type { Instruction } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 
 export class AvmSimulator {
-  private log = createDebugLogger('todo-here');
+  private log: DebugLogger = createDebugLogger('aztec:avm_simulator');
 
   constructor(private context: AvmContext) {}
 
   /**
-   * Execute the contract code within the current context.
+   * Fetch the bytecode and execute it in the current context.
    */
   public async execute(): Promise<AvmContractCallResults> {
     const instructions = await this.fetchAndDecodeBytecode();
-    // Cannot execute empty contract or uninitialized context
-    assert(instructions.length > 0);
     return this.executeInstructions(instructions);
   }
 
+  /**
+   * Executes the provided instructions in the current context.
+   * This method is useful for testing and debugging.
+   */
   public async executeInstructions(instructions: Instruction[]): Promise<AvmContractCallResults> {
+    assert(instructions.length > 0);
+
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt

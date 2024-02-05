@@ -1,21 +1,14 @@
-import { mock } from 'jest-mock-extended';
-
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { initExecutionEnvironment } from '../fixtures/index.js';
-import { HostStorage } from '../journal/host_storage.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
-  let journal: AvmWorldStateJournal;
 
   beforeEach(() => {
-    const hostStorage = mock<HostStorage>();
-    journal = new AvmWorldStateJournal(hostStorage);
-    context = new AvmContext(journal);
+    context = initContext();
   });
 
   describe('EmitNoteHash', () => {
@@ -129,7 +122,7 @@ describe('Accrued Substate', () => {
   });
 
   it('All substate instructions should fail within a static call', async () => {
-    context = new AvmContext(journal, initExecutionEnvironment({ isStaticCall: true }));
+    context = initContext({ env: initExecutionEnvironment({ isStaticCall: true }) });
 
     const instructions = [
       new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),

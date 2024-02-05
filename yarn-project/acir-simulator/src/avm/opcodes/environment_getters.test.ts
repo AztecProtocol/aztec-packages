@@ -1,10 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { MockProxy, mock } from 'jest-mock-extended';
-
-import { AvmContext } from '../avm_context.js';
-import { initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
 import {
   Address,
   BlockNumber,
@@ -21,16 +17,9 @@ import {
 } from './environment_getters.js';
 
 describe('Environment getters instructions', () => {
-  let context: AvmContext;
-  let journal: MockProxy<AvmWorldStateJournal>;
-
-  beforeEach(() => {
-    journal = mock<AvmWorldStateJournal>();
-  });
-
   type EnvInstruction = Portal | FeePerL1Gas | FeePerL2Gas | FeePerDAGas | Origin | Sender | StorageAddress | Address;
   const envGetterTest = async (key: string, value: Fr, instruction: EnvInstruction) => {
-    context = new AvmContext(journal, initExecutionEnvironment({ [key]: value }));
+    const context = initContext({ env: initExecutionEnvironment({ [key]: value }) });
 
     await instruction.execute(context);
     const actual = context.machineState.memory.get(0).toFr();
@@ -193,7 +182,7 @@ describe('Environment getters instructions', () => {
     type GlobalsInstruction = ChainId | Version | BlockNumber | Timestamp;
     const readGlobalVariableTest = async (key: string, value: Fr, instruction: GlobalsInstruction) => {
       const globals = initGlobalVariables({ [key]: value });
-      context = new AvmContext(journal, initExecutionEnvironment({ globals }));
+      const context = initContext({ env: initExecutionEnvironment({ globals }) });
 
       await instruction.execute(context);
       const actual = context.machineState.memory.get(0).toFr();
