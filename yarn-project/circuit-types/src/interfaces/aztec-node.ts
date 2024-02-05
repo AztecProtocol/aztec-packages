@@ -10,6 +10,7 @@ import {
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { ContractClassPublic } from '@aztec/types/contracts';
 
 import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
@@ -279,4 +280,10 @@ export interface AztecNode {
    * @param config - Updated configuration to be merged with the current one.
    */
   setConfig(config: Partial<SequencerConfig>): Promise<void>;
+
+  /**
+   * Returns a registered contract class given its id.
+   * @param id - Id of the contract class.
+   */
+  getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
 }

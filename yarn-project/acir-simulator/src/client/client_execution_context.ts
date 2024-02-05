@@ -300,7 +300,8 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    const text = log.toHumanReadable();
+    this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
   /**
