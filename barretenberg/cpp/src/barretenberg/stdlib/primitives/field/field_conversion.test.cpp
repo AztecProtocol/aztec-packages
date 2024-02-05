@@ -6,6 +6,7 @@ namespace bb::stdlib::field_conversion_tests {
 template <typename Builder> using fr = field_t<Builder>;
 template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
+template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
 template <typename Builder> class StdlibFieldConversionTests : public ::testing::Test {
   public:
@@ -59,6 +60,10 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionFr)
     bb::fr x2_val(bb::fr::modulus_minus_two); // modulus - 2
     fr<Builder> x2(&builder, x2_val);
     this->check_conversion(builder, x2);
+
+    bb::fr x3_val(1);
+    fr<Builder> x3(&builder, x3_val);
+    this->check_conversion(builder, x3);
 }
 
 /**
@@ -94,24 +99,24 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
     this->check_conversion(builder, x2);
 }
 
-// TODO: Will this be necessary for the ECCVM recursive verifier?
-// /**
-//  * @brief Field conversion test for element<Builder, fq<Builder>, fr<Builder>, curve::Grumpkin::Group>
-//  */
-// TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
-// {
-//     using Builder = TypeParam;
-//     Builder builder;
+/**
+ * @brief Field conversion test for grumpkin_element<Builder>
+ *
+ */
+TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
+{
+    using Builder = TypeParam;
+    Builder builder;
 
-//     // Constructing element objects with curve::Grumpkin::AffineElement values
-//     curve::Grumpkin::AffineElement x1_val(1, 2);
-//     element<Builder, fq<Builder>, fr<Builder>, curve::Grumpkin::Group> x1(&builder, x1_val);
-//     this->check_conversion(builder, x1);
+    // Constructing element objects with curve::Grumpkin::AffineElement values
+    curve::Grumpkin::AffineElement x1_val(12, 100);
+    grumpkin_element<Builder> x1 = grumpkin_element<Builder>::from_witness(&builder, x1_val);
+    this->check_conversion(builder, x1);
 
-//     curve::Grumpkin::AffineElement x2_val(bb::fr::modulus_minus_two, bb::fr::modulus_minus_two);
-//     element<Builder, fq<Builder>, fr<Builder>, curve::Grumpkin::Group> x2(&builder, x2_val);
-//     this->check_conversion(builder, x2);
-// }
+    curve::Grumpkin::AffineElement x2_val(1, grumpkin::fr::modulus_minus_two);
+    grumpkin_element<Builder> x2 = grumpkin_element<Builder>::from_witness(&builder, x2_val);
+    this->check_conversion(builder, x2);
+}
 
 /**
  * @brief Field conversion test for std::array<fr<Builder>, N>
