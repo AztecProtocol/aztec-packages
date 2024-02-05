@@ -45,13 +45,14 @@ struct GlobalOpCountContainer {
     struct Entry {
         std::string key;
         std::string thread_id;
-        const std::size_t* count;
+        std::size_t* count;
     };
     std::mutex mutex;
     std::vector<Entry> counts;
     void print() const;
+    // NOTE: Should be called when other threads aren't active
     void clear();
-    void add_entry(const char* key, const std::size_t* count);
+    void add_entry(const char* key, std::size_t* count);
     std::map<std::string, std::size_t> get_aggregate_counts() const;
 };
 
