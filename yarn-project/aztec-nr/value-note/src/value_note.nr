@@ -6,7 +6,7 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_note_hash_for_read_or_nullify,
+        utils::compute_note_hash_for_consumption,
     },
     oracle::{
         rand::rand,
@@ -29,14 +29,12 @@ struct ValueNote {
 }
 // docs:end:value-note-def
 
-impl Serialize<VALUE_NOTE_LEN> for ValueNote {
-    fn serialize(self) -> [Field; VALUE_NOTE_LEN] {
+impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
+    fn serialize_content(self) -> [Field; VALUE_NOTE_LEN] {
         [self.value, self.owner.to_field(), self.randomness]
     }
-}
 
-impl Deserialize<VALUE_NOTE_LEN> for ValueNote {
-    fn deserialize(serialized_note: [Field; VALUE_NOTE_LEN]) -> Self {
+    fn deserialize_content(serialized_note: [Field; VALUE_NOTE_LEN]) -> Self {
         ValueNote {
             value: serialized_note[0],
             owner: AztecAddress::from_field(serialized_note[1]),
@@ -44,19 +42,16 @@ impl Deserialize<VALUE_NOTE_LEN> for ValueNote {
             header: NoteHeader::empty(),
         }
     }
-}
 
-impl NoteInterface for ValueNote {
-
-    fn compute_note_hash(self) -> Field {
+    fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize(),0)
+        pedersen_hash(self.serialize_content(),0)
     }
 
     // docs:start:nullifier
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -69,7 +64,7 @@ impl NoteInterface for ValueNote {
     // docs:end:nullifier
 
     fn compute_nullifier_without_context(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(self);
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -95,7 +90,7 @@ impl NoteInterface for ValueNote {
             (*context).this_address(),
             slot,
             encryption_pub_key,
-            self.serialize(),
+            self.serialize_content(),
         );
     }
 }

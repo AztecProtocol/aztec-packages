@@ -1,103 +1,129 @@
-import { AvmMachineState } from '../avm_machine_state.js';
+import type { AvmContext } from '../avm_context.js';
 import { IntegralValue } from '../avm_memory_types.js';
-import { AvmJournal } from '../journal/journal.js';
-import { Instruction, InstructionExecutionError } from './instruction.js';
+import { InstructionExecutionError } from '../errors.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
+import { Instruction } from './instruction.js';
 
 export class Return extends Instruction {
   static type: string = 'RETURN';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.RETURN;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+  ];
 
-  constructor(private returnOffset: number, private copySize: number) {
+  constructor(private indirect: number, private returnOffset: number, private copySize: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const returnData = machineState.memory.getSlice(this.returnOffset, this.copySize).map(word => word.toFr());
+  async execute(context: AvmContext): Promise<void> {
+    const output = context.machineState.memory.getSlice(this.returnOffset, this.copySize).map(word => word.toFr());
 
-    machineState.setReturnData(returnData);
-
-    this.halt(machineState);
+    context.machineState.return(output);
   }
 }
 
 export class Revert extends Instruction {
   static type: string = 'RETURN';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.REVERT;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+  ];
 
-  constructor(private returnOffset: number, private retSize: number) {
+  constructor(private indirect: number, private returnOffset: number, private retSize: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const returnData = machineState.memory
+  async execute(context: AvmContext): Promise<void> {
+    const output = context.machineState.memory
       .getSlice(this.returnOffset, this.returnOffset + this.retSize)
       .map(word => word.toFr());
-    machineState.setReturnData(returnData);
 
-    this.revert(machineState);
+    context.machineState.revert(output);
   }
 }
 
 export class Jump extends Instruction {
   static type: string = 'JUMP';
-  static numberOfOperands = 1;
+  static readonly opcode: Opcode = Opcode.JUMP;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private jumpOffset: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    machineState.pc = this.jumpOffset;
+  async execute(context: AvmContext): Promise<void> {
+    context.machineState.pc = this.jumpOffset;
   }
 }
 
 export class JumpI extends Instruction {
   static type: string = 'JUMPI';
-  static numberOfOperands = 1;
+  static readonly opcode: Opcode = Opcode.JUMPI;
 
-  constructor(private jumpOffset: number, private condOffset: number) {
+  // Instruction wire format with opcode.
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+  ];
+
+  constructor(private indirect: number, private loc: number, private condOffset: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const condition = machineState.memory.getAs<IntegralValue>(this.condOffset);
+  async execute(context: AvmContext): Promise<void> {
+    const condition = context.machineState.memory.getAs<IntegralValue>(this.condOffset);
 
     // TODO: reconsider this casting
     if (condition.toBigInt() == 0n) {
-      this.incrementPc(machineState);
+      context.machineState.incrementPc();
     } else {
-      machineState.pc = this.jumpOffset;
+      context.machineState.pc = this.loc;
     }
   }
 }
 
 export class InternalCall extends Instruction {
-  static type: string = 'INTERNALCALL';
-  static numberOfOperands = 1;
+  static readonly type: string = 'INTERNALCALL';
+  static readonly opcode: Opcode = Opcode.INTERNALCALL;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
-  constructor(private jumpOffset: number) {
+  constructor(private loc: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    machineState.internalCallStack.push(machineState.pc + 1);
-    machineState.pc = this.jumpOffset;
+  async execute(context: AvmContext): Promise<void> {
+    context.machineState.internalCallStack.push(context.machineState.pc + 1);
+    context.machineState.pc = this.loc;
   }
 }
 
 export class InternalReturn extends Instruction {
-  static type: string = 'INTERNALRETURN';
-  static numberOfOperands = 0;
+  static readonly type: string = 'INTERNALRETURN';
+  static readonly opcode: Opcode = Opcode.INTERNALRETURN;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8];
 
   constructor() {
     super();
   }
 
-  async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-    const jumpOffset = machineState.internalCallStack.pop();
+  async execute(context: AvmContext): Promise<void> {
+    const jumpOffset = context.machineState.internalCallStack.pop();
     if (jumpOffset === undefined) {
       throw new InstructionExecutionError('Internal call empty!');
     }
-    machineState.pc = jumpOffset;
+    context.machineState.pc = jumpOffset;
   }
 }

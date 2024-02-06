@@ -1,32 +1,31 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import {
-  AggregationObject,
-  AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionData,
-  NullifierKeyValidationRequestContext,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-} from '../index.js';
+import { FunctionData } from '../function_data.js';
+import { NullifierKeyValidationRequestContext } from '../nullifier_key_validation_request.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -34,10 +33,6 @@ import {
  * Note: Not to be confused with `ContractDeploymentData`.
  */
 export class NewContractData {
-  /**
-   * Ethereum address of the portal contract on L1.
-   */
-  public portalContractAddress: EthAddress;
   constructor(
     /**
      * Aztec address of the contract.
@@ -45,18 +40,13 @@ export class NewContractData {
     public contractAddress: AztecAddress,
     /**
      * Ethereum address of the portal contract on L1.
-     * TODO(AD): refactor this later
-     * currently there is a kludge with circuits cpp as it emits an AztecAddress
      */
-    portalContractAddress: EthAddress | AztecAddress,
+    public portalContractAddress: EthAddress,
     /**
      * Contract class id.
      */
     public contractClassId: Fr,
-  ) {
-    // Handle circuits emitting this as an AztecAddress
-    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
-  }
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.contractAddress, this.portalContractAddress, this.contractClassId);
@@ -69,11 +59,7 @@ export class NewContractData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): NewContractData {
     const reader = BufferReader.asReader(buffer);
-    return new NewContractData(
-      reader.readObject(AztecAddress),
-      new EthAddress(reader.readBytes(32)),
-      Fr.fromBuffer(reader),
-    );
+    return new NewContractData(reader.readObject(AztecAddress), reader.readObject(EthAddress), Fr.fromBuffer(reader));
   }
 
   static empty() {
@@ -158,7 +144,7 @@ export class OptionallyRevealedData {
       Fr.fromBuffer(reader),
       reader.readObject(FunctionData),
       Fr.fromBuffer(reader),
-      new EthAddress(reader.readBytes(32)),
+      reader.readObject(EthAddress),
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
@@ -294,10 +280,6 @@ export class PublicDataUpdateRequest {
 export class CombinedAccumulatedData {
   constructor(
     /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    /**
      * All the read requests made in this transaction.
      */
     public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
@@ -366,7 +348,6 @@ export class CombinedAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.readRequests,
       this.nullifierKeyValidationRequests,
       this.newCommitments,
@@ -386,7 +367,7 @@ export class CombinedAccumulatedData {
   }
 
   toString() {
-    return this.toBuffer().toString();
+    return this.toBuffer().toString('hex');
   }
 
   /**
@@ -397,7 +378,6 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
-      reader.readObject(AggregationObject),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
@@ -418,7 +398,6 @@ export class CombinedAccumulatedData {
 
   static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
     return new CombinedAccumulatedData(
-      finalData.aggregationObject,
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       finalData.newCommitments,
@@ -448,7 +427,6 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
-      AggregationObject.makeFake(),
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
@@ -474,10 +452,6 @@ export class CombinedAccumulatedData {
  */
 export class FinalAccumulatedData {
   constructor(
-    /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * The new commitments made in this transaction.
      */
@@ -529,7 +503,6 @@ export class FinalAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
       this.privateCallStack,
@@ -545,7 +518,7 @@ export class FinalAccumulatedData {
   }
 
   toString() {
-    return this.toBuffer().toString();
+    return this.toBuffer().toString('hex');
   }
 
   /**
@@ -556,7 +529,6 @@ export class FinalAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
-      reader.readObject(AggregationObject),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
@@ -582,7 +554,6 @@ export class FinalAccumulatedData {
 
   static empty() {
     return new FinalAccumulatedData(
-      AggregationObject.makeFake(),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
@@ -594,6 +565,52 @@ export class FinalAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
+    );
+  }
+}
+
+export class AccumulatedMetaData {
+  constructor(
+    /**
+     * The new commitments made in this transaction.
+     */
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX_META>,
+    /**
+     * The new nullifiers made in this transaction.
+     */
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX_META>,
+    /**
+     * Current public call stack.
+     */
+    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
+  ) {}
+
+  toBuffer() {
+    return serializeToBuffer(this.newCommitments, this.newNullifiers, this.publicCallStack);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): AccumulatedMetaData {
+    const reader = BufferReader.asReader(buffer);
+    return new AccumulatedMetaData(
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
+    );
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(str: string) {
+    return AccumulatedMetaData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new AccumulatedMetaData(
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),
     );
   }
 }

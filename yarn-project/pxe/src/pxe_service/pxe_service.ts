@@ -44,10 +44,10 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
+  computeArtifactHash,
+  computeContractClassId,
   computeSaltedInitializationHash,
-  getArtifactHash,
   getContractClassFromArtifact,
-  getContractClassId,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
@@ -90,7 +90,7 @@ export class PXEService implements PXE {
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
     this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
-    this.contractDataOracle = new ContractDataOracle(db, node);
+    this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.nodeVersion = getPackageInfo().version;
 
@@ -232,8 +232,8 @@ export class PXEService implements PXE {
   private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
     for (const contract of contracts) {
       const artifact = contract.artifact;
-      const artifactHash = getArtifactHash(artifact);
-      const contractClassId = getContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
+      const artifactHash = computeArtifactHash(artifact);
+      const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
       await this.db.addContractArtifact(contractClassId, artifact);
       await this.db.addContractInstance(contract.instance);
     }
@@ -575,7 +575,7 @@ export class PXEService implements PXE {
 
     this.log('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, this.node);
+      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress);
       this.log('Unconstrained simulation completed!');
 
       return result;

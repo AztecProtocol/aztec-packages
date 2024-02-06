@@ -11,7 +11,7 @@ On this page you will learn:
 1. [The components involved in using the slow updates tree](slow_updates_tree.md#components-involved-in-implementing-a-slow-updates-tree)
 2. [How you can integrate it into your own smart contract](slow_updates_tree.md#how-to-integrate-a-slow-updates-tree)
 3. [An example of a token blacklisting contract that uses the slow updates tree](slow_updates_tree.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract)
-4. [Interface Reference](slow_updates_tree.md#reference)
+4. [Interface Reference](slow_updates_tree.md#functions)
 
 # Components involved in implementing a slow updates tree
 
@@ -93,23 +93,19 @@ graph TD
 
 #include_code interface yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-5. Create a storage init function for the same value in both public and private storage
-
-#include_code slow_updates_storage yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
-
-6. Store the SlowTree address in private storage as a FieldNote
+5. Store the SlowTree address in private storage as a FieldNote
 
 #include_code constructor yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-7. Store the SlowTree address in public storage and initialize an instance of SlowMap using this address
+6. Store the SlowTree address in public storage and initialize an instance of SlowMap using this address
 
 #include_code write_slow_update_public yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-8. Now you can read and update from private functions:
+7. Now you can read and update from private functions:
 
 #include_code get_and_update_private yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-9. Or from public functions:
+8. Or from public functions:
 
 #include_code get_public yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 

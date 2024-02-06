@@ -29,20 +29,6 @@ contract PendingCommitments {
         balances: Map<AztecAddress, Set<ValueNote>>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                balances: Map::new(
-                    context,
-                    1, // Storage slot
-                    |context, slot| {
-                        Set::new(context, slot)
-                    },
-                ),
-            }
-        }
-    }
-
     // TODO(dbanks12): consolidate code into internal helper functions
     // (once Noir's support for this is more robust)
 
@@ -296,6 +282,6 @@ contract PendingCommitments {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }

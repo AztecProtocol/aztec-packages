@@ -1,84 +1,92 @@
-import { AvmMachineState } from '../avm_machine_state.js';
-import { AvmJournal } from '../journal/journal.js';
+import type { AvmContext } from '../avm_context.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
 
 export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
-  static numberOfOperands = 1;
+  static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
-  constructor(private noteHashOffset: number) {
+  constructor(private indirect: number, private noteHashOffset: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
-    if (machineState.executionEnvironment.isStaticCall) {
+  async execute(context: AvmContext): Promise<void> {
+    if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
 
-    const noteHash = machineState.memory.get(this.noteHashOffset).toFr();
-    journal.writeNoteHash(noteHash);
+    const noteHash = context.machineState.memory.get(this.noteHashOffset).toFr();
+    context.worldState.writeNoteHash(noteHash);
 
-    this.incrementPc(machineState);
+    context.machineState.incrementPc();
   }
 }
 
 export class EmitNullifier extends Instruction {
   static type: string = 'EMITNULLIFIER';
-  static numberOfOperands = 1;
+  static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
-  constructor(private nullifierOffset: number) {
+  constructor(private indirect: number, private nullifierOffset: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
-    if (machineState.executionEnvironment.isStaticCall) {
+  async execute(context: AvmContext): Promise<void> {
+    if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
 
-    const nullifier = machineState.memory.get(this.nullifierOffset).toFr();
-    journal.writeNullifier(nullifier);
+    const nullifier = context.machineState.memory.get(this.nullifierOffset).toFr();
+    context.worldState.writeNullifier(nullifier);
 
-    this.incrementPc(machineState);
+    context.machineState.incrementPc();
   }
 }
 
 export class EmitUnencryptedLog extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
 
-  constructor(private logOffset: number, private logSize: number) {
+  constructor(private indirect: number, private logOffset: number, private logSize: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
-    if (machineState.executionEnvironment.isStaticCall) {
+  async execute(context: AvmContext): Promise<void> {
+    if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
 
-    const log = machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
-    journal.writeLog(log);
+    const log = context.machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
+    context.worldState.writeLog(log);
 
-    this.incrementPc(machineState);
+    context.machineState.incrementPc();
   }
 }
 
 export class SendL2ToL1Message extends Instruction {
-  static type: string = 'EMITUNENCRYPTEDLOG';
-  static numberOfOperands = 2;
+  static type: string = 'SENDL2TOL1MSG';
+  static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
 
-  constructor(private msgOffset: number, private msgSize: number) {
+  constructor(private indirect: number, private msgOffset: number, private msgSize: number) {
     super();
   }
 
-  async execute(machineState: AvmMachineState, journal: AvmJournal): Promise<void> {
-    if (machineState.executionEnvironment.isStaticCall) {
+  async execute(context: AvmContext): Promise<void> {
+    if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
 
-    const msg = machineState.memory.getSlice(this.msgOffset, this.msgSize).map(f => f.toFr());
-    journal.writeLog(msg);
+    const msg = context.machineState.memory.getSlice(this.msgOffset, this.msgSize).map(f => f.toFr());
+    context.worldState.writeL1Message(msg);
 
-    this.incrementPc(machineState);
+    context.machineState.incrementPc();
   }
 }

@@ -1,4 +1,12 @@
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, NoteStatus, UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  AuthWitness,
+  AztecNode,
+  FunctionL2Logs,
+  L1NotePayload,
+  Note,
+  NoteStatus,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   CallContext,
   ContractDeploymentData,
@@ -10,20 +18,14 @@ import {
   SideEffect,
   TxContext,
 } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import {
-  NoteData,
-  toACVMCallContext,
-  toACVMContractDeploymentData,
-  toACVMHeader,
-  toACVMWitness,
-} from '../acvm/index.js';
+import { NoteData, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -72,9 +74,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
+    private node: AztecNode,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
-    super(contractAddress, authWitnesses, db, undefined, log);
+    super(contractAddress, authWitnesses, db, node, log);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -96,9 +99,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     }
 
     const fields = [
-      ...toACVMCallContext(this.callContext),
-      ...toACVMHeader(this.historicalHeader),
-      ...toACVMContractDeploymentData(contractDeploymentData),
+      ...this.callContext.toFields(),
+      ...this.historicalHeader.toFields(),
+      ...contractDeploymentData.toFields(),
 
       this.txContext.chainId,
       this.txContext.version,
@@ -297,7 +300,8 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    const text = log.toHumanReadable();
+    this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
   /**
@@ -305,14 +309,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
-   * @param sideffectCounter - The side effect counter at the start of the call.
+   * @param sideEffectCounter - The side effect counter at the start of the call.
    * @returns The execution result.
    */
   async callPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
-    sideffectCounter: number,
+    sideEffectCounter: number,
   ) {
     this.log(
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
@@ -333,7 +337,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideffectCounter,
+      sideEffectCounter,
       false,
       false,
     );
@@ -349,6 +353,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.noteCache,
       this.db,
       this.curve,
+      this.node,
     );
 
     const childExecutionResult = await executePrivateFunction(
@@ -435,5 +440,30 @@ export class ClientExecutionContext extends ViewDataOracle {
       false,
       startSideEffectCounter,
     );
+  }
+
+  /**
+   * Read the public storage data.
+   * @param startStorageSlot - The starting storage slot.
+   * @param numberOfElements - Number of elements to read from the starting storage slot.
+   */
+  public async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
+    // TODO(#4320): This is a hack to work around not having directly access to the public data tree but
+    // still having access to the witnesses
+    const bn = await this.db.getBlockNumber();
+
+    const values = [];
+    for (let i = 0n; i < numberOfElements; i++) {
+      const storageSlot = new Fr(startStorageSlot.value + i);
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, storageSlot);
+      const witness = await this.db.getPublicDataTreeWitness(bn, leafSlot);
+      if (!witness) {
+        throw new Error(`No witness for slot ${storageSlot.toString()}`);
+      }
+      const value = witness.leafPreimage.value;
+      this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      values.push(value);
+    }
+    return values;
   }
 }

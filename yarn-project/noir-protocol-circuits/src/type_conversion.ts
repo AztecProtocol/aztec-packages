@@ -1,11 +1,11 @@
 import {
   ARCHIVE_HEIGHT,
+  AccumulatedMetaData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  CONTRACT_TREE_HEIGHT,
   CallContext,
   CallRequest,
   CallerContext,
@@ -28,13 +28,16 @@ import {
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
@@ -85,7 +88,6 @@ import {
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
-  ContractLeafMembershipWitness as ContractLeafMembershipWitnessNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
@@ -93,6 +95,7 @@ import {
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   NewContractData as NewContractDataNoir,
   AztecAddress as NoirAztecAddress,
+  ContractClassId as NoirContractClassId,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
@@ -116,6 +119,7 @@ import {
   PrivateKernelInputsInner as PrivateKernelInputsInnerNoir,
 } from './types/private_kernel_inner_types.js';
 import {
+  AccumulatedMetaData as AccumulatedMetaDataNoir,
   FinalAccumulatedData as FinalAccumulatedDataNoir,
   KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
@@ -172,6 +176,16 @@ export function mapFieldToNoir(field: Fr): NoirField {
  */
 export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromString(field);
+}
+
+/** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
+export function mapWrappedFieldToNoir(field: Fr): { inner: NoirField } {
+  return { inner: mapFieldToNoir(field) };
+}
+
+/** Maps a noir wrapped field type (ie any type implemented as struct with an inner Field) to a typescript field. */
+export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr {
+  return mapFieldFromNoir(wrappedField.inner);
 }
 
 /**
@@ -269,6 +283,16 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
   return EthAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
+/** Maps a field to a contract class id in Noir. */
+export function mapContractClassIdToNoir(contractClassId: Fr): NoirContractClassId {
+  return { inner: mapFieldToNoir(contractClassId) };
+}
+
+/** Maps a noir contract class id to typescript. */
+export function mapContractClassIdFromNoir(contractClassId: NoirContractClassId): Fr {
+  return mapFieldFromNoir(contractClassId.inner);
+}
+
 /**
  * Maps a contract deployment data to a noir contract deployment data.
  * @param data - The data.
@@ -278,7 +302,7 @@ export function mapContractDeploymentDataToNoir(data: ContractDeploymentData): C
   return {
     public_key: mapPointToNoir(data.publicKey),
     initialization_hash: mapFieldToNoir(data.initializationHash),
-    contract_class_id: mapFieldToNoir(data.contractClassId),
+    contract_class_id: mapContractClassIdToNoir(data.contractClassId),
     contract_address_salt: mapFieldToNoir(data.contractAddressSalt),
     portal_contract_address: mapEthAddressToNoir(data.portalContractAddress),
   };
@@ -293,7 +317,7 @@ export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNo
   return new ContractDeploymentData(
     mapPointFromNoir(data.public_key),
     mapFieldFromNoir(data.initialization_hash),
-    mapFieldFromNoir(data.contract_class_id),
+    mapContractClassIdFromNoir(data.contract_class_id),
     mapFieldFromNoir(data.contract_address_salt),
     mapEthAddressFromNoir(data.portal_contract_address),
   );
@@ -623,6 +647,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
+    meta_hwm: mapFieldToNoir(Fr.ZERO),
   };
 }
 
@@ -634,9 +659,8 @@ export function mapPrivateCircuitPublicInputsToNoir(
 export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallStackItem): PrivateCallStackItemNoir {
   return {
     contract_address: mapAztecAddressToNoir(privateCallStackItem.contractAddress),
-    public_inputs: mapPrivateCircuitPublicInputsToNoir(privateCallStackItem.publicInputs),
-    is_execution_request: privateCallStackItem.isExecutionRequest,
     function_data: mapFunctionDataToNoir(privateCallStackItem.functionData),
+    public_inputs: mapPrivateCircuitPublicInputsToNoir(privateCallStackItem.publicInputs),
   };
 }
 
@@ -648,20 +672,6 @@ export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallS
 function mapFunctionLeafMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
 ): FunctionLeafMembershipWitnessNoir {
-  return {
-    leaf_index: membershipWitness.leafIndex.toString(),
-    sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
-  };
-}
-
-/**
- * Maps a contract leaf membership witness to a noir contract leaf membership witness.
- * @param membershipWitness - The membership witness.
- * @returns The noir contract leaf membership witness.
- */
-function mapContractLeafMembershipWitnessToNoir(
-  membershipWitness: MembershipWitness<typeof CONTRACT_TREE_HEIGHT>,
-): ContractLeafMembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -699,13 +709,14 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
       privateCallData.functionLeafMembershipWitness,
     ),
-    contract_leaf_membership_witness: mapContractLeafMembershipWitnessToNoir(
-      privateCallData.contractLeafMembershipWitness,
-    ),
     read_request_membership_witnesses: mapTuple(
       privateCallData.readRequestMembershipWitnesses,
       mapReadRequestMembershipWitnessToNoir,
     ),
+    contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
+    contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
+    public_keys_hash: mapWrappedFieldToNoir(privateCallData.publicKeysHash),
+    salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
     //TODO this seems like the wrong type in circuits.js
     portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(privateCallData.portalContractAddress)),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
@@ -797,7 +808,7 @@ export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir)
   return new NewContractData(
     mapAztecAddressFromNoir(newContractData.contract_address),
     mapEthAddressFromNoir(newContractData.portal_contract_address),
-    mapFieldFromNoir(newContractData.contract_class_id),
+    mapContractClassIdFromNoir(newContractData.contract_class_id),
   );
 }
 
@@ -810,7 +821,7 @@ export function mapNewContractDataToNoir(newContractData: NewContractData): NewC
   return {
     contract_address: mapAztecAddressToNoir(newContractData.contractAddress),
     portal_contract_address: mapEthAddressToNoir(newContractData.portalContractAddress),
-    contract_class_id: mapFieldToNoir(newContractData.contractClassId),
+    contract_class_id: mapContractClassIdToNoir(newContractData.contractClassId),
   };
 }
 
@@ -874,8 +885,6 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    // TODO aggregation object
-    AggregationObject.makeFake(),
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.nullifier_key_validation_requests,
@@ -925,8 +934,6 @@ export function mapCombinedAccumulatedDataFromNoir(
  */
 export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccumulatedDataNoir): FinalAccumulatedData {
   return new FinalAccumulatedData(
-    // TODO aggregation object
-    AggregationObject.makeFake(),
     mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -954,6 +961,23 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
 }
 
 /**
+ * Maps accumulated data in the Tx's meta phase to the parsed type.
+ * @param accumulatedMetaData - The noir accumulated meta data.
+ * @returns The parsed accumulated meta data.
+ */
+export function mapAccumulatedMetaDataFromNoir(accumulatedMetaData: AccumulatedMetaDataNoir): AccumulatedMetaData {
+  return new AccumulatedMetaData(
+    mapTupleFromNoir(accumulatedMetaData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX_META, mapSideEffectFromNoir),
+    mapTupleFromNoir(accumulatedMetaData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX_META, mapSideEffectLinkedFromNoir),
+    mapTupleFromNoir(
+      accumulatedMetaData.public_call_stack,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+      mapCallRequestFromNoir,
+    ),
+  );
+}
+
+/**
  * Maps combined accumulated data to noir combined accumulated data.
  * @param combinedAccumulatedData - The combined accumulated data.
  * @returns The noir combined accumulated data.
@@ -962,7 +986,6 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    aggregation_object: {},
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
     nullifier_key_validation_requests: mapTuple(
       combinedAccumulatedData.nullifierKeyValidationRequests,
@@ -1063,6 +1086,9 @@ export function mapKernelCircuitPublicInputsFromNoir(
   kernelCircuitPublicInputs: KernelCircuitPublicInputsNoir,
 ): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
+    // TODO aggregation object
+    AggregationObject.makeFake(),
+    mapFieldFromNoir(kernelCircuitPublicInputs.meta_hwm),
     mapCombinedAccumulatedDataFromNoir(kernelCircuitPublicInputs.end),
     mapCombinedConstantDataFromNoir(kernelCircuitPublicInputs.constants),
     kernelCircuitPublicInputs.is_private,
@@ -1078,6 +1104,8 @@ export function mapKernelCircuitPublicInputsToNoir(
   publicInputs: KernelCircuitPublicInputs,
 ): KernelCircuitPublicInputsNoir {
   return {
+    aggregation_object: {},
+    meta_hwm: mapFieldToNoir(publicInputs.metaHwm),
     end: mapCombinedAccumulatedDataToNoir(publicInputs.end),
     constants: mapCombinedConstantDataToNoir(publicInputs.constants),
     is_private: publicInputs.isPrivate,
@@ -1093,6 +1121,9 @@ export function mapKernelCircuitPublicInputsFinalFromNoir(
   publicInputs: KernelCircuitPublicInputsFinalNoir,
 ): KernelCircuitPublicInputsFinal {
   return new KernelCircuitPublicInputsFinal(
+    AggregationObject.makeFake(),
+    mapFieldFromNoir(publicInputs.meta_hwm),
+    mapAccumulatedMetaDataFromNoir(publicInputs.end_meta),
     mapFinalAccumulatedDataFromNoir(publicInputs.end),
     mapCombinedConstantDataFromNoir(publicInputs.constants),
     publicInputs.is_private,

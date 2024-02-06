@@ -1,4 +1,4 @@
-import { L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { AztecNode, L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -35,6 +35,7 @@ import {
 } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
@@ -56,16 +57,19 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { getFunctionSelector } from 'viem';
 
-import { KeyPair } from '../acvm/index.js';
+import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
+import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
 
 describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
+  let node: MockProxy<AztecNode>;
+
   let acirSimulator: AcirSimulator;
 
   let header = Header.empty();
@@ -218,7 +222,7 @@ describe('Private Execution test suite', () => {
     });
     oracle.getHeader.mockResolvedValue(header);
 
-    acirSimulator = new AcirSimulator(oracle);
+    acirSimulator = new AcirSimulator(oracle, node);
   });
 
   describe('empty constructor', () => {
@@ -231,6 +235,26 @@ describe('Private Execution test suite', () => {
       const emptyCommitments = new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO);
       expect(sideEffectArrayToValueArray(result.callStackItem.publicInputs.newCommitments)).toEqual(emptyCommitments);
       expect(result.callStackItem.publicInputs.contractDeploymentData).toEqual(contractDeploymentData);
+    });
+
+    it('emits a field as an unencrypted log', async () => {
+      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
+      const result = await runSimulator({ artifact, msgSender: owner });
+      const [functionLogs] = collectUnencryptedLogs(result);
+      expect(functionLogs.logs).toHaveLength(1);
+      // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
+      expect(functionLogs.logs[0].subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
+    });
+
+    it('emits a field array as an unencrypted log', async () => {
+      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_unencrypted_log');
+      const args = [times(5, () => Fr.random())];
+      const result = await runSimulator({ artifact, msgSender: owner, args });
+      const [functionLogs] = collectUnencryptedLogs(result);
+      expect(functionLogs.logs).toHaveLength(1);
+      // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
+      const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
+      expect(functionLogs.logs[0].subarray(-32 * 5).toString('hex')).toEqual(expected);
     });
   });
 
@@ -277,11 +301,18 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifactByName.mockImplementation((_, functionName: string) =>
         Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, functionName)),
       );
+
+      oracle.getFunctionArtifact.mockImplementation((_, selector: FunctionSelector) =>
+        Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, selector)),
+      );
+
+      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
-      const result = await runSimulator({ args: [owner, 140], artifact });
+      const topLevelResult = await runSimulator({ args: [owner, 140], artifact });
+      const result = topLevelResult.nestedExecutions[0];
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -544,11 +575,7 @@ describe('Private Execution test suite', () => {
       const mockOracles = async () => {
         const tree = await insertLeaves([messageKey ?? preimage.hash()], 'l1ToL2Messages');
         oracle.getL1ToL2Message.mockImplementation(async () => {
-          return Promise.resolve({
-            message: preimage.toFieldArray(),
-            index: 0n,
-            siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
-          });
+          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, await tree.getSiblingPath(0n, false)));
         });
       };
 

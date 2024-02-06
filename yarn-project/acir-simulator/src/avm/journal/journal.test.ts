@@ -4,11 +4,11 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
 import { HostStorage } from './host_storage.js';
-import { AvmJournal, JournalData } from './journal.js';
+import { AvmWorldStateJournal, JournalData } from './journal.js';
 
 describe('journal', () => {
   let publicDb: MockProxy<PublicStateDB>;
-  let journal: AvmJournal;
+  let journal: AvmWorldStateJournal;
 
   beforeEach(() => {
     publicDb = mock<PublicStateDB>();
@@ -16,7 +16,7 @@ describe('journal', () => {
     const contractsDb = mock<PublicContractsDB>();
 
     const hostStorage = new HostStorage(publicDb, contractsDb, commitmentsDb);
-    journal = new AvmJournal(hostStorage);
+    journal = new AvmWorldStateJournal(hostStorage);
   });
 
   describe('Public Storage', () => {
@@ -42,7 +42,7 @@ describe('journal', () => {
 
       publicDb.storageRead.mockResolvedValue(Promise.resolve(storedValue));
 
-      const childJournal = new AvmJournal(journal.hostStorage, journal);
+      const childJournal = new AvmWorldStateJournal(journal.hostStorage, journal);
 
       // Get the cache miss
       const cacheMissResult = await childJournal.readStorage(contractAddress, key);
@@ -119,7 +119,7 @@ describe('journal', () => {
     });
   });
 
-  it('Should merge two journals together', async () => {
+  it('Should merge two successful journals together', async () => {
     // Fundamentally checking that insert ordering of public storage is preserved upon journal merge
     // time | journal | op     | value
     // t0 -> journal0 -> write | 1
@@ -143,20 +143,20 @@ describe('journal', () => {
     journal.writeL1Message(logs);
     journal.writeNullifier(commitment);
 
-    const journal1 = new AvmJournal(journal.hostStorage, journal);
-    journal1.writeStorage(contractAddress, key, valueT1);
-    await journal1.readStorage(contractAddress, key);
-    journal1.writeNoteHash(commitmentT1);
-    journal1.writeLog(logsT1);
-    journal1.writeL1Message(logsT1);
-    journal1.writeNullifier(commitmentT1);
+    const childJournal = new AvmWorldStateJournal(journal.hostStorage, journal);
+    childJournal.writeStorage(contractAddress, key, valueT1);
+    await childJournal.readStorage(contractAddress, key);
+    childJournal.writeNoteHash(commitmentT1);
+    childJournal.writeLog(logsT1);
+    childJournal.writeL1Message(logsT1);
+    childJournal.writeNullifier(commitmentT1);
 
-    journal1.mergeWithParent();
+    journal.acceptNestedWorldState(childJournal);
 
-    // Check that the storage is merged by reading from the journal
     const result = await journal.readStorage(contractAddress, key);
     expect(result).toEqual(valueT1);
 
+    // Check that the storage is merged by reading from the journal
     // Check that the UTXOs are merged
     const journalUpdates: JournalData = journal.flush();
 
@@ -164,10 +164,10 @@ describe('journal', () => {
     // We first read value from t0, then value from t1
     const contractReads = journalUpdates.storageReads.get(contractAddress.toBigInt());
     const slotReads = contractReads?.get(key.toBigInt());
-    expect(slotReads).toEqual([value, valueT1]);
+    expect(slotReads).toEqual([value, valueT1, valueT1]); // Read a third time to check storage
 
     // We first write value from t0, then value from t1
-    const contractWrites = journalUpdates.storageReads.get(contractAddress.toBigInt());
+    const contractWrites = journalUpdates.storageWrites.get(contractAddress.toBigInt());
     const slotWrites = contractWrites?.get(key.toBigInt());
     expect(slotWrites).toEqual([value, valueT1]);
 
@@ -177,11 +177,72 @@ describe('journal', () => {
     expect(journalUpdates.newNullifiers).toEqual([commitment, commitmentT1]);
   });
 
-  it('Cannot merge a root journal, but can merge a child journal', () => {
-    const rootJournal = AvmJournal.rootJournal(journal.hostStorage);
-    const childJournal = AvmJournal.branchParent(rootJournal);
+  it('Should merge failed journals together', async () => {
+    // Checking public storage update journals are preserved upon journal merge,
+    // But the latest state is not
 
-    expect(() => rootJournal.mergeWithParent()).toThrow();
-    expect(() => childJournal.mergeWithParent());
+    // time | journal | op     | value
+    // t0 -> journal0 -> write | 1
+    // t1 -> journal1 -> write | 2
+    // merge journals
+    // t2 -> journal0 -> read  | 1
+
+    const contractAddress = new Fr(1);
+    const key = new Fr(2);
+    const value = new Fr(1);
+    const valueT1 = new Fr(2);
+    const commitment = new Fr(10);
+    const commitmentT1 = new Fr(20);
+    const logs = [new Fr(1), new Fr(2)];
+    const logsT1 = [new Fr(3), new Fr(4)];
+
+    journal.writeStorage(contractAddress, key, value);
+    await journal.readStorage(contractAddress, key);
+    journal.writeNoteHash(commitment);
+    journal.writeLog(logs);
+    journal.writeL1Message(logs);
+    journal.writeNullifier(commitment);
+
+    const childJournal = new AvmWorldStateJournal(journal.hostStorage, journal);
+    childJournal.writeStorage(contractAddress, key, valueT1);
+    await childJournal.readStorage(contractAddress, key);
+    childJournal.writeNoteHash(commitmentT1);
+    childJournal.writeLog(logsT1);
+    childJournal.writeL1Message(logsT1);
+    childJournal.writeNullifier(commitmentT1);
+
+    journal.rejectNestedWorldState(childJournal);
+
+    // Check that the storage is reverted by reading from the journal
+    const result = await journal.readStorage(contractAddress, key);
+    expect(result).toEqual(value); // rather than valueT1
+
+    // Check that the UTXOs are merged
+    const journalUpdates: JournalData = journal.flush();
+
+    // Reads and writes should be preserved
+    // Check storage reads order is preserved upon merge
+    // We first read value from t0, then value from t1
+    const contractReads = journalUpdates.storageReads.get(contractAddress.toBigInt());
+    const slotReads = contractReads?.get(key.toBigInt());
+    expect(slotReads).toEqual([value, valueT1, value]); // Read a third time to check storage above
+
+    // We first write value from t0, then value from t1
+    const contractWrites = journalUpdates.storageWrites.get(contractAddress.toBigInt());
+    const slotWrites = contractWrites?.get(key.toBigInt());
+    expect(slotWrites).toEqual([value, valueT1]);
+
+    expect(journalUpdates.newNoteHashes).toEqual([commitment]);
+    expect(journalUpdates.newLogs).toEqual([logs]);
+    expect(journalUpdates.newL1Messages).toEqual([logs]);
+    expect(journalUpdates.newNullifiers).toEqual([commitment]);
+  });
+
+  it('Can fork and merge journals', () => {
+    const rootJournal = new AvmWorldStateJournal(journal.hostStorage);
+    const childJournal = rootJournal.fork();
+
+    expect(() => rootJournal.acceptNestedWorldState(childJournal));
+    expect(() => rootJournal.rejectNestedWorldState(childJournal));
   });
 });

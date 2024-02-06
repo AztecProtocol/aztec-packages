@@ -6,6 +6,79 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### `Note::compute_note_hash` renamed to `Note::compute_note_content_hash`
+The `compute_note_hash` function in of the `Note` trait has been renamed to `compute_note_content_hash` to avoid being confused with the actual note hash.
+
+Before:
+```rust
+impl NoteInterface for CardNote {
+    fn compute_note_hash(self) -> Field {
+        pedersen_hash([
+            self.owner.to_field(),
+        ], 0)
+    }
+```
+
+Now:
+```rust
+impl NoteInterface for CardNote {
+    fn compute_note_content_hash(self) -> Field {
+        pedersen_hash([
+            self.owner.to_field(),
+        ], 0)
+    }
+```
+
+### Introduce `compute_note_hash_for_consumption` and `compute_note_hash_for_insertion`
+
+Makes a split in logic for note hash computation for consumption and insertion. This is to avoid confusion between the two, and to make it clear that the note hash for consumption is different from the note hash for insertion (sometimes).
+
+`compute_note_hash_for_consumption` replaces `compute_note_hash_for_read_or_nullify`.
+`compute_note_hash_for_insertion` is new, and mainly used in `lifecycle.nr``
+
+### `Note::serialize_content` and `Note::deserialize_content` added to `NoteInterface
+
+The `NoteInterface` have been extended to include `serialize_content` and `deserialize_content` functions. This is to convey the difference between serializing the full note, and just the content. This change allows you to also add a `serialize` function to support passing in a complete note to a function.
+
+Before:
+```rust
+impl Serialize<ADDRESS_NOTE_LEN> for AddressNote {
+    fn serialize(self) -> [Field; ADDRESS_NOTE_LEN]{
+        [self.address.to_field(), self.owner.to_field(), self.randomness]
+    }
+}
+impl Deserialize<ADDRESS_NOTE_LEN> for AddressNote {
+    fn deserialize(serialized_note: [Field; ADDRESS_NOTE_LEN]) -> Self {
+        AddressNote {
+            address: AztecAddress::from_field(serialized_note[0]),
+            owner: AztecAddress::from_field(serialized_note[1]),
+            randomness: serialized_note[2],
+            header: NoteHeader::empty(),
+        }
+    }
+```
+
+Now 
+```rust
+impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+    fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN]{
+        [self.address.to_field(), self.owner.to_field(), self.randomness]
+    }
+
+    fn deserialize_content(serialized_note: [Field; ADDRESS_NOTE_LEN]) -> Self {
+        AddressNote {
+            address: AztecAddress::from_field(serialized_note[0]),
+            owner: AztecAddress::from_field(serialized_note[1]),
+            randomness: serialized_note[2],
+            header: NoteHeader::empty(),
+        }
+    }
+    ...
+}
+```
+
 ## 0.22.0
 
 ### [Aztec.nr] `Serialize`, `Deserialize`, `NoteInterface` as Traits, removal of SerializationMethods and SERIALIZED_LEN
@@ -53,27 +126,6 @@ struct Storage {
     profiles: Map<AztecAddress, Singleton<CardNote>>,
     test: Set<CardNote>,
     imm_singleton: ImmutableSingleton<CardNote>,
-}
-
-impl Storage {
-    fn init(context: Context) -> Self {
-        Storage {
-            leader: PublicState::new(
-                context,
-                1
-            ),
-            legendary_card: Singleton::new(context, 2),
-            profiles: Map::new(
-                context,
-                3,
-                |context, slot| {
-                    Singleton::new(context, slot)
-                },
-            ),
-            test: Set::new(context, 4),
-            imm_singleton: ImmutableSingleton::new(context, 4),
-        }
-    }
 }
 ```
 
@@ -302,7 +354,32 @@ impl NoteInterface for CardNote {
 }
 ```
 
-Public state must implement Serialize and Deserialize traits.
+Public state must implement Serialize and Deserialize traits. 
+
+It is still possible to manually implement the storage initialization (for custom storage wrappers or internal types that don't implement the required traits). For the above example, the `impl Storage` section would look like this:
+
+```rust
+impl Storage {
+    fn init(context: Context) -> Self {
+        Storage {
+            leader: PublicState::new(
+                context,
+                1
+            ),
+            legendary_card: Singleton::new(context, 2),
+            profiles: Map::new(
+                context,
+                3,
+                |context, slot| {
+                    Singleton::new(context, slot)
+                },
+            ),
+            test: Set::new(context, 4),
+            imm_singleton: ImmutableSingleton::new(context, 4),
+        }
+    }
+}
+```
 
 ## 0.20.0
 

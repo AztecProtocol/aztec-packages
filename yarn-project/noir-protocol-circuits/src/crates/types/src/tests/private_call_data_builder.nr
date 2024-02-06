@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         call_request::{CallerContext, CallRequest},
-        call_stack_item::PrivateCallStackItem,
+        private_call_stack_item::PrivateCallStackItem,
         function_data::FunctionData,
         membership_witness::{
             ContractLeafMembershipWitness,
@@ -11,7 +11,7 @@ use crate::{
         private_circuit_public_inputs::{PrivateCircuitPublicInputs},
         private_kernel::private_call_data::PrivateCallData,
     },
-    address::{AztecAddress, EthAddress},
+    address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     mocked::{Proof, VerificationKey},
     tests::{
         fixtures,
@@ -40,8 +40,11 @@ struct PrivateCallDataBuilder {
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     proof: Proof,
     vk: VerificationKey,
+    salted_initialization_hash: SaltedInitializationHash,
+    public_keys_hash: PublicKeysHash,
+    contract_class_artifact_hash: Field,
+    contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
-    contract_leaf_membership_witness: ContractLeafMembershipWitness,
     read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
@@ -69,7 +72,10 @@ impl PrivateCallDataBuilder {
             proof: Proof {},
             vk: VerificationKey {},
             function_leaf_membership_witness: contract_function.membership_witness,
-            contract_leaf_membership_witness: contract_data.membership_witness,
+            salted_initialization_hash: contract_data.salted_initialization_hash,
+            public_keys_hash: contract_data.public_keys_hash,
+            contract_class_artifact_hash: contract_data.artifact_hash,
+            contract_class_public_bytecode_commitment: contract_data.public_bytecode_commitment,
             read_request_membership_witnesses: dep::std::unsafe::zeroed(),
             portal_contract_address: public_inputs.call_context.portal_contract_address,
             acir_hash: contract_function.acir_hash,
@@ -182,9 +188,8 @@ impl PrivateCallDataBuilder {
     pub fn get_call_stack_item_hash(self) -> Field {
         let call_stack_item = PrivateCallStackItem {
             contract_address: self.contract_address,
-            public_inputs: self.public_inputs.finish(),
-            is_execution_request: false,
             function_data: self.function_data,
+            public_inputs: self.public_inputs.finish(),
         };
         call_stack_item.hash()
     }
@@ -192,9 +197,8 @@ impl PrivateCallDataBuilder {
     pub fn finish(self) -> PrivateCallData {
         let call_stack_item = PrivateCallStackItem {
             contract_address: self.contract_address,
-            public_inputs: self.public_inputs.finish(),
-            is_execution_request: false,
             function_data: self.function_data,
+            public_inputs: self.public_inputs.finish(),
         };
 
         PrivateCallData {
@@ -204,7 +208,10 @@ impl PrivateCallDataBuilder {
             proof: self.proof,
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
-            contract_leaf_membership_witness: self.contract_leaf_membership_witness,
+            salted_initialization_hash: self.salted_initialization_hash,
+            public_keys_hash: self.public_keys_hash,
+            contract_class_artifact_hash: self.contract_class_artifact_hash,
+            contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
             read_request_membership_witnesses: self.read_request_membership_witnesses.storage,
             portal_contract_address: self.portal_contract_address,
             acir_hash: self.acir_hash,
