@@ -266,7 +266,8 @@ abstract contract BaseUltraVerifier {
     bytes4 internal constant PUBLIC_INPUT_GE_P_SELECTOR = 0x374a972f;
     bytes4 internal constant MOD_EXP_FAILURE_SELECTOR = 0xf894a7bc;
     bytes4 internal constant EC_SCALAR_MUL_FAILURE_SELECTOR = 0xf755f369;
-    bytes4 internal constant PROOF_FAILURE_SELECTOR = 0x0711fcec;
+    bytes4 internal constant OPENING_COMMITMENT_FAILED_SELECTOR = 0x4e719763;
+    bytes4 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd263;
 
     uint256 internal constant ETA_INPUT_LENGTH = 0xc0; // W1, W2, W3 = 6 * 0x20 bytes
 
@@ -298,7 +299,8 @@ abstract contract BaseUltraVerifier {
     error PUBLIC_INPUT_GE_P();
     error MOD_EXP_FAILURE();
     error EC_SCALAR_MUL_FAILURE();
-    error PROOF_FAILURE();
+    error OPENING_COMMITMENT_FAILED();
+    error PAIRING_FAILED();
 
     function getVerificationKeyHash() public pure virtual returns (bytes32);
 
@@ -2625,7 +2627,10 @@ abstract contract BaseUltraVerifier {
                 // accumulator = accumulator + accumulator_2
                 success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
-                mstore(OPENING_COMMITMENT_SUCCESS_FLAG, success)
+                if iszero(or(success, mload(0x00))) {
+                    mstore(0x0, OPENING_COMMITMENT_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
+                }
             }
 
             /**
@@ -2733,7 +2738,6 @@ abstract contract BaseUltraVerifier {
                     mstore(0x0, EC_SCALAR_MUL_FAILURE_SELECTOR)
                     revert(0x00, 0x04)
                 }
-                mstore(PAIRING_PREAMBLE_SUCCESS_FLAG, success)
             }
 
             /**
@@ -2758,22 +2762,14 @@ abstract contract BaseUltraVerifier {
                 mstore(0x160, mload(G2X_Y1_LOC))
 
                 success := staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20)
-                mstore(PAIRING_SUCCESS_FLAG, success)
-                mstore(RESULT_FLAG, mload(0x00))
+                if iszero(or(success, mload(0x00))) {
+                    mstore(0x0, PAIRING_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
+                }
             }
-            if iszero(
-                and(
-                    and(and(mload(PAIRING_SUCCESS_FLAG), mload(RESULT_FLAG)), mload(PAIRING_PREAMBLE_SUCCESS_FLAG)),
-                    mload(OPENING_COMMITMENT_SUCCESS_FLAG)
-                )
-            ) {
-                mstore(0x0, PROOF_FAILURE_SELECTOR)
-                revert(0x00, 0x04)
-            }
-            {
-                mstore(0x00, 0x01)
-                return(0x00, 0x20) // Proof succeeded!
-            }
+
+            mstore(0x00, 0x01)
+            return(0x00, 0x20) // Proof succeeded!
         }
     }
 }
