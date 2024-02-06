@@ -8,6 +8,7 @@ import {
   ContractBase,
   ContractClassWithId,
   ContractDeployer,
+  ContractInstanceWithAddress,
   DebugLogger,
   EthAddress,
   Fr,
@@ -25,6 +26,7 @@ import {
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   Point,
+  PublicKey,
   computeArtifactFunctionTree,
   computeArtifactFunctionTreeRoot,
   computeArtifactMetadataHash,
@@ -40,7 +42,6 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import {
   ContractClassRegistererContract,
   ContractInstanceDeployerContract,
-  ReaderContractArtifact,
   StatefulTestContract,
 } from '@aztec/noir-contracts';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
@@ -268,9 +269,10 @@ describe('e2e_deploy_contract', () => {
     expect(await contracts[1].methods.summed_values(owner).view()).toEqual(52n);
   });
 
-  // Tests registering a new contract class on a node
-  // All this dance will be hidden behind a nicer API in the near future!
-  describe('public registration and deployment', () => {
+  // Tests registering a new contract class on a node and then deploying an instance.
+  // These tests look scary, but don't fret: all this hodgepodge of calls will be hidden
+  // behind a much nicer API in the near future as part of #4080.
+  describe('registering a contract class', () => {
     let registerer: ContractClassRegistererContract;
     let artifact: ContractArtifact;
     let contractClass: ContractClassWithId;
@@ -279,11 +281,11 @@ describe('e2e_deploy_contract', () => {
     let publicBytecodeCommitment: Fr;
 
     beforeAll(async () => {
-      artifact = ReaderContractArtifact;
+      artifact = StatefulTestContract.artifact;
       contractClass = getContractClassFromArtifact(artifact);
       privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
       publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
-      registerer = await registerContract(wallet, ContractClassRegistererContract, [], new Fr(1));
+      registerer = await registerContract(wallet, ContractClassRegistererContract, [], { salt: new Fr(1) });
 
       logger(`contractClass.id: ${contractClass.id}`);
       logger(`contractClass.artifactHash: ${contractClass.artifactHash}`);
@@ -388,33 +390,69 @@ describe('e2e_deploy_contract', () => {
         .wait();
     }, 60_000);
 
-    it('deploys a new instance of the registered class via the deployer', async () => {
-      const deployer = await registerContract(wallet, ContractInstanceDeployerContract, [], new Fr(1));
+    describe('deploying a contract instance', () => {
+      let instance: ContractInstanceWithAddress;
+      let deployer: ContractInstanceDeployerContract;
+      let deployTxHash: TxHash;
+      let initArgs: StatefulContractCtorArgs;
+      let publicKey: PublicKey;
 
-      const salt = Fr.random();
-      const portalAddress = EthAddress.random();
-      const publicKey = Point.random();
-      const publicKeysHash = computePublicKeysHash(publicKey);
+      beforeAll(async () => {
+        initArgs = [accounts[0].address, 42];
+        deployer = await registerContract(wallet, ContractInstanceDeployerContract, [], { salt: new Fr(1) });
 
-      const expected = getContractInstanceFromDeployParams(artifact, [], salt, publicKey, portalAddress);
+        const salt = Fr.random();
+        const portalAddress = EthAddress.random();
+        publicKey = Point.random();
+        const publicKeysHash = computePublicKeysHash(publicKey);
 
-      const tx = await deployer.methods
-        .deploy(salt, contractClass.id, expected.initializationHash, portalAddress, publicKeysHash, false)
-        .send()
-        .wait();
+        instance = getContractInstanceFromDeployParams(artifact, initArgs, salt, publicKey, portalAddress);
+        const tx = await deployer.methods
+          .deploy(salt, contractClass.id, instance.initializationHash, portalAddress, publicKeysHash, false)
+          .send()
+          .wait();
+        deployTxHash = tx.txHash;
+      });
 
-      const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
-      const deployedLog = logs.logs[0].log;
-      expect(deployedLog.contractAddress).toEqual(deployer.address);
+      it('emits deployment log', async () => {
+        const logs = await pxe.getUnencryptedLogs({ txHash: deployTxHash });
+        const deployedLog = logs.logs[0].log;
+        expect(deployedLog.contractAddress).toEqual(deployer.address);
+      });
 
-      const instance = await aztecNode.getContract(expected.address);
-      expect(instance).toBeDefined();
-      expect(instance!.address).toEqual(expected.address);
-      expect(instance!.contractClassId).toEqual(contractClass.id);
-      expect(instance!.initializationHash).toEqual(expected.initializationHash);
-      expect(instance!.portalContractAddress).toEqual(portalAddress);
-      expect(instance!.publicKeysHash).toEqual(publicKeysHash);
-      expect(instance!.salt).toEqual(salt);
+      it('stores contract instance in the aztec node', async () => {
+        const deployed = await aztecNode.getContract(instance.address);
+        expect(deployed).toBeDefined();
+        expect(deployed!.address).toEqual(instance.address);
+        expect(deployed!.contractClassId).toEqual(contractClass.id);
+        expect(deployed!.initializationHash).toEqual(instance.initializationHash);
+        expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
+        expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
+        expect(deployed!.salt).toEqual(instance.salt);
+      });
+
+      it('calls a public function on the deployed instance', async () => {
+        // TODO(@spalladino) We should **not** need the whole instance, including initArgs and salt,
+        // in order to interact with a public function for the contract. We may even not need
+        // all of it for running a private function. Consider removing `instance` as a required
+        // field in the aztec.js `Contract` class, maybe we can replace it with just the partialAddress.
+        // Not just that, but this instance has been broadcasted, so the pxe should be able to get
+        // its information from the node directly, excluding private functions, but it's ok because
+        // we are not going to run those - but this may require registering "partial" contracts in the pxe.
+        // Anyway, when we implement that, we should be able to replace this `registerContract` with
+        // a simpler `Contract.at(instance.address, wallet)`.
+        const registered = await registerContract(wallet, StatefulTestContract, initArgs, {
+          salt: instance.salt,
+          portalAddress: instance.portalContractAddress,
+          publicKey,
+        });
+        expect(registered.address).toEqual(instance.address);
+        const contract = await StatefulTestContract.at(instance.address, wallet);
+        const whom = AztecAddress.random();
+        await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+        const stored = await contract.methods.get_public_value(whom).view();
+        expect(stored).toEqual(10n);
+      });
     });
   });
 });
@@ -436,9 +474,10 @@ async function registerContract<T extends ContractBase>(
   wallet: Wallet,
   contractArtifact: ContractArtifactClass<T>,
   args: any[] = [],
-  salt?: Fr,
+  opts: { salt?: Fr; publicKey?: Point; portalAddress?: EthAddress } = {},
 ): Promise<T> {
-  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt);
+  const { salt, publicKey, portalAddress } = opts;
+  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt, publicKey, portalAddress);
   await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
   return contractArtifact.at(instance.address, wallet);
 }

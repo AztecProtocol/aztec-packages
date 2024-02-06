@@ -22,7 +22,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
 } from '@aztec/circuits.js';
-import { ContractInstanceDeployedEvent } from '@aztec/circuits.js/contract';
+import { ContractInstanceDeployedEvent, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
@@ -462,8 +462,37 @@ export class Archiver implements ArchiveSource {
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
    */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return this.store.getExtendedContractData(contractAddress);
+  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return (
+      (await this.store.getExtendedContractData(contractAddress)) ?? this.makeExtendedContractDataFor(contractAddress)
+    );
+  }
+
+  /**
+   * Temporary method for creating a fake extended contract data out of classes and instances registered in the node.
+   * Used as a fallback if the extended contract data is not found.
+   */
+  private async makeExtendedContractDataFor(address: AztecAddress): Promise<ExtendedContractData | undefined> {
+    const instance = await this.store.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+
+    const contractClass = await this.store.getContractClass(instance.contractClassId);
+    if (!contractClass) {
+      this.log.warn(
+        `Contract class ${instance.contractClassId.toString()} for address ${address.toString()} not found`,
+      );
+      return undefined;
+    }
+
+    return new ExtendedContractData(
+      new ContractData(address, instance.portalContractAddress),
+      contractClass.publicFunctions.map(f => new EncodedContractFunction(f.selector, f.isInternal, f.bytecode)),
+      contractClass.id,
+      computeSaltedInitializationHash(instance),
+      instance.publicKeysHash,
+    );
   }
 
   /**
