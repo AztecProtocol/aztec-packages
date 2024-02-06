@@ -88,7 +88,7 @@ This takes three arguments:
 2. Block number
 3. Private context
 
-You can also prove that a nullifier was not included in a specified block by using `prove_nullifier_not_included_at` which takes the same arguments:
+You can also prove that a nullifier was not included in a specified block by using `prove_nullifier_not_included_at` which takes the same arguments.
 
 ## Prove contract inclusion, public value inclusion, and use current state in lookups
 
