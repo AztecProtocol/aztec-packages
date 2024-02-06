@@ -36,7 +36,7 @@ export class AvmExecutionEnvironment {
 
     public readonly calldata: Fr[],
 
-    public readonly temporaryFunctionSelector: FunctionSelector
+    public readonly temporaryFunctionSelector: FunctionSelector,
   ) {}
 
   public deriveEnvironmentForNestedCall(address: AztecAddress, calldata: Fr[]): AvmExecutionEnvironment {
@@ -54,7 +54,7 @@ export class AvmExecutionEnvironment {
       this.isStaticCall,
       this.isDelegateCall,
       /*calldata=*/ calldata,
-      this.temporaryFunctionSelector
+      this.temporaryFunctionSelector,
     );
   }
 
@@ -73,7 +73,7 @@ export class AvmExecutionEnvironment {
       /*isStaticCall=*/ true,
       this.isDelegateCall,
       /*calldata=*/ calldata,
-      this.temporaryFunctionSelector
+      this.temporaryFunctionSelector,
     );
   }
 
@@ -92,7 +92,7 @@ export class AvmExecutionEnvironment {
       this.isStaticCall,
       /*isDelegateCall=*/ true,
       /*calldata=*/ calldata,
-      this.temporaryFunctionSelector
+      this.temporaryFunctionSelector,
     );
   }
 }

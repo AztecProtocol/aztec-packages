@@ -125,12 +125,12 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
   };
 }
 
+/**
+ * Returns true if the first parameter is kernel function inputs.
+ */
 function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
   const firstParam = params[0];
-  if (firstParam?.type.kind === 'struct') {
-    return firstParam.type.path.includes('ContextInputs');
-  }
-  return false;
+  return firstParam?.type.kind === 'struct' && firstParam.type.path.includes('ContextInputs');
 }
 
 /** Validates contract artifact instance, throwing on error. */

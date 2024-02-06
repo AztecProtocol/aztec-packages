@@ -1,7 +1,7 @@
 import { GlobalVariables } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';

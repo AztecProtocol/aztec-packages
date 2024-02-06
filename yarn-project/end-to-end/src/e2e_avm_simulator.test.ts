@@ -1,14 +1,17 @@
 import { DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
 import { AvmTestContract } from '@aztec/noir-contracts';
 
+import { setup } from './fixtures/utils.js';
+
+process.env.AVM_ENABLED = 'absofrigginlutely';
+
 describe('e2e_nested_contract', () => {
   let wallet: Wallet;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    process.env.AVM_ENABLED = 'absofrigginlutely';
-    ({ teardown, pxe, wallet, logger } = await setup());
+    ({ teardown, wallet, logger } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
@@ -23,11 +26,10 @@ describe('e2e_nested_contract', () => {
     it('Calls an avm contract', async () => {
       const a = new Fr(1);
       const b = new Fr(2);
-      // const expectedResult = a.add(b);
 
-      // TODO: fix type gen for avm_addArgsReturn - incorrect number of args
       logger('Calling avm_addArgsReturn...');
       await avmContact.methods.avm_addArgsReturn(a, b).send().wait();
+      logger('Success');
     });
   });
 });

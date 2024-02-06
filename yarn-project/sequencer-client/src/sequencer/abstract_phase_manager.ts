@@ -47,11 +47,12 @@ import {
 } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
+import { env } from 'process';
+
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { FailedTx } from './processed_tx.js';
-import { env } from 'process';
 
 /**
  * A phase manager is responsible for performing/rolling back a phase of a transaction.
@@ -159,11 +160,11 @@ export abstract class AbstractPhaseManager {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
 
-        // TODO: get this from the environment
         // NOTE: temporary glue to incorporate avm execution calls
-        const simulator = (env.AVM_ENABLED 
-          ? (execution: PublicExecution, globalVariables: any) => this.publicExecutor.simulateAvm(execution, globalVariables)
-          : (execution: PublicExecution, globalVariables: any) => this.publicExecutor.simulate(execution, globalVariables));
+        const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
+          env.AVM_ENABLED
+            ? this.publicExecutor.simulateAvm(execution, globalVariables)
+            : this.publicExecutor.simulate(execution, globalVariables);
 
         const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
 
