@@ -51,7 +51,7 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     bool carry = false;
     uint8_t alu_u8_r0 = 0;
     uint8_t alu_u8_r1 = 0;
-    std::array<uint16_t, 8> alu_u16_reg;
+    std::array<uint16_t, 8> alu_u16_reg{}; // Must be zero-initialized (FF tag case)
 
     uint128_t a_u128{ a };
     uint128_t b_u128{ b };
@@ -140,7 +140,7 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     bool carry = false;
     uint8_t alu_u8_r0 = 0;
     uint8_t alu_u8_r1 = 0;
-    std::array<uint16_t, 8> alu_u16_reg;
+    std::array<uint16_t, 8> alu_u16_reg{}; // Must be zero-initialized (FF tag case)
     uint128_t a_u128{ a };
     uint128_t b_u128{ b };
     uint128_t c_u128 = a_u128 - b_u128;
@@ -225,7 +225,7 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     uint8_t alu_u8_r0 = 0;
     uint8_t alu_u8_r1 = 0;
 
-    std::array<uint16_t, 8> alu_u16_reg;
+    std::array<uint16_t, 8> alu_u16_reg{}; // Must be zero-initialized (FF tag case)
 
     uint128_t a_u128{ a };
     uint128_t b_u128{ b };
@@ -258,8 +258,8 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         uint128_t c_u128 = a_u128 * b_u128;
 
         // Decompose a_u128 and b_u128 over 8 16-bit registers.
-        std::array<uint16_t, 8> alu_u16_reg_a;
-        std::array<uint16_t, 8> alu_u16_reg_b;
+        std::array<uint16_t, 8> alu_u16_reg_a; // Will be initialized in for loop below.
+        std::array<uint16_t, 8> alu_u16_reg_b; // Will be initialized in for loop below.
         uint128_t a_trunc_128 = a_u128;
         uint128_t b_trunc_128 = b_u128;
 
