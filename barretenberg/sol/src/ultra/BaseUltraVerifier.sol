@@ -300,6 +300,9 @@ abstract contract BaseUltraVerifier {
 
     function getVerificationKeyHash() public pure virtual returns (bytes32);
 
+    /**
+     * @dev We assume that the verification key loaded by this function is constant as we only verify it on deployment
+     */
     function loadVerificationKey(uint256 _vk, uint256 _omegaInverseLoc) internal pure virtual;
 
     constructor() { 
