@@ -7,7 +7,7 @@
 using namespace benchmark;
 
 namespace bb::honk {
-using Flavor = flavor::Ultra;
+using Flavor = flavor::GoblinUltra;
 using Polynomial = Flavor::Polynomial;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
@@ -18,7 +18,7 @@ void bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver&))
 {
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto log2_num_gates = static_cast<size_t>(state.range(0));
-    auto composer = UltraComposer();
+    auto composer = GoblinUltraComposer();
 
     const auto construct_instance = [&]() {
         Builder builder;

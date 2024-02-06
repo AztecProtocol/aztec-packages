@@ -478,7 +478,7 @@ class GoblinUltra {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
      */
-    template <typename Commitment> class Transcript_ : public BaseTranscript {
+    class Transcript : public BaseTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -504,11 +504,26 @@ class GoblinUltra {
         Commitment zm_cq_comm;
         Commitment zm_pi_comm;
 
-        Transcript_() = default;
+        Transcript() = default;
 
-        Transcript_(const honk::proof& proof)
+        Transcript(const honk::proof& proof)
             : BaseTranscript(proof)
         {}
+
+        static std::shared_ptr<Transcript> prover_init_empty()
+        {
+            auto transcript = std::make_shared<Transcript>();
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript->send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        {
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
+            return verifier_transcript;
+        };
 
         void deserialize_full_transcript()
         {
@@ -587,8 +602,6 @@ class GoblinUltra {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
-    // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
-    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace bb::honk::flavor

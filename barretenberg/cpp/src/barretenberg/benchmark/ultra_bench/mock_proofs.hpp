@@ -58,6 +58,18 @@ inline honk::UltraProver get_prover(honk::UltraComposer& composer,
     return composer.create_prover(instance);
 }
 
+// goblin ultrahonk
+inline honk::GoblinUltraProver get_prover(honk::GoblinUltraComposer& composer,
+                                          void (*test_circuit_function)(honk::GoblinUltraComposer::CircuitBuilder&,
+                                                                        size_t),
+                                          size_t num_iterations)
+{
+    honk::GoblinUltraComposer::CircuitBuilder builder;
+    test_circuit_function(builder, num_iterations);
+    std::shared_ptr<honk::GoblinUltraComposer::Instance> instance = composer.create_instance(builder);
+    return composer.create_prover(instance);
+}
+
 // standard plonk
 inline plonk::Prover get_prover(plonk::StandardComposer& composer,
                                 void (*test_circuit_function)(StandardCircuitBuilder&, size_t),
