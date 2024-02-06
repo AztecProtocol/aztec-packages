@@ -1,4 +1,4 @@
-import { GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { ContractStorageRead, ContractStorageUpdateRequest, GlobalVariables, Header, PublicCircuitPublicInputs, SideEffect, SideEffectLinkedToNoteHash } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
@@ -9,6 +9,15 @@ import { AcirSimulator } from '../index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
+import { temporaryMapToExecutionEnvironment } from '../avm/temporary_executor.js';
+import { HostStorage } from '../avm/journal/host_storage.js';
+import { AvmWorldStateJournal, JournalData } from '../avm/journal/index.js';
+import { AvmMachineState } from '../avm/avm_machine_state.js';
+import { AvmContext } from '../avm/avm_context.js';
+import { AvmSimulator } from '../avm/avm_simulator.js';
+import { Fr } from '@aztec/bb.js';
+import { FunctionL2Logs } from '@aztec/circuit-types';
+import { AvmContractCallResults } from '../avm/avm_message_call_result.js';
 
 /**
  * Execute a public function and return the execution result.
@@ -121,4 +130,78 @@ export class PublicExecutor {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during public execution'));
     }
   }
+
+  /**
+   * Executes a public execution request in the avm.
+   * @param execution - The execution to run.
+   * @param globalVariables - The global variables to use.
+   * @returns The result of the run plus all nested runs.
+   */
+  public async simulateAvm(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+    const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
+    const worldStateJournal = new AvmWorldStateJournal(hostStorage);
+    const executionEnv = temporaryMapToExecutionEnvironment(execution, globalVariables);
+    const machineState = new AvmMachineState(0, 0, 0);
+
+    const context = new AvmContext(worldStateJournal, executionEnv, machineState);
+    const simulator = new AvmSimulator(context);
+
+
+    // TODO: deal with the return result
+    const result = await simulator.execute();
+    console.log('result', result);
+
+    const newWorldState = context.worldState.flush();
+
+    return temporaryMapAvmReturnTypes(execution, newWorldState, result);
+  }
+}
+
+
+function temporaryMapAvmReturnTypes(execution: PublicExecution, newWorldState: JournalData, result: AvmContractCallResults): PublicExecutionResult{
+    const newCommitments = newWorldState.newNoteHashes.map(noteHash => new SideEffect(noteHash, Fr.zero()));
+    
+    // TODO: do the hashing to compress the new messages correctly
+    const newL2ToL1Messages = newWorldState.newL1Messages.map(() => Fr.zero());
+    
+    // TODO: HAHAHAHAHAHAHAHAHAHAHAHAHAHA - THEY ARE SORTED HAHAH
+    const contractStorageReads: ContractStorageRead[] = [];
+    const reduceStorageReadRequests = (contractAddress: bigint, storageReads: Map<bigint, Fr[]>) => {
+      return storageReads.forEach((innerArray, key) => {
+        innerArray.forEach(value => {
+          contractStorageReads.push(new ContractStorageRead(new Fr(key), new Fr(value), 0));
+        })
+      })
+    };
+    newWorldState.storageReads.forEach((storageMap: Map<bigint, Fr[]>, address: bigint) => reduceStorageReadRequests(address, storageMap));
+
+    const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
+    const reduceStorageUpdateRequests = (contractAddress: bigint, storageUpdateRequests: Map<bigint, Fr[]>) => {
+      return storageUpdateRequests.forEach((innerArray, key) => {
+        innerArray.forEach(value => {
+          contractStorageUpdateRequests.push(new ContractStorageUpdateRequest(new Fr(key),/*TODO: old value not supported */ Fr.zero(), new Fr(value), 0));
+        })
+      })
+    }
+    newWorldState.storageWrites.forEach((storageMap: Map<bigint, Fr[]>, address: bigint) => reduceStorageUpdateRequests(address, storageMap));
+
+    const returnValues = result.output;
+
+    // TODO: NOT SUPPORTED YET
+    // Disabled.
+    const nestedExecutions: PublicExecutionResult[] = [];
+    const newNullifiers: SideEffectLinkedToNoteHash[] = [];
+    const unencryptedLogs = FunctionL2Logs.empty();
+
+  return {
+    execution,
+    newCommitments,
+    newL2ToL1Messages,
+    newNullifiers,
+    contractStorageReads,
+    contractStorageUpdateRequests,
+    returnValues,
+    nestedExecutions,
+    unencryptedLogs,
+  };
 }

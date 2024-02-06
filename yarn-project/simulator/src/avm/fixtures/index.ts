@@ -1,6 +1,7 @@
 import { GlobalVariables } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -52,6 +53,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
+    overrides?.temporaryFunctionSelector ?? FunctionSelector.empty(),
   );
 }
 

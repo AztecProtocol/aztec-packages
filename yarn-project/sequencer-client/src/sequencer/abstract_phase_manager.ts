@@ -51,6 +51,7 @@ import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { FailedTx } from './processed_tx.js';
+import { env } from 'process';
 
 /**
  * A phase manager is responsible for performing/rolling back a phase of a transaction.
@@ -160,15 +161,11 @@ export abstract class AbstractPhaseManager {
 
         // TODO: get this from the environment
         // NOTE: temporary glue to incorporate avm execution calls
-        const isAvm = true;
-        let result;
-        if (isAvm) {
-          temporaryAvmExecutionGlue(current, this.globalVariables);
-        } else{
-          result = isExecutionRequest ? await this.publicExecutor.simulate(current, this.globalVariables) : current;
-        } 
+        const isAvm = env.AVM_ENABLED;
+        const simulator = isAvm ? this.publicExecutor.simulateAvm : this.publicExecutor.simulate;
 
-        const result = isExecutionRequest ? await this.publicExecutor.simulate(current, this.globalVariables) : current;
+        const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
+
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
         this.log(
