@@ -1,3 +1,4 @@
+// TODO(#4411): this is mostly redundant. Nuke this
 import {
   makeCallRequest,
   makeFinalAccumulatedData,
@@ -15,8 +16,6 @@ import {
   SideEffect,
 } from '../index.js';
 import { PrivateCallData, PrivateKernelInputsInner } from './private_kernel.js';
-
-// TODO(benesjan): nuke this
 
 describe('PrivateKernel', function () {
   it(`serializes PrivateKernelInputsInner to buffer and deserializes it back`, () => {
