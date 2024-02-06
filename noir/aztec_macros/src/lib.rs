@@ -199,6 +199,11 @@ fn lambda(parameters: Vec<(Pattern, UnresolvedType)>, body: Expression) -> Expre
 }
 
 macro_rules! chained_path {
+    ( $base:expr ) => {
+        {
+            ident_path($base)
+        }
+    };
     ( $base:expr $(, $tail:expr)* ) => {
         {
             let mut base_path = ident_path($base);
@@ -419,6 +424,10 @@ fn transform_module(
                 transform_function("Public", func, storage_defined)
                     .map_err(|err| (err, crate_graph.root_file_id))?;
                 has_transformed_module = true;
+            } else if is_custom_attribute(&secondary_attribute, "aztec(public-vm)") {
+                transform_vm_function(func, storage_defined)
+                    .map_err(|err| (err, crate_graph.root_file_id))?;
+                has_transformed_module = true;
             }
         }
         // Add the storage struct to the beginning of the function if it is unconstrained in an aztec contract
@@ -628,6 +637,24 @@ fn transform_function(
         _ => (),
     }
 
+    Ok(())
+}
+
+/// Transform a function to work with AVM bytecode
+fn transform_vm_function(
+    func: &mut NoirFunction,
+    _storage_defined: bool,
+) -> Result<(), AztecMacroError> {
+    // Push Avm context creation to the beginning of the function
+    let create_context = create_avm_context()?;
+    func.def.body.0.insert(0, create_context);
+
+    // We want the function to be seen as a public function
+    func.def.is_open = true;
+
+    // NOTE: the line below is a temporary hack to trigger external transpilation tools
+    // It will be removed once the transpiler is integrated into the Noir compiler
+    func.def.name.0.contents = format!("avm_{}", func.def.name.0.contents);
     Ok(())
 }
 
@@ -1133,6 +1160,35 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
 
     // Return all expressions that will be injected by the hasher
     Ok(injected_expressions)
+}
+
+/// Creates an mutable avm context
+///
+/// ```noir
+/// /// Before
+/// #[aztec(public-vm)]
+/// fn foo() -> Field {
+///   let mut context = aztec::context::AVMContext::new();
+///   let timestamp = context.timestamp();
+///   // ...
+/// }
+///
+/// /// After
+/// #[aztec(private)]
+/// fn foo() -> Field {
+///     let mut timestamp = context.timestamp();
+///     // ...
+/// }
+fn create_avm_context() -> Result<Statement, AztecMacroError> {
+    let let_context = mutable_assignment(
+        "context", // Assigned to
+        call(
+            variable_path(chained_path!("aztec", "context", "AVMContext", "new")), // Path
+            vec![],                                                                // args
+        ),
+    );
+
+    Ok(let_context)
 }
 
 /// Abstract Return Type

@@ -6,9 +6,12 @@ use crate::{
         GENERATOR_INDEX__CALL_CONTEXT,
     },
     hash::pedersen_hash,
+    traits::{
+        Deserialize,
+        Hash,
+        Serialize,
+    },
 };
-use dep::std::cmp::Eq;
-use crate::traits::{Hash, Serialize};
 
 // docs:start:call-context
 struct CallContext {
@@ -75,10 +78,27 @@ impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
     }
 }
 
+impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
+    fn deserialize(serialized: [Field; CALL_CONTEXT_LENGTH]) -> CallContext {
+        CallContext {
+            msg_sender: AztecAddress::from_field(serialized[0]),
+            storage_contract_address: AztecAddress::from_field(serialized[1]),
+            portal_contract_address: EthAddress::from_field(serialized[2]),
+            function_selector: FunctionSelector::from_field(serialized[3]),
+            is_delegate_call: serialized[4] as bool,
+            is_static_call: serialized[5] as bool,
+            is_contract_deployment: serialized[6] as bool,
+            start_side_effect_counter: serialized[7] as u32,
+        }
+    }
+}
+
 #[test]
-fn serialization_smoke() {
+fn serialization_of_empty() {
     let context: CallContext = dep::std::unsafe::zeroed();
-    let _serialized = context.serialize();
+    let serialized = context.serialize();
+    let deserialized = CallContext::deserialize(serialized);
+    assert(context.eq(deserialized));
 }
 
 #[test]
