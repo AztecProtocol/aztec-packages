@@ -44,6 +44,8 @@ import {Hash} from "./Hash.sol";
  *  | 0x0118                                                                           | 0x20         |     version
  *  | 0x0138                                                                           | 0x20         |     blockNumber
  *  | 0x0158                                                                           | 0x20         |     timestamp
+ *  | 0x0178                                                                           | 0x14         |     coinbase
+ *  | 0x018c                                                                           | 0x20         |     feeRecipient
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
@@ -72,6 +74,8 @@ library HeaderLib {
     uint256 version;
     uint256 blockNumber;
     uint256 timestamp;
+    address coinbase;
+    bytes32 feeRecipient;
   }
 
   struct Header {
@@ -126,8 +130,8 @@ library HeaderLib {
    * @return The decoded header
    */
   function decode(bytes calldata _header) internal pure returns (Header memory) {
-    if (_header.length != 376) {
-      revert Errors.HeaderLib__InvalidHeaderSize(376, _header.length);
+    if (_header.length != 0x1ac) {
+      revert Errors.HeaderLib__InvalidHeaderSize(0x1ac, _header.length);
     }
 
     Header memory header;
@@ -162,6 +166,8 @@ library HeaderLib {
     header.globalVariables.version = uint256(bytes32(_header[0x0118:0x0138]));
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0138:0x0158]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x0158:0x0178]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x0178:0x018c]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x018c:0x01a0]);
 
     return header;
   }

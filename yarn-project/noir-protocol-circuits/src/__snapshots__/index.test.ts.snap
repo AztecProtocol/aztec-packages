@@ -6,9 +6,9 @@ exports[`Noir compatibility tests (interop_testing.nr) Address matches Noir 1`] 
 
 exports[`Noir compatibility tests (interop_testing.nr) ComputeContractAddressFromPartial matches Noir 1`] = `"0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75"`;
 
-exports[`Noir compatibility tests (interop_testing.nr) Public call stack item matches noir 1`] = `"0x037cb5ba672a7c461e23cf22ae618757ab4f1a912f3fdc93b2b2800cfe57bb91"`;
+exports[`Noir compatibility tests (interop_testing.nr) Public call stack item matches noir 1`] = `"0x17095bbb9e3e104dc520b6eec9338e9b6ce1fdc0f3a66b06d5ca90b15909ad0e"`;
 
-exports[`Noir compatibility tests (interop_testing.nr) Public call stack item request matches noir 1`] = `"0x2c36008a759d932a3a1986429aa295e2c2d4e62c33197a7d259750d29347bf30"`;
+exports[`Noir compatibility tests (interop_testing.nr) Public call stack item request matches noir 1`] = `"0x28cb4c264eb11e13c77a5e60b251a6b3edfb4cfed786c4f1ec5e1749fede9b78"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) Public key hash matches Noir 1`] = `"0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8"`;
 
