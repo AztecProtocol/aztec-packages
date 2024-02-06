@@ -7,7 +7,7 @@
     "entryPoints": [
       "./src/index.ts"
     ],
-    "name": "Acir Simulator",
+    "name": "Simulator",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
