@@ -18,7 +18,7 @@ std::pair<bool, index_t> LeavesCache::find_low_value(const fr& new_value) const
         --it;
         return std::make_pair(false, it->second);
     }
-    if (it->first == new_value) {
+    if (it->first == uint256_t(new_value)) {
         // the value is already present and the iterator points to it
         return std::make_pair(true, it->second);
     }
