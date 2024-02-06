@@ -255,7 +255,7 @@ abstract contract BaseUltraVerifier {
     bytes4 internal constant PUBLIC_INPUT_INVALID_BN128_G1_POINT_SELECTOR = 0xeba9f4a6;
     bytes4 internal constant PUBLIC_INPUT_GE_P_SELECTOR = 0x374a972f;
     bytes4 internal constant MOD_EXP_FAILURE_SELECTOR = 0xf894a7bc;
-    bytes4 internal constant EC_SCALAR_MUL_FAILURE_SELECTOR = 0xf755f369;
+    bytes4 internal constant PAIRING_PREAMBLE_FAILED_SELECTOR = 0x01882d81;
     bytes4 internal constant OPENING_COMMITMENT_FAILED_SELECTOR = 0x4e719763;
     bytes4 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd263;
 
@@ -288,7 +288,7 @@ abstract contract BaseUltraVerifier {
     error PUBLIC_INPUT_INVALID_BN128_G1_POINT();
     error PUBLIC_INPUT_GE_P();
     error MOD_EXP_FAILURE();
-    error EC_SCALAR_MUL_FAILURE();
+    error PAIRING_PREAMBLE_FAILED();
     error OPENING_COMMITMENT_FAILED();
     error PAIRING_FAILED();
 
@@ -2725,7 +2725,7 @@ abstract contract BaseUltraVerifier {
                 }
 
                 if iszero(success) {
-                    mstore(0x0, EC_SCALAR_MUL_FAILURE_SELECTOR)
+                    mstore(0x0, PAIRING_PREAMBLE_FAILED_SELECTOR)
                     revert(0x00, 0x04)
                 }
             }
