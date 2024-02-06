@@ -39,7 +39,7 @@ struct Storage {
 ```
 
 :::danger
-If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [encrypted events](../events.md#processing-encrypted-events) for more.
+If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [encrypted events](../../writing_contracts/events/emit_event.md#call-emit_encrypted_log) for more.
 
 If you don't yet have any private state variables defined you can use this placeholder function:
 

@@ -6,7 +6,7 @@ This page talks about the architecture of a wallet in Aztec.
 
 To get an overview about wallets in Aztec, [go here](./main.md).
 
-To learn how to write an accounts contract, [go here](./writing_an_account_contract.md).
+To learn how to write an accounts contract, [go here](../contracts/writing_contracts/accounts/write_accounts_contract.md).
 
 To create a schnorr account in the sandbox, [go here](./creating_schnorr_accounts.md).
 
@@ -28,7 +28,7 @@ The account interface is used for creating an _execution request_ out of one or 
 
 #include_code account-interface yarn-project/aztec.js/src/account/interface.ts typescript
 
-Refer to the page on [writing an account contract](./writing_an_account_contract.md) for an example on how to implement this interface.
+Refer to the page on [writing an account contract](../contracts/writing_contracts/accounts/write_accounts_contract.md) for an example on how to implement this interface.
 
 ## PXE interface
 
