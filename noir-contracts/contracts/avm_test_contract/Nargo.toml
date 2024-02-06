@@ -1,9 +1,8 @@
 [package]
-name = "card_game_contract"
+name = "avm_test_contract"
 authors = [""]
 compiler_version = ">=0.18.0"
 type = "contract"
 
 [dependencies]
 aztec = { path = "../../../yarn-project/aztec-nr/aztec" }
-value_note = { path = "../../../yarn-project/aztec-nr/value-note" }
