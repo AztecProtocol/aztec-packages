@@ -31,7 +31,7 @@ export class Sequencer {
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
-  // TODO(benesjan): The following values should not default to zero.
+  // TODO: zero values should not be allowed for the following 2 values in PROD
   private coinbase = EthAddress.ZERO;
   private feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
