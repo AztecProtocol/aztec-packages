@@ -167,7 +167,7 @@ library HeaderLib {
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0138:0x0158]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x0158:0x0178]));
     header.globalVariables.coinbase = address(bytes20(_header[0x0178:0x018c]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x018c:0x01a0]);
+    header.globalVariables.feeRecipient = bytes32(_header[0x018c:0x1ac]);
 
     return header;
   }
