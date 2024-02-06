@@ -277,7 +277,6 @@ Data that remains the same throughout the entire transaction.
 | ------------------- | ---------------------------------- | --------------------------------------------------- |
 | _function_selector_ | _u32_                              | Selector of the function being called.              |
 | _function_type_     | private \| public \| unconstrained | Type of the function being called.                  |
-| _is_internal_       | _bool_                             | A flag indicating whether the function is internal. |             |
 
 #### _TransactionContext_
 
