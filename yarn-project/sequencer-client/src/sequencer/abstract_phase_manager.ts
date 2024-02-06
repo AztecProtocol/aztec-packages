@@ -161,8 +161,9 @@ export abstract class AbstractPhaseManager {
 
         // TODO: get this from the environment
         // NOTE: temporary glue to incorporate avm execution calls
-        const isAvm = env.AVM_ENABLED;
-        const simulator = isAvm ? this.publicExecutor.simulateAvm : this.publicExecutor.simulate;
+        const simulator = (env.AVM_ENABLED 
+          ? (execution: PublicExecution, globalVariables: any) => this.publicExecutor.simulateAvm(execution, globalVariables)
+          : (execution: PublicExecution, globalVariables: any) => this.publicExecutor.simulate(execution, globalVariables));
 
         const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
 

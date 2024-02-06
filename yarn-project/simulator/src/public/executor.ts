@@ -1,6 +1,7 @@
 import { ContractStorageRead, ContractStorageUpdateRequest, GlobalVariables, Header, PublicCircuitPublicInputs, SideEffect, SideEffectLinkedToNoteHash } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import {Fr} from "@aztec/foundation/fields";
 import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
@@ -15,7 +16,6 @@ import { AvmWorldStateJournal, JournalData } from '../avm/journal/index.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
-import { Fr } from '@aztec/bb.js';
 import { FunctionL2Logs } from '@aztec/circuit-types';
 import { AvmContractCallResults } from '../avm/avm_message_call_result.js';
 
@@ -138,6 +138,7 @@ export class PublicExecutor {
    * @returns The result of the run plus all nested runs.
    */
   public async simulateAvm(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+    console.log(this.contractsDb);
     const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
     const worldStateJournal = new AvmWorldStateJournal(hostStorage);
     const executionEnv = temporaryMapToExecutionEnvironment(execution, globalVariables);

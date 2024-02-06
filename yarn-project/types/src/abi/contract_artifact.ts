@@ -103,7 +103,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
 
   // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
   let parameters = fn.abi.parameters.map(generateFunctionParameter);
-  if (functionType !== 'unconstrained') {
+  if (hasKernelFunctionInputs(parameters)) {
     parameters = parameters.slice(1);
   }
 
@@ -123,6 +123,14 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
     verificationKey: mockVerificationKey,
     debugSymbols: fn.debug_symbols,
   };
+}
+
+function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
+  const firstParam = params[0];
+  if (firstParam?.type.kind === 'struct') {
+    return firstParam.type.path.includes('ContextInputs');
+  }
+  return false;
 }
 
 /** Validates contract artifact instance, throwing on error. */
