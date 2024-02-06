@@ -8,8 +8,7 @@
     "./*": "./dest/src/*.js"
   },
   "scripts": {
-    "build": "yarn clean && yarn build:contracts && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "build": "yarn clean && yarn build:contracts",
     "clean": "rm -rf ./dest .tsbuildinfo ./src ./target",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
