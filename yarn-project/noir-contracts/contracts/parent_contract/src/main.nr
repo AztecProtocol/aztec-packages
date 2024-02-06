@@ -139,19 +139,6 @@ contract Parent {
         );
     }
 
-    // Private function to call another private function in the targetContract using the provided selector
-    #[aztec(private)]
-    fn privateNoArgsStaticCall(
-        targetContract: AztecAddress,
-        targetSelector: FunctionSelector
-    ) -> Field {
-        // Call the target private function
-        let return_values = context.call_private_function_no_args_static(targetContract, targetSelector);
-
-        // Copy the return value from the call to this function's return values
-        return_values[0]
-    }
-
     #[aztec(private)]
     fn privateStaticCall(
         targetContract: AztecAddress,
@@ -162,6 +149,18 @@ contract Parent {
         let return_values = context.call_private_function_static(targetContract, targetSelector, args);
 
         // Copy the return value from the call to this function's return values
+        return_values[0]
+    }
+
+    // Public function to directly call another public function to the targetContract using the selector and value provided
+    #[aztec(public)]
+    fn publicStaticCall(
+        targetContract: AztecAddress,
+        targetSelector: FunctionSelector,
+        args: [Field; 2]
+    ) -> Field {
+        let return_values = context.call_public_function_static(targetContract, targetSelector, args);
+
         return_values[0]
     }
 }

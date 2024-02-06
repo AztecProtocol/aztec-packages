@@ -294,6 +294,12 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
+  checkValidStaticCall(childExecutionResult: ExecutionResult) {
+    if (childExecutionResult.newNotes.length > 0) {
+      throw new Error('Static call cannot create new notes');
+    }
+  }
+
   /**
    * Calls a private function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
@@ -354,8 +360,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       targetFunctionData,
     );
 
-    if (childExecutionResult.newNotes.length > 0 && isStaticCall) {
-      throw new Error('Static call cannot create new notes');
+    if (isStaticCall) {
+      this.checkValidStaticCall(childExecutionResult);
     }
 
     this.nestedExecutions.push(childExecutionResult);
@@ -371,6 +377,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
+   * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
    */
   public async enqueuePublicFunctionCall(
@@ -378,6 +385,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     functionSelector: FunctionSelector,
     argsHash: Fr,
     sideEffectCounter: number,
+    isStaticCall: boolean,
   ): Promise<PublicCallRequest> {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = await this.deriveCallContext(
@@ -385,7 +393,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       targetArtifact,
       sideEffectCounter,
       false,
-      false,
+      isStaticCall,
     );
     const args = this.packedArgsCache.unpack(argsHash);
     const enqueuedRequest = PublicCallRequest.from({

@@ -153,12 +153,22 @@ describe('e2e_nested_contract', () => {
 
     it('performs legal private static calls', async () => {
       await parentContract.methods
-        .privateNoArgsStaticCall(childContract.address, childContract.methods.value.selector)
+        .privateStaticCall(childContract.address, childContract.methods.privateGetValue.selector, [
+          42n,
+          wallet.getCompleteAddress().address,
+        ])
         .send()
         .wait();
     }, 100_000);
 
-    it('fails when performing illegal static calls', async () => {
+    it('performs legal public static calls', async () => {
+      await parentContract.methods
+        .pubEntryPoint(childContract.address, childContract.methods.pubGetValue.selector, 42n)
+        .send()
+        .wait();
+    }, 100_000);
+
+    it('fails when performing illegal private static calls', async () => {
       await expect(
         parentContract.methods
           .privateStaticCall(childContract.address, childContract.methods.privateSetValue.selector, [
@@ -167,7 +177,7 @@ describe('e2e_nested_contract', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrowError('Static call cannot create new notes');
+      ).rejects.toThrow('Static call cannot create new notes');
     }, 100_000);
   });
 

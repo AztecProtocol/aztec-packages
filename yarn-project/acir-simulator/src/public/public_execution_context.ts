@@ -149,6 +149,17 @@ export class PublicExecutionContext extends TypedOracle {
     return newValues;
   }
 
+  checkValidStaticCall(childExecutionResult: PublicExecutionResult) {
+    if (
+      childExecutionResult.contractStorageUpdateRequests.some(
+        updateRequest => !updateRequest.newValue.equals(updateRequest.oldValue),
+      ) ||
+      childExecutionResult.newCommitments.length > 0
+    ) {
+      throw new Error('Static call cannot updated the state');
+    }
+  }
+
   /**
    * Calls a public function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
@@ -177,6 +188,8 @@ export class PublicExecutionContext extends TypedOracle {
 
     const functionData = new FunctionData(functionSelector, isInternal, false, false);
 
+    const isStaticCall = this.execution.callContext.isStaticCall;
+
     const callContext = CallContext.from({
       msgSender: this.execution.contractAddress,
       portalContractAddress: portalAddress,
@@ -184,7 +197,7 @@ export class PublicExecutionContext extends TypedOracle {
       functionSelector,
       isContractDeployment: false,
       isDelegateCall: false,
-      isStaticCall: false,
+      isStaticCall,
       startSideEffectCounter: 0, // TODO use counters in public execution
     });
 
@@ -208,6 +221,10 @@ export class PublicExecutionContext extends TypedOracle {
     );
 
     const childExecutionResult = await executePublicFunction(context, acir);
+
+    if (isStaticCall) {
+      this.checkValidStaticCall(childExecutionResult);
+    }
 
     this.nestedExecutions.push(childExecutionResult);
     this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
