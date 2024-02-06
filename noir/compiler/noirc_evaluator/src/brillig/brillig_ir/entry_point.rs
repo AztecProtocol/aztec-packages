@@ -114,15 +114,12 @@ impl BrilligContext {
             offset: 0,
         });
 
-        fn flat_bit_sizes(param: &BrilligParameter) -> Vec<u32> {
+        fn flat_bit_sizes(param: &BrilligParameter) -> Box<dyn Iterator<Item = u32> + '_> {
             match param {
-                BrilligParameter::Simple(bit_size) => vec![*bit_size],
-                BrilligParameter::Array(item_types, item_count) => {
-                    std::iter::repeat(item_types.iter().flat_map(flat_bit_sizes))
-                        .take(*item_count)
-                        .flatten()
-                        .collect()
-                }
+                BrilligParameter::Simple(bit_size) => Box::new(std::iter::once(*bit_size)),
+                BrilligParameter::Array(item_types, item_count) => Box::new(
+                    (0..*item_count).flat_map(move |_| item_types.iter().flat_map(flat_bit_sizes)),
+                ),
                 BrilligParameter::Slice(..) => unimplemented!("Unsupported slices as parameter"),
             }
         }
