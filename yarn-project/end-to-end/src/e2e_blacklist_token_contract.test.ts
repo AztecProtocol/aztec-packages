@@ -16,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import { AztecLmdbStore } from '@aztec/kv-store';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
-import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts';
+import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 

@@ -37,7 +37,7 @@
       "path": "../types"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

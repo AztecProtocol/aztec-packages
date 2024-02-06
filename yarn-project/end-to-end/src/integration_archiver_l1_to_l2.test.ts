@@ -11,7 +11,7 @@ import {
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { AztecLmdbStore } from '@aztec/kv-store';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
 
