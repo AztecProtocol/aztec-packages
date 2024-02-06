@@ -79,7 +79,8 @@ export function getConfigEnvVars(): SequencerClientConfig {
     publisherPrivateKey,
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
     minTxsPerBlock: SEQ_MIN_TX_PER_BLOCK ? +SEQ_MIN_TX_PER_BLOCK : 1,
-    coinbase: COINBASE ? EthAddress.fromString(COINBASE) : EthAddress.ZERO,
-    feeRecipient: FEE_RECIPIENT ? AztecAddress.fromString(FEE_RECIPIENT) : AztecAddress.ZERO,
+    // TODO: undefined should not be allowed for the following 2 values in PROD
+    coinbase: COINBASE ? EthAddress.fromString(COINBASE) : undefined,
+    feeRecipient: FEE_RECIPIENT ? AztecAddress.fromString(FEE_RECIPIENT) : undefined,
   };
 }

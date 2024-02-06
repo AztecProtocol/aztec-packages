@@ -153,8 +153,8 @@ describe('L1Publisher integration', () => {
       l1BlockPublishRetryIntervalMS: 100,
     });
 
-    coinbase = config.coinbase || EthAddress.ZERO;
-    feeRecipient = config.feeRecipient || AztecAddress.ZERO;
+    coinbase = config.coinbase || EthAddress.random();
+    feeRecipient = config.feeRecipient || AztecAddress.random();
 
     prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
@@ -274,6 +274,8 @@ describe('L1Publisher integration', () => {
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
+            coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
+            feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
           },
           lastArchive: {
             nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
@@ -451,9 +453,6 @@ describe('L1Publisher integration', () => {
         await makeEmptyProcessedTx(),
       ];
 
-      // TODO(benesjan): populate these values from config.
-      const coinbase = EthAddress.ZERO;
-      const feeRecipient = AztecAddress.ZERO;
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
