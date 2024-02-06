@@ -1,4 +1,4 @@
-import { NoteData } from '@aztec/acir-simulator';
+import { NoteData } from '@aztec/simulator';
 import { Note, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, PublicKey } from '@aztec/circuits.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';

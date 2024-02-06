@@ -5,7 +5,7 @@ import {
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
   resolveOpcodeLocations,
-} from '@aztec/acir-simulator';
+} from '@aztec/simulator';
 import {
   AuthWitness,
   AztecNode,

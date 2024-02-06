@@ -5,7 +5,7 @@ import {
   collectPublicDataReads,
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
-} from '@aztec/acir-simulator';
+} from '@aztec/simulator';
 import { FunctionL2Logs, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import {
   AztecAddress,

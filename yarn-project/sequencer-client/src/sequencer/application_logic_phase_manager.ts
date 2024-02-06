@@ -1,4 +1,4 @@
-import { PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
+import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { Tx } from '@aztec/circuit-types';
 import { GlobalVariables, Header, Proof, PublicCallRequest, PublicKernelPublicInputs } from '@aztec/circuits.js';
 import { isArrayEmpty } from '@aztec/foundation/collection';

@@ -1,4 +1,4 @@
-import { PublicExecutor, PublicStateDB } from '@aztec/acir-simulator';
+import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { ContractDataSource, L1ToL2MessageSource, Tx } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { GlobalVariables, Header, Proof, PublicKernelPublicInputs } from '@aztec/circuits.js';

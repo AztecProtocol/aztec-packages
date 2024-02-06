@@ -1,4 +1,4 @@
-import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
 import {
   AztecNode,
   KeyStore,

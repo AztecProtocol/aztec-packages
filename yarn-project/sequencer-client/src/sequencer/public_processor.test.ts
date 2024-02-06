@@ -1,4 +1,4 @@
-import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
+import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
 import {
   ExtendedContractData,
   FunctionCall,

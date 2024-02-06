@@ -1,4 +1,4 @@
-import { AcirSimulator } from '@aztec/acir-simulator';
+import { AcirSimulator } from '@aztec/simulator';
 import { L1NotePayload, TxHash } from '@aztec/circuit-types';
 import { Fr, PublicKey } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';

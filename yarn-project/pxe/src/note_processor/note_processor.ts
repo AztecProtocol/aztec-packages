@@ -1,4 +1,4 @@
-import { ContractNotFoundError } from '@aztec/acir-simulator';
+import { ContractNotFoundError } from '@aztec/simulator';
 import {
   AztecNode,
   INITIAL_L2_BLOCK_NUM,

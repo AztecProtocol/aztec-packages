@@ -1,4 +1,4 @@
-import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/acir-simulator';
+import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
 import { ContractDatabase } from '@aztec/circuit-types';
 import {
   AztecAddress,

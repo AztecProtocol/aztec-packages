@@ -1,4 +1,4 @@
-import { AcirSimulator } from '@aztec/acir-simulator';
+import { AcirSimulator } from '@aztec/simulator';
 import {
   AztecNode,
   FunctionL2Logs,

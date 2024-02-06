@@ -1,4 +1,4 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
+import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 import { FunctionL2Logs, Note } from '@aztec/circuit-types';
 import {
   FunctionData,
