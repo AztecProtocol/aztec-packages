@@ -160,7 +160,9 @@ const sidebars = {
       link: { type: "doc", id: "public-vm/avm" },
       items: [
         "public-vm/avm",
-        "public-vm/state-model",
+        "public-vm/state",
+        "public-vm/type-structs",
+        "public-vm/memory-model",
         "public-vm/instruction-set",
         "public-vm/avm-circuit",
         "public-vm/control-flow",
