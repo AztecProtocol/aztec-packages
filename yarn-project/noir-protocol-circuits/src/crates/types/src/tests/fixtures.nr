@@ -30,6 +30,16 @@ fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
     AppendOnlyTreeSnapshot::zero()
 }
 
+// Workaround for https://github.com/noir-lang/noir/issues/1440
+fn empty_eth_address() -> EthAddress {
+    EthAddress::empty()
+}
+
+// Workaround for https://github.com/noir-lang/noir/issues/1440
+fn empty_aztec_address() -> AztecAddress {
+    AztecAddress::empty()
+}
+
 global HEADER = Header {
     last_archive: empty_append_only_tree(),
     body_hash: [0; NUM_FIELDS_PER_SHA256],
@@ -53,14 +63,7 @@ global HEADER = Header {
         version: 0,
         block_number: 0,
         timestamp: 0,
-        coinbase: EthAddress {
-            inner: 0
-        },
-        fee_recipient: AztecAddress {
-            inner: 0
-        },
-        // TODO(benesjan): figure out why this doesn't work
-        // coinbase: EthAddress::empty(),
-        // fee_recipient: AztecAddress::empty(),
+        coinbase: empty_eth_address(),
+        fee_recipient: empty_aztec_address(),
     }
 };
