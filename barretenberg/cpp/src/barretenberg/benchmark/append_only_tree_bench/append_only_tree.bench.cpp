@@ -1,9 +1,8 @@
-#include "barretenberg/stdlib/merkle_tree/indexed_tree/indexed_tree.hpp"
+#include "barretenberg/stdlib/merkle_tree/append_only_tree/append_only_tree.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/merkle_tree/array_store.hpp"
 #include "barretenberg/stdlib/merkle_tree/hash.hpp"
 #include "barretenberg/stdlib/merkle_tree/hasher.hpp"
-#include "barretenberg/stdlib/merkle_tree/indexed_tree/leaves_cache.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;
@@ -13,19 +12,19 @@ namespace {
 auto& random_engine = bb::numeric::get_randomness();
 } // namespace
 
-void perform_batch_insert(IndexedTree<ArrayStore, LeavesCache>& tree, const std::vector<fr>& values)
+void perform_batch_insert(AppendOnlyTree<ArrayStore>& tree, const std::vector<fr>& values)
 {
     tree.add_values(values);
 }
 
-void indexed_tree_bench(State& state) noexcept
+void append_only_tree_bench(State& state) noexcept
 {
     const size_t batch_size = 16;
-    const size_t depth = 40;
+    const size_t depth = 32;
 
     Poseidon2Hasher hasher;
     ArrayStore store(depth + 1, 100 * 1024);
-    IndexedTree<ArrayStore, LeavesCache> tree = IndexedTree<ArrayStore, LeavesCache>(hasher, store, depth, batch_size);
+    AppendOnlyTree<ArrayStore> tree = AppendOnlyTree<ArrayStore>(hasher, store, depth, batch_size);
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -38,6 +37,6 @@ void indexed_tree_bench(State& state) noexcept
     }
     info("Performed ", hasher.get_hash_count(), " hashes");
 }
-BENCHMARK(indexed_tree_bench)->Unit(benchmark::kMillisecond)->Iterations(6000);
+BENCHMARK(append_only_tree_bench)->Unit(benchmark::kMillisecond)->Iterations(6000);
 
 BENCHMARK_MAIN();

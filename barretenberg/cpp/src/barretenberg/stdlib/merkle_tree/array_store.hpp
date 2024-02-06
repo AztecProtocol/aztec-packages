@@ -1,17 +1,20 @@
 #pragma once
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib::merkle_tree {
 
-class FixedMemoryStore {
+using namespace bb;
+
+class ArrayStore {
 
   public:
-    FixedMemoryStore(size_t levels, size_t indices)
+    ArrayStore(size_t levels, size_t indices)
         : map_(std::vector<std::vector<std::pair<bool, std::vector<uint8_t>>>>(
               levels,
               std::vector<std::pair<bool, std::vector<uint8_t>>>(
                   indices, std::pair<bool, std::vector<uint8_t>>(false, std::vector<uint8_t>()))))
     {}
-    ~FixedMemoryStore() {}
+    ~ArrayStore() {}
 
     void put(size_t level, size_t index, const std::vector<uint8_t>& data)
     {

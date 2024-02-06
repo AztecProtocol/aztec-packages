@@ -1,1 +1,1 @@
-barretenberg_module(merkle_tree_bench crypto_poseidon2 stdlib_merkle_tree)
+barretenberg_module(indexed_tree_bench crypto_poseidon2 stdlib_merkle_tree)
