@@ -1,4 +1,12 @@
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, NoteStatus, UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  AuthWitness,
+  AztecNode,
+  FunctionL2Logs,
+  L1NotePayload,
+  Note,
+  NoteStatus,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   CallContext,
   ContractDeploymentData,
@@ -66,9 +74,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
+    private node: AztecNode,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
-    super(contractAddress, authWitnesses, db, undefined, log);
+    super(contractAddress, authWitnesses, db, node, log);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -291,7 +300,8 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    const text = log.toHumanReadable();
+    this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
   checkValidStaticCall(childExecutionResult: ExecutionResult) {
@@ -305,7 +315,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
-   * @param sideffectCounter - The side effect counter at the start of the call.
+   * @param sidEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
@@ -313,7 +323,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
-    sideffectCounter: number,
+    sideEffectCounter: number,
     isStaticCall: boolean,
   ) {
     this.log(
@@ -335,7 +345,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideffectCounter,
+      sideEffectCounter,
       false,
       isStaticCall,
     );
@@ -351,6 +361,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.noteCache,
       this.db,
       this.curve,
+      this.node,
     );
 
     const childExecutionResult = await executePrivateFunction(
