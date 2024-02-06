@@ -4,7 +4,6 @@ import {
   makeNewSideEffect,
   makePreviousKernelData,
   makePrivateCallData,
-  makePrivateCircuitPublicInputs,
   makePrivateKernelInputsInner,
   makePrivateKernelPublicInputsFinal,
 } from '../../tests/factories.js';
@@ -12,11 +11,12 @@ import {
   CallRequest,
   FinalAccumulatedData,
   PreviousKernelData,
-  PrivateCircuitPublicInputs,
   PrivateKernelPublicInputsFinal,
   SideEffect,
 } from '../index.js';
 import { PrivateCallData, PrivateKernelInputsInner } from './private_kernel.js';
+
+// TODO(benesjan): nuke this
 
 describe('PrivateKernel', function () {
   it(`serializes PrivateKernelInputsInner to buffer and deserializes it back`, () => {
@@ -72,13 +72,5 @@ describe('CallRequest', () => {
     const fad = makeCallRequest(0);
     const buf = fad.toBuffer();
     expect(CallRequest.fromBuffer(buf)).toEqual(fad);
-  });
-});
-
-describe('Private Circuit Public Inputs', () => {
-  it('convert to and from buffer', () => {
-    const pkpi = makePrivateCircuitPublicInputs();
-    const buf = pkpi.toBuffer();
-    expect(PrivateCircuitPublicInputs.fromBuffer(buf)).toEqual(pkpi);
   });
 });
