@@ -100,14 +100,10 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                     }
                 },
                 BrilligInputs::MemoryArray(block_id) => {
-                    let memory_block = memory.get(block_id).expect("memory block should exist");
+                    let memory_block = memory.get(block_id).ok_or(OpcodeNotSolvable::MissingMemoryBlock(block_id.0))?;
                     for memory_index in 0..memory_block.block_len {
-                        match memory_block.block_value.get(&memory_index) {
-                            Some(value) => calldata.push((*value).into()),
-                            None => {
-                                panic!("bad")
-                            }
-                        }
+                        let memory_value = memory_block.block_value.get(&memory_index).expect("All memory is initialized on creation"); 
+                        calldata.push((*memory_value).into());
                     }
                 }
             }

@@ -79,6 +79,8 @@ pub enum StepResult<'a, B: BlackBoxFunctionSolver> {
 pub enum OpcodeNotSolvable {
     #[error("missing assignment for witness index {0}")]
     MissingAssignment(u32),
+    #[error("Attempted to load uninitialized memory block")]
+    MissingMemoryBlock(u32),
     #[error("expression has too many unknowns {0}")]
     ExpressionHasTooManyUnknowns(Expression),
 }
