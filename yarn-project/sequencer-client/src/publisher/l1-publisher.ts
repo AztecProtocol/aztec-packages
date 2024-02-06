@@ -1,7 +1,7 @@
+import { ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { L1PublishStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
-import { ExtendedContractData, L2Block } from '@aztec/types';
-import { L1PublishStats } from '@aztec/types/stats';
 
 import pick from 'lodash.pick';
 
@@ -28,16 +28,25 @@ export type MinimalTransactionReceipt = {
   status: boolean;
   /** Hash of the transaction. */
   transactionHash: string;
-  /** Effective gas used by the tx */
+  /** Effective gas used by the tx. */
   gasUsed: bigint;
-  /** Effective gas price paid by the tx */
+  /** Effective gas price paid by the tx. */
   gasPrice: bigint;
+  /** Logs emitted in this tx. */
+  logs: any[];
 };
 
 /**
  * Pushes txs to the L1 chain and waits for their completion.
  */
 export interface L1PublisherTxSender {
+  /**
+   * Publishes tx effects to Availability Oracle.
+   * @param encodedBody - Encoded block body.
+   * @returns The hash of the mined tx.
+   */
+  sendPublishTx(encodedBody: Buffer): Promise<string | undefined>;
+
   /**
    * Sends a tx to the L1 rollup contract with a new L2 block. Returns once the tx has been mined.
    * @param encodedData - Serialized data for processing the new L2 block.
@@ -73,20 +82,35 @@ export interface L1PublisherTxSender {
    * @param txHash - Hash of the tx to look for.
    */
   getTransactionStats(txHash: string): Promise<TransactionStats | undefined>;
+
+  /**
+   * Returns the current archive root.
+   * @returns The current archive root of the rollup contract.
+   */
+  getCurrentArchive(): Promise<Buffer>;
+
+  /**
+   * Checks if the transaction effects of the given block are available.
+   * @param block - The block of which to check whether txs are available.
+   * @returns True if the txs are available, false otherwise.
+   */
+  checkIfTxsAreAvailable(block: L2Block): Promise<boolean>;
 }
 
 /**
- * Encoded block data and proof ready to be pushed to the L1 contract.
+ * Encoded block and proof ready to be pushed to the L1 contract.
  */
 export type L1ProcessArgs = {
-  /**
-   * Root rollup proof for an L1 block.
-   */
+  /** The L2 block header. */
+  header: Buffer;
+  /** A root of the archive tree after the L2 block is applied. */
+  archive: Buffer;
+  /** Transactions hash. */
+  txsHash: Buffer;
+  /** L2 block body. */
+  body: Buffer;
+  /** Root rollup proof of the L2 block. */
   proof: Buffer;
-  /**
-   * Serialized L2Block data.
-   */
-  inputs: Buffer;
 };
 
 /**
@@ -118,22 +142,65 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   /**
-   * Processes incoming L2 block data by publishing it to the L1 rollup contract.
-   * @param l2BlockData - L2 block data to publish.
+   * Publishes L2 block on L1.
+   * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
-    const proof = Buffer.alloc(0);
-    const txData = { proof, inputs: l2BlockData.toBufferWithLogs() };
+  public async processL2Block(block: L2Block): Promise<boolean> {
+    // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
+    const lastArchive = block.header.lastArchive.root.toBuffer();
+    if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
+      this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
+      return false;
+    }
 
+    const encodedBody = block.bodyToBuffer();
+
+    // Publish block transaction effects
     while (!this.interrupted) {
-      if (!(await this.checkFeeDistributorBalance())) {
-        this.log(`Fee distributor ETH balance too low, awaiting top up...`);
-        await this.sleepOrInterrupted();
-        continue;
+      if (await this.txSender.checkIfTxsAreAvailable(block)) {
+        this.log(`Transaction effects of a block ${block.number} already published.`);
+        break;
       }
 
-      const txHash = await this.sendProcessTx(txData);
+      const txHash = await this.sendPublishTx(encodedBody);
+      if (!txHash) {
+        return false;
+      }
+
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        return false;
+      }
+
+      if (receipt.status) {
+        let txsHash;
+        if (receipt.logs.length === 1) {
+          // txsHash from IAvailabilityOracle.TxsPublished event
+          txsHash = receipt.logs[0].data;
+        } else {
+          this.log(`Expected 1 log, got ${receipt.logs.length}`);
+        }
+
+        this.log.info(`Block txs effects published, txsHash: ${txsHash}`);
+        break;
+      }
+
+      this.log(`AvailabilityOracle.publish tx status failed: ${receipt.transactionHash}`);
+      await this.sleepOrInterrupted();
+    }
+
+    const processTxArgs = {
+      header: block.header.toBuffer(),
+      archive: block.archive.root.toBuffer(),
+      txsHash: block.getCalldataHash(),
+      body: encodedBody,
+      proof: Buffer.alloc(0),
+    };
+
+    // Process block
+    while (!this.interrupted) {
+      const txHash = await this.sendProcessTx(processTxArgs);
       if (!txHash) {
         break;
       }
@@ -149,7 +216,7 @@ export class L1Publisher implements L2BlockReceiver {
         const stats: L1PublishStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
-          ...l2BlockData.getStats(),
+          ...block.getStats(),
           eventName: 'rollup-published-to-l1',
         };
         this.log.info(`Published L2 block to L1 rollup contract`, stats);
@@ -157,12 +224,12 @@ export class L1Publisher implements L2BlockReceiver {
       }
 
       // Check if someone else incremented the block number
-      if (!(await this.checkNextL2BlockNum(l2BlockData.number))) {
-        this.log('Publish failed. Contract changed underfoot.');
+      if (!(await this.checkLastArchiveHash(lastArchive))) {
+        this.log('Publish failed. Detected different last archive hash.');
         break;
       }
 
-      this.log(`Transaction status failed: ${receipt.transactionHash}`);
+      this.log(`Rollup.process tx status failed: ${receipt.transactionHash}`);
       await this.sleepOrInterrupted();
     }
 
@@ -180,12 +247,6 @@ export class L1Publisher implements L2BlockReceiver {
   public async processNewContractData(l2BlockNum: number, l2BlockHash: Buffer, contractData: ExtendedContractData[]) {
     let _contractData: ExtendedContractData[] = [];
     while (!this.interrupted) {
-      if (!(await this.checkFeeDistributorBalance())) {
-        this.log(`Fee distributor ETH balance too low, awaiting top up...`);
-        await this.sleepOrInterrupted();
-        continue;
-      }
-
       const arr = _contractData.length ? _contractData : contractData;
       const txHashes = await this.sendEmitNewContractDataTx(l2BlockNum, l2BlockHash, arr);
       if (!txHashes) {
@@ -235,17 +296,30 @@ export class L1Publisher implements L2BlockReceiver {
     this.interrupted = false;
   }
 
-  // TODO: Check fee distributor has at least 0.5 ETH.
-  // Related to https://github.com/AztecProtocol/aztec-packages/issues/1588
-  // eslint-disable-next-line require-await
-  private async checkFeeDistributorBalance(): Promise<boolean> {
-    return true;
+  /**
+   * Verifies that the given value of last archive in a block header equals current archive of the rollup contract
+   * @param lastArchive - The last archive of the block we wish to publish.
+   * @returns Boolean indicating if the hashes are equal.
+   */
+  private async checkLastArchiveHash(lastArchive: Buffer): Promise<boolean> {
+    const fromChain = await this.txSender.getCurrentArchive();
+    const areSame = lastArchive.equals(fromChain);
+    if (!areSame) {
+      this.log(`CONTRACT ARCHIVE: ${fromChain.toString('hex')}`);
+      this.log(`NEW BLOCK LAST ARCHIVE: ${lastArchive.toString('hex')}`);
+    }
+    return areSame;
   }
 
-  // TODO: Fail if blockchainStatus.nextBlockNum > thisBlockNum.
-  // Related to https://github.com/AztecProtocol/aztec-packages/issues/1588
-  private checkNextL2BlockNum(_thisBlockNum: number): Promise<boolean> {
-    return Promise.resolve(true);
+  private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
+    while (!this.interrupted) {
+      try {
+        return await this.txSender.sendPublishTx(encodedBody);
+      } catch (err) {
+        this.log.error(`TxEffects publish failed`, err);
+        return undefined;
+      }
+    }
   }
 
   private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {

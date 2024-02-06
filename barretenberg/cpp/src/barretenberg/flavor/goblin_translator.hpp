@@ -14,26 +14,27 @@
 #include "barretenberg/relations/translator_vm/translator_gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
-#include "relation_definitions_fwd.hpp"
+#include "relation_definitions.hpp"
 
-namespace proof_system::honk::flavor {
+namespace bb {
 
-class GoblinTranslator {
+class GoblinTranslatorFlavor {
 
   public:
     static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = GoblinTranslatorCircuitBuilder;
     using Curve = curve::BN254;
-    using PCS = pcs::kzg::KZG<Curve>;
+    using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
+    using RelationSeparator = FF;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and GenPermSort) can be evaluated just on the first chunk
@@ -43,13 +44,13 @@ class GoblinTranslator {
     // None of this parameters can be changed
 
     // How many mini_circuit_size polynomials are concatenated in one concatenated_*
-    static constexpr size_t CONCATENATION_INDEX = 16;
+    static constexpr size_t CONCATENATION_GROUP_SIZE = 16;
 
     // The number of concatenated_* wires
     static constexpr size_t NUM_CONCATENATED_WIRES = 4;
 
     // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_INDEX;
+    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE;
 
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
@@ -1006,7 +1007,7 @@ class GoblinTranslator {
     /**
      * @brief A container for univariates used during sumcheck.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -1137,22 +1138,4 @@ class GoblinTranslator {
 
     using Transcript = BaseTranscript;
 };
-} // namespace proof_system::honk::flavor
-
-namespace proof_system {
-
-extern template class GoblinTranslatorPermutationRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorGenPermSortRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorOpcodeConstraintRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorAccumulatorTransferRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorDecompositionRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorNonNativeFieldRelationImpl<barretenberg::fr>;
-
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorGenPermSortRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorAccumulatorTransferRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorDecompositionRelationImpl, honk::flavor::GoblinTranslator);
-DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorNonNativeFieldRelationImpl, honk::flavor::GoblinTranslator);
-
-} // namespace proof_system
+} // namespace bb

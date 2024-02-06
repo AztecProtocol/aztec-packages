@@ -1,3 +1,4 @@
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -13,7 +14,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { executeInit, executeInner, executeOrdering } from '@aztec/noir-protocol-circuits';
-import { CircuitSimulationStats } from '@aztec/types/stats';
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
@@ -96,7 +96,9 @@ export class KernelProofCreator implements ProofCreator {
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
     const contractAddress = publicInputs.callContext.storageContractAddress;
 
-    return Promise.resolve(publicInputs.newCommitments.map(commitment => siloCommitment(contractAddress, commitment)));
+    return Promise.resolve(
+      publicInputs.newCommitments.map(commitment => siloCommitment(contractAddress, commitment.value)),
+    );
   }
 
   public async createProofInit(privateInputs: PrivateKernelInputsInit): Promise<ProofOutput> {

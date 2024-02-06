@@ -1,14 +1,10 @@
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
-
-namespace proof_system::honk {
+namespace bb {
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
@@ -33,23 +29,22 @@ template <typename Flavor> ECCVMVerifier_<Flavor>& ECCVMVerifier_<Flavor>::opera
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Gemini = pcs::gemini::GeminiVerifier_<Curve>;
-    using Shplonk = pcs::shplonk::ShplonkVerifier_<Curve>;
+    using Gemini = GeminiVerifier_<Curve>;
+    using Shplonk = ShplonkVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using OpeningClaim = typename pcs::OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -158,10 +153,16 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.z_perm = receive_commitment(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-    FF alpha = transcript->get_challenge("alpha");
+    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+
     auto [multivariate_challenge, purported_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, transcript);
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
@@ -178,7 +179,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     // Compute powers of batching challenge rho
     FF rho = transcript->get_challenge("rho");
-    std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
+    std::vector<FF> rhos = gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();
@@ -195,11 +196,12 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
+        // TODO(@zac-williamson)(https://github.com/AztecProtocol/barretenberg/issues/820) ensure ECCVM polynomial
+        // commitments are never points at infinity
         if (commitment.y != 0) {
             batched_commitment_unshifted += commitment * rhos[commitment_idx];
         } else {
-            info("point at infinity (unshifted)");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/820)
         }
         ++commitment_idx;
     }
@@ -210,7 +212,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         if (commitment.y != 0) {
             batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
         } else {
-            info("point at infinity (to be shifted)");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/820)
         }
         ++commitment_idx;
     }
@@ -267,14 +269,14 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         }
 
         // Construct and verify batched opening claim
-        OpeningClaim batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                  batched_commitment };
+        OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
+                                                         batched_commitment };
         univariate_opening_verified = PCS::verify(pcs_verification_key, batched_univariate_claim, transcript);
     }
 
     return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
 
-template class ECCVMVerifier_<honk::flavor::ECCVM>;
+template class ECCVMVerifier_<ECCVMFlavor>;
 
-} // namespace proof_system::honk
+} // namespace bb

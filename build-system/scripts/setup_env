@@ -6,6 +6,7 @@
 # The script should be sourced from the root of the repository, e.g:
 #   source ./build-system/scripts/setup_env
 # This ensures the resultant variables are set in the calling shell.
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 COMMIT_HASH=$1
@@ -22,6 +23,8 @@ PROJECT=$(cat $ROOT_PATH/PROJECT)
 COMMIT_MESSAGE=$(git log -n 1 --pretty=format:"%s" $COMMIT_HASH)
 PATH=$PATH:$BUILD_SYSTEM_PATH/scripts
 
+check_env
+
 export BRANCH
 
 echo "COMMIT_HASH=$COMMIT_HASH"
@@ -35,6 +38,8 @@ echo "PULL_REQUEST=$PULL_REQUEST"
 if [[ "$COMMIT_MESSAGE" == *"[ci dry-deploy]"* ]]; then
   COMMIT_TAG=v999.999.999
   export DRY_DEPLOY=1
+else
+  export DRY_DEPLOY=0
 fi
 
 if should_deploy; then

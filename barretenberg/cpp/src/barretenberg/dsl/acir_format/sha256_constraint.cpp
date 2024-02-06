@@ -7,8 +7,10 @@ namespace acir_format {
 
 // This function does not work (properly) because the stdlib:sha256 function is not working correctly for 512 bits
 // pair<witness_index, bits>
-void create_sha256_constraints(Builder& builder, const Sha256Constraint& constraint)
+template <typename Builder> void create_sha256_constraints(Builder& builder, const Sha256Constraint& constraint)
 {
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     // Create byte array struct
     byte_array_ct arr(&builder);
@@ -29,7 +31,7 @@ void create_sha256_constraints(Builder& builder, const Sha256Constraint& constra
     }
 
     // Compute sha256
-    byte_array_ct output_bytes = proof_system::plonk::stdlib::sha256<Builder>(arr);
+    byte_array_ct output_bytes = bb::stdlib::sha256<Builder>(arr);
 
     // Convert byte array to vector of field_t
     auto bytes = output_bytes.bytes();
@@ -38,5 +40,10 @@ void create_sha256_constraints(Builder& builder, const Sha256Constraint& constra
         builder.assert_equal(bytes[i].normalize().witness_index, constraint.result[i]);
     }
 }
+
+template void create_sha256_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                             const Sha256Constraint& constraint);
+template void create_sha256_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
+                                                                   const Sha256Constraint& constraint);
 
 } // namespace acir_format

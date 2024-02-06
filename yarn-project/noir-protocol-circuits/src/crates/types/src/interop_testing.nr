@@ -1,60 +1,82 @@
-use crate::abis::complete_address::CompleteAddress;
-use crate::point::Point;
+use crate::grumpkin_point::GrumpkinPoint;
 use crate::transaction::request::TxRequest;
-use crate::address::{AztecAddress, EthAddress};
+use crate::address::{AztecAddress, EthAddress, PartialAddress, PublicKeysHash};
 use crate::transaction::context::TxContext;
 use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::abis::function_selector::FunctionSelector;
-use crate::hash::{compute_l2_to_l1_hash, sha256_to_field};
-use crate::abis::call_stack_item::PublicCallStackItem;
+use crate::hash::{compute_l2_to_l1_hash, sha256_to_field, hash_args};
+use crate::abis::public_call_stack_item::PublicCallStackItem;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
+use crate::abis::side_effect::SideEffect;
+use crate::contract_class::ContractClassId;
 
 #[test]
-fn compute_complete_address() {
-    let point = Point{
-        x : 1,
-        y : 2
-    };
+fn compute_address() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
     let contract_address_salt = 3;
-    let function_tree_root = 4;
-    let constructor_hash = 5;
-        
-    let complete_address = CompleteAddress::compute(point, contract_address_salt, function_tree_root, constructor_hash);
-  
-    assert(complete_address.partial_address == 0x197673f31940878b2d6c681223dbed9cfacd2f722cbe30155225b2ada17778db);
-    assert(complete_address.address.to_field() == 0x1a6e89b034478713c7a9f1c77fb80af995f708f6f208bf352b4dda2124739109);
-    assert(complete_address.public_key.x == 1);
-    assert(complete_address.public_key.y == 2);
+    let contract_class_id = ContractClassId::from_field(4);
+    let initialization_hash = 5;
+    let portal_contract_address = EthAddress::from_field(6);
+
+    let address = AztecAddress::compute_from_public_key(
+        point,
+        contract_class_id,
+        contract_address_salt,
+        initialization_hash,
+        portal_contract_address
+    );
+
+    assert(address.to_field() == 0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123);
 }
 
+#[test]
+fn compute_public_keys_hash() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let actual = PublicKeysHash::compute(point);
+    assert(actual.to_field() == 0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8);
+}
+
+#[test]
+fn compute_address_from_partial_and_pubkey() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let partial_address = PartialAddress::from_field(3);
+
+    let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
+    assert(address.to_field() == 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197);
+}
+
+#[test]
+fn compute_var_args_hash() {
+    let mut input = [0; 800];
+    for i in 0..800 {
+        input[i] = i as Field;
+    }
+    let hash = hash_args(input);
+    assert(hash == 1557627899280963684159398665725097926236612957540256425197580046184563077271);
+}
 
 #[test]
 fn compute_tx_request_hash() {
     let tx_request = TxRequest {
-        origin : AztecAddress::from_field(1),
-        args_hash : 3,
-        tx_context : TxContext {
-            is_fee_payment_tx : false,
-            is_rebate_payment_tx : false,
-            is_contract_deployment_tx : true,
-            contract_deployment_data : ContractDeploymentData{
-                deployer_public_key : Point{x : 1, y : 2},
-                constructor_vk_hash : 1,
-                function_tree_root : 2,
-                contract_address_salt : 3,
-                portal_contract_address : EthAddress::from_field(1),
+        origin: AztecAddress::from_field(1),
+        args_hash: 3,
+        tx_context: TxContext {
+            is_fee_payment_tx: false,
+            is_rebate_payment_tx: false,
+            is_contract_deployment_tx: true,
+            contract_deployment_data: ContractDeploymentData {
+                public_key: GrumpkinPoint { x: 1, y: 2 },
+                initialization_hash: 1,
+                contract_class_id: ContractClassId::from_field(2),
+                contract_address_salt: 3,
+                portal_contract_address: EthAddress::from_field(1)
             },
-            chain_id : 0,
-            version : 0,
+            chain_id: 0,
+            version: 0
         },
-        function_data : FunctionData {
-            selector : FunctionSelector::from_u32(2),
-            is_internal : false,
-            is_private : true,
-            is_constructor : true,
-        }
+        function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: true, is_constructor: true }
     };
     assert(tx_request.hash() == 0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75);
 }
@@ -62,8 +84,8 @@ fn compute_tx_request_hash() {
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
-   let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, EthAddress::from_field(0), 0, 0);
-   assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, EthAddress::from_field(0), 0, 0);
+    assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
 
     // Non-zero case
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, EthAddress::from_field(3), 4, 5);
@@ -83,64 +105,46 @@ fn smoke_sha256_to_field() {
         140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
     ];
     let result = sha256_to_field(full_buffer);
-    assert( result == 0x142a6d57007171f6eaa33d55976d9dbe739c889c8e920f115f7808dea184c718);
+    assert(result == 0x142a6d57007171f6eaa33d55976d9dbe739c889c8e920f115f7808dea184c718);
 }
 
 #[test]
 fn compute_function_leaf() {
-    let leaf = FunctionLeafPreimage {
-        selector: FunctionSelector::from_u32(27),
-        is_internal: false,
-        is_private: true,
-        vk_hash: 1,
-        acir_hash: 2,
-    };
+    let leaf = FunctionLeafPreimage { selector: FunctionSelector::from_u32(27), is_internal: false, is_private: true, vk_hash: 1, acir_hash: 2 };
 
     assert_eq(leaf.hash(), 0x1ad8ece7f40e63d011ae47c6ce6cdaf31d632a23f5cf35bbeaaf69c8302afdbc);
 }
 
 #[test]
-fn compute_call_stack_item_request() {
+fn compute_call_stack_item_request_hash() {
     let contract_address = AztecAddress::from_field(1);
-    let function_data = FunctionData {
-        selector: FunctionSelector::from_u32(2),
-        is_internal: false,
-        is_private: false,
-        is_constructor: false,
-    };
+    let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
 
     let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-    public_inputs.new_commitments[0] = 1;
-
-    let call_stack_item = PublicCallStackItem {
-        contract_address,
-        public_inputs,
-        is_execution_request: true,
-        function_data,
+    public_inputs.new_commitments[0] = SideEffect{
+        value: 1,
+        counter: 0,
     };
 
-    assert_eq(call_stack_item.hash(), 0x1d51d7758d792c9cd6edd8e8ec5f1f9fb1f974abc1af6bb4cf9f2328ef306c96);
+    let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
+
+    // Value from abis.test.ts "Computes a callstack item request hash" test
+    assert_eq(call_stack_item.hash(), 0x2c36008a759d932a3a1986429aa295e2c2d4e62c33197a7d259750d29347bf30);
 }
 
 #[test]
-fn compute_call_stack_item() {
+fn compute_call_stack_item_hash() {
     let contract_address = AztecAddress::from_field(1);
-    let function_data = FunctionData {
-        selector: FunctionSelector::from_u32(2),
-        is_internal: false,
-        is_private: false,
-        is_constructor: false,
-    };
+    let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: false, is_constructor: false };
 
     let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-    public_inputs.new_commitments[0] = 1;
-
-    let call_stack_item = PublicCallStackItem {
-        contract_address,
-        public_inputs,
-        is_execution_request: false,
-        function_data,
+    public_inputs.new_commitments[0] = SideEffect{
+        value: 1,
+        counter: 0,
     };
 
-    assert_eq(call_stack_item.hash(), 0x0a370c67b66e30901470c11a199764a914fc0fcfbc737ed03153079b2765813a);
+    let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
+
+    // Value from abis.test.ts "Computes a callstack item hash" test
+    assert_eq(call_stack_item.hash(), 0x037cb5ba672a7c461e23cf22ae618757ab4f1a912f3fdc93b2b2800cfe57bb91);
 }

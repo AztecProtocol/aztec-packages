@@ -2,9 +2,9 @@ use crate::{
     abis::{
         call_context::CallContext,
         call_request::{CallerContext, CallRequest},
-        call_stack_item::PublicCallStackItem,
         function_data::FunctionData,
         public_call_data::PublicCallData,
+        public_call_stack_item::PublicCallStackItem,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
     },
     address::{AztecAddress, EthAddress},
@@ -17,7 +17,6 @@ use crate::{
         fixtures,
         public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder,
     },
-    utils::bounded_vec::BoundedVec,
 };
 use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -56,6 +55,7 @@ impl PublicCallDataBuilder {
             is_delegate_call: false,
             is_static_call: false,
             is_contract_deployment: false,
+            start_side_effect_counter: 0,  // needed?
         };
         
         PublicCallDataBuilder {
@@ -113,6 +113,10 @@ impl PublicCallDataBuilder {
                     hash,
                     caller_contract_address: self.contract_address,
                     caller_context,
+                    // todo: real values?
+                    start_side_effect_counter: i as u32,
+                    end_side_effect_counter: (i + 1) as u32,
+
                 };
                 self.public_inputs.public_call_stack_hashes.push(hash);
                 self.public_call_stack.push(call_request);

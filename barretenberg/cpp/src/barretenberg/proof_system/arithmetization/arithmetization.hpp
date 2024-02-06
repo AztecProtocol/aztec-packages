@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace arithmetization {
+namespace bb {
 
 /**
  * @brief Specify the structure of a CircuitBuilder
@@ -32,12 +32,12 @@ namespace arithmetization {
 
 // These are not magic numbers and they should not be written with global constants. These parameters are not accessible
 // through clearly named static class members.
-template <typename FF_> class Standard {
+template <typename FF_> class StandardArith {
   public:
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t NUM_SELECTORS = 5;
     using FF = FF_;
-    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
     std::vector<SelectorType> selectors;
 
@@ -53,7 +53,7 @@ template <typename FF_> class Standard {
     const SelectorType& q_3() const { return selectors[3]; };
     const SelectorType& q_c() const { return selectors[4]; };
 
-    Standard()
+    StandardArith()
         : selectors(NUM_SELECTORS)
     {}
 
@@ -70,12 +70,12 @@ template <typename FF_> class Standard {
     inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
 };
 
-template <typename FF_> class Ultra {
+template <typename FF_> class UltraArith {
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
-    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
@@ -133,12 +133,12 @@ template <typename FF_> class Ultra {
  *
  * @tparam FF_
  */
-template <typename FF_> class UltraHonk {
+template <typename FF_> class UltraHonkArith {
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
     using FF = FF_;
-    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
@@ -200,9 +200,9 @@ template <typename FF_> class UltraHonk {
     inline static const std::vector<std::string> selector_names = {};
 };
 
-class GoblinTranslator {
+class GoblinTranslatorArith {
   public:
     static constexpr size_t NUM_WIRES = 81;
     static constexpr size_t NUM_SELECTORS = 0;
 };
-} // namespace arithmetization
+} // namespace bb

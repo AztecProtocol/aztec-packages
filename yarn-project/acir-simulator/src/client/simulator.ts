@@ -1,19 +1,24 @@
+import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/circuit-types';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import {
+  ArrayType,
+  FunctionArtifactWithDebugMetadata,
+  FunctionSelector,
+  FunctionType,
+  encodeArguments,
+} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/types';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
-import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
-import { DBOracle, FunctionArtifactWithDebugMetadata } from './db_oracle.js';
+import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionResult } from './execution_result.js';
 import { executePrivateFunction } from './private_execution.js';
@@ -27,7 +32,7 @@ export class AcirSimulator {
   private static solver: Promise<WasmBlackBoxFunctionSolver>; // ACVM's backend
   private log: DebugLogger;
 
-  constructor(private db: DBOracle) {
+  constructor(private db: DBOracle, private node: AztecNode) {
     this.log = createDebugLogger('aztec:simulator');
   }
 
@@ -79,7 +84,7 @@ export class AcirSimulator {
 
     const curve = new Grumpkin();
 
-    const blockHeader = await this.db.getBlockHeader();
+    const header = await this.db.getHeader();
     const callContext = new CallContext(
       msgSender,
       contractAddress,
@@ -88,19 +93,21 @@ export class AcirSimulator {
       false,
       false,
       request.functionData.isConstructor,
+      // TODO: when contract deployment is done in-app, we should only reserve one counter for the tx hash
+      2, // 2 counters are reserved for tx hash and contract deployment nullifier
     );
     const context = new ClientExecutionContext(
       contractAddress,
       request.argsHash,
       request.txContext,
       callContext,
-      blockHeader,
+      header,
       request.authWitnesses,
       PackedArgsCache.create(request.packedArguments),
       new ExecutionNoteCache(),
-      new SideEffectCounter(),
       this.db,
       curve,
+      this.node,
     );
 
     try {
@@ -127,14 +134,12 @@ export class AcirSimulator {
     request: FunctionCall,
     entryPointArtifact: FunctionArtifactWithDebugMetadata,
     contractAddress: AztecAddress,
-    aztecNode?: AztecNode,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as constrained`);
     }
 
-    const blockHeader = await this.db.getBlockHeader();
-    const context = new ViewDataOracle(contractAddress, blockHeader, [], this.db, aztecNode);
+    const context = new ViewDataOracle(contractAddress, [], this.db, this.node);
 
     try {
       return await executeUnconstrainedFunction(
@@ -178,7 +183,7 @@ export class AcirSimulator {
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
-      to: AztecAddress.ZERO,
+      to: contractAddress,
       functionData: FunctionData.empty(),
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, extendedNoteItems]),
     };
@@ -186,7 +191,7 @@ export class AcirSimulator {
     const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
-      AztecAddress.ZERO,
+      contractAddress,
     )) as bigint[];
 
     return {

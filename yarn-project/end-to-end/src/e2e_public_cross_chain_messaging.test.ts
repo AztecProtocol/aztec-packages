@@ -8,7 +8,8 @@ import {
   computeAuthWitMessageHash,
   sleep,
 } from '@aztec/aztec.js';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -135,7 +136,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, ethAccount, messageKey, secret)
         .simulate(),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Invalid Content 'l1_to_l2_message_data.message.content == content'");
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
     logger("user2 consumes owner's message on L2 Publicly");
@@ -184,6 +185,6 @@ describe('e2e_public_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(secretHash, bridgeAmount, ethAccount, messageKey, secret)
         .simulate(),
-    ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
+    ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 });

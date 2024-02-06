@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <string>
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 /**
  * @brief Computes `this.witness`, which is basiclly a set of polynomials mapped-to by strings.
@@ -497,6 +497,8 @@ std::shared_ptr<plonk::verification_key> UltraComposer::compute_verification_key
 
     circuit_verification_key->contains_recursive_proof = circuit_constructor.contains_recursive_proof;
 
+    circuit_verification_key->is_recursive_circuit = circuit_constructor.is_recursive_circuit;
+
     return circuit_verification_key;
 }
 
@@ -516,4 +518,4 @@ void UltraComposer::add_table_column_selector_poly_to_proving_key(polynomial& se
     circuit_proving_key->polynomial_store.put(tag + "_fft", std::move(selector_poly_coset_form));
 }
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

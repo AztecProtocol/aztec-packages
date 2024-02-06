@@ -1,6 +1,6 @@
+import { Tx, TxHash } from '@aztec/circuit-types';
+import { TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tx, TxHash } from '@aztec/types';
-import { TxAddedToPoolStats } from '@aztec/types/stats';
 
 import { TxPool } from './tx_pool.js';
 
@@ -52,11 +52,11 @@ export class InMemoryTxPool implements TxPool {
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
    * @returns The number of transactions that was deleted from the pool.
    */
-  public deleteTxs(txHashes: TxHash[]): number {
-    const numTxsRemoved = txHashes
-      .map(txHash => this.txs.delete(txHash.toBigInt()))
-      .filter(result => result === true).length;
-    return numTxsRemoved;
+  public deleteTxs(txHashes: TxHash[]): Promise<void> {
+    for (const txHash of txHashes) {
+      this.txs.delete(txHash.toBigInt());
+    }
+    return Promise.resolve();
   }
 
   /**

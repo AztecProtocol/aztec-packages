@@ -4,9 +4,8 @@
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 /**
  * @brief  An Instance is normally constructed from a finalized circuit and it's role is to compute all the polynomials
  * involved in creating a proof and, if requested, the verification key.
@@ -23,11 +22,11 @@ template <class Flavor> class ProverInstance_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
-    using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
@@ -46,12 +45,16 @@ template <class Flavor> class ProverInstance_ {
     // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
     // instances
     size_t pub_inputs_offset = 0;
-    FF alpha;
-    proof_system::RelationParameters<FF> relation_parameters;
+    RelationSeparator alphas;
+    bb::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    // non-empty for the accumulated instances
-    FoldingParameters folding_parameters;
+
     bool is_accumulator = false;
+
+    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    std::vector<FF> gate_challenges;
+    FF target_sum;
+
     size_t instance_size;
     size_t log_instance_size;
 
@@ -99,12 +102,9 @@ template <class Flavor> class ProverInstance_ {
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
 
-    void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
+    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 
     void add_plookup_memory_records_to_wire_4(FF);
 };
 
-extern template class ProverInstance_<honk::flavor::Ultra>;
-extern template class ProverInstance_<honk::flavor::GoblinUltra>;
-
-} // namespace proof_system::honk
+} // namespace bb

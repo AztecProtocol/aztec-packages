@@ -39,10 +39,12 @@ export function getConfigEnvVars(): SequencerClientConfig {
     SEQ_TX_POLLING_INTERVAL_MS,
     SEQ_MAX_TX_PER_BLOCK,
     SEQ_MIN_TX_PER_BLOCK,
+    AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
     INBOX_CONTRACT_ADDRESS,
     CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
+    OUTBOX_CONTRACT_ADDRESS,
   } = process.env;
 
   const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
@@ -50,14 +52,16 @@ export function getConfigEnvVars(): SequencerClientConfig {
     : NULL_KEY;
   // Populate the relevant addresses for use by the sequencer
   const addresses: L1ContractAddresses = {
+    availabilityOracleAddress: AVAILABILITY_ORACLE_CONTRACT_ADDRESS
+      ? EthAddress.fromString(AVAILABILITY_ORACLE_CONTRACT_ADDRESS)
+      : EthAddress.ZERO,
     rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: EthAddress.ZERO,
+    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,
-    decoderHelperAddress: EthAddress.ZERO,
   };
 
   return {

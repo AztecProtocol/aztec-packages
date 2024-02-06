@@ -14,7 +14,7 @@ use crate::{
     errors::{RuntimeError, SsaReport},
 };
 use acvm::acir::{
-    circuit::{Circuit, PublicInputs},
+    circuit::{Circuit, ExpressionWidth, PublicInputs},
     native_types::Witness,
 };
 
@@ -23,6 +23,7 @@ use noirc_errors::debug_info::DebugInfo;
 use noirc_frontend::{
     hir_def::function::FunctionSignature, monomorphization::ast::Program, Visibility,
 };
+use tracing::{span, Level};
 
 use self::{acir_gen::GeneratedAcir, ssa_gen::Ssa};
 
@@ -42,7 +43,9 @@ pub(crate) fn optimize_into_acir(
 ) -> Result<GeneratedAcir, RuntimeError> {
     let abi_distinctness = program.return_distinctness;
 
-    let ssa_builder = SsaBuilder::new(program, print_ssa_passes)?
+    let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
+    let ssa_gen_span_guard = ssa_gen_span.enter();
+    let ssa = SsaBuilder::new(program, print_ssa_passes)?
         .run_pass(Ssa::defunctionalize, "After Defunctionalization:")
         .run_pass(Ssa::inline_functions, "After Inlining:")
         // Run mem2reg with the CFG separated into blocks
@@ -59,18 +62,15 @@ pub(crate) fn optimize_into_acir(
         // Run mem2reg once more with the flattened CFG to catch any remaining loads/stores
         .run_pass(Ssa::mem2reg, "After Mem2Reg:")
         .run_pass(Ssa::fold_constants, "After Constant Folding:")
-        .run_pass(Ssa::dead_instruction_elimination, "After Dead Instruction Elimination:");
-
-    let brillig = ssa_builder.to_brillig(print_brillig_trace);
-
-    // Split off any passes the are not necessary for Brillig generation but are necessary for ACIR generation.
-    // We only need to fill out nested slices as we need to have a known length when dealing with memory operations
-    // in ACIR gen while this is not necessary in the Brillig IR.
-    let ssa = ssa_builder
-        .run_pass(Ssa::fill_internal_slices, "After Fill Internal Slice Dummy Data:")
+        .run_pass(Ssa::dead_instruction_elimination, "After Dead Instruction Elimination:")
         .finish();
 
+    let brillig = ssa.to_brillig(print_brillig_trace);
+
+    drop(ssa_gen_span_guard);
+
     let last_array_uses = ssa.find_last_array_uses();
+
     ssa.into_acir(brillig, abi_distinctness, &last_array_uses)
 }
 
@@ -78,17 +78,19 @@ pub(crate) fn optimize_into_acir(
 ///
 /// The output ACIR is is backend-agnostic and so must go through a transformation pass before usage in proof generation.
 #[allow(clippy::type_complexity)]
+#[tracing::instrument(level = "trace", skip_all)]
 pub fn create_circuit(
     program: Program,
     enable_ssa_logging: bool,
     enable_brillig_logging: bool,
 ) -> Result<(Circuit, DebugInfo, Vec<Witness>, Vec<Witness>, Vec<SsaReport>), RuntimeError> {
     let func_sig = program.main_function_signature.clone();
+    let recursive = program.recursive;
     let mut generated_acir =
         optimize_into_acir(program, enable_ssa_logging, enable_brillig_logging)?;
     let opcodes = generated_acir.take_opcodes();
+    let current_witness_index = generated_acir.current_witness_index().0;
     let GeneratedAcir {
-        current_witness_index,
         return_witnesses,
         locations,
         input_witnesses,
@@ -105,11 +107,13 @@ pub fn create_circuit(
 
     let circuit = Circuit {
         current_witness_index,
+        expression_width: ExpressionWidth::Unbounded,
         opcodes,
         private_parameters,
         public_parameters,
         return_values,
         assert_messages: assert_messages.into_iter().collect(),
+        recursive,
     };
 
     // This converts each im::Vector in the BTreeMap to a Vec

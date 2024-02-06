@@ -1,4 +1,4 @@
-mod context;
+pub(crate) mod context;
 mod program;
 mod value;
 
@@ -8,13 +8,16 @@ use context::SharedContext;
 use iter_extended::{try_vecmap, vecmap};
 use noirc_errors::Location;
 use noirc_frontend::{
-    monomorphization::ast::{self, Binary, Expression, Program},
-    BinaryOpKind,
+    monomorphization::ast::{self, Expression, Program},
+    Visibility,
 };
 
 use crate::{
     errors::RuntimeError,
-    ssa::ir::{instruction::Intrinsic, types::NumericType},
+    ssa::{
+        function_builder::data_bus::DataBusBuilder,
+        ir::{instruction::Intrinsic, types::NumericType},
+    },
 };
 
 use self::{
@@ -22,17 +25,25 @@ use self::{
     value::{Tree, Values},
 };
 
-use super::ir::{
-    function::RuntimeType,
-    instruction::{BinaryOp, TerminatorInstruction},
-    types::Type,
-    value::ValueId,
+use super::{
+    function_builder::data_bus::DataBus,
+    ir::{
+        function::RuntimeType,
+        instruction::{BinaryOp, TerminatorInstruction},
+        types::Type,
+        value::ValueId,
+    },
 };
 
 /// Generates SSA for the given monomorphized program.
 ///
 /// This function will generate the SSA but does not perform any optimizations on it.
 pub(crate) fn generate_ssa(program: Program) -> Result<Ssa, RuntimeError> {
+    // see which parameter has call_data/return_data attribute
+    let is_databus = DataBusBuilder::is_databus(&program.main_function_signature);
+
+    let is_return_data = matches!(program.return_visibility, Visibility::DataBus);
+
     let return_location = program.return_location;
     let context = SharedContext::new(program);
 
@@ -48,22 +59,46 @@ pub(crate) fn generate_ssa(program: Program) -> Result<Ssa, RuntimeError> {
         if main.unconstrained { RuntimeType::Brillig } else { RuntimeType::Acir },
         &context,
     );
+
+    // Generate the call_data bus from the relevant parameters. We create it *before* processing the function body
+    let call_data = function_context.builder.call_data_bus(is_databus);
+
     function_context.codegen_function_body(&main.body)?;
 
+    let mut return_data = DataBusBuilder::new();
     if let Some(return_location) = return_location {
         let block = function_context.builder.current_block();
-        if function_context.builder.current_function.dfg[block].terminator().is_some() {
-            let return_instruction =
-                function_context.builder.current_function.dfg[block].unwrap_terminator_mut();
-            match return_instruction {
-                TerminatorInstruction::Return { call_stack, .. } => {
-                    call_stack.clear();
-                    call_stack.push_back(return_location);
+        if function_context.builder.current_function.dfg[block].terminator().is_some()
+            && is_return_data
+        {
+            // initialize the return_data bus from the return values
+            let return_data_values =
+                match function_context.builder.current_function.dfg[block].unwrap_terminator() {
+                    TerminatorInstruction::Return { return_values, .. } => return_values.to_owned(),
+                    _ => unreachable!("ICE - expect return on the last block"),
+                };
+
+            return_data =
+                function_context.builder.initialize_data_bus(&return_data_values, return_data);
+        }
+        let return_instruction =
+            function_context.builder.current_function.dfg[block].unwrap_terminator_mut();
+        match return_instruction {
+            TerminatorInstruction::Return { return_values, call_stack } => {
+                call_stack.clear();
+                call_stack.push_back(return_location);
+                // replace the returned values with the return data array
+                if let Some(return_data_bus) = return_data.databus {
+                    return_values.clear();
+                    return_values.push(return_data_bus);
                 }
-                _ => unreachable!("ICE - expect return on the last block"),
             }
+            _ => unreachable!("ICE - expect return on the last block"),
         }
     }
+    // we save the data bus inside the dfg
+    function_context.builder.current_function.dfg.data_bus =
+        DataBus::get_data_bus(call_data, return_data);
 
     // Main has now been compiled and any other functions referenced within have been added to the
     // function queue as they were found in codegen_ident. This queueing will happen each time a
@@ -152,12 +187,14 @@ impl<'a> FunctionContext<'a> {
 
                 let typ = Self::convert_type(&array.typ).flatten();
                 Ok(match array.typ {
-                    ast::Type::Array(_, _) => self.codegen_array(elements, typ[0].clone()),
+                    ast::Type::Array(_, _) => {
+                        self.codegen_array_checked(elements, typ[0].clone())?
+                    }
                     ast::Type::Slice(_) => {
                         let slice_length =
                             self.builder.field_constant(array.contents.len() as u128);
-
-                        let slice_contents = self.codegen_array(elements, typ[1].clone());
+                        let slice_contents =
+                            self.codegen_array_checked(elements, typ[1].clone())?;
                         Tree::Branch(vec![slice_length.into(), slice_contents])
                     }
                     _ => unreachable!(
@@ -189,10 +226,23 @@ impl<'a> FunctionContext<'a> {
     }
 
     fn codegen_string(&mut self, string: &str) -> Values {
-        let elements =
-            vecmap(string.as_bytes(), |byte| self.builder.field_constant(*byte as u128).into());
+        let elements = vecmap(string.as_bytes(), |byte| {
+            self.builder.numeric_constant(*byte as u128, Type::unsigned(8)).into()
+        });
         let typ = Self::convert_non_tuple_type(&ast::Type::String(elements.len() as u64));
         self.codegen_array(elements, typ)
+    }
+
+    // Codegen an array but make sure that we do not have a nested slice
+    fn codegen_array_checked(
+        &mut self,
+        elements: Vec<Values>,
+        typ: Type,
+    ) -> Result<Values, RuntimeError> {
+        if typ.is_nested_slice() {
+            return Err(RuntimeError::NestedSlice { call_stack: self.builder.get_call_stack() });
+        }
+        Ok(self.codegen_array(elements, typ))
     }
 
     /// Codegen an array by allocating enough space for each element and inserting separate
@@ -398,8 +448,8 @@ impl<'a> FunctionContext<'a> {
     fn codegen_cast(&mut self, cast: &ast::Cast) -> Result<Values, RuntimeError> {
         let lhs = self.codegen_non_tuple_expression(&cast.lhs)?;
         let typ = Self::convert_non_tuple_type(&cast.r#type);
-        self.builder.set_location(cast.location);
-        Ok(self.builder.insert_cast(lhs, typ).into())
+
+        Ok(self.insert_safe_cast(lhs, typ, cast.location).into())
     }
 
     /// Codegens a for loop, creating three new blocks in the process.
@@ -555,7 +605,6 @@ impl<'a> FunctionContext<'a> {
         }
 
         self.codegen_intrinsic_call_checks(function, &arguments, call.location);
-
         Ok(self.insert_call(function, arguments, &call.return_type, call.location))
     }
 
@@ -618,24 +667,10 @@ impl<'a> FunctionContext<'a> {
         location: Location,
         assert_message: Option<String>,
     ) -> Result<Values, RuntimeError> {
-        match expr {
-            // If we're constraining an equality to be true then constrain the two sides directly.
-            Expression::Binary(Binary { lhs, operator: BinaryOpKind::Equal, rhs, .. }) => {
-                let lhs = self.codegen_non_tuple_expression(lhs)?;
-                let rhs = self.codegen_non_tuple_expression(rhs)?;
-                self.builder.set_location(location).insert_constrain(lhs, rhs, assert_message);
-            }
+        let expr = self.codegen_non_tuple_expression(expr)?;
+        let true_literal = self.builder.numeric_constant(true, Type::bool());
+        self.builder.set_location(location).insert_constrain(expr, true_literal, assert_message);
 
-            _ => {
-                let expr = self.codegen_non_tuple_expression(expr)?;
-                let true_literal = self.builder.numeric_constant(true, Type::bool());
-                self.builder.set_location(location).insert_constrain(
-                    expr,
-                    true_literal,
-                    assert_message,
-                );
-            }
-        }
         Ok(Self::unit_value())
     }
 

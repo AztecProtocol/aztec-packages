@@ -1,18 +1,32 @@
 import {
   AztecAddress,
+  AztecNode,
+  BatchCall,
   CompleteAddress,
   Contract,
+  ContractArtifact,
+  ContractBase,
   ContractDeployer,
   DebugLogger,
   EthAddress,
   Fr,
   PXE,
+  SignerlessWallet,
   TxStatus,
   Wallet,
-  getContractDeploymentInfo,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { TestContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
+import {
+  computePrivateFunctionsRoot,
+  computePublicBytecodeCommitment,
+  packedBytecodeAsFields,
+} from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
+import { ContractClassRegistererContract, ReaderContractArtifact, StatefulTestContract } from '@aztec/noir-contracts';
+import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
+import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
 import { setup } from './fixtures/utils.js';
@@ -23,10 +37,11 @@ describe('e2e_deploy_contract', () => {
   let logger: DebugLogger;
   let wallet: Wallet;
   let sequencer: SequencerClient | undefined;
+  let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ teardown, pxe, accounts, logger, wallet, sequencer } = await setup());
+    ({ teardown, pxe, accounts, logger, wallet, sequencer, aztecNode } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
@@ -38,7 +53,13 @@ describe('e2e_deploy_contract', () => {
   it('should deploy a contract', async () => {
     const publicKey = accounts[0].publicKey;
     const salt = Fr.random();
-    const deploymentData = getContractDeploymentInfo(TestContractArtifact, [], salt, publicKey);
+    const deploymentData = getContractInstanceFromDeployParams(
+      TestContractArtifact,
+      [],
+      salt,
+      publicKey,
+      EthAddress.ZERO,
+    );
     const deployer = new ContractDeployer(TestContractArtifact, pxe, publicKey);
     const tx = deployer.deploy().send({ contractAddressSalt: salt });
     logger(`Tx sent with hash ${await tx.getTxHash()}`);
@@ -57,7 +78,7 @@ describe('e2e_deploy_contract', () => {
       expect.objectContaining({
         status: TxStatus.MINED,
         error: '',
-        contractAddress: deploymentData.completeAddress.address,
+        contractAddress: deploymentData.address,
       }),
     );
     const contractAddress = receiptAfterMined.contractAddress!;
@@ -144,8 +165,18 @@ describe('e2e_deploy_contract', () => {
     try {
       // This test requires at least another good transaction to go through in the same block as the bad one.
       // I deployed the same contract again but it could really be any valid transaction here.
-      const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.random());
-      const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.ZERO);
+      const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(
+        AztecAddress.random(),
+        'TokenName',
+        'TKN',
+        18,
+      );
+      const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(
+        AztecAddress.ZERO,
+        'TokenName',
+        'TKN',
+        18,
+      );
 
       await Promise.all([
         goodDeploy.simulate({ skipPublicSimulation: true }),
@@ -167,15 +198,115 @@ describe('e2e_deploy_contract', () => {
       expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
       expect(badTxReceipt.blockNumber).toBeUndefined();
 
-      await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
-      await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+      await expect(pxe.getExtendedContractData(goodDeploy.instance!.address)).resolves.toBeDefined();
+      await expect(pxe.getExtendedContractData(goodDeploy.instance!.address)).resolves.toBeDefined();
 
-      await expect(pxe.getContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
-      await expect(pxe.getExtendedContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+      await expect(pxe.getContractData(badDeploy.instance!.address)).resolves.toBeUndefined();
+      await expect(pxe.getExtendedContractData(badDeploy.instance!.address)).resolves.toBeUndefined();
     } finally {
       sequencer?.updateSequencerConfig({
         minTxsPerBlock: 1,
       });
     }
   }, 60_000);
+
+  // Tests calling a private function in an uninitialized and undeployed contract. Note that
+  // it still requires registering the contract artifact and instance locally in the pxe.
+  test.each(['as entrypoint', 'from an account contract'] as const)(
+    'executes a function in an undeployed contract %s',
+    async kind => {
+      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
+      const contract = await registerContract(testWallet, TestContract);
+      const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
+      const expected = siloNullifier(contract.address, new Fr(10));
+      expect(receipt.debugInfo?.newNullifiers[1]).toEqual(expected);
+    },
+  );
+
+  // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
+  test.each(['as entrypoint', 'from an account contract'] as const)(
+    'privately initializes an undeployed contract contract %s',
+    async kind => {
+      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
+      const owner = await registerRandomAccount(pxe);
+      const initArgs: StatefulContractCtorArgs = [owner, 42];
+      const contract = await registerContract(testWallet, StatefulTestContract, initArgs);
+      await contract.methods
+        .constructor(...initArgs)
+        .send()
+        .wait();
+      expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+    },
+  );
+
+  // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
+  it('initializes multiple undeployed contracts in a single tx', async () => {
+    const owner = await registerRandomAccount(pxe);
+    const initArgs: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, value]);
+    const contracts = await Promise.all(initArgs.map(args => registerContract(wallet, StatefulTestContract, args)));
+    const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request());
+    await new BatchCall(wallet, calls).send().wait();
+    expect(await contracts[0].methods.summed_values(owner).view()).toEqual(42n);
+    expect(await contracts[1].methods.summed_values(owner).view()).toEqual(52n);
+  });
+
+  // Tests registering a new contract class on a node
+  // All this dance will be hidden behind a nicer API in the near future!
+  it('registers a new contract class via the class registerer contract', async () => {
+    const registerer = await registerContract(wallet, ContractClassRegistererContract, [], new Fr(1));
+    const contractClass = getContractClassFromArtifact(ReaderContractArtifact);
+    const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
+    const publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
+
+    logger(`contractClass.id: ${contractClass.id}`);
+    logger(`contractClass.artifactHash: ${contractClass.artifactHash}`);
+    logger(`contractClass.privateFunctionsRoot: ${privateFunctionsRoot}`);
+    logger(`contractClass.publicBytecodeCommitment: ${publicBytecodeCommitment}`);
+    logger(`contractClass.packedBytecode.length: ${contractClass.packedBytecode.length}`);
+
+    const tx = await registerer.methods
+      .register(
+        contractClass.artifactHash,
+        privateFunctionsRoot,
+        publicBytecodeCommitment,
+        packedBytecodeAsFields(contractClass.packedBytecode),
+      )
+      .send()
+      .wait();
+
+    const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    const registeredLog = logs.logs[0].log; // We need a nicer API!
+    expect(registeredLog.contractAddress).toEqual(registerer.address);
+
+    const registeredClass = await aztecNode.getContractClass(contractClass.id);
+    expect(registeredClass).toBeDefined();
+    expect(registeredClass?.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());
+    expect(registeredClass?.privateFunctionsRoot.toString()).toEqual(privateFunctionsRoot.toString());
+    expect(registeredClass?.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
+    expect(registeredClass?.publicFunctions).toEqual(contractClass.publicFunctions);
+  });
 });
+
+type StatefulContractCtorArgs = Parameters<StatefulTestContract['methods']['constructor']>;
+
+async function registerRandomAccount(pxe: PXE): Promise<AztecAddress> {
+  const { completeAddress: owner, privateKey } = CompleteAddress.fromRandomPrivateKey();
+  await pxe.registerAccount(privateKey, owner.partialAddress);
+  return owner.address;
+}
+
+type ContractArtifactClass<T extends ContractBase> = {
+  at(address: AztecAddress, wallet: Wallet): Promise<T>;
+  artifact: ContractArtifact;
+};
+
+async function registerContract<T extends ContractBase>(
+  wallet: Wallet,
+  contractArtifact: ContractArtifactClass<T>,
+  args: any[] = [],
+  salt?: Fr,
+): Promise<T> {
+  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt);
+  await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
+  return contractArtifact.at(instance.address, wallet);
+}

@@ -1,5 +1,32 @@
+use dep::std::cmp::Eq;
+use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+
 struct SafeU120 {
     value: u120,
+}
+
+impl Eq for SafeU120 {
+    fn eq(
+        self: Self,
+        other: Self
+    ) -> bool {
+        self.value == other.value
+    }
+}
+
+global SAFE_U120_SERIALIZED_LEN: Field = 1;
+
+impl Serialize<SAFE_U120_SERIALIZED_LEN> for SafeU120 {
+    fn serialize(value: SafeU120) -> [Field; SAFE_U120_SERIALIZED_LEN] {
+        [value.value as Field]
+    }
+}
+
+impl Deserialize<SAFE_U120_SERIALIZED_LEN> for SafeU120 {
+    // This is safe when reading from storage IF only correct safeu120 was written to storage
+    fn deserialize(fields: [Field; SAFE_U120_SERIALIZED_LEN]) -> SafeU120 {
+        SafeU120 { value: fields[0] as u120 }
+    }
 }
 
 impl SafeU120 {
@@ -32,13 +59,6 @@ impl SafeU120 {
         self: Self,
     ) -> bool {
         self.value == 0
-    }
-
-    pub fn eq(
-        self: Self,
-        other: Self
-    ) -> bool {
-        self.value == other.value
     }
 
     pub fn lt(self: Self, other: Self) -> bool {

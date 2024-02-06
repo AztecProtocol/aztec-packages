@@ -468,13 +468,8 @@ impl Attribute {
                 .all(|ch| {
                     ch.is_ascii_alphabetic()
                         || ch.is_numeric()
-                        || ch == '_'
-                        || ch == '('
-                        || ch == ')'
-                        || ch == '='
-                        || ch == '"'
+                        || ch.is_ascii_punctuation()
                         || ch == ' '
-                        || ch == '\''
                 })
                 .then_some(());
 
@@ -496,6 +491,7 @@ impl Attribute {
                 Attribute::Function(FunctionAttribute::Oracle(name.to_string()))
             }
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
+            ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -515,6 +511,7 @@ impl Attribute {
                 Attribute::Secondary(SecondaryAttribute::ContractLibraryMethod)
             }
             ["event"] => Attribute::Secondary(SecondaryAttribute::Event),
+            ["export"] => Attribute::Secondary(SecondaryAttribute::Export),
             ["deprecated", name] => {
                 if !name.starts_with('"') && !name.ends_with('"') {
                     return Err(LexerErrorKind::MalformedFuncAttribute {
@@ -545,6 +542,7 @@ pub enum FunctionAttribute {
     Builtin(String),
     Oracle(String),
     Test(TestScope),
+    Recursive,
 }
 
 impl FunctionAttribute {
@@ -566,6 +564,10 @@ impl FunctionAttribute {
         matches!(self, FunctionAttribute::Foreign(_))
     }
 
+    pub fn is_oracle(&self) -> bool {
+        matches!(self, FunctionAttribute::Oracle(_))
+    }
+
     pub fn is_low_level(&self) -> bool {
         matches!(self, FunctionAttribute::Foreign(_) | FunctionAttribute::Builtin(_))
     }
@@ -578,6 +580,7 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Foreign(ref k) => write!(f, "#[foreign({k})]"),
             FunctionAttribute::Builtin(ref k) => write!(f, "#[builtin({k})]"),
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
+            FunctionAttribute::Recursive => write!(f, "#[recursive]"),
         }
     }
 }
@@ -593,6 +596,7 @@ pub enum SecondaryAttribute {
     // the entry point.
     ContractLibraryMethod,
     Event,
+    Export,
     Field(String),
     Custom(String),
 }
@@ -607,6 +611,7 @@ impl fmt::Display for SecondaryAttribute {
             SecondaryAttribute::Custom(ref k) => write!(f, "#[{k}]"),
             SecondaryAttribute::ContractLibraryMethod => write!(f, "#[contract_library_method]"),
             SecondaryAttribute::Event => write!(f, "#[event]"),
+            SecondaryAttribute::Export => write!(f, "#[export]"),
             SecondaryAttribute::Field(ref k) => write!(f, "#[field({k})]"),
         }
     }
@@ -619,6 +624,7 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Builtin(string) => string,
             FunctionAttribute::Oracle(string) => string,
             FunctionAttribute::Test { .. } => "",
+            FunctionAttribute::Recursive => "",
         }
     }
 }
@@ -630,7 +636,7 @@ impl AsRef<str> for SecondaryAttribute {
             SecondaryAttribute::Deprecated(None) => "",
             SecondaryAttribute::Custom(string) | SecondaryAttribute::Field(string) => string,
             SecondaryAttribute::ContractLibraryMethod => "",
-            SecondaryAttribute::Event => "",
+            SecondaryAttribute::Event | SecondaryAttribute::Export => "",
         }
     }
 }
@@ -644,6 +650,7 @@ pub enum Keyword {
     Assert,
     AssertEq,
     Bool,
+    CallData,
     Char,
     CompTime,
     Constrain,
@@ -667,6 +674,7 @@ pub enum Keyword {
     Open,
     Pub,
     Return,
+    ReturnData,
     String,
     Struct,
     Trait,
@@ -685,6 +693,7 @@ impl fmt::Display for Keyword {
             Keyword::AssertEq => write!(f, "assert_eq"),
             Keyword::Bool => write!(f, "bool"),
             Keyword::Char => write!(f, "char"),
+            Keyword::CallData => write!(f, "call_data"),
             Keyword::CompTime => write!(f, "comptime"),
             Keyword::Constrain => write!(f, "constrain"),
             Keyword::Contract => write!(f, "contract"),
@@ -707,6 +716,7 @@ impl fmt::Display for Keyword {
             Keyword::Open => write!(f, "open"),
             Keyword::Pub => write!(f, "pub"),
             Keyword::Return => write!(f, "return"),
+            Keyword::ReturnData => write!(f, "return_data"),
             Keyword::String => write!(f, "str"),
             Keyword::Struct => write!(f, "struct"),
             Keyword::Trait => write!(f, "trait"),
@@ -727,6 +737,7 @@ impl Keyword {
             "assert" => Keyword::Assert,
             "assert_eq" => Keyword::AssertEq,
             "bool" => Keyword::Bool,
+            "call_data" => Keyword::CallData,
             "char" => Keyword::Char,
             "comptime" => Keyword::CompTime,
             "constrain" => Keyword::Constrain,
@@ -750,6 +761,7 @@ impl Keyword {
             "open" => Keyword::Open,
             "pub" => Keyword::Pub,
             "return" => Keyword::Return,
+            "return_data" => Keyword::ReturnData,
             "str" => Keyword::String,
             "struct" => Keyword::Struct,
             "trait" => Keyword::Trait,

@@ -1,20 +1,23 @@
 use crate::context::PrivateContext;
 use crate::note::note_header::NoteHeader;
 
-// docs:start:NoteInterface
-struct NoteInterface<Note, N> {
-    deserialize: fn ([Field; N]) -> Note,
+// docs:start:note_interface
+trait NoteInterface<N> {
+    fn serialize_content(self) -> [Field; N];
 
-    serialize: fn (Note) -> [Field; N],
+    fn deserialize_content(fields: [Field; N]) -> Self;
 
-    compute_note_hash: fn (Note) -> Field,
+    fn compute_note_content_hash(self) -> Field;
 
-    compute_nullifier: fn (Note) -> Field,
+    fn get_header(self) -> NoteHeader;
 
-    get_header: fn (Note) -> NoteHeader,
+    fn set_header(&mut self, header: NoteHeader) -> ();
 
-    set_header: fn (&mut Note, NoteHeader) -> (),
+    fn compute_nullifier(self, context: &mut PrivateContext) -> Field;
 
-    broadcast: fn (&mut PrivateContext, Field, Note) -> (),
+    fn compute_nullifier_without_context(self) -> Field;
+
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) -> ();
 }
-// docs:end:NoteInterface
+// docs:end:note_interface
+

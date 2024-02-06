@@ -1,8 +1,8 @@
 #include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/flavor/relation_definitions_fwd.hpp"
+#include "barretenberg/flavor/relation_definitions.hpp"
 #include "ecc_msm_relation.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb {
 
 /**
  * @brief Performs list-equivalence checks for the ECCVM
@@ -394,7 +394,7 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 }
 
 template class ECCVMSetRelationImpl<grumpkin::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationImpl, flavor::ECCVM);
-DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationImpl, flavor::ECCVM);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationImpl, ECCVMFlavor);
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb

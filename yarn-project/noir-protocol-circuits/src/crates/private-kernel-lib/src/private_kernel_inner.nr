@@ -5,9 +5,9 @@ use dep::types::{
         previous_kernel_data::PreviousKernelData,
         private_kernel::private_call_data::PrivateCallData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     mocked::verify_previous_kernel_state,
-    utils::arrays::array_length,
 };
 
 struct PrivateKernelInputsInner {
@@ -22,8 +22,8 @@ impl PrivateKernelInputsInner {
     }
 
     fn validate_contract_tree_root(self) {
-        let purported_contract_tree_root = self.private_call.call_stack_item.public_inputs.block_header.contract_tree_root();
-        let previous_kernel_contract_tree_root = self.previous_kernel.public_inputs.constants.block_header.contract_tree_root();
+        let purported_contract_tree_root = self.private_call.call_stack_item.public_inputs.historical_header.state.partial.contract_tree.root;
+        let previous_kernel_contract_tree_root = self.previous_kernel.public_inputs.constants.historical_header.state.partial.contract_tree.root;
 
         assert(purported_contract_tree_root == previous_kernel_contract_tree_root, "purported_contract_tree_root does not match previous_kernel_contract_tree_root");
     }
@@ -32,7 +32,6 @@ impl PrivateKernelInputsInner {
         let this_call_stack_item = self.private_call.call_stack_item;
         let function_data = this_call_stack_item.function_data;
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
-        assert(function_data.is_constructor == false, "A constructor must be executed as the first tx in the recursion");
         assert(self.previous_kernel.public_inputs.is_private, "Can only verify a private kernel snark in the private kernel circuit");
     }
 
@@ -52,7 +51,7 @@ impl PrivateKernelInputsInner {
         self.pop_and_validate_this_private_call_hash(&mut public_inputs);
 
         common::validate_read_requests(
-            public_inputs.constants.block_header.note_hash_tree_root(),
+            public_inputs.constants.historical_header.state.partial.note_hash_tree.root,
             self.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
             self.private_call.read_request_membership_witnesses);
 
@@ -69,26 +68,25 @@ impl PrivateKernelInputsInner {
             this_call_stack_item.public_inputs.contract_deployment_data,
             this_call_stack_item.function_data);
 
-        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.end.aggregation_object,self.private_call.proof);
+        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.aggregation_object,self.private_call.proof);
         assert(is_previous_state_valid);
 
-        public_inputs.end.aggregation_object = updated_aggregation_object;
+        public_inputs.aggregation_object = updated_aggregation_object;
 
         public_inputs.finish()
     }
 }
 
-
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInputsInner;
     use dep::types::constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_TX,
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
         },
         tests::{
             previous_kernel_data_builder::PreviousKernelDataBuilder,
@@ -98,7 +96,6 @@ mod tests {
         hash::compute_logs_hash,
         utils::{
             arrays::array_length,
-            bounded_vec::BoundedVec,
         },
     };
 
@@ -171,36 +168,14 @@ mod tests {
     fn private_function_incorrect_contract_tree_root_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        // Set historical_tree_root to a wrong value (the correct value + 1).
-        let contract_tree_root = builder.previous_kernel.block_header.contract_tree_root;
-        builder.previous_kernel.block_header.contract_tree_root = contract_tree_root + 1;
+        // Set historical contract tree root to a wrong value (the correct value + 1).
+        let contract_tree_root = builder.previous_kernel.historical_header.state.partial.contract_tree.root;
+        builder.previous_kernel.historical_header.state.partial.contract_tree.root = contract_tree_root + 1;
 
         builder.failed();
     }
 
-    #[test(should_fail_with = "computed_contract_tree_root does not match purported_contract_tree_root")]
-    fn private_function_incorrect_contract_leaf_index_fails() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        // Set the leaf index of the contract leaf to a wrong value (the correct value + 1).
-        let leaf_index = builder.private_call.contract_leaf_membership_witness.leaf_index;
-        builder.private_call.contract_leaf_membership_witness.leaf_index = leaf_index + 1;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "computed_contract_tree_root does not match purported_contract_tree_root")]
-    fn private_function_incorrect_contract_leaf_sibling_path_fails() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        // Set the first value of the sibling path to a wrong value (the correct value + 1).
-        let sibling_path_0 = builder.private_call.contract_leaf_membership_witness.sibling_path[0];
-        builder.private_call.contract_leaf_membership_witness.sibling_path[0] = sibling_path_0 + 1;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "computed_contract_tree_root does not match purported_contract_tree_root")]
+    #[test(should_fail_with="computed contract address does not match expected one")]
     fn private_function_incorrect_function_leaf_index_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
@@ -211,7 +186,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with = "computed_contract_tree_root does not match purported_contract_tree_root")]
+    #[test(should_fail_with="computed contract address does not match expected one")]
     fn private_function_incorrect_function_leaf_sibling_path_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
@@ -219,6 +194,27 @@ mod tests {
         let sibling_path_0 = builder.private_call.function_leaf_membership_witness.sibling_path[0];
         builder.private_call.function_leaf_membership_witness.sibling_path[0] = sibling_path_0 + 1;
 
+        builder.failed();
+    }
+
+    #[test(should_fail_with="computed contract address does not match expected one")]
+    fn private_function_incorrect_contract_class_preimage_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.private_call.contract_class_artifact_hash = builder.private_call.contract_class_artifact_hash + 1;
+        builder.failed();
+    }
+
+    #[test(should_fail_with="computed contract address does not match expected one")]
+    fn private_function_incorrect_partial_address_preimage_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.private_call.salted_initialization_hash.inner = builder.private_call.salted_initialization_hash.inner + 1;
+        builder.failed();
+    }
+
+    #[test(should_fail_with="computed contract address does not match expected one")]
+    fn private_function_incorrect_address_preimage_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.private_call.public_keys_hash.inner = builder.private_call.public_keys_hash.inner + 1;
         builder.failed();
     }
 
@@ -232,10 +228,7 @@ mod tests {
         builder.previous_kernel.push_private_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.finish();
 
-        let kernel = PrivateKernelInputsInner {
-            previous_kernel,
-            private_call,
-        };
+        let kernel = PrivateKernelInputsInner { previous_kernel, private_call };
 
         let _ = kernel.native_private_kernel_circuit_inner();
     }
@@ -259,7 +252,7 @@ mod tests {
 
         builder.failed();
     }
-    
+
     #[test]
     fn delegate_call_succeeds() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
@@ -277,10 +270,7 @@ mod tests {
         builder.previous_kernel.push_private_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.finish();
 
-        let kernel = PrivateKernelInputsInner {
-            previous_kernel,
-            private_call,
-        };
+        let kernel = PrivateKernelInputsInner { previous_kernel, private_call };
 
         let _ = kernel.native_private_kernel_circuit_inner();
     }
@@ -448,7 +438,7 @@ mod tests {
     fn input_validation_malformed_arrays_return_values() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.return_values.push_array([0, 553]);
+        builder.private_call.public_inputs.return_values.extend_from_array([0, 553]);
 
         builder.failed();
     }
@@ -457,7 +447,12 @@ mod tests {
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.read_requests.push_array([0, 9123]);
+        builder.private_call.public_inputs.read_requests.extend_from_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
+        ]
+        );
 
         builder.failed();
     }
@@ -466,7 +461,12 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.new_commitments.push_array([0, 9123]);
+        builder.private_call.public_inputs.new_commitments.extend_from_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
+        ]
+        );
 
         builder.failed();
     }
@@ -475,17 +475,13 @@ mod tests {
     fn input_validation_malformed_arrays_nullifiers() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.new_nullifiers.push_array([0, 12]);
-        
-        builder.failed();
-    }
+        builder.private_call.public_inputs.new_nullifiers.extend_from_array(
+            [
+            SideEffectLinkedToNoteHash { value: 0, note_hash: 0, counter: 0 },
+            SideEffectLinkedToNoteHash { value: 12, note_hash: 0, counter: 1 }
+        ]
+        );
 
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_nullified_commitments() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.public_inputs.nullified_commitments.push_array([0, EMPTY_NULLIFIED_COMMITMENT]);
-        
         builder.failed();
     }
 
@@ -493,8 +489,8 @@ mod tests {
     fn input_validation_malformed_arrays_private_call_stack() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.private_call_stack_hashes.push_array([0, 888]);
-        
+        builder.private_call.public_inputs.private_call_stack_hashes.extend_from_array([0, 888]);
+
         builder.failed();
     }
 
@@ -502,8 +498,8 @@ mod tests {
     fn input_validation_malformed_arrays_public_call_stack() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.public_call_stack_hashes.push_array([0, 888]);
-        
+        builder.private_call.public_inputs.public_call_stack_hashes.extend_from_array([0, 888]);
+
         builder.failed();
     }
 
@@ -511,25 +507,28 @@ mod tests {
     fn input_validation_malformed_arrays_new_l2_to_l1_msgs() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.new_l2_to_l1_msgs.push_array([0, 888]);
-        
+        builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array([0, 888]);
+
         builder.failed();
     }
 
-    #[test(should_fail_with = "push_vec out of bounds")]
+    #[test(should_fail_with = "extend_from_bounded_vec out of bounds")]
     fn private_kernel_should_fail_if_aggregating_too_many_commitments() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // The current call stack has 1 commitment;
-        builder.private_call.public_inputs.new_commitments.push(4321);
+        builder.private_call.public_inputs.new_commitments.push(SideEffect { value: 4321, counter: 0 });
 
         // Mock the previous new commitments to be full, therefore no more commitments can be added.
-        let mut full_new_commitments = [0; MAX_NEW_COMMITMENTS_PER_TX];
+        let mut full_new_commitments = [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_TX];
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            full_new_commitments[i] = i + 1;
+            full_new_commitments[i] = SideEffect {
+                value: i + 1,
+                counter: i as u32,
+            };
         }
-        builder.previous_kernel.end.new_commitments.push_array(full_new_commitments);
-        
+        builder.previous_kernel.end.new_commitments.extend_from_array(full_new_commitments);
+
         builder.failed();
     }
 
@@ -538,15 +537,6 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         builder.private_call.function_data.is_private = false;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="A constructor must be executed as the first tx in the recursion")]
-    fn private_function_is_constructor_fails() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.function_data.is_constructor = true;
 
         builder.failed();
     }
@@ -568,7 +558,7 @@ mod tests {
 
         // tweak read_request so it gives wrong root when paired with its sibling path
         let read_request = builder.private_call.public_inputs.read_requests.pop();
-        builder.private_call.public_inputs.read_requests.push(read_request + 1);
+        builder.private_call.public_inputs.read_requests.push(SideEffect { value: read_request.value + 1, counter: read_request.counter });
 
         builder.failed();
     }
@@ -608,8 +598,8 @@ mod tests {
         builder.private_call.append_read_requests(1);
 
         // Set the root to be a different root so the above read request is not under this root.
-        let old_root = builder.previous_kernel.block_header.note_hash_tree_root;
-        builder.previous_kernel.block_header.note_hash_tree_root = old_root + 1;
+        let old_root = builder.previous_kernel.historical_header.state.partial.note_hash_tree.root;
+        builder.previous_kernel.historical_header.state.partial.note_hash_tree.root = old_root + 1;
 
         builder.failed();
     }
@@ -718,12 +708,19 @@ mod tests {
         let prev_unencrypted_logs_hash = [956, 112];
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(prev_unencrypted_logs_hash, prev_unencrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
+            prev_unencrypted_logs_hash,
+            prev_unencrypted_log_preimages_length
+        );
 
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length + prev_encrypted_log_preimages_length);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length + prev_encrypted_log_preimages_length
+        );
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
 
         let expected_encrypted_logs_hash = compute_logs_hash(prev_encrypted_logs_hash, encrypted_logs_hash);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
@@ -736,7 +733,7 @@ mod tests {
     fn creating_new_commitments_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
-        builder.private_call.public_inputs.new_commitments.push(1);
+        builder.private_call.public_inputs.new_commitments.push(SideEffect { value: 1, counter: 0 });
 
         builder.failed();
     }
@@ -745,7 +742,7 @@ mod tests {
     fn creating_new_nullifiers_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
-        builder.private_call.public_inputs.new_nullifiers.push(1);
+        builder.private_call.public_inputs.new_nullifiers.push(SideEffectLinkedToNoteHash { value: 1, note_hash: 0, counter: 0 });
 
         builder.failed();
     }
@@ -754,7 +751,7 @@ mod tests {
     fn zero_0th_nullifier_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(0);
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
 
         builder.failed();
     }

@@ -1,11 +1,11 @@
+import { PublicKey } from '@aztec/circuit-types';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Point } from '@aztec/foundation/fields';
-import { PublicKey } from '@aztec/types';
 
-import { DeployMethod } from '../contract_deployer/deploy_method.js';
-import { Wallet } from '../wallet/index.js';
+import { Wallet } from '../account/index.js';
 import { ContractBase } from './contract_base.js';
+import { DeployMethod } from './deploy_method.js';
 
 /**
  * The Contract class represents a contract and provides utility methods for interacting with it.
@@ -24,16 +24,11 @@ export class Contract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet): Promise<Contract> {
-    const extendedContractData = await wallet.getExtendedContractData(address);
-    if (extendedContractData === undefined) {
-      throw new Error('Contract ' + address.toString() + ' is not deployed');
+    const instance = await wallet.getContractInstance(address);
+    if (instance === undefined) {
+      throw new Error(`Contract instance at ${address.toString()} has not been registered in the wallet's PXE`);
     }
-    return new Contract(
-      extendedContractData.getCompleteAddress(),
-      artifact,
-      wallet,
-      extendedContractData.contractData.portalContractAddress,
-    );
+    return new Contract(instance, artifact, wallet);
   }
 
   /**
@@ -43,7 +38,8 @@ export class Contract extends ContractBase {
    * @param args - Arguments for the constructor.
    */
   public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[]) {
-    return new DeployMethod(Point.ZERO, wallet, artifact, args);
+    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
+    return new DeployMethod(Point.ZERO, wallet, artifact, postDeployCtor, args);
   }
 
   /**
@@ -54,6 +50,7 @@ export class Contract extends ContractBase {
    * @param args - Arguments for the constructor.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, artifact: ContractArtifact, args: any[]) {
-    return new DeployMethod(publicKey, wallet, artifact, args);
+    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
+    return new DeployMethod(publicKey, wallet, artifact, postDeployCtor, args);
   }
 }

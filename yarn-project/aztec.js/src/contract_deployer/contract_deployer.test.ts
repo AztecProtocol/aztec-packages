@@ -1,6 +1,6 @@
+import { PXE, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/circuit-types';
 import { EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { PXE, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -19,9 +19,11 @@ describe.skip('Contract Deployer', () => {
         parameters: [],
         returnTypes: [],
         bytecode: '0af',
+        debugSymbols: '',
       },
     ],
     events: [],
+    fileMap: {},
   };
 
   const publicKey: PublicKey = Point.random();

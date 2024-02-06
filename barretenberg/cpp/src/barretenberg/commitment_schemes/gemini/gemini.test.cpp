@@ -7,14 +7,14 @@
 #include <gtest/gtest.h>
 #include <span>
 
-namespace proof_system::honk::pcs::gemini {
+using namespace bb;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
-    using Polynomial = typename barretenberg::Polynomial<Fr>;
+    using Polynomial = typename bb::Polynomial<Fr>;
 
   public:
     void execute_gemini_and_verify_claims(size_t log_n,
@@ -29,7 +29,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         const Fr rho = Fr::random_element();
 
-        std::vector<Fr> rhos = pcs::gemini::powers_of_rho(rho, multilinear_evaluations.size());
+        std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
         // Compute batched multivariate evaluation
         Fr batched_evaluation = Fr::zero();
@@ -237,5 +237,3 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
                                            multilinear_commitments,
                                            multilinear_commitments_to_be_shifted);
 }
-
-} // namespace proof_system::honk::pcs::gemini

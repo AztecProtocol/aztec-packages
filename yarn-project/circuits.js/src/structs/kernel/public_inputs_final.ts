@@ -1,7 +1,8 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../../utils/serialize.js';
-import { FinalAccumulatedData } from './combined_accumulated_data.js';
+import { AggregationObject } from '../aggregation_object.js';
+import { AccumulatedMetaData, FinalAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
@@ -9,6 +10,18 @@ import { CombinedConstantData } from './combined_constant_data.js';
  */
 export class KernelCircuitPublicInputsFinal {
   constructor(
+    /**
+     * Aggregated proof of all the previous kernel iterations.
+     */
+    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
+    /**
+     * The side effect counter that meta side effects are all beneath.
+     */
+    public metaHwm: Fr,
+    /**
+     * Final metadata accumulated for ordering private kernel circuit.
+     */
+    public endMeta: AccumulatedMetaData,
     /**
      * Final data accumulated for ordering private kernel circuit.
      */
@@ -24,7 +37,14 @@ export class KernelCircuitPublicInputsFinal {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(
+      this.aggregationObject,
+      this.metaHwm,
+      this.endMeta,
+      this.end,
+      this.constants,
+      this.isPrivate,
+    );
   }
 
   /**
@@ -35,6 +55,9 @@ export class KernelCircuitPublicInputsFinal {
   static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputsFinal {
     const reader = BufferReader.asReader(buffer);
     return new KernelCircuitPublicInputsFinal(
+      reader.readObject(AggregationObject),
+      reader.readObject(Fr),
+      reader.readObject(AccumulatedMetaData),
       reader.readObject(FinalAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
@@ -42,7 +65,14 @@ export class KernelCircuitPublicInputsFinal {
   }
 
   static empty() {
-    return new KernelCircuitPublicInputsFinal(FinalAccumulatedData.empty(), CombinedConstantData.empty(), true);
+    return new KernelCircuitPublicInputsFinal(
+      AggregationObject.makeFake(),
+      Fr.zero(),
+      AccumulatedMetaData.empty(),
+      FinalAccumulatedData.empty(),
+      CombinedConstantData.empty(),
+      true,
+    );
   }
 }
 
@@ -50,7 +80,13 @@ export class KernelCircuitPublicInputsFinal {
  * Public inputs of the final private kernel circuit.
  */
 export class PrivateKernelPublicInputsFinal extends KernelCircuitPublicInputsFinal {
-  constructor(end: FinalAccumulatedData, constants: CombinedConstantData) {
-    super(end, constants, true);
+  constructor(
+    aggregationObject: AggregationObject,
+    metaHwm: Fr,
+    endMeta: AccumulatedMetaData,
+    end: FinalAccumulatedData,
+    constants: CombinedConstantData,
+  ) {
+    super(aggregationObject, metaHwm, endMeta, end, constants, true);
   }
 }

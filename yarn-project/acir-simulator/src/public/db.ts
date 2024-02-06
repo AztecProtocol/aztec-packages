@@ -1,4 +1,4 @@
-import { EthAddress, FunctionSelector } from '@aztec/circuits.js';
+import { EthAddress, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -66,7 +66,7 @@ export interface PublicContractsDB {
   getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined>;
 }
 
-/** Database interface for providing access to commitment tree and l1 to l2 messages tree (append only data trees). */
+/** Database interface for providing access to commitment tree and l1 to l2 message tree (append only data trees). */
 export interface CommitmentsDB {
   /**
    * Gets a confirmed L1 to L2 message for the given message key.
@@ -74,7 +74,7 @@ export interface CommitmentsDB {
    * @param msgKey - The message Key.
    * @returns - The l1 to l2 message object
    */
-  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
+  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
    * Gets the index of a commitment in the note hash tree.

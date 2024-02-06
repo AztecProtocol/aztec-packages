@@ -1,16 +1,29 @@
-import { createSandbox } from '@aztec/aztec-sandbox';
-import { Contract, ExtendedNote, Fr, Note, computeMessageSecretHash, createAccount } from '@aztec/aztec.js';
-import { TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { createAccount } from '@aztec/accounts/testing';
+import {
+  Contract,
+  ExtendedNote,
+  Fr,
+  Note,
+  computeMessageSecretHash,
+  createPXEClient,
+  waitForPXE,
+} from '@aztec/aztec.js';
+import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 describe('token', () => {
   // docs:start:setup
-  let pxe, stop, owner, recipient, token;
+  let owner, recipient, token;
   beforeAll(async () => {
-    ({ pxe, stop } = await createSandbox());
+    const pxe = createPXEClient(PXE_URL);
+    await waitForPXE(pxe);
     owner = await createAccount(pxe);
     recipient = await createAccount(pxe);
 
-    token = await Contract.deploy(owner, TokenContractArtifact, [owner.getCompleteAddress()]).send().deployed();
+    token = await Contract.deploy(owner, TokenContractArtifact, [owner.getCompleteAddress(), 'TokenName', 'TKN', 18])
+      .send()
+      .deployed();
 
     const initialBalance = 20n;
     const secret = Fr.random();
@@ -24,8 +37,6 @@ describe('token', () => {
 
     await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
   }, 120_000);
-
-  afterAll(() => stop());
   // docs:end:setup
 
   // docs:start:test

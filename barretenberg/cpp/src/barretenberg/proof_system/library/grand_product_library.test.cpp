@@ -6,13 +6,11 @@
 
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
-
-using namespace proof_system::honk;
-namespace grand_product_library_tests {
+using namespace bb;
 
 template <class FF> class GrandProductTests : public testing::Test {
 
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
 
   public:
     /**
@@ -81,7 +79,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         auto beta = FF::random_element();
         auto gamma = FF::random_element();
 
-        proof_system::RelationParameters<FF> params{
+        RelationParameters<FF> params{
             .eta = 0,
             .beta = beta,
             .gamma = gamma,
@@ -91,8 +89,7 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         typename Flavor::ProverPolynomials prover_polynomials;
         for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
-            ASSERT(proof_system::flavor_get_label(prover_polynomials, prover_poly) ==
-                   proof_system::flavor_get_label(*proving_key, key_poly));
+            ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*proving_key, key_poly));
             prover_poly = key_poly.share();
         }
 
@@ -101,10 +98,9 @@ template <class FF> class GrandProductTests : public testing::Test {
         using LHS =
             typename std::tuple_element<PERMUTATION_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
         ASSERT(Flavor::NUM_WIRES == 4);
-        using RHS = typename proof_system::UltraPermutationRelation<FF>;
+        using RHS = typename bb::UltraPermutationRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
-        grand_product_library::compute_grand_product<Flavor, RHS>(
-            proving_key->circuit_size, prover_polynomials, params);
+        compute_grand_product<Flavor, RHS>(proving_key->circuit_size, prover_polynomials, params);
 
         // Method 2: Compute z_perm locally using the simplest non-optimized syntax possible. The comment below,
         // which describes the computation in 4 steps, is adapted from a similar comment in
@@ -186,7 +182,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         static const size_t num_public_inputs = 0;
 
         // Instatiate a proving_key and make a pointer to it. This will be used to instantiate a Prover.
-        using Flavor = flavor::Ultra;
+        using Flavor = UltraFlavor;
         auto proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_size, num_public_inputs);
 
         // Construct mock wire and permutation polynomials.
@@ -232,7 +228,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         auto gamma = FF::random_element();
         auto eta = FF::random_element();
 
-        proof_system::RelationParameters<FF> params{
+        RelationParameters<FF> params{
             .eta = eta,
             .beta = beta,
             .gamma = gamma,
@@ -242,14 +238,13 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         typename Flavor::ProverPolynomials prover_polynomials;
         for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
-            ASSERT(proof_system::flavor_get_label(prover_polynomials, prover_poly) ==
-                   proof_system::flavor_get_label(*proving_key, key_poly));
+            ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*proving_key, key_poly));
             prover_poly = key_poly.share();
         }
         for (auto [prover_poly, key_poly] :
              zip_view(prover_polynomials.get_shifted(), proving_key->get_to_be_shifted())) {
-            ASSERT(proof_system::flavor_get_label(prover_polynomials, prover_poly) ==
-                   proof_system::flavor_get_label(*proving_key, key_poly) + "_shift");
+            ASSERT(flavor_get_label(prover_polynomials, prover_poly) ==
+                   flavor_get_label(*proving_key, key_poly) + "_shift");
             prover_poly = key_poly.shifted();
         }
         // Test a few assignments
@@ -260,10 +255,9 @@ template <class FF> class GrandProductTests : public testing::Test {
         // Method 1: Compute z_lookup using the prover library method
         constexpr size_t LOOKUP_RELATION_INDEX = 1;
         using LHS = typename std::tuple_element<LOOKUP_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
-        using RHS = proof_system::LookupRelation<FF>;
+        using RHS = LookupRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
-        grand_product_library::compute_grand_product<Flavor, RHS>(
-            proving_key->circuit_size, prover_polynomials, params);
+        compute_grand_product<Flavor, RHS>(proving_key->circuit_size, prover_polynomials, params);
 
         // Method 2: Compute the lookup grand product polynomial Z_lookup:
         //
@@ -339,17 +333,15 @@ template <class FF> class GrandProductTests : public testing::Test {
     };
 };
 
-using FieldTypes = testing::Types<barretenberg::fr>;
+using FieldTypes = testing::Types<bb::fr>;
 TYPED_TEST_SUITE(GrandProductTests, FieldTypes);
 
 TYPED_TEST(GrandProductTests, GrandProductPermutation)
 {
-    TestFixture::template test_permutation_grand_product_construction<flavor::Ultra>();
+    TestFixture::template test_permutation_grand_product_construction<UltraFlavor>();
 }
 
 TYPED_TEST(GrandProductTests, GrandProductLookup)
 {
     TestFixture::test_lookup_grand_product_construction();
 }
-
-} // namespace grand_product_library_tests

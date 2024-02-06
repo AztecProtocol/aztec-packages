@@ -31,9 +31,7 @@ mod reflection {
         path::{Path, PathBuf},
     };
 
-    use brillig::{
-        BinaryFieldOp, BinaryIntOp, BlackBoxOp, Opcode as BrilligOpcode, RegisterOrMemory,
-    };
+    use brillig::{BinaryFieldOp, BinaryIntOp, BlackBoxOp, Opcode as BrilligOpcode, ValueOrArray};
     use serde_reflection::{Tracer, TracerConfig};
 
     use crate::{
@@ -41,7 +39,7 @@ mod reflection {
             brillig::{BrilligInputs, BrilligOutputs},
             directives::Directive,
             opcodes::BlackBoxFuncCall,
-            Circuit, Opcode, OpcodeLocation,
+            Circuit, ExpressionWidth, Opcode, OpcodeLocation,
         },
         native_types::{Witness, WitnessMap},
     };
@@ -59,6 +57,7 @@ mod reflection {
 
         let mut tracer = Tracer::new(TracerConfig::default());
         tracer.trace_simple_type::<Circuit>().unwrap();
+        tracer.trace_simple_type::<ExpressionWidth>().unwrap();
         tracer.trace_simple_type::<Opcode>().unwrap();
         tracer.trace_simple_type::<OpcodeLocation>().unwrap();
         tracer.trace_simple_type::<BinaryFieldOp>().unwrap();
@@ -69,7 +68,7 @@ mod reflection {
         tracer.trace_simple_type::<BinaryIntOp>().unwrap();
         tracer.trace_simple_type::<BlackBoxOp>().unwrap();
         tracer.trace_simple_type::<Directive>().unwrap();
-        tracer.trace_simple_type::<RegisterOrMemory>().unwrap();
+        tracer.trace_simple_type::<ValueOrArray>().unwrap();
 
         let registry = tracer.registry().unwrap();
 

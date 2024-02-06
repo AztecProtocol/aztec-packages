@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <iterator>
 #include <tuple>
-namespace proof_system {
+namespace bb {
 /**
  * @brief GoblinTranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of
  * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and p is the modulus of Fp)
@@ -73,11 +73,11 @@ namespace proof_system {
  * microlimb.
  *
  */
-class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<barretenberg::fr> {
+class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // We don't need templating for Goblin
-    using Fr = barretenberg::fr;
-    using Fq = barretenberg::fq;
-    using Arithmetization = arithmetization::GoblinTranslator;
+    using Fr = bb::fr;
+    using Fq = bb::fq;
+    using Arithmetization = GoblinTranslatorArith;
 
   public:
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
@@ -184,7 +184,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<barretenberg::f
 
     };
 
-    // Basic goblin translator has the minicircuit size of 2048, so optimize for that case
+    // Basic goblin translator has the minimum minicircuit size of 2048, so optimize for that case
     // For context, minicircuit is the part of the final polynomials fed into the proving system, where we have all the
     // arithmetic logic. However, the full circuit is several times larger (we use a trick to bring down the degree of
     // the permutation argument)
@@ -326,7 +326,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<barretenberg::f
     // The input we evaluate polynomials on
     Fq evaluation_input_x;
 
-    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
+    std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
 
     /**
      * @brief Construct a new Goblin Translator Circuit Builder object
@@ -432,9 +432,9 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<barretenberg::f
     /**
      * @brief Get the result of accumulation
      *
-     * @return barretenberg::fq
+     * @return bb::fq
      */
-    barretenberg::fq get_computation_result()
+    bb::fq get_computation_result()
     {
         const size_t RESULT_ROW = 1;
         ASSERT(num_gates > RESULT_ROW);
@@ -472,14 +472,4 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
                                                                           Fq previous_accumulator,
                                                                           Fq batching_challenge_v,
                                                                           Fq evaluation_input_x);
-extern template GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(barretenberg::fr,
-                                                                                          barretenberg::fr,
-                                                                                          barretenberg::fr,
-                                                                                          barretenberg::fr,
-                                                                                          barretenberg::fr,
-                                                                                          barretenberg::fr,
-                                                                                          barretenberg::fr,
-                                                                                          barretenberg::fq,
-                                                                                          barretenberg::fq,
-                                                                                          barretenberg::fq);
-} // namespace proof_system
+} // namespace bb

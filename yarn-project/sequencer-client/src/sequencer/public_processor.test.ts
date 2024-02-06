@@ -1,32 +1,5 @@
 import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
 import {
-  ARGS_LENGTH,
-  AztecAddress,
-  BlockHeader,
-  CallContext,
-  CallRequest,
-  CombinedAccumulatedData,
-  EthAddress,
-  Fr,
-  FunctionData,
-  GlobalVariables,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  PUBLIC_DATA_TREE_HEIGHT,
-  Proof,
-  PublicCallRequest,
-  PublicKernelPublicInputs,
-  makeEmptyProof,
-  makeTuple,
-} from '@aztec/circuits.js';
-import {
-  makeAztecAddress,
-  makePrivateKernelPublicInputsFinal,
-  makePublicCallRequest,
-  makeSelector,
-} from '@aztec/circuits.js/factories';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import {
   ExtendedContractData,
   FunctionCall,
   FunctionL2Logs,
@@ -35,11 +8,37 @@ import {
   Tx,
   TxL2Logs,
   mockTx,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import {
+  ARGS_LENGTH,
+  AztecAddress,
+  CallContext,
+  CallRequest,
+  CombinedAccumulatedData,
+  EthAddress,
+  Fr,
+  FunctionData,
+  GlobalVariables,
+  Header,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  PUBLIC_DATA_TREE_HEIGHT,
+  Proof,
+  PublicCallRequest,
+  PublicKernelPublicInputs,
+  makeEmptyProof,
+} from '@aztec/circuits.js';
+import {
+  makeAztecAddress,
+  makePrivateKernelPublicInputsFinal,
+  makePublicCallRequest,
+  makeSelector,
+} from '@aztec/circuits.js/factories';
+import { makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import times from 'lodash.times';
 
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
@@ -85,7 +84,7 @@ describe('public_processor', () => {
         publicKernel,
         publicProver,
         GlobalVariables.empty(),
-        BlockHeader.empty(),
+        Header.empty(),
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -102,6 +101,8 @@ describe('public_processor', () => {
           isEmpty: false,
           hash,
           data: new PublicKernelPublicInputs(
+            tx.data.aggregationObject,
+            tx.data.metaHwm,
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
           ),
@@ -140,7 +141,7 @@ describe('public_processor', () => {
         publicKernel,
         publicProver,
         GlobalVariables.empty(),
-        BlockHeader.empty(),
+        Header.empty(),
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -289,7 +290,7 @@ function makePublicExecutionResult(
   tx: FunctionCall,
   nestedExecutions: PublicExecutionResult[] = [],
 ): PublicExecutionResult {
-  const callContext = new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, false);
+  const callContext = new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, false, 0);
   const execution: PublicExecution = {
     callContext,
     contractAddress: tx.to,

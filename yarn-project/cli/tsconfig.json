@@ -7,7 +7,16 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../aztec.js"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
     },
     {
       "path": "../ethereum"

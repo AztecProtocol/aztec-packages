@@ -8,7 +8,6 @@ use crate::hir_def::stmt::{
 };
 use crate::hir_def::types::Type;
 use crate::node_interner::{DefinitionId, ExprId, StmtId};
-use crate::{Shared, TypeBinding, TypeVariableKind};
 
 use super::errors::{Source, TypeCheckError};
 use super::TypeChecker;
@@ -71,9 +70,7 @@ impl<'interner> TypeChecker<'interner> {
             expr_span: range_span,
         });
 
-        let fresh_id = self.interner.next_type_variable_id();
-        let type_variable = Shared::new(TypeBinding::Unbound(fresh_id));
-        let expected_type = Type::TypeVariable(type_variable, TypeVariableKind::IntegerOrField);
+        let expected_type = Type::polymorphic_integer(self.interner);
 
         self.unify(&start_range_type, &expected_type, || {
             TypeCheckError::TypeCannotBeUsed {
@@ -150,7 +147,7 @@ impl<'interner> TypeChecker<'interner> {
         // Must push new lvalue to the interner, we've resolved any field indices
         self.interner.update_statement(stmt_id, |stmt| match stmt {
             HirStatement::Assign(assign) => assign.lvalue = new_lvalue,
-            _ => unreachable!(),
+            _ => unreachable!("statement is known to be assignment"),
         });
 
         let span = self.interner.expr_span(&assign_stmt.expression);
@@ -198,7 +195,7 @@ impl<'interner> TypeChecker<'interner> {
                     typ.follow_bindings()
                 };
 
-                (typ.clone(), HirLValue::Ident(*ident, typ), mutable)
+                (typ.clone(), HirLValue::Ident(ident.clone(), typ), mutable)
             }
             HirLValue::MemberAccess { object, field_name, .. } => {
                 let (lhs_type, object, mut mutable) = self.check_lvalue(object, assign_span);
@@ -209,24 +206,22 @@ impl<'interner> TypeChecker<'interner> {
                 let object_ref = &mut object;
                 let mutable_ref = &mut mutable;
 
-                let (object_type, field_index) = self
-                    .check_field_access(
-                        &lhs_type,
-                        &field_name.0.contents,
-                        span,
-                        move |_, _, element_type| {
-                            // We must create a temporary value first to move out of object_ref before
-                            // we eventually reassign to it.
-                            let id = DefinitionId::dummy_id();
-                            let location = Location::new(span, fm::FileId::dummy());
-                            let tmp_value =
-                                HirLValue::Ident(HirIdent { location, id }, Type::Error);
+                let dereference_lhs = move |_: &mut Self, _, element_type| {
+                    // We must create a temporary value first to move out of object_ref before
+                    // we eventually reassign to it.
+                    let id = DefinitionId::dummy_id();
+                    let location = Location::new(span, fm::FileId::dummy());
+                    let ident = HirIdent::non_trait_method(id, location);
+                    let tmp_value = HirLValue::Ident(ident, Type::Error);
 
-                            let lvalue = std::mem::replace(object_ref, Box::new(tmp_value));
-                            *object_ref = Box::new(HirLValue::Dereference { lvalue, element_type });
-                            *mutable_ref = true;
-                        },
-                    )
+                    let lvalue = std::mem::replace(object_ref, Box::new(tmp_value));
+                    *object_ref = Box::new(HirLValue::Dereference { lvalue, element_type });
+                    *mutable_ref = true;
+                };
+
+                let name = &field_name.0.contents;
+                let (object_type, field_index) = self
+                    .check_field_access(&lhs_type, name, span, Some(dereference_lhs))
                     .unwrap_or((Type::Error, 0));
 
                 let field_index = Some(field_index);
@@ -328,6 +323,7 @@ impl<'interner> TypeChecker<'interner> {
             // Now check if LHS is the same type as the RHS
             // Importantly, we do not coerce any types implicitly
             let expr_span = self.interner.expr_span(&rhs_expr);
+
             self.unify_with_coercions(&expr_type, &annotated_type, rhs_expr, || {
                 TypeCheckError::TypeMismatch {
                     expected_typ: annotated_type.to_string(),
@@ -338,10 +334,8 @@ impl<'interner> TypeChecker<'interner> {
             if annotated_type.is_unsigned() {
                 self.lint_overflowing_uint(&rhs_expr, &annotated_type);
             }
-            annotated_type
-        } else {
-            expr_type
         }
+        expr_type
     }
 
     /// Check if an assignment is overflowing with respect to `annotated_type`
@@ -350,7 +344,7 @@ impl<'interner> TypeChecker<'interner> {
         let expr = self.interner.expression(rhs_expr);
         let span = self.interner.expr_span(rhs_expr);
         match expr {
-            HirExpression::Literal(HirLiteral::Integer(value)) => {
+            HirExpression::Literal(HirLiteral::Integer(value, false)) => {
                 let v = value.to_u128();
                 if let Type::Integer(_, bit_count) = annotated_type {
                     let max = 1 << bit_count;

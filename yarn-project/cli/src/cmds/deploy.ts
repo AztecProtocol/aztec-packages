@@ -6,9 +6,6 @@ import { encodeArgs } from '../encoding.js';
 import { GITHUB_TAG_PREFIX } from '../github.js';
 import { getContractArtifact, getFunctionArtifact } from '../utils.js';
 
-/**
- *
- */
 export async function deploy(
   artifactPath: string,
   json: boolean,
@@ -27,7 +24,7 @@ export async function deploy(
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const nodeInfo = await client.getNodeInfo();
-  const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.sandboxVersion}`;
+  const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
   if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
     log(
       `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
@@ -53,7 +50,7 @@ export async function deploy(
   debugLogger(`Deploy tx sent with hash ${txHash}`);
   if (wait) {
     const deployed = await tx.wait();
-    const { address, partialAddress } = deployed.contract.completeAddress;
+    const { address, partialAddress } = deployed.contract;
     if (json) {
       logJson({ address: address.toString(), partialAddress: partialAddress.toString() });
     } else {
@@ -61,7 +58,7 @@ export async function deploy(
       log(`Contract partial address ${partialAddress.toString()}\n`);
     }
   } else {
-    const { address, partialAddress } = deploy.completeAddress ?? {};
+    const { address, partialAddress } = deploy;
     if (json) {
       logJson({
         address: address?.toString() ?? 'N/A',
@@ -69,8 +66,8 @@ export async function deploy(
         txHash: txHash.toString(),
       });
     } else {
-      log(`\nContract Address: ${deploy.completeAddress?.address.toString() ?? 'N/A'}`);
-      log(`Contract Partial Address: ${deploy.completeAddress?.partialAddress.toString() ?? 'N/A'}`);
+      log(`\nContract Address: ${address?.toString() ?? 'N/A'}`);
+      log(`Contract Partial Address: ${partialAddress?.toString() ?? 'N/A'}`);
       log(`Deployment transaction hash: ${txHash}\n`);
     }
   }

@@ -8,7 +8,6 @@
 //
 // And then run this script from the yarn-project/scripts folder
 // LOG_FOLDER=../end-to-end/log yarn bench-aggregate
-import { createConsoleLogger } from '@aztec/foundation/log';
 import {
   BENCHMARK_BLOCK_SIZES,
   BENCHMARK_HISTORY_BLOCK_SIZE,
@@ -24,8 +23,12 @@ import {
   NodeSyncedChainHistoryStats,
   NoteProcessorCaughtUpStats,
   Stats,
+  TreeInsertionStats,
   TxAddedToPoolStats,
-} from '@aztec/types/stats';
+  TxPXEProcessingStats,
+  TxSequencerProcessingStats,
+} from '@aztec/circuit-types/stats';
+import { createConsoleLogger } from '@aztec/foundation/log';
 
 import * as fs from 'fs';
 import { mkdirpSync } from 'fs-extra';
@@ -151,6 +154,43 @@ function processTxAddedToPool(entry: TxAddedToPoolStats, results: BenchmarkColle
   append(results, 'tx_size_in_bytes', entry.newContractCount, entry.size);
 }
 
+/** Process entries for events tx-private-part-processed, grouped by new commitments */
+function processTxPXEProcessingStats(entry: TxPXEProcessingStats, results: BenchmarkCollectedResults) {
+  append(results, 'tx_pxe_processing_time_ms', entry.newCommitmentCount, entry.duration);
+}
+
+/** Process entries for events tx-public-part-processed, grouped by public data writes */
+function processTxSequencerProcessingStats(entry: TxSequencerProcessingStats, results: BenchmarkCollectedResults) {
+  append(results, 'tx_sequencer_processing_time_ms', entry.publicDataUpdateRequests, entry.duration);
+}
+
+/** Process a tree insertion event and updates results */
+function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkCollectedResults) {
+  const bucket = entry.batchSize;
+  const depth = entry.treeDepth;
+  if (entry.treeType === 'append-only') {
+    if (depth === 16) {
+      append(results, 'batch_insert_into_append_only_tree_16_depth_ms', bucket, entry.duration);
+      append(results, 'batch_insert_into_append_only_tree_16_depth_hash_count', bucket, entry.hashCount);
+      append(results, 'batch_insert_into_append_only_tree_16_depth_hash_ms', bucket, entry.hashDuration);
+    } else if (depth === 32) {
+      append(results, 'batch_insert_into_append_only_tree_32_depth_ms', bucket, entry.duration);
+      append(results, 'batch_insert_into_append_only_tree_32_depth_hash_count', bucket, entry.hashCount);
+      append(results, 'batch_insert_into_append_only_tree_32_depth_hash_ms', bucket, entry.hashDuration);
+    }
+  } else if (entry.treeType === 'indexed') {
+    if (depth === 20) {
+      append(results, 'batch_insert_into_indexed_tree_20_depth_ms', bucket, entry.duration);
+      append(results, 'batch_insert_into_indexed_tree_20_depth_hash_count', bucket, entry.hashCount);
+      append(results, 'batch_insert_into_indexed_tree_20_depth_hash_ms', bucket, entry.hashDuration);
+    } else if (depth === 40) {
+      append(results, 'batch_insert_into_indexed_tree_40_depth_ms', bucket, entry.duration);
+      append(results, 'batch_insert_into_indexed_tree_40_depth_hash_count', bucket, entry.hashCount);
+      append(results, 'batch_insert_into_indexed_tree_40_depth_hash_ms', bucket, entry.hashDuration);
+    }
+  }
+}
+
 /** Processes a parsed entry from a log-file and updates results */
 function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
   switch (entry.eventName) {
@@ -168,6 +208,12 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
       return processNodeSyncedChain(entry, results);
     case 'tx-added-to-pool':
       return processTxAddedToPool(entry, results);
+    case 'tx-pxe-processing':
+      return processTxPXEProcessingStats(entry, results);
+    case 'tx-sequencer-processing':
+      return processTxSequencerProcessingStats(entry, results);
+    case 'tree-insertion':
+      return processTreeInsertion(entry, results);
     default:
       return;
   }

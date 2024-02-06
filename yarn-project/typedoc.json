@@ -2,11 +2,12 @@
   "cleanOutputDir": false,
   "entryPointStrategy": "packages",
   "entryPoints": [
+    "accounts",
     "acir-simulator",
     "archiver",
     "aztec-cli",
     "pxe",
-    "aztec-sandbox",
+    "aztec",
     "aztec.js",
     "key-store",
     "noir-contracts",

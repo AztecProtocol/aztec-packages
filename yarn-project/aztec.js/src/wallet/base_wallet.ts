@@ -1,4 +1,3 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
   ContractData,
@@ -10,7 +9,6 @@ import {
   L2Block,
   L2Tx,
   LogFilter,
-  NodeInfo,
   NoteFilter,
   PXE,
   SyncStatus,
@@ -18,10 +16,12 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { NodeInfo } from '@aztec/types/interfaces';
 
-import { CompleteAddress } from '../index.js';
-import { Wallet } from './index.js';
+import { Wallet } from '../account/wallet.js';
 
 /**
  * A base class for Wallet implementations
@@ -35,10 +35,12 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createAuthWitness(message: Fr): Promise<AuthWitness>;
 
+  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.pxe.getContractInstance(address);
+  }
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
   }
-
   registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(privKey, partialAddress);
   }

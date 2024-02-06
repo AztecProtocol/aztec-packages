@@ -1,12 +1,10 @@
-import { GrumpkinScalar, getSchnorrAccount } from '@aztec/aztec.js';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { GrumpkinScalar } from '@aztec/aztec.js';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 
-/**
- *
- */
 export async function createAccount(
   rpcUrl: string,
   privateKey: Fq,

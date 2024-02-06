@@ -1,148 +1,30 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
+  GeneratorIndex,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
-import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { BlockHeader } from './index.js';
-
-/**
- * Contract storage read operation on a specific contract.
- *
- * Note: Similar to `PublicDataRead` but it's from the POV of contract storage so we are not working with public data
- * tree leaf index but storage slot index.
- */
-export class ContractStorageRead {
-  constructor(
-    /**
-     * Storage slot we are reading from.
-     */
-    public readonly storageSlot: Fr,
-    /**
-     * Value read from the storage slot.
-     */
-    public readonly currentValue: Fr,
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public readonly sideEffectCounter?: number,
-  ) {}
-
-  static from(args: {
-    /**
-     * Storage slot we are reading from.
-     */
-    storageSlot: Fr;
-    /**
-     * Value read from the storage slot.
-     */
-    currentValue: Fr;
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    sideEffectCounter?: number;
-  }) {
-    return new ContractStorageRead(args.storageSlot, args.currentValue, args.sideEffectCounter);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.storageSlot, this.currentValue);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new ContractStorageRead(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
-  }
-
-  static empty() {
-    return new ContractStorageRead(Fr.ZERO, Fr.ZERO);
-  }
-
-  isEmpty() {
-    return this.storageSlot.isZero() && this.currentValue.isZero();
-  }
-
-  toFriendlyJSON() {
-    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.currentValue.toFriendlyJSON()}`;
-  }
-}
-
-/**
- * Contract storage update request for a slot on a specific contract.
- *
- * Note: Similar to `PublicDataUpdateRequest` but it's from the POV of contract storage so we are not working with
- * public data tree leaf index but storage slot index.
- */
-export class ContractStorageUpdateRequest {
-  constructor(
-    /**
-     * Storage slot we are updating.
-     */
-    public readonly storageSlot: Fr,
-    /**
-     * Old value of the storage slot.
-     */
-    public readonly oldValue: Fr,
-    /**
-     * New value of the storage slot.
-     */
-    public readonly newValue: Fr,
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public readonly sideEffectCounter?: number,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.storageSlot, this.oldValue, this.newValue);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new ContractStorageUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
-  }
-
-  /**
-   * Create PublicCallRequest from a fields dictionary.
-   * @param fields - The dictionary.
-   * @returns A PublicCallRequest object.
-   */
-  static from(fields: FieldsOf<ContractStorageUpdateRequest>): ContractStorageUpdateRequest {
-    return new ContractStorageUpdateRequest(...ContractStorageUpdateRequest.getFields(fields));
-  }
-
-  /**
-   * Serialize into a field array. Low-level utility.
-   * @param fields - Object with fields.
-   * @returns The array.
-   */
-  static getFields(fields: FieldsOf<ContractStorageUpdateRequest>) {
-    return [fields.storageSlot, fields.oldValue, fields.newValue, fields.sideEffectCounter] as const;
-  }
-
-  static empty() {
-    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
-  }
-
-  isEmpty() {
-    return this.storageSlot.isZero() && this.oldValue.isZero() && this.newValue.isZero();
-  }
-
-  toFriendlyJSON() {
-    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.oldValue.toFriendlyJSON()} => ${this.newValue.toFriendlyJSON()}`;
-  }
-}
+import {
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Header,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+} from './index.js';
 
 /**
  * Public inputs to a public circuit.
@@ -179,11 +61,11 @@ export class PublicCircuitPublicInputs {
     /**
      * New commitments created within a public execution call
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * New L2 to L1 messages generated during the call.
      */
@@ -198,9 +80,10 @@ export class PublicCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Root of the commitment trees when the call started.
+     * Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
+     * previous to the one in which the tx is included.
      */
-    public blockHeader: BlockHeader,
+    public historicalHeader: Header,
     /**
      * Address of the prover.
      */
@@ -228,17 +111,20 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.ZERO,
-      BlockHeader.empty(),
+      Header.empty(),
       AztecAddress.ZERO,
     );
   }
 
   isEmpty() {
+    const isSideEffectArrayEmpty = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isEmpty());
+    const isSideEffectLinkedArrayEmpty = (arr: SideEffectLinkedToNoteHash[]) =>
+      isArrayEmpty(arr, item => item.isEmpty());
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
@@ -247,12 +133,12 @@ export class PublicCircuitPublicInputs {
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
-      isFrArrayEmpty(this.newCommitments) &&
-      isFrArrayEmpty(this.newNullifiers) &&
+      isSideEffectArrayEmpty(this.newCommitments) &&
+      isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.blockHeader.isEmpty() &&
+      this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero()
     );
   }
@@ -275,7 +161,7 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.unencryptedLogsHash,
       fields.unencryptedLogPreimagesLength,
-      fields.blockHeader,
+      fields.historicalHeader,
       fields.proverAddress,
     ] as const;
   }
@@ -286,5 +172,62 @@ export class PublicCircuitPublicInputs {
    */
   toBuffer(): Buffer {
     return serializeToBuffer(...PublicCircuitPublicInputs.getFields(this));
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(...PublicCircuitPublicInputs.getFields(this));
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PublicCircuitPublicInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new PublicCircuitPublicInputs(
+      reader.readObject(CallContext),
+      reader.readObject(Fr),
+      reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
+      reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readObject(Fr),
+      reader.readObject(Header),
+      reader.readObject(AztecAddress),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): PublicCircuitPublicInputs {
+    const reader = FieldReader.asReader(fields);
+
+    return new PublicCircuitPublicInputs(
+      CallContext.fromFields(reader),
+      reader.readField(),
+      reader.readFieldArray(RETURN_VALUES_LENGTH),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
+      reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
+      reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
+      reader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readField(),
+      Header.fromFields(reader),
+      AztecAddress.fromFields(reader),
+    );
+  }
+
+  hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFields().map(field => field.toBuffer()),
+        GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS,
+      ),
+    );
   }
 }

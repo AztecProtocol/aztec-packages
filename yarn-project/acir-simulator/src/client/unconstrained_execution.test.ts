@@ -1,9 +1,9 @@
-import { BlockHeader, CompleteAddress, FunctionData } from '@aztec/circuits.js';
+import { AztecNode, FunctionCall, Note } from '@aztec/circuit-types';
+import { CompleteAddress, FunctionData, Header } from '@aztec/circuits.js';
 import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts/artifacts';
-import { FunctionCall, Note } from '@aztec/types';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts/StatefulTest';
 
 import { mock } from 'jest-mock-extended';
 
@@ -12,11 +12,12 @@ import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
   let oracle: ReturnType<typeof mock<DBOracle>>;
+  let node: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: AcirSimulator;
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
-    acirSimulator = new AcirSimulator(oracle);
+    acirSimulator = new AcirSimulator(oracle, node);
   });
 
   describe('private token contract', () => {
@@ -46,7 +47,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      oracle.getBlockHeader.mockResolvedValue(BlockHeader.empty());
+      oracle.getHeader.mockResolvedValue(Header.empty());
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,

@@ -1,13 +1,10 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { ExtendedNote, Note, TxHash } from '@aztec/circuit-types';
 import { DebugLogger } from '@aztec/foundation/log';
-import { ExtendedNote, Note, TxHash } from '@aztec/types';
 
 import { createCompatibleClient } from '../client.js';
 import { parseFields } from '../parse_args.js';
 
-/**
- *
- */
 export async function addNote(
   address: AztecAddress,
   contractAddress: AztecAddress,

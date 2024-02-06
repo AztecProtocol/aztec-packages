@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
-import { FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/index.js';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Global variables of the L2 block.
@@ -54,12 +52,23 @@ export class GlobalVariables {
     );
   }
 
+  static fromFields(fields: Fr[] | FieldReader): GlobalVariables {
+    const reader = FieldReader.asReader(fields);
+
+    return new GlobalVariables(reader.readField(), reader.readField(), reader.readField(), reader.readField());
+  }
+
   static getFields(fields: FieldsOf<GlobalVariables>) {
+    // Note: The order here must match the order in the HeaderLib solidity library.
     return [fields.chainId, fields.version, fields.blockNumber, fields.timestamp] as const;
   }
 
   toBuffer() {
     return serializeToBuffer(...GlobalVariables.getFields(this));
+  }
+
+  toFields() {
+    return serializeToFields(...GlobalVariables.getFields(this));
   }
 
   toJSON() {
@@ -69,5 +78,9 @@ export class GlobalVariables {
       blockNumber: this.blockNumber.toString(),
       timestamp: this.timestamp.toString(),
     };
+  }
+
+  isEmpty(): boolean {
+    return this.chainId.isZero() && this.version.isZero() && this.blockNumber.isZero() && this.timestamp.isZero();
   }
 }

@@ -2,11 +2,14 @@
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 namespace acir_format {
-field_ct poly_to_field_ct(const poly_triple poly, Builder& builder)
+
+template <typename Builder> bb::stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)
 {
+    using field_ct = bb::stdlib::field_t<Builder>;
+
     ASSERT(poly.q_m == 0);
     ASSERT(poly.q_r == 0);
     ASSERT(poly.q_o == 0);
@@ -19,8 +22,13 @@ field_ct poly_to_field_ct(const poly_triple poly, Builder& builder)
     return x;
 }
 
+template <typename Builder>
 void create_block_constraints(Builder& builder, const BlockConstraint constraint, bool has_valid_witness_assignments)
 {
+    using field_ct = bb::stdlib::field_t<Builder>;
+    using rom_table_ct = bb::stdlib::rom_table<Builder>;
+    using ram_table_ct = bb::stdlib::ram_table<Builder>;
+
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
         field_ct value = poly_to_field_ct(i, builder);
@@ -74,5 +82,12 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
         break;
     }
 }
+
+template void create_block_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                            const BlockConstraint constraint,
+                                                            bool has_valid_witness_assignments);
+template void create_block_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
+                                                                  const BlockConstraint constraint,
+                                                                  bool has_valid_witness_assignments);
 
 } // namespace acir_format

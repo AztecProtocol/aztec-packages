@@ -4,6 +4,7 @@ import {
   BatchCall,
   CompleteAddress,
   DebugLogger,
+  EthAddress,
   ExtendedNote,
   Fr,
   GrumpkinPrivateKey,
@@ -14,10 +15,11 @@ import {
   TxStatus,
   computeMessageSecretHash,
   generatePublicKey,
-  getContractDeploymentInfo,
+  getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { EscrowContractArtifact } from '@aztec/noir-contracts/artifacts';
-import { EscrowContract, TokenContract } from '@aztec/noir-contracts/types';
+import { computePartialAddress } from '@aztec/circuits.js';
+import { EscrowContract, EscrowContractArtifact } from '@aztec/noir-contracts/Escrow';
+import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { setup } from './fixtures/utils.js';
 
@@ -55,8 +57,14 @@ describe('e2e_escrow_contract', () => {
     escrowPrivateKey = GrumpkinScalar.random();
     escrowPublicKey = generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
-    const deployInfo = getContractDeploymentInfo(EscrowContractArtifact, [owner], salt, escrowPublicKey);
-    await pxe.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
+    const deployInfo = getContractInstanceFromDeployParams(
+      EscrowContractArtifact,
+      [owner],
+      salt,
+      escrowPublicKey,
+      EthAddress.ZERO,
+    );
+    await pxe.registerAccount(escrowPrivateKey, computePartialAddress(deployInfo));
 
     escrowContract = await EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner)
       .send({ contractAddressSalt: salt })
@@ -64,7 +72,7 @@ describe('e2e_escrow_contract', () => {
     logger(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract
-    token = await TokenContract.deploy(wallet, owner).send().deployed();
+    token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
     const mintAmount = 100n;
     const secret = Fr.random();

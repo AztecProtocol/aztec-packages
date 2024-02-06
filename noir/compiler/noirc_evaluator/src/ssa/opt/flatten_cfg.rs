@@ -144,9 +144,9 @@ use crate::ssa::{
         dfg::{CallStack, InsertInstructionResult},
         function::Function,
         function_inserter::FunctionInserter,
-        instruction::{BinaryOp, Instruction, InstructionId, TerminatorInstruction},
+        instruction::{BinaryOp, Instruction, InstructionId, Intrinsic, TerminatorInstruction},
         types::Type,
-        value::ValueId,
+        value::{Value, ValueId},
     },
     ssa_gen::Ssa,
 };
@@ -163,6 +163,7 @@ impl Ssa {
     /// This pass will modify any instructions with side effects in particular, often multiplying
     /// them by jump conditions to maintain correctness even when all branches of a jmpif are inlined.
     /// For more information, see the module-level comment at the top of this file.
+    #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn flatten_cfg(mut self) -> Ssa {
         flatten_function_cfg(self.main_mut());
         self
@@ -643,6 +644,9 @@ impl<'f> Context<'f> {
 
                     // Condition needs to be cast to argument type in order to multiply them together.
                     let argument_type = self.inserter.function.dfg.type_of_value(lhs);
+                    // Sanity check that we're not constraining non-primitive types
+                    assert!(matches!(argument_type, Type::Numeric(_)));
+
                     let casted_condition = self.insert_instruction(
                         Instruction::Cast(condition, argument_type),
                         call_stack.clone(),
@@ -656,6 +660,7 @@ impl<'f> Context<'f> {
                         Instruction::binary(BinaryOp::Mul, rhs, casted_condition),
                         call_stack,
                     );
+
                     Instruction::Constrain(lhs, rhs, message)
                 }
                 Instruction::Store { address, value } => {
@@ -678,6 +683,28 @@ impl<'f> Context<'f> {
                     );
                     Instruction::RangeCheck { value, max_bit_size, assert_message }
                 }
+                Instruction::Call { func, mut arguments } => match self.inserter.function.dfg[func]
+                {
+                    Value::Intrinsic(Intrinsic::ToBits(_) | Intrinsic::ToRadix(_)) => {
+                        let field = arguments[0];
+                        let argument_type = self.inserter.function.dfg.type_of_value(field);
+
+                        let casted_condition = self.insert_instruction(
+                            Instruction::Cast(condition, argument_type),
+                            call_stack.clone(),
+                        );
+                        let field = self.insert_instruction(
+                            Instruction::binary(BinaryOp::Mul, field, casted_condition),
+                            call_stack.clone(),
+                        );
+
+                        arguments[0] = field;
+
+                        Instruction::Call { func, arguments }
+                    }
+
+                    _ => Instruction::Call { func, arguments },
+                },
                 other => other,
             }
         } else {
@@ -935,7 +962,6 @@ mod test {
         // }
         let ssa = ssa.flatten_cfg();
         let main = ssa.main();
-        println!("{ssa}");
         assert_eq!(main.reachable_blocks().len(), 1);
 
         let store_count = count_instruction(main, |ins| matches!(ins, Instruction::Store { .. }));
@@ -1098,7 +1124,7 @@ mod test {
         let main = ssa.main();
         let ret = match main.dfg[main.entry_block()].terminator() {
             Some(TerminatorInstruction::Return { return_values, .. }) => return_values[0],
-            _ => unreachable!(),
+            _ => unreachable!("Should have terminator instruction"),
         };
 
         let merged_values = get_all_constants_reachable_from_instruction(&main.dfg, ret);
@@ -1469,7 +1495,7 @@ mod test {
                     None => unreachable!("Expected constant 200 for return value"),
                 }
             }
-            _ => unreachable!(),
+            _ => unreachable!("Should have terminator instruction"),
         }
     }
 }

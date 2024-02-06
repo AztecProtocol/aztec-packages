@@ -1,7 +1,13 @@
+import {
+  DeployedContract,
+  INITIAL_L2_BLOCK_NUM,
+  PXE,
+  TxExecutionRequest,
+  randomDeployedContract,
+} from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Fr, FunctionData, Point, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { DeployedContract, INITIAL_L2_BLOCK_NUM, PXE, TxExecutionRequest, randomDeployedContract } from '@aztec/types';
 
 export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => {
   describe(testName, () => {
@@ -77,7 +83,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
       await pxe.addContracts(contracts);
 
-      const expectedContractAddresses = contracts.map(contract => contract.completeAddress.address);
+      const expectedContractAddresses = contracts.map(contract => contract.instance.address);
       const contractAddresses = await pxe.getContracts();
 
       // check if all the contracts were returned

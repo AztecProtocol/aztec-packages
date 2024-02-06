@@ -27,9 +27,11 @@ export {
   ContractMethod,
   SentTx,
   BatchCall,
+  DeployMethod,
+  DeploySentTx,
 } from './contract/index.js';
 
-export { ContractDeployer, DeployMethod, DeploySentTx } from './contract_deployer/index.js';
+export { ContractDeployer } from './contract_deployer/index.js';
 
 export {
   generatePublicKey,
@@ -39,44 +41,35 @@ export {
   CheatCodes,
   AztecAddressLike,
   FunctionSelectorLike,
+  WrappedFieldLike,
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
+  waitForPXE,
+  waitForAccountSynch,
 } from './utils/index.js';
 
-export { createPXEClient } from './pxe_client.js';
+export { createPXEClient } from './rpc_clients/index.js';
 
-export {
-  CompleteAddress,
-  getSchnorrAccount,
-  AccountContract,
-  AccountManager,
-  getUnsafeSchnorrAccount,
-  EcdsaAccountContract,
-  createAccounts,
-  SchnorrAccountContract,
-  SingleKeyAccountContract,
-  createAccount,
-  AuthWitnessProvider,
-  BaseAccountContract,
-} from './account/index.js';
+export { AuthWitnessProvider } from './account/index.js';
 
-export { waitForSandbox, getSandboxAccountsWallets, deployInitialSandboxAccounts } from './sandbox/index.js';
+export { AccountContract } from './account/index.js';
+export { AccountManager } from './account_manager/index.js';
 
 export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';
 
-// TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
-// here once the issue is resolved.
+// // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
+// // here once the issue is resolved.
 export {
   AztecAddress,
   EthAddress,
   Fr,
   Fq,
-  FunctionSelector,
   GlobalVariables,
   GrumpkinScalar,
   Point,
-  getContractDeploymentInfo,
+  getContractInstanceFromDeployParams,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
@@ -84,6 +77,7 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   AztecNode,
+  CompleteAddress,
   ContractData,
   DeployedContract,
   ExtendedContractData,
@@ -98,7 +92,6 @@ export {
   LogId,
   LogType,
   MerkleTreeId,
-  NodeInfo,
   Note,
   PXE,
   PackedArguments,
@@ -115,12 +108,16 @@ export {
   emptyFunctionCall,
   merkleTreeIds,
   mockTx,
-} from '@aztec/types';
+  Comparator,
+} from '@aztec/circuit-types';
+export { NodeInfo } from '@aztec/types/interfaces';
+
+export { ContractInstanceWithAddress, ContractClassWithId } from '@aztec/types/contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
+export { encodeArguments } from '@aztec/foundation/abi';
 export { sha256 } from '@aztec/foundation/crypto';
 export { DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
 export { retry, retryUntil } from '@aztec/foundation/retry';
@@ -143,3 +140,4 @@ export {
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/init.js';
+export * from './api/abi.js';

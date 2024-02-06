@@ -1,29 +1,31 @@
 import {
-  BlockHeader,
+  AuthWitness,
+  AztecNode,
+  FunctionL2Logs,
+  L1NotePayload,
+  Note,
+  NoteStatus,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
+import {
   CallContext,
   ContractDeploymentData,
   FunctionData,
   FunctionSelector,
+  Header,
   PublicCallRequest,
   ReadRequestMembershipWitness,
+  SideEffect,
   TxContext,
 } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/types';
 
-import {
-  NoteData,
-  toACVMBlockHeader,
-  toACVMCallContext,
-  toACVMContractDeploymentData,
-  toACVMWitness,
-} from '../acvm/index.js';
-import { SideEffectCounter } from '../common/index.js';
+import { NoteData, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -64,18 +66,18 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
-    /** Data required to reconstruct the block hash, it contains historical roots. */
-    protected readonly blockHeader: BlockHeader,
+    /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
+    protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     private readonly packedArgsCache: PackedArgsCache,
     private readonly noteCache: ExecutionNoteCache,
-    private readonly sideEffectCounter: SideEffectCounter,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
+    private node: AztecNode,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
-    super(contractAddress, blockHeader, authWitnesses, db, undefined, log);
+    super(contractAddress, authWitnesses, db, node, log);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -97,9 +99,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     }
 
     const fields = [
-      ...toACVMCallContext(this.callContext),
-      ...toACVMBlockHeader(this.blockHeader),
-      ...toACVMContractDeploymentData(contractDeploymentData),
+      ...this.callContext.toFields(),
+      ...this.historicalHeader.toFields(),
+      ...contractDeploymentData.toFields(),
 
       this.txContext.chainId,
       this.txContext.version,
@@ -107,7 +109,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       ...args,
     ];
 
-    return toACVMWitness(1, fields);
+    return toACVMWitness(0, fields);
   }
 
   /**
@@ -116,14 +118,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * or to flag non-transient reads with their leafIndex.
    * The KernelProver will use this to fully populate witnesses and provide hints to
    * the kernel regarding which commitments each transient read request corresponds to.
-   * @param readRequests - Note hashed of the notes being read.
+   * @param readRequests - SideEffect containing Note hashed of the notes being read and counter.
    * @returns An array of partially filled in read request membership witnesses.
    */
-  public getReadRequestPartialWitnesses(readRequests: Fr[]) {
+  public getReadRequestPartialWitnesses(readRequests: SideEffect[]) {
     return readRequests
-      .filter(r => !r.isZero())
+      .filter(r => !r.isEmpty())
       .map(r => {
-        const index = this.gotNotes.get(r.value);
+        const index = this.gotNotes.get(r.value.toBigInt());
         return index !== undefined
           ? ReadRequestMembershipWitness.empty(index)
           : ReadRequestMembershipWitness.emptyTransient();
@@ -186,10 +188,12 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
    * @param selectValues - The values to match.
+   * @param selectComparators - The comparators to match by.
    * @param sortBy - An array of indices of the fields to sort.
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
    * @param offset - The starting index for pagination.
+   * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
   public async getNotes(
@@ -197,20 +201,24 @@ export class ClientExecutionContext extends ViewDataOracle {
     numSelects: number,
     selectBy: number[],
     selectValues: Fr[],
+    selectComparators: number[],
     sortBy: number[],
     sortOrder: number[],
     limit: number,
     offset: number,
+    status: NoteStatus,
   ): Promise<NoteData[]> {
     // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
-    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot);
+    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
-      selects: selectBy.slice(0, numSelects).map((index, i) => ({ index, value: selectValues[i] })),
+      selects: selectBy
+        .slice(0, numSelects)
+        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
       sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
       limit,
       offset,
@@ -292,7 +300,8 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    const text = log.toHumanReadable();
+    this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
   /**
@@ -300,9 +309,15 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
+   * @param sideEffectCounter - The side effect counter at the start of the call.
    * @returns The execution result.
    */
-  async callPrivateFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr) {
+  async callPrivateFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+  ) {
     this.log(
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
@@ -319,20 +334,26 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext.version,
     );
 
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, false, false);
+    const derivedCallContext = await this.deriveCallContext(
+      targetContractAddress,
+      targetArtifact,
+      sideEffectCounter,
+      false,
+      false,
+    );
 
     const context = new ClientExecutionContext(
       targetContractAddress,
       argsHash,
       derivedTxContext,
       derivedCallContext,
-      this.blockHeader,
+      this.historicalHeader,
       this.authWitnesses,
       this.packedArgsCache,
       this.noteCache,
-      this.sideEffectCounter,
       this.db,
       this.curve,
+      this.node,
     );
 
     const childExecutionResult = await executePrivateFunction(
@@ -354,23 +375,29 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
+   * @param sideEffectCounter - The side effect counter at the start of the call.
    * @returns The public call stack item with the request information.
    */
   public async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
+    sideEffectCounter: number,
   ): Promise<PublicCallRequest> {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, false, false);
+    const derivedCallContext = await this.deriveCallContext(
+      targetContractAddress,
+      targetArtifact,
+      sideEffectCounter,
+      false,
+      false,
+    );
     const args = this.packedArgsCache.unpack(argsHash);
-    const sideEffectCounter = this.sideEffectCounter.count();
     const enqueuedRequest = PublicCallRequest.from({
       args,
       callContext: derivedCallContext,
       functionData: FunctionData.fromAbi(targetArtifact),
       contractAddress: targetContractAddress,
-      sideEffectCounter,
     });
 
     // TODO($846): if enqueued public calls are associated with global
@@ -390,6 +417,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Derives the call context for a nested execution.
    * @param targetContractAddress - The address of the contract being called.
    * @param targetArtifact - The artifact of the function being called.
+   * @param startSideEffectCounter - The side effect counter at the start of the call.
    * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
@@ -397,6 +425,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private async deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
+    startSideEffectCounter: number,
     isDelegateCall = false,
     isStaticCall = false,
   ) {
@@ -409,6 +438,32 @@ export class ClientExecutionContext extends ViewDataOracle {
       isDelegateCall,
       isStaticCall,
       false,
+      startSideEffectCounter,
     );
+  }
+
+  /**
+   * Read the public storage data.
+   * @param startStorageSlot - The starting storage slot.
+   * @param numberOfElements - Number of elements to read from the starting storage slot.
+   */
+  public async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
+    // TODO(#4320): This is a hack to work around not having directly access to the public data tree but
+    // still having access to the witnesses
+    const bn = await this.db.getBlockNumber();
+
+    const values = [];
+    for (let i = 0n; i < numberOfElements; i++) {
+      const storageSlot = new Fr(startStorageSlot.value + i);
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, storageSlot);
+      const witness = await this.db.getPublicDataTreeWitness(bn, leafSlot);
+      if (!witness) {
+        throw new Error(`No witness for slot ${storageSlot.toString()}`);
+      }
+      const value = witness.leafPreimage.value;
+      this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      values.push(value);
+    }
+    return values;
   }
 }

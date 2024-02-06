@@ -8,14 +8,13 @@
 
 #include <unordered_map>
 
-namespace proof_system {
+namespace bb {
 static constexpr uint32_t DUMMY_TAG = 0;
 
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve =
-        std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
 
@@ -36,9 +35,16 @@ template <typename FF_> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
 
-    // Publicin put indices which contain recursive proof information
+    // Public input indices which contain recursive proof information
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
+
+    // We only know from the circuit description whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. However, a verifier does not need a full circuit
+    // description and should be able to verify a proof with just the verification key and the proof.
+    // This field exists to later set the same field in the verification key, and make sure
+    // that we are using the correct prover/verifier.
+    bool is_recursive_circuit = false;
 
     bool _failed = false;
     std::string _err;
@@ -347,11 +353,15 @@ template <typename FF_> class CircuitBuilderBase {
 
         for (const auto& idx : proof_output_witness_indices) {
             set_public_input(idx);
+            // Why is it adding the size of the public input instead of the idx?
             recursive_proof_public_input_indices.push_back((uint32_t)(public_inputs.size() - 1));
         }
     }
 
     /**
+     * TODO: We can remove this and use `add_recursive_proof` once my question has been addressed
+     * TODO: using `add_recursive_proof` also means that we will need to remove the cde which is
+     * TODO: adding the public_inputs
      * @brief Update recursive_proof_public_input_indices with existing public inputs that represent a recursive proof
      *
      * @param proof_output_witness_indices
@@ -379,7 +389,7 @@ template <typename FF_> class CircuitBuilderBase {
     }
 };
 
-} // namespace proof_system
+} // namespace bb
 
 // TODO(#217)(Cody): This will need updating based on the approach we take to ensure no multivariate is zero.
 /**

@@ -10,6 +10,9 @@
       "path": "../acir-simulator"
     },
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
@@ -35,6 +38,9 @@
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../kv-store"
     }
   ],
   "include": ["src"]

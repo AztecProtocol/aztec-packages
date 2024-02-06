@@ -30,15 +30,16 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",

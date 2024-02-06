@@ -2,10 +2,6 @@
 title: Bytecode
 ---
 
-:::info Disclaimer
-This is a draft. The public VM and brillig are under heavy development, and specific details about how they are compiled and their bytecode might change in the future.
-:::
-
 This section describes how contracts are represented within the protocol for execution.
 
 In the context of Aztec, a contract is a set of functions which can be of one of three types:
@@ -20,7 +16,7 @@ There are three different (but related) bytecode standards that are used in Azte
 
 # AVM Bytecode
 
-The AVM bytecode is the compilation target of the public functions of a contract. It's specified in the [AVM section](../public-vm/InstructionSet). It allows control flow and uses a flat memory model which tracks bit sizes of values stored in memory via tagging of memory indexes. Sequencers run the AVM bytecode of the public functions of a contract using the public VM and prove the correct execution of it.
+The AVM bytecode is the compilation target of the public functions of a contract. It's specified in the [AVM section](../public-vm/instruction-set). It allows control flow and uses a flat memory model which tracks bit sizes of values stored in memory via tagging of memory indexes. Sequencers run the AVM bytecode of the public functions of a contract using the public VM and prove the correct execution of it.
 
 # Brillig Bytecode
 

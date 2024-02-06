@@ -1,15 +1,18 @@
-import { BlockHeader, CompleteAddress, PublicKey } from '@aztec/circuits.js';
+import { ContractDatabase, NoteFilter } from '@aztec/circuit-types';
+import { CompleteAddress, Header, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/types';
 
+import { ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
+import { ContractInstanceDatabase } from './contracts/contract_instance_db.js';
+import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
  * addresses, storage slots, and nullifiers.
  */
-export interface PxeDatabase extends ContractDatabase {
+export interface PxeDatabase extends ContractDatabase, ContractArtifactDatabase, ContractInstanceDatabase {
   /**
    * Add a auth witness to the database.
    * @param messageHash - The message hash.
@@ -61,6 +64,25 @@ export interface PxeDatabase extends ContractDatabase {
   addNotes(notes: NoteDao[]): Promise<void>;
 
   /**
+   * Add notes to the database that are intended for us, but we don't yet have the contract.
+   * @param deferredNotes - An array of deferred notes.
+   */
+  addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
+
+  /**
+   * Get deferred notes for a given contract address.
+   * @param contractAddress - The contract address to get the deferred notes for.
+   */
+  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
+
+  /**
+   * Remove deferred notes for a given contract address.
+   * @param contractAddress - The contract address to remove the deferred notes for.
+   * @returns an array of the removed deferred notes
+   */
+  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
+
+  /**
    * Remove nullified notes associated with the given account and nullifiers.
    *
    * @param nullifiers - An array of Fr instances representing nullifiers to be matched.
@@ -68,16 +90,6 @@ export interface PxeDatabase extends ContractDatabase {
    * @returns Removed notes.
    */
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]>;
-
-  /**
-   * Retrieve the stored Merkle tree roots from the database.
-   * The function returns a Promise that resolves to an object containing the MerkleTreeId as keys
-   * and their corresponding Fr values as roots. Throws an error if the tree roots are not set in the
-   * memory database.
-   *
-   * @returns An object containing the Merkle tree roots for each merkle tree id.
-   */
-  getTreeRoots(): Record<MerkleTreeId, Fr>;
 
   /**
    * Gets the most recently processed block number.
@@ -96,18 +108,16 @@ export interface PxeDatabase extends ContractDatabase {
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getBlockHeader(): BlockHeader;
+  getHeader(): Header;
 
   /**
    * Set the latest Block Header.
-   * This function updates the 'global variables hash' and `tree roots` property of the instance
    * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param blockNumber - The block number of the most recent block
-   * @param blockHeader - An object containing the most recent block header.
+   * @param header - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setBlockData(blockNumber: number, blockHeader: BlockHeader): Promise<void>;
+  setHeader(header: Header): Promise<void>;
 
   /**
    * Adds complete address to the database.

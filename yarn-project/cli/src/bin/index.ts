@@ -1,9 +1,11 @@
 #!/usr/bin/env -S node --no-warnings
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 
+import 'source-map-support/register.js';
+
 import { getProgram } from '../index.js';
 
-const debugLogger = createDebugLogger('aztec:cli');
+const debugLogger = createDebugLogger('aztec:cli-client');
 const log = createConsoleLogger();
 
 /** CLI main entrypoint */

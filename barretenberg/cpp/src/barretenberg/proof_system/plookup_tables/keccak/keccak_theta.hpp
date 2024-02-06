@@ -4,8 +4,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup {
-namespace keccak_tables {
+namespace bb::plookup::keccak_tables {
 
 /**
  * @brief Generates plookup tables required for THETA round of Keccak hash function
@@ -91,9 +90,9 @@ class Theta {
      * Used by the Plookup code to precompute lookup tables and generate witness values
      *
      * @param key (first element = table input. Second element is unused as this lookup does not have 2 keys per value)
-     * @return std::array<barretenberg::fr, 2> table output (normalized input and normalized input / 11^TABLE_BITS - 1)
+     * @return std::array<bb::fr, 2> table output (normalized input and normalized input / 11^TABLE_BITS - 1)
      */
-    static std::array<barretenberg::fr, 2> get_theta_renormalization_values(const std::array<uint64_t, 2> key)
+    static std::array<bb::fr, 2> get_theta_renormalization_values(const std::array<uint64_t, 2> key)
     {
         uint64_t accumulator = 0;
         uint64_t input = key[0];
@@ -105,7 +104,7 @@ class Theta {
             input /= BASE;
             base_shift *= BASE;
         }
-        return { barretenberg::fr(accumulator), barretenberg::fr(0) };
+        return { bb::fr(accumulator), bb::fr(0) };
     }
 
     /**
@@ -187,9 +186,9 @@ class Theta {
         table.get_values_from_key = &get_theta_renormalization_values;
 
         constexpr uint64_t step_size = numeric::pow64(static_cast<uint64_t>(BASE), TABLE_BITS);
-        table.column_1_step_size = barretenberg::fr(step_size);
-        table.column_2_step_size = barretenberg::fr(step_size);
-        table.column_3_step_size = barretenberg::fr(0);
+        table.column_1_step_size = bb::fr(step_size);
+        table.column_2_step_size = bb::fr(step_size);
+        table.column_3_step_size = bb::fr(0);
         return table;
     }
 
@@ -251,5 +250,4 @@ class Theta {
         return table;
     }
 };
-} // namespace keccak_tables
-} // namespace plookup
+} // namespace bb::plookup::keccak_tables

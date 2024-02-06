@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
-add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion)
+add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -85,9 +85,7 @@ if(SMT)
     add_subdirectory(barretenberg/smt_verification)
 endif()
 
-if(BENCHMARKS)
-    add_subdirectory(barretenberg/benchmark)
-endif()
+add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
@@ -96,9 +94,9 @@ include(GNUInstallDirs)
 # libbarretenberg + libwasi = a wasi "reactor" that implements it's own env (e.g. logstr), e.g. barretenberg.wasm.
 # libbarretenberg + env = a wasi "command" that expects a full wasi runtime (e.g. wasmtime), e.g. test binaries.
 message(STATUS "Compiling all-in-one barretenberg archive")
-add_library(
-    barretenberg
-    STATIC
+
+set(BARRETENBERG_TARGET_OBJECTS 
+    $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
@@ -107,16 +105,22 @@ add_library(
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+    $<TARGET_OBJECTS:crypto_poseidon2_objects>
     $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
+    $<TARGET_OBJECTS:eccvm_objects>
     $<TARGET_OBJECTS:examples_objects>
+    $<TARGET_OBJECTS:flavor_objects>
+    $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:plonk_objects>
     $<TARGET_OBJECTS:polynomials_objects>
     $<TARGET_OBJECTS:proof_system_objects>
+    $<TARGET_OBJECTS:protogalaxy_objects>
+    $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
@@ -125,10 +129,21 @@ add_library(
     $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
+    $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
+    $<TARGET_OBJECTS:stdlib_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
+    $<TARGET_OBJECTS:sumcheck_objects>
     $<TARGET_OBJECTS:transcript_objects>
+    $<TARGET_OBJECTS:translator_vm_objects>
+    $<TARGET_OBJECTS:ultra_honk_objects>
+    $<TARGET_OBJECTS:vm_objects>)
+
+add_library(
+    barretenberg
+    STATIC
+    ${BARRETENBERG_TARGET_OBJECTS}
 )
 
 if(WASM)
@@ -144,36 +159,7 @@ if(WASM)
     # to implement the functions in env.
     add_executable(
         barretenberg.wasm
-        $<TARGET_OBJECTS:common_objects>
-        $<TARGET_OBJECTS:crypto_aes128_objects>
-        $<TARGET_OBJECTS:crypto_blake2s_objects>
-        $<TARGET_OBJECTS:crypto_blake3s_objects>
-        $<TARGET_OBJECTS:crypto_ecdsa_objects>
-        $<TARGET_OBJECTS:crypto_keccak_objects>
-        $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
-        $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
-        $<TARGET_OBJECTS:crypto_schnorr_objects>
-        $<TARGET_OBJECTS:crypto_sha256_objects>
-        $<TARGET_OBJECTS:dsl_objects>
-        $<TARGET_OBJECTS:ecc_objects>
-        $<TARGET_OBJECTS:examples_objects>
-        $<TARGET_OBJECTS:honk_objects>
-        $<TARGET_OBJECTS:numeric_objects>
-        $<TARGET_OBJECTS:plonk_objects>
-        $<TARGET_OBJECTS:polynomials_objects>
-        $<TARGET_OBJECTS:proof_system_objects>
-        $<TARGET_OBJECTS:srs_objects>
-        $<TARGET_OBJECTS:stdlib_aes128_objects>
-        $<TARGET_OBJECTS:stdlib_blake2s_objects>
-        $<TARGET_OBJECTS:stdlib_blake3s_objects>
-        $<TARGET_OBJECTS:stdlib_keccak_objects>
-        $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
-        $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
-        $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
-        $<TARGET_OBJECTS:stdlib_primitives_objects>
-        $<TARGET_OBJECTS:stdlib_schnorr_objects>
-        $<TARGET_OBJECTS:stdlib_sha256_objects>
-        $<TARGET_OBJECTS:transcript_objects>
+        ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
     )
 
@@ -194,12 +180,12 @@ if(WASM)
     target_link_options(
         barretenberg.wasm
         PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic,--allow-undefined
+        -nostartfiles -Wl,--no-entry,--export-dynamic
     )
 
     target_link_options(
         acvm_backend.wasm
         PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic,--allow-undefined
+        -nostartfiles -Wl,--no-entry,--export-dynamic
     )
 endif()

@@ -20,8 +20,8 @@ struct CircuitSchema {
     std::string modulus;
     std::vector<uint32_t> public_inps;
     std::unordered_map<uint32_t, std::string> vars_of_interest;
-    std::vector<barretenberg::fr> variables;
-    std::vector<std::vector<barretenberg::fr>> selectors;
+    std::vector<bb::fr> variables;
+    std::vector<std::vector<bb::fr>> selectors;
     std::vector<std::vector<uint32_t>> wires;
     MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wires);
 };
@@ -225,21 +225,5 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                                    const std::vector<std::string>& not_equal = {},
                                                    const std::vector<std::string>& equal_at_the_same_time = {},
                                                    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
-extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
-extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 }; // namespace smt_circuit

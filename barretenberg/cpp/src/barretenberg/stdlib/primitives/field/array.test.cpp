@@ -6,16 +6,13 @@
 #include <gtest/gtest.h>
 #include <utility>
 
-namespace test_stdlib_array {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
-
-using namespace barretenberg;
-using namespace proof_system::plonk;
 
 template <typename Builder> class stdlib_array : public testing::Test {
     typedef stdlib::bool_t<Builder> bool_ct;
@@ -595,7 +592,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
     }
 };
 
-typedef testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder> CircuitTypes;
+typedef testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder> CircuitTypes;
 
 TYPED_TEST_SUITE(stdlib_array, CircuitTypes);
 
@@ -696,4 +693,3 @@ TYPED_TEST(stdlib_array, test_pata_nonzero_after_zero_target_fails_2)
 {
     TestFixture::test_pata_nonzero_after_zero_target_fails_2();
 }
-} // namespace test_stdlib_array
