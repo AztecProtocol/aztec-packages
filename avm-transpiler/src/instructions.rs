@@ -1,3 +1,6 @@
+use std::fmt::{self, Display};
+use std::fmt::{Debug, Formatter};
+
 use crate::opcodes::AvmOpcode;
 
 /// Common values of the indirect instruction flag
@@ -25,26 +28,29 @@ pub struct AvmInstruction {
     /// Different instructions have different numbers of operands
     pub operands: Vec<AvmOperand>,
 }
-impl AvmInstruction {
-    /// String representation for printing AVM programs
-    pub fn to_string(&self) -> String {
-        let mut out_str = format!("opcode {}", self.opcode.name());
+
+impl Display for AvmInstruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "opcode {}", self.opcode.name())?;
         if let Some(indirect) = self.indirect {
-            out_str += format!(", indirect: {}", indirect).as_str();
+            write!(f, ", indirect: {}", indirect)?;
         }
         // TODO(4271): add in_tag alongside its support in TS
         if let Some(dst_tag) = self.dst_tag {
-            out_str += format!(", dst_tag: {}", dst_tag as u8).as_str();
+            write!(f, ", dst_tag: {}", dst_tag as u8)?;
         }
-        if self.operands.len() > 0 {
-            out_str += ", operands: [";
+        if !self.operands.is_empty() {
+            write!(f, ", operands: [")?;
             for operand in &self.operands {
-                out_str += format!("{}, ", operand.to_string()).as_str();
+                write!(f, "{operand}, ")?;
             }
-            out_str += "]";
-        }
-        out_str
+            write!(f, "]")?;
+        };
+        Ok(())
     }
+}
+
+impl AvmInstruction {
     /// Bytes representation for generating AVM bytecode
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -55,8 +61,7 @@ impl AvmInstruction {
         // TODO(4271): add in_tag alongside its support in TS
         if let Some(dst_tag) = self.dst_tag {
             // TODO(4271): make 8 bits when TS supports deserialization of 8 bit flags
-            //bytes.push(dst_tag as u8);
-            bytes.extend_from_slice(&(dst_tag as u32).to_be_bytes());
+            bytes.extend_from_slice(&(dst_tag as u8).to_be_bytes());
         }
         for operand in &self.operands {
             bytes.extend_from_slice(&operand.to_be_bytes());
@@ -64,6 +69,13 @@ impl AvmInstruction {
         bytes
     }
 }
+
+impl Debug for AvmInstruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
 impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
@@ -95,21 +107,25 @@ pub enum AvmTypeTag {
 pub enum AvmOperand {
     U32 { value: u32 },
     // TODO(4267): Support operands of size other than 32 bits (for SET)
-    //U128 { value: u128 },
+    U128 { value: u128 },
 }
-impl AvmOperand {
-    pub fn to_string(&self) -> String {
+
+impl Display for AvmOperand {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            AvmOperand::U32 { value } => format!(" U32:{}", value),
+            AvmOperand::U32 { value } => write!(f, " U32:{}", value),
             // TODO(4267): Support operands of size other than 32 bits (for SET)
-            //AvmOperand::U128 { value } => format!("U128:{}", value),
+            AvmOperand::U128 { value } => write!(f, " U128:{}", value),
         }
     }
+}
+
+impl AvmOperand {
     pub fn to_be_bytes(&self) -> Vec<u8> {
         match self {
             AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),
             // TODO(4267): Support operands of size other than 32 bits (for SET)
-            //AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
+            AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
         }
     }
 }

@@ -27,22 +27,6 @@ contract Counter {
 
     // docs:end:storage_struct
 
-    // docs:start:storage_init
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                counters: Map::new(
-                    context,
-                    1,
-                    |context, slot| {
-                        EasyPrivateUint::new(context, slot)
-                    },
-                ),
-            }
-        }
-    }
-    // docs:end:storage_init
-
     // docs:start:constructor
     #[aztec(private)]
     fn constructor(headstart: u120, owner: AztecAddress) {
@@ -74,7 +58,7 @@ contract Counter {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
     // docs:end:nullifier
 }
