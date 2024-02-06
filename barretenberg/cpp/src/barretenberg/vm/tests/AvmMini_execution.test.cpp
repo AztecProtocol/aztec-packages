@@ -142,7 +142,7 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
     EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 51);
     EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
 
-    auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
+    auto trace = Execution::gen_trace(instructions);
 
     // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == 1; });
@@ -220,7 +220,7 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
     EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
     EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
 
-    auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
+    auto trace = Execution::gen_trace(instructions);
 
     // Find the first row enabling the multiplication selector and pc = 13
     auto row = std::ranges::find_if(
@@ -277,7 +277,7 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
 
-    auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
+    auto trace = Execution::gen_trace(instructions);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
@@ -356,7 +356,7 @@ TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
         EXPECT_EQ(instructions.at(i).op_code, opcode_sequence.at(i));
     }
 
-    auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
+    auto trace = Execution::gen_trace(instructions);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };

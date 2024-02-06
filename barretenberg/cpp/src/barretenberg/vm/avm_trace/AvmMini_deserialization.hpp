@@ -22,10 +22,6 @@ class Deserialization {
     Deserialization() = default;
 
     static std::vector<Instruction> parse(std::vector<uint8_t> const& bytecode);
-
-  private:
-    static const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT;
-    static const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE;
 };
 
 } // namespace avm_trace

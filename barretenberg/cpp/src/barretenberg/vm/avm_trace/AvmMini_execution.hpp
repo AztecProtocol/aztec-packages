@@ -14,9 +14,9 @@ class Execution {
   public:
     Execution() = default;
 
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions, std::vector<FF> const& calldata);
-    static bb::HonkProof run_and_prove(std::vector<uint8_t> const& bytecode,
-                                       std::vector<FF> const& calldata = std::vector<FF>{});
+    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
+                                      std::vector<FF> const& calldata = {});
+    static bb::HonkProof run_and_prove(std::vector<uint8_t> const& bytecode, std::vector<FF> const& calldata = {});
 };
 
 } // namespace avm_trace
