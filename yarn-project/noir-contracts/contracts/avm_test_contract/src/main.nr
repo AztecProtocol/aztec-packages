@@ -7,6 +7,9 @@ contract AvmTest {
         EthAddress,
     };
 
+    // avm lib
+    use dep::aztec::avm::context::AvmContext;
+
     #[aztec(private)]
     fn constructor() {}
 
