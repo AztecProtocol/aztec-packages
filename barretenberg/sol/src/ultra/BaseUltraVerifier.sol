@@ -260,6 +260,8 @@ abstract contract BaseUltraVerifier {
     uint256 internal constant NU_CHALLENGE_INPUT_LOC_B = 0x37c0;
     uint256 internal constant NU_CHALLENGE_INPUT_LOC_C = 0x37e0;
 
+    bytes4 internal constant INVALID_VERIFICATION_KEY_SELECTOR = 0x7e5769bf;
+    bytes4 internal constant POINT_NOT_ON_CURVE_SELECTOR = 0xa3dad654;
     bytes4 internal constant PUBLIC_INPUT_INVALID_BN128_G1_POINT_SELECTOR = 0xeba9f4a6;
     bytes4 internal constant PUBLIC_INPUT_GE_P_SELECTOR = 0x374a972f;
     bytes4 internal constant MOD_EXP_FAILURE_SELECTOR = 0xf894a7bc;
@@ -289,6 +291,8 @@ abstract contract BaseUltraVerifier {
     // for Grumpkin, a = 0 and b = -17. We use b in a custom gate relation that evaluates elliptic curve arithmetic
     uint256 internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = 17;
 
+    error INVALID_VERIFICATION_KEY();
+    error POINT_NOT_ON_CURVE();
     error PUBLIC_INPUT_COUNT_INVALID(uint256 expected, uint256 actual);
     error PUBLIC_INPUT_INVALID_BN128_G1_POINT();
     error PUBLIC_INPUT_GE_P();
@@ -298,7 +302,213 @@ abstract contract BaseUltraVerifier {
 
     function getVerificationKeyHash() public pure virtual returns (bytes32);
 
+    /**
+     * @dev We assume that the verification key loaded by this function is constant as we only verify it on deployment
+     */
     function loadVerificationKey(uint256 _vk, uint256 _omegaInverseLoc) internal pure virtual;
+
+    constructor() { 
+        loadVerificationKey(N_LOC, OMEGA_INVERSE_LOC);
+
+        // We verify that all of the EC points in the verification key lie on the bn128 curve. 
+        assembly {
+            let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
+
+            let success := 1
+
+            // VALIDATE Q1
+            {
+                let x := mload(Q1_X_LOC)
+                let y := mload(Q1_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE Q2
+            {
+                let x := mload(Q2_X_LOC)
+                let y := mload(Q2_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE Q3
+            {
+                let x := mload(Q3_X_LOC)
+                let y := mload(Q3_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE Q4
+            {
+                let x := mload(Q4_X_LOC)
+                let y := mload(Q4_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                mstore(0x00, x)
+                mstore(0x20, y)
+            }
+            // VALIDATE QM
+            {
+                let x := mload(QM_X_LOC)
+                let y := mload(QM_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE QC
+            {
+                let x := mload(QC_X_LOC)
+                let y := mload(QC_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE QARITH
+            {
+                let x := mload(QARITH_X_LOC)
+                let y := mload(QARITH_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE QSORT
+            {
+                let x := mload(QSORT_X_LOC)
+                let y := mload(QSORT_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE QELLIPTIC
+            {
+                let x := mload(QELLIPTIC_X_LOC)
+                let y := mload(QELLIPTIC_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE QAUX
+            {
+                let x := mload(QAUX_X_LOC)
+                let y := mload(QAUX_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE SIGMA1
+            {
+                let x := mload(SIGMA1_X_LOC)
+                let y := mload(SIGMA1_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE SIGMA2
+            {
+                let x := mload(SIGMA2_X_LOC)
+                let y := mload(SIGMA2_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE SIGMA3
+            {
+                let x := mload(SIGMA3_X_LOC)
+                let y := mload(SIGMA3_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE SIGMA4
+            {
+                let x := mload(SIGMA4_X_LOC)
+                let y := mload(SIGMA4_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE TABLE1
+            {
+                let x := mload(TABLE1_X_LOC)
+                let y := mload(TABLE1_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            } 
+            // VALIDATE TABLE2
+            {
+                let x := mload(TABLE2_X_LOC)
+                let y := mload(TABLE2_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            } 
+            // VALIDATE TABLE3
+            {
+                let x := mload(TABLE3_X_LOC)
+                let y := mload(TABLE3_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            } 
+            // VALIDATE TABLE4
+            {
+                let x := mload(TABLE4_X_LOC)
+                let y := mload(TABLE4_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            } 
+            // VALIDATE TABLE_TYPE
+            {
+                let x := mload(TABLE_TYPE_X_LOC)
+                let y := mload(TABLE_TYPE_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE ID1
+            {
+                let x := mload(ID1_X_LOC)
+                let y := mload(ID1_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE ID2
+            {
+                let x := mload(ID2_X_LOC)
+                let y := mload(ID2_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE ID3
+            {
+                let x := mload(ID3_X_LOC)
+                let y := mload(ID3_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+            // VALIDATE ID4
+            {
+                let x := mload(ID4_X_LOC)
+                let y := mload(ID4_Y_LOC)
+                let xx := mulmod(x, x, q)
+                // validate on curve
+                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+            }
+
+            if iszero(success) {
+                mstore(0x0, INVALID_VERIFICATION_KEY_SELECTOR)
+                revert(0x00, 0x04)
+            }
+        }
+    }
 
     /**
      * @notice Verify a Ultra Plonk proof
@@ -1695,7 +1905,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(T1_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(ACCUMULATOR_X_LOC, x)
                 mstore(add(ACCUMULATOR_X_LOC, 0x20), y)
             }
@@ -1705,13 +1918,16 @@ abstract contract BaseUltraVerifier {
                 let y := mload(T2_Y_LOC) // 0x1420
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
             mstore(0x40, mload(ZETA_POW_N_LOC))
             // accumulator_2 = [T2].zeta^n
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
+            success := staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40)
             // accumulator = [T1] + accumulator_2
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
@@ -1721,7 +1937,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(T3_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1737,7 +1956,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(T4_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1753,7 +1975,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(W1_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1769,7 +1994,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(W2_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1785,7 +2013,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(W3_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1801,7 +2032,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(W4_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1817,7 +2051,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(S_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1833,7 +2070,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(Z_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1849,7 +2089,10 @@ abstract contract BaseUltraVerifier {
                 let y := mload(Z_LOOKUP_Y_LOC)
                 let xx := mulmod(x, x, q)
                 // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                    revert(0x00, 0x04)
+                }
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1864,8 +2107,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(Q1_X_LOC)
                 let y := mload(Q1_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1880,8 +2122,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(Q2_X_LOC)
                 let y := mload(Q2_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1896,8 +2137,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(Q3_X_LOC)
                 let y := mload(Q3_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1912,8 +2152,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(Q4_X_LOC)
                 let y := mload(Q4_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1928,8 +2167,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(QM_X_LOC)
                 let y := mload(QM_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1944,8 +2182,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(QC_X_LOC)
                 let y := mload(QC_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1960,8 +2197,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(QARITH_X_LOC)
                 let y := mload(QARITH_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1976,8 +2212,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(QSORT_X_LOC)
                 let y := mload(QSORT_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -1992,8 +2227,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(QELLIPTIC_X_LOC)
                 let y := mload(QELLIPTIC_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2008,8 +2242,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(QAUX_X_LOC)
                 let y := mload(QAUX_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2024,8 +2257,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(SIGMA1_X_LOC)
                 let y := mload(SIGMA1_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2040,8 +2272,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(SIGMA2_X_LOC)
                 let y := mload(SIGMA2_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2056,8 +2287,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(SIGMA3_X_LOC)
                 let y := mload(SIGMA3_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2072,8 +2302,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(SIGMA4_X_LOC)
                 let y := mload(SIGMA4_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2088,8 +2317,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(TABLE1_X_LOC)
                 let y := mload(TABLE1_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2104,8 +2332,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(TABLE2_X_LOC)
                 let y := mload(TABLE2_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2120,8 +2347,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(TABLE3_X_LOC)
                 let y := mload(TABLE3_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2136,8 +2362,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(TABLE4_X_LOC)
                 let y := mload(TABLE4_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2152,8 +2377,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(TABLE_TYPE_X_LOC)
                 let y := mload(TABLE_TYPE_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2168,8 +2392,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(ID1_X_LOC)
                 let y := mload(ID1_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2184,8 +2407,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(ID2_X_LOC)
                 let y := mload(ID2_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2200,8 +2422,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(ID3_X_LOC)
                 let y := mload(ID3_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2216,8 +2437,7 @@ abstract contract BaseUltraVerifier {
                 let x := mload(ID4_X_LOC)
                 let y := mload(ID4_Y_LOC)
                 let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                // Verification key fields verified to be on curve at contract deployment
                 mstore(0x00, x)
                 mstore(0x20, y)
             }
@@ -2420,13 +2640,16 @@ abstract contract BaseUltraVerifier {
                     let y := mload(PI_Z_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    success := eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))
+                    if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                        mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
                     mstore(0x00, x)
                     mstore(0x20, y)
                 }
                 // compute zeta.[PI_Z] and add into accumulator
                 mstore(0x40, zeta)
-                success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
+                success := staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40)
                 // accumulator = accumulator + accumulator_2
                 success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
@@ -2436,7 +2659,10 @@ abstract contract BaseUltraVerifier {
                     let y := mload(PI_Z_OMEGA_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                    if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                        mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
                     mstore(0x00, x)
                     mstore(0x20, y)
                 }
@@ -2464,7 +2690,10 @@ abstract contract BaseUltraVerifier {
                         let y := mload(RECURSIVE_P1_Y_LOC)
                         let xx := mulmod(x, x, q)
                         // validate on curve
-                        success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                        if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                            mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                            revert(0x00, 0x04)
+                        }
                         mstore(0x00, x)
                         mstore(0x20, y)
                     }
@@ -2478,7 +2707,10 @@ abstract contract BaseUltraVerifier {
                         let y := mload(RECURSIVE_P2_Y_LOC)
                         let xx := mulmod(x, x, q)
                         // validate on curve
-                        success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
+                        if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
+                            mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
+                            revert(0x00, 0x04)
+                        }
                         mstore(0x00, x)
                         mstore(0x20, y)
                     }

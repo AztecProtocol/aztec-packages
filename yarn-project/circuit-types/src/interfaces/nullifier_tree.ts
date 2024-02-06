@@ -1,5 +1,6 @@
 import { Fr, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage } from '@aztec/circuits.js';
-import { SiblingPath } from '@aztec/types/membership';
+
+import { SiblingPath } from '../sibling_path/index.js';
 
 /**
  * Nullifier membership witness.
@@ -27,7 +28,7 @@ export class NullifierMembershipWitness {
    * Returns a field array representation of a nullifier witness.
    * @returns A field array representation of a nullifier witness.
    */
-  public toFieldArray(): Fr[] {
-    return [new Fr(this.index), ...this.leafPreimage.toFieldArray(), ...this.siblingPath.toFieldArray()];
+  public toFields(): Fr[] {
+    return [new Fr(this.index), ...this.leafPreimage.toFields(), ...this.siblingPath.toFields()];
   }
 }

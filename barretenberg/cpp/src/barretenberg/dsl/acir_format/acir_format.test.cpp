@@ -29,6 +29,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 
     AcirFormat constraint_system{
         .varnum = 4,
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -47,6 +48,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { constraint },
         .block_constraints = {},
@@ -141,6 +143,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     // EXPR [ (-1, _6) 1 ]
 
     AcirFormat constraint_system{ .varnum = 6,
+                                  .recursive = false,
                                   .public_inputs = { 1 },
                                   .logic_constraints = { logic_constraint },
                                   .range_constraints = { range_a, range_b },
@@ -159,6 +162,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = { expr_a, expr_b, expr_c, expr_d },
                                   .block_constraints = {} };
@@ -205,6 +209,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .signature = signature,
     };
     AcirFormat constraint_system{ .varnum = 81,
+                                  .recursive = false,
                                   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = range_constraints,
@@ -223,6 +228,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = { poly_triple{
                                       .a = schnorr_constraint.result,
@@ -297,6 +303,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     };
     AcirFormat constraint_system{
         .varnum = 81,
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = range_constraints,
@@ -315,6 +322,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { poly_triple{
             .a = schnorr_constraint.result,
@@ -408,6 +416,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
 
     AcirFormat constraint_system{
         .varnum = 36,
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = { range_a, range_b, range_c, range_d },
@@ -426,6 +435,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { dummy },
         .block_constraints = {},
@@ -451,6 +461,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         };
 
     AcirFormat constraint_system{ .varnum = 51,
+                                  .recursive = false,
                                   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = {},
@@ -469,6 +480,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},
                                   .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = {},
                                   .block_constraints = {} };

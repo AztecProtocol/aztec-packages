@@ -58,51 +58,6 @@ contract CardGame {
         games: Map<Field, PublicState<Game>>,
     }
 
-    impl Storage {
-        fn init(
-            context: Context,
-        ) -> Self {
-            Storage {
-                collections: Map::new(
-                    context,
-                    1,
-                    |context, slot| {
-                        Deck::new(
-                            context,
-                            slot,
-                        )
-                    },
-                ),
-                game_decks: Map::new(
-                    context,
-                    2,
-                    |context, slot| {
-                        Map::new(
-                            context,
-                            slot,
-                            |context, slot|{
-                                Deck::new(
-                                    context,
-                                    slot,
-                                )
-                            }
-                        )
-                    },
-                ),
-                games: Map::new(
-                    context,
-                    3,
-                    |context, slot| {
-                        PublicState::new(
-                            context,
-                            slot
-                        )
-                    },
-                )
-            }
-        }
-    }
-
     #[aztec(private)]
     fn constructor() {}
 
@@ -243,6 +198,6 @@ contract CardGame {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }

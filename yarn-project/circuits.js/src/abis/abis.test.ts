@@ -2,20 +2,19 @@ import { times } from '@aztec/foundation/collection';
 
 import {
   AztecAddress,
+  EthAddress,
   Fr,
   FunctionData,
   FunctionLeafPreimage,
   FunctionSelector,
   NewContractData,
   PublicCallStackItem,
-  PublicCircuitPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '../index.js';
 import {
   makeAztecAddress,
   makeEthAddress,
-  makePrivateCallStackItem,
   makePublicCallStackItem,
   makeTxRequest,
   makeVerificationKey,
@@ -28,11 +27,9 @@ import {
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeNullifierHash,
-  computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computePublicInputsHash,
   computeSecretMessageHash,
   computeTxHash,
   computeUniqueCommitment,
@@ -129,7 +126,6 @@ describe('abis', () => {
   });
 
   it('hashes function args', () => {
-    // const args = Array.from({ length: 8 }).map((_, i) => new Fr(i));
     const args = times(8, i => new Fr(i));
     const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
@@ -148,7 +144,7 @@ describe('abis', () => {
   });
 
   it('computes zero contract leaf', () => {
-    const cd = new NewContractData(AztecAddress.ZERO, AztecAddress.ZERO, new Fr(0n));
+    const cd = new NewContractData(AztecAddress.ZERO, EthAddress.ZERO, new Fr(0n));
     const res = computeContractLeaf(cd);
     expect(res).toMatchSnapshot();
   });
@@ -156,12 +152,6 @@ describe('abis', () => {
   it('compute tx hash', () => {
     const txRequest = makeTxRequest();
     const hash = computeTxHash(txRequest);
-    expect(hash).toMatchSnapshot();
-  });
-
-  it('compute private call stack item hash', () => {
-    const item = makePrivateCallStackItem();
-    const hash = computePrivateCallStackItemHash(item);
     expect(hash).toMatchSnapshot();
   });
 
@@ -188,13 +178,6 @@ describe('abis', () => {
     const emptySideEffect = SideEffect.empty();
     const emptyHash = Fr.fromBuffer(computeCommitmentsHash(emptySideEffect)).toString();
     expect(emptyHash).toMatchSnapshot();
-  });
-
-  it('Computes an empty public inputs hash ', () => {
-    const publicInputs = PublicCircuitPublicInputs.empty();
-    const emptyHash = computePublicInputsHash(publicInputs);
-
-    expect(Fr.fromBuffer(emptyHash).toString()).toMatchSnapshot();
   });
 
   it('Computes a callstack item request hash', () => {

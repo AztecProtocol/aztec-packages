@@ -1,7 +1,11 @@
 import { ContractArtifact } from '@aztec/foundation/abi';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { ContractInstance, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { EthAddress, Fr, PublicKey, getContractClassFromArtifact, getContractClassId } from '../index.js';
+import { getContractClassFromArtifact } from '../contract/contract_class.js';
+import { computeContractClassId } from '../contract/contract_class_id.js';
+import { PublicKey } from '../types/public_key.js';
 import {
   computeContractAddressFromInstance,
   computeInitializationHash,
@@ -20,10 +24,10 @@ import { isConstructor } from './contract_tree/contract_tree.js';
  */
 export function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
-  args: any[],
-  contractAddressSalt: Fr,
-  publicKey: PublicKey,
-  portalContractAddress: EthAddress,
+  args: any[] = [],
+  contractAddressSalt: Fr = Fr.random(),
+  publicKey: PublicKey = Point.ZERO,
+  portalContractAddress: EthAddress = EthAddress.ZERO,
 ): ContractInstanceWithAddress {
   const constructorArtifact = artifact.functions.find(isConstructor);
   if (!constructorArtifact) {
@@ -34,7 +38,7 @@ export function getContractInstanceFromDeployParams(
   }
 
   const contractClass = getContractClassFromArtifact(artifact);
-  const contractClassId = getContractClassId(contractClass);
+  const contractClassId = computeContractClassId(contractClass);
   const initializationHash = computeInitializationHash(constructorArtifact, args);
   const publicKeysHash = computePublicKeysHash(publicKey);
 

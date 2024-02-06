@@ -1,8 +1,8 @@
-import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
 import {
   ExtendedContractData,
   FunctionCall,
   FunctionL2Logs,
+  SiblingPath,
   SimulationError,
   Tx,
   TxL2Logs,
@@ -35,7 +35,7 @@ import {
 } from '@aztec/circuits.js/factories';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { SiblingPath } from '@aztec/types/membership';
+import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -101,6 +101,8 @@ describe('public_processor', () => {
           isEmpty: false,
           hash,
           data: new PublicKernelPublicInputs(
+            tx.data.aggregationObject,
+            tx.data.metaHwm,
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
           ),

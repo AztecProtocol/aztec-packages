@@ -1,48 +1,49 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/instance_inspector.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
+#include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 namespace bb {
 
 class Goblin {
-    using HonkProof = bb::honk::proof;
-    using GUHFlavor = bb::honk::flavor::GoblinUltra;
     using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
 
-    using GUHVerificationKey = GUHFlavor::VerificationKey;
-    using Commitment = GUHFlavor::Commitment;
-    using FF = GUHFlavor::FF;
+    using Commitment = GoblinUltraFlavor::Commitment;
+    using FF = GoblinUltraFlavor::FF;
 
   public:
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
-    using Transcript = bb::honk::BaseTranscript;
+    using Transcript = bb::BaseTranscript;
 
-    using GoblinUltraComposer = bb::honk::UltraComposer_<GUHFlavor>;
-    using GoblinUltraVerifier = bb::honk::UltraVerifier_<GUHFlavor>;
+    using GoblinUltraComposer = bb::UltraComposer_<GoblinUltraFlavor>;
+    using GoblinUltraVerifier = bb::UltraVerifier_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::honk::flavor::ECCVM;
+    using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = bb::honk::ECCVMComposer;
-    using ECCVMProver = bb::honk::ECCVMProver_<ECCVMFlavor>;
+    using ECCVMComposer = bb::ECCVMComposer;
+    using ECCVMProver = bb::ECCVMProver_<ECCVMFlavor>;
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = bb::honk::GoblinTranslatorComposer;
+    using TranslatorComposer = bb::GoblinTranslatorComposer;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = bb::honk::MergeVerifier_<GUHFlavor>;
+    using MergeProver = bb::MergeProver;
+    using MergeVerifier = bb::MergeVerifier;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
      */
     struct AccumulationOutput {
         HonkProof proof;
-        std::shared_ptr<GUHVerificationKey> verification_key;
+        std::shared_ptr<GoblinUltraFlavor::VerificationKey> verification_key;
     };
 
     struct Proof {
@@ -109,7 +110,7 @@ class Goblin {
         auto ultra_proof = prover.construct_proof();
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        auto merge_prover = composer.create_merge_prover(op_queue);
+        MergeProver merge_prover{ op_queue };
         merge_proof = merge_prover.construct_proof();
 
         if (!merge_proof_exists) {
@@ -213,7 +214,7 @@ class Goblin {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): no merge prover for now since we're not
         // mocking the first set of ecc ops
         // // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        // auto merge_prover = composer.create_merge_prover(op_queue);
+        // MergeProver merge_prover{ op_queue };
         // merge_proof = merge_prover.construct_proof();
 
         // if (!merge_proof_exists) {
