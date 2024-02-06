@@ -2758,8 +2758,10 @@ abstract contract BaseUltraVerifier {
                 }
             }
 
-            mstore(0x00, 0x01)
-            return(0x00, 0x20) // Proof succeeded!
+            {
+                mstore(0x00, 0x01)
+                return(0x00, 0x20) // Proof succeeded!
+            }
         }
     }
 }
