@@ -198,11 +198,11 @@ AvmSessionPublicInputs {
 
 ### AVM public input columns
 The `AvmPublicInputs` structure is represented in the VM trace via the following public input columns:
-1. `sessionInputs` has a dedicated column and is used to initialize the initial call's `AvmContext.ExecutionEnvironment` and `AvmContext.MachineState`
+1. `sessionInputs` has a dedicated column and is used to initialize the initial call's `AvmContext.ExecutionEnvironment` and `AvmContext.MachineState`.
 1. `calldata` occupies its own public input column as it is handled differently from the rest of the `ExecutionEnvironment`. It is used to initialize the initial call's `AvmContext.ExecutionEnvironment.calldata`.
     - Equivalence is enforced between this `calldata` column and the "input call pointer"'s memory. Through this mechanism, the initial call's `calldata` is placed in a region memory that can be referenced via the `CALLDATACOPY` instruction from within the initial call.
 1. `worldStateAccessTrace` is a trace of all world state accesses. Each of its component vectors has a dedicated set of public input columns (a sub-table). An instruction that reads or writes world state must match a trace entry. The [trace type definition in the "State" section] lists, for each trace vector, the instruction that populate its entries.
-1. `accruedSubstate` contains the final `AccruedSubstate`
-    - This includes the accrued substate of all _unreverted_ sub-contexts
-    - Reverted substate is not present in the Circuit I/O as it does not require further validation/processing by downstream circuits
-1. `sessionResults` has a dedicated column and represents the core "results" of the AVM session processed by this circuit (remaining gas, reverted)
+1. `accruedSubstate` contains the final `AccruedSubstate`.
+    - This includes the accrued substate of all _unreverted_ sub-contexts.
+    - Reverted substate is not present in the Circuit I/O as it does not require further validation/processing by downstream circuits.
+1. `sessionResults` has a dedicated column and represents the core "results" of the AVM session processed by this circuit (remaining gas, reverted).
