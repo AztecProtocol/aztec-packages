@@ -1,8 +1,9 @@
+use std::collections::HashMap;
+
 use acir::{
     brillig::{ForeignCallParam, ForeignCallResult, Value},
     circuit::{
-        brillig::{Brillig, BrilligInputs, BrilligOutputs},
-        OpcodeLocation,
+        brillig::{Brillig, BrilligInputs, BrilligOutputs}, opcodes::BlockId, OpcodeLocation
     },
     native_types::WitnessMap,
     FieldElement,
@@ -12,7 +13,7 @@ use brillig_vm::{VMStatus, VM};
 
 use crate::{pwg::OpcodeNotSolvable, OpcodeResolutionError};
 
-use super::{get_value, insert_value};
+use super::{get_value, insert_value, memory_op::MemoryOpSolver};
 
 #[derive(Debug)]
 pub enum BrilligSolverStatus {
@@ -64,6 +65,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
     /// witness.
     pub(super) fn new(
         initial_witness: &WitnessMap,
+        memory: &HashMap<BlockId, MemoryOpSolver>,
         brillig: &'b Brillig,
         bb_solver: &'b B,
         acir_index: usize,
@@ -93,6 +95,17 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                                 return Err(OpcodeResolutionError::OpcodeNotSolvable(
                                     OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
                                 ))
+                            }
+                        }
+                    }
+                },
+                BrilligInputs::MemoryArray(block_id) => {
+                    let memory_block = memory.get(block_id).expect("memory block should exist");
+                    for memory_index in 0..memory_block.block_len {
+                        match memory_block.block_value.get(&memory_index) {
+                            Some(value) => calldata.push((*value).into()),
+                            None => {
+                                panic!("bad")
                             }
                         }
                     }
