@@ -1263,7 +1263,7 @@ impl<'block> BrilligBlock<'block> {
                     self.variables.allocate_constant(self.brillig_context, value_id, dfg);
                 let register_index = new_variable.extract_register();
 
-                self.brillig_context.const_instruction(register_index, value_id.to_usize().into());
+                self.brillig_context.const_instruction(register_index, value_id.to_usize().into(), 64);
                 new_variable
             }
             Value::Intrinsic(_) | Value::ForeignFunction(_) => {
