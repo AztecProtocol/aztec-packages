@@ -10,3 +10,5 @@ title: How to deploy a contract with a Portal
   });
   ```
 - Initialize l1 with l2 address for access control.
+
+Follow the [token bridge tutorial](../../../tutorials/token_portal/main.md) for hands-on experience writing and deploying a Portal contract.

@@ -4,6 +4,8 @@ title: Communicating with L1
 
 Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../../learn/concepts/communication/cross_chain_calls.md).
 
+Follow the [token bridge tutorial](../../../tutorials/token_portal/main.md) for hands-on experience writing and deploying a Portal contract.
+
 ## Passing data to the rollup
 
 Whether it is tokens or other information being passed to the rollup, the portal should use the `Inbox` to do it.

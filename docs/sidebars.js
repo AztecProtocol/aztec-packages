@@ -297,6 +297,8 @@ const sidebars = {
           label: "Writing Contracts",
           type: "category",
           items: [
+            "developers/contracts/writing_contracts/layout",
+            "developers/contracts/writing_contracts/example_contract",
             {
               label: "Functions and Constructors",
               type: "category",
@@ -309,7 +311,6 @@ const sidebars = {
                 "developers/contracts/writing_contracts/functions/public_private_unconstrained",
                 "developers/contracts/writing_contracts/functions/visibility",
                 "developers/contracts/writing_contracts/functions/call_functions",
-                "developers/contracts/writing_contracts/functions/call_functions",
                 "developers/contracts/writing_contracts/functions/write_constructor",
                 "developers/contracts/writing_contracts/functions/inner_workings",
               ],
@@ -317,6 +318,10 @@ const sidebars = {
             {
               label: "Storage",
               type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/writing_contracts/storage/main",
+              },
               items: [
                 "developers/contracts/writing_contracts/storage/define_storage",
                 "developers/contracts/writing_contracts/storage/storage_slots",
@@ -350,20 +355,21 @@ const sidebars = {
               ],
             },
             {
+              label: "Portals",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/writing_contracts/portals/portals",
+              },
+              items: [
+                "developers/contracts/writing_contracts/portals/deploy_with_portal",
+                "developers/contracts/writing_contracts/portals/communicate_with_portal",
+              ],
+            },
+            {
               label: "Historical Data",
               type: "category",
               items: [
-                {
-                  label: "Slow Updates Tree",
-                  type: "category",
-                  link: {
-                    type: "doc",
-                    id: "developers/contracts/writing_contracts/historical_data/slow_updates_tree/main",
-                  },
-                  items: [
-                    "developers/contracts/writing_contracts/historical_data/slow_updates_tree/implement_slow_updates",
-                  ],
-                },
                 {
                   label: "Historical Blockchain Data (Archive Tree)",
                   type: "category",
@@ -375,6 +381,17 @@ const sidebars = {
                     "developers/contracts/writing_contracts/historical_data/archive_tree/how_to_prove_history",
                   ],
                 },
+              ],
+            },
+            {
+              label: "Access public data from private state (Slow Updates Tree)",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "developers/contracts/writing_contracts/historical_data/slow_updates_tree/main",
+              },
+              items: [
+                "developers/contracts/writing_contracts/historical_data/slow_updates_tree/implement_slow_updates",
               ],
             },
            

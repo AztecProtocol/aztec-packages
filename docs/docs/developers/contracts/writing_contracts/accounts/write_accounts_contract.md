@@ -9,7 +9,7 @@ You will learn:
 - How to write a custom account contract in Aztec.nr
 - The entrypoint function for transaction authentication and call execution
 - The AccountActions module and EntrypointPayload struct, necessary inclusions for any account contract
-- Customizing authorization validation within the 'is_valid' function (using Schnorr signatures as an example)
+- Customizing authorization validation within the `is_valid` function (using Schnorr signatures as an example)
 - Typescript glue code to format and authenticate transactions
 - Deploying and testing the account contract
 
@@ -19,7 +19,7 @@ It is highly recommended that you understand how an [account](../../../../learn/
 
 For this tutorial, we will write an account contract that uses Schnorr signatures for authenticating transaction requests.
 
-> That is, every time a transaction payload is passed to this account contract's 'entrypoint' function, the account contract will demand a valid Schnorr signature, whose signed message matches the transaction payload, and whose signer matches the account contract owner's public key. If the signature fails, the transaction will fail.
+Every time a transaction payload is passed to this account contract's `entrypoint` function, the account contract requires a valid Schnorr signature, whose signed message matches the transaction payload, and whose signer matches the account contract owner's public key. If the signature fails, the transaction will fail.
 
 For the sake of simplicity, we will hardcode the signing public key into the contract, but you could store it [in a private note](../../../../learn/concepts/accounts/keys.md#using-a-private-note), [in an immutable note](../../../../learn/concepts/accounts/keys.md#using-an-immutable-private-note), or [on a separate keystore](../../../../learn/concepts/accounts/keys.md#using-a-separate-keystore), to mention a few examples.
 

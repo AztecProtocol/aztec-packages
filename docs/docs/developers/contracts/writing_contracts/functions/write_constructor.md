@@ -21,7 +21,9 @@ fn constructor()
 
 Your constructor does not need to do anything; you can leave it blank like so:
 
-#include_code constructor /yarn-project/noir-contracts/contracts/counter_contract/src/main.nr rust
+```#[aztec(private)]
+fn constructor() {}
+```
 
 ## Option 2: Constructor with logic
 

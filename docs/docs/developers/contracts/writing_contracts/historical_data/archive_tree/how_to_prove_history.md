@@ -1,5 +1,5 @@
 ---
-title: How to use an Arhive Tree to prove existence of historical notes and nullifiers
+title: How to use the Arhive Tree
 ---
 
 The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as an archive tree. You can learn more about how it works in the [concepts section](../../../../../learn/concepts/storage/trees/main.md#archive-tree).
