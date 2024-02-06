@@ -1,15 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
-// const filePath = '../../../yarn-project/aztec-nr/address-note/src/address_note.nr'; 
-// const filePath = '../../../yarn-project/aztec-nr/authwit/src/account.nr'; 
-// const filePath = '../../../yarn-project/aztec-nr/authwit/src/auth.nr';
-// const filePath = '../../../yarn-project/aztec-nr/aztec/src/abi.nr';
-// const filePath = '../../../yarn-project/aztec-nr/aztec/src/log.nr';
-// const filePath = '../../../yarn-project/aztec-nr/aztec/src/utils.nr'; 
-const filePath = '../../../yarn-project/aztec-nr/field-note/src/field_note.nr';
-
-const content = fs.readFileSync(filePath, 'utf8');
+function listNrFiles(dir, fileList = []) {
+    const files = fs.readdirSync(dir);
+    files.forEach(file => {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+            listNrFiles(filePath, fileList);
+        } else if (filePath.endsWith('.nr')) {
+            fileList.push(filePath);
+        }
+    });
+    return fileList;
+}
 
 function parseParameters(paramString) {
     return paramString.split(',').map(param => {
@@ -28,9 +32,12 @@ function parseStruct(content) {
         const structName = match[1];
         const fields = match[2].trim().split('\n').map(fieldLine => {
             fieldLine = fieldLine.trim().replace(/,$/, '');
-            let [name, type] = fieldLine.split(/:\s*/);
-            return { name, type };
-        });
+            // Skip lines that are comments or do not contain a colon (indicating they are not field definitions)
+            if (!fieldLine.startsWith('//') && fieldLine.includes(':')) {
+                let [name, type] = fieldLine.split(/:\s*/);
+                return { name, type };
+            }
+        }).filter(field => field !== undefined); // Filter out undefined entries resulting from comments or invalid lines
 
         let descriptionLines = [];
         let lineIndex = content.lastIndexOf('\n', match.index - 1);
@@ -53,10 +60,6 @@ function parseStruct(content) {
 
     return structs;
 }
-
-
-
-const structs = parseStruct(content);
 
 function parseFunctions(content) {
     const functions = [];
@@ -127,10 +130,7 @@ function parseFunctions(content) {
     return functions;
 }
 
-
-const functions = parseFunctions(content);
-
-function generateMarkdown(structInfo, functions) {
+function generateMarkdown(structs, functions) {
     let markdown = '';
 
     structs.forEach(structInfo => {
@@ -144,9 +144,12 @@ function generateMarkdown(structInfo, functions) {
             markdown += `## Fields\n`;
             markdown += `| Field | Type |\n| --- | --- |\n`;
             structInfo.fields.forEach(field => {
-                const cleanType = field.type.replace(/[\[:;,]$/g, '').replace(/^[\[:;,]/g, ''); 
-                const fieldName = field.name.replace(/[:;]/g, ''); 
-                markdown += `| ${fieldName} | ${cleanType} |\n`;
+                // Check if field and field.type are defined
+                if (field && field.type) {
+                    const cleanType = field.type.replace(/[\[:;,]$/g, '').replace(/^[\[:;,]/g, ''); 
+                    const fieldName = field.name.replace(/[:;]/g, ''); 
+                    markdown += `| ${fieldName} | ${cleanType} |\n`;
+                }
             });
 
             // Generate markdown for methods of this struct
@@ -159,7 +162,10 @@ function generateMarkdown(structInfo, functions) {
                     markdown += `#### Parameters\n`;
                     markdown += `| Name | Type |\n| --- | --- |\n`;
                     func.params.forEach(({ name, type }) => {
-                        markdown += `| ${name} | ${type} |\n`;
+                        // Ensure param name and type are defined
+                        if (name && type) {
+                            markdown += `| ${name} | ${type} |\n`;
+                        }
                     });
                     if (func.returnType) {
                         markdown += `\n#### Returns\n`;
@@ -182,7 +188,10 @@ function generateMarkdown(structInfo, functions) {
             markdown += `#### Parameters\n`;
             markdown += `| Name | Type |\n| --- | --- |\n`;
             func.params.forEach(({ name, type }) => {
-                markdown += `| ${name} | ${type} |\n`;
+                // Ensure param name and type are defined
+                if (name && type) {
+                    markdown += `| ${name} | ${type} |\n`;
+                }
             });
             if (func.returnType) {
                 markdown += `\n#### Returns\n`;
@@ -196,7 +205,44 @@ function generateMarkdown(structInfo, functions) {
     return markdown;
 }
 
-const markdown = generateMarkdown(structs, functions);
+function processFiles(baseDir, outputBaseDir) {
+    const nrFiles = listNrFiles(baseDir);
+    let docPaths = []; // Array to hold the relative paths of the documentation files
 
-const outputPath = 'address-note.md'; 
-fs.writeFileSync(outputPath, markdown);
+    nrFiles.forEach(filePath => {
+        if (path.basename(filePath) === 'lib.nr') {
+            console.log(`Skipping documentation generation for ${filePath}`);
+            return; // Skip this file and continue to the next one
+        }
+
+        const content = fs.readFileSync(filePath, 'utf8');
+        const structs = parseStruct(content);
+        const functions = parseFunctions(content);
+        const markdown = generateMarkdown(structs, functions);
+
+        const relativePath = path.relative(baseDir, filePath);
+        const adjustedPath = relativePath.replace('/src', '').replace(/\.nr$/, '.md'); // Adjust the path and remove .nr extension
+        const outputFilePath = path.join(outputBaseDir, adjustedPath);
+
+        fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
+        fs.writeFileSync(outputFilePath, markdown);
+        console.log(`Generated documentation for ${filePath}`);
+
+        // Add the adjusted path to the docPaths array, converting it to a format suitable for Docusaurus
+        const docPathForDocusaurus = adjustedPath.replace(/\\/g, '/').replace('.md', ''); // Ensure paths are in URL format and remove .md
+        docPaths.push(docPathForDocusaurus);
+    });
+
+    // Write the documentation structure to AztecnrReferenceAutogenStructure.json
+    const docsStructure = {
+        AztecNR: docPaths
+    };
+    const outputPath = path.join(outputBaseDir, 'AztecnrReferenceAutogenStructure.json');
+    fs.writeFileSync(outputPath, JSON.stringify(docsStructure, null, 2));
+    console.log(`Documentation structure written to ${outputPath}`);
+}
+
+const baseDir = path.resolve(__dirname, '../../../yarn-project/aztec-nr');
+const outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
+
+processFiles(baseDir, outputBaseDir);
