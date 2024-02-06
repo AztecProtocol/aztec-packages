@@ -20,6 +20,8 @@ struct indexed_leaf {
         os << "value = " << value << "\nnextIdx = " << nextIndex << "\nnextVal = " << nextValue;
         return os;
     }
+
+    std::vector<fr> get_hash_inputs() const { return std::vector<fr>({ value, nextIndex, nextValue }); }
 };
 
 } // namespace bb::stdlib::merkle_tree

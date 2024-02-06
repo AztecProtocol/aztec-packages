@@ -2,7 +2,7 @@
 #include "../../../common/thread.hpp"
 #include "../hash.hpp"
 #include "../hash_path.hpp"
-#include "hasher.hpp"
+#include "../hasher.hpp"
 #include "indexed_leaf.hpp"
 
 namespace bb::stdlib::merkle_tree {
@@ -28,6 +28,7 @@ class LevelSignal {
             signal_.wait(current_level);
             current_level = signal_.load();
         }
+        // while (signal_.load() > level);
     }
 
     void signal_level(size_t level)
@@ -48,26 +49,25 @@ template <typename Store, typename LeavesStore> class IndexedTree {
     ~IndexedTree();
 
     std::vector<fr_hash_path> update_element(const fr& value);
-    std::vector<fr_hash_path> update_elements(const std::vector<fr>& values);
+    std::vector<fr_hash_path> update_elements(const std::vector<fr>& values, bool no_multithreading = false);
 
     index_t get_size();
     fr get_root();
 
-    fr_hash_path get_hash_path(index_t index);
+    fr_hash_path get_hash_path(const index_t& index);
 
   private:
-    fr update_leaf_and_hash_to_root(index_t index, const indexed_leaf& leaf);
-    fr update_leaf_and_hash_to_root(index_t index,
+    fr update_leaf_and_hash_to_root(const index_t& index, const indexed_leaf& leaf);
+    fr update_leaf_and_hash_to_root(const index_t& index,
                                     const indexed_leaf& leaf,
                                     LevelSignal& leader,
                                     LevelSignal& follower,
                                     fr_hash_path& previous_hash_path);
-    fr append_subtree(index_t start_index);
-    fr get_element_or_zero(size_t level, index_t index);
-    void create_key(size_t level, index_t index, std::vector<uint8_t>& key);
+    fr append_subtree(const index_t& start_index);
+    fr get_element_or_zero(size_t level, const index_t& index);
 
-    void write_node(size_t level, index_t index, const fr& value);
-    std::pair<bool, fr> read_node(size_t level, index_t index);
+    void write_node(size_t level, const index_t& index, const fr& value);
+    std::pair<bool, fr> read_node(size_t level, const index_t& index);
 
   private:
     Hasher& hasher_;
@@ -115,7 +115,8 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::update_element(const 
 }
 
 template <typename Store, typename LeavesStore>
-std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::update_elements(const std::vector<fr>& values)
+std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::update_elements(const std::vector<fr>& values,
+                                                                           bool no_multithreading)
 {
     struct {
         bool operator()(const std::pair<fr, size_t>& a, const std::pair<fr, size_t>& b) const
@@ -146,8 +147,6 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::update_elements(const
         std::tie(is_already_present, current) = leaves_.find_low_value(values_sorted[i].first);
         indexed_leaf current_leaf = leaves_.get_leaf(current);
 
-        // info("Index of new leaf ", index_of_new_leaf, " current ", current);
-
         indexed_leaf new_leaf =
             indexed_leaf{ .value = value, .nextIndex = current_leaf.nextIndex, .nextValue = current_leaf.nextValue };
 
@@ -157,7 +156,6 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::update_elements(const
             current_leaf.nextValue = value;
 
             leaves_.set_at_index(current, current_leaf, false);
-            // info("Setting new leaf with value ", new_leaf.value, " at ", index_of_new_leaf);
             leaves_.set_at_index(index_of_new_leaf, new_leaf, true);
         }
 
@@ -175,59 +173,62 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::update_elements(const
         signals.emplace_back(size_t(1 + depth_));
     }
 
-    parallel_for(insertions.size(), [&](size_t i) {
-        leaf_insertion& j = insertions[i];
-        update_leaf_and_hash_to_root(j.low_leaf_index, j.low_leaf, signals[i], signals[i + 1], paths[i]);
-    });
-    // for (size_t i = 0; i < jobs.size(); i++) {
-    //     job& j = jobs[i];
-    //     update_leaf_and_hash_to_root(j.low_leaf_index, j.low_leaf, signals[i], signals[i + 1], j.hash_path);
-    // }
+    if (no_multithreading) {
+        for (size_t i = 0; i < insertions.size(); i++) {
+            leaf_insertion& j = insertions[i];
+            update_leaf_and_hash_to_root(j.low_leaf_index, j.low_leaf, signals[i], signals[i + 1], paths[i]);
+        }
+    } else {
+        parallel_for(insertions.size(), [&](size_t i) {
+            leaf_insertion& j = insertions[i];
+            update_leaf_and_hash_to_root(j.low_leaf_index, j.low_leaf, signals[i], signals[i + 1], paths[i]);
+        });
+    }
+
     root_ = append_subtree(old_size);
 
     return paths;
 }
 
-template <typename Store, typename LeavesStore> fr IndexedTree<Store, LeavesStore>::append_subtree(index_t start_index)
+template <typename Store, typename LeavesStore>
+fr IndexedTree<Store, LeavesStore>::append_subtree(const index_t& start_index)
 {
-    // info("Appending subtree at ", start_index);
-    size_t number_to_insert = size_t(index_t(leaves_.get_size()) - start_index);
+    index_t index = start_index;
+    size_t number_to_insert = size_t(index_t(leaves_.get_size()) - index);
     size_t level = depth_;
     std::vector<fr> hashes = std::vector<fr>(number_to_insert);
 
     for (size_t i = 0; i < number_to_insert; i++) {
-        index_t index_to_insert = start_index + i;
-        hashes[i] = hasher_.hash_leaf(leaves_.get_leaf(size_t(index_to_insert)));
-        // info("Inserting leaf hash to ", index_to_insert);
+        index_t index_to_insert = index + i;
+        hashes[i] = hasher_.hash_inputs(leaves_.get_leaf(size_t(index_to_insert)).get_hash_inputs());
         write_node(level, index_to_insert, hashes[i]);
     }
 
     while (number_to_insert > 1) {
         number_to_insert >>= 1;
-        start_index >>= 1;
+        index >>= 1;
         --level;
         for (size_t i = 0; i < number_to_insert; i++) {
             hashes[i] = hasher_.hash_pair(hashes[i * 2], hashes[i * 2 + 1]);
-            write_node(level, start_index + i, hashes[i]);
+            write_node(level, index + i, hashes[i]);
         }
     }
 
     fr new_hash = hashes[0];
-    // info("Hashing to root from level ", level);
     while (level > 0) {
-        bool is_right = bool(start_index & 0x01);
-        fr left_hash = is_right ? get_element_or_zero(level, start_index - 1) : new_hash;
-        fr right_hash = is_right ? new_hash : get_element_or_zero(level, start_index + 1);
+        bool is_right = bool(index & 0x01);
+        fr left_hash = is_right ? get_element_or_zero(level, index - 1) : new_hash;
+        fr right_hash = is_right ? new_hash : get_element_or_zero(level, index + 1);
         new_hash = hasher_.hash_pair(left_hash, right_hash);
-        start_index >>= 1;
+        index >>= 1;
         --level;
-        write_node(level, start_index, new_hash);
+        write_node(level, index, new_hash);
     }
     return new_hash;
 }
 
 template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_index, const indexed_leaf& leaf)
+fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& leaf_index, const indexed_leaf& leaf)
 {
     LevelSignal leader(0);
     LevelSignal follower(0);
@@ -236,7 +237,7 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_in
 }
 
 template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_index,
+fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& leaf_index,
                                                                  const indexed_leaf& leaf,
                                                                  LevelSignal& leader,
                                                                  LevelSignal& follower,
@@ -244,14 +245,12 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_in
 {
     index_t index = leaf_index;
     size_t level = depth_;
-    fr new_hash = hasher_.hash_leaf(leaf);
-    // info("Hashed leaf to become ", new_hash);
+    fr new_hash = hasher_.hash_inputs(leaf.get_hash_inputs());
 
     // wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about to
     // write into) this ensures that our leader is not still reading the leaves
     size_t leader_level = depth_ - 1;
     leader.wait_for_level(leader_level);
-    // info("Worker Index ", worker_index, " signalled by leader at ", leader_level);
 
     bool is_right = bool(index & 0x01);
     // extract the current leaf hash values for the previous hash path
@@ -261,7 +260,6 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_in
 
     // write the new leaf hash in place
     write_node(level, index, new_hash);
-    // info("Worker index ", worker_index, " signalling follower at level ", level);
     follower.signal_level(level);
 
     while (level > 0) {
@@ -287,7 +285,6 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_in
         is_right = bool(index & 0x01);
         fr new_right_value = is_right ? new_hash : get_element_or_zero(level, index + 1);
         fr new_left_value = is_right ? get_element_or_zero(level, index - 1) : new_hash;
-        // info("Hashing ", new_left_value, " : ", new_right_value);
         new_hash = hasher_.hash_pair(new_left_value, new_right_value);
         index >>= 1;
         --level;
@@ -299,7 +296,6 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(index_t leaf_in
         }
 
         write_node(level, index, new_hash);
-        // info("Worker index ", worker_index, " signalling follower at level ", level);
         follower.signal_level(level);
     }
     return new_hash;
@@ -316,64 +312,51 @@ template <typename Store, typename LeavesStore> fr IndexedTree<Store, LeavesStor
 }
 
 template <typename Store, typename LeavesStore>
-fr_hash_path IndexedTree<Store, LeavesStore>::get_hash_path(index_t index)
+fr_hash_path IndexedTree<Store, LeavesStore>::get_hash_path(const index_t& index)
 {
     fr_hash_path path;
+    index_t current_index = index;
 
     for (size_t level = depth_; level > 0; --level) {
-        bool is_right = bool(index & 0x01);
-        fr right_value = is_right ? get_element_or_zero(level, index) : get_element_or_zero(level, index + 1);
-        fr left_value = is_right ? get_element_or_zero(level, index - 1) : get_element_or_zero(level, index);
+        bool is_right = bool(current_index & 0x01);
+        fr right_value =
+            is_right ? get_element_or_zero(level, current_index) : get_element_or_zero(level, current_index + 1);
+        fr left_value =
+            is_right ? get_element_or_zero(level, current_index - 1) : get_element_or_zero(level, current_index);
         path.push_back(std::make_pair(left_value, right_value));
-        index >>= 1;
+        current_index >>= 1;
     }
     return path;
 }
 
 template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::get_element_or_zero(size_t level, index_t index)
+fr IndexedTree<Store, LeavesStore>::get_element_or_zero(size_t level, const index_t& index)
 {
     const std::pair<bool, fr> read_data = read_node(level, index);
     if (read_data.first) {
         return read_data.second;
     }
-    // info("Returing zero hash for level ", level, " index ", index);
     ASSERT(level > 0 && level <= zero_hashes_.size());
     return zero_hashes_[level - 1];
 }
 
 template <typename Store, typename LeavesStore>
-void IndexedTree<Store, LeavesStore>::create_key(size_t level, index_t index, std::vector<uint8_t>& key)
+void IndexedTree<Store, LeavesStore>::write_node(size_t level, const index_t& index, const fr& value)
 {
-    write(key, level);
-    write(key, index);
-}
-
-template <typename Store, typename LeavesStore>
-void IndexedTree<Store, LeavesStore>::write_node(size_t level, index_t index, const fr& value)
-{
-    // info("Writing to ", level, " : ", index, " ", value);
-    //   std::vector<uint8_t> key;
-    //   create_key(level, index, key);
     std::vector<uint8_t> buf;
     write(buf, value);
     store_.put(level, size_t(index), buf);
 }
 
 template <typename Store, typename LeavesStore>
-std::pair<bool, fr> IndexedTree<Store, LeavesStore>::read_node(size_t level, index_t index)
+std::pair<bool, fr> IndexedTree<Store, LeavesStore>::read_node(size_t level, const index_t& index)
 {
-    // info("Reading from ", level, " : ", index);
-    //   std::vector<uint8_t> key;
-    //   create_key(level, index, key);
     std::vector<uint8_t> buf;
     bool available = store_.get(level, size_t(index), buf);
     if (!available) {
-        // info("not found");
         return std::make_pair(false, fr::zero());
     }
     fr value = from_buffer<fr>(buf, 0);
-    // info("Found ", value);
     return std::make_pair(true, value);
 }
 

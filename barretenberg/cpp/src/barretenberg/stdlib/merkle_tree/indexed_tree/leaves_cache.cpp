@@ -16,7 +16,6 @@ std::pair<bool, index_t> LeavesCache::find_low_value(const fr& new_value) const
         // there is no element >= the requested value.
         // decrement the iterator to get the value preceeding the requested value
         --it;
-        // info("Found low value of ", new_value, " at index ", it->second);
         return std::make_pair(false, it->second);
     }
     if (it->first == new_value) {
@@ -25,7 +24,6 @@ std::pair<bool, index_t> LeavesCache::find_low_value(const fr& new_value) const
     }
     // the iterator points to the element immediately larger than the requested value
     --it;
-    // info("Found low value of ", new_value, " at index ", it->second);
     //  it now points to the value less than that requested
     return std::make_pair(false, it->second);
 }
