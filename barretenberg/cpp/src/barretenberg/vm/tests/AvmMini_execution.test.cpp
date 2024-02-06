@@ -84,9 +84,9 @@ TEST_F(AvmMiniExecutionTests, basicAddReturn)
     EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
     EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
 
-    auto trace = Execution::gen_trace(instructions, std::vector<FF>{});
+    auto trace = Execution::gen_trace(instructions);
 
-    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+    gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
 // Positive test for SET and SUB opcodes
@@ -148,7 +148,7 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == 1; });
     EXPECT_EQ(row->avmMini_ic, 10000); // 47123 - 37123 = 10000
 
-    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+    gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
 // Positive test for multiple MUL opcodes
@@ -227,7 +227,7 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
         trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == 1 && r.avmMini_pc == 13; });
     EXPECT_EQ(row->avmMini_ic, 244140625); // 5^12 = 244140625
 
-    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+    gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
 // Positive test about a single internal_call and internal_return
@@ -290,7 +290,7 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == 1; });
     EXPECT_EQ(row->avmMini_ic, 345567789);
 
-    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+    gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
 // Positive test with some nested internall calls
@@ -370,7 +370,7 @@ TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
     EXPECT_EQ(row->avmMini_ic, 187);
     EXPECT_EQ(row->avmMini_pc, 4);
 
-    gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{});
+    gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
 // Positive test with JUMP and CALLDATACOPY

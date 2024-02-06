@@ -47,7 +47,7 @@ HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::ve
  */
 std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions, std::vector<FF> const& calldata)
 {
-    AvmMiniTraceBuilder trace_builder{};
+    AvmMiniTraceBuilder trace_builder;
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -104,8 +104,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Machine State - Memory
         case OpCode::SET: {
-            uint32_t dst_offset{};
-            uint128_t val{};
+            uint32_t dst_offset = 0;
+            uint128_t val = 0;
             AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(0));
             dst_offset = std::get<uint32_t>(inst.operands.at(2));
 

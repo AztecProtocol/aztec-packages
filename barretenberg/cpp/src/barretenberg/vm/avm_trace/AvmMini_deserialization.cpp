@@ -110,7 +110,6 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 inst_format = { OperandType::TAG, OperandType::UINT128, OperandType::UINT32 };
                 break;
             default: // This branch is guarded above.
-                inst_format = {};
                 std::cerr << "This code branch must have been guarded by the tag validation. \n";
                 assert(false);
             }
@@ -140,28 +139,28 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 operands.emplace_back(bytecode.at(pos));
                 break;
             case OperandType::UINT16: {
-                uint16_t operand_u16{};
+                uint16_t operand_u16 = 0;
                 uint8_t const* pos_ptr = &bytecode.at(pos);
                 serialize::read(pos_ptr, operand_u16);
                 operands.emplace_back(operand_u16);
                 break;
             }
             case OperandType::UINT32: {
-                uint32_t operand_u32{};
+                uint32_t operand_u32 = 0;
                 uint8_t const* pos_ptr = &bytecode.at(pos);
                 serialize::read(pos_ptr, operand_u32);
                 operands.emplace_back(operand_u32);
                 break;
             }
             case OperandType::UINT64: {
-                uint64_t operand_u64{};
+                uint64_t operand_u64 = 0;
                 uint8_t const* pos_ptr = &bytecode.at(pos);
                 serialize::read(pos_ptr, operand_u64);
                 operands.emplace_back(operand_u64);
                 break;
             }
             case OperandType::UINT128: {
-                uint128_t operand_u128{};
+                uint128_t operand_u128 = 0;
                 uint8_t const* pos_ptr = &bytecode.at(pos);
                 serialize::read(pos_ptr, operand_u128);
                 operands.emplace_back(operand_u128);
