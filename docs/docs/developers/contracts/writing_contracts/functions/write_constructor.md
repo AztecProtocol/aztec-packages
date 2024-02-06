@@ -21,7 +21,8 @@ fn constructor()
 
 Your constructor does not need to do anything; you can leave it blank like so:
 
-```#[aztec(private)]
+```rust
+#[aztec(private)]
 fn constructor() {}
 ```
 
