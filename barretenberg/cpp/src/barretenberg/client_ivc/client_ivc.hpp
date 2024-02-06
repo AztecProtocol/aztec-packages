@@ -17,16 +17,25 @@
 namespace bb {
 
 class ClientIVC {
+
+    struct Proof {
+        Goblin::Proof goblin_proof;
+        HonkProof decider_proof;
+    };
+
+  public:
     using Flavor = GoblinUltraFlavor;
     using FF = Flavor::FF;
-    using FoldingOutput = FoldingResult<Flavor>;
     using FoldProof = std::vector<FF>;
     using Accumulator = std::shared_ptr<ProverInstance_<Flavor>>;
+    using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
+
+  private:
+    using FoldingOutput = FoldingResult<Flavor>;
     using Instance = ProverInstance_<GoblinUltraFlavor>;
     using Composer = GoblinUltraComposer;
 
   public:
-    using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
     Goblin goblin;
     Accumulator accumulator;
 
@@ -40,14 +49,14 @@ class ClientIVC {
   public:
     void initialize(ClientCircuit& circuit)
     {
-        merge(circuit);
+        goblin.merge(circuit);
         Composer composer;
         accumulator = composer.create_instance(circuit);
     }
 
     FoldProof accumulate(ClientCircuit& circuit)
     {
-        merge(circuit);
+        goblin.merge(circuit);
         Composer composer;
         auto instance = composer.create_instance(circuit);
         std::vector<std::shared_ptr<Instance>> instances{ accumulator, instance };
@@ -57,6 +66,29 @@ class ClientIVC {
         return output.folding_data;
     }
 
-    void merge(ClientCircuit& circuit_builder) { goblin.merge(circuit_builder); }
+    Proof prove()
+    {
+        // Construct Goblin proof (merge, eccvm, translator)
+        auto goblin_proof = goblin.prove();
+
+        // Construct decider proof for final accumulator
+        Composer composer;
+        auto decider_prover = composer.create_decider_prover(accumulator);
+        auto decider_proof = decider_prover.construct_proof();
+        return { goblin_proof, decider_proof };
+    }
+
+    bool verify(Proof& proof)
+    {
+        // Goblin verification (merge, eccvm, translator)
+        bool goblin_verified = goblin.verify(proof.goblin_proof);
+
+        // Decider verification
+        Composer composer;
+        // NOTE: Use of member accumulator here will go away with removal of vkey from ProverInstance
+        auto decider_verifier = composer.create_decider_verifier(accumulator);
+        bool decision = decider_verifier.verify_proof(proof.decider_proof);
+        return decision && goblin_verified;
+    }
 };
 } // namespace bb
