@@ -1,5 +1,0 @@
-{"level":"info","message":"Debug logs will be written to /Users/zpedro/Documents/GitHub/aztec-packages/boxes/blank-react/src/contracts/log/aztec-sandbox.debug.log","namespace":"aztec:sandbox","timestamp":"2024-02-01T10:01:38.521Z"}
-{"level":"info","message":"Setting up Aztec Sandbox v0.1.0 please stand by...","namespace":"aztec:sandbox","timestamp":"2024-02-01T10:01:38.523Z"}
-{"level":"warn","message":"Failed to connect to Ethereum node at http://127.0.0.1:8545/. Retrying...","namespace":"aztec:sandbox","timestamp":"2024-02-01T10:01:39.704Z"}
-{"level":"warn","message":"Failed to connect to Ethereum node at http://127.0.0.1:8545/. Retrying...","namespace":"aztec:sandbox","timestamp":"2024-02-01T10:01:41.801Z"}
-{"level":"info","message":"Shutting down...","namespace":"aztec:sandbox","timestamp":"2024-02-01T10:01:42.205Z"}

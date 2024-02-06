@@ -1,29 +1,41 @@
-import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
-import { BlankContractArtifact } from '../artifacts/Blank.js';
+import {
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
+  createPXEClient,
+} from "@aztec/aztec.js";
+import { BlankContractArtifact } from "../artifacts/Blank";
+import { AccountManager } from "@aztec/aztec.js/account";
+import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 
-class PXE {
-  pxeUrl;
+const GRUMPKIN_KEY = GrumpkinScalar.random();
+
+export class PrivateEnv {
   pxe;
+  accountContract;
+  account: AccountManager;
 
-  constructor() {
-    this.pxeUrl = process.env.PXE_URL || 'http://localhost:8080';
-    this.pxe = createPXEClient(this.pxeUrl);
+  constructor(
+    private privateKey: GrumpkinPrivateKey,
+    private pxeURL = "http://localhost:8080",
+  ) {
+    this.pxe = createPXEClient(this.pxeURL);
+    this.accountContract = new SingleKeyAccountContract(privateKey);
+    this.account = new AccountManager(
+      this.pxe,
+      this.privateKey,
+      this.accountContract,
+    );
   }
 
-  async setupPxe() {
-    await waitForPXE(this.pxe);
-    return this.pxe;
-  }
-
-  getPxeUrl() {
-    return this.pxeUrl;
-  }
-
-  getPxe() {
-    return this.pxe;
+  async getWallet() {
+    // taking advantage that register is no-op if already registered
+    return await this.account.register();
   }
 }
 
-export const pxe = new PXE();
-export const contractArtifact = BlankContractArtifact;
-export const CONTRACT_ADDRESS_PARAM_NAMES = ['address'];
+export const deployerEnv = new PrivateEnv(GRUMPKIN_KEY);
+
+const IGNORE_FUNCTIONS = ["constructor", "compute_note_hash_and_nullifier"];
+export const filteredInterface = BlankContractArtifact.functions.filter(
+  (f) => !IGNORE_FUNCTIONS.includes(f.name),
+);

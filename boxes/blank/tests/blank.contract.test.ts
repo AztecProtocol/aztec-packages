@@ -37,7 +37,7 @@ describe('ZK Contract Tests', () => {
 
     wallet = await getWallet(owner, pxe.getPxe());
 
-    contract = await deployZKContract(owner, wallet, pxe.getPxe());
+    const c = (contract = await deployZKContract(owner, wallet, pxe.getPxe()));
     contractAddress = contract.address;
   }, 60000);
 

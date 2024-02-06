@@ -1,70 +1,37 @@
 import { BlankContract } from '../artifacts/Blank.js';
-import { callContractFunction, getWallet } from '../src/scripts/index.js';
-import {
-  AccountWallet,
-  AztecAddress,
-  CompleteAddress,
-  DeployMethod,
-  Fr,
-  TxStatus,
-  Wallet,
-  createDebugLogger,
-} from '@aztec/aztec.js';
-import { pxe } from '../src/config.js';
-import { convertArgs } from '../src/scripts/util.js';
+import { AccountWallet, Fr, Contract, TxStatus, createDebugLogger, ContractDeployer } from '@aztec/aztec.js';
+import { deployerEnv } from '../src/config.js';
 
 const logger = createDebugLogger('aztec:http-pxe-client');
 
-async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE) {
-  logger('Deploying Blank contract...');
-
-  const { artifact } = BlankContract;
-  const salt = Fr.random();
-  const functionAbi = artifact.functions.find(f => f.name === 'constructor')!;
-  const typedArgs: any[] = convertArgs(functionAbi, []);
-  const tx = new DeployMethod(
-    owner.publicKey,
-    pxe.getPxe(),
-    artifact,
-    (a, w) => Contract.at(a, artifact, w),
-    typedArgs,
-  ).send({
-    contractAddressSalt: salt,
-  });
-
-  const { contractAddress } = await tx.wait();
-  logger(`L2 contract deployed at ${contractAddress}`);
-  return BlankContract.at(contractAddress!, wallet);
-}
-
 describe('ZK Contract Tests', () => {
   let wallet: AccountWallet;
-  let owner: CompleteAddress;
-  let _account2: CompleteAddress;
-  let _account3: CompleteAddress;
   let contract: Contract;
-  let contractAddress: AztecAddress;
+  const { artifact } = BlankContract;
+  const numberToSet = Fr.random();
 
   beforeAll(async () => {
-    const accounts = await pxe.getPxe().getRegisteredAccounts();
-    [owner, _account2, _account3] = accounts;
+    wallet = await deployerEnv.getWallet();
+    const pxe = deployerEnv.pxe;
+    const deployer = new ContractDeployer(artifact, pxe);
+    const salt = Fr.random();
+    const tx = deployer.deploy(Fr.random(), wallet.getCompleteAddress().address).send({ contractAddressSalt: salt });
+    await tx.wait();
+    const { contractAddress } = await tx.getReceipt();
+    contract = await BlankContract.at(contractAddress!, wallet);
 
-    wallet = await getWallet(owner, pxe.getPxe());
-
-    contract = await deployZKContract(owner, wallet, pxe.getPxe());
-    contractAddress = contract.address;
+    logger(`L2 contract deployed at ${contractAddress}`);
   }, 60000);
 
-  test('call succeeds after deploy', async () => {
-    const callTxReceipt = await callContractFunction(
-      contractAddress,
-      contract.artifact,
-      'getPublicKey',
-      [owner.address.toField()],
-      pxe.getPxe(),
-      owner,
-    );
+  test('Can set a number', async () => {
+    logger(`${await wallet.getRegisteredAccounts()}`);
+    const callTxReceipt = await contract.methods.setNumber(numberToSet).send().wait();
 
     expect(callTxReceipt.status).toBe(TxStatus.MINED);
+  }, 40000);
+
+  test('Can read a number', async () => {
+    const viewTxReceipt = await contract.methods.getNumber().view();
+    expect(numberToSet.toBigInt()).toEqual(viewTxReceipt.value);
   }, 40000);
 });

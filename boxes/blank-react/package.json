@@ -3,15 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "main": "./dest/index.js",
+  "main": "./dist/index.js",
   "scripts": {
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
     "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o artifacts --ts",
     "build": "yarn clean && yarn compile && yarn codegen && tsc -b && webpack",
-    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src/contracts/target",
+    "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
-    "dev": "yarn prep && webpack serve --mode development",
-    "serve": "serve -p 3000 ./dest",
+    "dev": "webpack serve --mode development",
+    "serve": "serve -p 3000 ./dist",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
@@ -62,10 +62,12 @@
     "eslint-plugin-prettier": "^5.0.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
+    "html-webpack-plugin": "^5.6.0",
     "jest": "^29.6.4",
     "postcss": "^8.4.29",
     "postcss-loader": "^7.3.3",
     "prettier": "^3.1.1",
+    "react-toastify": "^10.0.4",
     "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",
     "style-loader": "^3.3.3",
@@ -79,23 +81,11 @@
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1"
   },
-  "browserslist": {
-    "production": [
-      ">0.5%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
   "files": [
-    "dest",
+    "dist",
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts",
+  "types": "./dist/index.d.ts",
   "packageManager": "yarn@4.0.2"
 }
