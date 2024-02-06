@@ -33,9 +33,11 @@ use crate::{
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
-    
+
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
+
+    meta_hwm: u32,
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
@@ -93,10 +95,12 @@ impl Eq for PrivateCircuitPublicInputs {
 
 impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
+        let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0);
         fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
+
+        fields.push(self.meta_hwm as Field);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.read_requests[i].serialize());
@@ -137,6 +141,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
+            meta_hwm: reader.read() as u32,
             read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
             new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
@@ -180,5 +185,5 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x1b323a662c9b3b4e39790ce8a3ad2c7ecc93014567bb9ce4c2333c5d205a6bae);
+    assert_eq(hash, 0x0f16478dc1731c940b04c312d322697f6a3bff523d2660d896426b2ab3af9598);
 }
