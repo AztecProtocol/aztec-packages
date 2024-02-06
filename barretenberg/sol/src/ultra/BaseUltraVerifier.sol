@@ -2617,7 +2617,7 @@ abstract contract BaseUltraVerifier {
                 // accumulator = accumulator + accumulator_2
                 success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
-                if iszero(or(success, mload(0x00))) {
+                if iszero(success) {
                     mstore(0x0, OPENING_COMMITMENT_FAILED_SELECTOR)
                     revert(0x00, 0x04)
                 }
@@ -2752,7 +2752,7 @@ abstract contract BaseUltraVerifier {
                 mstore(0x160, mload(G2X_Y1_LOC))
 
                 success := staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20)
-                if iszero(or(success, mload(0x00))) {
+                if iszero(and(success, mload(0x00))) {
                     mstore(0x0, PAIRING_FAILED_SELECTOR)
                     revert(0x00, 0x04)
                 }
