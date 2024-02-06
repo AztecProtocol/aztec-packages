@@ -238,7 +238,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                                 self.memory.write(*value_index, *value);
                             }
                             _ => unreachable!(
-                                "Function result size does not match brillig bytecode (expected 1 result)"
+                                "Function result size does not match brillig bytecode. Expected 1 result but got {output:?}"
                             ),
                         },
                         ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }) => {
