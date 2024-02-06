@@ -18,14 +18,14 @@ class ArrayStore {
 
     void put(size_t level, size_t index, const std::vector<uint8_t>& data)
     {
-        ASSERT(level >= 0 && level < map_.size());
-        ASSERT(index >= 0 && index < map_[level].size());
+        ASSERT(level >= 0UL && level < map_.size());
+        ASSERT(index >= 0UL && index < map_[level].size());
         map_[level][index] = std::make_pair(true, data);
     }
     bool get(size_t level, size_t index, std::vector<uint8_t>& data) const
     {
-        ASSERT(level >= 0 && level < map_.size());
-        ASSERT(index >= 0 && index < map_[level].size());
+        ASSERT(level >= 0UL && level < map_.size());
+        ASSERT(index >= 0UL && index < map_[level].size());
         const std::pair<bool, std::vector<uint8_t>>& slot = map_[level][index];
         if (slot.first) {
             data = slot.second;
