@@ -21,19 +21,18 @@ import {
   getContractInstanceFromDeployParams,
   isContractDeployed,
 } from '@aztec/aztec.js';
+import { registerContractClass } from '@aztec/aztec.js/deployment';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  ContractClassIdPreimage,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   Point,
   PublicKey,
   computeArtifactFunctionTree,
   computeArtifactFunctionTreeRoot,
   computeArtifactMetadataHash,
   computeFunctionArtifactHash,
-  computePrivateFunctionsRoot,
   computePrivateFunctionsTree,
-  computePublicBytecodeCommitment,
   computePublicKeysHash,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
@@ -275,36 +274,15 @@ describe('e2e_deploy_contract', () => {
   describe('registering a contract class', () => {
     let registerer: ContractClassRegistererContract;
     let artifact: ContractArtifact;
-    let contractClass: ContractClassWithId;
+    let contractClass: ContractClassWithId & ContractClassIdPreimage;
     let registerTxHash: TxHash;
-    let privateFunctionsRoot: Fr;
-    let publicBytecodeCommitment: Fr;
 
     beforeAll(async () => {
       artifact = StatefulTestContract.artifact;
+      const tx = await registerContractClass(wallet, artifact).send().wait();
       contractClass = getContractClassFromArtifact(artifact);
-      privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
-      publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
-      registerer = await registerContract(wallet, ContractClassRegistererContract, [], { salt: new Fr(1) });
-
-      logger(`contractClass.id: ${contractClass.id}`);
-      logger(`contractClass.artifactHash: ${contractClass.artifactHash}`);
-      logger(`contractClass.privateFunctionsRoot: ${privateFunctionsRoot}`);
-      logger(`contractClass.publicBytecodeCommitment: ${publicBytecodeCommitment}`);
-      logger(`contractClass.packedBytecode.length: ${contractClass.packedBytecode.length}`);
-
-      // Broadcast the class public bytecode via the registerer contract
-      const tx = await registerer.methods
-        .register(
-          contractClass.artifactHash,
-          privateFunctionsRoot,
-          publicBytecodeCommitment,
-          bufferAsFields(contractClass.packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS),
-        )
-        .send()
-        .wait();
       registerTxHash = tx.txHash;
-    });
+    }, 60_000);
 
     it('emits registered logs', async () => {
       const logs = await pxe.getUnencryptedLogs({ txHash: registerTxHash });
@@ -316,7 +294,7 @@ describe('e2e_deploy_contract', () => {
       const registeredClass = await aztecNode.getContractClass(contractClass.id);
       expect(registeredClass).toBeDefined();
       expect(registeredClass!.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());
-      expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(privateFunctionsRoot.toString());
+      expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(contractClass.privateFunctionsRoot.toString());
       expect(registeredClass!.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
       expect(registeredClass!.publicFunctions).toEqual(contractClass.publicFunctions);
       expect(registeredClass!.privateFunctions).toEqual([]);
