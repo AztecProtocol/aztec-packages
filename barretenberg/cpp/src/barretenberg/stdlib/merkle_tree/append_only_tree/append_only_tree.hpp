@@ -18,16 +18,16 @@ template <typename Store> class AppendOnlyTree {
     virtual fr add_value(const fr& value);
     virtual fr add_values(const std::vector<fr>& values);
 
-    index_t size();
-    fr root();
-    size_t depth();
-    fr_hash_path get_hash_path(const index_t& index);
+    index_t size() const;
+    fr root() const;
+    size_t depth() const;
+    fr_hash_path get_hash_path(const index_t& index) const;
 
   protected:
-    fr get_element_or_zero(size_t level, const index_t& index);
+    fr get_element_or_zero(size_t level, const index_t& index) const;
 
     void write_node(size_t level, const index_t& index, const fr& value);
-    std::pair<bool, fr> read_node(size_t level, const index_t& index);
+    std::pair<bool, fr> read_node(size_t level, const index_t& index) const;
 
     Hasher& hasher_;
     Store& store_;
@@ -60,22 +60,22 @@ AppendOnlyTree<Store>::AppendOnlyTree(Hasher& hasher, Store& store, size_t depth
 
 template <typename Store> AppendOnlyTree<Store>::~AppendOnlyTree() {}
 
-template <typename Store> index_t AppendOnlyTree<Store>::size()
+template <typename Store> index_t AppendOnlyTree<Store>::size() const
 {
     return size_;
 }
 
-template <typename Store> fr AppendOnlyTree<Store>::root()
+template <typename Store> fr AppendOnlyTree<Store>::root() const
 {
     return root_;
 }
 
-template <typename Store> size_t AppendOnlyTree<Store>::depth()
+template <typename Store> size_t AppendOnlyTree<Store>::depth() const
 {
     return depth_;
 }
 
-template <typename Store> fr_hash_path AppendOnlyTree<Store>::get_hash_path(const index_t& index)
+template <typename Store> fr_hash_path AppendOnlyTree<Store>::get_hash_path(const index_t& index) const
 {
     fr_hash_path path;
     index_t current_index = index;
@@ -135,7 +135,7 @@ template <typename Store> fr AppendOnlyTree<Store>::add_values(const std::vector
     return root_;
 }
 
-template <typename Store> fr AppendOnlyTree<Store>::get_element_or_zero(size_t level, const index_t& index)
+template <typename Store> fr AppendOnlyTree<Store>::get_element_or_zero(size_t level, const index_t& index) const
 {
     const std::pair<bool, fr> read_data = read_node(level, index);
     if (read_data.first) {
@@ -152,7 +152,7 @@ template <typename Store> void AppendOnlyTree<Store>::write_node(size_t level, c
     store_.put(level, size_t(index), buf);
 }
 
-template <typename Store> std::pair<bool, fr> AppendOnlyTree<Store>::read_node(size_t level, const index_t& index)
+template <typename Store> std::pair<bool, fr> AppendOnlyTree<Store>::read_node(size_t level, const index_t& index) const
 {
     std::vector<uint8_t> buf;
     bool available = store_.get(level, size_t(index), buf);

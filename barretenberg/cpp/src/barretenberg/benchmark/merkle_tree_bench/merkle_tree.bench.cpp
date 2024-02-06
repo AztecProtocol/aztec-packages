@@ -9,7 +9,6 @@ using namespace bb::stdlib::merkle_tree;
 
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
-auto& random_engine = bb::numeric::get_randomness();
 } // namespace
 
 constexpr size_t DEPTH = 256;

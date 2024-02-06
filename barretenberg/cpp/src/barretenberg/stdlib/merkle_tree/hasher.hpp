@@ -28,7 +28,7 @@ class Poseidon2Hasher : public Hasher {
 
     fr zero_hash() override;
 
-    uint32_t get_hash_count();
+    uint32_t get_hash_count() const;
 
   private:
     std::atomic<uint32_t> hash_count_;

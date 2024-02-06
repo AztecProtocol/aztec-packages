@@ -22,7 +22,7 @@ void native_poseidon2_commitment_bench(State& state) noexcept
         (poseidon_function(count));
     }
 }
-// BENCHMARK(native_poseidon2_commitment_bench)->Arg(10)->Arg(1000)->Arg(10000);
+BENCHMARK(native_poseidon2_commitment_bench)->Arg(10)->Arg(1000)->Arg(10000);
 
 grumpkin::fq poseiden_hash_impl(const grumpkin::fq& x, const grumpkin::fq& y)
 {

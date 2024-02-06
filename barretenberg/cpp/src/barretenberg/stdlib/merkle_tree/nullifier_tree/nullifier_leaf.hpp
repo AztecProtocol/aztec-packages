@@ -23,7 +23,6 @@ struct nullifier_leaf {
         return os;
     }
 
-    // bb::fr hash() const { return stdlib::merkle_tree::hash_native({ value, nextIndex, nextValue }); }
     bb::fr hash() const
     {
         std::vector<fr> to_hash{ value, nextIndex, nextValue };

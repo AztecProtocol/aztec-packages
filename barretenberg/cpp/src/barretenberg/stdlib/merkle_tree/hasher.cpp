@@ -21,7 +21,7 @@ fr Poseidon2Hasher::zero_hash()
     return fr::zero();
 }
 
-uint32_t Poseidon2Hasher::get_hash_count()
+uint32_t Poseidon2Hasher::get_hash_count() const
 {
     return hash_count_.load();
 }

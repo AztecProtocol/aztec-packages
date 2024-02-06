@@ -22,7 +22,7 @@ class ArrayStore {
         ASSERT(index >= 0 && index < map_[level].size());
         map_[level][index] = std::make_pair(true, data);
     }
-    bool get(size_t level, size_t index, std::vector<uint8_t>& data)
+    bool get(size_t level, size_t index, std::vector<uint8_t>& data) const
     {
         ASSERT(level >= 0 && level < map_.size());
         ASSERT(index >= 0 && index < map_[level].size());
