@@ -13,10 +13,35 @@
 
 const fs = require('fs');
 const path = require('path');
-
-// Assuming docsStructure.json is in the root of your Docusaurus project
-const docsStructurePath = path.join(__dirname, 'docsStructure.json');
+// Load the structured documentation paths
+const docsStructurePath = path.join(__dirname, '/src/preprocess/AztecnrReferenceAutogenStructure.json');
 const docsStructure = JSON.parse(fs.readFileSync(docsStructurePath, 'utf8'));
+
+// Function to recursively build sidebar items from the structured documentation
+function buildSidebarItemsFromStructure(structure, basePath = '') {
+    const items = [];
+    for (const key in structure) {
+        if (key === '_docs') {
+            // Base case: add the docs
+            structure[key].forEach(doc => {
+                items.push(`${basePath}/${doc}`);
+            });
+        } else {
+            // Recursive case: process a subdirectory
+            const subItems = buildSidebarItemsFromStructure(structure[key], `${basePath}/${key}`);
+            items.push({
+                type: 'category',
+                label: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize the label
+                items: subItems,
+            });
+        }
+    }
+    return items;
+}
+
+// Build sidebar for AztecNR documentation
+const aztecNRSidebar = buildSidebarItemsFromStructure(docsStructure.AztecNR, 'developers/contracts/references/aztec-nr');
+
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   docsSidebar: [
@@ -452,7 +477,7 @@ const sidebars = {
         {
             label: "Aztec.nr Reference",
             type: "category",
-            items: docsStructure.AztecNR.map(docPath => ({type: 'doc', id: docPath})),
+            items: aztecNRSidebar,
         },
         {
           label: "Private Execution Environment (PXE)",

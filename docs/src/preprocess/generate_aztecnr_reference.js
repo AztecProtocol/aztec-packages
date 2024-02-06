@@ -8,18 +8,27 @@ function listNrFiles(dir, fileList = []) {
         const stat = fs.statSync(filePath);
         if (stat.isDirectory()) {
             listNrFiles(filePath, fileList);
-        } else if (filePath.endsWith('.nr')) {
+        } else if (filePath.endsWith('.nr') && !file.endsWith('lib.nr')) {
             fileList.push(filePath);
         }
     });
     return fileList;
 }
 
+function escapeHtml(unsafeText) {
+    if (!unsafeText) {
+        // Return an empty string or some default value if unsafeText is undefined or null
+        return '';
+    }
+    return unsafeText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+
 function parseParameters(paramString) {
     return paramString.split(',').map(param => {
         param = param.trim().replace(/[\[:;,.]$/g, '').replace(/^[\[:;,.]/g, ''); // Clean up start and end
         let [paramName, type] = param.split(':').map(p => p.trim());
-        return { name: paramName, type };
+        return { name: paramName, type: escapeHtml(type) };
     });
 }
 
@@ -135,42 +144,43 @@ function generateMarkdown(structs, functions) {
 
     structs.forEach(structInfo => {
         if (structInfo) {
-            markdown += `# ${structInfo.structName} Struct\n\n`;
+            markdown += `# ${escapeHtml(structInfo.structName)} Struct\n\n`;
 
             if (structInfo.description) {
-                markdown += `${structInfo.description}\n\n`;
+                markdown += `${escapeHtml(structInfo.description)}\n\n`;
             }
 
             markdown += `## Fields\n`;
             markdown += `| Field | Type |\n| --- | --- |\n`;
             structInfo.fields.forEach(field => {
-                // Check if field and field.type are defined
                 if (field && field.type) {
-                    const cleanType = field.type.replace(/[\[:;,]$/g, '').replace(/^[\[:;,]/g, ''); 
-                    const fieldName = field.name.replace(/[:;]/g, ''); 
+                    const cleanType = escapeHtml(field.type.replace(/[\[:;,]$/g, '').replace(/^[\[:;,]/g, ''));
+                    const fieldName = escapeHtml(field.name.replace(/[:;]/g, ''));
                     markdown += `| ${fieldName} | ${cleanType} |\n`;
                 }
             });
 
+            markdown += '\n';
+
             // Generate markdown for methods of this struct
-            const methods = functions.filter(f => f.isMethod && f.structName === structInfo.structName);
+            const methods = functions.filter(f => f.isMethod && f.structName === escapeHtml(structInfo.structName));
             if (methods.length > 0) {
-                markdown += `\n## Methods\n\n`;
+                markdown += `## Methods\n\n`;
                 methods.forEach(func => {
-                    markdown += `### ${func.name}\n\n`;
-                    if (func.description) markdown += `${func.description}\n\n`;
+                    markdown += `### ${escapeHtml(func.name)}\n\n`;
+                    if (func.description) {
+                        markdown += `${escapeHtml(func.description)}\n\n`;
+                    }
                     markdown += `#### Parameters\n`;
                     markdown += `| Name | Type |\n| --- | --- |\n`;
                     func.params.forEach(({ name, type }) => {
-                        // Ensure param name and type are defined
-                        if (name && type) {
-                            markdown += `| ${name} | ${type} |\n`;
-                        }
+                        markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
                     });
+
                     if (func.returnType) {
                         markdown += `\n#### Returns\n`;
                         markdown += `| Type |\n| --- |\n`;
-                        markdown += `| ${func.returnType} |\n`;
+                        markdown += `| ${escapeHtml(func.returnType)} |\n`;
                     }
                     markdown += '\n';
                 });
@@ -181,22 +191,21 @@ function generateMarkdown(structs, functions) {
     // Generate markdown for standalone functions
     const standaloneFunctions = functions.filter(f => !f.isMethod);
     if (standaloneFunctions.length > 0) {
-        markdown += `\n## Standalone Functions\n\n`;
+        markdown += `## Standalone Functions\n\n`;
         standaloneFunctions.forEach(func => {
-            markdown += `### ${func.name}\n\n`;
-            if (func.description) markdown += `${func.description}\n\n`;
+            markdown += `### ${escapeHtml(func.name)}\n\n`;
+            if (func.description) {
+                markdown += `${escapeHtml(func.description)}\n\n`;
+            }
             markdown += `#### Parameters\n`;
             markdown += `| Name | Type |\n| --- | --- |\n`;
             func.params.forEach(({ name, type }) => {
-                // Ensure param name and type are defined
-                if (name && type) {
-                    markdown += `| ${name} | ${type} |\n`;
-                }
+                markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
             });
             if (func.returnType) {
                 markdown += `\n#### Returns\n`;
                 markdown += `| Type |\n| --- |\n`;
-                markdown += `| ${func.returnType} |\n`;
+                markdown += `| ${escapeHtml(func.returnType)} |\n`;
             }
             markdown += '\n';
         });
@@ -205,40 +214,42 @@ function generateMarkdown(structs, functions) {
     return markdown;
 }
 
+
 function processFiles(baseDir, outputBaseDir) {
     const nrFiles = listNrFiles(baseDir);
-    let docPaths = []; // Array to hold the relative paths of the documentation files
+    let docStructure = {}; // To hold structured documentation paths
 
     nrFiles.forEach(filePath => {
-        if (path.basename(filePath) === 'lib.nr') {
-            console.log(`Skipping documentation generation for ${filePath}`);
-            return; // Skip this file and continue to the next one
-        }
-
         const content = fs.readFileSync(filePath, 'utf8');
         const structs = parseStruct(content);
         const functions = parseFunctions(content);
         const markdown = generateMarkdown(structs, functions);
 
         const relativePath = path.relative(baseDir, filePath);
-        const adjustedPath = relativePath.replace('/src', '').replace(/\.nr$/, '.md'); // Adjust the path and remove .nr extension
+        const adjustedPath = relativePath.replace('/src', '').replace(/\.nr$/, '.md');
         const outputFilePath = path.join(outputBaseDir, adjustedPath);
 
         fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
         fs.writeFileSync(outputFilePath, markdown);
         console.log(`Generated documentation for ${filePath}`);
 
-        // Add the adjusted path to the docPaths array, converting it to a format suitable for Docusaurus
-        const docPathForDocusaurus = adjustedPath.replace(/\\/g, '/').replace('.md', ''); // Ensure paths are in URL format and remove .md
-        docPaths.push(docPathForDocusaurus);
+        // Adjusted to populate docStructure for JSON
+        const docPathForJson = adjustedPath.replace(/\\/g, '/').replace('.md', '');
+        const parts = docPathForJson.split('/');
+        let current = docStructure;
+
+        for (let i = 0; i < parts.length - 1; i++) {
+            current[parts[i]] = current[parts[i]] || {};
+            current = current[parts[i]];
+        }
+
+        current._docs = current._docs || [];
+        current._docs.push(parts[parts.length - 1]);
     });
 
-    // Write the documentation structure to AztecnrReferenceAutogenStructure.json
-    const docsStructure = {
-        AztecNR: docPaths
-    };
-    const outputPath = path.join(outputBaseDir, 'AztecnrReferenceAutogenStructure.json');
-    fs.writeFileSync(outputPath, JSON.stringify(docsStructure, null, 2));
+    // Write structured documentation paths to JSON
+    const outputPath = path.join(__dirname, 'AztecnrReferenceAutogenStructure.json');
+    fs.writeFileSync(outputPath, JSON.stringify({ AztecNR: docStructure }, null, 2));
     console.log(`Documentation structure written to ${outputPath}`);
 }
 
@@ -246,3 +257,4 @@ const baseDir = path.resolve(__dirname, '../../../yarn-project/aztec-nr');
 const outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
 
 processFiles(baseDir, outputBaseDir);
+
