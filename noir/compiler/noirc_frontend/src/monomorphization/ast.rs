@@ -246,8 +246,6 @@ pub struct Program {
     pub return_distinctness: Distinctness,
     pub return_location: Option<Location>,
     pub return_visibility: Visibility,
-    /// Indicates to a backend whether a SNARK-friendly prover should be used.  
-    pub recursive: bool,
 }
 
 impl Program {
@@ -257,7 +255,6 @@ impl Program {
         return_distinctness: Distinctness,
         return_location: Option<Location>,
         return_visibility: Visibility,
-        recursive: bool,
     ) -> Program {
         Program {
             functions,
@@ -265,7 +262,6 @@ impl Program {
             return_distinctness,
             return_location,
             return_visibility,
-            recursive,
         }
     }
 

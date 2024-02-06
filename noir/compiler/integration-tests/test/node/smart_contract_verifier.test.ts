@@ -46,11 +46,11 @@ test_cases.forEach((testInfo) => {
     const prover_toml = readFileSync(resolve(`${base_relative_path}/${test_case}/Prover.toml`)).toString();
     const inputs = toml.parse(prover_toml);
 
-    const proofData = await program.generateProof(inputs);
+    const proofData = await program.generateFinalProof(inputs);
 
     // JS verification
 
-    const verified = await program.verifyProof(proofData);
+    const verified = await program.verifyFinalProof(proofData);
     expect(verified, 'Proof fails verification in JS').to.be.true;
 
     // Smart contract verification

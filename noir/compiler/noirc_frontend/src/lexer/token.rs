@@ -491,7 +491,6 @@ impl Attribute {
                 Attribute::Function(FunctionAttribute::Oracle(name.to_string()))
             }
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
-            ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -542,7 +541,6 @@ pub enum FunctionAttribute {
     Builtin(String),
     Oracle(String),
     Test(TestScope),
-    Recursive,
 }
 
 impl FunctionAttribute {
@@ -580,7 +578,6 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Foreign(ref k) => write!(f, "#[foreign({k})]"),
             FunctionAttribute::Builtin(ref k) => write!(f, "#[builtin({k})]"),
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
-            FunctionAttribute::Recursive => write!(f, "#[recursive]"),
         }
     }
 }
@@ -624,7 +621,6 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Builtin(string) => string,
             FunctionAttribute::Oracle(string) => string,
             FunctionAttribute::Test { .. } => "",
-            FunctionAttribute::Recursive => "",
         }
     }
 }

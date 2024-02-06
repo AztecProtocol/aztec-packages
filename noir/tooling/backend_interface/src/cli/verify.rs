@@ -6,6 +6,7 @@ use crate::BackendError;
 /// to verify a proof
 pub(crate) struct VerifyCommand {
     pub(crate) crs_path: PathBuf,
+    pub(crate) is_recursive: bool,
     pub(crate) proof_path: PathBuf,
     pub(crate) vk_path: PathBuf,
 }
@@ -22,6 +23,10 @@ impl VerifyCommand {
             .arg(self.proof_path)
             .arg("-k")
             .arg(self.vk_path);
+
+        if self.is_recursive {
+            command.arg("-r");
+        }
 
         let output = command.output()?;
 
@@ -59,12 +64,18 @@ fn verify_command() -> Result<(), BackendError> {
 
     write_vk_command.run(backend.binary_path())?;
 
-    let prove_command = ProveCommand { crs_path: crs_path.clone(), bytecode_path, witness_path };
+    let prove_command = ProveCommand {
+        crs_path: crs_path.clone(),
+        is_recursive: false,
+        bytecode_path,
+        witness_path,
+    };
     let proof = prove_command.run(backend.binary_path())?;
 
     write_to_file(&proof, &proof_path);
 
-    let verify_command = VerifyCommand { crs_path, proof_path, vk_path: vk_path_output };
+    let verify_command =
+        VerifyCommand { crs_path, is_recursive: false, proof_path, vk_path: vk_path_output };
 
     let verified = verify_command.run(backend.binary_path())?;
     assert!(verified);

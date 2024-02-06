@@ -59,11 +59,11 @@ test_cases.forEach((testInfo) => {
 
     // JS Proving
 
-    const proofWithPublicInputs = await program.generateProof(inputs);
+    const proofWithPublicInputs = await program.generateFinalProof(inputs);
 
     // JS verification
 
-    const verified = await program.verifyProof(proofWithPublicInputs);
+    const verified = await program.verifyFinalProof(proofWithPublicInputs);
     expect(verified, 'Proof fails verification in JS').to.be.true;
   });
 

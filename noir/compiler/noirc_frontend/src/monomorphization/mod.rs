@@ -117,7 +117,6 @@ pub fn monomorphize(main: node_interner::FuncId, interner: &NodeInterner) -> Pro
         meta.return_distinctness,
         monomorphizer.return_location,
         meta.return_visibility,
-        meta.kind == FunctionKind::Recursive,
     )
 }
 
@@ -195,9 +194,6 @@ impl<'interner> Monomorphizer<'interner> {
                             FunctionAttribute::Oracle(name) => Definition::Oracle(name),
                             _ => unreachable!("Oracle function must have an oracle attribute"),
                         }
-                    }
-                    FunctionKind::Recursive => {
-                        unreachable!("Only main can be specified as recursive, which should already be checked");
                     }
                 }
             }
