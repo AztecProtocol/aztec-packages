@@ -308,7 +308,7 @@ abstract contract BaseUltraVerifier {
     constructor() { 
         loadVerificationKey(N_LOC, OMEGA_INVERSE_LOC);
 
-        // We verify that all of the EC points in the verification key lie on the bn254 curve. 
+        // We verify that all of the EC points in the verification key lie on the bn128 curve. 
         assembly {
             let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
 
