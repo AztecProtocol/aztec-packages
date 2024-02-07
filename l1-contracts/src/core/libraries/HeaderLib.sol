@@ -51,6 +51,8 @@ import {Hash} from "./Hash.sol";
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
+  uint256 private constant HEADER_LENGTH = 0x1ac; // Header byte length
+
   struct AppendOnlyTreeSnapshot {
     bytes32 root;
     uint32 nextAvailableLeafIndex;
@@ -130,8 +132,8 @@ library HeaderLib {
    * @return The decoded header
    */
   function decode(bytes calldata _header) internal pure returns (Header memory) {
-    if (_header.length != 0x1ac) {
-      revert Errors.HeaderLib__InvalidHeaderSize(0x1ac, _header.length);
+    if (_header.length != HEADER_LENGTH) {
+      revert Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length);
     }
 
     Header memory header;
@@ -167,7 +169,7 @@ library HeaderLib {
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0138:0x0158]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x0158:0x0178]));
     header.globalVariables.coinbase = address(bytes20(_header[0x0178:0x018c]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x018c:0x1ac]);
+    header.globalVariables.feeRecipient = bytes32(_header[0x018c:HEADER_LENGTH]);
 
     return header;
   }
