@@ -8,11 +8,13 @@
 using namespace benchmark;
 using namespace bb::stdlib::merkle_tree;
 
+using IndTree = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>;
+
 namespace {
 auto& random_engine = bb::numeric::get_randomness();
 } // namespace
 
-void perform_batch_insert(IndexedTree<ArrayStore, LeavesCache>& tree, const std::vector<fr>& values)
+void perform_batch_insert(IndTree& tree, const std::vector<fr>& values)
 {
     tree.add_values(values);
 }
@@ -22,9 +24,8 @@ void indexed_tree_bench(State& state) noexcept
     const size_t batch_size = 16;
     const size_t depth = 40;
 
-    Poseidon2Hasher hasher;
     ArrayStore store(depth + 1, 100 * 1024);
-    IndexedTree<ArrayStore, LeavesCache> tree = IndexedTree<ArrayStore, LeavesCache>(hasher, store, depth, batch_size);
+    IndTree tree = IndTree(store, depth, batch_size);
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -35,7 +36,6 @@ void indexed_tree_bench(State& state) noexcept
         state.ResumeTiming();
         perform_batch_insert(tree, values);
     }
-    info("Performed ", hasher.get_hash_count(), " hashes");
 }
 BENCHMARK(indexed_tree_bench)->Unit(benchmark::kMillisecond)->Iterations(6000);
 
