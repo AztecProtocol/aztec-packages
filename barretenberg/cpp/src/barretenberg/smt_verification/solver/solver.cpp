@@ -74,4 +74,93 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
     }
     return resulting_model;
 }
+
+std::string stringify_term(const cvc5::Term& term){
+    if(term.getKind() == cvc5::Kind::CONSTANT){
+        return term.toString();
+    }
+    if(term.getKind() == cvc5::Kind::CONST_FINITE_FIELD){
+        return term.getFiniteFieldValue();
+    }
+    if(term.getKind() == cvc5::Kind::CONST_INTEGER){
+        return term.getIntegerValue();
+    }
+    if(term.getKind() == cvc5::Kind::CONST_BOOLEAN){
+        return std::to_string(static_cast<size_t>(term.getBooleanValue()));
+    }
+
+    std::string res;
+    std::string op;
+    switch (term.getKind()){
+        case cvc5::Kind::ADD:
+        case cvc5::Kind::FINITE_FIELD_ADD:
+            op = " + ";
+            break;
+        case cvc5::Kind::SUB:
+            op = " - ";
+            break;
+        case cvc5::Kind::NEG:
+        case cvc5::Kind::FINITE_FIELD_NEG:
+            res = "- ";
+            break;
+        case cvc5::Kind::MULT:
+        case cvc5::Kind::FINITE_FIELD_MULT:
+            op = " * ";
+            break;
+
+        case cvc5::Kind::EQUAL:
+            op = " == ";
+            break;
+        case cvc5::Kind::LT:
+            op = " < ";
+            break;
+        case cvc5::Kind::GT:
+            op = " > ";
+            break;
+        case cvc5::Kind::LEQ:
+            op = " <= ";
+            break;
+        case cvc5::Kind::GEQ:
+            op = " >= ";
+            break;
+        case cvc5::Kind::XOR:
+            op = " ^ ";
+            break;
+        case cvc5::Kind::OR:
+            op = " || ";
+            break;
+        case cvc5::Kind::AND:
+            op = " && ";
+            break;
+        case cvc5::Kind::INTS_MODULUS:
+            op = " % ";
+            break;
+        default:
+            info("Invalid operand :", term.getKind());
+            break;
+    }// TODO(alex): a % b %...
+
+    size_t i = 0;
+    cvc5::Term child;
+    for(const auto &t : term){
+        if(i == term.getNumChildren() - 1){
+            child = t;
+            break;
+        }
+        res += stringify_term(t)+ op;
+        i += 1;
+    }
+    
+    return "(" + res + stringify_term(child) + ")";
+}
+
+/**
+ * Output assertions in human readable format.
+ *
+ * */
+void Solver::print_assertions() const {
+    for(auto &t : this->s.getAssertions()){
+        info(stringify_term(t));
+    }
+}
 }; // namespace smt_solver

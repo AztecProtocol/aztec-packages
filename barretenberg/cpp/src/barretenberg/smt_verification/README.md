@@ -62,6 +62,8 @@ To store it on the disk just do
 	`base` can be any positive integer, it will mostly be 10 or 16, I guess. Default value is 16.
 
     `timeout` solver timeout in milliseconds. 0 for no timeout.
+
+    solver class has usefull method `print_assertions` that will output all the assertions in kind of human readable format.
 	
 3. Initialize the Circuit 
 

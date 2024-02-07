@@ -65,6 +65,11 @@ class Solver {
     std::unordered_map<std::string, std::string> model(std::unordered_map<std::string, cvc5::Term>& terms) const;
     std::unordered_map<std::string, std::string> model(std::vector<cvc5::Term>& terms) const;
 
+    void print_assertions() const;
+
     ~Solver() = default;
 };
+
+std::string stringify_term(const cvc5::Term& term);
+
 }; // namespace smt_solver
