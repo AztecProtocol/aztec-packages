@@ -1,6 +1,7 @@
 {
-  "name": "@aztec/boxes",
+  "name": "@signorecello/boxes",
   "packageManager": "yarn@4.0.2",
+  "type": "module",
   "private": true,
   "scripts": {
     "compile": "FORCE_COLOR=true yarn workspaces foreach -A -p -j unlimited -v run compile:local",
@@ -11,15 +12,20 @@
     "blank-react",
     "token"
   ],
+  "bin": {
+    "create-aztec": "npx.js"
+  },
   "resolutions": {
     "@aztec/accounts": "portal:../yarn-project/accounts",
-    "@aztec/aztec.js": "portal:../yarn-project/aztec.js",
-    "@aztec/circuits.js": "portal:../yarn-project/circuits.js",
-    "@aztec/foundation": "portal:../yarn-project/foundation",
-    "@aztec/bb.js": "portal:../barretenberg/ts",
-    "@aztec/circuit-types": "portal:../yarn-project/circuit-types",
-    "@aztec/ethereum": "portal:../yarn-project/ethereum",
-    "@aztec/protocol-contracts": "portal:../yarn-project/protocol-contracts",
-    "@aztec/types": "portal:../yarn-project/types"
+    "@aztec/aztec.js": "portal:../yarn-project/aztec.js"
+  },
+  "devDependencies": {
+    "@inquirer/confirm": "^3.0.0",
+    "@inquirer/input": "^2.0.0",
+    "@inquirer/select": "^2.0.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "node-pty": "^1.0.0",
+    "tiged": "^2.12.6"
   }
 }
