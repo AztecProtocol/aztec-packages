@@ -51,8 +51,6 @@ import {Hash} from "./Hash.sol";
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
-  uint256 private constant HEADER_LENGTH = 0x1ac; // Header byte length
-
   struct AppendOnlyTreeSnapshot {
     bytes32 root;
     uint32 nextAvailableLeafIndex;
@@ -86,6 +84,8 @@ library HeaderLib {
     StateReference stateReference;
     GlobalVariables globalVariables;
   }
+
+  uint256 private constant HEADER_LENGTH = 0x1ac; // Header byte length
 
   /**
    * @notice Validates the header
