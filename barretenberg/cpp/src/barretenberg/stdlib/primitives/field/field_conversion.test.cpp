@@ -25,6 +25,7 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
+        EXPECT_EQ(x.size(), y.size());
         for (size_t i = 0; i < x.size(); i++) {
             EXPECT_EQ(x[i].get_value(), y[i].get_value());
         }
@@ -36,6 +37,7 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
+        EXPECT_EQ(x.evaluations.size(), y.evaluations.size());
         for (size_t i = 0; i < x.evaluations.size(); i++) {
             EXPECT_EQ(x.evaluations[i].get_value(), y.evaluations[i].get_value());
         }

@@ -92,12 +92,12 @@ template <typename Builder> struct StdlibTranscriptParams {
     static inline Fr hash(const std::vector<Fr>& data)
     {
         if constexpr (std::is_same_v<Builder, GoblinUltraCircuitBuilder>) {
-            assert(!data.empty() && data[0].get_context() != nullptr);
+            ASSERT(!data.empty() && data[0].get_context() != nullptr);
             Builder* builder = data[0].get_context();
             return stdlib::poseidon2<Builder>::hash(*builder, data);
         } else {
             using NativeFr = bb::fr;
-            assert(!data.empty() && data[0].get_context() != nullptr);
+            ASSERT(!data.empty() && data[0].get_context() != nullptr);
             Builder* builder = data[0].get_context();
 
             // call the native hash on the data
@@ -123,7 +123,7 @@ template <typename Builder> struct StdlibTranscriptParams {
     }
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {
-        assert(!frs.empty() && frs[0].get_context() != nullptr);
+        ASSERT(!frs.empty() && frs[0].get_context() != nullptr);
         Builder* builder = frs[0].get_context();
         return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
     }
