@@ -21,7 +21,7 @@ describe('Synchronizer', () => {
   const initialSyncBlockNumber = 3;
   let headerBlock3: Header;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     headerBlock3 = makeHeader(Math.floor(Math.random() * 1000), initialSyncBlockNumber);
 
     aztecNode = mock<AztecNode>();

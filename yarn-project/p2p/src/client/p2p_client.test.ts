@@ -23,7 +23,7 @@ describe('In-Memory P2P Client', () => {
   let kvStore: AztecKVStore;
   let client: P2PClient;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     txPool = {
       addTxs: jest.fn(),
       getTxByHash: jest.fn().mockReturnValue(undefined),
