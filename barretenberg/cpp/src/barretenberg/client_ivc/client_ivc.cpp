@@ -33,6 +33,7 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
     goblin.merge(circuit); // Add recursive merge verifier and construct new merge proof
     Composer composer;
     auto instance = composer.create_instance(circuit);
+    info("accumulate: instance->instance_size", instance->proving_key->circuit_size);
     std::vector<std::shared_ptr<Instance>> instances{ fold_output.accumulator, instance };
     auto folding_prover = composer.create_folding_prover(instances);
     fold_output = folding_prover.fold_instances();
@@ -46,14 +47,7 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    // Construct Goblin proof (merge, eccvm, translator)
-    auto goblin_proof = goblin.prove();
-
-    // Construct decider proof for the final accumulator
-    Composer composer;
-    auto decider_prover = composer.create_decider_prover(fold_output.accumulator);
-    auto decider_proof = decider_prover.construct_proof();
-    return { goblin_proof, fold_output.folding_data, decider_proof };
+    return { fold_output.folding_data, decider_prove(), goblin.prove() };
 }
 
 /**
@@ -76,4 +70,17 @@ bool ClientIVC::verify(Proof& proof)
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
     return goblin_verified && folding_verified && decision;
 }
+
+/**
+ * @brief Internal method for constructing a decider proof
+ *
+ * @return HonkProof
+ */
+HonkProof ClientIVC::decider_prove() const
+{
+    Composer composer;
+    auto decider_prover = composer.create_decider_prover(fold_output.accumulator);
+    return decider_prover.construct_proof();
+}
+
 } // namespace bb

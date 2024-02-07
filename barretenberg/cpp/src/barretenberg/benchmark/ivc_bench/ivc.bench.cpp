@@ -35,9 +35,11 @@ class IvcBench : public benchmark::Fixture {
     /**
      * @brief Perform a specified number of function circuit accumulation rounds
      * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists of
-     * the generation of two circuits, two UGH proofs and two Merge proofs. To match the sizes called out in the spec
+     * the generation of two circuits, two folding proofs and two Merge proofs. To match the sizes called out in the
+     * spec
      * (https://github.com/AztecProtocol/aztec-packages/blob/master/yellow-paper/docs/cryptography/performance-targets.md)
-     * we set the size of the function circuit to be 2^17 except for the first one which is 2^19.
+     * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently support
+     * folding circuits of unequal size.
      *
      * @param state
      */
@@ -54,6 +56,7 @@ class IvcBench : public benchmark::Fixture {
         auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
 
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
+        NUM_CIRCUITS -= 1; // Subtract one to account for the "initialization" round above
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 
             // Accumulate function circuit
@@ -73,7 +76,7 @@ class IvcBench : public benchmark::Fixture {
  * @brief Benchmark the full PG-Goblin IVC protocol
  *
  */
-BENCHMARK_DEFINE_F(IvcBench, GoblinFull)(benchmark::State& state)
+BENCHMARK_DEFINE_F(IvcBench, Full)(benchmark::State& state)
 {
     ClientIVC ivc;
 
@@ -82,7 +85,7 @@ BENCHMARK_DEFINE_F(IvcBench, GoblinFull)(benchmark::State& state)
         // Perform a specified number of iterations of function/kernel accumulation
         perform_ivc_accumulation_rounds(state, ivc);
 
-        // Construct proofs for ECCVM and Translator
+        // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
         ivc.prove();
     }
 }
