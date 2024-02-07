@@ -8,6 +8,8 @@ describe('Avm Context', () => {
     const context = initContext();
     context.machineState.pc = 20;
 
+    
+
     const newAddress = AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
     const newContext = context.createNestedContractCallContext(newAddress, newCalldata);
@@ -26,18 +28,9 @@ describe('Avm Context', () => {
       }),
     );
 
-    compareJournal(newContext.worldState, context.worldState.fork());
+    // We stringify to remove circular references (parentJournal)
+    expect(JSON.stringify(newContext.worldState)).toEqual(JSON.stringify(context.worldState.fork()));
   });
-
-  function compareJournal(actual: AvmWorldStateJournal, expected: AvmWorldStateJournal) {
-    const removeParentReference = (journal: AvmWorldStateJournal) => {
-      const j = JSON.parse(JSON.stringify(journal));
-      delete j.parentJournal;
-      return j;
-    }
-
-    expect(removeParentReference(actual)).toEqual(removeParentReference(expected));
-  }
 
   it('New static call should fork context correctly', () => {
     const context = initContext();
