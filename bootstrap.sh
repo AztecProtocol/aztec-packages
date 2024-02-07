@@ -54,6 +54,7 @@ PROJECTS=(
   barretenberg
   noir
   noir-contracts
+  noir-protocol-circuits
   l1-contracts
   avm-transpiler
   yarn-project

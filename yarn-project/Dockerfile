@@ -15,7 +15,7 @@ RUN yarn workspace @aztec/noir-compiler build
 RUN yarn workspace @aztec/noir-contracts.js build:contracts
 # We need to build accounts as it needs to copy in account contracts from noir-contracts.
 RUN yarn workspace @aztec/accounts build:copy-contracts
-RUN yarn workspace @aztec/noir-protocol-circuits build
+RUN yarn workspace @aztec/noir-protocol-circuits-types build
 RUN yarn tsc -b
 
 ENTRYPOINT ["yarn"]

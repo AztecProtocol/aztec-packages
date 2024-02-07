@@ -2,7 +2,10 @@ import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import { PublicKernelInputs, PublicKernelPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { executePublicKernelPrivatePrevious, executePublicKernelPublicPrevious } from '@aztec/noir-protocol-circuits';
+import {
+  executePublicKernelPrivatePrevious,
+  executePublicKernelPublicPrevious,
+} from '@aztec/noir-protocol-circuits-types';
 
 import { PublicKernelCircuitSimulator } from './index.js';
 

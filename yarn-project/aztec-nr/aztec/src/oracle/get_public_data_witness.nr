@@ -9,7 +9,7 @@ global LEAF_PREIMAGE_LENGTH: Field = 4;
 // TODO: move this to constants_gen.nr so that it gets computed as INDEX_LENGTH + LEAF_DATA_LENGTH + PUBLIC_DATA_TREE_HEIGHT
 global PUBLIC_DATA_WITNESS: Field = 45;
 
-// TODO(#3470) replace with /mnt/user-data/jan/aztec-packages/yarn-project/noir-protocol-circuits/src/crates/rollup-lib/src/abis/public_data_tree_leaf.nr
+// TODO(#3470) replace with aztec-packages/noir-protocol-circuits/src/crates/rollup-lib/src/abis/public_data_tree_leaf.nr
 struct PublicDataTreeLeafPreimage {
     slot : Field,
     value: Field,

@@ -40,7 +40,7 @@
     "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
-    "@aztec/noir-protocol-circuits": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/types": "workspace:^",
     "koa": "^2.14.2",

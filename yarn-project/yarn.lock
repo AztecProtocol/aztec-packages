@@ -627,9 +627,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/noir-protocol-circuits@workspace:^, @aztec/noir-protocol-circuits@workspace:noir-protocol-circuits":
+"@aztec/noir-protocol-circuits-types@workspace:^, @aztec/noir-protocol-circuits-types@workspace:noir-protocol-circuits-types":
   version: 0.0.0-use.local
-  resolution: "@aztec/noir-protocol-circuits@workspace:noir-protocol-circuits"
+  resolution: "@aztec/noir-protocol-circuits-types@workspace:noir-protocol-circuits-types"
   dependencies:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -735,7 +735,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
-    "@aztec/noir-protocol-circuits": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -793,7 +793,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
-    "@aztec/noir-protocol-circuits": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/types": "workspace:^"
