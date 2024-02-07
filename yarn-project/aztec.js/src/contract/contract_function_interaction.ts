@@ -55,6 +55,14 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }
 
   /**
+   * Custom simulate supporting extended options
+   * @param options - An optional object containing additional configuration for the transaction.
+   * */
+  public simulate(options: ExecutionRequestOptions = {}) {
+    return super.simulate(options);
+  }
+
+  /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
    * @param options - An optional object containing additional configuration for the transaction.
