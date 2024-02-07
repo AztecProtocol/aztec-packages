@@ -1,14 +1,4 @@
 contract EasyPrivateVoting {
-    // docs:start:imports
-    // use dep::aztec::{
-    //     protocol_types::{
-    //         abis::function_selector::FunctionSelector,
-    //         address::AztecAddress
-    //     },
-    //     context::{PrivateContext, Context},
-    //     state_vars::{ map::Map, public_state::PublicState}, 
-    // };
-    // docs:end:imports
     // docs:start:storage_struct
     struct Storage {
         admin: PublicState<AztecAddress>, // admin can end vote
