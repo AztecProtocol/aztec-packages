@@ -17,7 +17,6 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
 #include <concepts>
@@ -28,6 +27,7 @@
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -418,7 +418,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         }
     };
 
-    using Transcript = bb::BaseTranscript<bb::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb

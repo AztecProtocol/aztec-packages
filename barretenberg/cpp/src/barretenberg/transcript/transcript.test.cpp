@@ -1,4 +1,4 @@
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

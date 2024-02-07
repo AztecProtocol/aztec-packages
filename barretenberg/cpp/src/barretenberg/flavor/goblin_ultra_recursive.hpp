@@ -20,7 +20,7 @@
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -167,7 +167,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = bb::BaseTranscript<bb::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb
