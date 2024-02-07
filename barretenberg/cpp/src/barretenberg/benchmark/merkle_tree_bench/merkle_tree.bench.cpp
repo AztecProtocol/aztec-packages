@@ -7,6 +7,8 @@
 using namespace benchmark;
 using namespace bb::stdlib::merkle_tree;
 
+using TreeType = MerkleTree<MemoryStore, PedersenHashPolicy>;
+
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 } // namespace
@@ -33,7 +35,7 @@ BENCHMARK(hash)->MinTime(5);
 void update_first_element(State& state) noexcept
 {
     MemoryStore store;
-    MerkleTree<MemoryStore> db(store, DEPTH);
+    TreeType db(store, DEPTH);
 
     for (auto _ : state) {
         db.update_element(0, VALUES[1]);
@@ -46,7 +48,7 @@ void update_elements(State& state) noexcept
     for (auto _ : state) {
         state.PauseTiming();
         MemoryStore store;
-        MerkleTree<MemoryStore> db(store, DEPTH);
+        TreeType db(store, DEPTH);
         state.ResumeTiming();
         for (size_t i = 0; i < (size_t)state.range(0); ++i) {
             db.update_element(i, VALUES[i]);
@@ -60,10 +62,10 @@ void update_random_elements(State& state) noexcept
     for (auto _ : state) {
         state.PauseTiming();
         MemoryStore store;
-        MerkleTree db(store, DEPTH);
+        TreeType db(store, DEPTH);
         for (size_t i = 0; i < (size_t)state.range(0); i++) {
             state.PauseTiming();
-            auto index = MerkleTree<MemoryStore>::index_t(engine.get_random_uint256());
+            auto index = TreeType::index_t(engine.get_random_uint256());
             state.ResumeTiming();
             db.update_element(index, VALUES[i]);
         }
