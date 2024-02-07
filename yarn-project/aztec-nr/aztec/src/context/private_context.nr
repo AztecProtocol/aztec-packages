@@ -1,5 +1,5 @@
 use crate::{
-    abi::PrivateContextInputs,
+    context::inputs::private_context_inputs::PrivateContextInputs,
     key::nullifier_key::validate_nullifier_key_against_address,
     messaging::process_l1_to_l2_message,
     oracle::{

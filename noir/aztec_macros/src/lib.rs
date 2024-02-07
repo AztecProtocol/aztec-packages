@@ -1049,7 +1049,7 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
 fn create_inputs(ty: &str) -> Param {
     let context_ident = ident("inputs");
     let context_pattern = Pattern::Identifier(context_ident);
-    let type_path = chained_path!("aztec", "abi", ty);
+    let type_path = chained_path!("aztec", "context", "inputs", "private_context_inputs", ty);
     let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![]));
     let visibility = Visibility::Private;
 
