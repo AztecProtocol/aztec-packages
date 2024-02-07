@@ -17,6 +17,7 @@ use noirc_frontend::macros_api::{MacroError, MacroProcessor};
 use noirc_frontend::macros_api::{ModuleDefId, NodeInterner, SortedModule, StructId};
 use noirc_frontend::node_interner::{TraitId, TraitImplKind};
 use noirc_frontend::Lambda;
+use convert_case::{Case, Casing};
 
 pub struct AztecMacro;
 
@@ -1049,7 +1050,10 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
 fn create_inputs(ty: &str) -> Param {
     let context_ident = ident("inputs");
     let context_pattern = Pattern::Identifier(context_ident);
-    let type_path = chained_path!("aztec", "context", "inputs", "private_context_inputs", ty);
+
+    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context_inputs
+    let type_path = chained_path!("aztec", "context", "inputs", &path_snippet, ty);
+
     let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![]));
     let visibility = Visibility::Private;
 
@@ -1145,15 +1149,17 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
     let hash_call = method_call(
         variable("hasher"), // variable
         "hash",             // method name
-        vec![],             // args
+        vec![],               // args
     );
+
+    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
 
     // let mut context = {ty}::new(inputs, hash);
     let let_context = mutable_assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_path!("aztec", "context", ty, "new")), // Path
-            vec![inputs_expression, hash_call],                          // args
+            variable_path(chained_path!("aztec", "context", &path_snippet, ty, "new")), // Path
+            vec![inputs_expression, hash_call],                                    // args
         ),
     );
     injected_expressions.push(let_context);
@@ -1200,7 +1206,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// ```noir
 /// /// Before
 /// #[aztec(private)]
-/// fn foo() -> abi::PrivateCircuitPublicInputs {
+/// fn foo() -> protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
 ///   // ...
 ///   let my_return_value: Field = 10;
 ///   context.return_values.push(my_return_value);
@@ -1376,8 +1382,8 @@ fn make_castable_return_type(expression: Expression) -> Statement {
 
 /// Create Return Type
 ///
-/// Public functions return abi::PublicCircuitPublicInputs while
-/// private functions return abi::PrivateCircuitPublicInputs
+/// Public functions return protocol_types::abis::public_circuit_public_inputs::PublicCircuitPublicInputs while
+/// private functions return protocol_types::abis::private_circuit_public_inputs::::PrivateCircuitPublicInputs
 ///
 /// This call constructs an ast token referencing the above types
 /// The name is set in the function above `transform`, hence the
@@ -1387,7 +1393,7 @@ fn make_castable_return_type(expression: Expression) -> Statement {
 /// ```noir
 ///
 /// /// Before
-/// fn foo() -> abi::PrivateCircuitPublicInputs {
+/// fn foo() -> protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
 ///    // ...
 /// }
 ///
@@ -1397,7 +1403,8 @@ fn make_castable_return_type(expression: Expression) -> Statement {
 ///  // ...
 /// }
 fn create_return_type(ty: &str) -> FunctionReturnType {
-    let return_path = chained_path!("aztec", "abi", ty);
+    let path_snippet = ty.to_case(Case::Snake); // e.g. private_circuit_public_inputs or public_circuit_public_inputs
+    let return_path = chained_path!("aztec", "protocol_types", "abis", &path_snippet, ty);
     return_type(return_path)
 }
 
@@ -1409,7 +1416,7 @@ fn create_return_type(ty: &str) -> FunctionReturnType {
 /// The replaced code:
 /// ```noir
 /// /// Before
-/// fn foo() -> abi::PrivateCircuitPublicInputs {
+/// fn foo() -> protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
 ///   // ...
 ///  context.finish()
 /// }
