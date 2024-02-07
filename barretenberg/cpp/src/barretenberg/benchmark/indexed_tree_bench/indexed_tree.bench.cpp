@@ -14,9 +14,9 @@ namespace {
 auto& random_engine = bb::numeric::get_randomness();
 } // namespace
 
-void perform_batch_insert(TreeType& tree, const std::vector<fr>& values)
+void perform_batch_insert(TreeType& tree, const std::vector<fr>& values, bool single_threaded)
 {
-    tree.add_values(values);
+    tree.add_or_update_values(values, single_threaded);
 }
 
 void indexed_tree_bench(State& state) noexcept
@@ -34,9 +34,33 @@ void indexed_tree_bench(State& state) noexcept
             values[i] = fr(random_engine.get_random_uint256());
         }
         state.ResumeTiming();
-        perform_batch_insert(tree, values);
+        perform_batch_insert(tree, values, false);
     }
 }
-BENCHMARK(indexed_tree_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(2, 64)->Iterations(6000);
+BENCHMARK(indexed_tree_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(2, 64)->Iterations(1000);
+
+void single_thread_indexed_tree_bench(State& state) noexcept
+{
+    const size_t batch_size = size_t(state.range(0));
+    const size_t depth = 40;
+
+    ArrayStore store(depth, 1024 * 1024);
+    TreeType tree = TreeType(store, depth, batch_size);
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        std::vector<fr> values(batch_size);
+        for (size_t i = 0; i < batch_size; ++i) {
+            values[i] = fr(random_engine.get_random_uint256());
+        }
+        state.ResumeTiming();
+        perform_batch_insert(tree, values, true);
+    }
+}
+BENCHMARK(single_thread_indexed_tree_bench)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, 64)
+    ->Iterations(1000);
 
 BENCHMARK_MAIN();

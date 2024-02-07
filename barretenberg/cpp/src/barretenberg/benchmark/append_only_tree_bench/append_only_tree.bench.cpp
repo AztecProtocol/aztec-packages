@@ -36,6 +36,6 @@ void append_only_tree_bench(State& state) noexcept
         perform_batch_insert(tree, values);
     }
 }
-BENCHMARK(append_only_tree_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(2, 64)->Iterations(6000);
+BENCHMARK(append_only_tree_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(2, 64)->Iterations(1000);
 
 BENCHMARK_MAIN();
