@@ -552,9 +552,10 @@ export class AztecNodeService implements AztecNode {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
-    // TODO(benesjan): populate these values from config.
-    const coinbase = EthAddress.ZERO;
-    const feeRecipient = AztecAddress.ZERO;
+    // If sequencer is not initialized, we just set these values to zero for simulation.
+    const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
+    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
+
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
       new Fr(blockNumber),
       coinbase,

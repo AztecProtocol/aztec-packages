@@ -32,8 +32,8 @@ export class Sequencer {
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
   // TODO: zero values should not be allowed for the following 2 values in PROD
-  private coinbase = EthAddress.ZERO;
-  private feeRecipient = AztecAddress.ZERO;
+  private _coinbase = EthAddress.ZERO;
+  private _feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
 
@@ -68,10 +68,10 @@ export class Sequencer {
       this.minTxsPerBLock = config.minTxsPerBlock;
     }
     if (config.coinbase) {
-      this.coinbase = config.coinbase;
+      this._coinbase = config.coinbase;
     }
     if (config.feeRecipient) {
-      this.feeRecipient = config.feeRecipient;
+      this._feeRecipient = config.feeRecipient;
     }
   }
 
@@ -166,8 +166,8 @@ export class Sequencer {
 
       const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
         new Fr(newBlockNumber),
-        this.coinbase,
-        this.feeRecipient,
+        this._coinbase,
+        this._feeRecipient,
       );
 
       // Filter out invalid txs
@@ -420,6 +420,14 @@ export class Sequencer {
       }
     }
     return false;
+  }
+
+  get coinbase(): EthAddress {
+    return this._coinbase;
+  }
+
+  get feeRecipient(): AztecAddress {
+    return this._feeRecipient;
   }
 }
 
