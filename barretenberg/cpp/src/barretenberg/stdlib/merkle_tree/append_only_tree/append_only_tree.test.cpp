@@ -39,7 +39,7 @@ inline void print_tree(const size_t depth, std::vector<fr> hashes, std::string c
 TEST(stdlib_append_only_tree, can_create)
 {
     constexpr size_t depth = 10;
-    ArrayStore store(depth + 1, 1024);
+    ArrayStore store(depth);
     AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -50,7 +50,7 @@ TEST(stdlib_append_only_tree, can_create)
 TEST(stdlib_append_only_tree, can_add_value)
 {
     constexpr size_t depth = 10;
-    ArrayStore store(depth + 1, 1024);
+    ArrayStore store(depth);
     AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -67,7 +67,7 @@ TEST(stdlib_append_only_tree, can_add_value)
 TEST(stdlib_append_only_tree, test_size)
 {
     constexpr size_t depth = 10;
-    ArrayStore store(depth + 1, 1024);
+    ArrayStore store(depth);
     AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
 
     EXPECT_EQ(tree.size(), 0ULL);
@@ -92,7 +92,7 @@ TEST(stdlib_append_only_tree, test_size)
 TEST(stdlib_append_only_tree, can_add_multiple_values)
 {
     constexpr size_t depth = 10;
-    ArrayStore store(depth + 1, 1024);
+    ArrayStore store(depth);
     AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -104,4 +104,24 @@ TEST(stdlib_append_only_tree, can_add_multiple_values)
         EXPECT_EQ(memdb.get_hash_path(0), tree.get_hash_path(0));
         EXPECT_EQ(memdb.get_hash_path(i), tree.get_hash_path(i));
     }
+}
+
+TEST(stdlib_append_only_tree, can_be_filled)
+{
+    constexpr size_t depth = 3;
+    ArrayStore store(depth);
+    AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    EXPECT_EQ(tree.size(), 0);
+    EXPECT_EQ(tree.root(), memdb.root());
+
+    for (size_t i = 0; i < 8; i++) {
+        memdb.update_element(i, VALUES[i]);
+        tree.add_value(VALUES[i]);
+    }
+
+    EXPECT_EQ(tree.root(), memdb.root());
+    EXPECT_EQ(tree.get_hash_path(0), memdb.get_hash_path(0));
+    EXPECT_EQ(tree.get_hash_path(7), memdb.get_hash_path(7));
 }

@@ -26,7 +26,7 @@ static std::vector<fr> VALUES = []() {
 
 TEST(stdlib_indexed_tree, can_create)
 {
-    ArrayStore store(33, 20);
+    ArrayStore store(32);
     IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree =
         IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 32);
     EXPECT_EQ(tree.size(), 1ULL);
@@ -34,7 +34,7 @@ TEST(stdlib_indexed_tree, can_create)
 
 TEST(stdlib_indexed_tree, test_size)
 {
-    ArrayStore store(33, 20);
+    ArrayStore store(32);
     auto db = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 32);
 
     // We assume that the first leaf is already filled with (0, 0, 0).
@@ -57,7 +57,7 @@ TEST(stdlib_indexed_tree, test_get_hash_path)
 {
     NullifierMemoryTree<Poseidon2HashPolicy> memdb(10);
 
-    ArrayStore store(11, 1024);
+    ArrayStore store(10);
     auto db = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 10);
 
     EXPECT_EQ(memdb.root(), db.root());
@@ -84,11 +84,11 @@ TEST(stdlib_indexed_tree, test_batch_insert)
     size_t depth = 10;
     NullifierMemoryTree<Poseidon2HashPolicy> memdb(depth, batch_size);
 
-    ArrayStore store1(depth + 1, 1024 * 1024);
+    ArrayStore store1(depth);
     IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree1 =
         IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store1, depth, batch_size);
 
-    ArrayStore store2(depth + 1, 1024 * 1024);
+    ArrayStore store2(depth);
     IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree2 =
         IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store2, depth, batch_size);
 

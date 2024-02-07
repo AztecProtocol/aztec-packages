@@ -52,7 +52,7 @@ TEST(crypto_nullifier_tree, test_nullifier_memory)
      */
     nullifier_leaf zero_leaf = { 0, 0, 0 };
     EXPECT_EQ(tree.get_leaves().size(), 1);
-    EXPECT_EQ(tree.get_leaves()[0], zero_leaf);
+    EXPECT_EQ(tree.get_leaves()[0].unwrap(), zero_leaf);
 
     /**
      * Add new value 30:

@@ -16,6 +16,7 @@ NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, s
     : MerkleTree<Store, HashingPolicy>(store, depth, tree_id)
 {
     ASSERT(depth_ >= 1 && depth <= 256);
+    ASSERT(initial_size > 0);
     zero_hashes_.resize(depth);
 
     // Create the zero hashes for the tree
@@ -30,7 +31,13 @@ NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, s
         auto initial_leaf =
             WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
         leaves.push_back(initial_leaf);
-        update_element(i, initial_leaf.hash());
+    }
+
+    leaves[initial_size - 1] =
+        WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
+
+    for (size_t i = 0; i < initial_size; ++i) {
+        update_element(i, leaves[i].hash());
     }
 }
 

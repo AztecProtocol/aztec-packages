@@ -23,7 +23,7 @@ void append_only_tree_bench(State& state) noexcept
     const size_t batch_size = 16;
     const size_t depth = 32;
 
-    ArrayStore store(depth + 1, 100 * 1024);
+    ArrayStore store(depth);
     TreeType tree = TreeType(store, depth, batch_size);
 
     for (auto _ : state) {

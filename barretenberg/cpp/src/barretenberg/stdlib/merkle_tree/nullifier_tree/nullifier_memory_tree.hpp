@@ -94,6 +94,7 @@ NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t ini
     : MemoryTree<HashingPolicy>(depth)
 {
     ASSERT(depth_ >= 1 && depth <= 32);
+    ASSERT(initial_size > 0);
     total_size_ = 1UL << depth_;
     hashes_.resize(total_size_ * 2 - 2);
 
@@ -112,7 +113,13 @@ NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t ini
         auto initial_leaf =
             WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
         leaves_.push_back(initial_leaf);
-        root_ = update_element(i, initial_leaf.hash());
+    }
+
+    leaves_[initial_size - 1] =
+        WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
+
+    for (size_t i = 0; i < initial_size; ++i) {
+        update_element(i, leaves_[i].hash());
     }
 }
 
