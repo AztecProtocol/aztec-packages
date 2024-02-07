@@ -246,6 +246,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     for (auto& el : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
             if (instance->public_inputs.size() >= next_accumulator->public_inputs.size()) {
                 el += instance->public_inputs[el_idx] * lagranges[inst];
                 inst++;

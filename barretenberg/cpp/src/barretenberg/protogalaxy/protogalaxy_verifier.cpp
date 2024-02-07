@@ -247,6 +247,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::ve
     for (auto& expected_el : folded_public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
             if (instance->public_inputs.size() >= folded_public_inputs.size()) {
                 expected_el += instance->public_inputs[el_idx] * lagranges[inst];
                 inst++;
