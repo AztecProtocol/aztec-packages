@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
 #include <barretenberg/common/slab_allocator.hpp>
 #include <cstddef>
@@ -30,8 +31,8 @@ namespace bb {
  * We should only do this if it becomes necessary or convenient.
  */
 
-// These are not magic numbers and they should not be written with global constants. These parameters are not accessible
-// through clearly named static class members.
+// These are not magic numbers and they should not be written with global constants. These parameters are not
+// accessible through clearly named static class members.
 template <typename FF_> class StandardArith {
   public:
     static constexpr size_t NUM_WIRES = 3;
@@ -113,20 +114,6 @@ template <typename FF_> class UltraArith {
             vec.reserve(size_hint);
         }
     }
-
-    /**
-     * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
-     * @details Does nothing for this class since this IS the conventional Ultra arithmetization
-     *
-     */
-    void pad_additional(){};
-
-    /**
-     * @brief Resizes selectors that are not part of the conventional Ultra arithmetization
-     * @details Does nothing for this class since this IS the conventional Ultra arithmetization
-     * @param new_size
-     */
-    void resize_additional(size_t /*unused*/){};
 
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
     inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",       "q_2",
@@ -225,4 +212,7 @@ class GoblinTranslatorArith {
     static constexpr size_t NUM_WIRES = 81;
     static constexpr size_t NUM_SELECTORS = 0;
 };
+
+template <typename T>
+concept HasAdditionalSelectors = IsAnyOf<T, UltraHonkArith<bb::fr>>;
 } // namespace bb
