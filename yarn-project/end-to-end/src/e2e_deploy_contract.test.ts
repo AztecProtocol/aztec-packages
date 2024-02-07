@@ -39,7 +39,11 @@ import {
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { ContractInstanceDeployerContract, StatefulTestContract } from '@aztec/noir-contracts.js';
+import {
+  ContractClassRegistererContract,
+  ContractInstanceDeployerContract,
+  StatefulTestContract,
+} from '@aztec/noir-contracts.js';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
