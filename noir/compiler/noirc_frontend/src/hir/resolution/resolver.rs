@@ -1217,6 +1217,15 @@ impl<'a> Resolver<'a> {
         span: Span,
         condition: Expression,
     ) -> Option<ExprId> {
+        if let Some(
+            assert_message_expr @ Expression {
+                kind: ExpressionKind::Literal(Literal::Str(..)), ..
+            },
+        ) = assert_message_expr
+        {
+            return Some(self.resolve_expression(assert_message_expr));
+        }
+
         let mut assert_msg_call_args = if let Some(assert_message_expr) = assert_message_expr {
             vec![assert_message_expr.clone()]
         } else {
