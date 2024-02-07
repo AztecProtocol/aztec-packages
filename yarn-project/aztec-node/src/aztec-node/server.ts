@@ -26,6 +26,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
+  EthAddress,
   Fr,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -47,7 +48,7 @@ import {
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
-import { ContractClassPublic } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -240,6 +241,10 @@ export class AztecNodeService implements AztecNode {
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     return this.contractDataSource.getContractClass(id);
+  }
+
+  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.contractDataSource.getContract(address);
   }
 
   /**
@@ -550,7 +555,16 @@ export class AztecNodeService implements AztecNode {
   public async simulatePublicCalls(tx: Tx) {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
+
+    // If sequencer is not initialized, we just set these values to zero for simulation.
+    const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
+    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
+
+    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
+      new Fr(blockNumber),
+      coinbase,
+      feeRecipient,
+    );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
