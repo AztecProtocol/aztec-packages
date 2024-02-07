@@ -245,7 +245,7 @@ contract DocsExample {
 
     /// Macro equivalence section
     use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
+    use dep::aztec::hasher::Hasher;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PrivateCircuitPublicInputs;
 

@@ -1088,8 +1088,8 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
     let let_hasher = mutable_assignment(
         "hasher", // Assigned to
         call(
-            variable_path(chained_path!("aztec", "abi", "Hasher", "new")), // Path
-            vec![],                                                        // args
+            variable_path(chained_path!("aztec", "hasher", "Hasher", "new")), // Path
+            vec![],                                                      // args
         ),
     );
 
