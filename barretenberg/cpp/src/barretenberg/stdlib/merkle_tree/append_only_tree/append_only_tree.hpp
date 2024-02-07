@@ -7,6 +7,11 @@ using namespace bb;
 
 typedef uint256_t index_t;
 
+/**
+ * @brief Implements a simple append-only merkle tree
+ * Accepts template argument of the type of store backing the tree and the hashing policy
+ *
+ */
 template <typename Store, typename HashingPolicy> class AppendOnlyTree {
   public:
     AppendOnlyTree(Store& store, size_t depth, uint8_t tree_id = 0);
@@ -14,12 +19,34 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     AppendOnlyTree(AppendOnlyTree&& other) = delete;
     virtual ~AppendOnlyTree();
 
+    /**
+     * @brief Adds a single value to the end of the tree
+     */
     virtual fr add_value(const fr& value);
+
+    /**
+     * @brief Adds the given set of values to the end of the tree
+     */
     virtual fr add_values(const std::vector<fr>& values);
 
+    /**
+     * @brief Returns the index of the right-most populated leaf in the tree
+     */
     index_t size() const;
+
+    /**
+     * @brief Returns the root of the tree
+     */
     fr root() const;
+
+    /**
+     * @brief Returns the depth of the tree
+     */
     size_t depth() const;
+
+    /**
+     * @brief Returns the hash path from the leaf at the given index to the root
+     */
     fr_hash_path get_hash_path(const index_t& index) const;
 
   protected:
@@ -102,10 +129,12 @@ fr AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& value
     size_t level = depth_;
     std::vector<fr> hashes = values;
 
+    // Add the values at the leaf nodes of the tree
     for (size_t i = 0; i < number_to_insert; ++i) {
         write_node(level, index + i, hashes[i]);
     }
 
+    // Hash the values as a sub tree and insert them
     while (number_to_insert > 1) {
         number_to_insert >>= 1;
         index >>= 1;
@@ -116,6 +145,7 @@ fr AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& value
         }
     }
 
+    // Hash from the root of the sub-tree to the root of the overall tree
     fr new_hash = hashes[0];
     while (level > 0) {
         bool is_right = bool(index & 0x01);

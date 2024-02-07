@@ -11,6 +11,11 @@ using namespace bb;
 
 typedef uint256_t index_t;
 
+/**
+ * @brief Used in parallel insertions in the the IndexedTree. Workers signal to other following workes as they move up
+ * the level of the tree.
+ *
+ */
 class LevelSignal {
   public:
     LevelSignal(size_t initial_level)
@@ -21,6 +26,11 @@ class LevelSignal {
     {}
     LevelSignal(const LevelSignal&& other) = delete;
 
+    /**
+     * @brief Causes the thread to wait until the required level has been signalled
+     * @param level The required level
+     *
+     */
     void wait_for_level(size_t level)
     {
         size_t current_level = signal_.load();
@@ -30,6 +40,11 @@ class LevelSignal {
         }
     }
 
+    /**
+     * @brief Signals that the given level has been passed
+     * @param level The level to be signalled
+     *
+     */
     void signal_level(size_t level)
     {
         signal_.store(level);
@@ -40,6 +55,12 @@ class LevelSignal {
     std::atomic<size_t> signal_;
 };
 
+/**
+ * @brief Implements a parallelised batch insertion indexed tree
+ * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
+ * hashing policy
+ *
+ */
 template <typename Store, typename LeavesStore, typename HashingPolicy>
 class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
   public:
@@ -48,10 +69,33 @@ class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
     IndexedTree(IndexedTree&& other) = delete;
     ~IndexedTree();
 
+    /**
+     * @brief Adds or updates a single values in the tree (updates not currently supported)
+     * @param value The value to be added or updated
+     * @returns The 'previous' hash paths of all updated values
+     */
     fr_hash_path add_or_update_value(const fr& value);
+
+    /**
+     * @brief Adds or updates the given set of values in the tree (updates not currently supported)
+     * @param values The values to be added or updated
+     * @param no_multithreading Performs single threaded insertion, just used whilst prototyping and benchmarking
+     * @returns The 'previous' hash paths of all updated values
+     */
     std::vector<fr_hash_path> add_or_update_values(const std::vector<fr>& values, bool no_multithreading = false);
 
+    /**
+     * @brief Adds or updates a single value without returning the previous hash path
+     * @param value The value to be added or updated
+     * @returns The new root of the tree
+     */
     fr add_value(const fr& value) override;
+
+    /**
+     * @brief Adds or updates the given set of values without returning the previous hash paths
+     * @param values The values to be added or updated
+     * @returns The new root of the tree
+     */
     fr add_values(const std::vector<fr>& values) override;
 
     using AppendOnlyTree<Store, HashingPolicy>::get_hash_path;
@@ -87,11 +131,19 @@ IndexedTree<Store, LeavesStore, HashingPolicy>::IndexedTree(Store& store,
                                                             uint8_t tree_id)
     : AppendOnlyTree<Store, HashingPolicy>(store, depth, tree_id)
 {
+    ASSERT(initial_size > 0);
+    // Inserts the initial set of leaves as a chain in incrementing value order
     for (size_t i = 0; i < initial_size; ++i) {
         // Insert the zero leaf to the `leaves` and also to the tree at index 0.
         indexed_leaf initial_leaf = indexed_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 };
         leaves_.append_leaf(initial_leaf);
     }
+
+    // Points the last leaf back to the first
+    leaves_.set_at_index(
+        initial_size - 1,
+        indexed_leaf{ .value = leaves_.get_leaf(initial_size - 1).value, .nextIndex = 0, .nextValue = 0 },
+        false);
     append_subtree(0);
 }
 
@@ -122,6 +174,7 @@ template <typename Store, typename LeavesStore, typename HashingPolicy>
 std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or_update_values(
     const std::vector<fr>& values, bool no_multithreading)
 {
+    // The first thing we do is sort the values into descending order but maintain knowledge of their orignal order
     struct {
         bool operator()(const std::pair<fr, size_t>& a, const std::pair<fr, size_t>& b) const
         {
@@ -134,6 +187,8 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or
     }
     std::sort(values_sorted.begin(), values_sorted.end(), comp);
 
+    // Now that we have the sorted values we need to identify the leaves that need updating.
+    // This is performed sequentially and is stored in this 'leaf_insertion' struct
     struct leaf_insertion {
         index_t low_leaf_index;
         indexed_leaf low_leaf;
@@ -146,6 +201,7 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or
         fr value = values_sorted[i].first;
         index_t index_of_new_leaf = index_t(values_sorted[i].second) + old_size;
 
+        // This gives us the leaf that need updating
         index_t current;
         bool is_already_present;
         std::tie(is_already_present, current) = leaves_.find_low_value(values_sorted[i].first);
@@ -154,6 +210,7 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or
         indexed_leaf new_leaf =
             indexed_leaf{ .value = value, .nextIndex = current_leaf.nextIndex, .nextValue = current_leaf.nextValue };
 
+        // We only handle new values being added. We don't yet handle values being updated
         if (!is_already_present) {
             // Update the current leaf to point it to the new leaf
             current_leaf.nextIndex = index_of_new_leaf;
@@ -163,6 +220,7 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or
             leaves_.set_at_index(index_of_new_leaf, new_leaf, true);
         }
 
+        // Capture the index and value of the updated 'low' leaf
         leaf_insertion& insertion = insertions[i];
         insertion.low_leaf_index = current;
         insertion.low_leaf = indexed_leaf{ .value = current_leaf.value,
@@ -170,20 +228,26 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or
                                            .nextValue = current_leaf.nextValue };
     }
 
+    // We now kick off multiple workers to perform the low leaf updates
+    // We create set of signals to coordinate the workers as the move up the tree
     std::vector<fr_hash_path> paths(insertions.size());
     std::vector<LevelSignal> signals;
+    // The first signal is set to 0. This ensure the first worker up the tree is not impeded
     signals.emplace_back(size_t(0));
+    // Workers will follow their leaders up the tree, being trigger by the signal in front of them
     for (size_t i = 0; i < insertions.size(); ++i) {
         signals.emplace_back(size_t(1 + depth_));
     }
 
     if (no_multithreading) {
+        // Execute the jobs in series
         for (size_t i = 0; i < insertions.size(); ++i) {
             leaf_insertion& insertion = insertions[i];
             update_leaf_and_hash_to_root(
                 insertion.low_leaf_index, insertion.low_leaf, signals[i], signals[i + 1], paths[i]);
         }
     } else {
+        // Execute the jobs in parallel
         parallel_for(insertions.size(), [&](size_t i) {
             leaf_insertion& insertion = insertions[i];
             update_leaf_and_hash_to_root(
@@ -191,6 +255,7 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or
         });
     }
 
+    // Now that we have updated all of the low leaves, we insert the new leaves as a subtree at the end
     root_ = append_subtree(old_size);
 
     return paths;
@@ -213,34 +278,42 @@ fr IndexedTree<Store, LeavesStore, HashingPolicy>::update_leaf_and_hash_to_root(
                                                                                 LevelSignal& follower,
                                                                                 fr_hash_path& previous_hash_path)
 {
+    // We are a worker at a specific leaf index.
+    // We are going to move up the tree and at each node/level:
+    // 1. Wait for the level above to become 'signalled' as clear for us to write into
+    // 2. Read the node and it's sibling
+    // 3. Write the new node value
     index_t index = leaf_index;
     size_t level = depth_;
     fr new_hash = HashingPolicy::hash(leaf.get_hash_inputs());
 
-    // wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about to
+    // Wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about to
     // write into) this ensures that our leader is not still reading the leaves
     size_t leader_level = depth_ - 1;
     leader.wait_for_level(leader_level);
 
+    // Extract the value of the leaf node and it's sibling
     bool is_right = bool(index & 0x01);
     // extract the current leaf hash values for the previous hash path
     fr current_right_value = get_element_or_zero(level, index + (is_right ? 0 : 1));
     fr current_left_value = get_element_or_zero(level, is_right ? (index - 1) : index);
     previous_hash_path.push_back(std::make_pair(current_left_value, current_right_value));
 
-    // write the new leaf hash in place
+    // Write the new leaf hash in place
     write_node(level, index, new_hash);
+    // Signal that this level has been written
     follower.signal_level(level);
 
     while (level > 0) {
-
-        // extract the current node values for the previous hash path
         if (level > 1) {
+            // Level is > 1. Therefore we need to wait for our leader to have written to the level above meaning we can
+            // read from it
             size_t level_to_read = level - 1;
             leader_level = level_to_read;
 
             leader.wait_for_level(leader_level);
 
+            // Now read the node and it's sibling
             index_t index_of_node_above = index >> 1;
             bool node_above_is_right = bool(index_of_node_above & 0x01);
             fr above_right_value =
@@ -250,7 +323,7 @@ fr IndexedTree<Store, LeavesStore, HashingPolicy>::update_leaf_and_hash_to_root(
             previous_hash_path.push_back(std::make_pair(above_left_value, above_right_value));
         }
 
-        // now that we have extracted the hash path from the row above
+        // Now that we have extracted the hash path from the row above
         // we can compute the new hash at that level and write it
         is_right = bool(index & 0x01);
         fr new_right_value = is_right ? new_hash : get_element_or_zero(level, index + 1);
@@ -259,12 +332,13 @@ fr IndexedTree<Store, LeavesStore, HashingPolicy>::update_leaf_and_hash_to_root(
         index >>= 1;
         --level;
         if (level > 0) {
-            // before we write we need to ensure that our leader has already written to the row above it
+            // Before we write we need to ensure that our leader has already written to the row above it
             // otherwise it could still be reading from this level
             leader_level = level - 1;
             leader.wait_for_level(leader_level);
         }
 
+        // Write this node and signal that it is done
         write_node(level, index, new_hash);
         follower.signal_level(level);
     }

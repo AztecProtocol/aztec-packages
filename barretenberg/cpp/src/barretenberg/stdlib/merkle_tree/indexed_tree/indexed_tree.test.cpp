@@ -26,10 +26,13 @@ static std::vector<fr> VALUES = []() {
 
 TEST(stdlib_indexed_tree, can_create)
 {
-    ArrayStore store(32);
+    ArrayStore store(10);
     IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree =
-        IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 32);
+        IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 10);
     EXPECT_EQ(tree.size(), 1ULL);
+
+    NullifierMemoryTree<Poseidon2HashPolicy> memdb(10);
+    EXPECT_EQ(memdb.root(), tree.root());
 }
 
 TEST(stdlib_indexed_tree, test_size)

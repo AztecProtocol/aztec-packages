@@ -33,8 +33,8 @@ NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, s
         leaves.push_back(initial_leaf);
     }
 
-    leaves[initial_size - 1] =
-        WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
+    leaves[initial_size - 1] = WrappedNullifierLeaf<HashingPolicy>(
+        nullifier_leaf{ .value = leaves[initial_size - 1].unwrap().value, .nextIndex = 0, .nextValue = 0 });
 
     for (size_t i = 0; i < initial_size; ++i) {
         update_element(i, leaves[i].hash());
