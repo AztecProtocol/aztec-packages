@@ -95,6 +95,10 @@ TEST(uint, xor_unique_random_solution){ // TODO(alex): weird stuff happening her
 
     Circuit<FFTerm> circuit(circuit_info, &s);
 
+    circuit["a"] == a.get_value();
+    circuit["b"] == b.get_value();
+    circuit["c"] != c.get_value();
+
     bool res = s.check();
     info(res);
     if(!res){
