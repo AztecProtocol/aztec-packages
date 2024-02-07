@@ -160,7 +160,8 @@ template <typename Composer> void cycle_group<Composer>::validate_is_on_curve() 
     auto xx = x * x;
     auto xxx = xx * x;
     auto res = y.madd(y, -xxx - Group::curve_b);
-    res *= is_point_at_infinity();
+    res *= !is_point_at_infinity(); // if the point is marked as the point at infinity, then res should be 0, but
+                                    // otherwise, we leave res unchanged
     res.assert_is_zero();
 }
 

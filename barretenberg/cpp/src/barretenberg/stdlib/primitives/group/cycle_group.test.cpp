@@ -59,12 +59,28 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     EXPECT_FALSE(builder.failed());
 }
 
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+
+    cycle_group_ct a(x, y, true);
+    a.validate_is_on_curve();
+    EXPECT_FALSE(builder.failed());
+}
+
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
 {
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
-    cycle_group_ct a(1, 1, false);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+
+    cycle_group_ct a(x, y, false);
     a.validate_is_on_curve();
     EXPECT_TRUE(builder.failed());
 }
