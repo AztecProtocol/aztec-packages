@@ -57,7 +57,7 @@ export class FeeDistributionPhaseManager extends AbstractPhaseManager {
   }
 
   nextPhase() {
-    return null;
+    return undefined;
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {

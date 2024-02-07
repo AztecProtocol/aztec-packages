@@ -85,7 +85,7 @@ export class PublicProcessor {
     const failed: FailedTx[] = [];
 
     for (const tx of txs) {
-      let phase: AbstractPhaseManager | null = new FeePreparationPhaseManager(
+      let phase: AbstractPhaseManager | undefined = new FeePreparationPhaseManager(
         this.db,
         this.publicExecutor,
         this.publicKernel,

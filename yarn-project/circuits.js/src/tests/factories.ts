@@ -9,7 +9,7 @@ import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
-  AccumulatedMetaData,
+  AccumulatedNonRevertibleData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
@@ -292,10 +292,10 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
  * @param seed - The seed to use for generating the data.
  * @returns An instance of AccumulatedMetaData.
  */
-export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedMetaData {
+export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedNonRevertibleData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new AccumulatedMetaData(
+  return new AccumulatedNonRevertibleData(
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX_META, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX_META, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x501),

@@ -7,11 +7,12 @@ use dep::std::{
 use dep::types::{
     abis::{
         call_request::CallRequest,
+        combined_accumulated_data::AccumulatedNonRevertibleData,
         nullifier_key_validation_request::NullifierKeyValidationRequestContext,
-        previous_kernel_data::PreviousKernelData,
+        kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
         kernel_circuit_public_inputs::{
-            KernelCircuitPublicInputsBuilder,
-            KernelCircuitPublicInputsFinal,
+            PrivateKernelCircuitPublicInputsBuilder,
+            PrivateKernelTailCircuitPublicInputs,
         },
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered},
     },
@@ -35,7 +36,7 @@ use dep::types::{
 };
 
 struct PrivateKernelInputsOrdering {
-    previous_kernel: PreviousKernelData,
+    previous_kernel: PrivateKernelInnerData,
     sorted_new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     sorted_new_commitments_indexes: [u32; MAX_NEW_COMMITMENTS_PER_TX],
     read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
@@ -51,7 +52,7 @@ impl PrivateKernelInputsOrdering {
             "Private call stack must be empty when executing the ordering circuit");
     }
 
-    fn validate_nullifier_keys(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+    fn validate_nullifier_keys(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         let requests = self.previous_kernel.public_inputs.end.nullifier_key_validation_requests;
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i];
@@ -69,7 +70,7 @@ impl PrivateKernelInputsOrdering {
         public_inputs.end.nullifier_key_validation_requests = BoundedVec::new(NullifierKeyValidationRequestContext::empty());
     }
 
-    fn match_reads_to_commitments(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+    fn match_reads_to_commitments(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         let new_commitments = public_inputs.end.new_commitments;
         let read_requests = public_inputs.end.read_requests;
 
@@ -111,14 +112,14 @@ impl PrivateKernelInputsOrdering {
         }
     }
 
-    fn sort_arrays(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+    fn sort_arrays(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_commitments.storage, self.sorted_new_commitments, self.sorted_new_commitments_indexes);
         PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_nullifiers.storage, self.sorted_new_nullifiers, self.sorted_new_nullifiers_indexes);
         public_inputs.end.new_commitments.storage = self.sorted_new_commitments;
         public_inputs.end.new_nullifiers.storage = self.sorted_new_nullifiers;
     }
 
-    fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+    fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
         let mut new_commitments = public_inputs.end.new_commitments.storage;
@@ -172,7 +173,7 @@ impl PrivateKernelInputsOrdering {
         public_inputs.end.new_nullifiers = new_nullifiers_vec;
     }
 
-    fn apply_commitment_nonces(public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+    fn apply_commitment_nonces(public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // tx hash
         let first_nullifier = public_inputs.end.new_nullifiers.get(0);
@@ -195,8 +196,8 @@ impl PrivateKernelInputsOrdering {
         public_inputs.end.new_commitments.storage = unique_commitments;
     }
 
-    pub fn native_private_kernel_circuit_ordering(self) -> KernelCircuitPublicInputsFinal {
-        let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
+    pub fn native_private_kernel_circuit_ordering(self) -> PrivateKernelTailCircuitPublicInputs {
+        let mut public_inputs : PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
 
         self.validate_inputs();
@@ -216,8 +217,11 @@ impl PrivateKernelInputsOrdering {
 
         PrivateKernelInputsOrdering::apply_commitment_nonces(&mut public_inputs);
 
+        // TODO(fees) populate this
+        let end_non_revertible : AccumulatedNonRevertibleData = unsafe::zeroed(); 
 
-        public_inputs.to_final()
+
+        public_inputs.to_tail(end_non_revertible)
     }
 }
 
@@ -231,11 +235,11 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+            kernel_circuit_public_inputs::PrivateKernelTailCircuitPublicInputs,
             side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered},
         },
         hash::compute_unique_siloed_commitments,
-        tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
+        tests::kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
             arrays::{array_eq, array_length},
         },
@@ -320,7 +324,7 @@ mod tests {
             (sorted_sideffects, reverse_map)
         }
 
-        pub fn execute(self) -> KernelCircuitPublicInputsFinal {
+        pub fn execute(self) -> PrivateKernelTailCircuitPublicInputs {
             let (sorted_new_commitments, sorted_new_commitments_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_commitments());
             let mut sorted_read_commitment_hints = [0; MAX_READ_REQUESTS_PER_TX];
             for i in 0..sorted_read_commitment_hints.len() {
@@ -332,7 +336,7 @@ mod tests {
                 sorted_nullifier_commitment_hints[i] = sorted_new_nullifiers_indexes[self.nullifier_commitment_hints[i]] as Field;
             }
             let kernel = PrivateKernelInputsOrdering {
-                previous_kernel: self.previous_kernel.finish(),
+                previous_kernel: self.previous_kernel.to_private_kernel_inner_data(),
                 sorted_new_commitments,
                 sorted_new_commitments_indexes,
                 read_commitment_hints: sorted_read_commitment_hints,

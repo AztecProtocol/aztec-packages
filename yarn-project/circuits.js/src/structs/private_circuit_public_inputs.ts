@@ -44,7 +44,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The side-effect high watermark of the irrevertible part of the function call.
      */
-    public metaHwm: Fr,
+    public maxNonRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */

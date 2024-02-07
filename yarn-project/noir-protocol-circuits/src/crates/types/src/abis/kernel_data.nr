@@ -1,12 +1,17 @@
 use crate::mocked::{Proof, VerificationKey};
 use crate::constants::VK_TREE_HEIGHT;
-use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
+use crate::abis::kernel_circuit_public_inputs::{
+    PrivateKernelInnerCircuitPublicInputs,
+    PrivateKernelTailCircuitPublicInputs,
+    PublicKernelCircuitPublicInputs
 
-//TODO(sean): left a note saying that this should not be called Previous
-struct PreviousKernelData {
+};
+
+struct PrivateKernelInnerData {
     // TODO(David): Left a note asking if we need this due to it
     // already being in the proof.
-    public_inputs : KernelCircuitPublicInputs,
+    public_inputs : PrivateKernelInnerCircuitPublicInputs,
+
     // TODO(David): Mentions the dichotomy between a proof created for the 
     // circuit, which is a sequence of field elements, versus a proof
     // created for solidity/native verification which is a collection of bytes.
@@ -22,6 +27,20 @@ struct PreviousKernelData {
     // of functions within the contract tree.
     vk_index : u32,
     vk_path : [Field; VK_TREE_HEIGHT],
+}
 
+struct PrivateKernelTailData {
+    public_inputs : PrivateKernelTailCircuitPublicInputs,
+    proof : Proof,
+    vk : VerificationKey,
+    vk_index : u32,
+    vk_path : [Field; VK_TREE_HEIGHT],
+}
 
+struct PublicKernelData {
+    public_inputs : PublicKernelCircuitPublicInputs,
+    proof : Proof,
+    vk : VerificationKey,
+    vk_index : u32,
+    vk_path : [Field; VK_TREE_HEIGHT],
 }

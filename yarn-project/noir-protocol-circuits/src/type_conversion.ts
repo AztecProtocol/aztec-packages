@@ -1,6 +1,6 @@
 import {
   ARCHIVE_HEIGHT,
-  AccumulatedMetaData,
+  AccumulatedNonRevertibleData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   AztecAddress,
@@ -90,7 +90,6 @@ import {
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
   GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
-  KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   NewContractData as NewContractDataNoir,
   AztecAddress as NoirAztecAddress,
   ContractClassId as NoirContractClassId,
@@ -111,14 +110,10 @@ import {
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
 } from './types/private_kernel_init_types.js';
+import { PrivateKernelInputsInner as PrivateKernelInputsInnerNoir } from './types/private_kernel_inner_types.js';
 import {
-  PreviousKernelData as PreviousKernelDataNoir,
-  PrivateKernelInputsInner as PrivateKernelInputsInnerNoir,
-} from './types/private_kernel_inner_types.js';
-import {
-  AccumulatedMetaData as AccumulatedMetaDataNoir,
+  AccumulatedNonRevertibleData as AccumulatedNonRevertibleDataNoir,
   FinalAccumulatedData as FinalAccumulatedDataNoir,
-  KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
 } from './types/private_kernel_ordering_types.js';
 import {
@@ -644,7 +639,9 @@ export function mapPrivateCircuitPublicInputsToNoir(
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
-    meta_hwm: mapFieldToNoir(Fr.ZERO),
+    max_non_revertible_side_effect_counter: mapFieldToNoir(
+      privateCircuitPublicInputs.maxNonRevertibleSideEffectCounter,
+    ),
   };
 }
 
@@ -912,8 +909,10 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
  * @param accumulatedMetaData - The noir accumulated meta data.
  * @returns The parsed accumulated meta data.
  */
-export function mapAccumulatedMetaDataFromNoir(accumulatedMetaData: AccumulatedMetaDataNoir): AccumulatedMetaData {
-  return new AccumulatedMetaData(
+export function mapAccumulatedMetaDataFromNoir(
+  accumulatedMetaData: AccumulatedNonRevertibleDataNoir,
+): AccumulatedNonRevertibleData {
+  return new AccumulatedNonRevertibleData(
     mapTupleFromNoir(accumulatedMetaData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX_META, mapSideEffectFromNoir),
     mapTupleFromNoir(accumulatedMetaData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX_META, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(

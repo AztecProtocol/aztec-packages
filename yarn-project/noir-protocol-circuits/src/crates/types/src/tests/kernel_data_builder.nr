@@ -3,9 +3,9 @@ use crate::{
         call_context::CallContext,
         call_request::{CallerContext, CallRequest},
         combined_constant_data::CombinedConstantData,
-        combined_accumulated_data::CombinedAccumulatedDataBuilder,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        previous_kernel_data::PreviousKernelData,
+        combined_accumulated_data::{CombinedAccumulatedDataBuilder, AccumulatedNonRevertibleData},
+        kernel_circuit_public_inputs::{PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs, PublicKernelCircuitPublicInputs},
+        kernel_data::{PrivateKernelInnerData, PrivateKernelTailData, PublicKernelData},
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
@@ -188,10 +188,10 @@ impl PreviousKernelDataBuilder {
         }
     }
 
-    pub fn finish(self) -> PreviousKernelData {
-        let public_inputs = KernelCircuitPublicInputs {
+    pub fn to_private_kernel_inner_data(self) -> PrivateKernelInnerData {
+        let public_inputs = PrivateKernelInnerCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            meta_hwm: 0,
+            max_non_revertible_side_effect_counter: 0,
             end: self.end.finish(),
             constants: CombinedConstantData {
                 historical_header: self.historical_header,
@@ -199,7 +199,53 @@ impl PreviousKernelDataBuilder {
             },
             is_private: self.is_private,
         };
-        PreviousKernelData {
+        PrivateKernelInnerData {
+            public_inputs,
+            proof: self.proof,
+            vk: self.vk,
+            vk_index: self.vk_index,
+            vk_path: self.vk_path,
+        }
+    }
+
+    pub fn to_private_kernel_tail_data(self) -> PrivateKernelTailData {
+        // TODO(fees) probably need to add this to the builder once it is implemented.
+        let end_non_revertible: AccumulatedNonRevertibleData =  dep::std::unsafe::zeroed();
+        let public_inputs = PrivateKernelTailCircuitPublicInputs {
+            aggregation_object: AggregationObject {},
+            end_non_revertible: end_non_revertible,
+            end: self.end.to_final(),
+            constants: CombinedConstantData {
+                historical_header: self.historical_header,
+                tx_context: self.tx_context,
+            },
+            is_private: self.is_private,
+        };
+
+        PrivateKernelTailData {
+            public_inputs,
+            proof: self.proof,
+            vk: self.vk,
+            vk_index: self.vk_index,
+            vk_path: self.vk_path,
+        }
+    }
+
+    pub fn to_public_kernel_data(self) -> PublicKernelData {
+        // TODO(fees) probably need to add this to the builder once it is implemented.
+        let end_non_revertible: AccumulatedNonRevertibleData =  dep::std::unsafe::zeroed();
+        let public_inputs = PublicKernelCircuitPublicInputs {
+            aggregation_object: AggregationObject {},
+            end_non_revertible: end_non_revertible,
+            end: self.end.finish(),
+            constants: CombinedConstantData {
+                historical_header: self.historical_header,
+                tx_context: self.tx_context,
+            },
+            is_private: self.is_private,
+        };
+
+        PublicKernelData {
             public_inputs,
             proof: self.proof,
             vk: self.vk,

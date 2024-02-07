@@ -90,7 +90,7 @@ export abstract class AbstractPhaseManager {
      */
     publicKernelProof?: Proof;
   }>;
-  abstract nextPhase(): AbstractPhaseManager | null;
+  abstract nextPhase(): AbstractPhaseManager | undefined;
   abstract rollback(tx: Tx, err: unknown): Promise<FailedTx>;
 
   // Extract the public calls from the tx for this phase

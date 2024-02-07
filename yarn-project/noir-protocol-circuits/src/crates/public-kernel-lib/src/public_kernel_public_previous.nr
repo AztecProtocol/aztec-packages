@@ -1,12 +1,12 @@
 use dep::types::abis::public_call_data::PublicCallData;
-use dep::types::abis::previous_kernel_data::PreviousKernelData;
-use dep::types::KernelCircuitPublicInputs;
-use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
+use dep::types::abis::kernel_data::{ PublicKernelData };
+use dep::types::PublicKernelCircuitPublicInputs;
+use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use crate::common;
 use dep::std::unsafe;
 
 struct PublicKernelPublicPreviousInputs {
-    previous_kernel: PreviousKernelData,
+    previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }
 
@@ -20,12 +20,12 @@ impl PublicKernelPublicPreviousInputs {
     }
 
 
-    fn public_kernel_public_previous(self) -> KernelCircuitPublicInputs {
+    fn public_kernel_public_previous(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: KernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
         // initialise the end state with our provided previous kernel state
-        common::initialize_end_values(self.previous_kernel, &mut public_inputs);
+        common::initialize_end_values_from_public_kernel_data(self.previous_kernel, &mut public_inputs);
 
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
@@ -39,9 +39,14 @@ impl PublicKernelPublicPreviousInputs {
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
 
-        common::accumulate_unencrypted_logs(self.public_call, self.previous_kernel,&mut public_inputs);
+        common::accumulate_unencrypted_logs(
+            self.public_call,
+            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
+            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
+            &mut public_inputs
+        );
 
-        public_inputs.finish()
+        public_inputs.to_inner()
     }
 }
 
@@ -57,7 +62,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             public_data_read::PublicDataRead,
             public_data_update_request::PublicDataUpdateRequest,
             side_effect::{SideEffect, SideEffectLinkedToNoteHash},
@@ -69,7 +74,7 @@ mod tests {
             silo_nullifier,
         },
         tests::{
-            previous_kernel_data_builder::PreviousKernelDataBuilder,
+            kernel_data_builder::PreviousKernelDataBuilder,
             public_call_data_builder::PublicCallDataBuilder,
         },
         utils::{
@@ -114,13 +119,13 @@ mod tests {
             )
         }
 
-        pub fn execute(&mut self) -> KernelCircuitPublicInputs {
+        pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
             self.previous_kernel.push_public_call_request(hash, is_delegate_call);
-            let previous_kernel = self.previous_kernel.finish();
+            let previous_kernel = self.previous_kernel.to_public_kernel_data();
 
             let kernel = PublicKernelPublicPreviousInputs {
                 previous_kernel,

@@ -30,9 +30,27 @@ export class FeePreparationPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader);
   }
 
-  // this is a no-op for now
-  extractEnqueuedPublicCalls(_tx: Tx): PublicCallRequest[] {
-    return [];
+  extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
+    const metaHwm = tx.data.metaHwm.toBigInt();
+    const enqueuedIrrevertiblePublicFunctionCalls = tx.enqueuedPublicFunctionCalls.filter(
+      call => call.callContext.startSideEffectCounter < metaHwm,
+    );
+
+    if (enqueuedIrrevertiblePublicFunctionCalls.length > 2) {
+      throw new Error(
+        `Too many enqueued irrevertible public calls in tx ${tx.getTxHash()}. Max 2 allowed. Received ${
+          enqueuedIrrevertiblePublicFunctionCalls.length
+        }`,
+      );
+    } else if (enqueuedIrrevertiblePublicFunctionCalls.length === 2) {
+      // if there are two enqueued irrevertible public calls,
+      // the first is the fee preparation call and the second is the fee distribution call
+      return [enqueuedIrrevertiblePublicFunctionCalls[0]];
+    } else {
+      // if there is only one enqueued irrevertible public call,
+      // it is the fee distribution call
+      return [];
+    }
   }
 
   // this is a no-op for now

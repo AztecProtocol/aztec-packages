@@ -1,7 +1,12 @@
 use crate::common;
 use dep::types::abis::{
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
-    previous_kernel_data::PreviousKernelData,
+    kernel_circuit_public_inputs::{
+        PrivateKernelTailCircuitPublicInputs,
+        PublicKernelCircuitPublicInputs,
+        PublicKernelCircuitPublicInputsBuilder,
+
+    },
+    kernel_data::PrivateKernelTailData,
     public_call_data::PublicCallData,
 };
 use dep::std::unsafe;
@@ -9,7 +14,7 @@ use dep::std::unsafe;
 // aztec-packages/circuits/cpp/src/aztec3/circuits/kernel/public/native_public_kernel_circuit_private_previous_kernel.cpp
 
 struct PublicKernelPrivatePreviousInputs {
-    previous_kernel: PreviousKernelData,
+    previous_kernel: PrivateKernelTailData,
     public_call: PublicCallData,
 }
 
@@ -27,12 +32,12 @@ impl PublicKernelPrivatePreviousInputs {
             "Previous kernel must be private when in this public kernel version");
     }
 
-    fn public_kernel_private_previous(self) -> KernelCircuitPublicInputs {
+    fn public_kernel_private_previous(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: KernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
         // initialise the end state with our provided previous kernel state
-        common::initialize_end_values(self.previous_kernel, &mut public_inputs);
+        common::initialize_end_values_from_private_kernel_tail_data(self.previous_kernel, &mut public_inputs);
 
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
@@ -46,9 +51,14 @@ impl PublicKernelPrivatePreviousInputs {
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
 
-        common::accumulate_unencrypted_logs(self.public_call, self.previous_kernel,&mut public_inputs);
+        common::accumulate_unencrypted_logs(
+            self.public_call,
+            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
+            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
+            &mut public_inputs
+        );
 
-        public_inputs.finish()
+        public_inputs.to_inner()
     }
 }
 
@@ -68,7 +78,7 @@ mod tests {
         abis::{
             call_request::CallRequest,
             function_selector::FunctionSelector,
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             new_contract_data::NewContractData,
             public_data_read::PublicDataRead,
             public_data_update_request::PublicDataUpdateRequest,
@@ -78,7 +88,7 @@ mod tests {
         contrakt::storage_read::StorageRead,
         hash::compute_logs_hash,
         tests::{
-            previous_kernel_data_builder::PreviousKernelDataBuilder,
+            kernel_data_builder::PreviousKernelDataBuilder,
             public_call_data_builder::PublicCallDataBuilder,
         },
         utils::{
@@ -133,13 +143,13 @@ mod tests {
             )
         }
 
-        pub fn execute(&mut self) -> KernelCircuitPublicInputs {
+        pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
             self.previous_kernel.push_public_call_request(hash, is_delegate_call);
-            let previous_kernel = self.previous_kernel.finish();
+            let previous_kernel = self.previous_kernel.to_private_kernel_tail_data();
 
             let kernel = PublicKernelPrivatePreviousInputs {
                 previous_kernel,
@@ -262,7 +272,7 @@ mod tests {
         let hash = public_call.call_stack_item.hash();
         // Tweak the call stack item hash.
         builder.previous_kernel.push_public_call_request(hash + 1, false);
-        let previous_kernel = builder.previous_kernel.finish();
+        let previous_kernel = builder.previous_kernel.to_private_kernel_tail_data();
 
         let kernel = PublicKernelPrivatePreviousInputs { previous_kernel, public_call };
 
@@ -304,7 +314,7 @@ mod tests {
         // Caller context is empty for regular calls.
         let is_delegate_call = false;
         builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
-        let previous_kernel = builder.previous_kernel.finish();
+        let previous_kernel = builder.previous_kernel.to_private_kernel_tail_data();
 
         let kernel = PublicKernelPrivatePreviousInputs { previous_kernel, public_call };
 
