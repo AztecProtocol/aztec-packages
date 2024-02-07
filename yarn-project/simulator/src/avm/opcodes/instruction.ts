@@ -62,8 +62,3 @@ export abstract class Instruction {
     return new this(...args);
   }
 }
-
-type InstructionConstructor = {
-  new (...args: any[]): Instruction;
-  wireFormat?: OperandType[];
-};
