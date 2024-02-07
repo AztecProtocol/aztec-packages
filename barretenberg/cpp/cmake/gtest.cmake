@@ -1,7 +1,7 @@
 include(GoogleTest)
 include(FetchContent)
 
-set(BUILD_GMOCK ON CACHE BOOL "Build with gMock enabled")
+set(BUILD_GMOCK ON CACHE INTERNAL BOOL "Build with gMock enabled")
 set(INSTALL_GTEST OFF CACHE BOOL "gTest installation disabled")
 
 FetchContent_Declare(
