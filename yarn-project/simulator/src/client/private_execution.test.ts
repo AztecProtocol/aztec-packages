@@ -1129,4 +1129,24 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual(portalContractAddress.toField().value);
     });
   });
+
+  describe('Private global variables', () => {
+    let chainId: Fr;
+    let version: Fr;
+
+    beforeAll(() => {
+      chainId = Fr.random();
+      version = Fr.random();
+    });
+
+    it.only('emits a field as an unencrypted log', async () => {
+      const args = [chainId, version];
+      const artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
+
+      const result = await runSimulator({ artifact, msgSender: owner, args });
+
+      console.log(result);
+    });
+  });
 });

@@ -301,8 +301,14 @@ contract Test {
         storage.example_constant.initialize(&mut note, false);
     }
 
+    #[aztec(private)]
+    fn assert_private_global_vars(chain_id: Field, version: Field) {
+        assert(context.chain_id() == chain_id, "Invalid chain id");
+        assert(context.version() == version, "Invalid version");
+    }
+
     #[aztec(public)]
-    fn assert_global_vars(
+    fn assert_public_global_vars(
         chain_id: Field,
         version: Field,
         block_number: Field,

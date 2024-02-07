@@ -653,7 +653,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
         startSideEffectCounter: 0,
       });
-      assertGlobalVarsArtifact = TestContractArtifact.functions.find(f => f.name === 'assert_global_vars')!;
+      assertGlobalVarsArtifact = TestContractArtifact.functions.find(f => f.name === 'assert_public_global_vars')!;
       functionData = FunctionData.fromAbi(assertGlobalVarsArtifact);
     });
 
