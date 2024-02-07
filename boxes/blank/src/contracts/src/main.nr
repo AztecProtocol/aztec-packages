@@ -6,7 +6,7 @@ contract Blank {
         },
         protocol_types::address::AztecAddress
     };
-    
+
     #[aztec(private)]
     fn constructor() {}
 
