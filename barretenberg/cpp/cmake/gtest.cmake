@@ -4,8 +4,7 @@ include(FetchContent)
 FetchContent_Declare(
     GTest
     GIT_REPOSITORY https://github.com/google/googletest.git
-    # Version 1.12.1 is not compatible with WASI-SDK 12
-    GIT_TAG v1.14.0
+    GIT_TAG v1.13.0 #v1.14.0 does not compile with gcc (compiler bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105329)
     FIND_PACKAGE_ARGS
 )
 
