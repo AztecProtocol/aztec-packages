@@ -26,7 +26,7 @@ describe('Avm Context', () => {
       }),
     );
 
-    compareJournal(newContext.worldState, context.worldState);
+    compareJournal(newContext.worldState, context.worldState.fork());
   });
 
   function compareJournal(actual: AvmWorldStateJournal, expected: AvmWorldStateJournal) {
