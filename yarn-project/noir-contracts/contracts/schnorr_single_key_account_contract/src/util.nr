@@ -1,4 +1,3 @@
-use dep::aztec::protocol_types::address::{AztecAddress, PublicKeysHash};
 use dep::std::{schnorr::verify_signature};
 use crate::auth_oracle::{AuthWitness};
 

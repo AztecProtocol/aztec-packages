@@ -48,10 +48,13 @@ pub mod macros_api {
     pub use crate::hir_def::expr::{HirExpression, HirLiteral};
     pub use crate::hir_def::stmt::HirStatement;
     pub use crate::node_interner::{NodeInterner, StructId};
-    pub use crate::parser::SortedModule;
+    pub use crate::parser::{parse_program, SortedModule};
     pub use crate::token::SecondaryAttribute;
 
-    pub use crate::hir::def_map::ModuleDefId;
+    pub use crate::hir::def_collector::dc_crate::DefCollector as HirDefCollector;
+    pub use crate::hir::resolution::import::ImportDirective as HirImportDirective;
+    pub use crate::hir::resolution::path_resolver;
+    pub use crate::hir::def_map::{LocalModuleId, ModuleId, ModuleDefId};
     pub use crate::{
         hir::Context as HirContext, BlockExpression, CallExpression, CastExpression, Distinctness,
         Expression, ExpressionKind, FunctionReturnType, Ident, IndexExpression, LetStatement,
@@ -73,6 +76,15 @@ pub mod macros_api {
             crate_id: &CrateId,
             context: &HirContext,
         ) -> Result<SortedModule, (MacroError, FileId)>;
+        /// Function to manipulate the crate definition before type checking has been completed.
+        /// This is needed to process module declarations as the original AST will not yet have them.
+        fn process_crate_prelude(
+            &self,
+            crate_id: &CrateId,
+            context: &HirContext,
+            def_collector: &mut Vec<HirImportDirective>,
+            submodules: &[LocalModuleId],
+        ) -> Result<(), (MacroError, FileId)>;
         /// Function to manipulate the AST after type checking has been completed.
         /// The AST after type checking has been done is called the HIR.
         fn process_typed_ast(

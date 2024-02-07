@@ -1,47 +1,7 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
     use dep::std::option::Option;
-    use dep::aztec::protocol_types::{
-        address::{
-            AztecAddress,
-            EthAddress,
-        },
-        constants::{
-            MAX_READ_REQUESTS_PER_CALL,
-            MAX_NOTES_PER_PAGE
-        }
-    };
-    // The following import is here in order to make the event macro work because the macro doesn't add the import.
-    // It doesn't add the import because in the future we will re-export all the types via aztec-nr and aztec-nr is
-    // already auto-imported by the macros.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Remove this once the issue is fixed.
-    use dep::aztec::protocol_types;
-    // docs:start:unencrypted_import
-    use dep::aztec::log::emit_unencrypted_log;
-    // docs:end:unencrypted_import
 
-    use dep::aztec::{
-        context::Context,
-        abi,
-        abi::PrivateContextInputs,
-        hash::pedersen_hash,
-        context::PrivateContext,
-        note::{
-            note_header::NoteHeader,
-            utils as note_utils,
-            lifecycle::{create_note, destroy_note},
-            note_getter::{get_notes, view_notes},
-            note_getter_options::{NoteGetterOptions, NoteStatus},
-            note_viewer_options::NoteViewerOptions,
-        },
-        oracle::{
-            get_public_key::get_public_key as get_public_key_oracle,
-            context::get_portal_address,
-            rand::rand
-        },
-        state_vars::immutable_singleton::ImmutableSingleton,
-        log::emit_unencrypted_log_from_private,
-    };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::{ValueNote,VALUE_NOTE_LEN};
@@ -61,8 +21,8 @@ contract Test {
     // docs:end:empty-constructor
 
     #[aztec(private)]
-    fn get_public_key(address: AztecAddress) -> [Field; 2] {
-        let pub_key = get_public_key_oracle(address);
+    fn get_pub_key(address: AztecAddress) -> [Field; 2] {
+        let pub_key = get_public_key(address);
 
         [pub_key.x, pub_key.y]
     }

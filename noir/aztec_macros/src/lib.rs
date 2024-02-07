@@ -2,19 +2,21 @@ use std::borrow::{Borrow, BorrowMut};
 use std::vec;
 
 use iter_extended::vecmap;
+use noirc_frontend::macros_api::parse_program;
+use noirc_frontend::macros_api::HirImportDirective;
 use noirc_frontend::macros_api::FieldElement;
 use noirc_frontend::macros_api::{
     BlockExpression, CallExpression, CastExpression, Distinctness, Expression, ExpressionKind,
     ForLoopStatement, ForRange, FunctionDefinition, FunctionReturnType, FunctionVisibility,
-    HirContext, HirExpression, HirLiteral, HirStatement, Ident, ImportStatement, IndexExpression,
+    HirContext, HirExpression, HirLiteral, HirStatement, Ident, IndexExpression,
     LetStatement, Literal, MemberAccessExpression, MethodCallExpression, NoirFunction, NoirStruct,
-    Param, Path, PathKind, Pattern, PrefixExpression, SecondaryAttribute, Signedness, Span,
+    Param, Path, Pattern, PrefixExpression, SecondaryAttribute, Signedness, Span,
     Statement, StatementKind, StructType, Type, TypeImpl, UnaryOp, UnresolvedType,
     UnresolvedTypeData, Visibility,
 };
 use noirc_frontend::macros_api::{CrateId, FileId};
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
-use noirc_frontend::macros_api::{ModuleDefId, NodeInterner, SortedModule, StructId};
+use noirc_frontend::macros_api::{LocalModuleId, ModuleDefId, NodeInterner, SortedModule, StructId};
 use noirc_frontend::node_interner::{TraitId, TraitImplKind};
 use noirc_frontend::Lambda;
 
@@ -28,6 +30,31 @@ impl MacroProcessor for AztecMacro {
         context: &HirContext,
     ) -> Result<SortedModule, (MacroError, FileId)> {
         transform(ast, crate_id, context)
+    }
+
+    fn process_crate_prelude(
+        &self,
+        crate_id: &CrateId,
+        context: &HirContext,
+        collected_imports: &mut Vec<HirImportDirective>,
+        submodules: &[LocalModuleId],
+    ) -> Result<(), (MacroError, FileId)> {
+        if !has_aztec_dependency(crate_id, context) {
+            return Ok(());
+        }
+        let def_map = context.def_map(crate_id).expect("Should have a def map");
+
+        let crate_root = def_map.root();
+        inject_aztec_prelude(*crate_id, crate_root, collected_imports);
+        for submodule in submodules.iter() {
+            inject_aztec_prelude(
+                *crate_id,
+                *submodule,
+                collected_imports,
+            );
+        }
+        
+        Ok(())
     }
 
     fn process_typed_ast(
@@ -215,19 +242,6 @@ macro_rules! chained_path {
     }
 }
 
-macro_rules! chained_dep {
-    ( $base:expr $(, $tail:expr)* ) => {
-        {
-            let mut base_path = ident_path($base);
-            base_path.kind = PathKind::Dep;
-            $(
-                base_path.segments.push(ident($tail));
-            )*
-            base_path
-        }
-    }
-}
-
 fn cast(lhs: Expression, ty: UnresolvedTypeData) -> Expression {
     expression(ExpressionKind::Cast(Box::new(CastExpression { lhs, r#type: make_type(ty) })))
 }
@@ -250,10 +264,6 @@ fn index_array_variable(array: Expression, index: &str) -> Expression {
     })))
 }
 
-fn import(path: Path) -> ImportStatement {
-    ImportStatement { path, alias: None }
-}
-
 //
 //                    Create AST Nodes for Aztec
 //
@@ -273,7 +283,6 @@ fn transform(
             .map_err(|(err, file_id)| (err.into(), file_id))?
         {
             check_for_aztec_dependency(crate_id, context)?;
-            include_relevant_imports(&mut submodule.contents);
         }
     }
     Ok(ast)
@@ -292,19 +301,129 @@ fn transform_hir(
     assign_storage_slots(crate_id, context)
 }
 
-/// Includes an import to the aztec library if it has not been included yet
-fn include_relevant_imports(ast: &mut SortedModule) {
-    // Create the aztec import path using the assumed chained_dep! macro
-    let aztec_import_path = import(chained_dep!("aztec"));
-
-    // Check if the aztec import already exists
-    let is_aztec_imported =
-        ast.imports.iter().any(|existing_import| existing_import.path == aztec_import_path.path);
-
-    // If aztec is not imported, add the import at the beginning
-    if !is_aztec_imported {
-        ast.imports.insert(0, aztec_import_path);
+fn inject_aztec_prelude(
+    crate_id: CrateId,
+    crate_root: LocalModuleId,
+    collected_imports: &mut Vec<HirImportDirective>,
+) {
+    let (imports_ast, errors) = parse_program(aztec_prelude_source());
+    if !errors.is_empty() {
+        dbg!(errors.clone());
     }
+    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
+
+    let imports_ast = imports_ast.into_sorted();
+
+    if !crate_id.is_stdlib() {
+        for import in imports_ast.imports {
+            collected_imports.insert(
+                0,
+                HirImportDirective {
+                    module_id: crate_root,
+                    path: import.path,
+                    alias: import.alias,
+                    is_prelude: true,
+                },
+            );
+        }
+    }
+}
+
+fn aztec_prelude_source() -> &'static str {
+    let aztec_imports = "
+    use dep::aztec;
+
+    use dep::aztec::{
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::{
+                AztecAddress, 
+                EthAddress,
+                PartialAddress,
+                PublicKeysHash,
+            },
+            contract_class::ContractClassId,
+            constants::{
+                MAX_NOTES_PER_PAGE,
+                MAX_READ_REQUESTS_PER_CALL,
+                ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, 
+                FUNCTION_TREE_HEIGHT, 
+                MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 
+                REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+                RETURN_VALUES_LENGTH,
+            },
+            grumpkin_point::GrumpkinPoint,
+            hash::sha256_to_field,
+            traits::{Serialize, Deserialize},
+        },
+        context::{PrivateContext, PublicContext, Context},
+        abi,
+        abi::{
+            CallContext, Hasher, PrivateContextInputs,
+        },
+        note::{
+            utils as note_utils, 
+            lifecycle::{create_note, destroy_note},
+            utils::compute_note_hash_for_consumption,
+            note_getter_options::NoteGetterOptions, 
+            note_getter_options::NoteStatus,
+            note_viewer_options::NoteViewerOptions,
+            note_getter::{get_notes, view_notes},
+            note_header::NoteHeader,
+            note_interface::NoteInterface,
+        },
+        oracle::{
+            nullifier_key::get_nullifier_secret_key,
+            get_public_key::get_public_key,
+            context::get_portal_address,
+            rand::rand,
+        },
+        log::{
+            emit_unencrypted_log,
+            emit_unencrypted_log_from_private,
+            emit_encrypted_log,
+        },
+        hash::{
+            pedersen_hash,
+            compute_secret_hash,
+        },
+        state_vars::{
+            map::Map, 
+            public_state::PublicState, 
+            singleton::Singleton,
+            immutable_singleton::ImmutableSingleton,
+            set::Set,
+            stable_public_state::StablePublicState,
+        },
+        history::{
+            contract_inclusion::{
+                prove_contract_inclusion,
+                prove_contract_inclusion_at,
+            },  
+            note_inclusion::{
+                prove_note_inclusion,
+                prove_note_inclusion_at,
+            },
+            note_validity::{
+                prove_note_validity,
+                prove_note_validity_at,
+            },
+            nullifier_inclusion::{
+                prove_nullifier_inclusion,
+                prove_nullifier_inclusion_at,
+            },
+            nullifier_non_inclusion::{
+                prove_note_not_nullified,
+                prove_note_not_nullified_at,
+            },
+            public_value_inclusion::{
+                prove_public_value_inclusion,
+                prove_public_value_inclusion_at,
+            },
+        },
+    };
+    ";
+    aztec_imports
 }
 
 /// Creates an error alerting the user that they have not downloaded the Aztec-noir library
@@ -312,12 +431,24 @@ fn check_for_aztec_dependency(
     crate_id: &CrateId,
     context: &HirContext,
 ) -> Result<(), (MacroError, FileId)> {
+    if has_aztec_dependency(crate_id, context) {
+        Ok(())
+    } else {
+        let crate_graph = &context.crate_graph[crate_id];
+        Err((AztecMacroError::AztecDepNotFound.into(), crate_graph.root_file_id))
+    }
+}
+
+fn has_aztec_dependency(
+    crate_id: &CrateId,
+    context: &HirContext,
+) -> bool {
     let crate_graph = &context.crate_graph[crate_id];
     let has_aztec_dependency = crate_graph.dependencies.iter().any(|dep| dep.as_name() == "aztec");
     if has_aztec_dependency {
-        Ok(())
+        true
     } else {
-        Err((AztecMacroError::AztecDepNotFound.into(), crate_graph.root_file_id))
+        false
     }
 }
 

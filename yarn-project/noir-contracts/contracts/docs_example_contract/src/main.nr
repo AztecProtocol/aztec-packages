@@ -13,20 +13,20 @@ mod types;
 
 contract DocsExample {
     // how to import dependencies defined in your workspace
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::AztecAddress,
-    };
-    use dep::aztec::{
-        note::{
-            note_header::NoteHeader,
-            note_getter_options::{NoteGetterOptions, Comparator},
-            note_viewer_options::{NoteViewerOptions},
-            utils as note_utils,
-        },
-        context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_public_state::StablePublicState},
-    };
+    // use dep::aztec::protocol_types::{
+    //     abis::function_selector::FunctionSelector,
+    //     address::AztecAddress,
+    // };
+    // use dep::aztec::{
+    //     note::{
+    //         note_header::NoteHeader,
+    //         note_getter_options::{NoteGetterOptions, Comparator},
+    //         note_viewer_options::{NoteViewerOptions},
+    //         utils as note_utils,
+    //     },
+    //     context::{PrivateContext, PublicContext, Context},
+    //     state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_public_state::StablePublicState},
+    // };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{
@@ -244,10 +244,10 @@ contract DocsExample {
     }
 
     /// Macro equivalence section
-    use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PrivateCircuitPublicInputs;
+    // use dep::aztec::abi;
+    // use dep::aztec::abi::Hasher;
+    // use dep::aztec::abi::PrivateContextInputs;
+    // use dep::aztec::abi::PrivateCircuitPublicInputs;
 
     // docs:start:simple_macro_example
     #[aztec(private)]

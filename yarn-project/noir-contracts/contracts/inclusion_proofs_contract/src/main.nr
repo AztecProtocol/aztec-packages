@@ -1,56 +1,5 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::{
-            AztecAddress,
-            EthAddress,
-        },
-        grumpkin_point::GrumpkinPoint,
-        contract_class::ContractClassId,
-    };
-    use dep::aztec::{
-        state_vars::{
-            map::Map,
-            set::Set,
-            public_state::PublicState,
-        },
-        context::Context,
-        note::{
-            note_getter_options::NoteGetterOptions,
-            note_getter_options::NoteStatus,
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
-       // docs:start:imports
-        history::{
-            contract_inclusion::{
-                prove_contract_inclusion,
-                prove_contract_inclusion_at,
-            },  
-            note_inclusion::{
-                prove_note_inclusion,
-                prove_note_inclusion_at,
-            },
-            note_validity::{
-                prove_note_validity,
-                prove_note_validity_at,
-            },
-            nullifier_inclusion::{
-                prove_nullifier_inclusion,
-                prove_nullifier_inclusion_at,
-            },
-            nullifier_non_inclusion::{
-                prove_note_not_nullified,
-                prove_note_not_nullified_at,
-            },
-            public_value_inclusion::{
-                prove_public_value_inclusion,
-                prove_public_value_inclusion_at,
-            },
-        },
-         // docs:end:imports
-    };
     // docs:start:value_note_imports
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
     // docs:end:value_note_imports
@@ -74,7 +23,7 @@ contract InclusionProofs {
     // docs:start:create_note
     // Creates a value note owned by `owner`.
     #[aztec(private)]
-    fn create_note(owner: AztecAddress, value: Field) {
+    fn create_new_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
         let mut note = ValueNote::new(value, owner);
         owner_private_values.insert(&mut note, true);

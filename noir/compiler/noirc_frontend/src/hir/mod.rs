@@ -86,6 +86,10 @@ impl Context<'_, '_> {
         self.def_maps.get(crate_id)
     }
 
+    pub fn def_maps(&self) -> &BTreeMap<CrateId, CrateDefMap> {
+        &self.def_maps
+    }
+
     /// Return the CrateId for each crate that has been compiled
     /// successfully
     pub fn crates(&self) -> impl Iterator<Item = CrateId> + '_ {

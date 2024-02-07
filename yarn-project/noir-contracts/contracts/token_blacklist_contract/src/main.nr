@@ -17,20 +17,20 @@ contract TokenBlacklist {
     use dep::std::option::Option;
 
     use dep::safe_math::SafeU120;
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::AztecAddress,
-    };
-    use dep::aztec::{
-        note::{
-            note_getter_options::NoteGetterOptions,
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
-        context::{PrivateContext, PublicContext, Context},
-        hash::{compute_secret_hash},
-        state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton},
-    };
+    // use dep::aztec::protocol_types::{
+    //     abis::function_selector::FunctionSelector,
+    //     address::AztecAddress,
+    // };
+    // use dep::aztec::{
+    //     note::{
+    //         note_getter_options::NoteGetterOptions,
+    //         note_header::NoteHeader,
+    //         utils as note_utils,
+    //     },
+    //     context::{PrivateContext, PublicContext, Context},
+    //     hash::{compute_secret_hash},
+    //     state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton},
+    // };
 
     use dep::field_note::field_note::{FieldNote, FIELD_NOTE_LEN};
 

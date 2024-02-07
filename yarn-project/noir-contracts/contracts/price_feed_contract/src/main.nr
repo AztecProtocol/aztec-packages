@@ -2,14 +2,6 @@ mod asset;
 
 contract PriceFeed {
     use dep::std::option::Option;
-    use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        state_vars::{
-            map::Map,
-            public_state::PublicState,
-        },
-    };
-    use dep::aztec::protocol_types::address::AztecAddress;
     use crate::asset::Asset;
 
     // Storage structure, containing all storage, and specifying what slots they use.

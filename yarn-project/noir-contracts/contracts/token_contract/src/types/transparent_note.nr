@@ -1,14 +1,4 @@
 // docs:start:token_types_all
-use dep::aztec::{
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
-    hash::{compute_secret_hash, pedersen_hash},
-    context::PrivateContext,
-};
-
 global TRANSPARENT_NOTE_LEN: Field = 2;
 
 // Transparent note represents a note that is created in the clear (public execution),

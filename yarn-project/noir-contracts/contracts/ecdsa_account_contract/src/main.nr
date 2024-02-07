@@ -3,19 +3,19 @@ mod ecdsa_public_key_note;
 // Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
 // The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
-    use dep::aztec::protocol_types::address::AztecAddress;
+    // use dep::aztec::protocol_types::address::AztecAddress;
     use dep::std;
     use dep::std::option::Option;
-    use dep::aztec::{
-        abi::CallContext,
-        context::{PrivateContext, PublicContext, Context},
-        note::{
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
-        oracle::get_public_key::get_public_key,
-        state_vars::immutable_singleton::ImmutableSingleton,
-    };
+    // use dep::aztec::{
+    //     abi::CallContext,
+    //     context::{PrivateContext, PublicContext, Context},
+    //     note::{
+    //         note_header::NoteHeader,
+    //         utils as note_utils,
+    //     },
+    //     oracle::get_public_key::get_public_key,
+    //     state_vars::immutable_singleton::ImmutableSingleton,
+    // };
     use dep::authwit:: {
         entrypoint::{ EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE },
         account::AccountActions,

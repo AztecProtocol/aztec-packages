@@ -5,7 +5,6 @@ contract SchnorrSingleKeyAccount {
     use dep::std::{
         option::Option,
     };
-    use dep::aztec::context::{ PrivateContext, PublicContext, Context };
 
     use dep::authwit::{
         entrypoint::EntrypointPayload,

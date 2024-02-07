@@ -2,17 +2,6 @@
 contract Child {
     use dep::std::option::Option;
 
-    use dep::aztec::{
-        abi::CallContext,
-        context::{PrivateContext, PublicContext, Context},
-        log::emit_unencrypted_log,
-        state_vars::public_state::PublicState,
-    };
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::AztecAddress,
-    };
-
     struct Storage {
         current_value: PublicState<Field>,
     }
