@@ -45,7 +45,7 @@ fi
 
 # Install pre-commit git hooks.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
-echo "(cd barretenberg/cpp && ./format.sh staged)" > $HOOKS_DIR/pre-commit
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
 git submodule update --init --recursive
@@ -53,6 +53,7 @@ git submodule update --init --recursive
 PROJECTS=(
   barretenberg
   noir
+  noir-contracts
   l1-contracts
   avm-transpiler
   yarn-project
@@ -66,7 +67,7 @@ for P in "${PROJECTS[@]}"; do
     echo "**************************************"
     echo
     $P/bootstrap_cache.sh
-  else  
+  else
     echo "**************************************"
     echo -e "\033[1mBootstrapping $P...\033[0m"
     echo "**************************************"
