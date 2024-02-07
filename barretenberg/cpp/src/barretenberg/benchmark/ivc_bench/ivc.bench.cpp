@@ -2,6 +2,7 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -40,13 +41,23 @@ class IvcBench : public benchmark::Fixture {
      *
      * @param state
      */
-    void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
+    static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
+        // Initialize IVC with function circuit
+        Builder function_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+        ivc.initialize(function_circuit);
+
+        // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
+        Builder kernel_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_function_circuit(kernel_circuit);
+        auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 
             // Accumulate function circuit
-            Builder function_circuit{ goblin.op_queue };
+            Builder function_circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
             auto function_fold_proof = ivc.accumulate(function_circuit);
 
@@ -69,10 +80,10 @@ BENCHMARK_DEFINE_F(IvcBench, GoblinFull)(benchmark::State& state)
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Perform a specified number of iterations of function/kernel accumulation
-        perform_ivc_accumulation_rounds(state, goblin);
+        perform_ivc_accumulation_rounds(state, ivc);
 
         // Construct proofs for ECCVM and Translator
-        goblin.prove();
+        ivc.prove();
     }
 }
 
