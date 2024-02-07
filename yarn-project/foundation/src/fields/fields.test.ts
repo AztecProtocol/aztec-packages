@@ -1,4 +1,4 @@
-import { GrumpkinScalar, Fr } from './fields.js';
+import { Fr, GrumpkinScalar } from './fields.js';
 
 describe('GrumpkinScalar Serialization', () => {
   // Test case for GrumpkinScalar.fromHighLow
@@ -54,9 +54,9 @@ describe('GrumpkinScalar Serialization', () => {
   });
 });
 
-describe("Bn254 arithmetic", () => {
-  describe("Addition", () => {
-    it("Low Boundary", () => {
+describe('Bn254 arithmetic', () => {
+  describe('Addition', () => {
+    it('Low Boundary', () => {
       // 0 + -1 = -1
       const a = Fr.ZERO;
       const b = new Fr(Fr.MODULUS - 1n);
@@ -64,9 +64,9 @@ describe("Bn254 arithmetic", () => {
 
       const actual = a.add(b);
       expect(actual).toEqual(expected);
-    })
+    });
 
-    it("High Boundary", () => {
+    it('High Boundary', () => {
       // -1 + 1 = 0
       const a = new Fr(Fr.MODULUS - 1n);
       const b = new Fr(1);
@@ -76,18 +76,18 @@ describe("Bn254 arithmetic", () => {
       expect(actual).toEqual(expected);
     });
 
-    it("Performs addition correctly", () => {
+    it('Performs addition correctly', () => {
       const a = new Fr(2);
       const b = new Fr(3);
       const expected = new Fr(5);
 
       const actual = a.add(b);
       expect(actual).toEqual(expected);
-    })
-  })
+    });
+  });
 
-  describe("Subtraction", () => {
-    it("Low Boundary", () => {
+  describe('Subtraction', () => {
+    it('Low Boundary', () => {
       // 0 - 1 = -1
       const a = new Fr(0);
       const b = new Fr(1);
@@ -95,18 +95,18 @@ describe("Bn254 arithmetic", () => {
 
       const actual = a.sub(b);
       expect(actual).toEqual(expected);
-    })
+    });
 
-    it("High Bonudary", () => {
+    it('High Bonudary', () => {
       // -1 - (-1) = 0
       const a = new Fr(Fr.MODULUS - 1n);
       const b = new Fr(Fr.MODULUS - 1n);
 
       const actual = a.sub(b);
       expect(actual).toEqual(Fr.ZERO);
-    })
+    });
 
-    it("Performs subtraction correctly", () => {
+    it('Performs subtraction correctly', () => {
       const a = new Fr(10);
       const b = new Fr(5);
       const expected = new Fr(5);
@@ -114,10 +114,10 @@ describe("Bn254 arithmetic", () => {
       const actual = a.sub(b);
       expect(actual).toEqual(expected);
     });
-  })
+  });
 
-  describe("Multiplication", () => {
-    it("Identity", () => {
+  describe('Multiplication', () => {
+    it('Identity', () => {
       const a = new Fr(Fr.MODULUS - 1n);
       const b = new Fr(1);
       const expected = new Fr(Fr.MODULUS - 1n);
@@ -126,7 +126,7 @@ describe("Bn254 arithmetic", () => {
       expect(actual).toEqual(expected);
     });
 
-    it("Performs multiplication correctly", () => {
+    it('Performs multiplication correctly', () => {
       const a = new Fr(2);
       const b = new Fr(3);
       const expected = new Fr(6);
@@ -135,7 +135,7 @@ describe("Bn254 arithmetic", () => {
       expect(actual).toEqual(expected);
     });
 
-    it("High Boundary", () => {
+    it('High Boundary', () => {
       const a = new Fr(Fr.MODULUS - 1n);
       const b = new Fr(Fr.MODULUS / 2n);
       const expected = new Fr(10944121435919637611123202872628637544274182200208017171849102093287904247809n);
@@ -143,19 +143,18 @@ describe("Bn254 arithmetic", () => {
       const actual = a.mul(b);
       expect(actual).toEqual(expected);
     });
-  })
+  });
 
-
-  describe("Division", () => {
-    it("Should succeed when mod inverse is -ve", () => {
+  describe('Division', () => {
+    it('Should succeed when mod inverse is -ve', () => {
       const a = new Fr(2);
       const b = new Fr(3);
 
       const actual = a.div(b);
       expect(actual.mul(b)).toEqual(a);
-    })
+    });
 
-    it("Should succeed when mod inverse is +ve", () => {
+    it('Should succeed when mod inverse is +ve', () => {
       const a = new Fr(10);
       const b = new Fr(5);
       const expected = new Fr(2);
@@ -163,13 +162,13 @@ describe("Bn254 arithmetic", () => {
       const actual = a.div(b);
       expect(actual.mul(b)).toEqual(a);
       expect(actual).toEqual(expected);
-    })
+    });
 
-    it("Should not allow a division by 0", () => {
+    it('Should not allow a division by 0', () => {
       const a = new Fr(10);
       const b = Fr.ZERO;
 
       expect(() => a.div(b)).toThrowError();
-    })
-  })
-})
+    });
+  });
+});
