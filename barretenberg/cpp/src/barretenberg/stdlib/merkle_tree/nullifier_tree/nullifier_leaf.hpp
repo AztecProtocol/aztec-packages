@@ -24,6 +24,8 @@ struct nullifier_leaf {
     }
 
     std::vector<fr> get_hash_inputs() const { return std::vector<fr>{ value, nextIndex, nextValue }; }
+
+    static nullifier_leaf zero() { return nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 }; }
 };
 
 /**

@@ -8,18 +8,20 @@
 using namespace benchmark;
 using namespace bb::stdlib::merkle_tree;
 
-using TreeType = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>;
+using Poseidon2 = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>;
+using Pedersen = IndexedTree<ArrayStore, LeavesCache, PedersenHashPolicy>;
 
 namespace {
 auto& random_engine = bb::numeric::get_randomness();
 } // namespace
 
+template <typename TreeType>
 void perform_batch_insert(TreeType& tree, const std::vector<fr>& values, bool single_threaded)
 {
     tree.add_or_update_values(values, single_threaded);
 }
 
-void indexed_tree_bench(State& state) noexcept
+template <typename TreeType> void indexed_tree_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = 40;
@@ -37,9 +39,8 @@ void indexed_tree_bench(State& state) noexcept
         perform_batch_insert(tree, values, false);
     }
 }
-BENCHMARK(indexed_tree_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(2, 64)->Iterations(1000);
 
-void single_thread_indexed_tree_bench(State& state) noexcept
+template <typename TreeType> void single_thread_indexed_tree_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = 40;
@@ -57,10 +58,27 @@ void single_thread_indexed_tree_bench(State& state) noexcept
         perform_batch_insert(tree, values, true);
     }
 }
-BENCHMARK(single_thread_indexed_tree_bench)
+BENCHMARK(single_thread_indexed_tree_bench<Pedersen>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, 64)
+    ->Iterations(100);
+
+BENCHMARK(indexed_tree_bench<Pedersen>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, 64)
+    ->Iterations(100);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, 64)
     ->Iterations(1000);
+BENCHMARK(indexed_tree_bench<Poseidon2>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(2, 64)
+    ->Iterations(100);
 
 BENCHMARK_MAIN();

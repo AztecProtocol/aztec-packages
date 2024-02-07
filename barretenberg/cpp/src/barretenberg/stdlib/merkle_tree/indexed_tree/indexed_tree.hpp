@@ -98,6 +98,8 @@ class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
      */
     fr add_values(const std::vector<fr>& values) override;
 
+    indexed_leaf get_leaf(const index_t& index);
+
     using AppendOnlyTree<Store, HashingPolicy>::get_hash_path;
     using AppendOnlyTree<Store, HashingPolicy>::root;
     using AppendOnlyTree<Store, HashingPolicy>::depth;
@@ -132,6 +134,16 @@ IndexedTree<Store, LeavesStore, HashingPolicy>::IndexedTree(Store& store,
     : AppendOnlyTree<Store, HashingPolicy>(store, depth, tree_id)
 {
     ASSERT(initial_size > 0);
+    zero_hashes_.resize(depth + 1);
+
+    // Create the zero hashes for the tree
+    indexed_leaf zero_leaf{ 0, 0, 0 };
+    auto current = HashingPolicy::hash(zero_leaf.get_hash_inputs());
+    for (size_t i = depth; i > 0; --i) {
+        zero_hashes_[i] = current;
+        current = HashingPolicy::hash_pair(current, current);
+    }
+    zero_hashes_[0] = current;
     // Inserts the initial set of leaves as a chain in incrementing value order
     for (size_t i = 0; i < initial_size; ++i) {
         // Insert the zero leaf to the `leaves` and also to the tree at index 0.
@@ -150,6 +162,12 @@ IndexedTree<Store, LeavesStore, HashingPolicy>::IndexedTree(Store& store,
 template <typename Store, typename LeavesStore, typename HashingPolicy>
 IndexedTree<Store, LeavesStore, HashingPolicy>::~IndexedTree()
 {}
+
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+indexed_leaf IndexedTree<Store, LeavesStore, HashingPolicy>::get_leaf(const index_t& index)
+{
+    return leaves_.get_leaf(index);
+}
 
 template <typename Store, typename LeavesStore, typename HashingPolicy>
 fr IndexedTree<Store, LeavesStore, HashingPolicy>::add_value(const fr& value)

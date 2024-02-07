@@ -77,7 +77,7 @@ template <typename HashingPolicy> class NullifierMemoryTree : public MemoryTree<
     const std::vector<bb::fr>& get_hashes() { return hashes_; }
     const WrappedNullifierLeaf<HashingPolicy> get_leaf(size_t index)
     {
-        return (index < leaves_.size()) ? leaves_[index] : WrappedNullifierLeaf<HashingPolicy>::zero();
+        return (index < leaves_.size()) ? leaves_[index] : WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf::zero());
     }
     const std::vector<WrappedNullifierLeaf<HashingPolicy>>& get_leaves() { return leaves_; }
 
@@ -99,7 +99,7 @@ NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t ini
     hashes_.resize(total_size_ * 2 - 2);
 
     // Build the entire tree and fill with 0 hashes.
-    auto current = WrappedNullifierLeaf<HashingPolicy>::zero().hash();
+    auto current = WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf::zero()).hash();
     size_t layer_size = total_size_;
     for (size_t offset = 0; offset < hashes_.size(); offset += layer_size, layer_size /= 2) {
         for (size_t i = 0; i < layer_size; ++i) {
@@ -134,6 +134,7 @@ template <typename HashingPolicy> fr_hash_path NullifierMemoryTree<HashingPolicy
         hash_path = get_hash_path(leaves_.size() - 1);
         leaves_.push_back(zero_leaf);
         update_element(leaves_.size() - 1, zero_leaf.hash());
+        return hash_path;
     }
 
     size_t current;

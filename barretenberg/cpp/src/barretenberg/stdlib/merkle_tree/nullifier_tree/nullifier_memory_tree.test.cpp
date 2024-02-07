@@ -130,9 +130,9 @@ TEST(crypto_nullifier_tree, test_nullifier_memory)
     auto e010 = tree.get_leaves()[2].hash();
     auto e011 = tree.get_leaves()[3].hash();
     auto e100 = tree.get_leaves()[4].hash();
-    auto e101 = WrappedLeaf::zero().hash();
-    auto e110 = WrappedLeaf::zero().hash();
-    auto e111 = WrappedLeaf::zero().hash();
+    auto e101 = WrappedLeaf(zero_leaf).hash();
+    auto e110 = WrappedLeaf(zero_leaf).hash();
+    auto e111 = WrappedLeaf(zero_leaf).hash();
 
     auto e00 = HashPolicy::hash_pair(e000, e001);
     auto e01 = HashPolicy::hash_pair(e010, e011);
@@ -289,7 +289,7 @@ TEST(crypto_nullifier_tree, test_nullifier_memory_appending_zero)
     EXPECT_EQ(tree.get_leaf(4).hash(), WrappedLeaf::zero().hash());
     EXPECT_EQ(tree.get_leaf(5).hash(), WrappedLeaf::zero().hash());
     EXPECT_EQ(tree.get_leaf(6).hash(), WrappedLeaf({ 50, 0, 0 }).hash());
-    EXPECT_EQ(tree.get_leaf(7).hash(), WrappedLeaf::zero().hash());
+    EXPECT_EQ(tree.get_leaf(7).hash(), zero_leaf.hash());
 
     // Manually compute the node values
     auto e000 = tree.get_leaf(0).hash();
@@ -309,6 +309,14 @@ TEST(crypto_nullifier_tree, test_nullifier_memory_appending_zero)
     auto e0 = HashPolicy::hash_pair(e00, e01);
     auto e1 = HashPolicy::hash_pair(e10, e11);
     auto root = HashPolicy::hash_pair(e0, e1);
+
+    fr_hash_path expected1 = {
+        std::make_pair(e000, e001),
+        std::make_pair(e00, e01),
+        std::make_pair(e0, e1),
+    };
+    EXPECT_EQ(tree.get_hash_path(0), expected1);
+    EXPECT_EQ(tree.get_hash_path(1), expected1);
 
     // Check the hash path at index 2 and 3
     // Note: This merkle proof would also serve as a non-membership proof of values in (10, 20) and (20, 30)
