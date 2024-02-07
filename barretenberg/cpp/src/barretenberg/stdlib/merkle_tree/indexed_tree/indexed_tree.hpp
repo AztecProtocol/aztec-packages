@@ -41,9 +41,10 @@ class LevelSignal {
     std::atomic<size_t> signal_;
 };
 
-template <typename Store, typename LeavesStore> class IndexedTree : public AppendOnlyTree<Store> {
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
   public:
-    IndexedTree(Hasher& hasher, Store& store, size_t depth, size_t initial_size = 1, uint8_t tree_id = 0);
+    IndexedTree(Store& store, size_t depth, size_t initial_size = 1, uint8_t tree_id = 0);
     IndexedTree(IndexedTree const& other) = delete;
     IndexedTree(IndexedTree&& other) = delete;
     ~IndexedTree();
@@ -54,9 +55,9 @@ template <typename Store, typename LeavesStore> class IndexedTree : public Appen
     fr add_value(const fr& value) override;
     fr add_values(const std::vector<fr>& values) override;
 
-    using AppendOnlyTree<Store>::get_hash_path;
-    using AppendOnlyTree<Store>::root;
-    using AppendOnlyTree<Store>::depth;
+    using AppendOnlyTree<Store, HashingPolicy>::get_hash_path;
+    using AppendOnlyTree<Store, HashingPolicy>::root;
+    using AppendOnlyTree<Store, HashingPolicy>::depth;
 
   private:
     fr update_leaf_and_hash_to_root(const index_t& index, const indexed_leaf& leaf);
@@ -67,27 +68,26 @@ template <typename Store, typename LeavesStore> class IndexedTree : public Appen
                                     fr_hash_path& previous_hash_path);
     fr append_subtree(const index_t& start_index);
 
-    using AppendOnlyTree<Store>::get_element_or_zero;
-    using AppendOnlyTree<Store>::write_node;
-    using AppendOnlyTree<Store>::read_node;
+    using AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero;
+    using AppendOnlyTree<Store, HashingPolicy>::write_node;
+    using AppendOnlyTree<Store, HashingPolicy>::read_node;
 
   private:
-    using AppendOnlyTree<Store>::hasher_;
-    using AppendOnlyTree<Store>::store_;
-    using AppendOnlyTree<Store>::zero_hashes_;
-    using AppendOnlyTree<Store>::depth_;
-    using AppendOnlyTree<Store>::tree_id_;
-    using AppendOnlyTree<Store>::root_;
+    using AppendOnlyTree<Store, HashingPolicy>::store_;
+    using AppendOnlyTree<Store, HashingPolicy>::zero_hashes_;
+    using AppendOnlyTree<Store, HashingPolicy>::depth_;
+    using AppendOnlyTree<Store, HashingPolicy>::tree_id_;
+    using AppendOnlyTree<Store, HashingPolicy>::root_;
     LeavesStore leaves_;
 };
 
-template <typename Store, typename LeavesStore>
-IndexedTree<Store, LeavesStore>::IndexedTree(
-    Hasher& hasher, Store& store, size_t depth, size_t initial_size, uint8_t tree_id)
-    : AppendOnlyTree<Store>(hasher, store, depth, tree_id)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+IndexedTree<Store, LeavesStore, HashingPolicy>::IndexedTree(Store& store,
+                                                            size_t depth,
+                                                            size_t initial_size,
+                                                            uint8_t tree_id)
+    : AppendOnlyTree<Store, HashingPolicy>(store, depth, tree_id)
 {
-    ASSERT(depth >= 1 && depth <= 64);
-
     for (size_t i = 0; i < initial_size; ++i) {
         // Insert the zero leaf to the `leaves` and also to the tree at index 0.
         indexed_leaf initial_leaf = indexed_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 };
@@ -96,29 +96,32 @@ IndexedTree<Store, LeavesStore>::IndexedTree(
     append_subtree(0);
 }
 
-template <typename Store, typename LeavesStore> IndexedTree<Store, LeavesStore>::~IndexedTree() {}
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+IndexedTree<Store, LeavesStore, HashingPolicy>::~IndexedTree()
+{}
 
-template <typename Store, typename LeavesStore> fr IndexedTree<Store, LeavesStore>::add_value(const fr& value)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+fr IndexedTree<Store, LeavesStore, HashingPolicy>::add_value(const fr& value)
 {
     return add_values(std::vector<fr>{ value });
 }
 
-template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::add_values(const std::vector<fr>& values)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+fr IndexedTree<Store, LeavesStore, HashingPolicy>::add_values(const std::vector<fr>& values)
 {
     add_or_update_values(values);
     return root();
 }
 
-template <typename Store, typename LeavesStore>
-fr_hash_path IndexedTree<Store, LeavesStore>::add_or_update_value(const fr& value)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+fr_hash_path IndexedTree<Store, LeavesStore, HashingPolicy>::add_or_update_value(const fr& value)
 {
     return add_or_update_values(std::vector<fr>{ value })[0];
 }
 
-template <typename Store, typename LeavesStore>
-std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::add_or_update_values(const std::vector<fr>& values,
-                                                                                bool no_multithreading)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or_update_values(
+    const std::vector<fr>& values, bool no_multithreading)
 {
     struct {
         bool operator()(const std::pair<fr, size_t>& a, const std::pair<fr, size_t>& b) const
@@ -194,8 +197,9 @@ std::vector<fr_hash_path> IndexedTree<Store, LeavesStore>::add_or_update_values(
     return paths;
 }
 
-template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& leaf_index, const indexed_leaf& leaf)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+fr IndexedTree<Store, LeavesStore, HashingPolicy>::update_leaf_and_hash_to_root(const index_t& leaf_index,
+                                                                                const indexed_leaf& leaf)
 {
     LevelSignal leader(0);
     LevelSignal follower(0);
@@ -203,16 +207,16 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& 
     return update_leaf_and_hash_to_root(leaf_index, leaf, leader, follower, hash_path);
 }
 
-template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& leaf_index,
-                                                                 const indexed_leaf& leaf,
-                                                                 LevelSignal& leader,
-                                                                 LevelSignal& follower,
-                                                                 fr_hash_path& previous_hash_path)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+fr IndexedTree<Store, LeavesStore, HashingPolicy>::update_leaf_and_hash_to_root(const index_t& leaf_index,
+                                                                                const indexed_leaf& leaf,
+                                                                                LevelSignal& leader,
+                                                                                LevelSignal& follower,
+                                                                                fr_hash_path& previous_hash_path)
 {
     index_t index = leaf_index;
     size_t level = depth_;
-    fr new_hash = hasher_.hash_inputs(leaf.get_hash_inputs());
+    fr new_hash = HashingPolicy::hash(leaf.get_hash_inputs());
 
     // wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about to
     // write into) this ensures that our leader is not still reading the leaves
@@ -252,7 +256,7 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& 
         is_right = bool(index & 0x01);
         fr new_right_value = is_right ? new_hash : get_element_or_zero(level, index + 1);
         fr new_left_value = is_right ? get_element_or_zero(level, index - 1) : new_hash;
-        new_hash = hasher_.hash_pair(new_left_value, new_right_value);
+        new_hash = HashingPolicy::hash_pair(new_left_value, new_right_value);
         index >>= 1;
         --level;
         if (level > 0) {
@@ -268,19 +272,19 @@ fr IndexedTree<Store, LeavesStore>::update_leaf_and_hash_to_root(const index_t& 
     return new_hash;
 }
 
-template <typename Store, typename LeavesStore>
-fr IndexedTree<Store, LeavesStore>::append_subtree(const index_t& start_index)
+template <typename Store, typename LeavesStore, typename HashingPolicy>
+fr IndexedTree<Store, LeavesStore, HashingPolicy>::append_subtree(const index_t& start_index)
 {
     index_t index = start_index;
     size_t number_to_insert = size_t(index_t(leaves_.get_size()) - index);
     std::vector<fr> hashes_to_append = std::vector<fr>(number_to_insert);
 
-    for (size_t i = 0; i < number_to_insert; i++) {
+    for (size_t i = 0; i < number_to_insert; ++i) {
         index_t index_to_insert = index + i;
-        hashes_to_append[i] = hasher_.hash_inputs(leaves_.get_leaf(size_t(index_to_insert)).get_hash_inputs());
+        hashes_to_append[i] = HashingPolicy::hash(leaves_.get_leaf(size_t(index_to_insert)).get_hash_inputs());
     }
 
-    return AppendOnlyTree<Store>::add_values(hashes_to_append);
+    return AppendOnlyTree<Store, HashingPolicy>::add_values(hashes_to_append);
 }
 
 } // namespace bb::stdlib::merkle_tree

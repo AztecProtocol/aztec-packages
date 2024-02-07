@@ -28,10 +28,10 @@ static std::vector<fr> VALUES = []() {
 TEST(stdlib_merkle_tree, test_kv_memory_vs_memory_consistency)
 {
     constexpr size_t depth = 10;
-    MemoryTree memdb(depth);
+    MemoryTree<PedersenHashPolicy> memdb(depth);
 
     MemoryStore store;
-    MerkleTree db(store, depth);
+    MerkleTree<MemoryStore, PedersenHashPolicy> db(store, depth);
 
     std::vector<size_t> indicies(1 << depth);
     std::iota(indicies.begin(), indicies.end(), 0);
@@ -56,7 +56,7 @@ TEST(stdlib_merkle_tree, test_kv_memory_vs_memory_consistency)
 TEST(stdlib_merkle_tree, test_size)
 {
     MemoryStore store;
-    auto db = MerkleTree(store, 256);
+    auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 256);
 
     EXPECT_EQ(db.size(), 0ULL);
 
@@ -83,10 +83,10 @@ TEST(stdlib_merkle_tree, test_size)
 
 TEST(stdlib_merkle_tree, test_get_hash_path)
 {
-    MemoryTree memdb(10);
+    MemoryTree<PedersenHashPolicy> memdb(10);
 
     MemoryStore store;
-    auto db = MerkleTree(store, 10);
+    auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 10);
 
     EXPECT_EQ(memdb.get_hash_path(512), db.get_hash_path(512));
 
@@ -105,10 +105,10 @@ TEST(stdlib_merkle_tree, test_get_hash_path)
 
 TEST(stdlib_merkle_tree, test_get_sibling_path)
 {
-    MemoryTree memdb(10);
+    MemoryTree<PedersenHashPolicy> memdb(10);
 
     MemoryStore store;
-    auto db = MerkleTree(store, 10);
+    auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 10);
 
     EXPECT_EQ(memdb.get_sibling_path(512), db.get_sibling_path(512));
 
@@ -129,7 +129,7 @@ TEST(stdlib_merkle_tree, test_get_hash_path_layers)
 {
     {
         MemoryStore store;
-        auto db = MerkleTree(store, 3);
+        auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 3);
 
         auto before = db.get_hash_path(1);
         db.update_element(0, VALUES[1]);
@@ -142,7 +142,7 @@ TEST(stdlib_merkle_tree, test_get_hash_path_layers)
 
     {
         MemoryStore store;
-        auto db = MerkleTree(store, 3);
+        auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 3);
 
         auto before = db.get_hash_path(7);
         db.update_element(0x0, VALUES[1]);
@@ -158,7 +158,7 @@ TEST(stdlib_merkle_tree, test_get_sibling_path_layers)
 {
     {
         MemoryStore store;
-        auto db = MerkleTree(store, 3);
+        auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 3);
 
         auto before = db.get_sibling_path(1);
         db.update_element(0, VALUES[1]);
@@ -171,7 +171,7 @@ TEST(stdlib_merkle_tree, test_get_sibling_path_layers)
 
     {
         MemoryStore store;
-        auto db = MerkleTree(store, 3);
+        auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 3);
 
         auto before = db.get_sibling_path(7);
         db.update_element(0x0, VALUES[1]);

@@ -11,41 +11,38 @@
 
 namespace bb::stdlib::merkle_tree {
 
-template <typename T> inline bool bit_set(T const& index, size_t i)
-{
-    return bool((index >> i) & 0x1);
-}
-
-template <typename Store>
-NullifierTree<Store>::NullifierTree(Store& store, size_t depth, uint8_t tree_id)
-    : MerkleTree<Store>(store, depth, tree_id)
+template <typename Store, typename HashingPolicy>
+NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, size_t initial_size, uint8_t tree_id)
+    : MerkleTree<Store, HashingPolicy>(store, depth, tree_id)
 {
     ASSERT(depth_ >= 1 && depth <= 256);
     zero_hashes_.resize(depth);
 
-    // Compute the zero values at each layer.
-    // Insert the zero leaf to the `leaves` and also to the tree at index 0.
-    WrappedNullifierLeaf initial_leaf =
-        WrappedNullifierLeaf(nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 });
-    leaves.push_back(initial_leaf);
-    update_element(0, initial_leaf.hash());
-
     // Create the zero hashes for the tree
-    auto current = WrappedNullifierLeaf::zero().hash();
+    auto current = WrappedNullifierLeaf<HashingPolicy>::zero().hash();
     for (size_t i = 0; i < depth; ++i) {
         zero_hashes_[i] = current;
-        current = hash_pair_native(current, current);
+        current = HashingPolicy::hash_pair(current, current);
+    }
+
+    // Insert the initial leaves
+    for (size_t i = 0; i < initial_size; i++) {
+        auto initial_leaf =
+            WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
+        leaves.push_back(initial_leaf);
+        update_element(i, initial_leaf.hash());
     }
 }
 
-template <typename Store>
-NullifierTree<Store>::NullifierTree(NullifierTree&& other)
-    : MerkleTree<Store>(std::move(other))
+template <typename Store, typename HashingPolicy>
+NullifierTree<Store, HashingPolicy>::NullifierTree(NullifierTree&& other)
+    : MerkleTree<Store, HashingPolicy>(std::move(other))
 {}
 
-template <typename Store> NullifierTree<Store>::~NullifierTree() {}
+template <typename Store, typename HashingPolicy> NullifierTree<Store, HashingPolicy>::~NullifierTree() {}
 
-template <typename Store> fr NullifierTree<Store>::update_element(fr const& value)
+template <typename Store, typename HashingPolicy>
+fr NullifierTree<Store, HashingPolicy>::update_element(fr const& value)
 {
     // Find the leaf with the value closest and less than `value`
     size_t current;
@@ -53,7 +50,7 @@ template <typename Store> fr NullifierTree<Store>::update_element(fr const& valu
     std::tie(current, is_already_present) = find_closest_leaf(leaves, value);
 
     nullifier_leaf current_leaf = leaves[current].unwrap();
-    WrappedNullifierLeaf new_leaf = WrappedNullifierLeaf(
+    WrappedNullifierLeaf<HashingPolicy> new_leaf = WrappedNullifierLeaf<HashingPolicy>(
         { .value = value, .nextIndex = current_leaf.nextIndex, .nextValue = current_leaf.nextValue });
     if (!is_already_present) {
         // Update the current leaf to point it to the new leaf
@@ -79,6 +76,6 @@ template <typename Store> fr NullifierTree<Store>::update_element(fr const& valu
     return r;
 }
 
-template class NullifierTree<MemoryStore>;
+template class NullifierTree<MemoryStore, Poseidon2HashPolicy>;
 
 } // namespace bb::stdlib::merkle_tree

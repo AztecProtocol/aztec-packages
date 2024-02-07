@@ -13,7 +13,7 @@ namespace bb::stdlib::merkle_tree {
 
 inline bb::fr hash_pair_native(bb::fr const& lhs, bb::fr const& rhs)
 {
-    return bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash({ lhs, rhs });
+    return crypto::pedersen_hash::hash({ lhs, rhs }); // uses lookup tables
 }
 
 inline bb::fr hash_native(std::vector<bb::fr> const& inputs)

@@ -23,18 +23,14 @@ struct nullifier_leaf {
         return os;
     }
 
-    bb::fr hash() const
-    {
-        std::vector<fr> to_hash{ value, nextIndex, nextValue };
-        return bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_hash);
-    }
+    std::vector<fr> get_hash_inputs() const { return std::vector<fr>{ value, nextIndex, nextValue }; }
 };
 
 /**
  * @brief Wrapper for the Nullifier leaf class that allows for 0 values
  *
  */
-class WrappedNullifierLeaf {
+template <typename HashingPolicy> class WrappedNullifierLeaf {
 
   public:
     // Initialize with a nullifier leaf
@@ -75,21 +71,26 @@ class WrappedNullifierLeaf {
      *
      * @return bb::fr
      */
-    bb::fr hash() const { return data.has_value() ? data.value().hash() : bb::fr::zero(); }
+    bb::fr hash() const
+    {
+        return data.has_value() ? HashingPolicy::hash(data.value().get_hash_inputs()) : bb::fr::zero();
+    }
 
     /**
      * @brief Generate a zero leaf (call the constructor with no arguments)
      *
      * @return NullifierLeaf
      */
-    static WrappedNullifierLeaf zero() { return WrappedNullifierLeaf(); }
+    static WrappedNullifierLeaf<HashingPolicy> zero() { return WrappedNullifierLeaf<HashingPolicy>(); }
 
   private:
     // Underlying data
     std::optional<nullifier_leaf> data;
 };
 
-inline std::pair<size_t, bool> find_closest_leaf(std::vector<WrappedNullifierLeaf> const& leaves_, fr const& new_value)
+template <typename HashingPolicy>
+inline std::pair<size_t, bool> find_closest_leaf(std::vector<WrappedNullifierLeaf<HashingPolicy>> const& leaves_,
+                                                 fr const& new_value)
 {
     std::vector<uint256_t> diff;
     bool repeated = false;

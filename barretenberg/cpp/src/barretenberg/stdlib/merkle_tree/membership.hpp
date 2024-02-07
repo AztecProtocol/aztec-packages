@@ -332,7 +332,7 @@ template <typename Builder> static void generate_merkle_membership_test_circuit(
     using field_ct = field_t<Builder>;
     using witness_ct = witness_t<Builder>;
     using MemStore = merkle_tree::MemoryStore;
-    using MerkleTree_ct = merkle_tree::MerkleTree<MemStore>;
+    using MerkleTree_ct = merkle_tree::MerkleTree<MemStore, merkle_tree::PedersenHashPolicy>;
 
     MemStore store;
     const size_t tree_depth = 7;

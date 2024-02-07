@@ -20,11 +20,12 @@ using Builder = UltraCircuitBuilder;
 using bool_ct = bool_t<Builder>;
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
+using tree = MerkleTree<MemoryStore, PedersenHashPolicy>;
 
 TEST(stdlib_merkle_tree, test_check_membership)
 {
     MemoryStore store;
-    auto db = MerkleTree(store, 3);
+    auto db = tree(store, 3);
     auto builder = Builder();
 
     // Check membership at index 0.
@@ -51,7 +52,7 @@ TEST(stdlib_merkle_tree, test_check_membership)
 TEST(stdlib_merkle_tree, test_batch_update_membership)
 {
     MemoryStore store;
-    MerkleTree db(store, 4);
+    tree db(store, 4);
     auto builder = Builder();
     // Fill in an arbitrary value at i = 2.
     db.update_element(2, fr::random_element());
@@ -77,7 +78,7 @@ TEST(stdlib_merkle_tree, test_batch_update_membership)
 TEST(stdlib_merkle_tree, test_assert_check_membership)
 {
     MemoryStore store;
-    auto db = MerkleTree(store, 3);
+    auto db = tree(store, 3);
     auto builder = Builder();
 
     auto zero = field_ct(witness_ct(&builder, fr::zero())).decompose_into_bits();
@@ -94,7 +95,7 @@ TEST(stdlib_merkle_tree, test_assert_check_membership)
 TEST(stdlib_merkle_tree, test_assert_check_membership_fail)
 {
     MemoryStore store;
-    auto db = MerkleTree(store, 3);
+    auto db = tree(store, 3);
 
     auto builder = Builder();
 
@@ -113,7 +114,7 @@ TEST(stdlib_merkle_tree, test_update_members)
 {
     {
         MemoryStore store;
-        auto db = MerkleTree(store, 3);
+        auto db = tree(store, 3);
 
         auto builder = Builder();
 
@@ -137,7 +138,7 @@ TEST(stdlib_merkle_tree, test_update_members)
     }
     {
         MemoryStore store;
-        auto db = MerkleTree(store, 3);
+        auto db = tree(store, 3);
 
         auto builder = Builder();
 
@@ -166,8 +167,8 @@ TEST(stdlib_merkle_tree, test_tree)
     size_t depth = 3;
     size_t num = 1UL << depth;
     MemoryStore store;
-    MerkleTree db(store, depth);
-    MemoryTree mem_tree(depth);
+    tree db(store, depth);
+    MemoryTree<PedersenHashPolicy> mem_tree(depth);
 
     auto builder = Builder();
 
@@ -187,7 +188,7 @@ TEST(stdlib_merkle_tree, test_update_memberships)
 {
     constexpr size_t depth = 4;
     MemoryStore store;
-    MerkleTree tree(store, depth);
+    tree tree(store, depth);
 
     auto builder = Builder();
 

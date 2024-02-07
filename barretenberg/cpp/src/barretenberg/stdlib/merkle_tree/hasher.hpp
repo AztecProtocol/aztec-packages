@@ -7,31 +7,59 @@ namespace bb::stdlib::merkle_tree {
 
 using namespace bb;
 
-class Hasher {
-  public:
-    virtual ~Hasher(){};
-    virtual fr hash_inputs(const std::vector<fr>& inputs) = 0;
-    virtual fr hash_pair(const fr& lhs, const fr& rhs) = 0;
-    virtual fr zero_hash() = 0;
+struct PedersenHashPolicy {
+    static fr hash(const std::vector<fr>& inputs) { return crypto::pedersen_hash::hash(inputs); }
+
+    static fr hash_pair(const fr& lhs, const fr& rhs) { return hash(std::vector<fr>({ lhs, rhs })); }
+
+    static fr zero_hash() { return fr::zero(); }
 };
 
-class Poseidon2Hasher : public Hasher {
-  public:
-    Poseidon2Hasher();
-    Poseidon2Hasher(const Poseidon2Hasher& other) = delete;
-    Poseidon2Hasher(const Poseidon2Hasher&& other) = delete;
-    ~Poseidon2Hasher() override;
+struct Poseidon2HashPolicy {
+    static fr hash(const std::vector<fr>& inputs)
+    {
+        return bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs);
+    }
 
-    fr hash_inputs(const std::vector<fr>& inputs) override;
+    static fr hash_pair(const fr& lhs, const fr& rhs) { return hash(std::vector<fr>({ lhs, rhs })); }
 
-    fr hash_pair(const fr& lhs, const fr& rhs) override;
-
-    fr zero_hash() override;
-
-    uint32_t get_hash_count() const;
-
-  private:
-    std::atomic<uint32_t> hash_count_;
+    static fr zero_hash() { return fr::zero(); }
 };
+
+// template <typename HashingPolicy>
+// class Hasher {
+//   public:
+//     Hasher();
+//     Hasher(const Hasher& other) = delete;
+//     Hasher(const Hasher&& other) = delete;
+//     ~Hasher();
+
+//     fr hash_inputs(const std::vector<fr>& inputs) const;
+
+//     fr hash_pair(const fr& lhs, const fr& rhs) const;
+
+//     fr zero_hash() const;
+// };
+
+// template <typename HashingPolicy> Hasher<HashingPolicy>::Hasher()
+// {}
+
+// template <typename HashingPolicy> Hasher<HashingPolicy>::~Hasher() {}
+
+// template <typename HashingPolicy> fr Hasher<HashingPolicy>::hash_pair(const fr& lhs, const fr& rhs) const
+// {
+//     std::vector<fr> to_hash{ lhs, rhs };
+//     return hash_inputs(to_hash);
+// }
+
+// template <typename HashingPolicy> fr Hasher<HashingPolicy>::zero_hash() const
+// {
+//     return fr::zero();
+// }
+
+// template <typename HashingPolicy> fr Hasher<HashingPolicy>::hash_inputs(const std::vector<fr>& inputs) const
+// {
+//     return HashingPolicy::hash(inputs);
+// }
 
 } // namespace bb::stdlib::merkle_tree

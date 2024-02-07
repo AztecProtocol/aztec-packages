@@ -39,10 +39,12 @@ inline void print_tree(const size_t depth, std::vector<fr> hashes, std::string c
 TEST(stdlib_nullifier_tree, test_kv_memory_vs_memory_consistency)
 {
     constexpr size_t depth = 2;
-    NullifierMemoryTree memdb(depth);
+    NullifierMemoryTree<Poseidon2HashPolicy> memdb(depth);
 
     MemoryStore store;
-    NullifierTree db(store, depth);
+    NullifierTree<MemoryStore, Poseidon2HashPolicy> db(store, depth);
+
+    EXPECT_EQ(db.root(), memdb.root());
 
     std::vector<size_t> indicies(1 << depth);
     std::iota(indicies.begin(), indicies.end(), 0);
@@ -67,7 +69,7 @@ TEST(stdlib_nullifier_tree, test_kv_memory_vs_memory_consistency)
 TEST(stdlib_nullifier_tree, test_size)
 {
     MemoryStore store;
-    auto db = NullifierTree(store, 256);
+    auto db = NullifierTree<MemoryStore, Poseidon2HashPolicy>(store, 256);
 
     // We assume that the first leaf is already filled with (0, 0, 0).
     EXPECT_EQ(db.size(), 1ULL);
@@ -91,10 +93,10 @@ TEST(stdlib_nullifier_tree, test_size)
 
 TEST(stdlib_nullifier_tree, test_get_hash_path)
 {
-    NullifierMemoryTree memdb(10);
+    NullifierMemoryTree<Poseidon2HashPolicy> memdb(10);
 
     MemoryStore store;
-    auto db = NullifierTree(store, 10);
+    auto db = NullifierTree<MemoryStore, Poseidon2HashPolicy>(store, 10);
 
     EXPECT_EQ(memdb.get_hash_path(512), db.get_hash_path(512));
 
@@ -115,7 +117,7 @@ TEST(stdlib_nullifier_tree, test_get_hash_path_layers)
 {
     {
         MemoryStore store;
-        auto db = NullifierTree(store, 3);
+        auto db = NullifierTree<MemoryStore, Poseidon2HashPolicy>(store, 3);
 
         auto before = db.get_hash_path(1);
         db.update_element(VALUES[1]);
@@ -128,7 +130,7 @@ TEST(stdlib_nullifier_tree, test_get_hash_path_layers)
 
     {
         MemoryStore store;
-        auto db = NullifierTree(store, 3);
+        auto db = NullifierTree<MemoryStore, Poseidon2HashPolicy>(store, 3);
 
         auto before = db.get_hash_path(7);
         db.update_element(VALUES[1]);

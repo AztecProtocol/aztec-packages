@@ -63,30 +63,104 @@ namespace bb::stdlib::merkle_tree {
  *  nextIdx   2       4       3       1        0       0       0       0
  *  nextVal   10      50      20      30       0       0       0       0
  */
-class NullifierMemoryTree : public MemoryTree {
+template <typename HashingPolicy> class NullifierMemoryTree : public MemoryTree<HashingPolicy> {
 
   public:
     NullifierMemoryTree(size_t depth, size_t initial_size = 1);
 
-    using MemoryTree::get_hash_path;
-    using MemoryTree::root;
-    using MemoryTree::update_element;
+    using MemoryTree<HashingPolicy>::get_hash_path;
+    using MemoryTree<HashingPolicy>::root;
+    using MemoryTree<HashingPolicy>::update_element;
 
     fr_hash_path update_element(fr const& value);
 
     const std::vector<bb::fr>& get_hashes() { return hashes_; }
-    const WrappedNullifierLeaf get_leaf(size_t index)
+    const WrappedNullifierLeaf<HashingPolicy> get_leaf(size_t index)
     {
-        return (index < leaves_.size()) ? leaves_[index] : WrappedNullifierLeaf::zero();
+        return (index < leaves_.size()) ? leaves_[index] : WrappedNullifierLeaf<HashingPolicy>::zero();
     }
-    const std::vector<WrappedNullifierLeaf>& get_leaves() { return leaves_; }
+    const std::vector<WrappedNullifierLeaf<HashingPolicy>>& get_leaves() { return leaves_; }
 
   protected:
-    using MemoryTree::depth_;
-    using MemoryTree::hashes_;
-    using MemoryTree::root_;
-    using MemoryTree::total_size_;
-    std::vector<WrappedNullifierLeaf> leaves_;
+    using MemoryTree<HashingPolicy>::depth_;
+    using MemoryTree<HashingPolicy>::hashes_;
+    using MemoryTree<HashingPolicy>::root_;
+    using MemoryTree<HashingPolicy>::total_size_;
+    std::vector<WrappedNullifierLeaf<HashingPolicy>> leaves_;
 };
+
+template <typename HashingPolicy>
+NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t initial_size)
+    : MemoryTree<HashingPolicy>(depth)
+{
+    ASSERT(depth_ >= 1 && depth <= 32);
+    total_size_ = 1UL << depth_;
+    hashes_.resize(total_size_ * 2 - 2);
+
+    // Build the entire tree and fill with 0 hashes.
+    auto current = WrappedNullifierLeaf<HashingPolicy>::zero().hash();
+    size_t layer_size = total_size_;
+    for (size_t offset = 0; offset < hashes_.size(); offset += layer_size, layer_size /= 2) {
+        for (size_t i = 0; i < layer_size; ++i) {
+            hashes_[offset + i] = current;
+        }
+        current = HashingPolicy::hash_pair(current, current);
+    }
+
+    // Insert the initial leaves
+    for (size_t i = 0; i < initial_size; i++) {
+        auto initial_leaf =
+            WrappedNullifierLeaf<HashingPolicy>(nullifier_leaf{ .value = i, .nextIndex = i + 1, .nextValue = i + 1 });
+        leaves_.push_back(initial_leaf);
+        root_ = update_element(i, initial_leaf.hash());
+    }
+}
+
+template <typename HashingPolicy> fr_hash_path NullifierMemoryTree<HashingPolicy>::update_element(fr const& value)
+{
+    // Find the leaf with the value closest and less than `value`
+
+    // If value is 0 we simply append 0 a null NullifierLeaf to the tree
+    fr_hash_path hash_path;
+    if (value == 0) {
+        auto zero_leaf = WrappedNullifierLeaf<HashingPolicy>::zero();
+        hash_path = get_hash_path(leaves_.size() - 1);
+        leaves_.push_back(zero_leaf);
+        update_element(leaves_.size() - 1, zero_leaf.hash());
+    }
+
+    size_t current;
+    bool is_already_present;
+    std::tie(current, is_already_present) = find_closest_leaf(leaves_, value);
+
+    nullifier_leaf current_leaf = leaves_[current].unwrap();
+    nullifier_leaf new_leaf = { .value = value,
+                                .nextIndex = current_leaf.nextIndex,
+                                .nextValue = current_leaf.nextValue };
+
+    if (!is_already_present) {
+        // Update the current leaf to point it to the new leaf
+        current_leaf.nextIndex = leaves_.size();
+        current_leaf.nextValue = value;
+
+        leaves_[current].set(current_leaf);
+
+        // Insert the new leaf with (nextIndex, nextValue) of the current leaf
+        leaves_.push_back(new_leaf);
+    }
+
+    hash_path = get_hash_path(current);
+    // Update the old leaf in the tree
+    auto old_leaf_hash = HashingPolicy::hash(current_leaf.get_hash_inputs());
+    size_t old_leaf_index = current;
+    auto root = update_element(old_leaf_index, old_leaf_hash);
+
+    // Insert the new leaf in the tree
+    auto new_leaf_hash = HashingPolicy::hash(new_leaf.get_hash_inputs());
+    size_t new_leaf_index = is_already_present ? old_leaf_index : leaves_.size() - 1;
+    root = update_element(new_leaf_index, new_leaf_hash);
+
+    return hash_path;
+}
 
 } // namespace bb::stdlib::merkle_tree

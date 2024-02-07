@@ -4,6 +4,8 @@
 using namespace bb;
 using namespace bb::stdlib::merkle_tree;
 
+using HashPolicy = PedersenHashPolicy;
+
 static std::vector<fr> VALUES = []() {
     std::vector<fr> values(4);
     for (size_t i = 0; i < 4; ++i) {
@@ -18,11 +20,11 @@ TEST(stdlib_merkle_tree, test_memory_store)
     fr e01 = VALUES[1];
     fr e02 = VALUES[2];
     fr e03 = VALUES[3];
-    fr e10 = hash_pair_native(e00, e01);
-    fr e11 = hash_pair_native(e02, e03);
-    fr root = hash_pair_native(e10, e11);
+    fr e10 = HashPolicy::hash_pair(e00, e01);
+    fr e11 = HashPolicy::hash_pair(e02, e03);
+    fr root = HashPolicy::hash_pair(e10, e11);
 
-    MemoryTree db(2);
+    MemoryTree<HashPolicy> db(2);
     for (size_t i = 0; i < 4; ++i) {
         db.update_element(i, VALUES[i]);
     }
@@ -49,11 +51,11 @@ TEST(stdlib_merkle_tree, test_memory_store_sibling_path)
     fr e01 = VALUES[1];
     fr e02 = VALUES[2];
     fr e03 = VALUES[3];
-    fr e10 = hash_pair_native(e00, e01);
-    fr e11 = hash_pair_native(e02, e03);
-    fr root = hash_pair_native(e10, e11);
+    fr e10 = HashPolicy::hash_pair(e00, e01);
+    fr e11 = HashPolicy::hash_pair(e02, e03);
+    fr root = HashPolicy::hash_pair(e10, e11);
 
-    MemoryTree db(2);
+    MemoryTree<HashPolicy> db(2);
     for (size_t i = 0; i < 4; ++i) {
         db.update_element(i, VALUES[i]);
     }

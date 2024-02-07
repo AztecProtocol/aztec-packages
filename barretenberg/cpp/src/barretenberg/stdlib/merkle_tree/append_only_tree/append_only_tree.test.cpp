@@ -40,10 +40,9 @@ inline void print_tree(const size_t depth, std::vector<fr> hashes, std::string c
 TEST(stdlib_append_only_tree, can_create)
 {
     constexpr size_t depth = 10;
-    Poseidon2Hasher hasher = Poseidon2Hasher();
     ArrayStore store(depth + 1, 1024);
-    AppendOnlyTree tree(hasher, store, depth);
-    MemoryTree memdb(depth);
+    AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
     EXPECT_EQ(tree.size(), 0);
     EXPECT_EQ(tree.root(), memdb.root());
@@ -52,10 +51,9 @@ TEST(stdlib_append_only_tree, can_create)
 TEST(stdlib_append_only_tree, can_add_value)
 {
     constexpr size_t depth = 10;
-    Poseidon2Hasher hasher = Poseidon2Hasher();
     ArrayStore store(depth + 1, 1024);
-    AppendOnlyTree tree(hasher, store, depth);
-    MemoryTree memdb(depth);
+    AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
     EXPECT_EQ(tree.size(), 0);
     EXPECT_EQ(tree.root(), memdb.root());
@@ -70,9 +68,8 @@ TEST(stdlib_append_only_tree, can_add_value)
 TEST(stdlib_append_only_tree, test_size)
 {
     constexpr size_t depth = 10;
-    Poseidon2Hasher hasher = Poseidon2Hasher();
     ArrayStore store(depth + 1, 1024);
-    AppendOnlyTree tree(hasher, store, depth);
+    AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
 
     EXPECT_EQ(tree.size(), 0ULL);
 
@@ -96,10 +93,9 @@ TEST(stdlib_append_only_tree, test_size)
 TEST(stdlib_append_only_tree, can_add_multiple_values)
 {
     constexpr size_t depth = 10;
-    Poseidon2Hasher hasher = Poseidon2Hasher();
     ArrayStore store(depth + 1, 1024);
-    AppendOnlyTree tree(hasher, store, depth);
-    MemoryTree memdb(depth);
+    AppendOnlyTree<ArrayStore, Poseidon2HashPolicy> tree(store, depth);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
     for (size_t i = 0; i < NUM_VALUES; ++i) {
         fr mock_root = memdb.update_element(i, VALUES[i]);

@@ -27,16 +27,15 @@ static std::vector<fr> VALUES = []() {
 TEST(stdlib_indexed_tree, can_create)
 {
     ArrayStore store(33, 20);
-    Poseidon2Hasher hasher;
-    IndexedTree<ArrayStore, LeavesCache> tree = IndexedTree<ArrayStore, LeavesCache>(hasher, store, 32);
+    IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree =
+        IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 32);
     EXPECT_EQ(tree.size(), 1ULL);
 }
 
 TEST(stdlib_indexed_tree, test_size)
 {
-    Poseidon2Hasher hasher;
     ArrayStore store(33, 20);
-    auto db = IndexedTree<ArrayStore, LeavesCache>(hasher, store, 32);
+    auto db = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 32);
 
     // We assume that the first leaf is already filled with (0, 0, 0).
     EXPECT_EQ(db.size(), 1ULL);
@@ -56,11 +55,10 @@ TEST(stdlib_indexed_tree, test_size)
 
 TEST(stdlib_indexed_tree, test_get_hash_path)
 {
-    NullifierMemoryTree memdb(10);
+    NullifierMemoryTree<Poseidon2HashPolicy> memdb(10);
 
-    Poseidon2Hasher hasher;
     ArrayStore store(11, 1024);
-    auto db = IndexedTree<ArrayStore, LeavesCache>(hasher, store, 10);
+    auto db = IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store, 10);
 
     EXPECT_EQ(memdb.root(), db.root());
 
@@ -84,16 +82,15 @@ TEST(stdlib_indexed_tree, test_batch_insert)
     const size_t batch_size = 16;
     const size_t num_batches = 16;
     size_t depth = 10;
-    NullifierMemoryTree memdb(depth, batch_size);
+    NullifierMemoryTree<Poseidon2HashPolicy> memdb(depth, batch_size);
 
-    Poseidon2Hasher hasher1;
     ArrayStore store1(depth + 1, 1024 * 1024);
-    IndexedTree<ArrayStore, LeavesCache> tree1 =
-        IndexedTree<ArrayStore, LeavesCache>(hasher1, store1, depth, batch_size);
-    Poseidon2Hasher hasher2;
+    IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree1 =
+        IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store1, depth, batch_size);
+
     ArrayStore store2(depth + 1, 1024 * 1024);
-    IndexedTree<ArrayStore, LeavesCache> tree2 =
-        IndexedTree<ArrayStore, LeavesCache>(hasher2, store2, depth, batch_size);
+    IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy> tree2 =
+        IndexedTree<ArrayStore, LeavesCache, Poseidon2HashPolicy>(store2, depth, batch_size);
 
     EXPECT_EQ(memdb.root(), tree1.root());
     EXPECT_EQ(tree1.root(), tree2.root());

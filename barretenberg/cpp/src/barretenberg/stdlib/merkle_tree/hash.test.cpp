@@ -45,7 +45,7 @@ TEST(stdlib_merkle_tree_hash, compute_tree_root_native_vs_circuit)
 TEST(stdlib_merkle_tree_hash, compute_tree_native)
 {
     constexpr size_t depth = 2;
-    merkle_tree::MemoryTree mem_tree(depth);
+    merkle_tree::MemoryTree<merkle_tree::PedersenHashPolicy> mem_tree(depth);
 
     std::vector<fr> leaves;
     for (size_t i = 0; i < (size_t(1) << depth); i++) {
