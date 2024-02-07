@@ -32,7 +32,7 @@ class join_split_js_parity_tests : public ::testing::Test {
     virtual void SetUp()
     {
         store = std::make_unique<MemoryStore>();
-        tree = std::make_unique<MerkleTree<MemoryStore>>(*store, 32);
+        tree = std::make_unique<MerkleTree<MemoryStore, PedersenHashPolicy>>(*store, 32);
     }
 
     void append_notes(std::vector<value::value_note> const& notes)
@@ -56,7 +56,7 @@ class join_split_js_parity_tests : public ::testing::Test {
     }
 
     std::unique_ptr<MemoryStore> store;
-    std::unique_ptr<MerkleTree<MemoryStore>> tree;
+    std::unique_ptr<MerkleTree<MemoryStore, PedersenHashPolicy>> tree;
 };
 
 TEST_F(join_split_js_parity_tests, test_full_proof)

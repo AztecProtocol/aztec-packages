@@ -53,7 +53,7 @@ class join_split_tests : public ::testing::Test {
     virtual void SetUp()
     {
         store = std::make_unique<MemoryStore>();
-        tree = std::make_unique<MerkleTree<MemoryStore>>(*store, 32);
+        tree = std::make_unique<MerkleTree<MemoryStore, PedersenHashPolicy>>(*store, 32);
         user = join_split_example::fixtures::create_user_context();
 
         default_value_note = { .value = 100,
@@ -302,7 +302,7 @@ class join_split_tests : public ::testing::Test {
 
     join_split_example::fixtures::user_context user;
     std::unique_ptr<MemoryStore> store;
-    std::unique_ptr<MerkleTree<MemoryStore>> tree;
+    std::unique_ptr<MerkleTree<MemoryStore, PedersenHashPolicy>> tree;
     bridge_call_data empty_bridge_call_data = { .bridge_address_id = 0,
                                                 .input_asset_id_a = 0,
                                                 .input_asset_id_b = 0,
