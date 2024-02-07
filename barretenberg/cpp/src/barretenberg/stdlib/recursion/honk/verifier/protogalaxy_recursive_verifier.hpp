@@ -91,7 +91,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
 
      */
-    void verify_folding_proof(const HonkProof& proof);
+    std::shared_ptr<Instance> verify_folding_proof(const std::vector<FF>&);
 
     /**
      * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.

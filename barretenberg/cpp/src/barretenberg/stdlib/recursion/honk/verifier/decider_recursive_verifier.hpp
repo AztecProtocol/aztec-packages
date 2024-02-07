@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
+#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -15,14 +16,16 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
+    using Instance = VerifierInstance_<Flavor>;
 
   public:
-    explicit DeciderRecursiveVerifier_(Builder* builder);
+    explicit DeciderRecursiveVerifier_(Builder* builder, Instance accumulator);
 
     PairingPoints verify_proof(const HonkProof& proof);
 
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    std::shared_ptr<Instance> accumulator;
     Builder* builder;
     std::shared_ptr<Transcript<Builder>> transcript;
 };

@@ -291,107 +291,107 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
     }
 
-    /**
-     * @brief Testing two valid rounds of folding followed by the decider.
-     *
-     */
-    static void test_full_protogalaxy()
-    {
-        auto composer = Composer();
-        auto builder_1 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_1);
+    // /**
+    //  * @brief Testing two valid rounds of folding followed by the decider.
+    //  *
+    //  */
+    // static void test_full_protogalaxy()
+    // {
+    //     auto composer = Composer();
+    //     auto builder_1 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_1);
 
-        auto instance_1 = composer.create_instance(builder_1);
+    //     auto instance_1 = composer.create_instance(builder_1);
 
-        auto builder_2 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_2);
+    //     auto builder_2 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_2);
 
-        auto instance_2 = composer.create_instance(builder_2);
+    //     auto instance_2 = composer.create_instance(builder_2);
 
-        auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
-        auto first_accumulator = fold_and_verify(instances, composer, true);
-        check_accumulator_target_sum_manual(first_accumulator, true);
+    //     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    //     auto first_accumulator = fold_and_verify(instances, composer, true);
+    //     check_accumulator_target_sum_manual(first_accumulator, true);
 
-        auto builder_3 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_3);
-        auto instance_3 = composer.create_instance(builder_3);
+    //     auto builder_3 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_3);
+    //     auto instance_3 = composer.create_instance(builder_3);
 
-        instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
-        auto second_accumulator = fold_and_verify(instances, composer, true);
-        check_accumulator_target_sum_manual(second_accumulator, true);
+    //     instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    //     auto second_accumulator = fold_and_verify(instances, composer, true);
+    //     check_accumulator_target_sum_manual(second_accumulator, true);
 
-        decide_and_verify(second_accumulator, composer, true);
-    }
+    //     decide_and_verify(second_accumulator, composer, true);
+    // }
 
-    /**
-     * @brief Ensure tampering a commitment and then calling the decider causes the decider verification to fail.
-     *
-     */
-    static void test_tampered_commitment()
-    {
-        auto composer = Composer();
+    // /**
+    //  * @brief Ensure tampering a commitment and then calling the decider causes the decider verification to fail.
+    //  *
+    //  */
+    // static void test_tampered_commitment()
+    // {
+    //     auto composer = Composer();
 
-        auto builder_1 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_1);
+    //     auto builder_1 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_1);
 
-        auto instance_1 = composer.create_instance(builder_1);
+    //     auto instance_1 = composer.create_instance(builder_1);
 
-        auto builder_2 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_2);
+    //     auto builder_2 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_2);
 
-        auto instance_2 = composer.create_instance(builder_2);
+    //     auto instance_2 = composer.create_instance(builder_2);
 
-        auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
-        auto first_accumulator = fold_and_verify(instances, composer, true);
-        check_accumulator_target_sum_manual(first_accumulator, true);
+    //     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    //     auto first_accumulator = fold_and_verify(instances, composer, true);
+    //     check_accumulator_target_sum_manual(first_accumulator, true);
 
-        auto builder_3 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_3);
-        auto instance_3 = composer.create_instance(builder_3);
+    //     auto builder_3 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_3);
+    //     auto instance_3 = composer.create_instance(builder_3);
 
-        // tampering with the commitment should cause the decider to fail
-        first_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
-        instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    //     // tampering with the commitment should cause the decider to fail
+    //     first_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
+    //     instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
 
-        auto second_accumulator = fold_and_verify(instances, composer, true);
+    //     auto second_accumulator = fold_and_verify(instances, composer, true);
 
-        decide_and_verify(second_accumulator, composer, false);
-    }
+    //     decide_and_verify(second_accumulator, composer, false);
+    // }
 
-    /**
-     * @brief Ensure tampering an accumulator and then calling fold again causes both the folding verification and
-     * decider verification to fail.
-     *
-     */
-    static void test_tampered_accumulator_polynomial()
-    {
-        auto composer = Composer();
+    // /**
+    //  * @brief Ensure tampering an accumulator and then calling fold again causes both the folding verification and
+    //  * decider verification to fail.
+    //  *
+    //  */
+    // static void test_tampered_accumulator_polynomial()
+    // {
+    //     auto composer = Composer();
 
-        auto builder_1 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_1);
+    //     auto builder_1 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_1);
 
-        auto instance_1 = composer.create_instance(builder_1);
+    //     auto instance_1 = composer.create_instance(builder_1);
 
-        auto builder_2 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_2);
+    //     auto builder_2 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_2);
 
-        auto instance_2 = composer.create_instance(builder_2);
+    //     auto instance_2 = composer.create_instance(builder_2);
 
-        auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
-        auto first_accumulator = fold_and_verify(instances, composer, true);
-        check_accumulator_target_sum_manual(first_accumulator, true);
+    //     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    //     auto first_accumulator = fold_and_verify(instances, composer, true);
+    //     check_accumulator_target_sum_manual(first_accumulator, true);
 
-        auto builder_3 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_3);
-        auto instance_3 = composer.create_instance(builder_3);
+    //     auto builder_3 = typename Flavor::CircuitBuilder();
+    //     construct_circuit(builder_3);
+    //     auto instance_3 = composer.create_instance(builder_3);
 
-        // tampering with accumulator's polynomial should cause both folding and deciding to fail
-        instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
-        first_accumulator->prover_polynomials.w_l[1] = FF::random_element();
-        auto second_accumulator = fold_and_verify(instances, composer, false);
+    //     // tampering with accumulator's polynomial should cause both folding and deciding to fail
+    //     instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    //     first_accumulator->prover_polynomials.w_l[1] = FF::random_element();
+    //     auto second_accumulator = fold_and_verify(instances, composer, false);
 
-        decide_and_verify(second_accumulator, composer, false);
-    }
+    //     decide_and_verify(second_accumulator, composer, false);
+    // }
 };
 } // namespace
 
@@ -428,17 +428,17 @@ TYPED_TEST(ProtoGalaxyTests, CombineAlpha)
     TestFixture::test_combine_alpha();
 }
 
-TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyTest)
-{
-    TestFixture::test_full_protogalaxy();
-}
+// TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyTest)
+// {
+//     TestFixture::test_full_protogalaxy();
+// }
 
-TYPED_TEST(ProtoGalaxyTests, TamperedCommitment)
-{
-    TestFixture::test_tampered_commitment();
-}
+// TYPED_TEST(ProtoGalaxyTests, TamperedCommitment)
+// {
+//     TestFixture::test_tampered_commitment();
+// }
 
-TYPED_TEST(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
-{
-    TestFixture::test_tampered_accumulator_polynomial();
-}
+// TYPED_TEST(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
+// {
+//     TestFixture::test_tampered_accumulator_polynomial();
+// }

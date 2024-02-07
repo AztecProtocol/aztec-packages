@@ -109,7 +109,10 @@ template <IsUltraFlavor Flavor> class UltraComposer_ {
     {
 
         auto insts = VerifierInstances();
-        insts[0] = std::move(accumulator); // this way we wont need to send the accumulator shtuff via transcript
+        // Accumulator doesn't need to be send via the transcript as it's the result of the previous round of folding
+        if (accumulator->is_accumulator) {
+            insts[0] = std::move(accumulator);
+        }
         ProtoGalaxyVerifier_<VerifierInstances> output_state(insts);
 
         return output_state;

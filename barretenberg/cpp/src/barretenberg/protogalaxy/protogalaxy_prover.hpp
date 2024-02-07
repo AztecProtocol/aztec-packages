@@ -74,7 +74,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *  @param domain_separator separates the same type of data coming from difference instances by instance
      * index
      */
-    void send_accumulator(std::shared_ptr<Instance>, const std::string& domain_separator);
+    // void send_accumulator(std::shared_ptr<Instance>, const std::string& domain_separator);
 
     /**
      * @brief For each instance produced by a circuit, prior to folding, we need to complete the computation of its
