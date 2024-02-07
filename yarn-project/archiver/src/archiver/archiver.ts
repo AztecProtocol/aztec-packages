@@ -283,15 +283,18 @@ export class Archiver implements ArchiveSource {
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
     await Promise.all(
-      retrievedBlocks.retrievedData.map(block =>
-        this.store.addLogs(block.newEncryptedLogs, block.newUnencryptedLogs, block.number),
-      ),
+      retrievedBlocks.retrievedData.map(block =>{
+        const encryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs));
+        const unencryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs));
+
+        this.store.addLogs(encryptedLogs, unencryptedLogs, block.number);
+      }),
     );
 
     // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
     await Promise.all(
       retrievedBlocks.retrievedData.map(async block => {
-        const blockLogs = (block.newUnencryptedLogs?.txLogs ?? [])
+        const blockLogs = (block.body.txEffects.flatMap(txEffect => txEffect.logs ? [txEffect.logs?.unencryptedLogs] : [] ))
           .flatMap(txLog => txLog.unrollLogs())
           .map(log => UnencryptedL2Log.fromBuffer(log));
         await this.storeRegisteredContractClasses(blockLogs, block.number);
@@ -315,7 +318,7 @@ export class Archiver implements ArchiveSource {
     // from each l2block fetch all messageKeys in a flattened array:
     this.log(`Confirming l1 to l2 messages in store`);
     for (const block of retrievedBlocks.retrievedData) {
-      await this.store.confirmL1ToL2Messages(block.newL1ToL2Messages);
+      await this.store.confirmL1ToL2Messages(block.body.l1ToL2Messages);
     }
 
     // store retrieved L2 blocks after removing new logs information.
@@ -323,8 +326,15 @@ export class Archiver implements ArchiveSource {
     await this.store.addBlocks(
       retrievedBlocks.retrievedData.map(block => {
         // Ensure we pad the L1 to L2 message array to the full size before storing.
-        block.newL1ToL2Messages = padArrayEnd(block.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        return L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getL1BlockNumber());
+        block.body.l1ToL2Messages = padArrayEnd(block.body.l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
+        block.body.txEffects.forEach(txEffect => delete txEffect.logs);
+
+        return L2Block.fromFields({
+          archive: block.archive,
+          header: block.header,
+          body: block.body,
+        }, block.getL1BlockNumber());
       }),
     );
   }

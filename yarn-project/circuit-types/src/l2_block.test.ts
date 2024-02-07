@@ -5,8 +5,8 @@ describe('L2Block', () => {
   it('can serialize an L2 block with logs to a buffer and back', () => {
     const block = L2Block.random(42);
 
-    const buffer = block.toBufferWithLogs();
-    const recovered = L2Block.fromBufferWithLogs(buffer);
+    const buffer = block.toBuffer(true, true);
+    const recovered = L2Block.fromBuffer(buffer, true);
 
     // TODO(#3868): encoding and decoding is currently hacked and bodyHash is not recovered yet
     recovered.header.bodyHash = block.header.bodyHash;
@@ -15,9 +15,15 @@ describe('L2Block', () => {
   });
 
   it('can serialize an L2 block without logs to a buffer and back', () => {
-    const block = L2Block.random(42);
-    block.newEncryptedLogs = undefined;
-    block.newUnencryptedLogs = undefined;
+    const block = L2Block.random(
+      42,
+      4,
+      2,
+      3,
+      2,
+      1,
+      false,
+    );
 
     const serialized = block.toString();
     const recovered = L2Block.fromString(serialized);

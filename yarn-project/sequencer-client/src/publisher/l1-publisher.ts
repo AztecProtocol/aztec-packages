@@ -154,7 +154,7 @@ export class L1Publisher implements L2BlockReceiver {
       return false;
     }
 
-    const encodedBody = block.bodyToBuffer();
+    const encodedBody = block.toBuffer(true, false);
 
     // Publish block transaction effects
     while (!this.interrupted) {

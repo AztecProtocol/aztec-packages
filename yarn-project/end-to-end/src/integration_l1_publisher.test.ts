@@ -259,13 +259,13 @@ describe('L1Publisher integration', () => {
       },
       messages: {
         l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
-        l2ToL1Messages: block.newL2ToL1Msgs.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
+        l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs).map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        body: `0x${block.bodyToBuffer().toString('hex')}`,
+        body: `0x${block.toBuffer(true, false).toString('hex')}`,
         calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           bodyHash: `0x${block.header.bodyHash.toString('hex').padStart(64, '0')}`,
@@ -387,9 +387,11 @@ describe('L1Publisher integration', () => {
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeTruthy();
       }
 
+      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
+
       // check that values are not in the outbox
-      for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString()])).toBeFalsy();
+      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
+        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeFalsy();
       }
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Messages, l1ToL2Content, recipientAddress, deployerAccount.address);
@@ -418,7 +420,7 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x${block.getCalldataHash().toString('hex')}`,
-          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${block.toBuffer(true, false).toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
@@ -431,9 +433,10 @@ describe('L1Publisher integration', () => {
         }
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeFalsy();
       }
+    
       // check that values are inserted into the outbox
-      for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString()])).toBeTruthy();
+      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
+        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();
       }
     }
   }, 360_000);
@@ -490,7 +493,7 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x${block.getCalldataHash().toString('hex')}`,
-          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${block.toBuffer(true, false).toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
