@@ -48,6 +48,27 @@ template <class Builder> class CycleGroupTest : public ::testing::Test {
 using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
 
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto lhs = TestFixture::generators[0];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    a.validate_is_on_curve();
+    EXPECT_FALSE(builder.failed());
+}
+
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    cycle_group_ct a(1, 1, false);
+    a.validate_is_on_curve();
+    EXPECT_TRUE(builder.failed());
+}
+
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
     STDLIB_TYPE_ALIASES;
@@ -436,8 +457,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
     }
 
-    // case 5, fixed-base MSM with inputs that are combinations of constant and witnesses (group elements are in lookup
-    // table)
+    // case 5, fixed-base MSM with inputs that are combinations of constant and witnesses (group elements are in
+    // lookup table)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
@@ -465,8 +486,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
     }
 
-    // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are in
-    // lookup table)
+    // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are
+    // in lookup table)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
