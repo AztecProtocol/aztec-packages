@@ -336,7 +336,7 @@ impl PrivateContext {
         // the msg_sender in the nested call to be equal to our address, and the execution context address
         // for the nested call to be equal to the address we actually called.
         assert(item.public_inputs.call_context.is_delegate_call == false);
-        assert(item.public_inputs.call_context.is_static_call == false);
+        assert(item.public_inputs.call_context.is_static_call == is_static_call);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
         assert(item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address));
         assert(item.public_inputs.call_context.storage_contract_address.eq(contract_address));
@@ -439,7 +439,7 @@ impl PrivateContext {
         // the msg_sender in the nested call to be equal to our address, and the execution context address
         // for the nested call to be equal to the address we actually called.
         assert(item.public_inputs.call_context.is_delegate_call == false);
-        assert(item.public_inputs.call_context.is_static_call == false);
+        assert(item.public_inputs.call_context.is_static_call == is_static_call);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
         assert(item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address));
         assert(item.public_inputs.call_context.storage_contract_address.eq(contract_address));

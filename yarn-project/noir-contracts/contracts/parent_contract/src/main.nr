@@ -157,10 +157,21 @@ contract Parent {
     fn publicStaticCall(
         targetContract: AztecAddress,
         targetSelector: FunctionSelector,
-        args: [Field; 2]
+        args: [Field; 1]
     ) -> Field {
         let return_values = context.call_public_function_static(targetContract, targetSelector, args);
 
         return_values[0]
+    }
+
+    // Private function to enqueue a static call to the pubEntryPoint function of another contract, passing the target arguments provided
+    #[aztec(private)]
+    fn enqueueStaticCallToPubFunction(
+        targetContract: AztecAddress,
+        targetSelector: FunctionSelector,
+        args: [Field; 1]
+    ) {
+        // Call the target private function
+        context.call_public_function_static(targetContract, targetSelector, args);
     }
 }

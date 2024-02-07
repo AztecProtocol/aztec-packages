@@ -215,6 +215,7 @@ describe('public_processor', () => {
           to: makeAztecAddress(30),
           functionData: new FunctionData(makeSelector(5), false, false, false),
           args: new Array(ARGS_LENGTH).fill(Fr.ZERO),
+          static: false,
         }),
       ];
       publicExecutor.simulate.mockResolvedValue(publicExecutionResult);
@@ -256,6 +257,7 @@ describe('public_processor', () => {
           to: makeAztecAddress(30),
           functionData: new FunctionData(makeSelector(5), false, false, false),
           args: new Array(ARGS_LENGTH).fill(Fr.ZERO),
+          static: false,
         }),
       ];
       publicExecutor.simulate.mockRejectedValueOnce(new SimulationError('Simulation Failed', []));

@@ -136,3 +136,18 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
     update.sideEffectCounter!,
   );
 }
+
+/**
+ * Checks whether the child execution result is valid for a static call (no state modifications).
+ * @param executionResult - The execution result of a public function
+ */
+
+export function checkValidStaticCall(
+  newCommitments: SideEffect[],
+  newNullifiers: SideEffectLinkedToNoteHash[],
+  contractStorageUpdateRequests: ContractStorageUpdateRequest[],
+) {
+  if (contractStorageUpdateRequests.length > 0 || newCommitments.length > 0 || newNullifiers.length > 0) {
+    throw new Error('Static call cannot update the state');
+  }
+}

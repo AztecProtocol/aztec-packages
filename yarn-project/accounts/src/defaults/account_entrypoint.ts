@@ -101,6 +101,12 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                           kind: 'boolean',
                         },
                       },
+                      {
+                        name: 'is_static',
+                        type: {
+                          kind: 'boolean',
+                        },
+                      },
                     ],
                   },
                 },

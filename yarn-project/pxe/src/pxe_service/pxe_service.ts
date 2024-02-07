@@ -416,7 +416,7 @@ export class PXEService implements PXE {
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.
-      const functionCall = await this.#getFunctionCall(functionName, args, to);
+      const functionCall = await this.#getFunctionCall(functionName, args, to, false);
       const executionResult = await this.#simulateUnconstrained(functionCall);
 
       // TODO - Return typed result based on the function artifact.
@@ -479,7 +479,12 @@ export class PXEService implements PXE {
     return this.node.getUnencryptedLogs(filter);
   }
 
-  async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
+  async #getFunctionCall(
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+    isStatic: boolean,
+  ): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
@@ -496,6 +501,7 @@ export class PXEService implements PXE {
       args: encodeArguments(functionDao, args),
       functionData: FunctionData.fromAbi(functionDao),
       to,
+      static: isStatic,
     };
   }
 

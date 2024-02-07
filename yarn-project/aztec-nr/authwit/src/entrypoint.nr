@@ -8,21 +8,22 @@ use dep::aztec::protocol_types::{
 };
 
 global ACCOUNT_MAX_CALLS: Field = 4;
-// 1 (ARGS_HASH) + 1 (FUNCTION_SELECTOR) + 1 (TARGET_ADDRESS) + 1 (IS_PUBLIC)
-global FUNCTION_CALL_SIZE: Field = 4;
-// 3 * 32 + 1
-global FUNCTION_CALL_SIZE_IN_BYTES: Field = 97;
+// 1 (ARGS_HASH) + 1 (FUNCTION_SELECTOR) + 1 (TARGET_ADDRESS) + 1 (IS_PUBLIC) + 1 (IS_STATIC)
+global FUNCTION_CALL_SIZE: Field = 5;
+// 3 * 32 + 2
+global FUNCTION_CALL_SIZE_IN_BYTES: Field = 98;
 
 struct FunctionCall {
   args_hash: Field,
   function_selector: FunctionSelector,
   target_address: AztecAddress,
   is_public: bool,
+  is_static: bool,
 }
 
 impl Serialize<FUNCTION_CALL_SIZE> for FunctionCall {
   fn serialize(self) -> [Field; FUNCTION_CALL_SIZE] {
-    [self.args_hash, self.function_selector.to_field(), self.target_address.to_field(), self.is_public as Field]
+    [self.args_hash, self.function_selector.to_field(), self.target_address.to_field(), self.is_public as Field, self.is_static as Field]
   }
 }
 
@@ -36,14 +37,15 @@ impl FunctionCall {
     let target_address_bytes = self.target_address.to_field().to_be_bytes(32);
     for i in 0..32 { bytes[i + 64] = target_address_bytes[i]; }
     bytes[96] = self.is_public as u8;
+    bytes[97] = self.is_static as u8;
     bytes
   }
 }
 
 // FUNCTION_CALL_SIZE * ACCOUNT_MAX_CALLS + 1
-global ENTRYPOINT_PAYLOAD_SIZE: Field = 17;
+global ENTRYPOINT_PAYLOAD_SIZE: Field = 21;
 // FUNCTION_CALL_SIZE_IN_BYTES * ACCOUNT_MAX_CALLS + 32
-global ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES: Field = 420;
+global ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES: Field = 424;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:entrypoint-struct
@@ -102,11 +104,11 @@ impl EntrypointPayload {
       if !call.target_address.is_zero() {
         if call.is_public {
           context.call_public_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash
+            call.target_address, call.function_selector, call.args_hash, call.is_static
           );
         } else {
           let _result = context.call_private_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash, false
+            call.target_address, call.function_selector, call.args_hash, call.is_static
           );
         }
       }

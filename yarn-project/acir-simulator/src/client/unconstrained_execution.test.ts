@@ -65,6 +65,7 @@ describe('Unconstrained Execution test suite', () => {
         to: contractAddress,
         functionData: new FunctionData(FunctionSelector.empty(), false, true, true),
         args: encodeArguments(artifact, [owner]),
+        static: false,
       };
 
       const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());
