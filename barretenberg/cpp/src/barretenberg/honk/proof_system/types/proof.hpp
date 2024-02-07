@@ -4,6 +4,6 @@
 
 namespace bb {
 
-using HonkProof = std::vector<bb::fr>;
+using HonkProof = std::vector<bb::fr>; // this can be fr?
 
 } // namespace bb

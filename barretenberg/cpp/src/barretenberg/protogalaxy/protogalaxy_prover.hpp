@@ -28,6 +28,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Commitment = typename Flavor::Commitment;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;

@@ -83,7 +83,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      * accumulator, received from the prover is the same as that produced by the verifier.
      *
      */
-    bool verify_folding_proof(const std::vector<FF>&);
+    std::shared_ptr<Instance> verify_folding_proof(const std::vector<FF>&);
 };
 
 } // namespace bb

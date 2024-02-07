@@ -90,57 +90,57 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         instance->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
     }
-    auto vk_view = instance->verification_key->get_all();
-    auto labels = instance->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + labels[idx], vk_view[idx]);
-    }
+    // auto vk_view = instance->verification_key->get_all();
+    // auto labels = instance->commitment_labels.get_precomputed();
+    // for (size_t idx = 0; idx < labels.size(); idx++) {
+    //     transcript->send_to_verifier(domain_separator + "_" + labels[idx], vk_view[idx]);
+    // }
 }
 
-template <class ProverInstances>
-void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Instance> instance,
-                                                           const std::string& domain_separator)
-{
-    const auto instance_size = static_cast<uint32_t>(instance->instance_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
-    transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
-    transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
+// template <class ProverInstances>
+// void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Instance> instance,
+//                                                            const std::string& domain_separator)
+// {
+//     const auto instance_size = static_cast<uint32_t>(instance->instance_size);
+//     const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
+//     transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
+//     transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
 
-    for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
-        auto public_input_i = instance->public_inputs[i];
-        transcript->send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
-    }
+//     for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
+//         auto public_input_i = instance->public_inputs[i];
+//         transcript->send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
+//     }
 
-    transcript->send_to_verifier(domain_separator + "_eta", instance->relation_parameters.eta);
-    transcript->send_to_verifier(domain_separator + "_beta", instance->relation_parameters.beta);
-    transcript->send_to_verifier(domain_separator + "_gamma", instance->relation_parameters.gamma);
-    transcript->send_to_verifier(domain_separator + "_public_input_delta",
-                                 instance->relation_parameters.public_input_delta);
-    transcript->send_to_verifier(domain_separator + "_lookup_grand_product_delta",
-                                 instance->relation_parameters.lookup_grand_product_delta);
+//     transcript->send_to_verifier(domain_separator + "_eta", instance->relation_parameters.eta);
+//     transcript->send_to_verifier(domain_separator + "_beta", instance->relation_parameters.beta);
+//     transcript->send_to_verifier(domain_separator + "_gamma", instance->relation_parameters.gamma);
+//     transcript->send_to_verifier(domain_separator + "_public_input_delta",
+//                                  instance->relation_parameters.public_input_delta);
+//     transcript->send_to_verifier(domain_separator + "_lookup_grand_product_delta",
+//                                  instance->relation_parameters.lookup_grand_product_delta);
 
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        transcript->send_to_verifier(domain_separator + "_alpha_" + std::to_string(idx), instance->alphas[idx]);
-    }
+//     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
+//         transcript->send_to_verifier(domain_separator + "_alpha_" + std::to_string(idx), instance->alphas[idx]);
+//     }
 
-    transcript->send_to_verifier(domain_separator + "_target_sum", instance->target_sum);
-    for (size_t idx = 0; idx < instance->gate_challenges.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_gate_challenge_" + std::to_string(idx),
-                                     instance->gate_challenges[idx]);
-    }
+//     transcript->send_to_verifier(domain_separator + "_target_sum", instance->target_sum);
+//     for (size_t idx = 0; idx < instance->gate_challenges.size(); idx++) {
+//         transcript->send_to_verifier(domain_separator + "_gate_challenge_" + std::to_string(idx),
+//                                      instance->gate_challenges[idx]);
+//     }
 
-    auto comm_view = instance->witness_commitments.get_all();
-    auto witness_labels = instance->commitment_labels.get_witness();
-    for (size_t idx = 0; idx < witness_labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + witness_labels[idx], comm_view[idx]);
-    }
+//     auto comm_view = instance->witness_commitments.get_all();
+//     auto witness_labels = instance->commitment_labels.get_witness();
+//     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
+//         transcript->send_to_verifier(domain_separator + "_" + witness_labels[idx], comm_view[idx]);
+//     }
 
-    auto vk_view = instance->verification_key->get_all();
-    auto vk_labels = instance->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + vk_labels[idx], vk_view[idx]);
-    }
-}
+//     auto vk_view = instance->verification_key->get_all();
+//     auto vk_labels = instance->commitment_labels.get_precomputed();
+//     for (size_t idx = 0; idx < vk_labels.size(); idx++) {
+//         transcript->send_to_verifier(domain_separator + "_" + vk_labels[idx], vk_view[idx]);
+//     }
+// }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
 {
@@ -148,9 +148,11 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     auto instance = instances[0];
     auto domain_separator = std::to_string(idx);
     transcript->send_to_verifier(domain_separator + "is_accumulator", instance->is_accumulator);
-    if (instance->is_accumulator) {
-        send_accumulator(instance, domain_separator);
-    } else {
+    if (!instance->is_accumulator)
+    // {
+    // send_accumulator(instance, domain_separator);
+    // }else
+    {
         // This is the first round of folding and we need to generate some gate challenges.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): implement option 2 to make this more
         // efficient by avoiding the computation of the perturbator
@@ -224,18 +226,18 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     next_accumulator->prover_polynomials = std::move(acc_prover_polynomials);
 
     // Fold the witness commtiments and send them to the verifier
-    auto witness_labels = next_accumulator->commitment_labels.get_witness();
-    size_t comm_idx = 0;
-    for (auto& acc_comm : next_accumulator->witness_commitments.get_all()) {
-        acc_comm = Commitment::infinity();
-        size_t inst_idx = 0;
-        for (auto& instance : instances) {
-            acc_comm = acc_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst_idx];
-            inst_idx++;
-        }
-        transcript->send_to_verifier("next_" + witness_labels[comm_idx], acc_comm);
-        comm_idx++;
-    }
+    // auto witness_labels = next_accumulator->commitment_labels.get_witness();
+    // size_t comm_idx = 0;
+    // for (auto& acc_comm : next_accumulator->witness_commitments.get_all()) {
+    //     acc_comm = Commitment::infinity();
+    //     size_t inst_idx = 0;
+    //     for (auto& instance : instances) {
+    //         acc_comm = acc_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst_idx];
+    //         inst_idx++;
+    //     }
+    //     transcript->send_to_verifier("next_" + witness_labels[comm_idx], acc_comm);
+    //     comm_idx++;
+    // }
 
     // Fold public data ϕ from all instances to produce ϕ* and add it to the transcript. As part of the folding
     // verification, the verifier will produce ϕ* as well and check it against what was sent by the prover.
@@ -249,7 +251,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
             el += instance->public_inputs[el_idx] * lagranges[inst];
             inst++;
         }
-        transcript->send_to_verifier("next_public_input_" + std::to_string(el_idx), el);
+        transcript->send_to_verifier("next_public_input_" + std::to_string(el_idx), el); // I shouldn't send
         el_idx++;
     }
 
@@ -282,21 +284,21 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     next_accumulator->relation_parameters = folded_relation_parameters;
 
     // Fold the verification key and send it to the verifier as this is part of ϕ as well
-    auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
-                                                    instances[0]->public_inputs.size());
-    auto labels = next_accumulator->commitment_labels.get_precomputed();
-    size_t vk_idx = 0;
-    for (auto& vk : acc_vk->get_all()) {
-        size_t inst = 0;
-        vk = Commitment::infinity();
-        for (auto& instance : instances) {
-            vk = vk + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
-            inst++;
-        }
-        transcript->send_to_verifier("next_" + labels[vk_idx], vk);
-        vk_idx++;
-    }
-    next_accumulator->verification_key = acc_vk;
+    // auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
+    //                                                 instances[0]->public_inputs.size());
+    // auto labels = next_accumulator->commitment_labels.get_precomputed();
+    // size_t vk_idx = 0;
+    // for (auto& vk : acc_vk->get_all()) {
+    //     size_t inst = 0;
+    //     vk = Commitment::infinity();
+    //     for (auto& instance : instances) {
+    //         vk = vk + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
+    //         inst++;
+    //     }
+    //     transcript->send_to_verifier("next_" + labels[vk_idx], vk);
+    //     vk_idx++;
+    // }
+    // next_accumulator->verification_key = acc_vk;
     return next_accumulator;
 }
 
@@ -310,7 +312,8 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
     auto perturbator = compute_perturbator(accumulator, deltas);
-    for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
+    ASSERT(perturbator[0] == accumulator->target_sum);
+    for (size_t idx = 1; idx <= accumulator->log_instance_size; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
