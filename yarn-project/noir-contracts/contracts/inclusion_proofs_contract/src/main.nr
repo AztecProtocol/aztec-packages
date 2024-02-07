@@ -50,7 +50,9 @@ contract InclusionProofs {
 
         // 2) Prove the note inclusion
         if (use_block_number) {
+            // docs:start:prove_note_inclusion
             prove_note_inclusion_at(maybe_note.unwrap_unchecked(), block_number, context);
+            // docs:end:prove_note_inclusion
         } else {
             prove_note_inclusion(maybe_note.unwrap_unchecked(), context);
         }
@@ -118,13 +120,13 @@ contract InclusionProofs {
         let note = notes[0].unwrap();
 
         // 2) Prove the note validity
-        // docs:start:prove_note_validity
         if (use_block_number) {
+            // docs:start:prove_note_validity
             prove_note_validity_at(note, block_number, &mut context);
+            // docs:end:prove_note_validity
         } else {
             prove_note_validity(note, &mut context);
         }
-        // docs:end:prove_note_validity
     }
 
     // docs:start:nullify_note
@@ -148,13 +150,13 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
     ) {
-        // docs:start:prove_nullifier_inclusion
         if (use_block_number) {
+            // docs:start:prove_nullifier_inclusion
             prove_nullifier_inclusion_at(nullifier, block_number, context);
+            // docs:end:prove_nullifier_inclusion
         } else {
             prove_nullifier_inclusion(nullifier, context);
         }
-        // docs:end:prove_nullifier_inclusion
     }
 
     #[aztec(private)]
