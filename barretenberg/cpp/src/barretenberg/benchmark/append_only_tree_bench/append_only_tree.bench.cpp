@@ -20,11 +20,11 @@ void perform_batch_insert(TreeType& tree, const std::vector<fr>& values)
 
 void append_only_tree_bench(State& state) noexcept
 {
-    const size_t batch_size = 16;
+    const size_t batch_size = size_t(state.range(0));
     const size_t depth = 32;
 
-    ArrayStore store(depth);
-    TreeType tree = TreeType(store, depth, batch_size);
+    ArrayStore store(depth, 1024 * 1024);
+    TreeType tree = TreeType(store, depth);
 
     for (auto _ : state) {
         state.PauseTiming();
@@ -36,6 +36,6 @@ void append_only_tree_bench(State& state) noexcept
         perform_batch_insert(tree, values);
     }
 }
-BENCHMARK(append_only_tree_bench)->Unit(benchmark::kMillisecond)->Iterations(6000);
+BENCHMARK(append_only_tree_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(2, 64)->Iterations(6000);
 
 BENCHMARK_MAIN();
