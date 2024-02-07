@@ -37,6 +37,15 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
+noir-contracts:
+  buildDir: noir-contracts
+  reuildPatterns:
+    - ^noir-contracts/contracts
+    - ^noir-contracts/Nargo.toml
+    - ^noir-contracts/Package.json
+  dependencies:
+    - noir
+
 noir-compile-acir-tests:
   buildDir: noir/test_programs
   # Awkward. Maybe change dockerfile paths to be absolute.
@@ -120,6 +129,9 @@ l1-contracts:
 boxes-files:
   buildDir: boxes
   dockerfile: Dockerfile.files
+
+aztec-nr:
+  buildDir: yarn-project/aztec-nr
 
 yarn-project-base:
   buildDir: yarn-project
