@@ -2,12 +2,12 @@ import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   CompleteAddress,
-  ContractDeployer,
   DebugLogger,
   DeploySentTx,
   EthAddress,
   Fr,
   Grumpkin,
+  LegacyContractDeployer,
   PublicKey,
   TxStatus,
   Wallet,
@@ -145,7 +145,8 @@ describe('e2e_p2p_network', () => {
         publicKey,
         EthAddress.ZERO,
       ).address;
-      const deployer = new ContractDeployer(TestContractArtifact, pxe, publicKey);
+      // TODO(@spalladino): Remove usage of LegacyContractDeployer.
+      const deployer = new LegacyContractDeployer(TestContractArtifact, pxe, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();

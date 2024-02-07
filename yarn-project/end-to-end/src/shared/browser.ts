@@ -239,7 +239,7 @@ export const browserTestSuite = (
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             owner.getCompleteAddress().publicKey,
-            pxe,
+            owner,
             TokenContractArtifact,
             (a: AztecJs.AztecAddress) => Contract.at(a, TokenContractArtifact, owner),
             [owner.getCompleteAddress(), 'TokenName', 'TKN', 18],
