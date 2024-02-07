@@ -1,6 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 
 import { allSameExcept, initContext } from './fixtures/index.js';
+import { AvmWorldStateJournal } from './journal/journal.js';
 
 describe('Avm Context', () => {
   it('New call should fork context correctly', () => {
@@ -24,9 +25,19 @@ describe('Avm Context', () => {
         pc: 0,
       }),
     );
-    // FIXME: I can't get this to work.
-    // expect(newContext.worldState).toEqual(context.worldState.fork());
+
+    compareJournal(newContext.worldState, context.worldState);
   });
+
+  function compareJournal(actual: AvmWorldStateJournal, expected: AvmWorldStateJournal) {
+    const removeParentReference = (journal: AvmWorldStateJournal) => {
+      const j = JSON.parse(JSON.stringify(journal));
+      delete j.parentJournal;
+      return j;
+    }
+
+    expect(removeParentReference(actual)).toEqual(removeParentReference(expected));
+  }
 
   it('New static call should fork context correctly', () => {
     const context = initContext();
