@@ -35,9 +35,9 @@ CircuitSchema unpack_from_file(const std::string& filename)
 
 void schema_to_python(CircuitSchema& cir){
     info("variables = [");
-    for(size_t i = 0; i < cir.variables.size(); i++){
-        if(cir.vars_of_interest.contains(static_cast<uint32_t>(i))){
-            info('"', cir.vars_of_interest[static_cast<uint32_t>(i)], "\",");
+    for(uint32_t i = 0; i < static_cast<uint32_t>(cir.variables.size()); i++){
+        if(cir.vars_of_interest.contains(i)){
+            info('"', cir.vars_of_interest[i], "\",");
         }else{
             info("\"v", i, "\",");
         }
@@ -45,7 +45,7 @@ void schema_to_python(CircuitSchema& cir){
     info("]");
     info("public = [");
     for(auto i: cir.public_inps){
-        info("[", i, ", ", cir.variables[static_cast<uint32_t>(i)], "],");
+        info("[", i, ", ", cir.variables[i], "],");
     }
     info("]");
     info("gates = [");
@@ -84,6 +84,8 @@ CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf)
  * @param equal_at_the_same_time The list of variables, where at least one pair has to be equal
  * @param not_equal_at_the_same_time The list of variables, where at least one pair has to be distinct
  * @return std::pair<Circuit, Circuit>
+
+ * TODO(alex): Maybe send here FFTerm or FFITerm instead of template since I would need them both inside the circuit.
  */
 template <typename FF> 
 std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_info,
@@ -91,7 +93,7 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_in
                                                    const std::vector<std::string>& equal,
                                                    const std::vector<std::string>& not_equal,
                                                    const std::vector<std::string>& equal_at_the_same_time,
-                                                   const std::vector<std::string>& not_equal_at_the_same_time) // TODO(alex): Maybe send here FFTerm or FFITerm instead of template since I would need them both inside the circuit.
+                                                   const std::vector<std::string>& not_equal_at_the_same_time) 
 {
     Circuit<FF> c1(circuit_info, s, "circuit1");
     Circuit<FF> c2(circuit_info, s, "circuit2");
@@ -170,7 +172,8 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
     }
 
     std::vector<Bool> neqs;
-    for (uint32_t i = 0; i < c1.symbolic_vars.size(); i++) {
+    for (const auto &node: c1.symbolic_vars){
+        uint32_t i = node.first;
         if(std::find(equal.begin(), equal.end(), std::string(c1.variable_names[i])) != equal.end()){
             continue;
         }
