@@ -95,6 +95,10 @@ abstract class BaseField {
     return this.asBigInt;
   }
 
+  toBool(): boolean {
+    return Boolean(this.toBigInt());
+  }
+
   toNumber(): number {
     const value = this.toBigInt();
     if (value > Number.MAX_SAFE_INTEGER) {
@@ -298,8 +302,8 @@ function modInverse(b: bigint) {
   if (gcd != 1n) {
     throw Error('Inverse does not exist');
   }
-  // Add modulus to ensure positive
-  return new Fr(x + Fr.MODULUS);
+  // Add modulus if -ve to ensure positive
+  return new Fr(x > 0 ? x : x + Fr.MODULUS);
 }
 
 /**
