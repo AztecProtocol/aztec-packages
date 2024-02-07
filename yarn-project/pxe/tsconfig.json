@@ -31,7 +31,7 @@
       "path": "../noir-compiler"
     },
     {
-      "path": "../noir-protocol-circuits"
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../protocol-contracts"

@@ -36,7 +36,7 @@
     { "path": "merkle-tree/tsconfig.json" },
     { "path": "noir-contracts.js/tsconfig.json" },
     { "path": "noir-compiler/tsconfig.json" },
-    { "path": "noir-protocol-circuits/tsconfig.json" },
+    { "path": "noir-protocol-circuits-types/tsconfig.json" },
     { "path": "p2p/tsconfig.json" },
     { "path": "p2p-bootstrap/tsconfig.json" },
     { "path": "protocol-contracts/tsconfig.json" },

@@ -53,10 +53,10 @@ git submodule update --init --recursive
 PROJECTS=(
   barretenberg
   noir
-  noir-contracts
-  noir-protocol-circuits
   l1-contracts
   avm-transpiler
+  noir-contracts
+  noir-protocol-circuits
   yarn-project
 )
 

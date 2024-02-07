@@ -10,13 +10,8 @@ import {
   Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-<<<<<<< HEAD
-import { AztecLmdbStore } from '@aztec/kv-store';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
-=======
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
-import { TokenContract } from '@aztec/noir-contracts/Token';
->>>>>>> master
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
 
