@@ -1,14 +1,11 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 
 import { allSameExcept, initContext } from './fixtures/index.js';
-import { AvmWorldStateJournal } from './journal/journal.js';
 
 describe('Avm Context', () => {
   it('New call should fork context correctly', () => {
     const context = initContext();
     context.machineState.pc = 20;
-
-    
 
     const newAddress = AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
