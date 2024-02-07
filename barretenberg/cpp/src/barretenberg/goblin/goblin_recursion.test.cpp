@@ -26,43 +26,10 @@ class GoblinRecursionTests : public ::testing::Test {
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(builder);
         auto prover = composer.create_prover(instance);
-        info("function proof");
         auto ultra_proof = prover.construct_proof();
         return { ultra_proof, instance->verification_key };
     }
 };
-
-/** * @brief A full Goblin test that mimicks the basic aztec client architecture
- *
- */
-TEST_F(GoblinRecursionTests, Pseudo)
-{
-    Goblin goblin;
-
-    // Construct an initial circuit; its proof will be recursively verified by the first kernel
-    GoblinUltraBuilder initial_circuit{ goblin.op_queue };
-    GoblinMockCircuits::construct_simple_initial_circuit(initial_circuit);
-    KernelInput kernel_input = goblin.accumulate(initial_circuit);
-
-    // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 2;
-    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        // Construct a circuit with logic resembling that of the "kernel circuit"
-        GoblinUltraBuilder circuit_builder{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_kernel_circuit(circuit_builder, kernel_input, kernel_input);
-
-        // Construct proof of the current kernel circuit to be recursively verified by the next one
-        kernel_input = goblin.accumulate(circuit_builder);
-    }
-
-    Goblin::Proof proof = goblin.prove();
-    // Verify the final ultra proof
-    GoblinUltraVerifier ultra_verifier{ kernel_input.verification_key };
-    bool ultra_verified = ultra_verifier.verify_proof(kernel_input.proof);
-    // Verify the goblin proof (eccvm, translator, merge)
-    bool verified = goblin.verify(proof);
-    EXPECT_TRUE(ultra_verified && verified);
-}
 
 /**
  * @brief A full Goblin test that mimicks the basic aztec client architecture
@@ -96,14 +63,11 @@ TEST_F(GoblinRecursionTests, Vanilla)
         kernel_accum = construct_accumulator(kernel_circuit);
     }
 
-    info("goblin prove");
     Goblin::Proof proof = goblin.prove();
     // Verify the final ultra proof
     GoblinUltraVerifier ultra_verifier{ kernel_accum.verification_key };
-    info("ultra verify");
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
     // Verify the goblin proof (eccvm, translator, merge)
-    info("goblin verify");
     bool verified = goblin.verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
 }

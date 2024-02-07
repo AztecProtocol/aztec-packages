@@ -1,1 +1,1 @@
-// NB: This file is here so that goblin_objects will be created
+// NB: This file is here so that client_ivc_objects will be created

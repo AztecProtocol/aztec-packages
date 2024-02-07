@@ -120,8 +120,8 @@ class Goblin {
         return { ultra_proof, instance->verification_key };
     };
 
-    /** WORKTODO
-     * @brief Similar to "accumulate" but only does merge-related stuff, no proving
+    /**
+     * @brief Add a recursive merge verifier to input circuit and construct a merge proof for the updated op queue
      * @details When this method is used, the "prover" functionality of the IVC scheme must be performed explicitly, but
      * this method has to be called first so that the recursive merge verifier can be "appended" to the circuit being
      * accumulated
