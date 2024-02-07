@@ -96,20 +96,20 @@ TEST_F(ClientIVCTests, Full)
     // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
     Builder kernel_circuit = create_mock_circuit(ivc);
     FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-    EXPECT_FOLDING_AND_DECIDING_VERIFIED(ivc.accumulator, kernel_fold_proof);
+    EXPECT_FOLDING_AND_DECIDING_VERIFIED(ivc.fold_output.accumulator, kernel_fold_proof);
 
     size_t NUM_CIRCUITS = 1;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Accumulate function circuit
         Builder function_circuit = create_mock_circuit(ivc);
         FoldProof function_fold_proof = ivc.accumulate(function_circuit);
-        EXPECT_FOLDING_AND_DECIDING_VERIFIED(ivc.accumulator, function_fold_proof);
+        EXPECT_FOLDING_AND_DECIDING_VERIFIED(ivc.fold_output.accumulator, function_fold_proof);
 
         // Accumulate kernel circuit
         Builder kernel_circuit{ ivc.goblin.op_queue };
         construct_mock_folding_kernel(kernel_circuit, function_fold_proof, kernel_fold_proof);
         FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-        EXPECT_FOLDING_AND_DECIDING_VERIFIED(ivc.accumulator, kernel_fold_proof);
+        EXPECT_FOLDING_AND_DECIDING_VERIFIED(ivc.fold_output.accumulator, kernel_fold_proof);
     }
 
     // Constuct four proofs: merge, eccvm, translator, decider
