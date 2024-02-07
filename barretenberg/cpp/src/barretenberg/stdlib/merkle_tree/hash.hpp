@@ -11,6 +11,25 @@
 
 namespace bb::stdlib::merkle_tree {
 
+struct PedersenHashPolicy {
+    static fr hash(const std::vector<fr>& inputs) { return crypto::pedersen_hash::hash(inputs); }
+
+    static fr hash_pair(const fr& lhs, const fr& rhs) { return hash(std::vector<fr>({ lhs, rhs })); }
+
+    static fr zero_hash() { return fr::zero(); }
+};
+
+struct Poseidon2HashPolicy {
+    static fr hash(const std::vector<fr>& inputs)
+    {
+        return bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs);
+    }
+
+    static fr hash_pair(const fr& lhs, const fr& rhs) { return hash(std::vector<fr>({ lhs, rhs })); }
+
+    static fr zero_hash() { return fr::zero(); }
+};
+
 inline bb::fr hash_pair_native(bb::fr const& lhs, bb::fr const& rhs)
 {
     return crypto::pedersen_hash::hash({ lhs, rhs }); // uses lookup tables

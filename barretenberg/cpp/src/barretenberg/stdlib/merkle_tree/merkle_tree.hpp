@@ -5,7 +5,6 @@
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "hash_path.hpp"
-#include "hasher.hpp"
 #include "merkle_tree.hpp"
 #include <iostream>
 #include <sstream>

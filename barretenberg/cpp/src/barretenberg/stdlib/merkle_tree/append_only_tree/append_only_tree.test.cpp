@@ -1,6 +1,5 @@
 #include "append_only_tree.hpp"
 #include "../array_store.hpp"
-#include "../hasher.hpp"
 #include "../memory_tree.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"

@@ -1,6 +1,6 @@
 #include "indexed_tree.hpp"
 #include "../array_store.hpp"
-#include "../hasher.hpp"
+#include "../hash.hpp"
 #include "../nullifier_tree/nullifier_memory_tree.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"

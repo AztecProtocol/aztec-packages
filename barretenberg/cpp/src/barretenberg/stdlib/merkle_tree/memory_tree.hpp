@@ -1,6 +1,5 @@
 #pragma once
 #include "hash_path.hpp"
-#include "hasher.hpp"
 
 namespace bb::stdlib::merkle_tree {
 

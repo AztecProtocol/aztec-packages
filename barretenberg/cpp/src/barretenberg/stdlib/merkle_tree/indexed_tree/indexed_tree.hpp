@@ -3,7 +3,6 @@
 #include "../append_only_tree/append_only_tree.hpp"
 #include "../hash.hpp"
 #include "../hash_path.hpp"
-#include "../hasher.hpp"
 #include "indexed_leaf.hpp"
 
 namespace bb::stdlib::merkle_tree {

@@ -2,7 +2,6 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/merkle_tree/array_store.hpp"
 #include "barretenberg/stdlib/merkle_tree/hash.hpp"
-#include "barretenberg/stdlib/merkle_tree/hasher.hpp"
 #include "barretenberg/stdlib/merkle_tree/indexed_tree/leaves_cache.hpp"
 #include <benchmark/benchmark.h>
 
