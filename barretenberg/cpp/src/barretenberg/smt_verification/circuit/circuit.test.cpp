@@ -5,7 +5,7 @@
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
-#include "barretenberg/common/smt_model.hpp"
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 
 #include <gtest/gtest.h>
 

@@ -1,8 +1,9 @@
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-#include "barretenberg/common/smt_model.hpp"
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 
 const std::vector<std::vector<bb::fr>> xor_unique_output = {
+{
 {0, 0},           //zero_circuit1, zero_circuit2
 {1, 1},           //one_circuit1, one_circuit2
 {0, 0},           //a_circuit1, a_circuit2
@@ -325,4 +326,3 @@ const std::vector<std::vector<bb::fr>> xor_unique_output = {
 {0, 0},           //var_319_circuit1, var_319_circuit2
 {0, 0},           //var_320_circuit1, var_320_circuit2
 {0, 1},           //c_circuit1, c_circuit2
-};

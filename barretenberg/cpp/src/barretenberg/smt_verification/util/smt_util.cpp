@@ -1,4 +1,4 @@
-#include "smt_model.hpp"
+#include "smt_util.hpp"
 
 bool smt_timer(smt_solver::Solver *s){
     auto start = std::chrono::high_resolution_clock::now();

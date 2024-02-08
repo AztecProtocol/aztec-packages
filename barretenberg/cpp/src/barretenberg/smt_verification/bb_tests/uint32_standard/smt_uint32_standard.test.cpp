@@ -1,6 +1,8 @@
+#include <chrono>
+
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-#include "barretenberg/common/smt_model.hpp"
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 
 #include <gtest/gtest.h>
 
@@ -22,9 +24,6 @@ TEST(uint, uint_unique_witness){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     builder.set_variable_name(a.get_witness_index(), "a");
-    info(builder.variable_names[a.get_witness_index()]);
-    info(a.get_witness_index());
-    info(builder.real_variable_index[a.get_witness_index()]);
 
     info("Variables: ", builder.get_num_variables());
     info("Constraints: ", builder.num_gates);
@@ -34,14 +33,11 @@ TEST(uint, uint_unique_witness){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {});
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a"});
     info(cirs.first[a.get_witness_index()]);
     info(a.get_witness_index());
 
-    cirs.first["new_accumulator_65"] == cirs.second["new_accumulator_65"];
-
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
@@ -71,8 +67,7 @@ TEST(uint, xor_unique_output){
 
     cirs.first["c"] != cirs.second["c"];
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }

@@ -24,10 +24,15 @@ void default_model(std::vector<std::string> special, smt_circuit::Circuit<FF> &c
     std::fstream myfile;
     myfile.open(fname, std::ios::out | std::ios::trunc | std::ios::binary);
     myfile << "w12 = {";
-    for(uint32_t i = 0; i < static_cast<uint32_t>(c1.symbolic_vars.size()); i++){
+    for(uint32_t i = 0; i < c1.get_num_vars(); i++){
         std::string vname1 = vterms1[i].toString();
         std::string vname2 = vterms2[i].toString();
-        myfile << "{" + mmap1[vname1] + ", " + mmap2[vname2] + "}" + ",           //" + vname1 + ", " + vname2 << std::endl;
+        if(c1.real_variable_index[i] == i){
+            myfile << "{" + mmap1[vname1] + ", " + mmap2[vname2] + "}" + ",           //" + vname1 + ", " + vname2 << std::endl;
+        }
+        else{
+            myfile << "{" + mmap1[vname1] + ", " + mmap2[vname2] + "}" + ",           //->" + vname1 + ", ->" + vname2 << std::endl;
+        }
     }     
     myfile << "};";
     myfile.close();
@@ -61,9 +66,13 @@ void default_model_single(std::vector<std::string> special, smt_circuit::Circuit
     std::fstream myfile;
     myfile.open(fname, std::ios::out | std::ios::trunc | std::ios::binary);
     myfile << "w = {";
-    for(size_t i = 0; i < c.symbolic_vars.size(); i++){
+    for(size_t i = 0; i < c.get_num_vars(); i++){
         std::string vname = c[static_cast<uint32_t>(i)];
-        myfile << mmap[vname] + ",              //" + vname << std::endl;
+        if(c.real_variable_index[i] == i){
+            myfile << mmap[vname] + ",              //" + vname << std::endl;
+        }else{
+            myfile << mmap[vname] + ",              //->" + vname << std::endl;
+        }
     }     
     myfile << "};";
     myfile.close();
@@ -75,7 +84,7 @@ void default_model_single(std::vector<std::string> special, smt_circuit::Circuit
 
     std::unordered_map<std::string, std::string> mmap1 = s->model(vterms1);
     for(auto &vname: special){
-        info("// ", vname, ": ", mmap1[vname]);
+        info("// ", vname, "= ", mmap1[vname]);
     }
 }
 

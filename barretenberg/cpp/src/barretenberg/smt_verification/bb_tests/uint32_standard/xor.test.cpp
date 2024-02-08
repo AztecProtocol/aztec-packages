@@ -30,10 +30,10 @@ TEST(uint, xor_unique_witness_check_via_circuit){
     Circuit<FFTerm> circuit(circuit_info, &s);
 
     std::vector<fr> w1;
-    w1.reserve(xor_unique_output.size());
+    w1.reserve(circuit.get_num_vars());
 
     std::vector<fr> w2;
-    w2.reserve(xor_unique_output.size());
+    w2.reserve(circuit.get_num_vars());
 
     for(const auto &w: xor_unique_output){
         w1.push_back(w[0]);

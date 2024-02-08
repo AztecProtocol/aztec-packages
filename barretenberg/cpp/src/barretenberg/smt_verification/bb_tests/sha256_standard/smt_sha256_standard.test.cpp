@@ -3,7 +3,7 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
-#include "barretenberg/common/smt_model.hpp"
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 
 #include <gtest/gtest.h>
 

@@ -66,7 +66,7 @@ To store it on the disk just do
 
     solver class has usefull method `print_assertions` that will output all the assertions in kind of human readable format.
 
-    there's a function `smt_timer` in `barretenberg/common/smt_model.hpp` that will run the checksat, measure the time in minutes and print it to stdout.
+    there's a function `smt_timer` in `barretenberg/smt_verification/util/smt_util.hpp` that will run the checksat, measure the time in minutes and print it to stdout.
 	
 3. Initialize the Circuit 
 
