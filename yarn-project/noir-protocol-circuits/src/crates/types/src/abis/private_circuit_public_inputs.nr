@@ -113,7 +113,9 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         }
         fields.extend_from_array(self.private_call_stack_hashes);
         fields.extend_from_array(self.public_call_stack_hashes);
-        fields.extend_from_array(self.new_l2_to_l1_msgs);
+        for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
+            fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
+        }
         fields.push(self.end_side_effect_counter as Field);
         fields.extend_from_array(self.encrypted_logs_hash);
         fields.extend_from_array(self.unencrypted_logs_hash);
@@ -145,7 +147,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
-            new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+            new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             end_side_effect_counter: reader.read() as u32,
             encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
             unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),

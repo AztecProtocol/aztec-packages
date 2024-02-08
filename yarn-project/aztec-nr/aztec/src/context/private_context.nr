@@ -1,10 +1,7 @@
 use crate::{
     context::inputs::PrivateContextInputs,
     key::nullifier_key::validate_nullifier_key_against_address,
-    messaging::{
-        process_l1_to_l2_message,
-        l2_to_l1_message::L2ToL1Message,
-    },
+    messaging::process_l1_to_l2_message,
     oracle::{
         arguments, call_private_function::call_private_function_internal,
         enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
@@ -23,14 +20,27 @@ use dep::protocol_types::{
 },
     address::{AztecAddress, EthAddress},
     constants::{
-    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
-    RETURN_VALUES_LENGTH
-},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header, utils::reader::Reader
+        MAX_NEW_COMMITMENTS_PER_CALL,
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+        NUM_FIELDS_PER_SHA256,
+        RETURN_VALUES_LENGTH,
+    },
+    contrakt::{
+        storage_read::StorageRead,
+        storage_update_request::StorageUpdateRequest,
+    },
+    grumpkin_private_key::GrumpkinPrivateKey,
+    hash::hash_args,
+    header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
+    utils::reader::Reader,
 };
 use dep::std::option::Option;
 

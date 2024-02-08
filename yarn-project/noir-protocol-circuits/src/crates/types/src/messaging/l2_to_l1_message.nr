@@ -1,7 +1,9 @@
 use crate::{
     address::EthAddress,
-    traits::Empty,
+    traits::{Deserialize, Empty, Serialize},
 };
+
+global L2_TO_L1_MESSAGE_LENGTH: Field = 2;
 
 struct L2ToL1Message {
     recipient: EthAddress,
@@ -20,5 +22,20 @@ impl Empty for L2ToL1Message {
 impl Eq for L2ToL1Message {
     fn eq(self, other: Self) -> bool {
         (self.recipient == other.recipient) & (self.content == other.content)
+    }
+}
+
+impl Serialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
+    fn serialize(self) -> [Field; L2_TO_L1_MESSAGE_LENGTH] {
+        [self.recipient.to_field(), self.content]
+    }
+}
+
+impl Deserialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
+    fn deserialize(values: [Field; L2_TO_L1_MESSAGE_LENGTH]) -> Self {
+        Self {
+            recipient: EthAddress::from_field(values[0]),
+            content: values[1],
+        }
     }
 }
