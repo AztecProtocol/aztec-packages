@@ -10,9 +10,9 @@ import { Fr } from '@aztec/foundation/fields';
 export function computeSlotForMapping(
   mappingSlot: Fr,
   key: {
-    /** Serialize to a buffer. */
-    toBuffer: () => Buffer;
+    /** Serialize to a field. */
+    toField: () => Fr;
   },
 ) {
-  return Fr.fromBuffer(pedersenHash([mappingSlot.toBuffer(), key.toBuffer()]));
+  return Fr.fromBuffer(pedersenHash([mappingSlot, key.toField()].map(field => field.toBuffer())));
 }
