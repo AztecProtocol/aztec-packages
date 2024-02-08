@@ -32,11 +32,6 @@ class GoblinMockCircuits {
     using KernelInput = Goblin::AccumulationOutput;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
-    using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
-    using RecursiveVerifierInstances = ::bb::VerifierInstances_<GURecursiveFlavor, 2>;
-    using FoldingRecursiveVerifier =
-        bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
-
     /**
      * @brief Populate a builder with a specified number of arithmetic gates; includes a PI
      *
@@ -211,15 +206,19 @@ class GoblinMockCircuits {
      * previous kernel circuit folding proof. The arbitrary kernel logic is structured to bring the final dyadic circuit
      * size of the kernel to 2^17.
      *
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Pairing point aggregation not implemented
      * @param builder
-     * @param function_accum {proof, vkey} for function circuit to be recursively verified
-     * @param prev_kernel_accum {proof, vkey} for previous kernel circuit to be recursively verified
+     * @param function_fold_proof
+     * @param kernel_fold_proof
      */
     static void construct_mock_folding_kernel(GoblinUltraBuilder& builder,
                                               const std::vector<FF>& function_fold_proof,
                                               const std::vector<FF>& kernel_fold_proof)
     {
+        using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
+        using RecursiveVerifierInstances = ::bb::VerifierInstances_<GURecursiveFlavor, 2>;
+        using FoldingRecursiveVerifier =
+            bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
         // kernel "full" within the dyadic size 2^17 (130914 gates)
         const size_t NUM_MERKLE_CHECKS = 20;

@@ -20,7 +20,6 @@ namespace {
  */
 class IvcBench : public benchmark::Fixture {
   public:
-    // Goblin::AccumulationOutput kernel_accum;
     using Builder = GoblinUltraCircuitBuilder;
 
     // Number of function circuits to accumulate(based on Zacs target numbers)
@@ -41,7 +40,6 @@ class IvcBench : public benchmark::Fixture {
      * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently support
      * folding circuits of unequal size.
      *
-     * @param state
      */
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
@@ -73,7 +71,7 @@ class IvcBench : public benchmark::Fixture {
 };
 
 /**
- * @brief Benchmark the full PG-Goblin IVC protocol
+ * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  *
  */
 BENCHMARK_DEFINE_F(IvcBench, Full)(benchmark::State& state)
