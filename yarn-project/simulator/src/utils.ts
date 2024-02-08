@@ -6,7 +6,6 @@ import { Fr } from '@aztec/foundation/fields';
 /**
  * A point in the format that Aztec.nr uses.
  */
-// TODO(benesjan): nuke this.
 export type NoirPoint = {
   /** The x coordinate. */
   x: bigint;
