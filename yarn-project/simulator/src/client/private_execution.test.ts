@@ -41,7 +41,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FieldsOf } from '@aztec/foundation/types';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
@@ -140,7 +140,7 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown tree ${name}`);
     }
     if (!trees[name]) {
-      const db = await AztecLmdbStore.openTmp();
+      const db = openTmpStore();
       const pedersen = new Pedersen();
       trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
@@ -1127,6 +1127,43 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], portalContractAddress });
       expect(result.returnValues).toEqual(portalContractAddress.toField().value);
+    });
+  });
+
+  describe('Private global variables', () => {
+    let chainId: Fr;
+    let version: Fr;
+    let args: any[];
+    let artifact: FunctionArtifact;
+
+    beforeAll(() => {
+      chainId = Fr.random();
+      version = Fr.random();
+      args = [chainId, version];
+
+      artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
+    });
+
+    it('Private global vars are correctly set', () => {
+      // Chain id and version set in tx context is the same as the ones we pass via args so this should not throw
+      expect(() => runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version } })).not.toThrow();
+    });
+
+    it('Throws when chainId is incorrectly set', async () => {
+      // We set the chainId in the tx context to a different value than the one we pass via args so the simulator should throw
+      const unexpectedChainId = Fr.random();
+      await expect(
+        runSimulator({ artifact, msgSender: owner, args, txContext: { chainId: unexpectedChainId, version } }),
+      ).rejects.toThrowError('Invalid chain id');
+    });
+
+    it('Throws when version is incorrectly set', async () => {
+      // We set the version in the tx context to a different value than the one we pass via args so the simulator should throw
+      const unexpectedVersion = Fr.random();
+      await expect(
+        runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version: unexpectedVersion } }),
+      ).rejects.toThrowError('Invalid version');
     });
   });
 });
