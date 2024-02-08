@@ -202,9 +202,9 @@ class GoblinMockCircuits {
     /**
      * @brief Construct a mock kernel circuit based on folding
      * @details This circuit contains (1) some arbitrary operations representing general kernel logic, (2) recursive
-     * folding verification of a function circuit folding proof, and optionally (3) recursive folding verification of a
-     * previous kernel circuit folding proof. The arbitrary kernel logic is structured to bring the final dyadic circuit
-     * size of the kernel to 2^17.
+     * folding verification of a function circuit folding proof, and (3) recursive folding verification of a previous
+     * kernel circuit folding proof. The arbitrary kernel logic is structured to bring the final dyadic circuit size of
+     * the kernel to 2^17.
      *
      * @param builder
      * @param function_fold_proof

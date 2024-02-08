@@ -37,6 +37,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
     // The number of gates is max(lookup gates + tables, rows already populated in trace) + 1, where the +1 is due to
     // addition of a "zero row" at top of the execution trace to ensure wires and other polys are shiftable.
     total_num_gates = std::max(minimum_circuit_size_due_to_lookups, num_rows_populated_in_execution_trace);
+
     // Next power of 2
     dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
 }
