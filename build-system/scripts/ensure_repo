@@ -10,6 +10,7 @@ LIFECYCLE_POLICY='{
       "rulePriority": 1,
       "description": "No more than 1000 images, regardless of tag status.",
       "selection": {
+        "tagStatus": "any",
         "countType": "imageCountMoreThan",
         "countNumber": 1000
       },
