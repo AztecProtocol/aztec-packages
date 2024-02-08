@@ -33,7 +33,6 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
     goblin.merge(circuit); // Add recursive merge verifier and construct new merge proof
     Composer composer;
     auto instance = composer.create_instance(circuit);
-    info("accumulate: instance->instance_size", instance->proving_key->circuit_size);
     std::vector<std::shared_ptr<Instance>> instances{ fold_output.accumulator, instance };
     auto folding_prover = composer.create_folding_prover(instances);
     fold_output = folding_prover.fold_instances();
