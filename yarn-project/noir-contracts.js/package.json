@@ -8,13 +8,13 @@
     "./*": "./dest/src/*.js"
   },
   "scripts": {
-    "build": "yarn clean && yarn build:contracts && tsc -b",
+    "build": "yarn clean && yarn build:contracts",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest .tsbuildinfo ./src ./target",
+    "clean": "rm -rf .tsbuildinfo ./target",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "build:contracts": "./scripts/generate-types.sh"
+    "build:contracts": "./scripts/compile.sh && ./scripts/transpile.sh"
   },
   "inherits": [
     "../package.common.json",
