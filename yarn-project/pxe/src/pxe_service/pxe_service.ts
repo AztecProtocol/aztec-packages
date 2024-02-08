@@ -1,12 +1,4 @@
 import {
-  AcirSimulator,
-  ExecutionResult,
-  collectEncryptedLogs,
-  collectEnqueuedPublicFunctionCalls,
-  collectUnencryptedLogs,
-  resolveOpcodeLocations,
-} from '@aztec/acir-simulator';
-import {
   AuthWitness,
   AztecNode,
   ContractDao,
@@ -44,9 +36,9 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
+  computeArtifactHash,
   computeContractClassId,
   computeSaltedInitializationHash,
-  getArtifactHash,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
@@ -56,6 +48,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import {
+  AcirSimulator,
+  ExecutionResult,
+  collectEncryptedLogs,
+  collectEnqueuedPublicFunctionCalls,
+  collectUnencryptedLogs,
+  resolveOpcodeLocations,
+} from '@aztec/simulator';
 import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
@@ -232,7 +232,7 @@ export class PXEService implements PXE {
   private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
     for (const contract of contracts) {
       const artifact = contract.artifact;
-      const artifactHash = getArtifactHash(artifact);
+      const artifactHash = computeArtifactHash(artifact);
       const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
       await this.db.addContractArtifact(contractClassId, artifact);
       await this.db.addContractInstance(contract.instance);
@@ -575,7 +575,7 @@ export class PXEService implements PXE {
 
     this.log('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, this.node);
+      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress);
       this.log('Unconstrained simulation completed!');
 
       return result;

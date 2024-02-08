@@ -2,6 +2,7 @@ import { times } from '@aztec/foundation/collection';
 
 import {
   AztecAddress,
+  EthAddress,
   Fr,
   FunctionData,
   FunctionLeafPreimage,
@@ -14,7 +15,6 @@ import {
 import {
   makeAztecAddress,
   makeEthAddress,
-  makePrivateCallStackItem,
   makePublicCallStackItem,
   makeTxRequest,
   makeVerificationKey,
@@ -27,7 +27,6 @@ import {
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeNullifierHash,
-  computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
@@ -127,7 +126,6 @@ describe('abis', () => {
   });
 
   it('hashes function args', () => {
-    // const args = Array.from({ length: 8 }).map((_, i) => new Fr(i));
     const args = times(8, i => new Fr(i));
     const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
@@ -146,7 +144,7 @@ describe('abis', () => {
   });
 
   it('computes zero contract leaf', () => {
-    const cd = new NewContractData(AztecAddress.ZERO, AztecAddress.ZERO, new Fr(0n));
+    const cd = new NewContractData(AztecAddress.ZERO, EthAddress.ZERO, new Fr(0n));
     const res = computeContractLeaf(cd);
     expect(res).toMatchSnapshot();
   });
@@ -154,12 +152,6 @@ describe('abis', () => {
   it('compute tx hash', () => {
     const txRequest = makeTxRequest();
     const hash = computeTxHash(txRequest);
-    expect(hash).toMatchSnapshot();
-  });
-
-  it('compute private call stack item hash', () => {
-    const item = makePrivateCallStackItem();
-    const hash = computePrivateCallStackItemHash(item);
     expect(hash).toMatchSnapshot();
   });
 

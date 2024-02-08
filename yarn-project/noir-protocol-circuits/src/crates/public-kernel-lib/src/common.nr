@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{
         call_request::CallRequest,
-        call_stack_item::PublicCallStackItem,
+        public_call_stack_item::PublicCallStackItem,
         combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder},
         kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder,
         new_contract_data::NewContractData,
@@ -70,8 +70,6 @@ pub fn initialize_end_values(
     circuit_outputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
     circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
     circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-
-    circuit_outputs.end.optionally_revealed_data = start.optionally_revealed_data;
 
     circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
     circuit_outputs.end.public_data_reads = array_to_bounded_vec(start.public_data_reads);

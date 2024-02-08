@@ -7,22 +7,27 @@ import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/f
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
-import { FUNCTION_SELECTOR_NUM_BYTES, FUNCTION_TREE_HEIGHT, GeneratorIndex } from '../constants.gen.js';
-import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 import {
+  ARGS_HASH_CHUNK_COUNT,
+  ARGS_HASH_CHUNK_LENGTH,
+  FUNCTION_SELECTOR_NUM_BYTES,
+  FUNCTION_TREE_HEIGHT,
+  GeneratorIndex,
+} from '../constants.gen.js';
+import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
+import type {
   ContractDeploymentData,
   FunctionData,
   FunctionLeafPreimage,
   NewContractData,
-  PrivateCallStackItem,
   PublicCallStackItem,
-  PublicCircuitPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
-  VerificationKey,
 } from '../structs/index.js';
+import { PublicCircuitPublicInputs } from '../structs/public_circuit_public_inputs.js';
+import { VerificationKey } from '../structs/verification_key.js';
 
 /**
  * Computes a hash of a transaction request.
@@ -148,10 +153,7 @@ export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
  */
 export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
   return Fr.fromBuffer(
-    pedersenHash(
-      [computeFunctionDataHash(functionData).toBuffer(), argsHash.toBuffer(), constructorVKHash],
-      GeneratorIndex.CONSTRUCTOR,
-    ),
+    pedersenHash([functionData.hash().toBuffer(), argsHash.toBuffer(), constructorVKHash], GeneratorIndex.CONSTRUCTOR),
   );
 }
 
@@ -224,9 +226,6 @@ export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, sto
   );
 }
 
-const ARGS_HASH_CHUNK_SIZE = 32;
-const ARGS_HASH_CHUNK_COUNT = 16;
-
 /**
  * Computes the hash of a list of arguments.
  * @param args - Arguments to hash.
@@ -236,13 +235,13 @@ export function computeVarArgsHash(args: Fr[]) {
   if (args.length === 0) {
     return Fr.ZERO;
   }
-  if (args.length > ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT) {
-    throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT} arguments`);
+  if (args.length > ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT) {
+    throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT} arguments`);
   }
 
-  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_SIZE).map(c => {
-    if (c.length < ARGS_HASH_CHUNK_SIZE) {
-      c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_SIZE);
+  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map(c => {
+    if (c.length < ARGS_HASH_CHUNK_LENGTH) {
+      c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_LENGTH);
     }
     return Fr.fromBuffer(
       pedersenHash(
@@ -291,25 +290,11 @@ export function computeTxHash(txRequest: TxRequest): Fr {
     pedersenHash(
       [
         txRequest.origin.toBuffer(),
-        computeFunctionDataHash(txRequest.functionData).toBuffer(),
+        txRequest.functionData.hash().toBuffer(),
         txRequest.argsHash.toBuffer(),
         computeTxContextHash(txRequest.txContext).toBuffer(),
       ],
       GeneratorIndex.TX_REQUEST,
-    ),
-  );
-}
-
-function computeFunctionDataHash(functionData: FunctionData): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        functionData.selector.toBuffer(32),
-        new Fr(functionData.isInternal).toBuffer(),
-        new Fr(functionData.isPrivate).toBuffer(),
-        new Fr(functionData.isConstructor).toBuffer(),
-      ],
-      GeneratorIndex.FUNCTION_DATA,
     ),
   );
 }
@@ -346,24 +331,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   );
 }
 
-/**
- * Computes a call stack item hash.
- * @param callStackItem - The call stack item.
- * @returns The call stack item hash.
- */
-export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackItem): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        callStackItem.contractAddress.toBuffer(),
-        computeFunctionDataHash(callStackItem.functionData).toBuffer(),
-        callStackItem.publicInputs.hash().toBuffer(),
-      ],
-      GeneratorIndex.CALL_STACK_ITEM,
-    ),
-  );
-}
-
 export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
 }
@@ -395,7 +362,7 @@ export function computePublicCallStackItemHash({
 
   return Fr.fromBuffer(
     pedersenHash(
-      [contractAddress.toBuffer(), computeFunctionDataHash(functionData).toBuffer(), publicInputs.hash().toBuffer()],
+      [contractAddress, functionData.hash(), publicInputs.hash()].map(f => f.toBuffer()),
       GeneratorIndex.CALL_STACK_ITEM,
     ),
   );
