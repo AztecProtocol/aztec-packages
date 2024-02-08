@@ -11,8 +11,17 @@ namespace smt_solver {
 bool Solver::check()
 {
     cvc5::Result result = this->s.checkSat();
-    this->res = result.isSat();
     this->checked = true;
+    this->cvc_result = result;
+
+    if(result.isUnknown()){
+        throw std::logic_error("Result unknown");
+    }
+    if(result.isSat()){
+        this->res = true;
+    }else if(result.isUnsat()){
+        this->res = false;
+    }
     return this->res;
 }
 

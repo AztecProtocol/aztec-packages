@@ -33,6 +33,7 @@ class Solver {
     cvc5::Sort fp;
     std::string modulus; // modulus in base 10
     bool res = false;
+    cvc5::Result cvc_result;
     bool checked = false;
 
     explicit Solver(const std::string& modulus, const SolverConfiguration& config = { false, 0 }, uint32_t base = 16)
