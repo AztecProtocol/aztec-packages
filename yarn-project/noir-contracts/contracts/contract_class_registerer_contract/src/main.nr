@@ -2,7 +2,7 @@ mod events;
 
 contract ContractClassRegisterer {
     use dep::std::option::Option;
-    
+
     use crate::events::{
         class_registered::ContractClassRegistered,
         private_function_broadcasted::{ClassPrivateFunctionBroadcasted, PrivateFunction},
