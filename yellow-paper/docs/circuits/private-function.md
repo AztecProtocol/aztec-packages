@@ -43,7 +43,7 @@ The public inputs of _every_ private function _must_ adhere to the following ABI
 | `call_context`                      | [`CallContext`](#callcontext)                                           | Context of the call corresponding to this function execution.         |
 | `args_hash`                         | `field`                                                                 | Hash of the function arguments.                                       |
 | `return_values`                     | `[field; C]`                                                            | Return values of this function call.                                  |
-| `read_requests`                     | [`[ReadRequest; C]`](#readrequest)                                      | Requests to read notes in the note hash tree.                         |
+| `note_hash_read_requests`           | [`[NoteHashReadRequest; C]`](#notehashreadrequest)                      | Requests to prove the note hashes being read exist.                   |
 | `nullifier_key_validation_requests` | [`[NullifierKeyValidationRequest]; C]`](#nullifierkeyvalidationrequest) | Requests to validate nullifier keys used in this function call.       |
 | `note_hashes`                       | [`[NoteHash; C]`](#notehash)                                            | New note hashes created in this function call.                        |
 | `nullifiers`                        | [`[Nullifier; C]`](#nullifier)                                          | New nullifiers created in this function call.                         |
@@ -77,7 +77,7 @@ TODO: use different values for each constant, instead of `C`, so that this docum
 | `is_delegate_call`         | `bool`         | A flag indicating whether the call is a [delegate call](../calls/delegate-calls.md).                                                                                                      |
 | `is_static_call`           | `bool`         | A flag indicating whether the call is a [static call](../calls/static-calls.md).                                                                                                          |
 
-### `ReadRequest`
+### `NoteHashReadRequest`
 
 | Field       | Type    | Description                            |
 | ----------- | ------- | -------------------------------------- |

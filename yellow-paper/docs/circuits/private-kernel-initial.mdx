@@ -135,7 +135,7 @@ The "ordered arrays" include:
 
 - `note_hashes`
 - `nullifiers`
-- `read_requests`
+- `note_hash_read_requests`
 - `unencrypted_log_hashes`
 - `encrypted_log_hashes`
 - `encrypted_note_preimage_hashes`
@@ -198,7 +198,7 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
   - `value`, `counter`
 - `l2_to_l1_message_contexts`
   - `value`
-- `read_request_contexts`
+- `note_hash_read_request_contexts`
   - `note_hash`, `counter`
 - `nullifier_key_validation_request`
   - `public_key`, `secret_key`
@@ -235,7 +235,7 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
    - `note_hash_contexts`
    - `nullifier_contexts`
    - `l2_to_l1_message_contexts`
-   - `read_request_contexts`
+   - `note_hash_read_request_contexts`
    - `nullifier_key_validation_request_contexts`
    - `unencrypted_log_hash_contexts`
    - `encrypted_log_hash_contexts`
@@ -416,7 +416,7 @@ class PrivateFunctionPublicInputs {
     note_hashes: List~NoteHash~
     nullifiers: List~Nullifier~
     l2_to_l1_messages: List~field~
-    read_requests: List~ReadRequest~
+    note_hash_read_requests: List~NoteHashReadRequest~
     nullifier_key_validation_requests: List~NullifierKeyValidationRequest~
     unencrypted_log_hashes: List~UnencryptedLogHash~
     encrypted_log_hashes: List~EncryptedLogHash~
@@ -430,7 +430,7 @@ class PrivateFunctionPublicInputs {
 PrivateFunctionPublicInputs *-- CallContext: call_context
 PrivateFunctionPublicInputs *-- NoteHash: note_hashes
 PrivateFunctionPublicInputs *-- Nullifier: nullifiers
-PrivateFunctionPublicInputs *-- ReadRequest: read_requests
+PrivateFunctionPublicInputs *-- NoteHashReadRequest: note_hash_read_requests
 PrivateFunctionPublicInputs *-- NullifierKeyValidationRequest: nullifier_key_validation_requests
 PrivateFunctionPublicInputs *-- UnencryptedLogHash: unencrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedLogHash: encrypted_log_hashes
@@ -459,7 +459,7 @@ CallContext ..> CallerContext : call_context
 
 CallContext .. NoteHashContext: storage_contract_address\n== contract_address
 CallContext .. NullifierContext: storage_contract_address\n== contract_address
-CallContext .. ReadRequestContext: storage_contract_address\n== contract_address
+CallContext .. NoteHashReadRequestContext: storage_contract_address\n== contract_address
 CallContext .. NullifierKeyValidationRequestContext: storage_contract_address\n== contract_address
 CallContext .. UnencryptedLogHashContext: storage_contract_address\n== contract_address
 CallContext .. EncryptedLogHashContext: storage_contract_address\n== contract_address
@@ -481,11 +481,11 @@ class Nullifier {
 }
 Nullifier ..> NullifierContext: nullifiers\n->nullifier_contexts
 
-class ReadRequest {
+class NoteHashReadRequest {
     note_hash: field
     counter: field
 }
-ReadRequest ..> ReadRequestContext: read_requests\n->read_request_contexts
+NoteHashReadRequest ..> NoteHashReadRequestContext: note_hash_read_requests\n->note_hash_read_request_contexts
 
 class NullifierKeyValidationRequest {
     public_key: GrumpkinPoint
@@ -565,7 +565,7 @@ class L2ToL1MessageContext {
     contract_address: AztecAddress
 }
 
-class ReadRequestContext {
+class NoteHashReadRequestContext {
     note_hash: field
     counter: field
     contract_address: AztecAddress
@@ -619,7 +619,7 @@ class TransientAccumulatedData {
   note_hash_contexts: List~NoteHashContext~
   nullifier_contexts: List~NullifierContext~
   l2_to_l1_message_contexts: List~L2ToL1MessageContext~
-  read_request_contexts: List~ReadRequestContext~
+  note_hash_read_request_contexts: List~NoteHashReadRequestContext~
   nullifier_key_validation_request_contexts: List~NullifierKeyValidationRequestContext~
   unencrypted_log_hash_contexts: List~UnencryptedLogHashContext~
   encrypted_log_hash_contexts: List~EncryptedLogHashContext~
@@ -630,7 +630,7 @@ class TransientAccumulatedData {
 NoteHashContext --* TransientAccumulatedData: note_hash_contexts
 NullifierContext --* TransientAccumulatedData: nullifier_contexts
 L2ToL1MessageContext --* TransientAccumulatedData: l2_to_l1_message_contexts
-ReadRequestContext --* TransientAccumulatedData: read_request_contexts
+NoteHashReadRequestContext --* TransientAccumulatedData: note_hash_read_request_contexts
 NullifierKeyValidationRequestContext --* TransientAccumulatedData: nullifier_key_validation_request_contexts
 UnencryptedLogHashContext --* TransientAccumulatedData: unencrypted_log_hash_contexts
 EncryptedLogHashContext --* TransientAccumulatedData: encrypted_log_hash_contexts
@@ -715,7 +715,7 @@ Would it be accurate to describe this as `AccumulatedTransientSideEffects`, perh
 | `note_hash_contexts`                        | [`[NoteHashContext; C]`](#notehashcontext)                                           | Note hashes with extra data aiding verification.                            |
 | `nullifier_contexts`                        | [`[NullifierContext; C]`](#nullifiercontext)                                         | Nullifiers with extra data aiding verification.                             |
 | `l2_to_l1_message_contexts`                 | [`[L2toL1MessageContext; C]`](#l2tol1messagecontext)                                 | L2-to-l1 messages with extra data aiding verification.                      |
-| `read_request_contexts`                     | [`[ReadRequestContext; C]`](#readrequestcontext)                                     | Requests to read notes in the note hash tree.                               |
+| `note_hash_read_request_contexts`           | [`[NoteHashReadRequestContext; C]`](#notehashreadrequestcontext)                     | Requests to prove the note hashes being read exist.                         |
 | `nullifier_key_validation_request_contexts` | [`[NullifierKeyValidationRequestContext; C]`](#nullifierkeyvalidationrequestcontext) | Requests to validate nullifier keys.                                        |
 | `unencrypted_log_hash_contexts`             | [`[UnencryptedLogHashContext; C]`](#unencryptedloghashcontext)                       | Hashes of the unencrypted logs with extra data aiding verification.         |
 | `encrypted_log_hash_contexts`               | [`[EncryptedLogHashContext; C]`](#encryptedloghashcontext)                           | Hashes of the encrypted logs with extra data aiding verification.           |
@@ -841,7 +841,7 @@ etc.
 | `portal_contract_address` | `AztecAddress` | Address of the portal contract to the contract.  |
 | `contract_address`        | `AztecAddress` | Address of the contract the message was created. |
 
-### `ReadRequestContext`
+### `NoteHashReadRequestContext`
 
 | Field              | Type           | Description                                   |
 | ------------------ | -------------- | --------------------------------------------- |

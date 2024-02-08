@@ -48,7 +48,7 @@ The statically-sized nature the kernel & rollup circuits will restrict the quant
 | `MAX_NEW_L2_TO_L1_MSGS_PER_CALL` | 4 |
 | `MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL` | 128 |
 | `MAX_PUBLIC_DATA_READS_PER_CALL` | 128 |
-| `MAX_READ_REQUESTS_PER_CALL` | 128 |
+| `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` | 128 |
 | `MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL` | 1 | TODO: we shouldn't need this, given the reset circuit. |
 
 ### Per Tx
@@ -64,7 +64,7 @@ The statically-sized nature the kernel & rollup circuits will restrict the quant
 | `MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX` | 16 |
 | `MAX_PUBLIC_DATA_READS_PER_TX` | 16 |
 | `MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX` | 4 |
-| `MAX_READ_REQUESTS_PER_TX` | 128 | TODO: we shouldn't need this, given the reset circuit. |
+| `MAX_NOTE_HASH_READ_REQUESTS_PER_TX` | 128 | TODO: we shouldn't need this, given the reset circuit. |
 | `MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX` | 4 | TODO: we shouldn't need this, given the reset circuit. |
 | `NUM_ENCRYPTED_LOGS_HASHES_PER_TX` | 1 |
 | `NUM_UNENCRYPTED_LOGS_HASHES_PER_TX` | 1 |
