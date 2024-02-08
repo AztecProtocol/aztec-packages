@@ -154,8 +154,11 @@ jobs:
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
         run: |
-          cmake -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_BUILD_TYPE=RelWithAssert --preset default 
-          cmake --build build --target bb
+          export PATH="/usr/local/opt/llvm@16/bin:$PATH"
+          export LDFLAGS="-L/usr/local/opt/llvm@16/lib"
+          export CPPFLAGS="-I/usr/local/opt/llvm@16/include"
+          cmake -DCMAKE_BUILD_TYPE=RelWithAssert --preset default 
+          cmake --build --preset default --target bb
 
       - name: Package barretenberg artifact
         working-directory: barretenberg/cpp/build/bin
