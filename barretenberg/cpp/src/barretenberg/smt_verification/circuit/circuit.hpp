@@ -104,9 +104,9 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
     variable_names.insert({ 1, "one" });
     variable_names_inverse.insert({ "zero", 0 });
     variable_names_inverse.insert({ "one", 1 });
-    this->graph = std::vector<std::vector<uint32_t>>(this->variables.size());
+//    this->graph = std::vector<std::vector<uint32_t>>(this->get_num_real_vars());
     this->init();
-    this->init_graph();
+//    this->init_graph(); TODO(alex): memory crash
     this->add_gates();
 }
 
