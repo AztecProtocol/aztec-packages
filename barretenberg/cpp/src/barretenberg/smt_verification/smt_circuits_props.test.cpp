@@ -70,11 +70,11 @@ void create_range_constrained_mul(size_t i, size_t j){
     }
 }
 
-TEST(solver, range_constraints_mul){
+TEST(range_constraints, multiplication){
     create_range_constrained_mul(10, 10);
 }
 
-TEST(solver, range_constraints){
+TEST(range_constraints, range_timing){
     for(size_t i = 0; i < 256; i++){
         StandardCircuitBuilder builder = StandardCircuitBuilder();
         field_t a(witness_t(&builder, fr::random_element()));
@@ -104,7 +104,7 @@ TEST(solver, range_constraints){
     }
 }
 
-TEST(solver, range_constraints_int){
+TEST(range_constraints, ffiterm){
     for(size_t i = 0; i < 256; i++){
         StandardCircuitBuilder builder = StandardCircuitBuilder();
         field_t a(witness_t(&builder, fr::random_element()));
@@ -135,7 +135,7 @@ TEST(solver, range_constraints_int){
 }
 
 
-TEST(solver, range_constraints_mul_integers){
+TEST(range_constraints, mul_ffiterm){
 
     size_t i = 20, j = 10;
 
@@ -176,7 +176,7 @@ TEST(solver, range_constraints_mul_integers){
     info(solver.s.getAssertions().size());       
 }
 
-TEST(solver, range_constraints_mul_integer){
+TEST(range_constraints, tbd){ // TODO(alex): what is it
 
     size_t i = 20;
 
@@ -219,7 +219,7 @@ TEST(solver, range_constraints_mul_integer){
     info(solver.s.getAssertions().size());       
 }
 
-TEST(circuit, circuit_range_constraint){
+TEST(range_constraints, python_test){
     size_t i = 5;
 
     StandardCircuitBuilder builder = StandardCircuitBuilder();
