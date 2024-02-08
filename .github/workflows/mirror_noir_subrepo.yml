@@ -102,7 +102,6 @@ jobs:
           }
           # force_sync_staging: Push to our aztec-packages staging branch.
           function force_sync_staging() {
-            MESSAGE=$(compute_commit_message)
             git commit --allow-empty -m"chore: Sync to noir-lang/noir" -m"$MESSAGE"
             COMMIT=$(git rev-parse HEAD)
             # Now push to it with subrepo with computed commit messages
