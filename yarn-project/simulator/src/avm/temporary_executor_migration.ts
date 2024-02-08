@@ -78,7 +78,7 @@ export function temporaryConvertAvmResults(
     return storageUpdateRequests.forEach((innerArray, key) => {
       innerArray.forEach(value => {
         contractStorageUpdateRequests.push(
-          new ContractStorageUpdateRequest(new Fr(key), /*TODO: old value not supported */ Fr.zero(), new Fr(value), 0),
+          new ContractStorageUpdateRequest(new Fr(key), new Fr(value), 0),
         );
       });
     });

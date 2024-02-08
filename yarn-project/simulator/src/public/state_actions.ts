@@ -20,7 +20,6 @@ export class ContractStorageActionsCollector {
   private readonly contractStorageUpdateRequests: Map<
     bigint,
     {
-      /** The old value. */ oldValue: Fr;
       /** The updated value. */ newValue: Fr;
       /** Side effect counter. */ sideEffectCounter: number;
     }
@@ -62,19 +61,18 @@ export class ContractStorageActionsCollector {
     const slot = storageSlot.value;
     const updateRequest = this.contractStorageUpdateRequests.get(slot);
     if (updateRequest) {
-      this.contractStorageUpdateRequests.set(slot, { oldValue: updateRequest.oldValue, newValue, sideEffectCounter });
+      this.contractStorageUpdateRequests.set(slot, { newValue, sideEffectCounter });
       return;
     }
 
     const read = this.contractStorageReads.get(slot);
     if (read) {
       this.contractStorageReads.delete(slot);
-      this.contractStorageUpdateRequests.set(slot, { oldValue: read.currentValue, newValue, sideEffectCounter });
+      this.contractStorageUpdateRequests.set(slot, { newValue, sideEffectCounter });
       return;
     }
 
-    const oldValue = await this.db.storageRead(this.address, storageSlot);
-    this.contractStorageUpdateRequests.set(slot, { oldValue, newValue, sideEffectCounter });
+    this.contractStorageUpdateRequests.set(slot, { newValue, sideEffectCounter });
     return;
   }
 
