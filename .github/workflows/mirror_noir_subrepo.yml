@@ -42,8 +42,9 @@ jobs:
 
       - name: Setup env
         run: |
+          set -xue # print commands
           # Enable gh executable. We spread out the API requests between the github actions bot token, and aztecbot
-          export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}
+          export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           # Do we have a PR active?
           PR_URL=$(gh pr list --repo noir-lang/noir --head aztec-sync-test --json url --jq ".[0].url")
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
