@@ -1,6 +1,7 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::vec;
 
+use convert_case::{Case, Casing};
 use iter_extended::vecmap;
 use noirc_frontend::macros_api::FieldElement;
 use noirc_frontend::macros_api::{
@@ -17,7 +18,6 @@ use noirc_frontend::macros_api::{MacroError, MacroProcessor};
 use noirc_frontend::macros_api::{ModuleDefId, NodeInterner, SortedModule, StructId};
 use noirc_frontend::node_interner::{TraitId, TraitImplKind};
 use noirc_frontend::Lambda;
-use convert_case::{Case, Casing};
 
 pub struct AztecMacro;
 
@@ -1093,7 +1093,7 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
         "hasher", // Assigned to
         call(
             variable_path(chained_path!("aztec", "hasher", "Hasher", "new")), // Path
-            vec![],                                                      // args
+            vec![],                                                           // args
         ),
     );
 
@@ -1149,7 +1149,7 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
     let hash_call = method_call(
         variable("hasher"), // variable
         "hash",             // method name
-        vec![],               // args
+        vec![],             // args
     );
 
     let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
@@ -1159,7 +1159,7 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
         "context", // Assigned to
         call(
             variable_path(chained_path!("aztec", "context", &path_snippet, ty, "new")), // Path
-            vec![inputs_expression, hash_call],                                    // args
+            vec![inputs_expression, hash_call],                                         // args
         ),
     );
     injected_expressions.push(let_context);
