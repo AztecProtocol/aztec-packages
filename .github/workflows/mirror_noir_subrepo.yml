@@ -118,7 +118,6 @@ jobs:
           # merge_staging_branch: Merge our staging branch into aztec-packages.
           function merge_staging_branch() {
             # Fix PR branch
-            git clone https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/noir-lang/noir.git noir-repo
             cd noir-repo
             git checkout $BRANCH || git checkout -b $BRANCH
             git merge -Xtheirs $STAGING_BRANCH
