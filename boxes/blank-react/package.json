@@ -7,10 +7,10 @@
   "scripts": {
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
     "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o artifacts --ts",
-    "build": "yarn clean && yarn compile && yarn codegen && tsc -b && webpack",
     "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
     "dev": "webpack serve --mode development",
+    "build": "yarn prep && webpack",
     "serve": "serve -p 3000 ./dist",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",

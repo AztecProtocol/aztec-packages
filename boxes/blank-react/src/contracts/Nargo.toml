@@ -5,7 +5,6 @@ compiler_version = ">=0.18.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../yarn-project/aztec-nr/aztec" }
-easy_private_state = { path = "../../../../yarn-project/aztec-nr/easy-private-state"}
-
-value_note = { path = "../../../../yarn-project/aztec-nr/value-note" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "master" , directory = "yarn-project/aztec-nr/aztec" }
+easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "master" , directory = "yarn-project/aztec-nr/easy-private-state" }
+value_note = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "master" , directory = "yarn-project/aztec-nr/value-note" }

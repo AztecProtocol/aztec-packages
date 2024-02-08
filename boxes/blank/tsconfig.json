@@ -1,24 +1,9 @@
 {
   "compilerOptions": {
-    "outDir": "dest",
-    "tsBuildInfoFile": ".tsbuildinfo",
-    "target": "es2020",
-    "lib": ["esnext", "dom", "DOM.Iterable"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "declaration": true,
-    "allowSyntheticDefaultImports": true,
-    "allowJs": true,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
-    "inlineSourceMap": true,
-    "declarationMap": true,
-    "importHelpers": true,
-    "resolveJsonModule": true,
-    "composite": true,
-    "skipLibCheck": true,
-    "jsx": "react-jsx"
+    "outDir": "artifacts/build",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true
   },
-  "include": ["src", "tests", "src/contracts/target/*.json", "artifacts/*"]
+  "include": ["**/*.ts"]
 }
