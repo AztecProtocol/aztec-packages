@@ -149,13 +149,13 @@ jobs:
           ref: ${{ inputs.tag || env.GITHUB_REF }}
 
       - name: Create Mac Build Environment
-        run: brew install cmake ninja && softwareupdate --all --install --force
+        run: brew install cmake ninja llvm@16
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
         run: |
-          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
-          cmake --build --preset default --target bb
+          cmake -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_BUILD_TYPE=RelWithAssert --preset default 
+          cmake --build build --target bb
 
       - name: Package barretenberg artifact
         working-directory: barretenberg/cpp/build/bin
