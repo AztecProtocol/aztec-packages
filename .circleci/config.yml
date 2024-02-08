@@ -1239,7 +1239,6 @@ workflows:
 
       - noir-contracts:
           requires:
-            - noir-ecr-manifest
             - aztec-nr
             - noir-protocol-circuits
             - avm-transpiler
