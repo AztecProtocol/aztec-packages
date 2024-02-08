@@ -1245,15 +1245,14 @@ workflows:
             - avm-transpiler
           <<: *defaults
 
-
       # Yarn Project
       - yarn-project-base:
           requires:
             - avm-transpiler
             - l1-contracts
             - bb-js
-            - noir-ecr-manifest
             - noir-packages
+            - noir-contracts
             - boxes-files
           <<: *defaults
       - yarn-project:
