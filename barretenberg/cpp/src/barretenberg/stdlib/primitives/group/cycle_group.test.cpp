@@ -48,10 +48,14 @@ template <class Builder> class CycleGroupTest : public ::testing::Test {
 using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
 
+/**
+ * @brief Checks that a point on the curve passes the validate_is_on_curve check
+ *
+ */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
 {
     STDLIB_TYPE_ALIASES;
-    auto builder = Builder();
+    Builder builder;
 
     auto lhs = TestFixture::generators[0];
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
@@ -59,28 +63,38 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     EXPECT_FALSE(builder.failed());
 }
 
+/**
+ * @brief Checks that a point that is not on the curve but marked as the point at infinity passes the
+ * validate_is_on_curve check
+ * @details Should pass since marking it with _is_infinity=true makes whatever other point data invalid.
+ */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
 {
     STDLIB_TYPE_ALIASES;
-    auto builder = Builder();
+    Builder builder;
 
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
-    cycle_group_ct a(x, y, true);
+    cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
     a.validate_is_on_curve();
     EXPECT_FALSE(builder.failed());
 }
 
+/**
+ * @brief Checks that a point that is not on the curve but *not* marked as the point at infinity fails the
+ * validate_is_on_curve check
+ * @details (1, 1) is not on the either the Grumpkin curve or the BN254 curve.
+ */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
 {
     STDLIB_TYPE_ALIASES;
-    auto builder = Builder();
+    Builder builder;
 
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
-    cycle_group_ct a(x, y, false);
+    cycle_group_ct a(x, y, /*_is_infinity=*/false);
     a.validate_is_on_curve();
     EXPECT_TRUE(builder.failed());
 }
