@@ -57,7 +57,7 @@ export class ContractStorageActionsCollector {
    * @param newValue - Value to write to it.
    * @param sideEffectCounter - Side effect counter associated with this storage action.
    */
-  public async write(storageSlot: Fr, newValue: Fr, sideEffectCounter: number): Promise<void> {
+  public write(storageSlot: Fr, newValue: Fr, sideEffectCounter: number): void {
     const slot = storageSlot.value;
     const updateRequest = this.contractStorageUpdateRequests.get(slot);
     if (updateRequest) {

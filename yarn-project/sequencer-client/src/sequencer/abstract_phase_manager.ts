@@ -344,9 +344,7 @@ export abstract class AbstractPhaseManager {
       (accum, update) =>
         accum &&
         !!publicDataUpdateRequests.find(
-          item =>
-            item.leafSlot.equals(update.leafSlot) &&
-            item.newValue.equals(update.newValue),
+          item => item.leafSlot.equals(update.leafSlot) && item.newValue.equals(update.newValue),
         ),
       true,
     );
