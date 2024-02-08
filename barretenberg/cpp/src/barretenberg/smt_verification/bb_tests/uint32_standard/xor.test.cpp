@@ -19,9 +19,6 @@ TEST(uint, xor_unique_witness_check_via_circuit){
     uint_ct c = a ^ b;
     builder.set_variable_name(c.get_witness_index(), "c");
 
-    info("Variables: ", builder.get_num_variables());
-    info("Constraints: ", builder.num_gates);
-
     CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
 
     SolverConfiguration config = {true, 0};

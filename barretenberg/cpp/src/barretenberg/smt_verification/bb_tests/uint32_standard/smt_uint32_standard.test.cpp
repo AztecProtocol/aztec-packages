@@ -41,7 +41,7 @@ TEST(uint, uint_unique_witness){
     if(!res){
         return;
     }
-    default_model({}, cirs.first, cirs.second, &s);
+    default_model({}, cirs.first, cirs.second, &s, "uint_unique_witness.txt");
 }
 
 TEST(uint, xor_unique_output){
@@ -63,15 +63,13 @@ TEST(uint, xor_unique_output){
     Solver s(circuit_info.modulus, config, 16);
 
     std::vector<std::string> equal = {"a", "b"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
-
-    cirs.first["c"] != cirs.second["c"];
+    auto cirs = unique_witness_ext<FFTerm>(circuit_info, &s, {"a", "b"}, {"c"});
 
     bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_output.txt");
 }
 
 TEST(uint, xor_unique_witness){
@@ -92,15 +90,13 @@ TEST(uint, xor_unique_witness){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a", "b"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a", "b"});
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_witness.txt");
 }
 
 TEST(uint, xor_unique_random_solution){ // TODO(alex): weird stuff happening here
@@ -126,13 +122,38 @@ TEST(uint, xor_unique_random_solution){ // TODO(alex): weird stuff happening her
     circuit["b"] == b.get_value();
     circuit["c"] != c.get_value();
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model_single({"a", "b", "c"}, circuit, &s);
+    default_model_single({"a", "b", "c"}, circuit, &s, "xor_unique_random_solution.txt");
 }
+
+TEST(uint, add_unique_output){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a + b;
+    builder.set_variable_name(c.get_witness_index(), "c");
+
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    auto cirs = unique_witness_ext<FFTerm>(circuit_info, &s, {"a", "b"}, {"c"});
+
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "add_unique_output.txt");
+} 
 
 TEST(uint, add_unique_witness){
     StandardCircuitBuilder builder;
@@ -151,20 +172,16 @@ TEST(uint, add_unique_witness){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a", "b"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a", "b"});
 
-    cirs.first["c"] != cirs.second["c"];
-
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
-} 
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "add_unique_witness.txt");
+}
 
-TEST(uint, add_special_witness){
+TEST(uint, add_unique_random_solution){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
@@ -181,43 +198,44 @@ TEST(uint, add_special_witness){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a", "b", "c"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    Circuit<FFTerm> circuit(circuit_info, &s);
 
-    bool res = s.check();
-    info(res);
+    circuit["a"] == a.get_value();
+    circuit["b"] == b.get_value();
+    circuit["c"] != c.get_value();
+
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
+    default_model_single({"a", "b", "c"}, circuit, &s, "add_unique_random_solution.txt");
 }
 
-// TEST(uint, add_unique_random_solution){
-//     StandardCircuitBuilder builder;
-//     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
-//     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
-//     builder.set_variable_name(a.get_witness_index(), "a");
-//     builder.set_variable_name(b.get_witness_index(), "b");
-//     uint_ct c = a + b;
-//     builder.set_variable_name(c.get_witness_index(), "c");
+TEST(uint, mul_unique_output){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a * b;
+    builder.set_variable_name(c.get_witness_index(), "c");
 
-//     info("Variables: ", builder.get_num_variables());
-//     info("Constraints: ", builder.num_gates);
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
 
-//     CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
 
-//     SolverConfiguration config = {true, 0};
-//     Solver s(circuit_info.modulus, config, 16);
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
 
-//     Circuit<FFTerm> circuit(circuit_info, &s);
+    auto cirs = unique_witness_ext<FFTerm>(circuit_info, &s, {"a", "b"}, {"c"});
 
-//     bool res = s.check();
-//     info(res);
-//     if(!res){
-//         return;
-//     }
-//     default_model_single({"a", "b", "c"}, circuit, &s);
-// } TODO(alex)
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "mul_unique_output.txt");
+} 
 
 TEST(uint, mul_unique_witness){
     StandardCircuitBuilder builder;
@@ -236,45 +254,13 @@ TEST(uint, mul_unique_witness){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a", "b"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a", "b"});
 
-    cirs.first["c"] != cirs.second["c"];
-
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
-} 
-
-TEST(uint, mul_special_witness){
-    StandardCircuitBuilder builder;
-    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
-    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
-    builder.set_variable_name(a.get_witness_index(), "a");
-    builder.set_variable_name(b.get_witness_index(), "b");
-    uint_ct c = a * b;
-    builder.set_variable_name(c.get_witness_index(), "c");
-
-    info("Variables: ", builder.get_num_variables());
-    info("Constraints: ", builder.num_gates);
-
-    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
-
-    SolverConfiguration config = {true, 0};
-    Solver s(circuit_info.modulus, config, 16);
-
-    std::vector<std::string> equal = {"a", "b", "c"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
-
-    bool res = s.check();
-    info(res);
-    if(!res){
-        return;
-    }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "mul_unique_witness.txt");
 }
 
 TEST(uint, mul_unique_random_solution){
@@ -296,29 +282,25 @@ TEST(uint, mul_unique_random_solution){
 
     Circuit<FFTerm> circuit(circuit_info, &s);
 
-    bool res = s.check();
-    info(res);
+    circuit["a"] == a.get_value();
+    circuit["b"] == b.get_value();
+    circuit["c"] != c.get_value();
+
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model_single({"a", "b", "c"}, circuit, &s);
+    default_model_single({"a", "b", "c"}, circuit, &s, "mul_unique_random_solution.txt");
 }
 
-TEST(uint, and){
+TEST(uint, and_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
-
-    info(a, " ", b);
-    info(a.get_witness_index());
-    info(b.get_witness_index());
-    
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
-
     uint_ct c = a & b;
-    info(c);
-    info(c.get_witness_index());
+    c.normalize();
     builder.set_variable_name(c.get_witness_index(), "c");
 
     info("Variables: ", builder.get_num_variables());
@@ -330,32 +312,80 @@ TEST(uint, and){
     Solver s(circuit_info.modulus, config, 16);
 
     std::vector<std::string> equal = {"a", "b"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    auto cirs = unique_witness_ext<FFTerm>(circuit_info, &s, {"a", "b"}, {"c"});
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
-} // TODO(alex): ?????
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "and_unique_output.txt");
+}
 
-
-TEST(uint, or){
+TEST(uint, and_unique_witness){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
-
-    info(a, " ", b);
-    info(a.get_witness_index());
-    info(b.get_witness_index());
-    
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a & b;
+    c.normalize();
+    builder.set_variable_name(c.get_witness_index(), "c");
 
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a", "b"});
+
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "and_unique_witness.txt");
+}
+
+TEST(uint, and_unique_random_solution){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a & b;
+    builder.set_variable_name(c.get_witness_index(), "c");
+
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    Circuit<FFTerm> circuit(circuit_info, &s);
+
+    circuit["a"] == a.get_value();
+    circuit["b"] == b.get_value();
+    circuit["c"] != c.get_value();
+
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model_single({"a", "b", "c"}, circuit, &s, "and_unique_random_solution.txt");
+}
+
+TEST(uint, or_unique_output){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
     uint_ct c = a | b;
-    info(c);
-    info(c.get_witness_index());
+    c.normalize();
     builder.set_variable_name(c.get_witness_index(), "c");
 
     info("Variables: ", builder.get_num_variables());
@@ -367,18 +397,72 @@ TEST(uint, or){
     Solver s(circuit_info.modulus, config, 16);
 
     std::vector<std::string> equal = {"a", "b"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    auto cirs = unique_witness_ext<FFTerm>(circuit_info, &s, {"a", "b"}, {"c"});
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
- 
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "or_unique_output.txt");
 }
 
-TEST(uint, unique_ror7){
+TEST(uint, or_unique_witness){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a | b;
+    c.normalize();
+    builder.set_variable_name(c.get_witness_index(), "c");
+
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a", "b"});
+
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "or_unique_witness.txt");
+}
+
+TEST(uint, or_unique_random_solution){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a | b;
+    builder.set_variable_name(c.get_witness_index(), "c");
+
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    Circuit<FFTerm> circuit(circuit_info, &s);
+
+    circuit["a"] == a.get_value();
+    circuit["b"] == b.get_value();
+    circuit["c"] != c.get_value();
+
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model_single({"a", "b", "c"}, circuit, &s, "or_unique_random_solution.txt");
+}
+TEST(uint, ror7_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     builder.set_variable_name(a.get_witness_index(), "a");
@@ -393,16 +477,38 @@ TEST(uint, unique_ror7){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a"};
-    auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
+    auto cirs = unique_witness_ext<FFTerm>(circuit_info, &s, {"a"}, {"b"});
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model({"a", "b"}, cirs.first, cirs.second, &s);
-}// TODO(alex): strict equality test
+    default_model({"a", "b"}, cirs.first, cirs.second, &s, "ror7_unique_output.txt");
+}
+
+TEST(uint, ror7_unique_witness){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    uint_ct b = a.ror(7);
+    builder.set_variable_name(b.get_witness_index(), "b");
+
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {"a"});
+
+    bool res = smt_timer(&s);
+    if(!res){
+        return;
+    }
+    default_model({"a", "b"}, cirs.first, cirs.second, &s, "ror7_unique_witness.txt");
+}
 
 TEST(uint, rorol){
     StandardCircuitBuilder builder;
@@ -421,15 +527,13 @@ TEST(uint, rorol){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a", "b"};
     Circuit<FFTerm> circuit(circuit_info, &s);
 
     circuit["c"] != circuit["a"];
 
-    bool res = s.check();
-    info(res);
+    bool res = smt_timer(&s);
     if(!res){
         return;
     }
-    default_model_single({"a", "b", "c"}, circuit, &s);
+    default_model_single({"a", "b", "c"}, circuit, &s, "rorol7.txt");
 } // TODO(alex): didn't terminate in 2hrs
