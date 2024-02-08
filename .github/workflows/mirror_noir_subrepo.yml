@@ -57,6 +57,7 @@ jobs:
           git clone https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/noir-lang/noir.git noir-repo
           cd noir-repo
           git checkout $BRANCH || git checkout -b $BRANCH
+          OLD_NOIR_COMMIT=`git rev-parse HEAD`
           git reset --hard "$BASE_NOIR_COMMIT"
           # Reset our branch to our expected target
           git push origin $BRANCH --force
@@ -94,5 +95,10 @@ jobs:
           if [[ "$PR_URL" == "" ]]; then
             gh pr create --repo noir-lang/noir --title "feat: Sync from aztec-packages" --body "$PR_BODY" --base master --head aztec-packages
           else
+            # If the PR already exists, merge any changes that already existed
+            cd noir-repo
+            git merge -Xtheirs --squash "$OLD_NOIR_COMMIT"
+            git push origin HEAD
+            cd ..
             gh pr edit "$PR_URL" --body "$PR_BODY"
           fi
