@@ -156,6 +156,12 @@ impl PrivateContext {
         priv_circuit_pub_inputs
     }
 
+    pub fn capture_max_non_revertible_side_effect_counter(&mut self) {
+        assert(self.meta_hwm == 0, "Already captured the non-revertible side effect counter");
+        self.meta_hwm = self.side_effect_counter;
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
     pub fn push_read_request(&mut self, read_request: Field) {
         let side_effect = SideEffect { value: read_request, counter: self.side_effect_counter };
         self.read_requests.push(side_effect);

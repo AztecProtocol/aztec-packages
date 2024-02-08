@@ -13,8 +13,9 @@ contract SchnorrAccount {
         oracle::get_public_key::get_public_key, state_vars::immutable_singleton::ImmutableSingleton
     };
     use dep::authwit::{
-        entrypoint::{EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE}, account::AccountActions,
-        auth_witness::get_auth_witness
+        entrypoint::{app::AppPayload, fee::FeePayload},
+        account::AccountActions,
+        auth_witness::get_auth_witness,
     };
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
@@ -39,9 +40,9 @@ contract SchnorrAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
-    fn entrypoint(payload: pub EntrypointPayload) {
+    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.entrypoint(payload);
+        actions.entrypoint(app_payload, fee_payload);
     }
 
     #[aztec(private)]
