@@ -31,8 +31,9 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
     builder.create_range_constraint(hi.witness_index, UPPER_TWO_LIMB_BITS, "create_range_constraint");
 
     ASSERT(static_cast<uint256_t>(low_val) + (static_cast<uint256_t>(hi_val) << NUM_BITS_IN_TWO_LIMBS) == value);
-    // checks this decomposition low + hi * 2^64 = value with an add gate
-    fr<Builder>::evaluate_linear_identity(low, hi * shift, -f, fr<Builder>(0));
+    // checks this decomposition low + hi * 2^64 = value with an assert_equal
+    auto sum = low + hi * shift;
+    builder.assert_equal(f.witness_index, sum.witness_index, "assert_equal");
 
     std::vector<fr<Builder>> fr_vec{ low, hi };
     return convert_from_bn254_frs<Builder, fq<Builder>>(builder, fr_vec);
