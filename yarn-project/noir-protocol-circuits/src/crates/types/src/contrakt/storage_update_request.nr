@@ -20,7 +20,6 @@ struct StorageUpdateRequest{
 
 impl Eq for StorageUpdateRequest {
     fn eq(self, request: Self) -> bool {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3595)
         (request.storage_slot == self.storage_slot)
             & (request.new_value == self.new_value)
     }
