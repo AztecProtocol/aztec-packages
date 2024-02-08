@@ -349,6 +349,7 @@ contract Test {
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
+        note_type_id: Field,
         serialized_note: [Field; VALUE_NOTE_LEN] // must fit either a FieldNote or a ValueNote
     ) -> pub [Field; 4] {
         if (storage_slot == storage.example_constant.get_storage_slot()) {

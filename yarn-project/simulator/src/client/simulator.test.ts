@@ -42,7 +42,7 @@ describe('Simulator', () => {
     const contractAddress = AztecAddress.random();
     const nonce = Fr.random();
     const storageSlot = Fr.random();
-    const noteTypeId = Fr.random(); // unused by TokenContract
+    const noteTypeId = Fr.random();
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -77,6 +77,24 @@ describe('Simulator', () => {
       await expect(
         simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrowError(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
+    });
+
+    it('throw if "compute_note_hash_and_nullifier" has the wrong number of parameters', async () => {
+      const note = createNote();
+
+      const modifiedArtifact: FunctionArtifactWithDebugMetadata = {
+        ...artifact,
+        parameters: artifact.parameters.slice(1),
+      };
+      oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
+
+      await expect(
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
+      ).rejects.toThrowError(
+        new RegExp(
+          `Expected 5 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 4 in noir contract ${contractAddress}.`,
+        ),
+      );
     });
 
     it('throw if a note has more fields than "compute_note_hash_and_nullifier" can process', async () => {

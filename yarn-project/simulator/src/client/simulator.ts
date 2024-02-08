@@ -180,6 +180,14 @@ export class AcirSimulator {
       );
     }
 
+    if (artifact.parameters.length != 5) {
+      throw new Error(
+        `Expected 5 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found ${
+          artifact.parameters.length
+        } in noir contract ${contractAddress.toString()}.`,
+      );
+    }
+
     const maxNoteFields = (artifact.parameters[artifact.parameters.length - 1].type as ArrayType).length;
     if (maxNoteFields < note.items.length) {
       throw new Error(
@@ -192,7 +200,7 @@ export class AcirSimulator {
     const execRequest: FunctionCall = {
       to: contractAddress,
       functionData: FunctionData.empty(),
-      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, /* noteTypeId, */ extendedNoteItems]), // TODO(nventuro): pass note type id
+      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
     };
 
     const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
