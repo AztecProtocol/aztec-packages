@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "yarn clean && yarn build:contracts",
-    "build:contracts": "./scripts/compile.sh && ./scripts/transpile.sh",
+    "build:contracts": "./scripts/generate-types.sh",
     "clean": "rm -rf .tsbuildinfo ./target"
   }
 }
