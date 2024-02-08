@@ -11,6 +11,7 @@ using namespace smt_solver;
  * Both of them support basic arithmetic operations: +, -, *, /.
  * Check the satisfability of a system and get it's model.
  *
+ * TODO(alex): string compatible arithmetic operations?
  */
 class FFTerm {
   public:
