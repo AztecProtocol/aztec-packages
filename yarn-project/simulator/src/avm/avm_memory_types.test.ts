@@ -167,6 +167,14 @@ describe('Field', () => {
     expect(result).toStrictEqual(new Field(2n));
   });
 
+  it(`Should check equality of two Fields correctly`, () => {
+    const field1 = new Field(5);
+    const field2 = new Field(5);
+    const field3 = new Field(10);
+    expect(field1.equals(field2)).toBe(true);
+    expect(field1.equals(field3)).toBe(false);
+  });
+
   it(`Should convert Field to BigInt correctly`, () => {
     const field = new Field(5);
     expect(field.toBigInt()).toStrictEqual(5n);

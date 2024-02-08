@@ -10,6 +10,8 @@ export abstract class MemoryValue {
   public abstract mul(rhs: MemoryValue): MemoryValue;
   public abstract div(rhs: MemoryValue): MemoryValue;
 
+  public abstract equals(rhs: MemoryValue): boolean;
+
   // We need this to be able to build an instance of the subclasses.
   public abstract build(n: bigint): MemoryValue;
 
@@ -30,7 +32,6 @@ export abstract class IntegralValue extends MemoryValue {
   public abstract xor(rhs: IntegralValue): IntegralValue;
   public abstract not(): IntegralValue;
 
-  public abstract equals(rhs: MemoryValue): boolean;
   public abstract lt(rhs: MemoryValue): boolean;
 }
 
@@ -194,6 +195,10 @@ export class Field extends MemoryValue {
 
   public div(rhs: Field): Field {
     return new Field(this.rep.div(rhs.rep));
+  }
+
+  public equals(rhs: Field): boolean {
+    return this.rep.equals(rhs.rep);
   }
 
   public toBigInt(): bigint {

@@ -13,10 +13,9 @@ export class Eq extends ThreeOperandInstruction {
 
   async execute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
-    TaggedMemory.checkIsIntegralTag(this.inTag);
 
-    const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
-    const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
+    const a = context.machineState.memory.get(this.aOffset);
+    const b = context.machineState.memory.get(this.bOffset);
 
     // Result will be of the same type as 'a'.
     const dest = a.build(a.equals(b) ? 1n : 0n);
