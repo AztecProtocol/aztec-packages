@@ -380,9 +380,6 @@ contract Token {
     }
     // docs:end:balance_of_public
 
-    // Below this point is the stuff of nightmares.
-    // This should ideally not be required. What do we do if vastly different types of serialized_notes?
-
     // docs:start:compute_note_hash_and_nullifier
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.

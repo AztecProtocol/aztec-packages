@@ -334,9 +334,6 @@ contract TokenBlacklist {
         storage.public_balances.at(owner).read().value
     }
 
-    // Below this point is the stuff of nightmares.
-    // This should ideally not be required. What do we do if vastly different types of preimages?
-
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
