@@ -329,8 +329,8 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should run the create_note function', async () => {
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note');
+    it('should run the create_new_note function', async () => {
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_new_note');
 
       const result = await runSimulator({ args: [owner, 140], artifact });
 
