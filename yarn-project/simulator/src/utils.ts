@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/fields';
 export function computeSlotForMapping(
   mappingSlot: Fr,
   key: {
-    /** Serialize to a field. */
+    /** Serialize to a buffer. */
     toBuffer: () => Buffer;
   },
 ) {
