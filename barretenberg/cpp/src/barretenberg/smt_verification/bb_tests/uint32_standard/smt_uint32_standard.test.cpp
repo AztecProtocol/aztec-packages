@@ -18,6 +18,36 @@ auto& engine = numeric::get_debug_randomness();
 
 // TODO(alex): shifts, operations with constants
 
+TEST(uint, uint_unique_witness){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    info(builder.variable_names[a.get_witness_index()]);
+    info(a.get_witness_index());
+    info(builder.real_variable_index[a.get_witness_index()]);
+
+    info("Variables: ", builder.get_num_variables());
+    info("Constraints: ", builder.num_gates);
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+
+    SolverConfiguration config = {true, 0};
+    Solver s(circuit_info.modulus, config, 16);
+
+    auto cirs = unique_witness<FFTerm>(circuit_info, &s, {});
+    info(cirs.first[a.get_witness_index()]);
+    info(a.get_witness_index());
+
+    cirs.first["new_accumulator_65"] == cirs.second["new_accumulator_65"];
+
+    bool res = s.check();
+    info(res);
+    if(!res){
+        return;
+    }
+    default_model({}, cirs.first, cirs.second, &s);
+}
+
 TEST(uint, xor_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
@@ -25,6 +55,7 @@ TEST(uint, xor_unique_output){
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
     uint_ct c = a ^ b;
+    c.normalize();
     builder.set_variable_name(c.get_witness_index(), "c");
 
     info("Variables: ", builder.get_num_variables());
@@ -46,15 +77,16 @@ TEST(uint, xor_unique_output){
         return;
     }
     default_model({"a", "b", "c"}, cirs.first, cirs.second, &s);
-} // TODO(alex): ?????
+}
 
-TEST(uint, xor_special_witness){
+TEST(uint, xor_unique_witness){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
     uint_ct c = a ^ b;
+    c.normalize();
     builder.set_variable_name(c.get_witness_index(), "c");
 
     info("Variables: ", builder.get_num_variables());
@@ -65,7 +97,7 @@ TEST(uint, xor_special_witness){
     SolverConfiguration config = {true, 0};
     Solver s(circuit_info.modulus, config, 16);
 
-    std::vector<std::string> equal = {"a", "b", "c"};
+    std::vector<std::string> equal = {"a", "b"};
     auto cirs = unique_witness<FFTerm>(circuit_info, &s, equal);
 
     bool res = s.check();
