@@ -64,7 +64,7 @@ jobs:
             # Fix Aztec PR links and output message
             echo "$RAW_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/AztecProtocol\/aztec-packages\/pull\/\1)/g'
           }
-          echo "MESSAGE=$(compute_commit_message)"
+          echo "MESSAGE=\"$(compute_commit_message)\"" >> $GITHUB_ENV
 
       # We push using git subrepo (https://github.com/ingydotnet/git-subrepo)
       # and push all Aztec commits as a single commit with metadata.
