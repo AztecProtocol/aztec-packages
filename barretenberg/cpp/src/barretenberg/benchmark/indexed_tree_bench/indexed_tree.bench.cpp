@@ -21,7 +21,7 @@ void perform_batch_insert(TreeType& tree, const std::vector<fr>& values, bool si
     tree.add_or_update_values(values, single_threaded);
 }
 
-template <typename TreeType> void indexed_tree_bench(State& state) noexcept
+template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) noexcept
 {
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = 40;
@@ -64,7 +64,7 @@ BENCHMARK(single_thread_indexed_tree_bench<Pedersen>)
     ->Range(2, 64)
     ->Iterations(100);
 
-BENCHMARK(indexed_tree_bench<Pedersen>)
+BENCHMARK(multi_thread_indexed_tree_bench<Pedersen>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, 64)
@@ -75,10 +75,10 @@ BENCHMARK(single_thread_indexed_tree_bench<Poseidon2>)
     ->RangeMultiplier(2)
     ->Range(2, 64)
     ->Iterations(1000);
-BENCHMARK(indexed_tree_bench<Poseidon2>)
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, 64)
-    ->Iterations(100);
+    ->Iterations(1000);
 
 BENCHMARK_MAIN();
