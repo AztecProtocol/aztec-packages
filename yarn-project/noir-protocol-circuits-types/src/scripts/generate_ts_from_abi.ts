@@ -216,7 +216,7 @@ const main = async () => {
   }
 
   for (const circuit of circuits) {
-    const rawData = await fs.readFile(`../../noir-protocol-circuits/src/target/${circuit}.json`, 'utf-8');
+    const rawData = await fs.readFile(`./src/target/${circuit}.json`, 'utf-8');
     const abiObj: NoirCompiledCircuit = JSON.parse(rawData);
     const generatedInterface = generateTsInterface(abiObj.abi);
 
