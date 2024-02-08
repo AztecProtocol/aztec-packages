@@ -9,9 +9,11 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ## 0.22.0
 
 ### `Note::compute_note_hash` renamed to `Note::compute_note_content_hash`
+
 The `compute_note_hash` function in of the `Note` trait has been renamed to `compute_note_content_hash` to avoid being confused with the actual note hash.
 
 Before:
+
 ```rust
 impl NoteInterface for CardNote {
     fn compute_note_hash(self) -> Field {
@@ -22,6 +24,7 @@ impl NoteInterface for CardNote {
 ```
 
 Now:
+
 ```rust
 impl NoteInterface for CardNote {
     fn compute_note_content_hash(self) -> Field {
@@ -43,6 +46,7 @@ Makes a split in logic for note hash computation for consumption and insertion. 
 The `NoteInterface` have been extended to include `serialize_content` and `deserialize_content` functions. This is to convey the difference between serializing the full note, and just the content. This change allows you to also add a `serialize` function to support passing in a complete note to a function.
 
 Before:
+
 ```rust
 impl Serialize<ADDRESS_NOTE_LEN> for AddressNote {
     fn serialize(self) -> [Field; ADDRESS_NOTE_LEN]{
@@ -60,7 +64,8 @@ impl Deserialize<ADDRESS_NOTE_LEN> for AddressNote {
     }
 ```
 
-Now 
+Now
+
 ```rust
 impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
     fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN]{
@@ -83,7 +88,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
 
 Storage definition and initialization has been simplified. Previously:
 
-```rust 
+```rust
 struct Storage {
     leader: PublicState<Leader, LEADER_SERIALIZED_LEN>,
     legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
@@ -115,9 +120,9 @@ impl Storage {
     }
 ```
 
-Now: 
+Now:
 
-```rust 
+```rust
 struct Storage {
     leader: PublicState<Leader>,
     legendary_card: Singleton<CardNote>,
@@ -255,9 +260,9 @@ global CardNoteMethods = NoteInterface {
 };
 ```
 
-Now: 
+Now:
 
-```rust 
+```rust
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -352,7 +357,7 @@ impl NoteInterface for CardNote {
 }
 ```
 
-Public state must implement Serialize and Deserialize traits. 
+Public state must implement Serialize and Deserialize traits.
 
 It is still possible to manually implement the storage initialization (for custom storage wrappers or internal types that don't implement the required traits). For the above example, the `impl Storage` section would look like this:
 
