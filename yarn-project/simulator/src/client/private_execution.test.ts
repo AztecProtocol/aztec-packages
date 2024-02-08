@@ -310,7 +310,7 @@ describe('Private Execution test suite', () => {
       oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
     });
 
-    it.only('should have a constructor with arguments that inserts notes', async () => {
+    it('should have a constructor with arguments that inserts notes', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
       const topLevelResult = await runSimulator({ args: [owner, 140], artifact });
       const result = topLevelResult.nestedExecutions[0];
