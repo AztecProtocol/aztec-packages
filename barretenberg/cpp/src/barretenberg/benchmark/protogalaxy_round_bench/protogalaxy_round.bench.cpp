@@ -7,7 +7,7 @@
 using namespace benchmark;
 
 namespace bb::honk {
-using Flavor = flavor::GoblinUltra;
+using Flavor = GoblinUltraFlavor;
 using Polynomial = Flavor::Polynomial;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
