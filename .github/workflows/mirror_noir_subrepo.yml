@@ -63,7 +63,7 @@ jobs:
           git push origin $BRANCH --force
           cd ..
           # Get the last sync PR's last commit state
-          LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-sync-test  --json headRefOid --jq=.[0].headRefOid`
+          LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json headRefOid --jq=.[0].headRefOid`
           # Use a commit heuristic where we look at when .gitrepo first started to look at that commit state (through a push)
           COMMIT_HEURISTIC=$(git log -p -S"$LAST_MERGED_PR_HASH" --reverse --source --  noir/.gitrepo | grep -m 1 '^commit'  | awk '{print $2}' || true)
           if [[ " $COMMIT_HEURISTIC" = "" ]] ; then
