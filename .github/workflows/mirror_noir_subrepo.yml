@@ -77,7 +77,7 @@ jobs:
           git commit --allow-empty -m"chore: Sync to noir-lang/noir" -m"$MESSAGE"
           COMMIT=$(git rev-parse HEAD)
           # Now push to it with subrepo with computed commit messages
-          if ./scripts/git_subrepo.sh push $SUBREPO_PATH --squash --branch=$BRANCH; then
+          if ./scripts/git-subrepo/lib/git-subrepo push $SUBREPO_PATH --squash --branch=$BRANCH; then
             git reset $COMMIT
             git commit --amend -am "$(git log -1 --pretty=%B) [skip ci]"
             git push
