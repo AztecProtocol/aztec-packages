@@ -348,9 +348,10 @@ contract TokenBlacklist {
         preimage: [Field; TOKEN_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == storage.pending_shields.get_storage_slot()) {
+
+        if (note_type_id == TransparentNote::get_note_type_id()) {
             note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize_content, note_header, preimage)
-        } else if (storage_slot == storage.slow_update.get_storage_slot()) {
+        } else if (note_type_id == FieldNote::get_note_type_id()) {
             note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize_content, note_header, preimage)
         } else {
             note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize_content, note_header, preimage)
