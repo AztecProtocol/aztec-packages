@@ -1,5 +1,6 @@
 import {
   ARCHIVE_HEIGHT,
+  AccumulatedMetaData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   AztecAddress,
@@ -27,13 +28,15 @@ import {
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
@@ -45,7 +48,6 @@ import {
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
-  OptionallyRevealedData,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   Point,
@@ -97,7 +99,6 @@ import {
   GrumpkinPoint as NoirPoint,
   NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
   NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
-  OptionallyRevealedData as OptionallyRevealedDataNoir,
   PrivateCallData as PrivateCallDataNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
@@ -115,6 +116,7 @@ import {
   PrivateKernelInputsInner as PrivateKernelInputsInnerNoir,
 } from './types/private_kernel_inner_types.js';
 import {
+  AccumulatedMetaData as AccumulatedMetaDataNoir,
   FinalAccumulatedData as FinalAccumulatedDataNoir,
   KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
@@ -642,6 +644,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
+    meta_hwm: mapFieldToNoir(Fr.ZERO),
   };
 }
 
@@ -653,9 +656,8 @@ export function mapPrivateCircuitPublicInputsToNoir(
 export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallStackItem): PrivateCallStackItemNoir {
   return {
     contract_address: mapAztecAddressToNoir(privateCallStackItem.contractAddress),
-    public_inputs: mapPrivateCircuitPublicInputsToNoir(privateCallStackItem.publicInputs),
-    is_execution_request: privateCallStackItem.isExecutionRequest,
     function_data: mapFunctionDataToNoir(privateCallStackItem.functionData),
+    public_inputs: mapPrivateCircuitPublicInputsToNoir(privateCallStackItem.publicInputs),
   };
 }
 
@@ -755,46 +757,6 @@ export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, 2> {
 }
 
 /**
- * Maps optionally revealed data from noir to the parsed type.
- * @param optionallyRevealedData - The noir optionally revealed data.
- * @returns The parsed optionally revealed data.
- */
-export function mapOptionallyRevealedDataFromNoir(
-  optionallyRevealedData: OptionallyRevealedDataNoir,
-): OptionallyRevealedData {
-  return new OptionallyRevealedData(
-    mapFieldFromNoir(optionallyRevealedData.call_stack_item_hash),
-    mapFunctionDataFromNoir(optionallyRevealedData.function_data),
-    mapFieldFromNoir(optionallyRevealedData.vk_hash),
-    mapEthAddressFromNoir(optionallyRevealedData.portal_contract_address),
-    optionallyRevealedData.pay_fee_from_l1,
-    optionallyRevealedData.pay_fee_from_public_l2,
-    optionallyRevealedData.called_from_l1,
-    optionallyRevealedData.called_from_public_l2,
-  );
-}
-
-/**
- * Maps optionally revealed data to noir optionally revealed data.
- * @param optionallyRevealedData - The optionally revealed data.
- * @returns The noir optionally revealed data.
- */
-export function mapOptionallyRevealedDataToNoir(
-  optionallyRevealedData: OptionallyRevealedData,
-): OptionallyRevealedDataNoir {
-  return {
-    call_stack_item_hash: mapFieldToNoir(optionallyRevealedData.callStackItemHash),
-    function_data: mapFunctionDataToNoir(optionallyRevealedData.functionData),
-    vk_hash: mapFieldToNoir(optionallyRevealedData.vkHash),
-    portal_contract_address: mapEthAddressToNoir(optionallyRevealedData.portalContractAddress),
-    pay_fee_from_l1: optionallyRevealedData.payFeeFromL1,
-    pay_fee_from_public_l2: optionallyRevealedData.payFeeFromPublicL2,
-    called_from_l1: optionallyRevealedData.calledFromL1,
-    called_from_public_l2: optionallyRevealedData.calledFromPublicL2,
-  };
-}
-
-/**
  * Maps new contract data from noir to the parsed type.
  * @param newContractData - The noir new contract data.
  * @returns The parsed new contract data.
@@ -880,8 +842,6 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    // TODO aggregation object
-    AggregationObject.makeFake(),
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.nullifier_key_validation_requests,
@@ -907,11 +867,6 @@ export function mapCombinedAccumulatedDataFromNoir(
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
     mapTupleFromNoir(combinedAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
     mapTupleFromNoir(
-      combinedAccumulatedData.optionally_revealed_data,
-      MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-      mapOptionallyRevealedDataFromNoir,
-    ),
-    mapTupleFromNoir(
       combinedAccumulatedData.public_data_update_requests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       mapPublicDataUpdateRequestFromNoir,
@@ -931,8 +886,6 @@ export function mapCombinedAccumulatedDataFromNoir(
  */
 export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccumulatedDataNoir): FinalAccumulatedData {
   return new FinalAccumulatedData(
-    // TODO aggregation object
-    AggregationObject.makeFake(),
     mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -951,10 +904,22 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
     mapFieldFromNoir(finalAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(finalAccumulatedData.unencrypted_log_preimages_length),
     mapTupleFromNoir(finalAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
+  );
+}
+
+/**
+ * Maps accumulated data in the Tx's meta phase to the parsed type.
+ * @param accumulatedMetaData - The noir accumulated meta data.
+ * @returns The parsed accumulated meta data.
+ */
+export function mapAccumulatedMetaDataFromNoir(accumulatedMetaData: AccumulatedMetaDataNoir): AccumulatedMetaData {
+  return new AccumulatedMetaData(
+    mapTupleFromNoir(accumulatedMetaData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX_META, mapSideEffectFromNoir),
+    mapTupleFromNoir(accumulatedMetaData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX_META, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
-      finalAccumulatedData.optionally_revealed_data,
-      MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-      mapOptionallyRevealedDataFromNoir,
+      accumulatedMetaData.public_call_stack,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+      mapCallRequestFromNoir,
     ),
   );
 }
@@ -968,7 +933,6 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    aggregation_object: {},
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
     nullifier_key_validation_requests: mapTuple(
       combinedAccumulatedData.nullifierKeyValidationRequests,
@@ -984,7 +948,6 @@ export function mapCombinedAccumulatedDataToNoir(
     encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
     new_contracts: mapTuple(combinedAccumulatedData.newContracts, mapNewContractDataToNoir),
-    optionally_revealed_data: mapTuple(combinedAccumulatedData.optionallyRevealedData, mapOptionallyRevealedDataToNoir),
     public_data_update_requests: mapTuple(
       combinedAccumulatedData.publicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,
@@ -1069,6 +1032,9 @@ export function mapKernelCircuitPublicInputsFromNoir(
   kernelCircuitPublicInputs: KernelCircuitPublicInputsNoir,
 ): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
+    // TODO aggregation object
+    AggregationObject.makeFake(),
+    mapFieldFromNoir(kernelCircuitPublicInputs.meta_hwm),
     mapCombinedAccumulatedDataFromNoir(kernelCircuitPublicInputs.end),
     mapCombinedConstantDataFromNoir(kernelCircuitPublicInputs.constants),
     kernelCircuitPublicInputs.is_private,
@@ -1084,6 +1050,8 @@ export function mapKernelCircuitPublicInputsToNoir(
   publicInputs: KernelCircuitPublicInputs,
 ): KernelCircuitPublicInputsNoir {
   return {
+    aggregation_object: {},
+    meta_hwm: mapFieldToNoir(publicInputs.metaHwm),
     end: mapCombinedAccumulatedDataToNoir(publicInputs.end),
     constants: mapCombinedConstantDataToNoir(publicInputs.constants),
     is_private: publicInputs.isPrivate,
@@ -1099,6 +1067,9 @@ export function mapKernelCircuitPublicInputsFinalFromNoir(
   publicInputs: KernelCircuitPublicInputsFinalNoir,
 ): KernelCircuitPublicInputsFinal {
   return new KernelCircuitPublicInputsFinal(
+    AggregationObject.makeFake(),
+    mapFieldFromNoir(publicInputs.meta_hwm),
+    mapAccumulatedMetaDataFromNoir(publicInputs.end_meta),
     mapFinalAccumulatedDataFromNoir(publicInputs.end),
     mapCombinedConstantDataFromNoir(publicInputs.constants),
     publicInputs.is_private,
@@ -1150,6 +1121,8 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
     version: mapFieldToNoir(globalVariables.version),
     block_number: mapFieldToNoir(globalVariables.blockNumber),
     timestamp: mapFieldToNoir(globalVariables.timestamp),
+    coinbase: mapEthAddressToNoir(globalVariables.coinbase),
+    fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
   };
 }
 
@@ -1175,6 +1148,8 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
     mapFieldFromNoir(globalVariables.version),
     mapFieldFromNoir(globalVariables.block_number),
     mapFieldFromNoir(globalVariables.timestamp),
+    mapEthAddressFromNoir(globalVariables.coinbase),
+    mapAztecAddressFromNoir(globalVariables.fee_recipient),
   );
 }
 

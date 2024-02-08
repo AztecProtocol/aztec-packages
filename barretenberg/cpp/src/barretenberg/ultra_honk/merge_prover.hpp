@@ -29,7 +29,7 @@ template <typename Flavor> class MergeProver_ {
 
     explicit MergeProver_(const std::shared_ptr<ECCOpQueue>&);
 
-    BBERG_PROFILE HonkProof construct_proof();
+    BB_PROFILE HonkProof construct_proof();
 
   private:
     std::shared_ptr<ECCOpQueue> op_queue;

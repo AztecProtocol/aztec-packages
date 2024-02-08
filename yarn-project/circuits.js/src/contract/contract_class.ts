@@ -2,8 +2,9 @@ import { ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundat
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClass, ContractClassWithId } from '@aztec/types/contracts';
 
-import { getArtifactHash } from './artifact_hash.js';
-import { computeContractClassId } from './contract_class_id.js';
+import { computeArtifactHash } from './artifact_hash.js';
+import { ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
+import { packBytecode } from './public_bytecode.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
@@ -11,18 +12,22 @@ type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
 /** Creates a ContractClass from a contract compilation artifact. */
 export function getContractClassFromArtifact(
   artifact: ContractArtifact | ContractArtifactWithHash,
-): ContractClassWithId {
-  const artifactHash = (artifact as ContractArtifactWithHash).artifactHash ?? getArtifactHash(artifact);
+): ContractClassWithId & ContractClassIdPreimage {
+  const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : computeArtifactHash(artifact);
+  const publicFunctions: ContractClass['publicFunctions'] = artifact.functions
+    .filter(f => f.functionType === FunctionType.OPEN)
+    .map(f => ({
+      selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+      bytecode: Buffer.from(f.bytecode, 'base64'),
+      isInternal: f.isInternal,
+    }));
+  const packedBytecode = packBytecode(publicFunctions);
+
   const contractClass: ContractClass = {
     version: 1,
-    artifactHash: artifactHash,
-    publicFunctions: artifact.functions
-      .filter(f => f.functionType === FunctionType.OPEN)
-      .map(f => ({
-        selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-        bytecode: Buffer.from(f.bytecode, 'base64'),
-        isInternal: f.isInternal,
-      })),
+    artifactHash,
+    publicFunctions,
+    packedBytecode,
     privateFunctions: artifact.functions
       .filter(f => f.functionType === FunctionType.SECRET)
       .map(f => ({
@@ -30,10 +35,8 @@ export function getContractClassFromArtifact(
         vkHash: getVerificationKeyHash(f.verificationKey!),
         isInternal: f.isInternal,
       })),
-    packedBytecode: Buffer.alloc(0),
   };
-  const id = computeContractClassId(contractClass);
-  return { ...contractClass, id };
+  return { ...contractClass, ...computeContractClassIdWithPreimage(contractClass) };
 }
 
 /**

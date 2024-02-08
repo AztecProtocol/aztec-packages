@@ -1,11 +1,10 @@
+// TODO(#4411): this is mostly redundant. Nuke this
 import {
   makeCallRequest,
   makeFinalAccumulatedData,
   makeNewSideEffect,
   makePreviousKernelData,
   makePrivateCallData,
-  makePrivateCallStackItem,
-  makePrivateCircuitPublicInputs,
   makePrivateKernelInputsInner,
   makePrivateKernelPublicInputsFinal,
 } from '../../tests/factories.js';
@@ -13,8 +12,6 @@ import {
   CallRequest,
   FinalAccumulatedData,
   PreviousKernelData,
-  PrivateCallStackItem,
-  PrivateCircuitPublicInputs,
   PrivateKernelPublicInputsFinal,
   SideEffect,
 } from '../index.js';
@@ -74,22 +71,5 @@ describe('CallRequest', () => {
     const fad = makeCallRequest(0);
     const buf = fad.toBuffer();
     expect(CallRequest.fromBuffer(buf)).toEqual(fad);
-  });
-});
-
-describe('PrivateCallStackcItem', () => {
-  it('convert to and from buffer', () => {
-    const fad = makePrivateCallStackItem(0);
-
-    const buf = fad.toBuffer();
-    expect(PrivateCallStackItem.fromBuffer(buf)).toEqual(fad);
-  });
-});
-
-describe('Private Circuit Public Inputs', () => {
-  it('convert to and from buffer', () => {
-    const pkpi = makePrivateCircuitPublicInputs();
-    const buf = pkpi.toBuffer();
-    expect(PrivateCircuitPublicInputs.fromBuffer(buf)).toEqual(pkpi);
   });
 });
