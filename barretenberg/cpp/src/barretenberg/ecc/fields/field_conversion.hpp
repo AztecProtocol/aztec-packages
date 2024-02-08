@@ -208,16 +208,15 @@ template <typename AllValues> std::vector<bb::fr> inline convert_to_bn254_frs(co
     return fr_vec;
 }
 
-bb::fr inline convert_challenge(const bb::fr& f, bb::fr* /*unused*/)
-{
-    return f;
-}
-
-grumpkin::fr convert_challenge(const bb::fr& f, grumpkin::fr* /*unused*/);
+grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f);
 
 template <typename T> T inline convert_challenge(const bb::fr& challenge)
 {
-    return convert_challenge(challenge, static_cast<T*>(nullptr));
+    if constexpr (std::is_same_v<T, bb::fr>) {
+        return challenge;
+    } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
+        return convert_to_grumpkin_fr(challenge);
+    }
 }
 
 } // namespace bb::field_conversion

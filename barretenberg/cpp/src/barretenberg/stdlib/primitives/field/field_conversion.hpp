@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -13,26 +14,23 @@ template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
-static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 68;
+static constexpr uint64_t NUM_LIMB_BITS = plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 static constexpr uint64_t TOTAL_BITS = 254;
 
-template <typename Builder>
-inline fr<Builder> convert_challenge(const Builder& /*unused*/, const fr<Builder>& f, fr<Builder>* /*unused*/)
-{
-    return f;
-}
-
-template <typename Builder>
-fq<Builder> convert_challenge(Builder& builder, const fr<Builder>& f, fq<Builder>* /*unused*/);
+template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& f);
 
 template <typename Builder, typename T> inline T convert_challenge(Builder& builder, const fr<Builder>& challenge)
 {
-    return convert_challenge(builder, challenge, static_cast<T*>(nullptr));
+    if constexpr (std::is_same_v<T, fr<Builder>>) {
+        return challenge;
+    } else if constexpr (std::is_same_v<T, fq<Builder>>) {
+        return convert_to_grumpkin_fr(builder, challenge);
+    }
 }
 
 template <typename Builder> inline std::array<fr<Builder>, 2> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
 {
-    fr<Builder> shift(static_cast<uint256_t>(1) << NUM_CONVERSION_LIMB_BITS);
+    fr<Builder> shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
     std::array<fr<Builder>, 2> result;
     result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
     result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);
