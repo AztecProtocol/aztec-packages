@@ -16,7 +16,7 @@ export async function addNote(
   debugLogger: DebugLogger,
 ) {
   const note = new Note(parseFields(noteFields));
-  const extendedNote = new ExtendedNote(note, address, contractAddress, noteTypeId, storageSlot, txHash);
+  const extendedNote = new ExtendedNote(note, address, contractAddress, storageSlot, noteTypeId, txHash);
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   await client.addNote(extendedNote);
 }
