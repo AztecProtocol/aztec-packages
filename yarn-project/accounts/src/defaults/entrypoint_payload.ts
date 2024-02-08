@@ -3,7 +3,7 @@ import { Fr, GeneratorIndex } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
-// These must match the values defined in yarn-project/aztec-nr/aztec/src/entrypoint.nr
+// These must match the values defined in aztec-nr/aztec/src/entrypoint.nr
 const ACCOUNT_MAX_CALLS = 4;
 
 /** Encoded function call for account contract entrypoint */

@@ -45,7 +45,7 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
       - name: Push to aztec-nr repo
         run: |
-          SUBREPO_PATH=yarn-project/aztec-nr
+          SUBREPO_PATH=aztec-nr
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 

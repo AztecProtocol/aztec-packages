@@ -138,7 +138,7 @@ boxes-files:
   dockerfile: Dockerfile.files
 
 aztec-nr:
-  buildDir: yarn-project/aztec-nr
+  buildDir: aztec-nr
 
 yarn-project-base:
   buildDir: yarn-project
