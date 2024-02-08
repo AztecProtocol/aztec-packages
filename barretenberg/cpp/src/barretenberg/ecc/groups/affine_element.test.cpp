@@ -129,3 +129,27 @@ TEST(AffineElement, Msgpack)
     auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
     EXPECT_EQ(actual, expected);
 }
+
+TEST(AffineElement, InfinityMul)
+{
+    auto result = grumpkin::g1::affine_element::infinity() * grumpkin::fr::random_element();
+    EXPECT_TRUE(result.is_point_at_infinity());
+}
+
+TEST(AffineElement, InfinityBatchMul)
+{
+    constexpr size_t num_points = 1024;
+    std::vector<grumpkin::g1::affine_element> affine_points;
+    for (size_t i = 0; i < num_points; ++i) {
+        affine_points.emplace_back(grumpkin::g1::affine_element::infinity());
+    }
+    grumpkin::fr exponent = grumpkin::fr::random_element();
+    std::vector<grumpkin::g1::affine_element> result =
+        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, exponent);
+    for (grumpkin::g1::affine_element& el : result) {
+        EXPECT_TRUE(el.is_point_at_infinity());
+        if (!el.is_point_at_infinity()) {
+            break; // dont spam with errors
+        }
+    }
+}
