@@ -247,7 +247,7 @@ contract DocsExample {
     use dep::aztec::hasher::Hasher;
 
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
-    use dep::aztec::context::inputs::private_context_inputs::PrivateContextInputs;
+    use dep::aztec::context::inputs::PrivateContextInputs;
 
     // docs:start:simple_macro_example
     #[aztec(private)]
