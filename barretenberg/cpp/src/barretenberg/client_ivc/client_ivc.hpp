@@ -47,7 +47,6 @@ class ClientIVC {
 
     bool verify(Proof& proof);
 
-  private:
     HonkProof decider_prove() const;
 };
 } // namespace bb

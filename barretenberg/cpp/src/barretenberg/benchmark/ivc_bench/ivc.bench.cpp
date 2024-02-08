@@ -90,63 +90,74 @@ BENCHMARK_DEFINE_F(IvcBench, Full)(benchmark::State& state)
     }
 }
 
-// /**
-//  * @brief Benchmark only the accumulation rounds
-//  *
-//  */
-// BENCHMARK_DEFINE_F(IvcBench, GoblinAccumulate)(benchmark::State& state)
-// {
-//     Goblin goblin;
+/**
+ * @brief Benchmark only the accumulation rounds
+ *
+ */
+BENCHMARK_DEFINE_F(IvcBench, Accumulate)(benchmark::State& state)
+{
+    ClientIVC ivc;
 
-//     // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-//     GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    // Perform a specified number of iterations of function/kernel accumulation
+    for (auto _ : state) {
+        perform_ivc_accumulation_rounds(state, ivc);
+    }
+}
 
-//     // Perform a specified number of iterations of function/kernel accumulation
-//     for (auto _ : state) {
-//         perform_goblin_accumulation_rounds(state, goblin);
-//     }
-// }
+/**
+ * @brief Benchmark only the Decider component
+ *
+ */
+BENCHMARK_DEFINE_F(IvcBench, Decide)(benchmark::State& state)
+{
+    ClientIVC ivc;
 
-// /**
-//  * @brief Benchmark only the ECCVM component
-//  *
-//  */
-// BENCHMARK_DEFINE_F(IvcBench, GoblinECCVMProve)(benchmark::State& state)
-// {
-//     Goblin goblin;
+    BB_REPORT_OP_COUNT_IN_BENCH(state);
+    // Perform a specified number of iterations of function/kernel accumulation
+    perform_ivc_accumulation_rounds(state, ivc);
 
-//     // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-//     GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    // Construct eccvm proof, measure only translator proof construction
+    for (auto _ : state) {
+        ivc.decider_prove();
+    }
+}
 
-//     // Perform a specified number of iterations of function/kernel accumulation
-//     perform_goblin_accumulation_rounds(state, goblin);
+/**
+ * @brief Benchmark only the ECCVM component
+ *
+ */
+BENCHMARK_DEFINE_F(IvcBench, ECCVM)(benchmark::State& state)
+{
+    ClientIVC ivc;
 
-//     // Prove ECCVM only
-//     for (auto _ : state) {
-//         goblin.prove_eccvm();
-//     }
-// }
+    BB_REPORT_OP_COUNT_IN_BENCH(state);
+    // Perform a specified number of iterations of function/kernel accumulation
+    perform_ivc_accumulation_rounds(state, ivc);
 
-// /**
-//  * @brief Benchmark only the Translator component
-//  *
-//  */
-// BENCHMARK_DEFINE_F(IvcBench, GoblinTranslatorProve)(benchmark::State& state)
-// {
-//     Goblin goblin;
+    // Construct and measure eccvm only
+    for (auto _ : state) {
+        ivc.goblin.prove_eccvm();
+    }
+}
 
-//     // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-//     GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+/**
+ * @brief Benchmark only the Translator component
+ *
+ */
+BENCHMARK_DEFINE_F(IvcBench, Translator)(benchmark::State& state)
+{
+    ClientIVC ivc;
 
-//     // Perform a specified number of iterations of function/kernel accumulation
-//     perform_goblin_accumulation_rounds(state, goblin);
+    BB_REPORT_OP_COUNT_IN_BENCH(state);
+    // Perform a specified number of iterations of function/kernel accumulation
+    perform_ivc_accumulation_rounds(state, ivc);
 
-//     // Prove ECCVM (unmeasured) and Translator (measured)
-//     goblin.prove_eccvm();
-//     for (auto _ : state) {
-//         goblin.prove_translator();
-//     }
-// }
+    // Construct eccvm proof, measure only translator proof construction
+    ivc.goblin.prove_eccvm();
+    for (auto _ : state) {
+        ivc.goblin.prove_translator();
+    }
+}
 
 #define ARGS                                                                                                           \
     Arg(IvcBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                    \
@@ -158,10 +169,11 @@ BENCHMARK_DEFINE_F(IvcBench, Full)(benchmark::State& state)
         ->Arg(1 << 5)                                                                                                  \
         ->Arg(1 << 6)
 
-BENCHMARK_REGISTER_F(IvcBench, GoblinFull)->Unit(benchmark::kMillisecond)->ARGS;
-// BENCHMARK_REGISTER_F(IvcBench, GoblinAccumulate)->Unit(benchmark::kMillisecond)->ARGS;
-// BENCHMARK_REGISTER_F(IvcBench, GoblinECCVMProve)->Unit(benchmark::kMillisecond)->ARGS;
-// BENCHMARK_REGISTER_F(IvcBench, GoblinTranslatorProve)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(IvcBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(IvcBench, Accumulate)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(IvcBench, Decide)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(IvcBench, ECCVM)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(IvcBench, Translator)->Unit(benchmark::kMillisecond)->ARGS;
 
 } // namespace
 
