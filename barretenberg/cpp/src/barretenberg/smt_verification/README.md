@@ -51,7 +51,8 @@ To store it on the disk just do
     smt_solver::SolverConfiguration config = {
         true, // bool, produce_model
         0     // u32, timeout
-    }```
+    }
+    ```
 
 	`smt_solver::Solver s(str modulus, config, 16)`
 	
@@ -64,6 +65,8 @@ To store it on the disk just do
     `timeout` solver timeout in milliseconds. 0 for no timeout.
 
     solver class has usefull method `print_assertions` that will output all the assertions in kind of human readable format.
+
+    there's a function `smt_timer` in `barretenberg/common/smt_model.hpp` that will run the checksat, measure the time in minutes and print it to stdout.
 	
 3. Initialize the Circuit 
 
@@ -125,11 +128,11 @@ To store it on the disk just do
 	Now you have the values of the specified terms, which resulted into `true` result. 
 
     Also, there is a header file "barretenberg/common/smt_model.hpp" with two functions:
-        - `default_model(vector<str> special_names, circuit1, circuit2, *solver)`
-        - `default_model_single(vector<str> special_names, circuit, *solver)`
+        - `default_model(vector<str> special_names, circuit1, circuit2, *solver, fname="witness.out")`
+        - `default_model_single(vector<str> special_names, circuit, *solver, fname="witness.out")`
 
-    These functions will output witness variables in c-like array format, and special values will be output at the end.
-    The vector of names here is the values that you want to see at the bottom of the (names included).
+    These functions will write witness variables in c-like array format into file named `fname`.
+    The vector of names here is the values that you want to see in stdout.
 
 6. Automated verification of a unique witness
 
@@ -169,6 +172,7 @@ To store it on the disk just do
     bool res = s.check();
     ASSERT_FALSE(res);
 ```
+
 ### Function Equality with mistake
 ```cpp
     StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -210,6 +214,7 @@ To store it on the disk just do
     info("c = ", vals["c"]);
     info("c_res = ", vals["cr"]);
 ```
+
 ### Unique Witness
 ```cpp
 // two roots of a quadratic eq x^2 + a * x + b = s
