@@ -147,7 +147,7 @@ describe('e2e_note_getter', () => {
     }, 300_000);
   });
 
-  describe('status filter', () => {
+  describe.only('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;
 

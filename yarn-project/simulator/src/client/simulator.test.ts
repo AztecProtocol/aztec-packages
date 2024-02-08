@@ -42,6 +42,7 @@ describe('Simulator', () => {
     const contractAddress = AztecAddress.random();
     const nonce = Fr.random();
     const storageSlot = Fr.random();
+    const noteTypeId = Fr.random(); // unused by TokenContract
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -59,7 +60,7 @@ describe('Simulator', () => {
         ownerNullifierSecretKey.high,
       ]);
 
-      const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note);
+      const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 
       expect(result).toEqual({
         innerNoteHash,
@@ -74,7 +75,7 @@ describe('Simulator', () => {
 
       const note = createNote();
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrowError(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
     });
 
@@ -102,7 +103,7 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrowError(
         new RegExp(`"compute_note_hash_and_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`),
       );

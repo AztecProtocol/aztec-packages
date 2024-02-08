@@ -255,7 +255,7 @@ export class NoteProcessor {
     const noteDaos: NoteDao[] = [];
     for (const deferredNote of deferredNoteDaos) {
       const { note, contractAddress, storageSlot, txHash, newCommitments, dataStartIndexForTx } = deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot);
+      const payload = new L1NotePayload(note, contractAddress, storageSlot, new Fr(42)); // TODO(nventuro): fix DeferredNoteType
 
       try {
         const noteDao = await produceNoteDao(
