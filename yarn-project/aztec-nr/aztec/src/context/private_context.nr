@@ -40,9 +40,7 @@ use dep::protocol_types::{
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
-    contract_class::ContractClassId,
     contrakt::{
-        deployment_data::ContractDeploymentData,
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
