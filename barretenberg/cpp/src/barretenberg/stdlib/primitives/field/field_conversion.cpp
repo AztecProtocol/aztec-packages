@@ -11,6 +11,7 @@ namespace bb::stdlib::field_conversion {
  * their bigfield limbs through convert_from_bn254_frs, which is actually just a bigfield constructor that takes in two
  * two-limb frs.
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/850): audit this function more carefully
  * @tparam Builder
  */
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& f)
