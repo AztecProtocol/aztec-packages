@@ -1,11 +1,15 @@
 use crate::{
-    context::inputs::PrivateContextInputs, key::nullifier_key::validate_nullifier_key_against_address,
-    messaging::process_l1_to_l2_message,
+    context::inputs::PrivateContextInputs,
+    key::nullifier_key::validate_nullifier_key_against_address,
+    messaging::{
+        process_l1_to_l2_message,
+        l2_to_l1_message::L2ToL1Message,
+    },
     oracle::{
-    arguments, call_private_function::call_private_function_internal,
-    enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
-    header::get_header_at, nullifier_key::{get_nullifier_key_pair, NullifierKeyPair}
-}
+        arguments, call_private_function::call_private_function_internal,
+        enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
+        header::get_header_at, nullifier_key::{get_nullifier_key_pair, NullifierKeyPair}
+    }
 };
 use dep::protocol_types::{
     abis::{
@@ -52,7 +56,7 @@ struct PrivateContext {
 
     private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    new_l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
@@ -80,7 +84,7 @@ impl PrivateContext {
             historical_header: inputs.historical_header,
             private_call_stack_hashes: BoundedVec::new(0),
             public_call_stack_hashes: BoundedVec::new(0),
-            new_l2_to_l1_msgs: BoundedVec::new(0),
+            new_l2_to_l1_msgs: BoundedVec::new(L2ToL1Message::empty()),
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
@@ -195,9 +199,14 @@ impl PrivateContext {
     }
 
     // docs:start:context_message_portal
-    pub fn message_portal(&mut self, content: Field) {
-        // docs:end:context_message_portal 
-        self.new_l2_to_l1_msgs.push(content);
+    pub fn message_portal(&mut self, recipient: EthAddress, content: Field)
+    // docs:end:context_message_portal
+    {
+        let message = L2ToL1Message {
+            recipient,
+            content,
+        };
+        self.new_l2_to_l1_msgs.push(message);
     }
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
