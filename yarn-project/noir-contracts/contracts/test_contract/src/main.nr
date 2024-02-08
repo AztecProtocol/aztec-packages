@@ -353,7 +353,7 @@ contract Test {
         serialized_note: [Field; VALUE_NOTE_LEN] // must fit either a FieldNote or a ValueNote
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        
+
         if (note_type_id == FieldNote::get_note_type_id()) {
             note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize_content, note_header, serialized_note)
         } else {
