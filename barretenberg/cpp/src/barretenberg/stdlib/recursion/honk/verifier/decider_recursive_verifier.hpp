@@ -19,7 +19,9 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using Instance = VerifierInstance_<Flavor>;
 
   public:
-    explicit DeciderRecursiveVerifier_(Builder* builder, Instance accumulator);
+    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<Instance> accumulator)
+        : accumulator(std::move(accumulator))
+        , builder(builder){};
 
     PairingPoints verify_proof(const HonkProof& proof);
 

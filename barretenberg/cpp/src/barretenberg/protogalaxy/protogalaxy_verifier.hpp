@@ -27,8 +27,8 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
 
     CommitmentLabels commitment_labels;
 
-    ProtoGalaxyVerifier_(VerifierInstances insts)
-        : instances(insts){};
+    ProtoGalaxyVerifier_(const std::vector<std::shared_ptr<Instance>>& insts)
+        : instances(VerifierInstances(insts)){};
     ~ProtoGalaxyVerifier_() = default;
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector

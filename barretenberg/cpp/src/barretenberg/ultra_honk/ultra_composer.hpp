@@ -57,20 +57,20 @@ template <IsUltraFlavor Flavor> class UltraComposer_ {
         return commitment_key;
     };
 
-    std::shared_ptr<ProverInstance> create_instance(CircuitBuilder&);
+    std::shared_ptr<ProverInstance> create_prover_instance(CircuitBuilder&);
 
     /**
      * @brief Create a verifier instance object.
      *
      * @details Currently use prover instance
      */
-    std::shared_ptr<VerifierInstance> create_instance(std::shared_ptr<ProverInstance>&);
+    std::shared_ptr<VerifierInstance> create_verifier_instance(std::shared_ptr<ProverInstance>&);
 
     UltraProver_<Flavor> create_prover(const std::shared_ptr<ProverInstance>&,
                                        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     UltraVerifier_<Flavor> create_verifier(
-        const std::shared_ptr<VerifierInstance>&,
+        const std::shared_ptr<VerificationKey>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     DeciderProver_<Flavor> create_decider_prover(
@@ -96,24 +96,10 @@ template <IsUltraFlavor Flavor> class UltraComposer_ {
         return output_state;
     };
 
-    ProtoGalaxyVerifier_<VerifierInstances> create_folding_verifier()
+    ProtoGalaxyVerifier_<VerifierInstances> create_folding_verifier(
+        const std::vector<std::shared_ptr<VerifierInstance>>& instances)
     {
-
-        auto insts = VerifierInstances();
-        ProtoGalaxyVerifier_<VerifierInstances> output_state(insts);
-
-        return output_state;
-    };
-
-    ProtoGalaxyVerifier_<VerifierInstances> create_folding_verifier(const std::shared_ptr<VerifierInstance> accumulator)
-    {
-
-        auto insts = VerifierInstances();
-        // Accumulator doesn't need to be send via the transcript as it's the result of the previous round of folding
-        if (accumulator->is_accumulator) {
-            insts[0] = std::move(accumulator);
-        }
-        ProtoGalaxyVerifier_<VerifierInstances> output_state(insts);
+        ProtoGalaxyVerifier_<VerifierInstances> output_state(instances);
 
         return output_state;
     };

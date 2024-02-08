@@ -62,7 +62,7 @@ std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::comput
 }
 
 template <IsUltraFlavor Flavor>
-std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
+std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_prover_instance(CircuitBuilder& circuit)
 {
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
@@ -72,7 +72,7 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance
 }
 
 template <IsUltraFlavor Flavor>
-std::shared_ptr<VerifierInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(
+std::shared_ptr<VerifierInstance_<Flavor>> UltraComposer_<Flavor>::create_verifier_instance(
     std::shared_ptr<ProverInstance_<Flavor>>& prover_instance)
 {
     auto instance = std::make_shared<VerifierInstance>();
@@ -90,10 +90,9 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
 }
 
 template <IsUltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<VerifierInstance>& instance,
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<VerificationKey>& verification_key,
                                                                const std::shared_ptr<Transcript>& transcript)
 {
-    auto& verification_key = instance->verification_key;
     UltraVerifier_<Flavor> output_state(transcript, verification_key);
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);

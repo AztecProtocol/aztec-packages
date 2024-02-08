@@ -24,7 +24,7 @@ void fold_one(State& state) noexcept
     const auto construct_instance = [&]() {
         Builder builder;
         bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
-        return composer.create_instance(builder);
+        return composer.create_prover_instance(builder);
     };
 
     std::shared_ptr<Instance> instance_1 = construct_instance();

@@ -6,12 +6,6 @@
 
 namespace bb::stdlib::recursion::honk {
 
-template <typename Flavor>
-DeciderRecursiveVerifier_<Flavor>::DeciderRecursiveVerifier_(Builder* builder, Instance accumulator)
-    : builder(builder)
-    , accumulator(accumulator)
-{}
-
 /**
  * @brief This function verifies an Ultra Honk proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
  * e*).
@@ -91,6 +85,6 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     return pairing_points;
 }
 
-template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+// template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk
