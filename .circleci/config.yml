@@ -356,6 +356,40 @@ jobs:
           name: "Build and test"
           command: build l1-contracts
 
+  noir-contracts:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-contracts
+
+  noir-protocol-circuits:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-protocol-circuits
+
+
+  aztec-nr:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-nr
+
   boxes-files:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1195,6 +1229,22 @@ workflows:
       - yellow-paper: *defaults
 
       - boxes-files: *defaults
+
+      - aztec-nr: *defaults
+
+      - noir-protocol-circuits:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
+
+      - noir-contracts:
+          requires:
+            - noir-ecr-manifest
+            - aztec-nr
+            - noir-protocol-circuits
+            - avm-transpiler
+          <<: *defaults
+
 
       # Yarn Project
       - yarn-project-base:

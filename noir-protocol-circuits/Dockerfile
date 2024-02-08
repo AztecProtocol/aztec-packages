@@ -1,4 +1,4 @@
-FROM aztecprotocol/noir as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
 FROM node:18.19.0
 
 # Copy in nargo

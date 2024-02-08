@@ -1,7 +1,7 @@
-FROM aztecprotocol/noir as noir
-FROM aztecprotocol/aztec-nr as aztec-nr
-FROM aztecprotocol/noir-protocol-circuits as noir-protocol-circuits
-FROM aztecprotocol/avm-transpiler as transpiler
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-nr as aztec-nr
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-protocol-circuits as noir-protocol-circuits
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/avm-transpiler as transpiler
 FROM node:18.19.0
 
 # Copy in nargo
