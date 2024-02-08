@@ -35,7 +35,7 @@ use dep::types::{
     traits::{Empty, is_empty}
 };
 
-struct PrivateKernelInputsOrdering {
+struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelInnerData,
     sorted_new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     sorted_new_commitments_indexes: [u32; MAX_NEW_COMMITMENTS_PER_TX],
@@ -46,7 +46,7 @@ struct PrivateKernelInputsOrdering {
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
 
-impl PrivateKernelInputsOrdering {
+impl PrivateKernelTailCircuitPrivateInputs {
     fn validate_inputs(self) {
         assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0,
             "Private call stack must be empty when executing the ordering circuit");
@@ -113,8 +113,8 @@ impl PrivateKernelInputsOrdering {
     }
 
     fn sort_arrays(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
-        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_commitments.storage, self.sorted_new_commitments, self.sorted_new_commitments_indexes);
-        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_nullifiers.storage, self.sorted_new_nullifiers, self.sorted_new_nullifiers_indexes);
+        PrivateKernelTailCircuitPrivateInputs::assert_sorted_counters(public_inputs.end.new_commitments.storage, self.sorted_new_commitments, self.sorted_new_commitments_indexes);
+        PrivateKernelTailCircuitPrivateInputs::assert_sorted_counters(public_inputs.end.new_nullifiers.storage, self.sorted_new_nullifiers, self.sorted_new_nullifiers_indexes);
         public_inputs.end.new_commitments.storage = self.sorted_new_commitments;
         public_inputs.end.new_nullifiers.storage = self.sorted_new_nullifiers;
     }
@@ -215,7 +215,7 @@ impl PrivateKernelInputsOrdering {
 
         self.match_nullifiers_to_commitments_and_squash(&mut public_inputs);
 
-        PrivateKernelInputsOrdering::apply_commitment_nonces(&mut public_inputs);
+        PrivateKernelTailCircuitPrivateInputs::apply_commitment_nonces(&mut public_inputs);
 
         // TODO(fees) populate this
         let end_non_revertible : AccumulatedNonRevertibleData = unsafe::zeroed(); 
@@ -227,7 +227,7 @@ impl PrivateKernelInputsOrdering {
 
 mod tests {
     use dep::std::cmp::Eq;
-    use crate::private_kernel_ordering::PrivateKernelInputsOrdering;
+    use crate::private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
     use dep::types::constants::{
         MAX_READ_REQUESTS_PER_TX,
         MAX_NEW_COMMITMENTS_PER_TX,
@@ -335,7 +335,7 @@ mod tests {
             for i in 0..sorted_nullifier_commitment_hints.len() {
                 sorted_nullifier_commitment_hints[i] = sorted_new_nullifiers_indexes[self.nullifier_commitment_hints[i]] as Field;
             }
-            let kernel = PrivateKernelInputsOrdering {
+            let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_inner_data(),
                 sorted_new_commitments,
                 sorted_new_commitments_indexes,

@@ -43,7 +43,7 @@ import {
   makeNewContractData,
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
-  makePrivateKernelPublicInputsFinal,
+  makePrivateKernelTailCircuitPublicInputs,
   makeProof,
   makePublicCallRequest,
   makeRootRollupPublicInputs,
@@ -187,7 +187,7 @@ describe('sequencer/solo_block_builder', () => {
   };
 
   const buildMockSimulatorInputs = async () => {
-    const kernelOutput = makePrivateKernelPublicInputsFinal();
+    const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
     kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
 
     const tx = await makeProcessedTx(

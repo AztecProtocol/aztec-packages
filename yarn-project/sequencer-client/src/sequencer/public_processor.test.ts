@@ -29,7 +29,7 @@ import {
 } from '@aztec/circuits.js';
 import {
   makeAztecAddress,
-  makePrivateKernelPublicInputsFinal,
+  makePrivateKernelTailCircuitPublicInputs,
   makePublicCallRequest,
   makeSelector,
 } from '@aztec/circuits.js/factories';
@@ -157,7 +157,7 @@ describe('public_processor', () => {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
       const callStackItems = callRequests.map(call => call.toCallRequest());
 
-      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         callStackItems,
         CallRequest.empty(),
@@ -192,7 +192,7 @@ describe('public_processor', () => {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
       const callStackItem = callRequest.toCallRequest();
 
-      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),
@@ -233,7 +233,7 @@ describe('public_processor', () => {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
       const callStackItem = callRequest.toCallRequest();
 
-      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),

@@ -200,7 +200,7 @@ function generateTsInterface(abiObj: NoirFunctionAbi): string {
 const circuits = [
   'private_kernel_init',
   'private_kernel_inner',
-  'private_kernel_ordering',
+  'private_kernel_tail',
   'public_kernel_private_previous',
   'public_kernel_public_previous',
   'rollup_base',

@@ -14,7 +14,7 @@ export class PrivateKernelInnerCircuitPublicInputs {
     /**
      * The side effect counter that meta side effects are all beneath.
      */
-    public metaHwm: Fr,
+    public maxNonRevertibleSideEffectCounter: Fr,
     /**
      * Data accumulated from both public and private circuits.
      */
@@ -30,7 +30,13 @@ export class PrivateKernelInnerCircuitPublicInputs {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.aggregationObject, this.metaHwm, this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(
+      this.aggregationObject,
+      this.maxNonRevertibleSideEffectCounter,
+      this.end,
+      this.constants,
+      this.isPrivate,
+    );
   }
 
   /**

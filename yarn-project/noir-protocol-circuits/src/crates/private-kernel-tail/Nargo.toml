@@ -1,5 +1,5 @@
 [package]
-name = "private_kernel_ordering"
+name = "private_kernel_tail"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"

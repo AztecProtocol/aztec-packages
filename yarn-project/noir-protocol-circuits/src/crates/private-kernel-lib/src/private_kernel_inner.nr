@@ -10,12 +10,12 @@ use dep::types::{
     mocked::verify_previous_kernel_state,
 };
 
-struct PrivateKernelInputsInner {
+struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelInnerData,
     private_call: PrivateCallData,
 }
 
-impl PrivateKernelInputsInner {
+impl PrivateKernelInnerCircuitPrivateInputs {
     fn pop_and_validate_this_private_call_hash(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder){
         let call_request = public_inputs.end.private_call_stack.pop();
         common::validate_call_against_request(self.private_call, call_request);
@@ -78,7 +78,7 @@ impl PrivateKernelInputsInner {
 }
 
 mod tests {
-    use crate::private_kernel_inner::PrivateKernelInputsInner;
+    use crate::private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
     use dep::types::constants::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_TX,
@@ -136,7 +136,7 @@ mod tests {
             self.previous_kernel.push_private_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_inner_data();
 
-            let kernel = PrivateKernelInputsInner {
+            let kernel = PrivateKernelInnerCircuitPrivateInputs {
                 previous_kernel,
                 private_call,
             };
@@ -228,7 +228,7 @@ mod tests {
         builder.previous_kernel.push_private_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.to_private_kernel_inner_data();
 
-        let kernel = PrivateKernelInputsInner { previous_kernel, private_call };
+        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
 
         let _ = kernel.native_private_kernel_circuit_inner();
     }
@@ -270,7 +270,7 @@ mod tests {
         builder.previous_kernel.push_private_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_private_kernel_inner_data();
 
-        let kernel = PrivateKernelInputsInner { previous_kernel, private_call };
+        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
 
         let _ = kernel.native_private_kernel_circuit_inner();
     }

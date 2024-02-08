@@ -17,12 +17,12 @@ use dep::types::{
 };
 
 // Initialization struct for private inputs to the private kernel
-struct PrivateKernelInputsInit {
+struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
     private_call: PrivateCallData,
 }
 
-impl PrivateKernelInputsInit {
+impl PrivateKernelInitCircuitPrivateInputs {
     fn initialize_end_values(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         public_inputs.constants = CombinedConstantData {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
@@ -121,7 +121,7 @@ impl PrivateKernelInputsInit {
 }
 
 mod tests {
-    use crate::private_kernel_init::PrivateKernelInputsInit;
+    use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::constants::{
         MAX_READ_REQUESTS_PER_CALL,
     };
@@ -170,7 +170,7 @@ mod tests {
         }
 
         pub fn execute(self) -> PrivateKernelInnerCircuitPublicInputs {
-            let kernel = PrivateKernelInputsInit {
+            let kernel = PrivateKernelInitCircuitPrivateInputs {
                 tx_request: self.tx_request,
                 private_call: self.private_call.finish(),
             };

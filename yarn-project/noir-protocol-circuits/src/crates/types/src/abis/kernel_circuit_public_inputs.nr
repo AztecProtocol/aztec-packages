@@ -17,7 +17,7 @@ struct PrivateKernelInnerCircuitPublicInputs {
     is_private: bool,
 }
 
-struct PrivateKernelTailCircuitPublicInputs{
+struct PrivateKernelTailCircuitPublicInputs {
     aggregation_object: AggregationObject,
     end_non_revertible: AccumulatedNonRevertibleData,
     end: FinalAccumulatedData,

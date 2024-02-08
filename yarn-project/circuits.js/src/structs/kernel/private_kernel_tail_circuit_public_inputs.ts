@@ -1,7 +1,7 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
-import { AccumulatedNonRevertibleData, CombinedAccumulatedData } from './combined_accumulated_data.js';
+import { AccumulatedNonRevertibleData, FinalAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 export class PrivateKernelTailCircuitPublicInputs {
@@ -17,7 +17,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     /**
      * Data accumulated from both public and private circuits.
      */
-    public end: CombinedAccumulatedData,
+    public end: FinalAccumulatedData,
     /**
      * Data which is not modified by the circuits.
      */
@@ -48,7 +48,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     return new PrivateKernelTailCircuitPublicInputs(
       reader.readObject(AggregationObject),
       reader.readObject(AccumulatedNonRevertibleData),
-      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(FinalAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
     );
@@ -58,7 +58,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     return new PrivateKernelTailCircuitPublicInputs(
       AggregationObject.makeFake(),
       AccumulatedNonRevertibleData.empty(),
-      CombinedAccumulatedData.empty(),
+      FinalAccumulatedData.empty(),
       CombinedConstantData.empty(),
       true,
     );
