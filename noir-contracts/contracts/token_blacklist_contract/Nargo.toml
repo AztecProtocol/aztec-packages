@@ -5,7 +5,7 @@ compiler_version = ">=0.18.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../yarn-project/aztec-nr/aztec" }
-safe_math = { path = "../../../yarn-project/aztec-nr/safe-math" }
-field_note = { path = "../../../yarn-project/aztec-nr/field-note" }
-authwit = { path = "../../../yarn-project/aztec-nr/authwit" }
+aztec = { path = "../../../aztec-nr/aztec" }
+safe_math = { path = "../../../aztec-nr/safe-math" }
+field_note = { path = "../../../aztec-nr/field-note" }
+authwit = { path = "../../../aztec-nr/authwit" }
