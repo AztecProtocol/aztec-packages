@@ -47,7 +47,7 @@ jobs:
           # Enable gh executable. We spread out the API requests between the github actions bot token, and aztecbot
           export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           SUBREPO_PATH=noir
-          BRANCH=aztec-packages
+          BRANCH=aztec-sync-test
           # identify ourselves, needed to commit
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
@@ -63,7 +63,7 @@ jobs:
           git push origin $BRANCH --force
           cd ..
           # Get the last sync PR's last commit state
-          LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages  --json headRefOid --jq=.[0].headRefOid`
+          LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-sync-test  --json headRefOid --jq=.[0].headRefOid`
           # Use a commit heuristic where we look at when .gitrepo first started to look at that commit state (through a push)
           COMMIT_HEURISTIC=$(git log -p -S"$LAST_MERGED_PR_HASH" --reverse --source --  noir/.gitrepo | grep -m 1 '^commit'  | awk '{print $2}' || true)
           if [[ " $COMMIT_HEURISTIC" = "" ]] ; then
@@ -89,11 +89,11 @@ jobs:
           PR_BODY="""BEGIN_COMMIT_OVERRIDE
           $MESSAGE
           END_COMMIT_OVERRIDE"""
-          PR_URL=$(gh pr list --repo noir-lang/noir --head aztec-packages --json url --jq ".[0].url")
+          PR_URL=$(gh pr list --repo noir-lang/noir --head aztec-sync-test --json url --jq ".[0].url")
           # for cross-opening PR in noir repo, we use aztecbot's token
           export GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           if [[ "$PR_URL" == "" ]]; then
-            gh pr create --repo noir-lang/noir --title "feat: Sync from aztec-packages" --body "$PR_BODY" --base master --head aztec-packages
+            gh pr create --repo noir-lang/noir --title "feat: Sync from aztec-packages" --body "$PR_BODY" --base master --head aztec-sync-test
           else
             # If the PR already exists, merge any changes that already existed
             cd noir-repo
