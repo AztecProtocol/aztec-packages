@@ -26,7 +26,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
  */
 // template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_round()
 // {
-//     const auto accumulator_size = static_cast<uint32_t>(accumulator->instance_size);
+//     const aut o accumulator_size = static_cast<uint32_t>(accumulator->instance_size);
 //     const auto num_public_inputs = static_cast<uint32_t>(accumulator->public_inputs.size());
 //     transcript->send_to_verifier("accumulator_size", accumulator_size);
 //     transcript->send_to_verifier("public_input_size", num_public_inputs);

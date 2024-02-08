@@ -148,6 +148,9 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
     auto next_accumulator = std::make_shared<Instance>();
+    next_accumulator->instance_size = accumulator->instance_size;
+    next_accumulator->log_instance_size = accumulator->log_instance_size;
+    next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters and verify against the ones received from the prover
     next_accumulator->target_sum =
@@ -171,7 +174,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         comm_idx++;
     }
 
-    next_accumulator->public_input_size = instances[0]->public_inputs.size();
+    next_accumulator->public_input_size = instances[0]->public_input_size;
     next_accumulator->public_inputs = std::vector<FF>(next_accumulator->public_input_size, 0);
     size_t public_input_idx = 0;
     for (auto& public_input : next_accumulator->public_inputs) {
@@ -193,7 +196,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         }
         alpha_idx++;
     }
-    auto expected_parameters = bb::RelationParameters<FF>{};
+
+    auto& expected_parameters = next_accumulator->relation_parameters;
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
@@ -204,12 +208,12 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         expected_parameters.lookup_grand_product_delta +=
             instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
-    next_accumulator->relation_parameters = expected_parameters;
 
-    auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
+    next_accumulator->verification_key =
+        std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
     size_t vk_idx = 0;
-    for (auto& expected_vk : acc_vk->get_all()) {
+    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;
         expected_vk = random_generator;
         for (auto& instance : instances) {
@@ -219,7 +223,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         expected_vk -= random_generator;
         vk_idx++;
     }
-    next_accumulator->verification_key = std::move(acc_vk);
 
     return next_accumulator;
 }

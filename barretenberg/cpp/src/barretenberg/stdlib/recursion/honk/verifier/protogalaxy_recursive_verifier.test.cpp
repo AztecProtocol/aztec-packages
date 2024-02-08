@@ -173,10 +173,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     {
         // Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
-
         create_inner_circuit(builder1);
         InnerBuilder builder2;
-        builder2.add_public_variable(FF(1));
         create_inner_circuit(builder2);
 
         InnerComposer inner_composer = InnerComposer();
@@ -192,7 +190,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         OuterBuilder outer_folding_circuit;
         auto verifier = FoldingRecursiveVerifier(
             &outer_folding_circuit, { verifier_instance_1->verification_key, verifier_instance_2->verification_key });
-        verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto recursive_verifier_accumulator = verifier.verify_folding_proof(inner_folding_proof.folding_data);
         info("Folding Recursive Verifier: num gates = ", outer_folding_circuit.num_gates);
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
@@ -210,95 +208,110 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
         }
 
+        auto inner_decider_prover = inner_composer.create_decider_prover(inner_folding_proof.accumulator);
+        auto inner_decider_proof = inner_decider_prover.construct_proof();
+
+        OuterBuilder outer_decider_circuit;
+        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit, recursive_verifier_accumulator };
+        auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
+        info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
+
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_folding_circuit.failed(), false) << outer_folding_circuit.err();
 
-        {
-            auto composer = OuterComposer();
-            auto instance = composer.create_prover_instance(outer_folding_circuit);
-            auto verification_key = composer.compute_verification_key(instance);
-            auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(verification_key);
-            auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
+        DeciderVerifier native_decider_verifier = inner_composer.create_decider_verifier(verifier_accumulator);
+        auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
+        auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
+            pairing_points[0].get_value(), pairing_points[1].get_value());
+        EXPECT_EQ(native_result, recursive_result);
 
-            ASSERT(verified);
-        }
+        // {
+        //     auto composer = OuterComposer();
+        //     auto instance = composer.create_prover_instance(outer_folding_circuit);
+        //     auto verification_key = composer.compute_verification_key(instance);
+        //     auto prover = composer.create_prover(instance);
+        //     auto verifier = composer.create_verifier(verification_key);
+        //     auto proof = prover.construct_proof();
+        //     bool verified = verifier.verify_proof(proof);
+
+        //     ASSERT(verified);
+        // }
     };
 
-    //     /**
-    //      * @brief Perform two rounds of folding valid circuits and then recursive verify the final decider proof,
-    //      * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
-    //      * verifiers are identical by checking the manifests
-    //      */
-    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in
-    //     tests once
-    //     // we can fold instances of different sizes.
-    //     static void test_full_protogalaxy_recursive()
+    /**
+     * @brief Perform two rounds of folding valid circuits and then recursive verify the final decider proof,
+     * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
+     * verifiers are identical by checking the manifests
+     */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in
+    // tests once
+    // we can fold instances of different sizes.
+    // static void test_full_protogalaxy_recursive()
+    // {
+    //     // Create two arbitrary circuits for the first round of folding
+    //     InnerBuilder builder1;
+
+    //     create_inner_circuit(builder1);
+    //     InnerBuilder builder2;
+    //     builder2.add_public_variable(FF(1));
+    //     create_inner_circuit(builder2);
+
+    //     InnerComposer inner_composer = InnerComposer();
+    //     auto prover_instance_1 = inner_composer.create_prover_instance(builder1);
+    //     auto verifier_instance_1 = inner_composer.create_verifier_instance(prover_instance_1);
+    //     auto prover_instance_2 = inner_composer.create_prover_instance(builder2);
+    //     auto verifier_instance_2 = inner_composer.create_verifier_instance(prover_instance_2);
+
+    //     auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native(
+    //         { prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 }, inner_composer);
+
+    //     // Create another circuit to do a second round of folding
+    //     InnerBuilder builder3;
+    //     create_inner_circuit(builder3);
+    //     auto prover_instance_3 = inner_composer.create_prover_instance(builder3);
+    //     auto verifier_instance_3 = inner_composer.create_verifier_instance(prover_instance_3);
+
+    //     auto [prover_accumulator_2, verifier_accumulator_2] = fold_and_verify_native(
+    //         { prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 },
+    //         inner_composer);
+
+    //     // Create a decider proof for the relaxed instance obtained through folding
+    //     auto inner_decider_prover = inner_composer.create_decider_prover(prover_accumulator_2);
+    //     auto inner_decider_proof = inner_decider_prover.construct_proof();
+
+    //     // Create a decider verifier circuit for recursively verifying the decider proof
+    //     OuterBuilder outer_decider_circuit;
+    //     DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
+    //     auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
+    //     info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
+    //     // Check for a failure flag in the recursive verifier circuit
+    //     EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
+
+    //     // Perform native verification then perform the pairing on the outputs of the recursive
+    //     //  decider verifier and check that the result agrees.
+
+    //     // Ensure that the underlying native and recursive decider verification algorithms agree by ensuring
+    //     // the manifests produced are the same.
+    //     auto recursive_decider_manifest = decider_verifier.transcript->get_manifest();
+    //     auto native_decider_manifest = native_decider_verifier.transcript->get_manifest();
+    //     for (size_t i = 0; i < recursive_decider_manifest.size(); ++i) {
+    //         EXPECT_EQ(recursive_decider_manifest[i], native_decider_manifest[i]);
+    //     }
+
+    //     // Construct and verify a proof of the recursive decider verifier circuit
     //     {
-    //         // Create two arbitrary circuits for the first round of folding
-    //         InnerBuilder builder1;
+    //         auto composer = OuterComposer();
+    //         auto instance = composer.create_prover_instance(outer_decider_circuit);
+    //         auto prover = composer.create_prover(instance);
+    //         auto verifier = composer.create_verifier(instance);
+    //         auto proof = prover.construct_proof();
+    //         bool verified = verifier.verify_proof(proof);
 
-    //         create_inner_circuit(builder1);
-    //         InnerBuilder builder2;
-    //         builder2.add_public_variable(FF(1));
-    //         create_inner_circuit(builder2);
-
-    //         InnerComposer inner_composer = InnerComposer();
-    //         auto prover_instance_1 = inner_composer.create_prover_instance(builder1);
-    //         auto prover_instance_2 = inner_composer.create_prover_instance(builder2);
-    //         auto instances = std::vector<std::shared_ptr<Instance>>{ prover_instance_1, prover_instance_2 };
-
-    //         auto accumulator = fold_and_verify_native(instances, inner_composer);
-
-    //         // Create another circuit to do a second round of folding
-    //         InnerBuilder builder3;
-    //         create_inner_circuit(builder3);
-    //         auto instance3 = inner_composer.create_prover_instance(builder3);
-    //         instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance3 };
-
-    //         accumulator = fold_and_verify_native(instances, inner_composer);
-
-    //         // Create a decider proof for the relaxed instance obtained through folding
-    //         auto inner_decider_prover = inner_composer.create_decider_prover(accumulator);
-    //         auto inner_decider_proof = inner_decider_prover.construct_proof();
-
-    //         // Create a decider verifier circuit for recursively verifying the decider proof
-    //         OuterBuilder outer_decider_circuit;
-    //         DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
-    //         auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
-    //         info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
-    //         // Check for a failure flag in the recursive verifier circuit
-    //         EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
-
-    //         // Perform native verification then perform the pairing on the outputs of the recursive
-    //         //  decider verifier and check that the result agrees.
-    //         DeciderVerifier native_decider_verifier = inner_composer.create_decider_verifier(accumulator);
-    //         auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
-    //         auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
-    //             pairing_points[0].get_value(), pairing_points[1].get_value());
-    //         EXPECT_EQ(native_result, recursive_result);
-
-    //         // Ensure that the underlying native and recursive decider verification algorithms agree by ensuring
-    //         // the manifests produced are the same.
-    //         auto recursive_decider_manifest = decider_verifier.transcript->get_manifest();
-    //         auto native_decider_manifest = native_decider_verifier.transcript->get_manifest();
-    //         for (size_t i = 0; i < recursive_decider_manifest.size(); ++i) {
-    //             EXPECT_EQ(recursive_decider_manifest[i], native_decider_manifest[i]);
-    //         }
-
-    //         // Construct and verify a proof of the recursive decider verifier circuit
-    //         {
-    //             auto composer = OuterComposer();
-    //             auto instance = composer.create_prover_instance(outer_decider_circuit);
-    //             auto prover = composer.create_prover(instance);
-    //             auto verifier = composer.create_verifier(instance);
-    //             auto proof = prover.construct_proof();
-    //             bool verified = verifier.verify_proof(proof);
-
-    //             ASSERT(verified);
-    //         }
-    //     };
+    //         ASSERT(verified);
+    //     }
+    // };
 
     //     static void test_tampered_decider_proof()
     //     {

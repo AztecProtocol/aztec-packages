@@ -47,7 +47,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
         for (auto vk : inst_vks) {
             auto inst = std::make_shared<Instance>();
             inst->verification_key = std::make_shared<VerificationKey>(builder, vk);
-            insts.emplace_back(inst);
+            insts.emplace_back(std::move(inst));
         }
         instances = VerifierInstances(insts);
     };
