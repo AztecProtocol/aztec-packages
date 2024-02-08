@@ -64,7 +64,7 @@ jobs:
             # Fix Aztec PR links and output message
             echo "$RAW_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/AztecProtocol\/aztec-packages\/pull\/\1)/g'
           }
-          echo "MESSAGE=\"$(compute_commit_message)\"" >> $GITHUB_ENV
+          echo "$(compute_commit_message)" >> .COMMIT_MESSAGE
 
       # We push using git subrepo (https://github.com/ingydotnet/git-subrepo)
       # and push all Aztec commits as a single commit with metadata.
@@ -102,6 +102,7 @@ jobs:
           }
           # force_sync_staging: Push to our aztec-packages staging branch.
           function force_sync_staging() {
+            MESSAGE=$(cat .COMMIT_MESSAGE)
             git commit --allow-empty -m"chore: Sync to noir-lang/noir" -m"$MESSAGE"
             COMMIT=$(git rev-parse HEAD)
             # Now push to it with subrepo with computed commit messages
@@ -133,6 +134,7 @@ jobs:
       - name: Update PR
         run: |
           set -xue # print commands
+          MESSAGE=$(cat .COMMIT_MESSAGE)
           # Formatted for updating the PR, overrides for release-please commit message parsing 
           PR_BODY="""BEGIN_COMMIT_OVERRIDE
           $MESSAGE
