@@ -79,7 +79,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
     }
 
     fn get_note_type_id() -> Field {
-        // TODO: autogenerate
+        // TODO(#4519): autogenerate
         // python -c "print(int(''.join(str(ord(c)) for c in 'PublicKeyNote')))"
         8011798108105997510112178111116101
     }

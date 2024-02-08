@@ -84,7 +84,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
     }
 
     fn get_note_type_id() -> Field {
-        // TODO: autogenerate
+        // TODO(#4519): autogenerate
         // python -c "print(int(''.join(str(ord(c)) for c in 'AddressNote')))"
         6510010011410111511578111116101
     }

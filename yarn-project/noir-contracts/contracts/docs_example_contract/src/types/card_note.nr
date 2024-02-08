@@ -84,7 +84,7 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
     }
 
     fn get_note_type_id() -> Field {
-        // TODO: autogenerate
+        // TODO(#4519): autogenerate
         // python -c "print(int(''.join(str(ord(c)) for c in 'CardNote')))"
         679711410078111116101
     }

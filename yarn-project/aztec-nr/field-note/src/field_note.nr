@@ -55,7 +55,7 @@ impl NoteInterface<FIELD_NOTE_LEN> for FieldNote {
     }
 
     fn get_note_type_id() -> Field {
-        // TODO: autogenerate
+        // TODO(#4519): autogenerate
         // python -c "print(int(''.join(str(ord(c)) for c in 'FieldNote')))"
         7010510110810078111116101
     }

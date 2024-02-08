@@ -110,7 +110,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     fn get_note_type_id() -> Field {
-        // TODO: autogenerate
+        // TODO(#4519): autogenerate
         // python -c "print(int(''.join(str(ord(c)) for c in 'EcdsaPublicKeyNote')))"
         6999100115978011798108105997510112178111116101
     }
