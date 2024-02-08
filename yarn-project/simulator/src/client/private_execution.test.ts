@@ -1133,20 +1133,37 @@ describe('Private Execution test suite', () => {
   describe('Private global variables', () => {
     let chainId: Fr;
     let version: Fr;
+    let args: any[];
+    let artifact: FunctionArtifact;
 
     beforeAll(() => {
       chainId = Fr.random();
       version = Fr.random();
+      args = [chainId, version];
+
+      artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
     });
 
-    it.only('emits a field as an unencrypted log', async () => {
-      const args = [chainId, version];
-      const artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
-      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
+    it('Private global vars are correctly set', () => {
+      // Chain id and version set in tx context is the same as the ones we pass via args so this should not throw
+      expect(() => runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version } })).not.toThrow();
+    });
 
-      const result = await runSimulator({ artifact, msgSender: owner, args });
+    it('Throws when chainId is incorrectly set', async () => {
+      // We set the chainId in the tx context to a different value than the one we pass via args so the simulator should throw
+      const unexpectedChainId = Fr.random();
+      await expect(
+        runSimulator({ artifact, msgSender: owner, args, txContext: { chainId: unexpectedChainId, version } }),
+      ).rejects.toThrowError('Invalid chain id');
+    });
 
-      console.log(result);
+    it('Throws when version is incorrectly set', async () => {
+      // We set the version in the tx context to a different value than the one we pass via args so the simulator should throw
+      const unexpectedVersion = Fr.random();
+      await expect(
+        runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version: unexpectedVersion } }),
+      ).rejects.toThrowError('Invalid version');
     });
   });
 });
