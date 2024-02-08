@@ -3,7 +3,7 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_note_hash_for_read_or_nullify,
+        utils::compute_note_hash_for_consumption,
     },
     oracle::{
         nullifier_key::get_nullifier_secret_key,
@@ -12,7 +12,6 @@ use dep::aztec::{
     log::emit_encrypted_log,
     hash::pedersen_hash,
     context::PrivateContext,
-    protocol_types::traits::{Serialize, Deserialize},
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
@@ -26,14 +25,14 @@ struct EcdsaPublicKeyNote {
     header: NoteHeader,
 }
 
-impl Serialize<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-   // serialize the note as 5 fields where:
+impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
+    // serialize the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
     // [2] = y[0..31]
     // [3] = y[31]
     // [4] = owner
-    fn serialize(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
+    fn serialize_content(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
         let mut x: Field = 0;
         let mut y: Field = 0;
         let mut mul: Field = 1;
@@ -51,10 +50,8 @@ impl Serialize<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         
         [x, last_x, y, last_y, self.owner.to_field()]
     }
-}
 
-impl Deserialize<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-    fn deserialize(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
+    fn deserialize_content(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
 
@@ -72,16 +69,14 @@ impl Deserialize<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
         EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
     }
-}
 
-impl NoteInterface for EcdsaPublicKeyNote {
-    fn compute_note_hash(note: EcdsaPublicKeyNote) -> Field {
+    fn compute_note_content_hash(note: EcdsaPublicKeyNote) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize(), 0)
+        pedersen_hash(note.serialize_content(), 0)
     }
 
    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
-        let unique_siloed_note_hash = compute_note_hash_for_read_or_nullify(self);
+        let unique_siloed_note_hash = compute_note_hash_for_consumption(self);
         let secret = context.request_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -92,7 +87,7 @@ impl NoteInterface for EcdsaPublicKeyNote {
     }
 
     fn compute_nullifier_without_context(self) -> Field {
-        let unique_siloed_note_hash = compute_note_hash_for_read_or_nullify(self);
+        let unique_siloed_note_hash = compute_note_hash_for_consumption(self);
         let secret = get_nullifier_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
@@ -118,7 +113,7 @@ impl NoteInterface for EcdsaPublicKeyNote {
             (*context).this_address(),
             slot,
             encryption_pub_key,
-            self.serialize(),
+            self.serialize_content(),
         );
     }
 }

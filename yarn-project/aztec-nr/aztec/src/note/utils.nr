@@ -15,13 +15,7 @@ use dep::protocol_types::{
         GENERATOR_INDEX__SILOED_COMMITMENT,
     },
     hash::pedersen_hash,
-    traits::{Deserialize, Serialize},
 };
-
-fn compute_inner_hash(storage_slot: Field, note_hash: Field) -> Field {
-    // TODO(#1205) Do we need a generator index here?
-    pedersen_hash([storage_slot, note_hash], 0)
-}
 
 fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {
     let inputs = [contract_address.to_field(), inner_note_hash];
@@ -33,14 +27,15 @@ fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_COMMITMENT)
 }
 
-fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface {
+fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
     let header = note.get_header();
-    let note_hash = note.compute_note_hash();
+    let note_hash = note.compute_note_content_hash();
 
-    compute_inner_hash(header.storage_slot, note_hash)
+    // TODO(#1205) Do we need a generator index here?
+    pedersen_hash([header.storage_slot, note_hash], 0)
 }
 
-fn compute_siloed_note_hash<Note>(note_with_header: Note) -> Field where Note: NoteInterface {
+fn compute_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {
     let header = note_with_header.get_header();
 
     let inner_note_hash = compute_inner_note_hash(note_with_header);
@@ -48,7 +43,7 @@ fn compute_siloed_note_hash<Note>(note_with_header: Note) -> Field where Note: N
     compute_siloed_hash(header.contract_address, inner_note_hash)
 }
 
-fn compute_unique_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface {
+fn compute_unique_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {
     let header = note_with_header.get_header();
 
     let siloed_note_hash = compute_siloed_note_hash(note_with_header);
@@ -56,10 +51,10 @@ fn compute_unique_siloed_note_hash<Note, N>(note_with_header: Note) -> Field whe
     compute_unique_hash(header.nonce, siloed_note_hash)
 }
 
-pub fn compute_siloed_nullifier<Note>(
+pub fn compute_siloed_nullifier<Note, N>(
     note_with_header: Note,
     context: &mut PrivateContext
-) -> Field where Note: NoteInterface {
+) -> Field where Note: NoteInterface<N> {
     let header = note_with_header.get_header();
     let inner_nullifier = note_with_header.compute_nullifier(context);
 
@@ -67,10 +62,17 @@ pub fn compute_siloed_nullifier<Note>(
     pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
-pub fn compute_note_hash_for_read_or_nullify<Note>(note: Note) -> Field where Note: NoteInterface {
-    let header = note.get_header();
+pub fn compute_note_hash_for_insertion<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
+    compute_inner_note_hash(note)
+}
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+pub fn compute_note_hash_for_consumption<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
+    let header = note.get_header();
+    // There are 3 cases for reading a note intended for consumption:
+    // 1. The note was inserted in this transaction, and is transient.
+    // 2. The note was inserted in a previous transaction, and was inserted in public
+    // 3. The note was inserted in a previous transaction, and was inserted in private
+
     if (header.is_transient) {
         // If a note is transient, we just read the inner_note_hash (kernel will silo by contract address).
         compute_inner_note_hash(note)
@@ -87,16 +89,15 @@ pub fn compute_note_hash_for_read_or_nullify<Note>(note: Note) -> Field where No
 }
 
 pub fn compute_note_hash_and_nullifier<T, N, S>(
-    deserialize: fn([Field; N]) -> T,
+    deserialize_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
     serialized_note: [Field; S]
-) -> [Field; 4] where T: NoteInterface {
-    let mut note = deserialize(arr_copy_slice(serialized_note, [0; N], 0));
+) -> [Field; 4] where T: NoteInterface<N> {
+    let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     T::set_header((&mut note), note_header);
 
-    let note_hash = note.compute_note_hash();
-    let inner_note_hash = compute_inner_hash(note_header.storage_slot, note_hash);
+    let inner_note_hash = compute_inner_note_hash(note);
 
     let siloed_note_hash = compute_siloed_hash(note_header.contract_address, inner_note_hash);
 

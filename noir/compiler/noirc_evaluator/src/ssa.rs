@@ -14,7 +14,7 @@ use crate::{
     errors::{RuntimeError, SsaReport},
 };
 use acvm::acir::{
-    circuit::{Circuit, PublicInputs},
+    circuit::{Circuit, ExpressionWidth, PublicInputs},
     native_types::Witness,
 };
 
@@ -85,6 +85,7 @@ pub fn create_circuit(
     enable_brillig_logging: bool,
 ) -> Result<(Circuit, DebugInfo, Vec<Witness>, Vec<Witness>, Vec<SsaReport>), RuntimeError> {
     let func_sig = program.main_function_signature.clone();
+    let recursive = program.recursive;
     let mut generated_acir =
         optimize_into_acir(program, enable_ssa_logging, enable_brillig_logging)?;
     let opcodes = generated_acir.take_opcodes();
@@ -106,11 +107,13 @@ pub fn create_circuit(
 
     let circuit = Circuit {
         current_witness_index,
+        expression_width: ExpressionWidth::Unbounded,
         opcodes,
         private_parameters,
         public_parameters,
         return_values,
         assert_messages: assert_messages.into_iter().collect(),
+        recursive,
     };
 
     // This converts each im::Vector in the BTreeMap to a Vec

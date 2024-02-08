@@ -1,6 +1,6 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-namespace bb::honk {
+namespace bb {
 template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
@@ -35,6 +35,28 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
         for (size_t idx = 0; idx < 3; ++idx) {
             transcript->send_to_verifier(domain_separator + "_" + wire_labels[idx], wire_comms[idx]);
         }
+
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            // Commit to Goblin ECC op wires
+            witness_commitments.ecc_op_wire_1 = commitment_key->commit(instance->proving_key->ecc_op_wire_1);
+            witness_commitments.ecc_op_wire_2 = commitment_key->commit(instance->proving_key->ecc_op_wire_2);
+            witness_commitments.ecc_op_wire_3 = commitment_key->commit(instance->proving_key->ecc_op_wire_3);
+            witness_commitments.ecc_op_wire_4 = commitment_key->commit(instance->proving_key->ecc_op_wire_4);
+
+            auto op_wire_comms = instance->witness_commitments.get_ecc_op_wires();
+            auto labels = commitment_labels.get_ecc_op_wires();
+            for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+                transcript->send_to_verifier(domain_separator + "_" + labels[idx], op_wire_comms[idx]);
+            }
+            // Commit to DataBus columns
+            witness_commitments.calldata = commitment_key->commit(instance->proving_key->calldata);
+            witness_commitments.calldata_read_counts =
+                commitment_key->commit(instance->proving_key->calldata_read_counts);
+            transcript->send_to_verifier(domain_separator + "_" + commitment_labels.calldata,
+                                         instance->witness_commitments.calldata);
+            transcript->send_to_verifier(domain_separator + "_" + commitment_labels.calldata_read_counts,
+                                         instance->witness_commitments.calldata_read_counts);
+        }
     };
 
     const auto sorted_accumulators_round = [&](std::shared_ptr<Instance>& instance) {
@@ -58,6 +80,16 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
         auto& witness_commitments = instance->witness_commitments;
         auto& commitment_labels = instance->commitment_labels;
         auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
+
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            // Compute and commit to the logderivative inverse used in DataBus
+            instance->compute_logderivative_inverse(beta, gamma);
+            instance->witness_commitments.lookup_inverses =
+                commitment_key->commit(instance->prover_polynomials.lookup_inverses);
+            transcript->send_to_verifier(domain_separator + "_" + commitment_labels.lookup_inverses,
+                                         instance->witness_commitments.lookup_inverses);
+        }
+
         instance->compute_grand_product_polynomials(beta, gamma);
 
         witness_commitments.z_perm = commitment_key->commit(instance->prover_polynomials.z_perm);
@@ -235,8 +267,11 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     for (auto& el : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
-            el += instance->public_inputs[el_idx] * lagranges[inst];
-            inst++;
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
+            if (instance->public_inputs.size() >= next_accumulator->public_inputs.size()) {
+                el += instance->public_inputs[el_idx] * lagranges[inst];
+                inst++;
+            };
         }
         transcript->send_to_verifier("next_public_input_" + std::to_string(el_idx), el);
         el_idx++;
@@ -343,6 +378,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     return state.result;
 }
 
-template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
-template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
-} // namespace bb::honk
+template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>;
+} // namespace bb

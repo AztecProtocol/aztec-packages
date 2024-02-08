@@ -80,11 +80,7 @@ We are using various utils within the Aztec library:
 
 ## Set up storage
 
-Under these imports, we need to set up our contract storage. This is done in two steps:
-
-1. Storage struct
-2. Storage impl block with init function
-
+Under these imports, we need to set up our contract storage. 
 Define the storage struct like so:
 
 #include_code storage_struct yarn-project/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
@@ -94,14 +90,6 @@ In this contract, we will store three vars:
 1. admin, as an Aztec address held in public state
 2. tally, as a map with key as the persona and value as the number (in Field) held in public state
 3. voteEnded, as a boolean held in public state
-
-Under the struct, define the impl block like this:
-
-#include_code storage_impl yarn-project/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
-
-The `impl` block must define one function `init` that explains how to access and manipulate our variables. We pass context, a storage slot, and serialization methods we imported earlier.
-
-This `init` function will be called every time we access `storage` in our functions.
 
 ## Constructor
 
@@ -202,7 +190,7 @@ aztec-cli codegen target -o src/artifacts --ts
 Once it is compiled you can [deploy](../contracts/deploying.md) it to the sandbox. Ensure your [sandbox is running](../cli/sandbox-reference.md) and run this in the same dir as before:
 
 ```bash
-aztec-cli deploy ./target/Voting.json --args $ADMIN_ADDRESS
+aztec-cli deploy ./target/private_voting-Voting.json --args $ADMIN_ADDRESS
 ```
 
 The constructor takes an address as an argument to set the admin, so you can use an address that is deployed with the sandbox - check the sandbox terminal or run `aztec-cli get-accounts`.
@@ -212,7 +200,7 @@ You should see a success message with the contract address. Now we can start cal
 Cast a vote like this:
 
 ```bash
-aztec-cli send cast_vote --contract-artifact ./target/Voting.json --contract-address $CONTRACT_ADDRESS --args 1 --private-key $PRIVATE_KEY
+aztec-cli send cast_vote --contract-artifact ./target/private_voting-Voting.json --contract-address $CONTRACT_ADDRESS --args 1 --private-key $PRIVATE_KEY
 ```
 
 You can get the contract address from the sandbox terminal or the message printed when you deployed the contract. You can also get a private key from the sandbox terminal, or generate one with `aztec-cli generate-private-key`.
@@ -224,7 +212,7 @@ You can now try running this command again to ensure our nullifier works.
 Get the number of votes like this:
 
 ```bash
-aztec-cli call get_vote --contract-artifact ./target/Voting.json --contract-address $CONTRACT_ADDRESS --args 1
+aztec-cli call get_vote --contract-artifact ./target/private_voting-Voting.json --contract-address $CONTRACT_ADDRESS --args 1
 ```
 
 This should return `1n`.

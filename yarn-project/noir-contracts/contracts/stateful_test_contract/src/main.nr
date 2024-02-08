@@ -1,6 +1,9 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol_types::{
+        address::AztecAddress,
+        abis::function_selector::FunctionSelector,
+    };
     use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
@@ -21,34 +24,10 @@ contract StatefulTest {
         public_values: Map<AztecAddress, PublicState<Field>>,
     }
 
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                notes: Map::new(
-                    context,
-                    1, // Storage slot
-                    |context, slot| {
-                        Set::new(context, slot)
-                    },
-                ),
-                public_values: Map::new(
-                    context,
-                    2,
-                    |context, slot| {
-                        PublicState::new(
-                            context,
-                            slot,
-                        )
-                    },
-                ),
-            }
-        }
-    }
-
     #[aztec(private)]
     fn constructor(owner: AztecAddress, value: Field) {
-        let loc = storage.notes.at(owner);
-        increment(loc, value, owner);
+        let selector = FunctionSelector::from_signature("create_note((Field),Field)");
+        let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
     }
 
     #[aztec(private)]
@@ -70,11 +49,21 @@ contract StatefulTest {
         increment(recipient_notes, amount, recipient);
     }
 
+    #[aztec(public)]
+    fn increment_public_value(owner: AztecAddress, value: Field) {
+        let loc = storage.public_values.at(owner);
+        loc.write(loc.read() + value);
+    }
+
     unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
         let owner_balance = storage.notes.at(owner);
 
         // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance)
+    }
+
+    unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
+        storage.public_values.at(owner).read()
     }
 
     unconstrained fn compute_note_hash_and_nullifier(
@@ -84,6 +73,6 @@ contract StatefulTest {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }

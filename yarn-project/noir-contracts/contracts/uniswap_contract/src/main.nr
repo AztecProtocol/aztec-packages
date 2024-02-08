@@ -14,7 +14,6 @@ contract Uniswap {
         },
     };
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
         oracle::{context::get_portal_address},
         state_vars::{map::Map, public_state::PublicState},
     };
@@ -30,21 +29,6 @@ contract Uniswap {
         // tracks the nonce used to create the approval message for burning funds
         // gets incremented each time after use to prevent replay attacks
         nonce_for_burn_approval: PublicState<Field>,
-    }
-
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                approved_action: Map::new(
-                    context,
-                    1,
-                    |context, slot| {
-                        PublicState::new(context, slot)
-                    },
-                ),
-                nonce_for_burn_approval: PublicState::new(context, 2),
-            }
-        }
     }
 
     #[aztec(private)]

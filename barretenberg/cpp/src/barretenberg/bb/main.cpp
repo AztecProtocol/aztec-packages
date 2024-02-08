@@ -1,5 +1,9 @@
+#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/types.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/vm/avm_trace/AvmMini_execution.hpp"
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
@@ -12,6 +16,7 @@
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
+#include <cstdint>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -91,7 +96,7 @@ acir_format::AcirFormat get_constraint_system(std::string const& bytecode_path)
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
+bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
@@ -109,14 +114,14 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     write_benchmark("subgroup_size", acir_composer.get_dyadic_circuit_size(), "acir_test", current_dir);
 
     Timer proof_timer;
-    auto proof = acir_composer.create_proof(recursive);
+    auto proof = acir_composer.create_proof();
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
     Timer vk_timer;
     acir_composer.init_verification_key();
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
 
-    auto verified = acir_composer.verify_proof(proof, recursive);
+    auto verified = acir_composer.verify_proof(proof);
 
     vinfo("verified: ", verified);
     return verified;
@@ -172,9 +177,7 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool proveAndVerifyGoblin(const std::string& bytecodePath,
-                          const std::string& witnessPath,
-                          [[maybe_unused]] bool recursive)
+bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
 {
     // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
@@ -212,10 +215,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
  */
-void prove(const std::string& bytecodePath,
-           const std::string& witnessPath,
-           bool recursive,
-           const std::string& outputPath)
+void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
@@ -224,7 +224,7 @@ void prove(const std::string& bytecodePath,
     acir_composer.create_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
-    auto proof = acir_composer.create_proof(recursive);
+    auto proof = acir_composer.create_proof();
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);
@@ -270,12 +270,12 @@ void gateCount(const std::string& bytecodePath)
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
+bool verify(const std::string& proof_path, const std::string& vk_path)
 {
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
-    auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
+    auto verified = acir_composer.verify_proof(read_file(proof_path));
 
     vinfo("verified: ", verified);
     return verified;
@@ -491,7 +491,6 @@ int main(int argc, char* argv[])
         std::string vk_path = get_option(args, "-k", "./target/vk");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
-        bool recursive = flag_present(args, "-r") || flag_present(args, "--recursive");
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
@@ -504,21 +503,22 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (command == "prove_and_verify") {
-            return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
+            return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "accumulate_and_verify_goblin") {
             return accumulateAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
-            return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;
+            return proveAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
         }
+
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, recursive, output_path);
+            prove(bytecode_path, witness_path, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
-            return verify(proof_path, recursive, vk_path) ? 0 : 1;
+            return verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
@@ -534,6 +534,23 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
+        } else if (command == "avm_prove") {
+            std::string avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
+            std::string output_path = get_option(args, "-o", "./proofs/avm_proof");
+            std::vector<uint8_t> call_data_bytes{};
+
+            if (flag_present(args, "-d")) {
+                auto const call_data_path = get_option(args, "-d", "./target/call_data.bin");
+                call_data_bytes = read_file(call_data_path);
+            }
+
+            srs::init_crs_factory("../srs_db/ignition");
+
+            std::vector<fr> const call_data = many_from_buffer<fr>(call_data_bytes);
+            auto const avm_bytecode = read_file(avm_bytecode_path);
+            auto const proof = avm_trace::Execution::run_and_prove(avm_bytecode, call_data);
+            std::vector<uint8_t> const proof_bytes = to_buffer(proof);
+            write_file(output_path, proof_bytes);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

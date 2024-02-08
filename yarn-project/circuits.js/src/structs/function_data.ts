@@ -1,7 +1,10 @@
 import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ContractFunctionDao } from '../index.js';
+import { GeneratorIndex } from '../constants.gen.js';
+import { ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /**
  * Function description for circuit.
@@ -42,6 +45,10 @@ export class FunctionData {
    */
   toBuffer(): Buffer {
     return serializeToBuffer(this.selector, this.isInternal, this.isPrivate, this.isConstructor);
+  }
+
+  toFields(): Fr[] {
+    return [this.selector.toField(), new Fr(this.isInternal), new Fr(this.isPrivate), new Fr(this.isConstructor)];
   }
 
   /**
@@ -91,6 +98,26 @@ export class FunctionData {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): FunctionData {
+    const reader = FieldReader.asReader(fields);
+
+    const selector = FunctionSelector.fromFields(reader);
+    const isInternal = reader.readBoolean();
+    const isPrivate = reader.readBoolean();
+    const isConstructor = reader.readBoolean();
+
+    return new FunctionData(selector, isInternal, isPrivate, isConstructor);
+  }
+
+  hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFields().map(field => field.toBuffer()),
+        GeneratorIndex.FUNCTION_DATA,
+      ),
     );
   }
 }

@@ -46,7 +46,15 @@ If you don't yet have any private state variables defined you can use this place
 #include_code compute_note_hash_and_nullifier_placeholder /yarn-project/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 :::
 
-Since Aztec.nr is written in Noir, which is state-less, we need to specify how the storage struct should be initialized to read and write data correctly. This is done by specifying an `init` function that is run in functions that rely on reading or altering the state variables. This `init` function must declare the Storage struct with an instantiation defining how variables are accessed and manipulated. The function MUST be called `init` for the Aztec.nr library to properly handle it (this will be relaxed in the future).
+Since Aztec.nr is written in Noir, which is state-less, we need to specify how the storage struct should be initialized to read and write data correctly. In most cases, the initialization of the storage is handled by the Aztec.nr library, which creates a default implementation based on the provided `Storage` struct.
+
+:::danger
+The automatic initialization has some limitations. Using any combination of the provided storage primitives (`PublicState`, `Singleton`, `ImmutableSingleton`, `Set`, `Map`, including nested ones) will ensure that the library will be able to handle it on its own.
+
+Custom structures are also supported as long as they are generic over `T`, where `T` implements `Serialize<N>` and `Deserialize<N>` in the case it represents public state and additionally `NoteInterface` for private state.
+:::
+
+Custom initialization of the storage is also possible. This is done by specifying an `init` function that is run in functions that rely on reading or altering the state variables. This `init` function must declare the Storage struct with an instantiation defining how variables are accessed and manipulated. The function MUST be called `init` for the Aztec.nr library to properly handle it (this will be relaxed in the future).
 
 ```rust
 impl Storage {
@@ -73,13 +81,13 @@ A `map` is a state variable that "maps" a key to a value. It can be used with pr
 In Aztec.nr, keys are always `Field`s, or types that can be serialized as Fields, and values can be any type - even other maps. `Field`s are finite field elements, but you can think of them as integers.
 :::
 
-It includes a [`Context`](../context.mdx) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
+It includes a [`Context`](../context.md) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
 
 You can view the implementation in the Aztec.nr library [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/map.nr).
 
 ### `new`
 
-When declaring the storage for a map, we use the `Map::new()` constructor. As seen below, this takes the `storage_slot` and the `start_var_constructor` along with the [`Context`](../context.mdx).
+When declaring the storage for a map, we use the `Map::new()` constructor. This takes the `storage_slot` and the `start_var_constructor` along with the [`Context`](../context.md).
 
 We will see examples of map constructors for public and private variables in later sections.
 
@@ -91,10 +99,6 @@ In the Storage struct:
 
 #include_code storage-map-singleton-declaration /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-In the `Storage::init` function:
-
-#include_code state_vars-MapSingleton /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
 #### Public Example
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
@@ -102,10 +106,6 @@ When declaring a public mapping in Storage, we have to specify that the type is 
 In the Storage struct:
 
 #include_code storage_minters /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
-
-In the `Storage::init` function:
-
-#include_code storage_minters_init /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### `at`
 
@@ -130,4 +130,4 @@ require(minters[msg.sender], "caller is not minter");
 
 - [Hybrid State Model](../../../../learn/concepts/hybrid_state/main.md)
 - [Public-private execution](../../../../learn/concepts/communication/public_private_calls/main.md)
-- [Function Contexts](../context.mdx)
+- [Function Contexts](../context.md)

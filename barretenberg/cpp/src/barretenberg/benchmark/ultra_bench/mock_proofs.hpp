@@ -48,25 +48,24 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
 }
 
 // ultrahonk
-inline honk::UltraProver get_prover(honk::UltraComposer& composer,
-                                    void (*test_circuit_function)(honk::UltraComposer::CircuitBuilder&, size_t),
-                                    size_t num_iterations)
+inline UltraProver get_prover(UltraComposer& composer,
+                              void (*test_circuit_function)(UltraComposer::CircuitBuilder&, size_t),
+                              size_t num_iterations)
 {
-    honk::UltraComposer::CircuitBuilder builder;
+    UltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
+    std::shared_ptr<UltraComposer::Instance> instance = composer.create_instance(builder);
     return composer.create_prover(instance);
 }
 
 // goblin ultrahonk
-inline honk::GoblinUltraProver get_prover(honk::GoblinUltraComposer& composer,
-                                          void (*test_circuit_function)(honk::GoblinUltraComposer::CircuitBuilder&,
-                                                                        size_t),
-                                          size_t num_iterations)
+inline GoblinUltraProver get_prover(GoblinUltraComposer& composer,
+                                    void (*test_circuit_function)(GoblinUltraComposer::CircuitBuilder&, size_t),
+                                    size_t num_iterations)
 {
-    honk::GoblinUltraComposer::CircuitBuilder builder;
+    GoblinUltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    std::shared_ptr<honk::GoblinUltraComposer::Instance> instance = composer.create_instance(builder);
+    std::shared_ptr<GoblinUltraComposer::Instance> instance = composer.create_instance(builder);
     return composer.create_prover(instance);
 }
 
@@ -82,7 +81,7 @@ inline plonk::Prover get_prover(plonk::StandardComposer& composer,
 
 // ultraplonk
 inline plonk::UltraProver get_prover(plonk::UltraComposer& composer,
-                                     void (*test_circuit_function)(honk::UltraComposer::CircuitBuilder&, size_t),
+                                     void (*test_circuit_function)(UltraComposer::CircuitBuilder&, size_t),
                                      size_t num_iterations)
 {
     plonk::UltraComposer::CircuitBuilder builder;
