@@ -15,8 +15,7 @@ struct BaseOrMergeRollupPublicInputs {
     rollup_type : u32,
     // subtree height is always 0 for base.
     // so that we always pass-in two base/merge circuits of the same height into the next level of recursion
-    // TODO(benesjan): rename to height_in_block_tree
-    rollup_subtree_height : Field,
+    height_in_block_tree : Field,
     aggregation_object : AggregationObject,
     constants : ConstantRollupData,
 
@@ -31,3 +30,14 @@ struct BaseOrMergeRollupPublicInputs {
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     calldata_hash : [Field; 2],
 }
+
+// class BaseOrMergeRollupPublicInputs {
+//     type: Fr
+//     height_in_block_tree: Fr
+//     aggregation_object: AggregationObject
+//     txs_hash: Fr[2]
+//     out_hash: Fr[2]
+//     constants: ConstantRollupData
+//     start: PartialStateReference
+//     end: PartialStateReference
+// }
