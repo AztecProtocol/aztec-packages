@@ -5,10 +5,7 @@ import { AggregationObject } from '../aggregation_object.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
-/**
- * Public inputs of the public and private kernel circuits.
- */
-export class KernelCircuitPublicInputs {
+export class PrivateKernelInnerCircuitPublicInputs {
   constructor(
     /**
      * Aggregated proof of all the previous kernel iterations.
@@ -39,11 +36,11 @@ export class KernelCircuitPublicInputs {
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer or reader to read from.
-   * @returns A new instance of KernelCircuitPublicInputs.
+   * @returns A new instance of PrivateKernelInnerCircuitPublicInputs.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelInnerCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new KernelCircuitPublicInputs(
+    return new PrivateKernelInnerCircuitPublicInputs(
       reader.readObject(AggregationObject),
       reader.readObject(Fr),
       reader.readObject(CombinedAccumulatedData),
@@ -53,58 +50,12 @@ export class KernelCircuitPublicInputs {
   }
 
   static empty() {
-    return new KernelCircuitPublicInputs(
+    return new PrivateKernelInnerCircuitPublicInputs(
       AggregationObject.makeFake(),
       Fr.zero(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
       true,
-    );
-  }
-}
-
-/**
- * Public inputs of the public kernel circuit.
- */
-export class PublicKernelPublicInputs extends KernelCircuitPublicInputs {
-  constructor(
-    aggregationObject: AggregationObject,
-    metaHwm: Fr,
-    end: CombinedAccumulatedData,
-    constants: CombinedConstantData,
-  ) {
-    super(aggregationObject, metaHwm, end, constants, false);
-  }
-
-  static empty(): PublicKernelPublicInputs {
-    return new PublicKernelPublicInputs(
-      AggregationObject.makeFake(),
-      Fr.zero(),
-      CombinedAccumulatedData.empty(),
-      CombinedConstantData.empty(),
-    );
-  }
-}
-
-/**
- * Public inputs of the private kernel circuit.
- */
-export class PrivateKernelPublicInputs extends KernelCircuitPublicInputs {
-  constructor(
-    aggregationObject: AggregationObject,
-    metaHwm: Fr,
-    end: CombinedAccumulatedData,
-    constants: CombinedConstantData,
-  ) {
-    super(aggregationObject, metaHwm, end, constants, true);
-  }
-
-  static empty(): PrivateKernelPublicInputs {
-    return new PrivateKernelPublicInputs(
-      AggregationObject.makeFake(),
-      Fr.zero(),
-      CombinedAccumulatedData.empty(),
-      CombinedConstantData.empty(),
     );
   }
 }

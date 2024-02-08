@@ -9,7 +9,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
-import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
+import { PreviousKernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { UInt32 } from '../shared.js';

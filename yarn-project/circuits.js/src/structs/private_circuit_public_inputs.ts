@@ -226,7 +226,7 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
-      this.metaHwm.isZero() &&
+      this.maxNonRevertibleSideEffectCounter.isZero() &&
       isEmptyArray(this.readRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newCommitments) &&
@@ -255,7 +255,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.metaHwm,
+      fields.maxNonRevertibleSideEffectCounter,
       fields.readRequests,
       fields.nullifierKeyValidationRequests,
       fields.newCommitments,

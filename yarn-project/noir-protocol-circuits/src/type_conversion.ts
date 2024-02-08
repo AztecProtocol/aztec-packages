@@ -102,6 +102,7 @@ import {
   PrivateCallStackItem as PrivateCallStackItemNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelInputsInit as PrivateKernelInputsInitNoir,
+  PrivateKernelInnerCircuitPublicInputs as PrivateKernelInnerCircuitPublicInputsNoir,
   PublicDataRead as PublicDataReadNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
@@ -1037,6 +1038,41 @@ export function mapKernelCircuitPublicInputsFromNoir(
     mapCombinedAccumulatedDataFromNoir(kernelCircuitPublicInputs.end),
     mapCombinedConstantDataFromNoir(kernelCircuitPublicInputs.constants),
     kernelCircuitPublicInputs.is_private,
+  );
+}
+
+/**
+ * Maps a private kernel inputs init from the circuits.js type to noir.
+ * @param publicInputs - The circuits.js private kernel inputs init.
+ * @returns The noir private kernel inputs init.
+ */
+export function mapPrivateKernelInnerCircuitPublicInputsToNoir(
+  publicInputs: KernelCircuitPublicInputs,
+): PrivateKernelInnerCircuitPublicInputsNoir {
+  return {
+    aggregation_object: {},
+    meta_hwm: mapFieldToNoir(publicInputs.metaHwm),
+    end: mapCombinedAccumulatedDataToNoir(publicInputs.end),
+    constants: mapCombinedConstantDataToNoir(publicInputs.constants),
+    is_private: publicInputs.isPrivate,
+  };
+}
+
+/**
+ * Maps a private kernel inputs final from noir to the circuits.js type.
+ * @param publicInputs - The noir private kernel inputs final.
+ * @returns The circuits.js private kernel inputs final.
+ */
+export function mapKernelCircuitPublicInputsFinalFromNoir(
+  publicInputs: KernelCircuitPublicInputsFinalNoir,
+): KernelCircuitPublicInputsFinal {
+  return new KernelCircuitPublicInputsFinal(
+    AggregationObject.makeFake(),
+    mapFieldFromNoir(publicInputs.meta_hwm),
+    mapAccumulatedMetaDataFromNoir(publicInputs.end_meta),
+    mapFinalAccumulatedDataFromNoir(publicInputs.end),
+    mapCombinedConstantDataFromNoir(publicInputs.constants),
+    publicInputs.is_private,
   );
 }
 

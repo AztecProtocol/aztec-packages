@@ -34,7 +34,7 @@ import {
   G1AffineElement,
   GrumpkinPrivateKey,
   GrumpkinScalar,
-  KernelCircuitPublicInputs,
+  KernelData,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -74,7 +74,6 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   Point,
-  PreviousKernelData,
   PreviousRollupData,
   PrivateCallData,
   PrivateCallStackItem,
@@ -91,6 +90,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
+  PublicKernelCircuitPublicInputs,
   PublicKernelInputs,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
@@ -379,10 +379,10 @@ export function makePublicCircuitPublicInputs(
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Kernel circuit public inputs.
  */
-export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(
+export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): PublicKernelCircuitPublicInputs {
+  return new PublicKernelCircuitPublicInputs(
     makeAggregationObject(seed),
-    fr(seed + 0x100),
+    makeAccumulatedMetaData(seed, fullAccumulatedData),
     makeAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     true,
@@ -502,8 +502,11 @@ export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
  * @param kernelPublicInputs - The kernel public inputs to use for generating the previous kernel data.
  * @returns A previous kernel data.
  */
-export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
-  return new PreviousKernelData(
+export function makePreviousKernelData(
+  seed = 1,
+  kernelPublicInputs?: PublicKernelCircuitPublicInputs,
+): KernelData<PublicKernelCircuitPublicInputs> {
+  return new KernelData(
     kernelPublicInputs ?? makeKernelPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
@@ -718,7 +721,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    metaHwm: fr(0),
+    maxNonRevertibleSideEffectCounter: fr(0),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
     nullifierKeyValidationRequests: makeTuple(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
