@@ -10,13 +10,13 @@ using witness_ct = stdlib::witness_t<StandardCircuitBuilder>;
 using byte_array_ct = stdlib::byte_array<StandardCircuitBuilder>;
 using uint_ct = stdlib::uint32<StandardCircuitBuilder>;
 
-TEST(uint, xor_unique_output_check_via_circuit){
+TEST(uint, and_unique_output_check_via_circuit){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
-    uint_ct c = a ^ b;
+    uint_ct c = a & b;
     builder.set_variable_name(c.get_witness_index(), "c");
 
     CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
@@ -32,7 +32,7 @@ TEST(uint, xor_unique_output_check_via_circuit){
     std::vector<fr> w2;
     w2.reserve(circuit.get_num_vars());
 
-    for(const auto &w: xor_unique_output){
+    for(const auto &w: and_unique_output){
         w1.push_back(w[0]);
         w2.push_back(w[1]);
     }
@@ -40,17 +40,17 @@ TEST(uint, xor_unique_output_check_via_circuit){
     ASSERT_TRUE(circuit.simulate_circuit_eval(w2));
 }
 
-TEST(uint, xor_unique_output_check_via_builder){
+TEST(uint, and_unique_output_check_via_builder){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, 0);
     uint_ct b = witness_ct(&builder, 0);
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
-    uint_ct c = a ^ b;
+    uint_ct c = a & b;
     builder.set_variable_name(c.get_witness_index(), "c");
 
     for(size_t i = 0; i < builder.get_num_variables(); i++){
-        builder.variables[i] = xor_unique_output[i][1];
+        builder.variables[i] = and_unique_output[i][1];
     }
     ASSERT_EQ(builder.variables[a.get_witness_index()], 0);
     ASSERT_EQ(builder.variables[b.get_witness_index()], 0);
@@ -58,11 +58,11 @@ TEST(uint, xor_unique_output_check_via_builder){
     ASSERT_TRUE(builder.check_circuit());
 }
 
-TEST(uint, xor_stb_patch_check){
+TEST(uint, and_stb_patch_check){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-    uint_ct c = a ^ b;
+    uint_ct c = a & b;
 
     uint32_t arb_out = 0x1337;
     auto arb_out_b4 = base4(arb_out);
@@ -75,14 +75,14 @@ TEST(uint, xor_stb_patch_check){
 
     ASSERT_TRUE(builder.check_circuit());
     info(builder.variables[a.get_witness_index()]);
-    info(" ^ ");
+    info(" & ");
     info(builder.variables[b.get_witness_index()]);
     info("=");
     info(builder.variables[c.get_witness_index()]);
     info("and always has been...");
 }
 
-TEST(uint, xor_logic_patch_check){
+TEST(uint, and_logic_patch_check){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));

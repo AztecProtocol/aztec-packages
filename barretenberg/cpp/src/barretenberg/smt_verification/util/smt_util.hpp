@@ -1,3 +1,4 @@
+#pragma once
 #include <fstream>
 
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
@@ -84,3 +85,4 @@ void default_model_single(std::vector<std::string> special, smt_circuit::Circuit
 }
 
 bool smt_timer(smt_solver::Solver *s);
+std::pair<std::vector<bb::fr>, std::vector<bb::fr>> base4(uint32_t el);
