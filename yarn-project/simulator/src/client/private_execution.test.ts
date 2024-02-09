@@ -424,8 +424,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
-      // TODO(nventuro): pass a meaningful note type id (it is currently unused)
-      const noteTypeId = new Fr(42n);
+      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
 
       const notes = [buildNote(balance, owner, storageSlot, noteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);

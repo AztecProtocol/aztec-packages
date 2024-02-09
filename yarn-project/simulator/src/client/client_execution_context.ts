@@ -249,6 +249,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * It can be used in subsequent calls (or transactions when chaining txs is possible).
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
+   * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
    * @param innerNoteHash - The inner note hash of the new note.
    * @returns
@@ -285,6 +286,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Encrypt a note and emit it as a log.
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
+   * @param noteTypeId - The type ID of the note.
    * @param publicKey - The public key of the account that can decrypt the log.
    * @param log - The log contents.
    */
