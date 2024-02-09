@@ -61,6 +61,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
     a.validate_is_on_curve();
     EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(builder.check_circuit());
 }
 
 /**
@@ -79,6 +80,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
     a.validate_is_on_curve();
     EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(builder.check_circuit());
 }
 
 /**
@@ -97,6 +99,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     cycle_group_ct a(x, y, /*_is_infinity=*/false);
     a.validate_is_on_curve();
     EXPECT_TRUE(builder.failed());
+    EXPECT_FALSE(builder.check_circuit());
 }
 
 TYPED_TEST(CycleGroupTest, TestDbl)
