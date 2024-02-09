@@ -22,7 +22,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         poseidon2_constraint{
             .state = { 1, 2, 3, 4, },
             .result = { 5, 6, 7, 8, },
-            .len = 25,
+            .len = 4,
         };
 
     AcirFormat constraint_system{ .varnum = 9,
