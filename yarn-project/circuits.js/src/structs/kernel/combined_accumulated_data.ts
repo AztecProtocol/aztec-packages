@@ -13,7 +13,6 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
@@ -23,7 +22,6 @@ import {
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import { FunctionData } from '../function_data.js';
 import { NullifierKeyValidationRequestContext } from '../nullifier_key_validation_request.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
@@ -33,10 +31,6 @@ import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
  * Note: Not to be confused with `ContractDeploymentData`.
  */
 export class NewContractData {
-  /**
-   * Ethereum address of the portal contract on L1.
-   */
-  public portalContractAddress: EthAddress;
   constructor(
     /**
      * Aztec address of the contract.
@@ -44,18 +38,13 @@ export class NewContractData {
     public contractAddress: AztecAddress,
     /**
      * Ethereum address of the portal contract on L1.
-     * TODO(AD): refactor this later
-     * currently there is a kludge with circuits cpp as it emits an AztecAddress
      */
-    portalContractAddress: EthAddress | AztecAddress,
+    public portalContractAddress: EthAddress,
     /**
      * Contract class id.
      */
     public contractClassId: Fr,
-  ) {
-    // Handle circuits emitting this as an AztecAddress
-    this.portalContractAddress = new EthAddress(portalContractAddress.toBuffer());
-  }
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(this.contractAddress, this.portalContractAddress, this.contractClassId);
@@ -68,114 +57,11 @@ export class NewContractData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): NewContractData {
     const reader = BufferReader.asReader(buffer);
-    return new NewContractData(
-      reader.readObject(AztecAddress),
-      new EthAddress(reader.readBytes(32)),
-      Fr.fromBuffer(reader),
-    );
+    return new NewContractData(reader.readObject(AztecAddress), reader.readObject(EthAddress), Fr.fromBuffer(reader));
   }
 
   static empty() {
     return new NewContractData(AztecAddress.ZERO, EthAddress.ZERO, Fr.ZERO);
-  }
-}
-
-/**
- * Info which a user might want to reveal to the world.
- * Note: Currently not used (2023-05-12).
- */
-export class OptionallyRevealedData {
-  /**
-   * Address of the portal contract corresponding to the L2 contract on which the function above was invoked.
-   *
-   * TODO(AD): refactor this later
-   * currently there is a kludge with circuits cpp as it emits an AztecAddress
-   */
-  public portalContractAddress: EthAddress;
-  constructor(
-    /**
-     * Hash of the call stack item from which this info was originates.
-     */
-    public callStackItemHash: Fr,
-    /**
-     * Function data of a function call from which this info originates.
-     */
-    public functionData: FunctionData,
-    /**
-     * Verification key hash of the function call from which this info originates.
-     */
-    public vkHash: Fr,
-    /**
-     * Address of the portal contract corresponding to the L2 contract on which the function above was invoked.
-     *
-     * TODO(AD): refactor this later
-     * currently there is a kludge with circuits cpp as it emits an AztecAddress
-     */
-    portalContractAddress: EthAddress | AztecAddress,
-    /**
-     * Whether the fee was paid from the L1 account of the user.
-     */
-    public payFeeFromL1: boolean,
-    /**
-     * Whether the fee was paid from a public account on L2.
-     */
-    public payFeeFromPublicL2: boolean,
-    /**
-     * Whether the function call was invoked from L1.
-     */
-    public calledFromL1: boolean,
-    /**
-     * Whether the function call was invoked from the public L2 account of the user.
-     */
-    public calledFromPublicL2: boolean,
-  ) {
-    // Handle circuits emitting this as an AztecAddress
-    this.portalContractAddress = EthAddress.fromField(portalContractAddress.toField());
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.callStackItemHash,
-      this.functionData,
-      this.vkHash,
-      this.portalContractAddress,
-      this.payFeeFromL1,
-      this.payFeeFromPublicL2,
-      this.calledFromL1,
-      this.calledFromPublicL2,
-    );
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer or reader to read from.
-   * @returns The deserialized OptionallyRevealedData.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): OptionallyRevealedData {
-    const reader = BufferReader.asReader(buffer);
-    return new OptionallyRevealedData(
-      Fr.fromBuffer(reader),
-      reader.readObject(FunctionData),
-      Fr.fromBuffer(reader),
-      new EthAddress(reader.readBytes(32)),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
-    );
-  }
-
-  static empty() {
-    return new OptionallyRevealedData(
-      Fr.ZERO,
-      FunctionData.empty(),
-      Fr.ZERO,
-      EthAddress.ZERO,
-      false,
-      false,
-      false,
-      false,
-    );
   }
 }
 
@@ -346,10 +232,6 @@ export class CombinedAccumulatedData {
      */
     public newContracts: Tuple<NewContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
     /**
-     * All the optionally revealed data in this transaction.
-     */
-    public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>,
-    /**
      * All the public data update requests made in this transaction.
      */
     public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -373,7 +255,6 @@ export class CombinedAccumulatedData {
       this.encryptedLogPreimagesLength,
       this.unencryptedLogPreimagesLength,
       this.newContracts,
-      this.optionallyRevealedData,
       this.publicDataUpdateRequests,
       this.publicDataReads,
     );
@@ -403,7 +284,6 @@ export class CombinedAccumulatedData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
-      reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
@@ -423,7 +303,6 @@ export class CombinedAccumulatedData {
       finalData.encryptedLogPreimagesLength,
       finalData.unencryptedLogPreimagesLength,
       finalData.newContracts,
-      finalData.optionallyRevealedData,
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
@@ -452,7 +331,6 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
-      makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
@@ -508,10 +386,6 @@ export class FinalAccumulatedData {
      * All the new contracts deployed in this transaction.
      */
     public newContracts: Tuple<NewContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
-    /**
-     * All the optionally revealed data in this transaction.
-     */
-    public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -526,7 +400,6 @@ export class FinalAccumulatedData {
       this.encryptedLogPreimagesLength,
       this.unencryptedLogPreimagesLength,
       this.newContracts,
-      this.optionallyRevealedData,
     );
   }
 
@@ -552,7 +425,6 @@ export class FinalAccumulatedData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
-      reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
     );
   }
 
@@ -577,7 +449,6 @@ export class FinalAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
-      makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
     );
   }
 }
