@@ -43,8 +43,8 @@ Open `cross_chain_messaging.test.ts` and paste the initial description of the te
 import { expect, jest} from '@jest/globals'
 import { AccountWallet, AztecAddress, DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForSandbox } from '@aztec/aztec.js';
 import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
-import { TokenContract } from '@aztec/noir-contracts/Token';
-import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 import { delay } from './fixtures/utils.js';

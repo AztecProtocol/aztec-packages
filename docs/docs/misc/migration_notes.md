@@ -6,6 +6,40 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.24.0
+
+### [js] Importing contracts in JS
+
+`@aztec/noir-contracts` is now `@aztec/noir-contracts.js`. You'll need to update your package.json & imports.
+
+Before:
+
+```js
+import { TokenContract } from "@aztec/noir-contracts/Token";
+```
+
+Now:
+
+```js
+import { TokenContract } from "@aztec/noir-contracts.js/Token";
+```
+
+### [Aztec.nr] aztec-nr contracts location change in Nargo.toml
+
+Aztec contracts are now moved outside of the `yarn-project` folder, so you need to update your imports.
+
+Before:
+
+```rust
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+```
+
+Now, just remove the `yarn-project` folder,:
+
+```rust
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-contracts/contracts/easy_private_token_contract"}
+```
+
 ## 0.22.0
 
 ### `Note::compute_note_hash` renamed to `Note::compute_note_content_hash`
@@ -446,7 +480,7 @@ impl Storage {
 The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 ### [Aztec.nr] key type definition in Map
@@ -536,8 +570,8 @@ const tokenBigInt = (await bridge.methods.token().view()).inner;
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-protocol-circuits/src/crates/types"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress
@@ -591,11 +625,11 @@ Aztec contracts are now moved outside of the `src` folder, so you need to update
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
 ```
 
 Now, just remove the `src` folder,:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-contracts/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
 ```
