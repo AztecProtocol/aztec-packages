@@ -60,15 +60,30 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-    },
-        hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_commitment, silo_nullifier},
-        tests::{kernel_data_builder::PreviousKernelDataBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::{arrays::array_eq}
+            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+            public_data_read::PublicDataRead,
+            public_data_update_request::PublicDataUpdateRequest,
+            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+        },
+        hash::{
+            compute_l2_to_l1_hash,
+            compute_logs_hash,
+            silo_commitment,
+            silo_nullifier,
+        },
+        messaging::l2_to_l1_message::L2ToL1Message,
+        tests::{
+            kernel_data_builder::PreviousKernelDataBuilder,
+            public_call_data_builder::PublicCallDataBuilder,
+        },
+        utils::{
+            arrays::array_eq,
+        },
     };
-    use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
+    use dep::types::constants::{
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    };
 
     struct PublicKernelAppLogicCircuitPrivateInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,
@@ -250,12 +265,12 @@ mod tests {
 
         builder.previous_kernel.end.new_l2_to_l1_msgs.extend_from_array(previous);
         // Setup 1 new l2 to l1 message on the current public inputs.
-        let current = [67890];
+        let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890 }];
         builder.public_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(current);
         let tx_context = builder.previous_kernel.tx_context;
         let version = tx_context.version;
         let chain_id = tx_context.chain_id;
-        let siloed = current.map(|c| compute_l2_to_l1_hash(contract_address, version, portal_contract_address, chain_id, c));
+        let siloed = current.map(|c| compute_l2_to_l1_hash(contract_address, version, chain_id, c));
         let new_l2_to_l1_msgs = [previous[0], siloed[0]];
 
         let public_inputs = builder.execute();

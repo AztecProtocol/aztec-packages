@@ -2,13 +2,30 @@ use crate::{
     abis::{call_context::CallContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}},
     address::AztecAddress,
     constants::{
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_COMMITMENTS_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH,
-    GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH
-},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    hash::pedersen_hash, header::Header, traits::{Hash, Serialize, Deserialize}, utils::reader::Reader
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_NEW_COMMITMENTS_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        NUM_FIELDS_PER_SHA256,
+        RETURN_VALUES_LENGTH,
+        GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS,
+        PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    },
+    contrakt::{
+        storage_read::StorageRead,
+        storage_update_request::StorageUpdateRequest,
+    },
+    hash::pedersen_hash,
+    header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
+    traits::{
+        Hash,
+        Serialize,
+        Deserialize,
+    },
+    utils::reader::Reader,
 };
 
 struct PublicCircuitPublicInputs{
@@ -24,7 +41,7 @@ struct PublicCircuitPublicInputs{
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
-    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+    new_l2_to_l1_msgs: [L2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
 
@@ -59,13 +76,15 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         }
         fields.extend_from_array(self.public_call_stack_hashes);
 
-        for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
+        for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
             fields.extend_from_array(self.new_commitments[i].serialize());
         }
-        for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
+        for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
             fields.extend_from_array(self.new_nullifiers[i].serialize());
         }
-        fields.extend_from_array(self.new_l2_to_l1_msgs);
+        for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
+            fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
+        }
         fields.extend_from_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
@@ -87,7 +106,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
             new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
             new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
-            new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+            new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
