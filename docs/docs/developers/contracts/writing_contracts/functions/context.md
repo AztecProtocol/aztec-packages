@@ -18,15 +18,9 @@ On this page, you'll learn
 - Elements like return values, read requests, new commitments, and nullifiers in transaction processing
 - Differences between the private and public contexts, especially the unique features and variables in the public context
 
-<<<<<<<< HEAD:docs/docs/developers/contracts/writing_contracts/functions/context.md
 ## Two contexts, one API
 The `Aztec` blockchain contains two environments [public and private](../../../../learn/concepts/hybrid_state/main.md). 
-========
-## Two context's one API
 
-The `Aztec` blockchain contains two environments [public and private](../../../learn/concepts/hybrid_state/main.md).
-
->>>>>>>> origin/master:docs/docs/developers/contracts/syntax/context.md
 - Private, for private transactions taking place on user's devices.
 - Public, for public transactions taking place on the network's sequencers.
 
