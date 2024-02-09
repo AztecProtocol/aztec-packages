@@ -22,7 +22,7 @@ import { JournalData } from './journal/journal.js';
  * @param globalVariables
  * @returns
  */
-export function temporaryMapToExecutionEnvironment(
+export function temporaryCreateAvmExecutionEnvironment(
   current: PublicExecution,
   globalVariables: GlobalVariables,
 ): AvmExecutionEnvironment {
@@ -54,7 +54,7 @@ export function temporaryMapToExecutionEnvironment(
  * @param result
  * @returns
  */
-export function temporaryMapAvmReturnTypes(
+export function temporaryConvertAvmResults(
   execution: PublicExecution,
   newWorldState: JournalData,
   result: AvmContractCallResults,

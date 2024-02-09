@@ -7,7 +7,10 @@ import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
 import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmWorldStateJournal } from '../avm/journal/index.js';
-import { temporaryMapAvmReturnTypes, temporaryMapToExecutionEnvironment } from '../avm/temporary_executor_migration.js';
+import {
+  temporaryConvertAvmResults,
+  temporaryCreateAvmExecutionEnvironment,
+} from '../avm/temporary_executor_migration.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
@@ -142,7 +145,7 @@ export class PublicExecutor {
     // These data structures will permiate across the simulator when the public executor is phased out
     const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
     const worldStateJournal = new AvmWorldStateJournal(hostStorage);
-    const executionEnv = temporaryMapToExecutionEnvironment(execution, globalVariables);
+    const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
     const machineState = new AvmMachineState(0, 0, 0);
 
     const context = new AvmContext(worldStateJournal, executionEnv, machineState);
@@ -150,6 +153,6 @@ export class PublicExecutor {
 
     const result = await simulator.execute();
     const newWorldState = context.worldState.flush();
-    return temporaryMapAvmReturnTypes(execution, newWorldState, result);
+    return temporaryConvertAvmResults(execution, newWorldState, result);
   }
 }

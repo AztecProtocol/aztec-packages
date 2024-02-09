@@ -31,7 +31,6 @@ export function generateCode(outputPath: string, fileOrDirPath: string, opts: Ge
  */
 function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts: GenerateCodeOptions = {}) {
   const contract = JSON.parse(readFileSync(noirAbiPath, 'utf8'));
-
   const aztecAbi = loadContractArtifact(contract);
   const { nr, ts } = opts;
 
