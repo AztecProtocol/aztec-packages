@@ -25,12 +25,17 @@ function escapeHtml(unsafeText) {
 
 
 function parseParameters(paramString) {
+    if (!paramString.trim()) {
+        return [];
+    }
+
     return paramString.split(',').map(param => {
         param = param.trim().replace(/[\[:;,.]$/g, '').replace(/^[\[:;,.]/g, ''); // Clean up start and end
         let [paramName, type] = param.split(':').map(p => p.trim());
         return { name: paramName, type: escapeHtml(type) };
     });
 }
+
 
 function parseStruct(content) {
     const structRegex = /struct (\w+)\s*{([\s\S]*?)}/g;
@@ -144,7 +149,7 @@ function generateMarkdown(structs, functions) {
 
     structs.forEach(structInfo => {
         if (structInfo) {
-            markdown += `# ${escapeHtml(structInfo.structName)} Struct\n\n`;
+            markdown += `# ${escapeHtml(structInfo.structName)}\n\n`;
 
             if (structInfo.description) {
                 markdown += `${escapeHtml(structInfo.description)}\n\n`;
@@ -159,7 +164,6 @@ function generateMarkdown(structs, functions) {
                     markdown += `| ${fieldName} | ${cleanType} |\n`;
                 }
             });
-
             markdown += '\n';
 
             // Generate markdown for methods of this struct
@@ -171,12 +175,17 @@ function generateMarkdown(structs, functions) {
                     if (func.description) {
                         markdown += `${escapeHtml(func.description)}\n\n`;
                     }
-                    markdown += `#### Parameters\n`;
-                    markdown += `| Name | Type |\n| --- | --- |\n`;
-                    func.params.forEach(({ name, type }) => {
-                        markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
-                    });
-
+            
+                    if (func.params.length > 0) {
+                        markdown += `#### Parameters\n`;
+                        markdown += `| Name | Type |\n| --- | --- |\n`;
+                        func.params.forEach(({ name, type }) => {
+                            markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
+                        });
+                    } else {
+                        markdown += `#### Parameters\nTakes no parameters.\n\n`;
+                    }
+            
                     if (func.returnType) {
                         markdown += `\n#### Returns\n`;
                         markdown += `| Type |\n| --- |\n`;
@@ -185,6 +194,7 @@ function generateMarkdown(structs, functions) {
                     markdown += '\n';
                 });
             }
+            
         }
     });
 
@@ -197,11 +207,15 @@ function generateMarkdown(structs, functions) {
             if (func.description) {
                 markdown += `${escapeHtml(func.description)}\n\n`;
             }
-            markdown += `#### Parameters\n`;
-            markdown += `| Name | Type |\n| --- | --- |\n`;
-            func.params.forEach(({ name, type }) => {
-                markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
-            });
+            if (func.params.length > 0) {
+                markdown += `#### Parameters\n`;
+                markdown += `| Name | Type |\n| --- | --- |\n`;
+                func.params.forEach(({ name, type }) => {
+                    markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
+                });
+            } else {
+                markdown += `#### Parameters\nTakes no parameters.\n\n`;
+            }
             if (func.returnType) {
                 markdown += `\n#### Returns\n`;
                 markdown += `| Type |\n| --- |\n`;
@@ -214,15 +228,20 @@ function generateMarkdown(structs, functions) {
     return markdown;
 }
 
-
 function processFiles(baseDir, outputBaseDir) {
     const nrFiles = listNrFiles(baseDir);
     let docStructure = {}; // To hold structured documentation paths
 
     nrFiles.forEach(filePath => {
+        
         const content = fs.readFileSync(filePath, 'utf8');
         const structs = parseStruct(content);
         const functions = parseFunctions(content);
+
+        if (structs.length === 0 && functions.length === 0) {
+            return;
+        }
+
         const markdown = generateMarkdown(structs, functions);
 
         const relativePath = path.relative(baseDir, filePath);
@@ -231,7 +250,6 @@ function processFiles(baseDir, outputBaseDir) {
 
         fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
         fs.writeFileSync(outputFilePath, markdown);
-        console.log(`Generated documentation for ${filePath}`);
 
         // Adjusted to populate docStructure for JSON
         const docPathForJson = adjustedPath.replace(/\\/g, '/').replace('.md', '');
@@ -250,7 +268,6 @@ function processFiles(baseDir, outputBaseDir) {
     // Write structured documentation paths to JSON
     const outputPath = path.join(__dirname, 'AztecnrReferenceAutogenStructure.json');
     fs.writeFileSync(outputPath, JSON.stringify({ AztecNR: docStructure }, null, 2));
-    console.log(`Documentation structure written to ${outputPath}`);
 }
 
 const baseDir = path.resolve(__dirname, '../../../yarn-project/aztec-nr');

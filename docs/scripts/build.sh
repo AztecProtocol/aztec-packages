@@ -34,9 +34,6 @@ if [ -n "$NETLIFY" ]; then
   # Build the required projects for typedoc
   build_package "pxe"
   build_package "aztec.js" "yarn build:ts"
-  # Generate Aztec.nr reference docs
-  echo "Generating Aztec.nr reference docs..."
-  node ../src/preprocess/generate_aztecnr_reference.js
 
   # Back to docs site
   cd docs
@@ -48,4 +45,7 @@ fi
 
 # Now build the docsite
 echo Building docsite...
+echo "Generating Aztec.nr reference docs..."
+node ./src/preprocess/generate_aztecnr_reference.js
+echo "Generated Aztec.nr reference docs"
 yarn preprocess && yarn typedoc && yarn docusaurus build
