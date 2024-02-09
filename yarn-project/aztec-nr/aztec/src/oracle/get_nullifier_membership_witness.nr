@@ -38,7 +38,10 @@ unconstrained pub fn get_low_nullifier_membership_witness(block_number: u32, nul
 }
 
 #[oracle(getNullifierMembershipWitness)]
-fn get_nullifier_membership_witness_oracle(_block_number: u32, _nullifier: Field) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
+fn get_nullifier_membership_witness_oracle(
+    _block_number: u32,
+    _nullifier: Field
+) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)

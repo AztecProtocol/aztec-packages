@@ -19,7 +19,11 @@ unconstrained pub fn emit_encrypted_log<N>(
 }
 
 #[oracle(emitUnencryptedLog)]
-fn emit_unencrypted_log_oracle<T>(_contract_address: AztecAddress, _event_selector: Field, _message: T) -> Field {}
+fn emit_unencrypted_log_oracle<T>(
+    _contract_address: AztecAddress,
+    _event_selector: Field,
+    _message: T
+) -> Field {}
 
 unconstrained pub fn emit_unencrypted_log<T>(
     contract_address: AztecAddress,

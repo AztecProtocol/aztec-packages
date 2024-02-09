@@ -30,7 +30,11 @@ pub fn create_note<Note, N>(
     }
 }
 
-pub fn create_note_hash_from_public<Note, N>(context: &mut PublicContext, storage_slot: Field, note: &mut Note) where Note: NoteInterface<N> {
+pub fn create_note_hash_from_public<Note, N>(
+    context: &mut PublicContext,
+    storage_slot: Field,
+    note: &mut Note
+) where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
