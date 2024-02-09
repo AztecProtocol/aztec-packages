@@ -1,14 +1,11 @@
-import { EthAddress } from "@aztec/foundation/eth-address";
-import { Fr } from "@aztec/foundation/fields";
-import { BufferReader, FieldReader, serializeToBuffer } from "@aztec/foundation/serialize";
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class L2ToL1Message {
   public static readonly MESSAGE_LENGTH: number = 2;
 
-  constructor(
-    public recipient: EthAddress,
-    public content: Fr,
-  ) {}
+  constructor(public recipient: EthAddress, public content: Fr) {}
 
   /**
    * Creates an empty L2ToL1Message with default values.

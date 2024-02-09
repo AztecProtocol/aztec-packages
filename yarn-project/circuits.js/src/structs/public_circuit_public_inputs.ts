@@ -21,8 +21,8 @@ import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 import { Header } from './header.js';
-import { SideEffect, SideEffectLinkedToNoteHash } from './side_effects.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from './side_effects.js';
 
 /**
  * Public inputs to a public circuit.
