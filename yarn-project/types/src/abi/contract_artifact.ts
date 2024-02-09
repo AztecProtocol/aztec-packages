@@ -127,10 +127,10 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
 
 /**
  * Returns true if the first parameter is kernel function inputs.
- * 
- * Noir macros #[aztec(private|public)] inject the following code 
+ *
+ * Noir macros #[aztec(private|public)] inject the following code
  * fn <name>(inputs: <Public|Private>ContextInputs, ...otherparams) {}
- * 
+ *
  * Return true if this injected parameter is found
  */
 function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
