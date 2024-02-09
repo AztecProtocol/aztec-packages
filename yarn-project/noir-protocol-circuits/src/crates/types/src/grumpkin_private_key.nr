@@ -1,8 +1,4 @@
-use dep::std::{
-    cmp::Eq,
-    grumpkin_scalar::GrumpkinScalar,
-    grumpkin_scalar_mul::grumpkin_fixed_base,
-};
+use dep::std::{cmp::Eq, grumpkin_scalar::GrumpkinScalar, grumpkin_scalar_mul::grumpkin_fixed_base};
 use crate::grumpkin_point::GrumpkinPoint;
 
 global GRUMPKIN_PRIVATE_KEY_SERIALIZED_LEN: Field = 2;

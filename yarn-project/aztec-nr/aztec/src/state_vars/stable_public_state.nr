@@ -1,7 +1,5 @@
 use crate::context::{Context};
-use crate::oracle::{
-    storage::{storage_read, storage_write},
-};
+use crate::oracle::{storage::{storage_read, storage_write}};
 use crate::history::public_value_inclusion::prove_public_value_inclusion;
 use dep::std::option::Option;
 use dep::protocol_types::traits::{Deserialize, Serialize};

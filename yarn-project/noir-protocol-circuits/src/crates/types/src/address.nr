@@ -1,13 +1,6 @@
 use crate::{
-    constants::{
-        GENERATOR_INDEX__CONTRACT_ADDRESS,
-        GENERATOR_INDEX__PARTIAL_ADDRESS,
-        GENERATOR_INDEX__CONSTRUCTOR
-    },
-    hash::pedersen_hash,
-    contract_class::ContractClassId,
-    utils,
-    grumpkin_point::GrumpkinPoint,
+    constants::{GENERATOR_INDEX__CONTRACT_ADDRESS, GENERATOR_INDEX__PARTIAL_ADDRESS, GENERATOR_INDEX__CONSTRUCTOR},
+    hash::pedersen_hash, contract_class::ContractClassId, utils, grumpkin_point::GrumpkinPoint
 };
 use dep::std::cmp::Eq;
 use crate::traits::{Empty, ToField, Serialize, Deserialize};

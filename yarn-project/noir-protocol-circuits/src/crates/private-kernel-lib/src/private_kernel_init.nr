@@ -2,15 +2,13 @@ use crate::common;
 use dep::std::unsafe;
 use dep::types::{
     abis::{
-        combined_constant_data::CombinedConstantData,
-        private_kernel::private_call_data::PrivateCallData,
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
+    combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
+    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
-    mocked::{Proof, verify_previous_kernel_state},
-    transaction::request::TxRequest,
-    traits::is_empty_array,
+    mocked::{Proof, verify_previous_kernel_state}, transaction::request::TxRequest,
+    traits::is_empty_array
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -118,27 +116,19 @@ impl PrivateKernelInputsInit {
 
 mod tests {
     use crate::private_kernel_init::PrivateKernelInputsInit;
-    use dep::types::constants::{
-        MAX_READ_REQUESTS_PER_CALL,
-    };
+    use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL};
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            nullifier_key_validation_request::NullifierKeyValidationRequest,
-            private_kernel::private_call_data::PrivateCallData,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        },
-        grumpkin_point::GrumpkinPoint,
-        grumpkin_private_key::GrumpkinPrivateKey,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
+        private_kernel::private_call_data::PrivateCallData,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    },
+        grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
         address::{AztecAddress, compute_initialization_hash},
-        hash::{
-            compute_constructor_hash,
-            compute_logs_hash,
-            stdlib_recursion_verification_key_compress_native_vk,
-        },
-        tests::private_call_data_builder::PrivateCallDataBuilder,
-        transaction::request::TxRequest,
-        utils::arrays::array_length,
+        hash::{compute_constructor_hash, compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
+        tests::private_call_data_builder::PrivateCallDataBuilder, transaction::request::TxRequest,
+        utils::arrays::array_length
     };
 
     struct PrivateKernelInitInputsBuilder {

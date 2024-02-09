@@ -1,37 +1,20 @@
 use crate::common;
-use dep::std::{
-    cmp::Eq,
-    option::Option,
-    unsafe,
-};
+use dep::std::{cmp::Eq, option::Option, unsafe};
 use dep::types::{
     abis::{
-        call_request::CallRequest,
-        nullifier_key_validation_request::NullifierKeyValidationRequestContext,
-        previous_kernel_data::PreviousKernelData,
-        kernel_circuit_public_inputs::{
-            KernelCircuitPublicInputsBuilder,
-            KernelCircuitPublicInputsFinal,
-        },
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered},
-    },
+    call_request::CallRequest, nullifier_key_validation_request::NullifierKeyValidationRequestContext,
+    previous_kernel_data::PreviousKernelData,
+    kernel_circuit_public_inputs::{KernelCircuitPublicInputsBuilder, KernelCircuitPublicInputsFinal},
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+},
     constants::{
-        MAX_NEW_COMMITMENTS_PER_TX,
-        MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX
-    },
+    MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX
+},
     grumpkin_private_key::GrumpkinPrivateKey,
-    hash::{
-        compute_commitment_nonce,
-        compute_unique_siloed_commitment,
-    },
-    utils::{
-        arrays::{array_length, array_eq},
-    },
-    traits::{Empty, is_empty}
+    hash::{compute_commitment_nonce, compute_unique_siloed_commitment},
+    utils::{arrays::{array_length, array_eq}}, traits::{Empty, is_empty}
 };
 
 struct PrivateKernelInputsOrdering {
@@ -224,22 +207,15 @@ impl PrivateKernelInputsOrdering {
 mod tests {
     use dep::std::cmp::Eq;
     use crate::private_kernel_ordering::PrivateKernelInputsOrdering;
-    use dep::types::constants::{
-        MAX_READ_REQUESTS_PER_TX,
-        MAX_NEW_COMMITMENTS_PER_TX,
-        MAX_NEW_NULLIFIERS_PER_TX,
-    };
+    use dep::types::constants::{MAX_READ_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX};
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered},
-        },
+        kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+    },
         hash::compute_unique_siloed_commitments,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
-        utils::{
-            arrays::{array_eq, array_length},
-        },
-        traits::{Empty, is_empty, is_empty_array}
+        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
 
     struct PrivateKernelOrderingInputsBuilder {

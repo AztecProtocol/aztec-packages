@@ -1,7 +1,4 @@
-use dep::aztec::protocol_types::{
-  utils::field::field_from_bytes,
-  traits::{Serialize, Deserialize}  
-};
+use dep::aztec::protocol_types::{utils::field::field_from_bytes, traits::{Serialize, Deserialize}};
 use dep::std;
 
 // A Fixedsize Compressed String.

@@ -1,10 +1,6 @@
 use dep::aztec::{
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-    },
-    hash::pedersen_hash,
-    context::PrivateContext,
+    note::{note_header::NoteHeader, note_interface::NoteInterface}, hash::pedersen_hash,
+    context::PrivateContext
 };
 
 global FIELD_NOTE_LEN: Field = 1;

@@ -1,10 +1,6 @@
 use dep::protocol_types::{
-    abis::nullifier_leaf_preimage::{
-        NullifierLeafPreimage,
-        NULLIFIER_LEAF_PREIMAGE_LENGTH,
-    },
-    constants::NULLIFIER_TREE_HEIGHT,
-    hash::pedersen_hash,
+    abis::nullifier_leaf_preimage::{NullifierLeafPreimage, NULLIFIER_LEAF_PREIMAGE_LENGTH},
+    constants::NULLIFIER_TREE_HEIGHT, hash::pedersen_hash
 };
 use crate::utils::arr_copy_slice;
 

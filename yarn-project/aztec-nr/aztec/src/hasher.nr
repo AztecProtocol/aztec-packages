@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    hash::hash_args,
-    traits::Hash,
-};
+use dep::protocol_types::{hash::hash_args, traits::Hash};
 
 struct Hasher {
     fields: [Field],

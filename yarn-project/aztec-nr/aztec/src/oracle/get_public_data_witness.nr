@@ -1,8 +1,4 @@
-use dep::protocol_types::{
-    constants::PUBLIC_DATA_TREE_HEIGHT,
-    hash::pedersen_hash,
-    traits::{Hash, Serialize}
-};
+use dep::protocol_types::{constants::PUBLIC_DATA_TREE_HEIGHT, hash::pedersen_hash, traits::{Hash, Serialize}};
 use crate::utils::arr_copy_slice;
 
 global LEAF_PREIMAGE_LENGTH: Field = 4;

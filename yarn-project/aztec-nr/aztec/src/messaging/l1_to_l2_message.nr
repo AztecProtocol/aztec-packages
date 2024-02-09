@@ -1,17 +1,7 @@
 use dep::protocol_types::{
-    address::{
-        AztecAddress,
-        EthAddress,
-    },
-    constants::{
-        L1_TO_L2_MESSAGE_LENGTH,
-        GENERATOR_INDEX__NULLIFIER,
-        GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET,
-    },
-    hash::{
-        pedersen_hash,
-        sha256_to_field,
-    },
+    address::{AztecAddress, EthAddress},
+    constants::{L1_TO_L2_MESSAGE_LENGTH, GENERATOR_INDEX__NULLIFIER, GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET},
+    hash::{pedersen_hash, sha256_to_field}
 };
 
 struct L1ToL2Message {

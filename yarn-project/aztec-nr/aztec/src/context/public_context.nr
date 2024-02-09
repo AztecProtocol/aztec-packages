@@ -1,42 +1,24 @@
 use crate::{
-    context::inputs::PublicContextInputs,
-    messaging::process_l1_to_l2_message,
-    oracle::{
-        arguments,
-        public_call::call_public_function_internal,
-    },
+    context::inputs::PublicContextInputs, messaging::process_l1_to_l2_message,
+    oracle::{arguments, public_call::call_public_function_internal}
 };
 use dep::protocol_types::{
     abis::{
-        global_variables::GlobalVariables,
-        function_selector::FunctionSelector,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        public_call_stack_item::PublicCallStackItem,
-        public_circuit_public_inputs::PublicCircuitPublicInputs,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
-    address::{
-        AztecAddress,
-        EthAddress,
-    },
+    global_variables::GlobalVariables, function_selector::FunctionSelector,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    public_call_stack_item::PublicCallStackItem,
+    public_circuit_public_inputs::PublicCircuitPublicInputs,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
+    address::{AztecAddress, EthAddress},
     constants::{
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        MAX_READ_REQUESTS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
-        RETURN_VALUES_LENGTH,
-    },
-    contrakt::{
-        storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
-    },
-    hash::hash_args,
-    header::Header,
-    utils::reader::Reader,
+    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
+    RETURN_VALUES_LENGTH
+},
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    hash::hash_args, header::Header, utils::reader::Reader
 };
 
 struct PublicContext {

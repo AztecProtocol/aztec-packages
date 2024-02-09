@@ -1,8 +1,7 @@
 use crate::common;
 use dep::types::abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
-    previous_kernel_data::PreviousKernelData,
-    public_call_data::PublicCallData,
+    previous_kernel_data::PreviousKernelData, public_call_data::PublicCallData
 };
 use dep::std::unsafe;
 // translated from cpp impl in 
@@ -56,42 +55,28 @@ mod tests {
     use crate::{
         public_kernel_private_previous::PublicKernelPrivatePreviousInputs,
         utils::{
-            assert_eq_call_requests,
-            assert_eq_new_contracts,
-            assert_eq_public_data_reads,
-            assert_eq_public_data_update_requests,
-            compute_public_data_reads,
-            compute_public_data_update_requests,
-        },
+        assert_eq_call_requests, assert_eq_new_contracts, assert_eq_public_data_reads,
+        assert_eq_public_data_update_requests, compute_public_data_reads,
+        compute_public_data_update_requests
+    }
     };
     use dep::types::{
         abis::{
-            call_request::CallRequest,
-            function_selector::FunctionSelector,
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            new_contract_data::NewContractData,
-            public_data_read::PublicDataRead,
-            public_data_update_request::PublicDataUpdateRequest,
-        },
-        address::{AztecAddress, EthAddress},
-        contract_class::ContractClassId,
-        contrakt::storage_read::StorageRead,
-        hash::compute_logs_hash,
+        call_request::CallRequest, function_selector::FunctionSelector,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs, new_contract_data::NewContractData,
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest
+    },
+        address::{AztecAddress, EthAddress}, contract_class::ContractClassId,
+        contrakt::storage_read::StorageRead, hash::compute_logs_hash,
         tests::{
-            previous_kernel_data_builder::PreviousKernelDataBuilder,
-            public_call_data_builder::PublicCallDataBuilder,
-        },
-        utils::{
-            arrays::{
-                array_eq,
-                array_length,
-            },
-        },
+        previous_kernel_data_builder::PreviousKernelDataBuilder,
+        public_call_data_builder::PublicCallDataBuilder
+    },
+        utils::{arrays::{array_eq, array_length}}
     };
     use dep::types::constants::{
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
     };
 
     struct PublicKernelPrivatePreviousInputsBuilder {

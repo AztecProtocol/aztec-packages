@@ -1,21 +1,12 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-    header::Header,
-    hash::pedersen_hash,
-        address::{
-        AztecAddress
-    },
+    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, header::Header, hash::pedersen_hash,
+    address::{AztecAddress}
 };
 use dep::std::merkle::compute_merkle_root;
 
 use crate::{
-    context::PrivateContext,
-    oracle::get_public_data_witness::{
-        get_public_data_witness,
-    },
-    utils::{
-        full_field_less_than,
-    },
+    context::PrivateContext, oracle::get_public_data_witness::{get_public_data_witness},
+    utils::{full_field_less_than}
 };
 
 fn _public_value_inclusion(

@@ -1,20 +1,15 @@
 use crate::{
-    context::PrivateContext,
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-    },
-    utils::arr_copy_slice,
+    context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface},
+    utils::arr_copy_slice
 };
 
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{
-        GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__UNIQUE_COMMITMENT,
-        GENERATOR_INDEX__SILOED_COMMITMENT,
-    },
-    hash::pedersen_hash,
+    GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__UNIQUE_COMMITMENT,
+    GENERATOR_INDEX__SILOED_COMMITMENT
+},
+    hash::pedersen_hash
 };
 
 fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {

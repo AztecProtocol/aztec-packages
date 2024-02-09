@@ -4,14 +4,8 @@ mod root_rollup_public_inputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
 use dep::types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    constants::{
-        NUM_FIELDS_PER_SHA256,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        L1_TO_L2_MSG_SUBTREE_HEIGHT,
-    },
-    header::Header,
-    state_reference::StateReference,
-    utils::uint256::U256,
+    constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT},
+    header::Header, state_reference::StateReference, utils::uint256::U256
 };
 use crate::components;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
@@ -126,11 +120,8 @@ fn test_message_input_flattened_length() {
 
 mod tests {
     use crate::{
-        root::{
-            root_rollup_inputs::RootRollupInputs,
-            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES,
-        },
-        tests::root_rollup_inputs::default_root_rollup_inputs,
+        root::{root_rollup_inputs::RootRollupInputs, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES},
+        tests::root_rollup_inputs::default_root_rollup_inputs
     };
     use dep::types::utils::uint256::U256;
     use dep::types::hash::accumulate_sha256;

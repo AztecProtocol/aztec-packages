@@ -49,37 +49,24 @@ mod tests {
     use crate::{
         public_kernel_public_previous::PublicKernelPublicPreviousInputs,
         utils::{
-            assert_eq_public_data_reads,
-            assert_eq_public_data_update_requests,
-            compute_public_data_reads,
-            compute_public_data_update_requests,
-        },
+        assert_eq_public_data_reads, assert_eq_public_data_update_requests, compute_public_data_reads,
+        compute_public_data_update_requests
+    }
     };
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            public_data_read::PublicDataRead,
-            public_data_update_request::PublicDataUpdateRequest,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        },
-        hash::{
-            compute_l2_to_l1_hash,
-            compute_logs_hash,
-            silo_commitment,
-            silo_nullifier,
-        },
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    },
+        hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_commitment, silo_nullifier},
         tests::{
-            previous_kernel_data_builder::PreviousKernelDataBuilder,
-            public_call_data_builder::PublicCallDataBuilder,
-        },
-        utils::{
-            arrays::array_eq,
-        },
+        previous_kernel_data_builder::PreviousKernelDataBuilder,
+        public_call_data_builder::PublicCallDataBuilder
+    },
+        utils::{arrays::array_eq}
     };
-    use dep::types::constants::{
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    };
+    use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
     struct PublicKernelPublicPreviousInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,

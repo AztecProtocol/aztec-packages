@@ -25,4 +25,4 @@ mod tests;
 mod state_reference;
 mod partial_state_reference;
 
-use abis::kernel_circuit_public_inputs::{ KernelCircuitPublicInputs, KernelCircuitPublicInputsFinal };
+use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsFinal};

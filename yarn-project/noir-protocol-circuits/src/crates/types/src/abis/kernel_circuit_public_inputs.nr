@@ -1,11 +1,8 @@
 use crate::abis::{
     combined_accumulated_data::{
-        CombinedAccumulatedData,
-        FinalAccumulatedData,
-        AccumulatedMetaData,
-        AccumulatedMetaDataBuilder,
-        CombinedAccumulatedDataBuilder,
-    },
+    CombinedAccumulatedData, FinalAccumulatedData, AccumulatedMetaData, AccumulatedMetaDataBuilder,
+    CombinedAccumulatedDataBuilder
+},
     combined_constant_data::CombinedConstantData
 };
 use crate::mocked::AggregationObject;

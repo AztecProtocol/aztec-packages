@@ -1,10 +1,7 @@
 use dep::aztec::context::PrivateContext;
 use dep::aztec::protocol_types::{
-  abis::function_selector::FunctionSelector,
-  address::AztecAddress,
-  constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
-  hash::pedersen_hash,
-  traits::{Hash, Serialize}
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}
 };
 
 global ACCOUNT_MAX_CALLS: Field = 4;

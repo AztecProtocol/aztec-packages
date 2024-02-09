@@ -1,28 +1,16 @@
 use crate::{
     abis::{
-        call_context::CallContext,
-        call_request::{CallerContext, CallRequest},
-        function_data::FunctionData,
-        public_call_data::PublicCallData,
-        public_call_stack_item::PublicCallStackItem,
-        public_circuit_public_inputs::PublicCircuitPublicInputs,
-    },
+    call_context::CallContext, call_request::{CallerContext, CallRequest}, function_data::FunctionData,
+    public_call_data::PublicCallData, public_call_stack_item::PublicCallStackItem,
+    public_circuit_public_inputs::PublicCircuitPublicInputs
+},
     address::{AztecAddress, EthAddress},
-    contrakt::{
-        storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
-    },
-    mocked::Proof,
-    tests::{
-        fixtures,
-        public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder,
-    },
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, mocked::Proof,
+    tests::{fixtures, public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder}
 };
 use crate::constants::{
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    NUM_FIELDS_PER_SHA256,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
 };
 
 struct PublicCallDataBuilder {

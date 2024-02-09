@@ -1,17 +1,14 @@
 use dep::std::option::Option;
 use dep::protocol_types::{
     constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
-    abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 };
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
     lifecycle::{create_note, create_note_hash_from_public, destroy_note},
-    note_getter::{get_notes, view_notes},
-    note_getter_options::NoteGetterOptions,
-    note_header::NoteHeader,
-    note_interface::NoteInterface,
-    note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_consumption,
+    note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
+    note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
+    utils::compute_note_hash_for_consumption
 };
 use crate::state_vars::storage::Storage;
 

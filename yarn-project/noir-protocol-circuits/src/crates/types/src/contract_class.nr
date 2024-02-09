@@ -1,12 +1,9 @@
 use crate::abis::{
-    function_data::FunctionData,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_circuit_public_inputs::PublicCircuitPublicInputs,
+    function_data::FunctionData, private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    public_circuit_public_inputs::PublicCircuitPublicInputs
 };
 use crate::address::AztecAddress;
-use crate::constants::{
-    GENERATOR_INDEX__CONTRACT_LEAF,
-};
+use crate::constants::{GENERATOR_INDEX__CONTRACT_LEAF};
 use crate::traits::Hash;
 
 struct ContractClassId {

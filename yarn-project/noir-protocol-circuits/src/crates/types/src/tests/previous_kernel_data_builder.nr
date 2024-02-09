@@ -1,31 +1,19 @@
 use crate::{
     abis::{
-        call_context::CallContext,
-        call_request::{CallerContext, CallRequest},
-        combined_constant_data::CombinedConstantData,
-        combined_accumulated_data::CombinedAccumulatedDataBuilder,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        previous_kernel_data::PreviousKernelData,
-        public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
-    address::{AztecAddress, EthAddress},
-    header::Header,
+    call_context::CallContext, call_request::{CallerContext, CallRequest},
+    combined_constant_data::CombinedConstantData,
+    combined_accumulated_data::CombinedAccumulatedDataBuilder,
+    kernel_circuit_public_inputs::KernelCircuitPublicInputs, previous_kernel_data::PreviousKernelData,
+    public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
+    address::{AztecAddress, EthAddress}, header::Header,
     mocked::{AggregationObject, Proof, VerificationKey},
-    tests::{
-        fixtures,
-        testing_harness::build_tx_context,
-    },
-    transaction::context::TxContext,
+    tests::{fixtures, testing_harness::build_tx_context}, transaction::context::TxContext
 };
 use crate::constants::{
-        MAX_NEW_COMMITMENTS_PER_TX,
-        MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_PUBLIC_DATA_READS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NUM_FIELDS_PER_SHA256,
-        VK_TREE_HEIGHT,
+    MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256, VK_TREE_HEIGHT
 };
 
 struct PreviousKernelDataBuilder {

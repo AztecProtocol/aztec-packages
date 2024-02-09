@@ -1,29 +1,18 @@
 use crate::{
     abis::{
-        call_context::CallContext,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
+    call_context::CallContext, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
     address::{AztecAddress, compute_initialization_hash},
-    contrakt::deployment_data::ContractDeploymentData,
-    hash::{compute_constructor_hash, hash_args},
-    header::Header,
-    tests::{
-        fixtures,
-        testing_harness::build_contract_deployment_data,
-    },
+    contrakt::deployment_data::ContractDeploymentData, hash::{compute_constructor_hash, hash_args},
+    header::Header, tests::{fixtures, testing_harness::build_contract_deployment_data}
 };
 use crate::constants::{
-        MAX_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
-        RETURN_VALUES_LENGTH,
+    MAX_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, NUM_FIELDS_PER_SHA256,
+    RETURN_VALUES_LENGTH
 };
 
 struct PrivateCircuitPublicInputsBuilder {

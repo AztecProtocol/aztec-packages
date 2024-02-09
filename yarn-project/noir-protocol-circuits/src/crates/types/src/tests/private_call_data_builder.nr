@@ -1,32 +1,22 @@
 use crate::{
     abis::{
-        call_request::{CallerContext, CallRequest},
-        private_call_stack_item::PrivateCallStackItem,
-        function_data::FunctionData,
-        membership_witness::{
-            ContractLeafMembershipWitness,
-            FunctionLeafMembershipWitness,
-            ReadRequestMembershipWitness,
-        },
-        private_circuit_public_inputs::{PrivateCircuitPublicInputs},
-        private_kernel::private_call_data::PrivateCallData,
-    },
+    call_request::{CallerContext, CallRequest}, private_call_stack_item::PrivateCallStackItem,
+    function_data::FunctionData,
+    membership_witness::{ContractLeafMembershipWitness, FunctionLeafMembershipWitness, ReadRequestMembershipWitness},
+    private_circuit_public_inputs::{PrivateCircuitPublicInputs},
+    private_kernel::private_call_data::PrivateCallData
+},
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     mocked::{Proof, VerificationKey},
     tests::{
-        fixtures,
-        private_circuit_public_inputs_builder::PrivateCircuitPublicInputsBuilder,
-        testing_harness::build_tx_context,
-    },
-    transaction::{
-        request::TxRequest,
-    },
+    fixtures, private_circuit_public_inputs_builder::PrivateCircuitPublicInputsBuilder,
+    testing_harness::build_tx_context
+},
+    transaction::{request::TxRequest}
 };
 use crate::constants::{
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_READ_REQUESTS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
 };
 
 struct PrivateCallDataBuilder {

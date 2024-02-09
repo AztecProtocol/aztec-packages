@@ -1,18 +1,10 @@
 use dep::std::option::Option;
-use dep::protocol_types::{
-    address::AztecAddress,
-    constants::{
-        GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-    },
-    hash::pedersen_hash,
-};
+use dep::protocol_types::{address::AztecAddress, constants::{GENERATOR_INDEX__INITIALIZATION_NULLIFIER}, hash::pedersen_hash};
 
 use crate::context::{PrivateContext, Context};
 use crate::note::{
-    lifecycle::create_note,
-    note_getter::{get_note, view_notes},
-    note_interface::NoteInterface,
-    note_viewer_options::NoteViewerOptions,
+    lifecycle::create_note, note_getter::{get_note, view_notes}, note_interface::NoteInterface,
+    note_viewer_options::NoteViewerOptions
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;

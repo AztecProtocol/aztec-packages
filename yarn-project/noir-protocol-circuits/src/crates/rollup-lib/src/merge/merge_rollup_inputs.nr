@@ -45,7 +45,7 @@ impl MergeRollupInputs {
 mod tests {
     use crate::{
         merge::merge_rollup_inputs::MergeRollupInputs,
-        tests::merge_rollup_inputs::default_merge_rollup_inputs,
+        tests::merge_rollup_inputs::default_merge_rollup_inputs
     };
     use dep::types::hash::accumulate_sha256;
 

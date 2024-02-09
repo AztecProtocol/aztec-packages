@@ -2,12 +2,11 @@ use crate::common;
 use dep::std::unsafe;
 use dep::types::{
     abis::{
-        previous_kernel_data::PreviousKernelData,
-        private_kernel::private_call_data::PrivateCallData,
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
-    mocked::verify_previous_kernel_state,
+    previous_kernel_data::PreviousKernelData, private_kernel::private_call_data::PrivateCallData,
+    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
+    mocked::verify_previous_kernel_state
 };
 
 struct PrivateKernelInputsInner {
@@ -79,24 +78,17 @@ impl PrivateKernelInputsInner {
 
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInputsInner;
-    use dep::types::constants::{
-        MAX_READ_REQUESTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_TX,
-    };
+    use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NEW_COMMITMENTS_PER_TX};
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        },
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    },
         tests::{
-            previous_kernel_data_builder::PreviousKernelDataBuilder,
-            private_call_data_builder::PrivateCallDataBuilder,
-        },
-        address::AztecAddress,
-        hash::compute_logs_hash,
-        utils::{
-            arrays::array_length,
-        },
+        previous_kernel_data_builder::PreviousKernelDataBuilder,
+        private_call_data_builder::PrivateCallDataBuilder
+    },
+        address::AztecAddress, hash::compute_logs_hash, utils::{arrays::array_length}
     };
 
     struct PrivateKernelInnerInputsBuilder {
