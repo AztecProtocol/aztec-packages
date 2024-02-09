@@ -7,6 +7,8 @@ import {
   PrivateKernelInnerCircuitPublicInputs,
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelCircuitPublicInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -21,10 +23,10 @@ import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert {
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
-import PublicKernelPrivatePreviousJson from './target/public_kernel_private_previous.json' assert { type: 'json' };
-import PublicKernelPrivatePreviousSimulatedJson from './target/public_kernel_private_previous_simulated.json' assert { type: 'json' };
 import PublicKernelPublicPreviousJson from './target/public_kernel_public_previous.json' assert { type: 'json' };
 import PublicKernelPublicPreviousSimulatedJson from './target/public_kernel_public_previous_simulated.json' assert { type: 'json' };
+import PublicKernelPrivatePreviousJson from './target/public_kernel_setup.json' assert { type: 'json' };
+import PublicKernelPrivatePreviousSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
 import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
@@ -37,20 +39,22 @@ import {
   mapPrivateKernelInnerCircuitPublicInputsFromNoir,
   mapPrivateKernelTailCircuitPrivateInputsToNoir,
   mapPrivateKernelTailCircuitPublicInputsFromNoir,
+  mapPublicKernelCircuitPrivateInputsToNoir,
+  mapPublicKernelCircuitPublicInputsFromNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
-import { InputType as InitInputType, InitReturnType } from './types/private_kernel_init_types.js';
-import { InputType as InnerInputType } from './types/private_kernel_inner_types.js';
-import { ReturnType as TailReturnType, InputType as TailInputType } from './types/private_kernel_tail_types.js';
-import {
-  InputType as PublicPrivatePreviousInputType,
-  ReturnType as PublicPrivatePreviousReturnType,
-} from './types/public_kernel_private_previous_types.js';
+import { InputType as InitInputType, ReturnType as InitReturnType } from './types/private_kernel_init_types.js';
+import { InputType as InnerInputType, ReturnType as InnerReturnType } from './types/private_kernel_inner_types.js';
+import { InputType as TailInputType, ReturnType as TailReturnType } from './types/private_kernel_tail_types.js';
 import {
   InputType as PublicPublicPreviousInputType,
   ReturnType as PublicPublicPreviousReturnType,
 } from './types/public_kernel_public_previous_types.js';
+import {
+  InputType as PublicSetupInputType,
+  ReturnType as PublicSetupReturnType,
+} from './types/public_kernel_setup_types.js';
 import { InputType as BaseRollupInputType, ReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
 import { InputType as MergeRollupInputType, ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
 import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
@@ -135,7 +139,7 @@ export async function executeTail(
     input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
   };
 
-  const returnType = await executePrivateKernelOrderingWithACVM(params);
+  const returnType = await executePrivateKernelTailWithACVM(params);
 
   return mapPrivateKernelTailCircuitPublicInputsFromNoir(returnType);
 }
@@ -145,16 +149,16 @@ export async function executeTail(
  * @param privateKernelInputsInit - The public kernel private inputs.
  * @returns The public inputs.
  */
-export async function executePublicKernelPrivatePrevious(
-  publicKernelPrivateInputs: PublicKernelInputs,
-): Promise<KernelCircuitPublicInputs> {
-  const params: PublicPrivatePreviousInputType = {
-    input: mapPublicKernelInputs(publicKernelPrivateInputs),
+export async function executePublicKernelSetup(
+  publicKernelPrivateInputs: PublicKernelCircuitPrivateInputs,
+): Promise<PublicKernelCircuitPublicInputs> {
+  const params: PublicSetupInputType = {
+    input: mapPublicKernelCircuitPrivateInputsToNoir(publicKernelPrivateInputs),
   };
 
-  const returnType = await executePublicKernelPrivatePreviousWithACVM(params);
+  const returnType = await executePublicKernelSetupWithACVM(params);
 
-  return mapKernelCircuitPublicInputsFromNoir(returnType);
+  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -162,16 +166,16 @@ export async function executePublicKernelPrivatePrevious(
  * @param privateKernelInputsInit - The public kernel private inputs.
  * @returns The public inputs.
  */
-export async function executePublicKernelPublicPrevious(
-  publicKernelPrivateInputs: PublicKernelInputs,
-): Promise<KernelCircuitPublicInputs> {
-  const params: PublicPrivatePreviousInputType = {
-    input: mapPublicKernelInputs(publicKernelPrivateInputs),
+export async function executePublicKernelAppLogic(
+  publicKernelPrivateInputs: PublicKernelCircuitPrivateInputs,
+): Promise<PublicKernelCircuitPublicInputs> {
+  const params: PublicPublicPreviousInputType = {
+    input: mapPublicKernelCircuitPrivateInputsToNoir(publicKernelPrivateInputs),
   };
 
   const returnType = await executePublicKernelPublicPreviousWithACVM(params);
 
-  return mapKernelCircuitPublicInputsFromNoir(returnType);
+  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -223,7 +227,7 @@ export async function executeBaseRollup(baseRollupInputs: BaseRollupInputs): Pro
  * Executes the init private kernel with the given inputs using the acvm.
  *
  */
-async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<ReturnType> {
+async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<InitReturnType> {
   const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values
@@ -245,13 +249,13 @@ async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<R
   const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitSimulatedJson.abi as Abi, _witnessMap);
 
   // Cast the inputs as the return type
-  return decodedInputs.return_value as ReturnType;
+  return decodedInputs.return_value as InitReturnType;
 }
 
 /**
  * Executes the inner private kernel with the given inputs using the acvm.
  */
-async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise<ReturnType> {
+async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise<InnerReturnType> {
   const initialWitnessMap = abiEncode(PrivateKernelInnerSimulatedJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values
@@ -273,13 +277,13 @@ async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise
   const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInnerSimulatedJson.abi as Abi, _witnessMap);
 
   // Cast the inputs as the return type
-  return decodedInputs.return_value as ReturnType;
+  return decodedInputs.return_value as InnerReturnType;
 }
 
 /**
  * Executes the ordering private kernel with the given inputs using the acvm.
  */
-async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): Promise<FinalReturnType> {
+async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<TailReturnType> {
   const initialWitnessMap = abiEncode(PrivateKernelTailSimulatedJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values
@@ -301,15 +305,13 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
   const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailSimulatedJson.abi as Abi, _witnessMap);
 
   // Cast the inputs as the return type
-  return decodedInputs.return_value as FinalReturnType;
+  return decodedInputs.return_value as TailReturnType;
 }
 
 /**
  * Executes the public kernel with private prevoius kernel with the given inputs
  */
-async function executePublicKernelPrivatePreviousWithACVM(
-  input: PublicPrivatePreviousInputType,
-): Promise<PublicPrivatePreviousReturnType> {
+async function executePublicKernelSetupWithACVM(input: PublicSetupInputType): Promise<PublicSetupReturnType> {
   const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, input as any);
   const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
@@ -325,7 +327,7 @@ async function executePublicKernelPrivatePreviousWithACVM(
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, _witnessMap);
   // Cast the inputs as the return type
-  return decodedInputs.return_value as PublicPrivatePreviousReturnType;
+  return decodedInputs.return_value as PublicSetupReturnType;
 }
 
 /**
