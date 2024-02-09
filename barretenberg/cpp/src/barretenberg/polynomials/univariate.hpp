@@ -339,6 +339,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         result *= full_numerator_value;
         return result;
     };
+
+    // Begin iterator
+    auto begin() { return evaluations.begin(); }
+
+    // End iterator
+    auto end() { return evaluations.end(); }
 };
 
 template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>

@@ -32,7 +32,7 @@ bool convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bool* /*unused*/)
  * @param high_bits_in
  * @return grumpkin::fr
  */
-grumpkin::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, grumpkin::fr* /*unused*/)
+grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     // Combines the two elements into one uint256_t, and then convert that to a grumpkin::fr
     ASSERT(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));              // lower 136 bits
