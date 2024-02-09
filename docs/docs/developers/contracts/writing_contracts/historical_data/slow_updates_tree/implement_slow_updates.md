@@ -30,7 +30,7 @@ On this page you will learn how to implement a slow updates tree into your contr
 
 #include_code get_public yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-View the [reference](slow_updates_tree.md#reference) for more information.
+View the [reference](../../../references/slow_updates_tree.md) for more information.
 
 ## Exploring an example integration through a **`TokenBlacklist`** Smart Contract
 

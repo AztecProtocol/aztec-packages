@@ -54,7 +54,7 @@ Inside the kernel circuits, the inputs to functions are reduced to a single valu
 **Creating the function's context.**
 #include_code context-example-context /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Each Aztec function has access to a [context](../context.md) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+Each Aztec function has access to a [context](../functions/context.md) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
 #include_code context-example-context-return /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
