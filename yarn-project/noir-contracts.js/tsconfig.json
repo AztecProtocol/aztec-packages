@@ -12,7 +12,7 @@
   ],
   "include": [
     "src",
-    "target",
-    "target/*.json",
+    "artifacts",
+    "artifacts/*.json",
   ],
 }

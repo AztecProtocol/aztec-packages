@@ -20,14 +20,17 @@ echo "// Auto generated module - do not edit!" >$INDEX
 mkdir -p artifacts
 
 for ABI in $(find ../../noir-contracts/target -maxdepth 1 -type f ! -name 'debug_*' -name '*.json'); do
-  CONTRACT=$(jq -r .name $ABI)
+  # Extract the filename from the path
+  filename=$(basename "$ABI")
 
-  echo "Creating types for $CONTRACT in $ABI..."
-  node --no-warnings ../noir-compiler/dest/cli.js codegen -o $OUT_DIR --ts $ABI
+  # Copy the JSON file to the artifacts folder
+  cp "$ABI" "artifacts/$filename"
 
-  # Copy the .json file to the "artifacts" folder
-  echo "Copying $ABI to artifacts..."
-  cp "$ABI" artifacts/
+  # Generate the contract name for referencing in the codegen command and index
+  CONTRACT=$(jq -r .name "artifacts/$filename")
+
+  echo "Creating types for $CONTRACT using artifacts/$filename..."
+  node --no-warnings ../noir-compiler/dest/cli.js codegen -o $OUT_DIR --ts "artifacts/$filename"
 
   # Add contract import/export to index.ts.
   echo "export * from './${CONTRACT}.js';" >>$INDEX
