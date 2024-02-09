@@ -252,6 +252,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},
+                                  .poseidon2_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
                                   .recursion_constraints = recursion_constraints,
