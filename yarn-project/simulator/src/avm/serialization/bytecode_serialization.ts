@@ -1,3 +1,4 @@
+import { Keccak, Poseidon2 } from '../opcodes/hashing.js';
 import {
   Add,
   Address,
@@ -126,8 +127,8 @@ const INSTRUCTION_SET = () =>
     [Revert.opcode, Revert],
 
     // //// Gadgets
-    // //[Keccak.opcode, Keccak],
-    // //[Poseidon.opcode, Poseidon],
+    [Keccak.opcode, Keccak],
+    [Poseidon2.opcode, Poseidon2],
   ]);
 
 interface Serializable {

@@ -14,6 +14,19 @@ describe('Hashing Opcodes', () => {
   });
 
   describe('Poseidon2', () => {
+    it('Should (de)serialize correctly', () => {
+      const buf = Buffer.from([
+        Poseidon2.opcode, // opcode
+        ...Buffer.from('12345678', 'hex'), // destOffset
+        ...Buffer.from('23456789', 'hex'), // hashOffset
+        ...Buffer.from('3456789a', 'hex'), // hashSize
+      ]);
+      const inst = new Poseidon2(/*destOffset=*/ 0x12345678, /*hashOffset=*/ 0x23456789, /*hashSize=*/ 0x3456789a);
+
+      expect(Poseidon2.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
     it('Should hash correctly', async () => {
       const args = [new Field(1n), new Field(2n), new Field(3n)];
       const hashOffset = 0;
@@ -30,6 +43,19 @@ describe('Hashing Opcodes', () => {
   });
 
   describe('Keccak', () => {
+    it('Should (de)serialize correctly', () => {
+      const buf = Buffer.from([
+        Keccak.opcode, // opcode
+        ...Buffer.from('12345678', 'hex'), // destOffset
+        ...Buffer.from('23456789', 'hex'), // hashOffset
+        ...Buffer.from('3456789a', 'hex'), // hashSize
+      ]);
+      const inst = new Keccak(/*destOffset=*/ 0x12345678, /*hashOffset=*/ 0x23456789, /*hashSize=*/ 0x3456789a);
+
+      expect(Keccak.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
     it('Should hash correctly', async () => {
       const args = [new Field(1n), new Field(2n), new Field(3n)];
       const hashOffset = 0;

@@ -3,12 +3,12 @@ import { keccak, poseidonHash } from '@aztec/foundation/crypto';
 
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { OperandType } from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 
 export class Poseidon2 extends Instruction {
   static type: string = 'POSEIDON2';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.POSEIDON;
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
@@ -42,7 +42,7 @@ export class Poseidon2 extends Instruction {
 
 export class Keccak extends Instruction {
   static type: string = 'KECCAK';
-  static numberOfOperands = 2;
+  static readonly opcode: Opcode = Opcode.KECCAK;
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
