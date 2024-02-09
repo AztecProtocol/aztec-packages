@@ -2,8 +2,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb;
-
 index_t LeavesCache::get_size() const
 {
     return index_t(leaves_.size());

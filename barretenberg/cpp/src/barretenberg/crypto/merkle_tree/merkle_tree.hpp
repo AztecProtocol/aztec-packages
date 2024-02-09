@@ -11,8 +11,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb;
-
 class MemoryStore;
 
 template <typename Store, typename HashingPolicy> class MerkleTree {

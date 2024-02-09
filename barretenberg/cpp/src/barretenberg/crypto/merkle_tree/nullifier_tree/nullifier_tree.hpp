@@ -5,8 +5,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb;
-
 template <typename Store, typename HashingPolicy> class NullifierTree : public MerkleTree<Store, HashingPolicy> {
   public:
     typedef uint256_t index_t;

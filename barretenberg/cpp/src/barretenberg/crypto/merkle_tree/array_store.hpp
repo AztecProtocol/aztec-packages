@@ -3,8 +3,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb;
-
 /**
  * @brief A very basic 2-d array for use as a backing store for merkle trees.
  * Can store up to 'indices' nodes per row and 'levels' rows.

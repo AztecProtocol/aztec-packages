@@ -6,7 +6,7 @@
 
 extern "C" {
 
-WASM_EXPORT void poseidon_hash(fr::vec_in_buf inputs_buffer, fr::out_buf output)
+WASM_EXPORT void poseidon_hash(bb::fr::vec_in_buf inputs_buffer, bb::fr::out_buf output)
 {
     std::vector<grumpkin::fq> to_hash;
     read(inputs_buffer, to_hash);
@@ -14,7 +14,7 @@ WASM_EXPORT void poseidon_hash(fr::vec_in_buf inputs_buffer, fr::out_buf output)
     bb::fr::serialize_to_buffer(r, output);
 }
 
-WASM_EXPORT void poseidon_hashes(fr::vec_in_buf inputs_buffer, fr::out_buf output)
+WASM_EXPORT void poseidon_hashes(bb::fr::vec_in_buf inputs_buffer, bb::fr::out_buf output)
 {
     std::vector<grumpkin::fq> to_hash;
     read(inputs_buffer, to_hash);

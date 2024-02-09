@@ -3,8 +3,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb;
-
 /**
  * A MemoryTree is structured as follows:
  *                                       hashes_

@@ -7,8 +7,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb;
-
 typedef uint256_t index_t;
 
 /**

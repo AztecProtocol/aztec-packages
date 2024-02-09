@@ -6,11 +6,10 @@
 
 namespace bb::crypto::merkle_tree {
 
-using namespace bb::stdlib;
-
+using fr = bb::stdlib::fr;
 using fr_hash_path = std::vector<std::pair<fr, fr>>;
 using fr_sibling_path = std::vector<fr>;
-template <typename Ctx> using hash_path = std::vector<std::pair<field_t<Ctx>, field_t<Ctx>>>;
+template <typename Ctx> using hash_path = std::vector<std::pair<bb::stdlib::field_t<Ctx>, bb::stdlib::field_t<Ctx>>>;
 
 inline fr_hash_path get_new_hash_path(fr_hash_path const& old_path, uint128_t index, fr const& value)
 {
@@ -42,7 +41,8 @@ template <typename Ctx> inline hash_path<Ctx> create_witness_hash_path(Ctx& ctx,
 {
     hash_path<Ctx> result;
     std::transform(input.begin(), input.end(), std::back_inserter(result), [&](auto const& v) {
-        return std::make_pair(field_t(witness_t(&ctx, v.first)), field_t(witness_t(&ctx, v.second)));
+        return std::make_pair(bb::stdlib::field_t(bb::stdlib::witness_t(&ctx, v.first)),
+                              bb::stdlib::field_t(bb::stdlib::witness_t(&ctx, v.second)));
     });
     return result;
 }
