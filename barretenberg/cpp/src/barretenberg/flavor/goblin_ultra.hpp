@@ -478,7 +478,7 @@ class GoblinUltraFlavor {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
      */
-    class Transcript : public BaseTranscript {
+    template <typename Commitment> class Transcript_ : public NativeTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -504,23 +504,23 @@ class GoblinUltraFlavor {
         Commitment zm_cq_comm;
         Commitment zm_pi_comm;
 
-        Transcript() = default;
+        Transcript_() = default;
 
-        Transcript(const HonkProof& proof)
-            : BaseTranscript(proof)
+        Transcript_(const HonkProof& proof)
+            : NativeTranscript(proof)
         {}
 
-        static std::shared_ptr<Transcript> prover_init_empty()
+        static std::shared_ptr<Transcript_> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript>();
+            auto transcript = std::make_shared<Transcript_>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
             [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
@@ -602,6 +602,8 @@ class GoblinUltraFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+    // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
+    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace bb
