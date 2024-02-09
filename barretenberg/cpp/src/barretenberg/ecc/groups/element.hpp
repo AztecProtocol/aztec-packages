@@ -102,6 +102,8 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     Fq z;
 
   private:
+    // For access to mul_without_endomorphism
+    friend class TestElementPrivate;
     element mul_without_endomorphism(const Fr& exponent) const noexcept;
     element mul_with_endomorphism(const Fr& exponent) const noexcept;
 

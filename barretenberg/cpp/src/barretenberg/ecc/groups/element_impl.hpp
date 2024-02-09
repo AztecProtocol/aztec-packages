@@ -3,6 +3,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "element.hpp"
+#include <cstdint>
 
 // NOLINTBEGIN(readability-implicit-bool-conversion, cppcoreguidelines-avoid-c-arrays)
 namespace bb::group_elements {
@@ -599,96 +600,92 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_without_endomorphism(const Fr& expone
     const uint256_t converted_scalar(exponent);
 
     if (converted_scalar == 0) {
-        element result{ Fq::zero(), Fq::zero(), Fq::zero() };
-        result.self_set_infinity();
-        return result;
+        return element::infinity();
     }
 
-    element work_element(*this);
+    element accumulator(*this);
     const uint64_t maximum_set_bit = converted_scalar.get_msb();
     // This is simpler and doublings of infinity should be fast. We should think if we want to defend against the
     // timing leak here (if used with ECDSA it can sometimes lead to private key compromise)
     for (uint64_t i = maximum_set_bit - 1; i < maximum_set_bit; --i) {
-        work_element.self_dbl();
+        accumulator.self_dbl();
         if (converted_scalar.get_bit(i)) {
-            work_element += *this;
+            accumulator += *this;
         }
     }
-    return work_element;
+    return accumulator;
 }
+
+namespace detail {
+using EndoScalars = std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>>;
+template <typename Element, std::size_t NUM_ROUNDS> struct EndomorphismWnaf {
+
+    static constexpr size_t NUM_WNAF_BITS = 4;
+
+    std::array<uint64_t, NUM_ROUNDS * 2> table;
+    bool skew = false;
+    bool endo_skew = false;
+
+    EndomorphismWnaf(const EndoScalars& scalars)
+    {
+        wnaf::fixed_wnaf(&scalars.first[0], &table[0], skew, 0, 2, NUM_WNAF_BITS);
+        wnaf::fixed_wnaf(&scalars.second[0], &table[1], endo_skew, 0, 2, NUM_WNAF_BITS);
+    }
+};
+} // namespace detail
 
 template <class Fq, class Fr, class T>
 element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent) const noexcept
 {
+    BB_OP_COUNT_TIME();
+    constexpr size_t NUM_ROUNDS = 32;
     const Fr converted_scalar = exponent.from_montgomery_form();
 
-    if (converted_scalar.is_zero()) {
-        element result{ Fq::zero(), Fq::zero(), Fq::zero() };
-        result.self_set_infinity();
-        return result;
+    if (converted_scalar.is_zero() || is_point_at_infinity()) {
+        return element::infinity();
     }
+    static constexpr size_t LOOKUP_SIZE = 8;
+    std::array<element, LOOKUP_SIZE> lookup_table;
 
-    constexpr size_t lookup_size = 8;
-    constexpr size_t num_rounds = 32;
-    constexpr size_t num_wnaf_bits = 4;
-    std::array<element, lookup_size> lookup_table;
-
-    element d2 = element(*this);
-    d2.self_dbl();
+    element d2 = dbl();
     lookup_table[0] = element(*this);
-    for (size_t i = 1; i < lookup_size; ++i) {
+    for (size_t i = 1; i < LOOKUP_SIZE; ++i) {
         lookup_table[i] = lookup_table[i - 1] + d2;
     }
 
-    uint64_t wnaf_table[num_rounds * 2];
-    Fr endo_scalar;
-    Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
-
-    bool skew = false;
-    bool endo_skew = false;
-
-    wnaf::fixed_wnaf(&endo_scalar.data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
-    wnaf::fixed_wnaf(&endo_scalar.data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
-
-    element work_element{ T::one_x, T::one_y, Fq::one() };
-    work_element.self_set_infinity();
-
-    uint64_t wnaf_entry = 0;
-    uint64_t index = 0;
-    bool sign = false;
+    detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars_no_shift(converted_scalar);
+    detail::EndomorphismWnaf<element, NUM_ROUNDS> wnaf{ endo_scalars };
+    element accumulator{ T::one_x, T::one_y, Fq::one() };
+    accumulator.self_set_infinity();
     Fq beta = Fq::cube_root_of_unity();
 
-    for (size_t i = 0; i < num_rounds * 2; ++i) {
-        wnaf_entry = wnaf_table[i];
-        index = wnaf_entry & 0x0fffffffU;
-        sign = static_cast<bool>((wnaf_entry >> 31) & 1);
+    for (size_t i = 0; i < NUM_ROUNDS * 2; ++i) {
+        uint64_t wnaf_entry = wnaf.table[i];
+        uint64_t index = wnaf_entry & 0x0fffffffU;
+        bool sign = static_cast<bool>((wnaf_entry >> 31) & 1);
         const bool is_odd = ((i & 1) == 1);
         auto to_add = lookup_table[static_cast<size_t>(index)];
         to_add.y.self_conditional_negate(sign ^ is_odd);
         if (is_odd) {
             to_add.x *= beta;
         }
-        work_element += to_add;
+        accumulator += to_add;
 
-        if (i != ((2 * num_rounds) - 1) && is_odd) {
+        if (i != ((2 * NUM_ROUNDS) - 1) && is_odd) {
             for (size_t j = 0; j < 4; ++j) {
-                work_element.self_dbl();
+                accumulator.self_dbl();
             }
         }
     }
 
-    auto temporary = -lookup_table[0];
-    if (skew) {
-        work_element += temporary;
+    if (wnaf.skew) {
+        accumulator += -lookup_table[0];
+    }
+    if (wnaf.endo_skew) {
+        accumulator += element{ lookup_table[0].x * beta, lookup_table[0].y, lookup_table[0].z };
     }
 
-    temporary = { lookup_table[0].x * beta, lookup_table[0].y, lookup_table[0].z };
-
-    if (endo_skew) {
-        work_element += temporary;
-    }
-
-    return work_element;
+    return accumulator;
 }
 
 /**

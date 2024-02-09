@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/ecc/groups/element.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include <fstream>
 
@@ -128,6 +129,33 @@ TEST(AffineElement, Msgpack)
 {
     auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
     EXPECT_EQ(actual, expected);
+}
+
+namespace bb::group_elements {
+// Kludge to access mul_without_endomorphism;
+class TestElementPrivate {
+  public:
+    template <typename Element, typename Scalar>
+    static Element mul_without_endomorphism(const Element& element, const Scalar& scalar)
+    {
+        return element.mul_without_endomorphism(scalar);
+    }
+    template <typename Element, typename Scalar>
+    static Element mul_with_endomorphism(const Element& element, const Scalar& scalar)
+    {
+        return element.mul_with_endomorphism(scalar);
+    }
+};
+} // namespace bb::group_elements
+
+TEST(AffineElement, EndoMulMatchesNonEndo)
+{
+    for (int i = 0; i < 100; i++) {
+        auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());
+        auto r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, grumpkin::fr::random_element());
+        auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, grumpkin::fr::random_element());
+        EXPECT_EQ(r1, r2);
+    }
 }
 
 TEST(AffineElement, InfinityMul)

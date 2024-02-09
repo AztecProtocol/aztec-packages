@@ -12,7 +12,7 @@ GlobalOpCountContainer::~GlobalOpCountContainer()
 {
     // This is useful for printing counts at the end of non-benchmarks.
     // See op_count_google_bench.hpp for benchmarks.
-    // print();
+    print();
 }
 
 void GlobalOpCountContainer::add_entry(const char* key, const std::shared_ptr<OpStats>& count)
