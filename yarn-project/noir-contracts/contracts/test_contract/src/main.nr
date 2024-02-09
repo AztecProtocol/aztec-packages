@@ -2,6 +2,7 @@
 contract Test {
     use dep::std::option::Option;
     use dep::aztec::protocol_types::{
+        abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         address::{
             AztecAddress,
             EthAddress,
@@ -9,21 +10,18 @@ contract Test {
         constants::{
             MAX_READ_REQUESTS_PER_CALL,
             MAX_NOTES_PER_PAGE
-        }
+        },
+        hash::hash_args,
     };
-    // The following import is here in order to make the event macro work because the macro doesn't add the import.
-    // It doesn't add the import because in the future we will re-export all the types via aztec-nr and aztec-nr is
-    // already auto-imported by the macros.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Remove this once the issue is fixed.
-    use dep::aztec::protocol_types;
     // docs:start:unencrypted_import
     use dep::aztec::log::emit_unencrypted_log;
     // docs:end:unencrypted_import
 
     use dep::aztec::{
-        context::Context,
-        abi,
-        abi::PrivateContextInputs,
+        context::{
+            Context,
+            inputs::private_context_inputs::PrivateContextInputs,
+        },
         hash::pedersen_hash,
         context::PrivateContext,
         note::{
@@ -191,7 +189,7 @@ contract Test {
         an_array: [Field; 2],
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub PrivateCircuitPublicInputs {
         let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
         args.push(a_field);
         args.push(a_bool as Field);
@@ -207,7 +205,7 @@ contract Test {
             args.push(note.amount);
             args.push(note.secret_hash);
         }
-        let args_hash = abi::hash_args(args.storage);
+        let args_hash = hash_args(args.storage);
         let mut context = PrivateContext::new(inputs, args_hash);
         context.return_values.push(args_hash);
         context.finish()
@@ -296,6 +294,39 @@ contract Test {
     fn set_constant(value: Field) {
         let mut note = FieldNote::new(value);
         storage.example_constant.initialize(&mut note, false);
+    }
+
+    #[aztec(private)]
+    fn assert_private_global_vars(chain_id: Field, version: Field) {
+        assert(context.chain_id() == chain_id, "Invalid chain id");
+        assert(context.version() == version, "Invalid version");
+    }
+
+    #[aztec(public)]
+    fn assert_public_global_vars(
+        chain_id: Field,
+        version: Field,
+        block_number: Field,
+        timestamp: Field,
+        coinbase: EthAddress,
+        fee_recipient: AztecAddress
+    ) {
+        assert(context.chain_id() == chain_id, "Invalid chain id");
+        assert(context.version() == version, "Invalid version");
+        assert(context.block_number() == block_number, "Invalid block number");
+        assert(context.timestamp() == timestamp, "Invalid timestamp");
+        assert(context.coinbase() == coinbase, "Invalid coinbase");
+        assert(context.fee_recipient() == fee_recipient, "Invalid fee recipient");
+    }
+
+    #[aztec(private)]
+    fn assert_header_private(header_hash: Field) {
+        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    }
+
+    #[aztec(public)]
+    fn assert_header_public(header_hash: Field) {
+        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
     }
 
     unconstrained fn get_constant() -> pub Field {

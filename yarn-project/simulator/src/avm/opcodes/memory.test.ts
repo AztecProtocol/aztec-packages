@@ -4,6 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { Addressing, AddressingMode } from './addressing_mode.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
 describe('Memory instructions', () => {
@@ -14,17 +15,83 @@ describe('Memory instructions', () => {
   });
 
   describe('SET', () => {
-    it('Should (de)serialize correctly', () => {
+    it('Should (de)serialize correctly [tag=u8]', () => {
       const buf = Buffer.from([
         Set.opcode, // opcode
         0x01, // indirect
-        TypeTag.FIELD, // inTag
+        TypeTag.UINT8, // inTag
+        ...Buffer.from('12', 'hex'),
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
+      ]);
+      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT8, /*value=*/ 0x12, /*dstOffset=*/ 0x3456789a);
+
+      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should (de)serialize correctly [tag=u16]', () => {
+      const buf = Buffer.from([
+        Set.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT16, // inTag
+        ...Buffer.from('1234', 'hex'),
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
+      ]);
+      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x1234, /*dstOffset=*/ 0x3456789a);
+
+      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should (de)serialize correctly [tag=u32]', () => {
+      const buf = Buffer.from([
+        Set.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT32, // inTag
+        ...Buffer.from('12345678', 'hex'),
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
+      ]);
+      const inst = new Set(
+        /*indirect=*/ 0x01,
+        /*inTag=*/ TypeTag.UINT32,
+        /*value=*/ 0x12345678,
+        /*dstOffset=*/ 0x3456789a,
+      );
+
+      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should (de)serialize correctly [tag=u64]', () => {
+      const buf = Buffer.from([
+        Set.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT64, // inTag
+        ...Buffer.from('1234567812345678', 'hex'),
+        ...Buffer.from('3456789a', 'hex'), // dstOffset
+      ]);
+      const inst = new Set(
+        /*indirect=*/ 0x01,
+        /*inTag=*/ TypeTag.UINT64,
+        /*value=*/ 0x1234567812345678n,
+        /*dstOffset=*/ 0x3456789a,
+      );
+
+      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should (de)serialize correctly [tag=u128]', () => {
+      const buf = Buffer.from([
+        Set.opcode, // opcode
+        0x01, // indirect
+        TypeTag.UINT128, // inTag
         ...Buffer.from('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
-        /*inTag=*/ TypeTag.FIELD,
+        /*inTag=*/ TypeTag.UINT128,
         /*value=*/ 0x12345678123456781234567812345678n,
         /*dstOffset=*/ 0x3456789a,
       );
@@ -236,6 +303,16 @@ describe('Memory instructions', () => {
 
       expect(actual).toEqual(new Uint16(27n));
       expect(tag).toEqual(TypeTag.UINT16);
+    });
+
+    it('Should support INDIRECT addressing', async () => {
+      context.machineState.memory.set(0, new Uint16(55));
+      context.machineState.memory.set(10, new Uint32(20));
+      const addressing = new Addressing([/*srcOffset*/ AddressingMode.DIRECT, /*dstOffset*/ AddressingMode.INDIRECT]);
+      await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10).execute(context);
+
+      expect(context.machineState.memory.get(1)).toBeUndefined();
+      expect(context.machineState.memory.get(20)).toEqual(new Uint16(55n));
     });
 
     it('Should move field elements on different memory cells', async () => {
