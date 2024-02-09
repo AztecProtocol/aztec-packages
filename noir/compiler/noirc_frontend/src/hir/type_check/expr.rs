@@ -153,11 +153,13 @@ impl<'interner> TypeChecker<'interner> {
             HirExpression::Call(call_expr) => {
                 // Need to setup these flags here as `self` is borrowed mutably to type check the rest of the call expression
                 // These flags are later used to type check calls to unconstrained functions from constrained functions
-                let current_func = self
+                let is_current_func_constrained = self
                     .current_function
-                    .expect("Can only have call expression inside of a function body");
-                let func_mod = self.interner.function_modifiers(&current_func);
-                let is_current_func_constrained = !func_mod.is_unconstrained;
+                    .map(|func| {
+                        let func_mod = self.interner.function_modifiers(&func);
+                        !func_mod.is_unconstrained
+                    })
+                    .unwrap_or(true); //TODO(4318) If there is no current function, then we assume it is constrained
                 let is_unconstrained_call = self.is_unconstrained_call(&call_expr.func);
 
                 self.check_if_deprecated(&call_expr.func);
