@@ -1,9 +1,12 @@
 use dep::protocol_types::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     hash::pedersen_hash,
-    traits::{Hash, Serialize}
+    traits::{
+        Hash,
+        Serialize,
+    },
+    utils::arr_copy_slice,
 };
-use crate::utils::arr_copy_slice;
 
 global LEAF_PREIMAGE_LENGTH: Field = 4;
 // TODO: move this to constants_gen.nr so that it gets computed as INDEX_LENGTH + LEAF_DATA_LENGTH + PUBLIC_DATA_TREE_HEIGHT
