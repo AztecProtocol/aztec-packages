@@ -323,6 +323,7 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
     uint32_t out_accumulator_idx = this->zero_idx;
     constexpr FF four = FF(4);
     constexpr FF neg_two = -FF(2);
+    constexpr FF two = FF(2);
     for (size_t i = num_bits - 1; i < num_bits; i -= 2) {
         bool left_hi_val = left_witness_value.get_bit(i);
         bool left_lo_val = left_witness_value.get_bit(i - 1);
@@ -370,13 +371,40 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
 
         FF left_quad =
             this->get_variable(left_lo_idx) + this->get_variable(left_hi_idx) + this->get_variable(left_hi_idx);
+        uint32_t left_quad_idx = this->add_variable(left_quad);
+
+        create_add_gate({ left_hi_idx,
+                          left_lo_idx,
+                          left_quad_idx,
+                          two,
+                          FF::one(),
+                          FF::neg_one(),
+                          FF::zero() });
+
         FF right_quad =
             this->get_variable(right_lo_idx) + this->get_variable(right_hi_idx) + this->get_variable(right_hi_idx);
-        FF out_quad = this->get_variable(out_lo_idx) + this->get_variable(out_hi_idx) + this->get_variable(out_hi_idx);
-
-        uint32_t left_quad_idx = this->add_variable(left_quad);
         uint32_t right_quad_idx = this->add_variable(right_quad);
+
+        create_add_gate({ right_hi_idx,
+                          right_lo_idx,
+                          right_quad_idx,
+                          two,
+                          FF::one(),
+                          FF::neg_one(),
+                          FF::zero() });
+
+        FF out_quad =
+            this->get_variable(out_lo_idx) + this->get_variable(out_hi_idx) + this->get_variable(out_hi_idx);
         uint32_t out_quad_idx = this->add_variable(out_quad);
+
+        create_add_gate({ out_hi_idx,
+                          out_lo_idx,
+                          out_quad_idx,
+                          two,
+                          FF::one(),
+                          FF::neg_one(),
+                          FF::zero() });
+
 
         FF new_left_accumulator = left_accumulator + left_accumulator;
         new_left_accumulator = new_left_accumulator + new_left_accumulator;
