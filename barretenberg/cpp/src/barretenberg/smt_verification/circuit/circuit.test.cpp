@@ -154,3 +154,35 @@ TEST(circuit, uniqueWitnessPublic)
 // }
 // TEST(circuit, get_value_assert_equal){
 // }
+
+TEST(circuit, assert_equal){
+    StandardCircuitBuilder builder = StandardCircuitBuilder();
+
+    field_t a(witness_t(&builder, fr::random_element()));
+    field_t b(witness_t(&builder, fr::random_element()));
+    builder.set_variable_name(a.witness_index, "a");
+    builder.set_variable_name(b.witness_index, "b");
+    field_t c = (a + a) / (b + b + b);
+    builder.set_variable_name(c.witness_index, "c");
+    ASSERT_TRUE(builder.check_circuit());
+    field_t d(witness_t(&builder, c.get_value()));
+    builder.assert_equal(d.get_witness_index(), c.get_witness_index());
+
+    auto buf = builder.export_circuit();
+
+    smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
+    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
+    smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
+    s.print_assertions();
+    smt_terms::FFTerm a1 = circuit["a"];
+    smt_terms::FFTerm b1 = circuit["b"];
+    smt_terms::FFTerm c1 = circuit["c"];
+    smt_terms::FFTerm cr = smt_terms::FFTerm::Var("cr", &s);
+    cr = (2 * a1) / (2 * b1 + b1);
+    c1 == cr;
+
+    bool res = s.check();
+    ASSERT_TRUE(res);
+
+    default_model_single({"a", "b", "c"}, circuit, &s, "circuit_with_assert_equal_call.txt");
+}
