@@ -7,21 +7,27 @@
 using namespace benchmark;
 
 namespace bb {
-using Flavor = GoblinUltraFlavor;
-using Instance = ProverInstance_<Flavor>;
-using Instances = ProverInstances_<Flavor, 2>;
-using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
-using Builder = Flavor::CircuitBuilder;
 
-void bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver&))
+template <typename Composer>
+void _bench_round(::benchmark::State& state,
+                  void (*F)(ProtoGalaxyProver_<ProverInstances_<typename Composer::Flavor, 2>>&))
 {
+    using Flavor = typename Composer::Flavor;
+    using Instance = ProverInstance_<Flavor>;
+    using Builder = Flavor::CircuitBuilder;
+
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto log2_num_gates = static_cast<size_t>(state.range(0));
-    auto composer = GoblinUltraComposer();
+    auto composer = Composer();
 
     const auto construct_instance = [&]() {
         Builder builder;
-        GoblinMockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
+        if constexpr (std::same_as<Flavor, GoblinUltraFlavor>) {
+            GoblinMockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
+        } else {
+            static_assert(std::same_as<Flavor, UltraFlavor>);
+            bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
+        }
         return composer.create_instance(builder);
     };
 
@@ -43,14 +49,35 @@ void bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver&))
     }
 }
 
-BENCHMARK_CAPTURE(bench_round, preparation, [](auto& prover) { prover.preparation_round(); }) -> DenseRange(14, 20)
-    -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round, perturbator, [](auto& prover) { prover.perturbator_round(); }) -> DenseRange(14, 20)
-    -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
+void bench_round_ultra(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>&))
+{
+    _bench_round<UltraComposer>(state, F);
+}
+
+void bench_round_goblin_ultra(::benchmark::State& state,
+                              void (*F)(ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>&))
+{
+    _bench_round<GoblinUltraComposer>(state, F);
+}
+
+BENCHMARK_CAPTURE(bench_round_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
+BENCHMARK_CAPTURE(bench_round_ultra, perturbator, [](auto& prover) { prover.perturbator_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_ultra, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_ultra, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, perturbator, [](auto& prover) { prover.perturbator_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
+
 } // namespace bb
 
 BENCHMARK_MAIN();
