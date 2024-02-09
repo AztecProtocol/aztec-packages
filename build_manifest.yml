@@ -228,6 +228,7 @@ docs:
     - ^.*.nr$
   dependencies:
     - yarn-project
+    - aztec-nr
 
 yellow-paper:
   buildDir: yellow-paper
