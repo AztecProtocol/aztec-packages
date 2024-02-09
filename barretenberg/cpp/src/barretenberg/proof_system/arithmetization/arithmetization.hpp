@@ -177,6 +177,17 @@ template <typename FF_> class UltraHonkArith {
         }
     }
 
+    // Temporary: probably not ultimately necessary
+    void reserve_and_zero(size_t size_hint)
+    {
+        for (auto& vec : selectors) {
+            vec.reserve(size_hint);
+            for (size_t i = 0; i < size_hint; ++i) {
+                vec.emplace_back(0);
+            }
+        }
+    }
+
     /**
      * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
      * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the conventional
