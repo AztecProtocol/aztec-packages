@@ -12,13 +12,24 @@ use dep::protocol_types::{
 },
     address::{AztecAddress, EthAddress},
     constants::{
-    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
-    RETURN_VALUES_LENGTH
-},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    hash::hash_args, header::Header, utils::reader::Reader
+        MAX_NEW_COMMITMENTS_PER_CALL,
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_READ_REQUESTS_PER_CALL,
+        NUM_FIELDS_PER_SHA256,
+        RETURN_VALUES_LENGTH,
+    },
+    contrakt::{
+        storage_read::StorageRead,
+        storage_update_request::StorageUpdateRequest,
+    },
+    hash::hash_args,
+    header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
+    utils::reader::Reader,
 };
 
 struct PublicContext {
@@ -35,7 +46,7 @@ struct PublicContext {
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
     unencrypted_logs_preimages_length: Field,
@@ -60,7 +71,7 @@ impl PublicContext {
             public_call_stack_hashes: BoundedVec::new(0),
             new_commitments: BoundedVec::new(SideEffect::empty()),
             new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
-            new_l2_to_l1_msgs: BoundedVec::new(0),
+            new_l2_to_l1_msgs: BoundedVec::new(L2ToL1Message::empty()),
             unencrypted_logs_hash: BoundedVec::new(0),
             unencrypted_logs_preimages_length: 0,
             historical_header: inputs.historical_header,
@@ -151,7 +162,17 @@ impl PublicContext {
     }
 
     pub fn message_portal(&mut self, content: Field) {
-        self.new_l2_to_l1_msgs.push(content);
+        let recipient = self.this_portal_address();
+        self.message_recipient(recipient, content);
+    }
+
+    pub fn message_recipient(&mut self, recipient: EthAddress, content: Field)
+    {
+        let message = L2ToL1Message {
+            recipient,
+            content,
+        };
+        self.new_l2_to_l1_msgs.push(message);
     }
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
