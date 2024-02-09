@@ -14,6 +14,9 @@ struct Bn254G1Params {
     static constexpr fq one_y{ 0xa6ba871b8b1e1b3aUL, 0x14f1d651eb8e167bUL, 0xccdd46def0f28c58UL, 0x1c14ef83340fbe5eUL };
     static constexpr fq a{ 0UL, 0UL, 0UL, 0UL };
     static constexpr fq b{ 0x7a17caa950ad28d7UL, 0x1f6ac17ae15521b9UL, 0x334bea4e696bd284UL, 0x2a1f6744ce179d8eUL };
+
+    // This is , so it represents one BN254 scalar
+    static constexpr size_t NUM_BN254_SCALARS = 1;
 };
 
 using g1 = group<fq, fr, Bn254G1Params>;

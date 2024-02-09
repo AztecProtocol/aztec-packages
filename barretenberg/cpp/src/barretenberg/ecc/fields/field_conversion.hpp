@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/proof_system/types/circuit_type.hpp"
 
 namespace bb::field_conversion {
 
@@ -15,46 +16,60 @@ namespace bb::field_conversion {
  * @tparam T
  * @return constexpr size_t
  */
-template <typename T> constexpr size_t calc_num_bn254_frs();
+// template <typename T> constexpr size_t calc_num_bn254_frs();
 
-constexpr size_t calc_num_bn254_frs(bb::fr* /*unused*/)
-{
-    return 1;
-}
+// constexpr size_t calc_num_bn254_frs(bb::fr* /*unused*/)
+// {
+//     return 1;
+// }
 
-constexpr size_t calc_num_bn254_frs(grumpkin::fr* /*unused*/)
-{
-    return 2;
-}
+// constexpr size_t calc_num_bn254_frs(grumpkin::fr* /*unused*/)
+// {
+//     return 2;
+// }
 
-template <std::integral T> constexpr size_t calc_num_bn254_frs(T* /*unused*/)
-{
-    return 1; // meant for integral types that are less than 254 bits
-}
+// template <std::integral T> constexpr size_t calc_num_bn254_frs(T* /*unused*/)
+// {
+//     return 1; // meant for integral types that are less than 254 bits
+// }
 
-constexpr size_t calc_num_bn254_frs(curve::BN254::AffineElement* /*unused*/)
-{
-    return 2 * calc_num_bn254_frs<curve::BN254::BaseField>();
-}
+// constexpr size_t calc_num_bn254_frs(curve::BN254::AffineElement* /*unused*/)
+// {
+//     return 2 * calc_num_bn254_frs<curve::BN254::BaseField>();
+// }
 
-constexpr size_t calc_num_bn254_frs(curve::Grumpkin::AffineElement* /*unused*/)
-{
-    return 2 * calc_num_bn254_frs<curve::Grumpkin::BaseField>();
-}
+// constexpr size_t calc_num_bn254_frs(curve::Grumpkin::AffineElement* /*unused*/)
+// {
+//     return 2 * calc_num_bn254_frs<curve::Grumpkin::BaseField>();
+// }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(std::array<T, N>* /*unused*/)
-{
-    return N * calc_num_bn254_frs<T>();
-}
+// template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(std::array<T, N>* /*unused*/)
+// {
+//     return N * calc_num_bn254_frs<T>();
+// }
 
-template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(bb::Univariate<T, N>* /*unused*/)
-{
-    return N * calc_num_bn254_frs<T>();
-}
+// template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(bb::Univariate<T, N>* /*unused*/)
+// {
+//     return N * calc_num_bn254_frs<T>();
+// }
+
+// template <typename T> constexpr size_t calc_num_bn254_frs()
+// {
+//     return calc_num_bn254_frs(static_cast<T*>(nullptr));
+// }
 
 template <typename T> constexpr size_t calc_num_bn254_frs()
 {
-    return calc_num_bn254_frs(static_cast<T*>(nullptr));
+    if constexpr (IsAnyOf<T, uint32_t, bool>) {
+        return 1;
+    } else if constexpr (IsAnyOf<T, bb::fr, grumpkin::fr>) {
+        return T::NUM_BN254_SCALARS;
+    } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+        return 2 * calc_num_bn254_frs<typename T::Fq>();
+    } else {
+        // Array or Univariate
+        return calc_num_bn254_frs<typename T::value_type>() * (std::tuple_size<T>::value);
+    }
 }
 
 /**
