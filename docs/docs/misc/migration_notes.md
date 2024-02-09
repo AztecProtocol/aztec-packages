@@ -9,9 +9,11 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ## 0.22.0
 
 ### `Note::compute_note_hash` renamed to `Note::compute_note_content_hash`
+
 The `compute_note_hash` function in of the `Note` trait has been renamed to `compute_note_content_hash` to avoid being confused with the actual note hash.
 
 Before:
+
 ```rust
 impl NoteInterface for CardNote {
     fn compute_note_hash(self) -> Field {
@@ -22,6 +24,7 @@ impl NoteInterface for CardNote {
 ```
 
 Now:
+
 ```rust
 impl NoteInterface for CardNote {
     fn compute_note_content_hash(self) -> Field {
@@ -43,6 +46,7 @@ Makes a split in logic for note hash computation for consumption and insertion. 
 The `NoteInterface` have been extended to include `serialize_content` and `deserialize_content` functions. This is to convey the difference between serializing the full note, and just the content. This change allows you to also add a `serialize` function to support passing in a complete note to a function.
 
 Before:
+
 ```rust
 impl Serialize<ADDRESS_NOTE_LEN> for AddressNote {
     fn serialize(self) -> [Field; ADDRESS_NOTE_LEN]{
@@ -60,7 +64,8 @@ impl Deserialize<ADDRESS_NOTE_LEN> for AddressNote {
     }
 ```
 
-Now 
+Now
+
 ```rust
 impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
     fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN]{
@@ -83,7 +88,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
 
 Storage definition and initialization has been simplified. Previously:
 
-```rust 
+```rust
 struct Storage {
     leader: PublicState<Leader, LEADER_SERIALIZED_LEN>,
     legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
@@ -115,9 +120,9 @@ impl Storage {
     }
 ```
 
-Now: 
+Now:
 
-```rust 
+```rust
 struct Storage {
     leader: PublicState<Leader>,
     legendary_card: Singleton<CardNote>,
@@ -255,9 +260,9 @@ global CardNoteMethods = NoteInterface {
 };
 ```
 
-Now: 
+Now:
 
-```rust 
+```rust
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -352,7 +357,7 @@ impl NoteInterface for CardNote {
 }
 ```
 
-Public state must implement Serialize and Deserialize traits. 
+Public state must implement Serialize and Deserialize traits.
 
 It is still possible to manually implement the storage initialization (for custom storage wrappers or internal types that don't implement the required traits). For the above example, the `impl Storage` section would look like this:
 
@@ -441,7 +446,7 @@ impl Storage {
 The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="aztec-nr/aztec" }
 ```
 
 ### [Aztec.nr] key type definition in Map
@@ -531,8 +536,8 @@ const tokenBigInt = (await bridge.methods.token().view()).inner;
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="aztec-nr/aztec" }
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-protocol-circuits/src/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress
@@ -586,11 +591,11 @@ Aztec contracts are now moved outside of the `src` folder, so you need to update
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-contracts/src/contracts/easy_private_token_contract"}
 ```
 
 Now, just remove the `src` folder,:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-contracts/contracts/easy_private_token_contract"}
 ```

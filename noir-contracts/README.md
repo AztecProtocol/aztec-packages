@@ -97,7 +97,7 @@ It has prebuilt binaries and is super easy to install using `noirup`
 
 ### Building the contracts
 
-- In the aztec-packages repository, go to the directory yarn-project/noir-contracts
+- In the aztec-packages repository, go to the directory noir-contracts
 
 - Use the `noir:build:all` script to compile the contracts you want and prepare the ABI for consumption
 
@@ -132,7 +132,7 @@ It has prebuilt binaries and is super easy to install using `noirup`
    compiler_version = "0>=.18.0"
 
    [dependencies]
-   aztec = { path = "../../../../yarn-project/aztec-nr/aztec" }
+   aztec = { path = "../../../../aztec-nr/aztec" }
    ```
 
 4. Replace the content of the generated `example_contract/src/main.nr` file with your contract code.
