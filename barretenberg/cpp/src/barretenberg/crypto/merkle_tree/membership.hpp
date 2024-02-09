@@ -9,8 +9,8 @@
 namespace bb::crypto::merkle_tree {
 
 template <typename Builder> using bit_vector = std::vector<bb::stdlib::bool_t<Builder>>;
-template <typename Builder> using field = bb::stdlib::field_t<Builder>;
-template <typename Builder> using bool_bt = bb::stdlib::bool_t<Builder>;
+template <typename Builder> using field_t = bb::stdlib::field_t<Builder>;
+template <typename Builder> using bool_t = bb::stdlib::bool_t<Builder>;
 /**
  * Computes the new merkle root if the subtree is correctly inserted at a specified index in a Merkle tree.
  *
@@ -25,24 +25,24 @@ template <typename Builder> using bool_bt = bb::stdlib::bool_t<Builder>;
  * @see Check full documentation: https://hackmd.io/2zyJc6QhRuugyH8D78Tbqg?view
  */
 template <typename Builder>
-field<Builder> compute_subtree_root(hash_path<Builder> const& hashes,
-                                    field<Builder> const& value,
-                                    bit_vector<Builder> const& index,
-                                    size_t at_height,
-                                    bool const is_updating_tree = false)
+field_t<Builder> compute_subtree_root(hash_path<Builder> const& hashes,
+                                      field_t<Builder> const& value,
+                                      bit_vector<Builder> const& index,
+                                      size_t at_height,
+                                      bool const is_updating_tree = false)
 {
     auto current = value;
     for (size_t i = at_height; i < hashes.size(); ++i) {
         // get the parity bit at this level of the tree (get_bit returns bool so we know this is 0 or 1)
-        bool_bt<Builder> path_bit = index[i];
+        bool_t<Builder> path_bit = index[i];
 
         // reconstruct the two inputs we need to hash
         // if `path_bit = false`, we know `current` is the left leaf and `hashes[i].second` is the right leaf
         // if `path_bit = true`, we know `current` is the right leaf and `hashes[i].first` is the left leaf
         // We don't need to explicitly check that hashes[i].first = current iff !path bit , or that hashes[i].second =
         // current iff path_bit If either of these does not hold, then the final computed merkle root will not match
-        field<Builder> left = field<Builder>::conditional_assign(path_bit, hashes[i].first, current);
-        field<Builder> right = field<Builder>::conditional_assign(path_bit, current, hashes[i].second);
+        field_t<Builder> left = field_t<Builder>::conditional_assign(path_bit, hashes[i].first, current);
+        field_t<Builder> right = field_t<Builder>::conditional_assign(path_bit, current, hashes[i].second);
         if (is_updating_tree) {
             current = bb::stdlib::pedersen_hash<Builder>::hash({ left, right }, 0);
         } else {
@@ -68,12 +68,12 @@ field<Builder> compute_subtree_root(hash_path<Builder> const& hashes,
  * @see Check full documentation: https://hackmd.io/2zyJc6QhRuugyH8D78Tbqg?view
  */
 template <typename Builder>
-bool_bt<Builder> check_subtree_membership(field<Builder> const& root,
-                                          hash_path<Builder> const& hashes,
-                                          field<Builder> const& value,
-                                          bit_vector<Builder> const& index,
-                                          size_t at_height,
-                                          bool const is_updating_tree = false)
+bool_t<Builder> check_subtree_membership(field_t<Builder> const& root,
+                                         hash_path<Builder> const& hashes,
+                                         field_t<Builder> const& value,
+                                         bit_vector<Builder> const& index,
+                                         size_t at_height,
+                                         bool const is_updating_tree = false)
 {
     return (compute_subtree_root(hashes, value, index, at_height, is_updating_tree) == root);
 }
@@ -92,9 +92,9 @@ bool_bt<Builder> check_subtree_membership(field<Builder> const& root,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-void assert_check_subtree_membership(field<Builder> const& root,
+void assert_check_subtree_membership(field_t<Builder> const& root,
                                      hash_path<Builder> const& hashes,
-                                     field<Builder> const& value,
+                                     field_t<Builder> const& value,
                                      bit_vector<Builder> const& index,
                                      size_t at_height,
                                      bool const is_updating_tree = false,
@@ -116,11 +116,11 @@ void assert_check_subtree_membership(field<Builder> const& root,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-bool_bt<Builder> check_membership(field<Builder> const& root,
-                                  hash_path<Builder> const& hashes,
-                                  field<Builder> const& value,
-                                  bit_vector<Builder> const& index,
-                                  bool const is_updating_tree = false)
+bool_t<Builder> check_membership(field_t<Builder> const& root,
+                                 hash_path<Builder> const& hashes,
+                                 field_t<Builder> const& value,
+                                 bit_vector<Builder> const& index,
+                                 bool const is_updating_tree = false)
 {
     return check_subtree_membership(root, hashes, value, index, 0, is_updating_tree);
 }
@@ -138,9 +138,9 @@ bool_bt<Builder> check_membership(field<Builder> const& root,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-void assert_check_membership(field<Builder> const& root,
+void assert_check_membership(field_t<Builder> const& root,
                              hash_path<Builder> const& hashes,
-                             field<Builder> const& value,
+                             field_t<Builder> const& value,
                              bit_vector<Builder> const& index,
                              bool const is_updating_tree = false,
                              std::string const& msg = "assert_check_membership")
@@ -163,11 +163,11 @@ void assert_check_membership(field<Builder> const& root,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-void update_membership(field<Builder> const& new_root,
-                       field<Builder> const& new_value,
-                       field<Builder> const& old_root,
+void update_membership(field_t<Builder> const& new_root,
+                       field_t<Builder> const& new_value,
+                       field_t<Builder> const& old_root,
                        hash_path<Builder> const& old_hashes,
-                       field<Builder> const& old_value,
+                       field_t<Builder> const& old_value,
                        bit_vector<Builder> const& index,
                        std::string const& msg = "update_membership")
 {
@@ -190,12 +190,12 @@ void update_membership(field<Builder> const& new_root,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-field<Builder> update_memberships(field<Builder> old_root,
-                                  std::vector<field<Builder>> const& new_roots,
-                                  std::vector<field<Builder>> const& new_values,
-                                  std::vector<field<Builder>> const& old_values,
-                                  std::vector<hash_path<Builder>> const& old_paths,
-                                  std::vector<bit_vector<Builder>> const& old_indicies)
+field_t<Builder> update_memberships(field_t<Builder> old_root,
+                                    std::vector<field_t<Builder>> const& new_roots,
+                                    std::vector<field_t<Builder>> const& new_values,
+                                    std::vector<field_t<Builder>> const& old_values,
+                                    std::vector<hash_path<Builder>> const& old_paths,
+                                    std::vector<bit_vector<Builder>> const& old_indicies)
 {
     for (size_t i = 0; i < old_indicies.size(); i++) {
         update_membership(
@@ -222,11 +222,11 @@ field<Builder> update_memberships(field<Builder> old_root,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-void update_subtree_membership(field<Builder> const& new_root,
-                               field<Builder> const& new_subtree_root,
-                               field<Builder> const& old_root,
+void update_subtree_membership(field_t<Builder> const& new_root,
+                               field_t<Builder> const& new_subtree_root,
+                               field_t<Builder> const& old_root,
                                hash_path<Builder> const& old_hashes,
-                               field<Builder> const& old_subtree_root,
+                               field_t<Builder> const& old_subtree_root,
                                bit_vector<Builder> const& index,
                                size_t at_height,
                                std::string const& msg = "update_subtree_membership")
@@ -248,14 +248,14 @@ void update_subtree_membership(field<Builder> const& new_root,
  * @param input: vector of leaf values.
  * @tparam Builder: type of builder.
  */
-template <typename Builder> field<Builder> compute_tree_root(std::vector<field<Builder>> const& input)
+template <typename Builder> field_t<Builder> compute_tree_root(std::vector<field_t<Builder>> const& input)
 {
     // Check if the input vector size is a power of 2.
     ASSERT(input.size() > 0);
     ASSERT(!(input.size() & (input.size() - 1)) == true);
     auto layer = input;
     while (layer.size() > 1) {
-        std::vector<field<Builder>> next_layer(layer.size() / 2);
+        std::vector<field_t<Builder>> next_layer(layer.size() / 2);
         for (size_t i = 0; i < next_layer.size(); ++i) {
             next_layer[i] = bb::stdlib::pedersen_hash<Builder>::hash({ layer[i * 2], layer[i * 2 + 1] });
         }
@@ -272,7 +272,7 @@ template <typename Builder> field<Builder> compute_tree_root(std::vector<field<B
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-bool_bt<Builder> check_tree(field<Builder> const& root, std::vector<field<Builder>> const& values)
+bool_t<Builder> check_tree(field_t<Builder> const& root, std::vector<field_t<Builder>> const& values)
 {
     return compute_tree_root(values) == root;
 }
@@ -284,7 +284,7 @@ bool_bt<Builder> check_tree(field<Builder> const& root, std::vector<field<Builde
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-void assert_check_tree(field<Builder> const& root, std::vector<field<Builder>> const& values)
+void assert_check_tree(field_t<Builder> const& root, std::vector<field_t<Builder>> const& values)
 {
     auto valid = check_tree(root, values);
     valid.assert_equal(true, "assert_check_tree");
@@ -302,15 +302,15 @@ void assert_check_tree(field<Builder> const& root, std::vector<field<Builder>> c
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
-void batch_update_membership(field<Builder> const& new_root,
-                             field<Builder> const& old_root,
+void batch_update_membership(field_t<Builder> const& new_root,
+                             field_t<Builder> const& old_root,
                              hash_path<Builder> const& old_path,
-                             std::vector<field<Builder>> const& new_values,
-                             field<Builder> const& start_index,
+                             std::vector<field_t<Builder>> const& new_values,
+                             field_t<Builder> const& start_index,
                              std::string const& msg = "batch_update_membership")
 {
     size_t height = numeric::get_msb(new_values.size());
-    auto zero_subtree_root = field<Builder>(zero_hash_at_height(height));
+    auto zero_subtree_root = field_t<Builder>(zero_hash_at_height(height));
 
     auto rollup_root = compute_tree_root(new_values);
 
@@ -331,7 +331,7 @@ namespace bb::stdlib {
 template <typename Builder> static void generate_merkle_membership_test_circuit(Builder& builder, size_t num_iterations)
 {
     using namespace stdlib;
-    using field_ct = field<Builder>;
+    using field_ct = field_t<Builder>;
     using witness_ct = witness_t<Builder>;
     using MemStore = crypto::merkle_tree::MemoryStore;
     using MerkleTree_ct = crypto::merkle_tree::MerkleTree<MemStore, crypto::merkle_tree::PedersenHashPolicy>;
