@@ -480,7 +480,7 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
         return uint<Builder, Native>(ctx, out);
     }
 
-    // If one of the inputs is a constant, we need to creat a witness from it, because we can only perform logical
+    // If one of the inputs is a constant, we need to create a witness from it, because we can only perform logical
     // constraints between witnesses
     const uint32_t lhs_idx = is_constant() ? ctx->add_variable(lhs) : witness_index;
     const uint32_t rhs_idx = other.is_constant() ? ctx->add_variable(rhs) : other.witness_index;

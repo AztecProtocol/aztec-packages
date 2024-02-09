@@ -305,7 +305,7 @@ std::vector<uint32_t> StandardCircuitBuilder_<FF>::decompose_into_base4_accumula
  * @brief Create an AND or an XOR constraint
  *
  * @param a The first argument variable index
- * @param b The secon argument variable index
+ * @param b The second argument variable index
  * @param num_bits The width of arguments. Has to be even
  * @param is_xor_gate If true, create an xor gate, otherwise an and gate
  * @return accumulator_triple_<FF> Accumulated witnesses (steps) for input arguments and output
