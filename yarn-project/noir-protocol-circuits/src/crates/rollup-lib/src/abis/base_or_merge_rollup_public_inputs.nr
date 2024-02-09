@@ -30,14 +30,3 @@ struct BaseOrMergeRollupPublicInputs {
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     calldata_hash : [Field; 2],
 }
-
-// class BaseOrMergeRollupPublicInputs {
-//     type: Fr
-//     height_in_block_tree: Fr
-//     aggregation_object: AggregationObject
-//     txs_hash: Fr[2]
-//     out_hash: Fr[2]
-//     constants: ConstantRollupData
-//     start: PartialStateReference
-//     end: PartialStateReference
-// }
