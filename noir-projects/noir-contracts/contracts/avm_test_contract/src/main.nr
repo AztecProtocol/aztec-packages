@@ -52,6 +52,16 @@ contract AvmTest {
     }
 
     /************************************************************************
+     * Hashing functions
+     ************************************************************************/
+    #[aztec(public-vm)]
+    fn oneFieldKeccak(data: [u8; 32]) -> pub Field {
+        // let data_as_bytes = data.to_be_bytes(32);
+        let output = dep::std::hash::keccak256(data, 32);
+        output[0] as Field
+    }
+
+    /************************************************************************
      * AvmContext functions
      ************************************************************************/
     #[aztec(public-vm)]
