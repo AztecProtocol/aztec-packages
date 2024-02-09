@@ -21,7 +21,7 @@ void bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver&))
 
     const auto construct_instance = [&]() {
         Builder builder;
-        bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
+        GoblinMockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return composer.create_instance(builder);
     };
 

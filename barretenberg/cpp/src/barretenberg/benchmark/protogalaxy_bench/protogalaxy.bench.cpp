@@ -7,7 +7,7 @@
 using namespace benchmark;
 
 namespace bb {
-using Flavor = UltraFlavor;
+using Flavor = GoblinUltraFlavor;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
 using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
@@ -19,11 +19,11 @@ void fold_one(State& state) noexcept
     bb::srs::init_crs_factory("../srs_db/ignition");
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
-    auto composer = UltraComposer();
+    auto composer = GoblinUltraComposer();
 
     const auto construct_instance = [&]() {
         Builder builder;
-        bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
+        GoblinMockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return composer.create_instance(builder);
     };
 
