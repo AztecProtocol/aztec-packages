@@ -502,6 +502,7 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
     } else {
         accumulators = logic_accumulators.left;
         witness_index = accumulators[num_accumulators() - 1];
+        ctx->assert_equal(lhs_idx, witness_index);
         witness_status = WitnessStatus::OK;
     }
 
@@ -511,6 +512,7 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
     } else {
         other.accumulators = logic_accumulators.right;
         other.witness_index = other.accumulators[num_accumulators() - 1];
+        ctx->assert_equal(rhs_idx, other.witness_index);
         witness_status = WitnessStatus::OK;
     }
 
