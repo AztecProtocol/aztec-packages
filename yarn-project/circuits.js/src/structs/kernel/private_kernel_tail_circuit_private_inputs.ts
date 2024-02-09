@@ -11,6 +11,9 @@ import { Fr, GrumpkinScalar } from '../index.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { PrivateKernelInnerData } from './private_kernel_inner_data.js';
 
+/**
+ * Input to the private kernel circuit - tail call.
+ */
 export class PrivateKernelTailCircuitPrivateInputs {
   constructor(
     /**

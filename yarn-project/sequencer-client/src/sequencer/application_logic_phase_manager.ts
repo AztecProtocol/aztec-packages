@@ -63,7 +63,7 @@ export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
       this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         this.extractEnqueuedPublicCalls(tx),
-        outputAndProof.publicKernelOutput,
+        outputAndProof.publicKernelPublicInput,
         outputAndProof.publicKernelProof,
       );
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);

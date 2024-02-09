@@ -456,15 +456,15 @@ export class FinalAccumulatedData {
 export class AccumulatedNonRevertibleData {
   constructor(
     /**
-     * The new commitments made in this transaction.
+     * The new non-revertible commitments made in this transaction.
      */
     public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX_META>,
     /**
-     * The new nullifiers made in this transaction.
+     * The new non-revertible nullifiers made in this transaction.
      */
     public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX_META>,
     /**
-     * Current public call stack.
+     * Current public call stack that will produce non-revertible side effects.
      */
     public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
   ) {}

@@ -4,6 +4,10 @@ import { AggregationObject } from '../aggregation_object.js';
 import { AccumulatedNonRevertibleData, CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
+/**
+ * Outputs from the public kernel circuits.
+ * All Public kernels use this shape for outputs.
+ */
 export class PublicKernelCircuitPublicInputs {
   constructor(
     /**

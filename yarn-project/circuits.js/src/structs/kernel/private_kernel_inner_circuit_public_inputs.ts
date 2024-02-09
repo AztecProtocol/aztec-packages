@@ -5,6 +5,9 @@ import { AggregationObject } from '../aggregation_object.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
+/**
+ * Public inputs to the inner private kernel circuit
+ */
 export class PrivateKernelInnerCircuitPublicInputs {
   constructor(
     /**
@@ -12,7 +15,7 @@ export class PrivateKernelInnerCircuitPublicInputs {
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
-     * The side effect counter that meta side effects are all beneath.
+     * The side effect counter that non-revertible side effects are all beneath.
      */
     public maxNonRevertibleSideEffectCounter: Fr,
     /**

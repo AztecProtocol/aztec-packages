@@ -77,10 +77,10 @@ export interface ProofCreator {
   /**
    * Creates a proof output based on the last inner kernel iteration kernel data for the final ordering iteration.
    *
-   * @param privateKernelInputsOrdering - The private input data structure for the final ordering iteration.
+   * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  createProofTail(privateKernelInputsOrdering: PrivateKernelTailCircuitPrivateInputs): Promise<ProofOutputFinal>;
+  createProofTail(privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs): Promise<ProofOutputFinal>;
 }
 
 /**

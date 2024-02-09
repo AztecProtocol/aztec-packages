@@ -74,12 +74,12 @@ export abstract class AbstractPhaseManager {
   /**
    *
    * @param tx - the tx to be processed
-   * @param previousPublicKernelOutput - the output of the public kernel circuit for the previous phase
+   * @param publicKernelPublicInputs - the output of the public kernel circuit for the previous phase
    * @param previousPublicKernelProof - the proof of the public kernel circuit for the previous phase
    */
   abstract handle(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
+    publicKernelPublicInputs?: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof?: Proof,
   ): Promise<{
     /**
@@ -99,25 +99,25 @@ export abstract class AbstractPhaseManager {
 
   protected getKernelOutputAndProof(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
+    publicKernelPublicInput?: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof?: Proof,
   ): {
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput: PublicKernelCircuitPublicInputs;
+    publicKernelPublicInput: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
     publicKernelProof: Proof;
   } {
-    if (previousPublicKernelOutput && previousPublicKernelProof) {
+    if (publicKernelPublicInput && previousPublicKernelProof) {
       return {
-        publicKernelOutput: previousPublicKernelOutput,
+        publicKernelPublicInput: publicKernelPublicInput,
         publicKernelProof: previousPublicKernelProof,
       };
     } else {
-      const publicKernelOutput = new PublicKernelCircuitPublicInputs(
+      const publicKernelPublicInput = new PublicKernelCircuitPublicInputs(
         tx.data.aggregationObject,
         tx.data.endNonRevertibleData,
         CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
@@ -126,7 +126,7 @@ export abstract class AbstractPhaseManager {
       );
       const publicKernelProof = previousPublicKernelProof || tx.proof;
       return {
-        publicKernelOutput,
+        publicKernelPublicInput,
         publicKernelProof,
       };
     }

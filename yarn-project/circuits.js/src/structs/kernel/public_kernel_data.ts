@@ -9,7 +9,7 @@ import { VerificationKey } from '../verification_key.js';
 import { PublicKernelCircuitPublicInputs } from './public_kernel_circuit_public_inputs.js';
 
 /**
- * Data of the previous kernel iteration in the chain of kernels.
+ * Data of the previous public kernel iteration in the chain of kernels.
  */
 export class PublicKernelData {
   constructor(

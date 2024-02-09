@@ -289,11 +289,11 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
 }
 
 /**
- * Creates arbitrary accumulated data for a Tx's meta phase.
+ * Creates arbitrary accumulated data for a Tx's non-revertible side effects.
  * @param seed - The seed to use for generating the data.
- * @returns An instance of AccumulatedMetaData.
+ * @returns An instance of AccumulatedNonRevertibleData.
  */
-export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedNonRevertibleData {
+export function makeAccumulatedNonRevertibleData(seed = 1, full = false): AccumulatedNonRevertibleData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new AccumulatedNonRevertibleData(
@@ -376,9 +376,9 @@ export function makePublicCircuitPublicInputs(
 }
 
 /**
- * Creates arbitrary kernel circuit public inputs.
+ * Creates arbitrary public kernel circuit public inputs.
  * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Kernel circuit public inputs.
+ * @returns Public kernel circuit public inputs.
  */
 export function makePublicKernelCircuitPublicInputs(
   seed = 1,
@@ -386,16 +386,16 @@ export function makePublicKernelCircuitPublicInputs(
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
     makeAggregationObject(seed),
-    makeAccumulatedMetaData(seed, fullAccumulatedData),
+    makeAccumulatedNonRevertibleData(seed, fullAccumulatedData),
     makeAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     true,
   );
 }
 /**
- * Creates arbitrary kernel circuit public inputs.
+ * Creates arbitrary private kernel inner circuit public inputs.
  * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Kernel circuit public inputs.
+ * @returns Private kernel circuit public inputs.
  */
 export function makePrivateKernelInnerCircuitPublicInputs(
   seed = 1,
@@ -411,14 +411,14 @@ export function makePrivateKernelInnerCircuitPublicInputs(
 }
 
 /**
- * Creates arbitrary kernel circuit public inputs.
+ * Creates arbitrary private kernel tail circuit public inputs.
  * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Kernel circuit public inputs.
+ * @returns Private kernel tail circuit public inputs.
  */
 export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
-    makeAccumulatedMetaData(seed, full),
+    makeAccumulatedNonRevertibleData(seed, full),
     makeFinalAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
     true,
@@ -518,9 +518,9 @@ export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
 }
 
 /**
- * Makes arbitrary previous kernel data.
+ * Makes arbitrary public kernel data.
  * @param seed - The seed to use for generating the previous kernel data.
- * @param kernelPublicInputs - The kernel public inputs to use for generating the previous kernel data.
+ * @param kernelPublicInputs - The public kernel public inputs to use for generating the public kernel data.
  * @returns A previous kernel data.
  */
 export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernelCircuitPublicInputs): PublicKernelData {
@@ -536,7 +536,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 /**
  * Makes arbitrary previous kernel data.
  * @param seed - The seed to use for generating the previous kernel data.
- * @param inputs - The kernel public inputs to use for generating the previous kernel data.
+ * @param inputs - The kernel public inputs to use for generating the private kernel inner data.
  * @returns A previous kernel data.
  */
 export function makePrivateKernelInnerData(
@@ -562,18 +562,18 @@ export function makeProof(seed = 1) {
 }
 
 /**
- * Makes arbitrary private kernel inputs - initial call.
+ * Makes arbitrary private kernel init private inputs
  * @param seed - The seed to use for generating the private kernel inputs.
- * @returns Private kernel inputs.
+ * @returns Private kernel init private inputs.
  */
 export function makePrivateKernelInitCircuitPrivateInputs(seed = 1): PrivateKernelInitCircuitPrivateInputs {
   return new PrivateKernelInitCircuitPrivateInputs(makeTxRequest(seed), makePrivateCallData(seed + 0x1000));
 }
 
 /**
- * Makes arbitrary private kernel inputs - inner call.
+ * Makes arbitrary private kernel inner private inputs
  * @param seed - The seed to use for generating the private kernel inputs.
- * @returns Private kernel inputs.
+ * @returns Private kernel inner private inputs.
  */
 export function makePrivateKernelInnerCircuitPrivateInputs(seed = 1): PrivateKernelInnerCircuitPrivateInputs {
   return new PrivateKernelInnerCircuitPrivateInputs(
@@ -644,7 +644,7 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
 }
 
 /**
- * Makes arbitrary public kernel inputs.
+ * Makes arbitrary public kernel private inputs.
  * @param seed - The seed to use for generating the public kernel inputs.
  * @param tweak - An optional function to tweak the output before computing hashes.
  * @returns Public kernel inputs.

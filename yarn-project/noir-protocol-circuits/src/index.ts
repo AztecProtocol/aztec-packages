@@ -112,7 +112,7 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
 
 /**
  * Executes the inner private kernel.
- * @param privateKernelInitCircuitPrivateInputs - The private inputs to the inner private kernel.
+ * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the inner private kernel.
  * @returns The public inputs.
  */
 export async function executeInner(
@@ -129,7 +129,7 @@ export async function executeInner(
 
 /**
  * Executes the tail private kernel.
- * @param privateKernelInputsTail - The private inputs to the tail private kernel.
+ * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the tail private kernel.
  * @returns The public inputs.
  */
 export async function executeTail(
@@ -145,8 +145,8 @@ export async function executeTail(
 }
 
 /**
- * Executes the public kernel.
- * @param privateKernelInputsInit - The public kernel private inputs.
+ * Executes the public kernel in the setup phase.
+ * @param publicKernelPrivateInputs - The public kernel setup circuit private inputs.
  * @returns The public inputs.
  */
 export async function executePublicKernelSetup(
@@ -162,8 +162,8 @@ export async function executePublicKernelSetup(
 }
 
 /**
- * Executes the inner public kernel.
- * @param privateKernelInputsInit - The public kernel private inputs.
+ * Executes the public kernel in the app logic phase.
+ * @param publicKernelPrivateInputs - The public kernel app logic circuit private inputs.
  * @returns The public inputs.
  */
 export async function executePublicKernelAppLogic(
@@ -173,7 +173,7 @@ export async function executePublicKernelAppLogic(
     input: mapPublicKernelCircuitPrivateInputsToNoir(publicKernelPrivateInputs),
   };
 
-  const returnType = await executePublicKernelPublicPreviousWithACVM(params);
+  const returnType = await executePublicKernelAppLogicWithACVM(params);
 
   return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -333,7 +333,7 @@ async function executePublicKernelSetupWithACVM(input: PublicSetupInputType): Pr
 /**
  * Executes the ordering private kernel with the given inputs using the acvm.
  */
-async function executePublicKernelPublicPreviousWithACVM(
+async function executePublicKernelAppLogicWithACVM(
   input: PublicPublicPreviousInputType,
 ): Promise<PublicPublicPreviousReturnType> {
   const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi as Abi, input as any);

@@ -409,20 +409,6 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
  * @param txRequest - The tx request.
  * @returns The noir tx request.
  */
-export function mapTxRequestFromNoir(txRequest: TxRequestNoir): TxRequest {
-  return new TxRequest(
-    mapAztecAddressFromNoir(txRequest.origin),
-    mapFunctionDataFromNoir(txRequest.function_data),
-    mapFieldFromNoir(txRequest.args_hash),
-    mapTxContextFromNoir(txRequest.tx_context),
-  );
-}
-
-/**
- * Maps a tx request to a noir tx request.
- * @param txRequest - The tx request.
- * @returns The noir tx request.
- */
 export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
   return {
     origin: mapAztecAddressToNoir(txRequest.origin),
@@ -1044,9 +1030,9 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
 }
 
 /**
- * Maps a previous kernel data to a noir previous kernel data.
- * @param previousKernelData - The previous kernel data.
- * @returns The noir previous kernel data.
+ * Maps a public kernel inner data to a noir public kernel data.
+ * @param publicKernelData - The public kernel inner data.
+ * @returns The noir public kernel data.
  */
 export function mapPublicKernelDataToNoir(publicKernelData: PublicKernelData): PublicKernelDataNoir {
   return {
@@ -1083,26 +1069,26 @@ export function mapPrivateKernelInnerCircuitPublicInputsToNoir(
 }
 
 /**
- * Maps a previous kernel data to a noir previous kernel data.
- * @param previousKernelData - The previous kernel data.
- * @returns The noir previous kernel data.
+ * Maps a private kernel inner data to a noir private kernel inner data.
+ * @param privateKernelInnerData - The private kernel inner data.
+ * @returns The noir private kernel inner data.
  */
 export function mapPrivateKernelInnerDataToNoir(
-  previousKernelData: PrivateKernelInnerData,
+  privateKernelInnerData: PrivateKernelInnerData,
 ): PrivateKernelInnerDataNoir {
   return {
-    public_inputs: mapPrivateKernelInnerCircuitPublicInputsToNoir(previousKernelData.publicInputs),
+    public_inputs: mapPrivateKernelInnerCircuitPublicInputsToNoir(privateKernelInnerData.publicInputs),
     proof: {},
     vk: {},
-    vk_index: mapFieldToNoir(new Fr(previousKernelData.vkIndex)),
-    vk_path: mapTuple(previousKernelData.vkPath, mapFieldToNoir),
+    vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
+    vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
   };
 }
 
 /**
- * Maps combined accumulated data to noir combined accumulated data.
- * @param finalAccumulatedData - The combined accumulated data.
- * @returns The noir combined accumulated data.
+ * Maps final accumulated data to noir final accumulated data.
+ * @param finalAccumulatedData - The final accumulated data.
+ * @returns The noir final accumulated data.
  */
 export function mapFinalAccumulatedDataToNoir(finalAccumulatedData: FinalAccumulatedData): FinalAccumulatedDataNoir {
   return {
@@ -1144,16 +1130,16 @@ export function mapPrivateKernelTailCircuitPublicInputsToNoir(
 }
 
 /**
- * Maps the inputs to the private kernel inner to the noir representation.
- * @param privateKernelInputsInit - The inputs to the private kernel inner.
+ * Maps the private inputs to the private kernel inner to the noir representation.
+ * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the private kernel inner.
  * @returns The noir representation of those inputs.
  */
 export function mapPrivateKernelInnerCircuitPrivateInputsToNoir(
-  privateKernelInputsInit: PrivateKernelInnerCircuitPrivateInputs,
+  privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
 ): PrivateKernelInnerCircuitPrivateInputsNoir {
   return {
-    previous_kernel: mapPrivateKernelInnerDataToNoir(privateKernelInputsInit.previousKernel),
-    private_call: mapPrivateCallDataToNoir(privateKernelInputsInit.privateCall),
+    previous_kernel: mapPrivateKernelInnerDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
+    private_call: mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
   };
 }
 

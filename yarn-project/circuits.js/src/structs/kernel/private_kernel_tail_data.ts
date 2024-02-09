@@ -9,12 +9,12 @@ import { VerificationKey } from '../verification_key.js';
 import { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail_circuit_public_inputs.js';
 
 /**
- * Data of the previous kernel iteration in the chain of kernels.
+ * Data of the private kernel tail.
  */
 export class PrivateKernelTailData {
   constructor(
     /**
-     * Public inputs of the previous kernel.
+     * Outputs of the private kernel tail.
      */
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     /**

@@ -54,35 +54,7 @@ pub fn validate_inputs(public_call: PublicCallData) {
     assert(public_call.bytecode_hash != 0, "Bytecode hash cannot be zero");
 }
 
-pub fn initialize_end_values_from_private_kernel_tail_data(
-    previous_kernel: PrivateKernelTailData,
-    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
-) {
-    // Initialises the circuit outputs with the end state of the previous iteration
-    circuit_outputs.constants = previous_kernel.public_inputs.constants;
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
-    // functions within this circuit:
-    let start = previous_kernel.public_inputs.end;
-
-    circuit_outputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
-    circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
-
-    circuit_outputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-    circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
-    circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-
-    circuit_outputs.end.public_data_update_requests = BoundedVec::new(PublicDataUpdateRequest::empty());
-    circuit_outputs.end.public_data_reads = BoundedVec::new(PublicDataRead::empty());
-
-    // Public kernel does not modify encrypted logs values --> we just copy them to output
-    circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
-    circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-
-    circuit_outputs.end.new_contracts = array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts);
-}
-
-pub fn initialize_end_values_from_public_kernel_data(
+pub fn initialize_end_values(
     previous_kernel: PublicKernelData,
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
 ) {

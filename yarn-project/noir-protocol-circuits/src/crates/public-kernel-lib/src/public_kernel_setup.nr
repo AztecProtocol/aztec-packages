@@ -43,7 +43,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
         // initialise the end state with our provided previous kernel state
-        common::initialize_end_values_from_public_kernel_data(self.previous_kernel, &mut public_inputs);
+        common::initialize_end_values(self.previous_kernel, &mut public_inputs);
 
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);

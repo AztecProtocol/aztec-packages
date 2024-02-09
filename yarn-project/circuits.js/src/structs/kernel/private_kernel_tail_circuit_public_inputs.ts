@@ -4,6 +4,9 @@ import { AggregationObject } from '../aggregation_object.js';
 import { AccumulatedNonRevertibleData, FinalAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
+/**
+ * Output from to the private kernel circuit - tail call.
+ */
 export class PrivateKernelTailCircuitPublicInputs {
   constructor(
     /**

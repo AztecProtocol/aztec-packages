@@ -42,7 +42,7 @@ export class PrivateCircuitPublicInputs {
      */
     public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
     /**
-     * The side-effect high watermark of the irrevertible part of the function call.
+     * The side-effect counter under which all side effects are non-revertible.
      */
     public maxNonRevertibleSideEffectCounter: Fr,
     /**

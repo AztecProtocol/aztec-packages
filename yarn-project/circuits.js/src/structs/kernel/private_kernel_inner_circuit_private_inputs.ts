@@ -9,7 +9,7 @@ import { PrivateKernelInnerData } from './private_kernel_inner_data.js';
 export class PrivateKernelInnerCircuitPrivateInputs {
   constructor(
     /**
-     * The previous kernel data (dummy if this is the first kernel).
+     * The previous kernel data
      */
     public previousKernel: PrivateKernelInnerData,
     /**
