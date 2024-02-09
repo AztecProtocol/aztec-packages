@@ -202,7 +202,7 @@ const circuits = [
   'private_kernel_inner',
   'private_kernel_tail',
   'public_kernel_setup',
-  'public_kernel_public_previous',
+  'public_kernel_app_logic',
   'rollup_base',
   'rollup_merge',
   'rollup_root',

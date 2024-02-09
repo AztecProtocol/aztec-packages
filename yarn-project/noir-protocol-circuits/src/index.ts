@@ -23,8 +23,8 @@ import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert {
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
-import PublicKernelPublicPreviousJson from './target/public_kernel_public_previous.json' assert { type: 'json' };
-import PublicKernelPublicPreviousSimulatedJson from './target/public_kernel_public_previous_simulated.json' assert { type: 'json' };
+import PublicKernelPublicPreviousJson from './target/public_kernel_app_logic.json' assert { type: 'json' };
+import PublicKernelPublicPreviousSimulatedJson from './target/public_kernel_app_logic_simulated.json' assert { type: 'json' };
 import PublicKernelPrivatePreviousJson from './target/public_kernel_setup.json' assert { type: 'json' };
 import PublicKernelPrivatePreviousSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
@@ -50,7 +50,7 @@ import { InputType as TailInputType, ReturnType as TailReturnType } from './type
 import {
   InputType as PublicPublicPreviousInputType,
   ReturnType as PublicPublicPreviousReturnType,
-} from './types/public_kernel_public_previous_types.js';
+} from './types/public_kernel_app_logic_types.js';
 import {
   InputType as PublicSetupInputType,
   ReturnType as PublicSetupReturnType,
@@ -309,7 +309,7 @@ async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<T
 }
 
 /**
- * Executes the public kernel with private prevoius kernel with the given inputs
+ * Executes the public kernel with private previous kernel with the given inputs
  */
 async function executePublicKernelSetupWithACVM(input: PublicSetupInputType): Promise<PublicSetupReturnType> {
   const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, input as any);

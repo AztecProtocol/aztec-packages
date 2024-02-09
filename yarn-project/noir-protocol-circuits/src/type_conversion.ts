@@ -123,7 +123,7 @@ import {
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailCircuitPublicInputs as PrivateKernelTailCircuitPublicInputsNoir,
 } from './types/private_kernel_tail_types.js';
-import { PublicKernelData as PublicKernelDataNoir } from './types/public_kernel_public_previous_types.js';
+import { PublicKernelData as PublicKernelDataNoir } from './types/public_kernel_app_logic_types.js';
 import {
   PublicCallData as PublicCallDataNoir,
   PublicCallStackItem as PublicCallStackItemNoir,

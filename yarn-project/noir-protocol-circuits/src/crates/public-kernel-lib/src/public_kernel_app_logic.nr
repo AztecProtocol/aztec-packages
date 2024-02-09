@@ -5,12 +5,12 @@ use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInp
 use crate::common;
 use dep::std::unsafe;
 
-struct PublicKernelPublicPreviousInputs {
+struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }
 
-impl PublicKernelPublicPreviousInputs {
+impl PublicKernelAppLogicCircuitPrivateInputs {
 
 // this is the only difference between the two PublicKernels' logic:
     fn validate_inputs(self) {
@@ -20,7 +20,7 @@ impl PublicKernelPublicPreviousInputs {
     }
 
 
-    fn public_kernel_public_previous(self) -> PublicKernelCircuitPublicInputs {
+    fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
@@ -52,7 +52,7 @@ impl PublicKernelPublicPreviousInputs {
 
 mod tests {
     use crate::{
-        public_kernel_public_previous::PublicKernelPublicPreviousInputs,
+        public_kernel_app_logic::PublicKernelAppLogicCircuitPrivateInputs,
         utils::{
             assert_eq_public_data_reads,
             assert_eq_public_data_update_requests,
@@ -86,17 +86,17 @@ mod tests {
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     };
 
-    struct PublicKernelPublicPreviousInputsBuilder {
+    struct PublicKernelAppLogicCircuitPrivateInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,
         public_call: PublicCallDataBuilder,
     }
 
-    impl PublicKernelPublicPreviousInputsBuilder {
+    impl PublicKernelAppLogicCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
             let previous_kernel = PreviousKernelDataBuilder::new().is_public();
             let public_call = PublicCallDataBuilder::new();
             
-            PublicKernelPublicPreviousInputsBuilder {
+            PublicKernelAppLogicCircuitPrivateInputsBuilder {
                 previous_kernel,
                 public_call,
             }
@@ -127,12 +127,12 @@ mod tests {
             self.previous_kernel.push_public_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.to_public_kernel_data();
 
-            let kernel = PublicKernelPublicPreviousInputs {
+            let kernel = PublicKernelAppLogicCircuitPrivateInputs {
                 previous_kernel,
                 public_call,
             };
 
-            kernel.public_kernel_public_previous()
+            kernel.public_kernel_app_logic()
         }
 
         pub fn succeeded(&mut self) {
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn public_kernel_circuit_with_public_previous_kernel_should_succeed() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.succeeded();
     }
 
@@ -154,20 +154,20 @@ mod tests {
     // The application panicked (crashed). Message:  Expected array index to fit in u64
     // #[test(should_fail_with="Public call stack can not be empty")]
     // fn public_previous_kernel_empty_public_call_stack_should_fail() {
-    //     let builder = PublicKernelPublicPreviousInputsBuilder::new();
+    //     let builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
     //     let previous_kernel = builder.previous_kernel.finish();
     //     let public_call = builder.public_call.finish();
-    //     let kernel = PublicKernelPublicPreviousInputs {
+    //     let kernel = PublicKernelAppLogicCircuitPrivateInputs {
     //         previous_kernel,
     //         public_call,
     //     };
     //
-    //     let _ = kernel.public_kernel_public_previous();
+    //     let _ = kernel.public_kernel_app_logic();
     // }
 
     #[test(should_fail_with="Previous kernel must be public when in this public kernel version")]
     fn public_previous_kernel_private_previous_kernel_should_fail() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.previous_kernel = PreviousKernelDataBuilder::new();
 
         builder.failed();
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_commitments() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
         // Setup 2 new commitments on the previous kernel.
         builder.previous_kernel.append_new_commitments(2);
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_update_requests() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         // Setup 2 data writes on the previous kernel.
         builder.previous_kernel.append_public_data_update_requests(2);
         let previous = builder.previous_kernel.end.public_data_update_requests.storage;
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_read_requests() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         // Setup 2 data reads on the previous kernel.
         builder.previous_kernel.append_public_data_read_requests(2);
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_nullifiers() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
 
         // Setup 2 new nullifiers on the previous kernel.
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_l2_to_l1_msg() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         let contract_address = builder.public_call.contract_address;
         let portal_contract_address = builder.public_call.portal_contract_address;
@@ -286,7 +286,7 @@ mod tests {
     // TODO: Break up this test into smaller tests.
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_public_kernel_logs() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         // Logs for the current call stack.
         let unencrypted_logs_hash = [26, 47];
         let unencrypted_log_preimages_length = 50;
@@ -318,7 +318,7 @@ mod tests {
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
     fn previous_public_kernel_fails_if_contract_storage_update_requests_on_static_call() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
         builder.public_call.append_update_requests(1);
 
@@ -327,7 +327,7 @@ mod tests {
 
     #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
     fn previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new().is_delegate_call();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new().is_delegate_call();
 
         builder.public_call.contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
 
@@ -336,7 +336,7 @@ mod tests {
 
     #[test(should_fail_with="new_commitments must be empty for static calls")]
     fn public_kernel_fails_creating_new_commitments_on_static_call() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
         builder.public_call.public_inputs.new_commitments.push(SideEffect { value: 1, counter: 0 });
 
@@ -345,7 +345,7 @@ mod tests {
 
     #[test(should_fail_with="new_nullifiers must be empty for static calls")]
     fn public_kernel_fails_creating_new_nullifiers_on_static_call() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
         builder.public_call.public_inputs.new_nullifiers.push(SideEffectLinkedToNoteHash { value: 1, note_hash: 0, counter: 0 });
 
