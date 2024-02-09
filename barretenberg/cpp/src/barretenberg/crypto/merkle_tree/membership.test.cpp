@@ -17,9 +17,9 @@ auto& engine = numeric::get_debug_randomness();
 
 using Builder = UltraCircuitBuilder;
 
-using bool_ct = bool_t<Builder>;
-using field_ct = field_t<Builder>;
-using witness_ct = witness_t<Builder>;
+using bool_ct = bb::stdlib::bool_t<Builder>;
+using field_ct = bb::stdlib::field_t<Builder>;
+using witness_ct = bb::stdlib::witness_t<Builder>;
 using tree = MerkleTree<MemoryStore, PedersenHashPolicy>;
 
 TEST(crypto_merkle_tree, test_check_membership)
