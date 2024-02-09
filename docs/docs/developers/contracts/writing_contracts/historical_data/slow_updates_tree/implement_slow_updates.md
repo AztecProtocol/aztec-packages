@@ -4,33 +4,33 @@ title: How to implement a Slow Updates Tree
 
 To learn more about the Slow Updates Tree, go [here](./main.md)
 
+On this page you will learn how to implement a slow updates tree into your contract, and an example of a token blacklisting contract that uses the slow updates tree.
+
+# How to implement a slow updates tree
+
 1. Copy the *SlowTree.nr* example and its dependencies, found [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/contracts/slow_tree_contract). Replace the constants with whatever you like and deploy it to your sandbox
 2. Copy the *SlowMap interface* for easy interaction with your deployed SlowTree. Find it [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/token_blacklist_contract/src/interfaces.nr)
 3. Import this interface into your contract
 
 #include_code interface yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-5. Create a storage init function for the same value in both public and private storage
-
-#include_code slow_updates_storage yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
-
-6. Store the SlowTree address in private storage as a FieldNote
+5. Store the SlowTree address in private storage as a FieldNote
 
 #include_code constructor yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-7. Store the SlowTree address in public storage and initialize an instance of SlowMap using this address
+6. Store the SlowTree address in public storage and initialize an instance of SlowMap using this address
 
 #include_code write_slow_update_public yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-8. Now you can read and update from private functions:
+7. Now you can read and update from private functions:
 
 #include_code get_and_update_private yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-9. Or from public functions:
+8. Or from public functions:
 
 #include_code get_public yarn-project/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
-View the [reference](../../../references/slow_updates_tree.md) for more information.
+View the [reference](slow_updates_tree.md#reference) for more information.
 
 ## Exploring an example integration through a **`TokenBlacklist`** Smart Contract
 
