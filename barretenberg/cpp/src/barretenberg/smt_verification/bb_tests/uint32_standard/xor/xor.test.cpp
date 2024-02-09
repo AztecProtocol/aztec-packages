@@ -16,7 +16,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-
+// 28 min
 TEST(uint, xor_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
@@ -45,6 +45,7 @@ TEST(uint, xor_unique_output){
     default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_output.out");
 }
 
+// < 1 min
 TEST(uint, xor_unique_witness){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
@@ -72,6 +73,7 @@ TEST(uint, xor_unique_witness){
     default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_witness.out");
 }
 
+// > 20 hours
 TEST(uint, xor_unique_random_solution){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));

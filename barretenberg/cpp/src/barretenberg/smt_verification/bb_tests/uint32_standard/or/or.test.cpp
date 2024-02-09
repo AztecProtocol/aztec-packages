@@ -16,6 +16,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+// 25 min
 TEST(uint, or_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
@@ -44,6 +45,7 @@ TEST(uint, or_unique_output){
     default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "or_unique_output.out");
 }
 
+// 26 min
 TEST(uint, or_unique_witness){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
