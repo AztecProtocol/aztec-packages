@@ -4,15 +4,15 @@
 #include "../notes/circuit/claim/claim_note.hpp"
 #include "../notes/circuit/value/compute_nullifier.hpp"
 #include "../notes/circuit/value/value_note.hpp"
+#include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/join_split_example/types.hpp"
-#include "barretenberg/stdlib/merkle_tree/membership.hpp"
 #include "verify_signature.hpp"
 
 namespace bb::join_split_example::proofs::join_split {
 
 using namespace bb::plonk;
 using namespace notes::circuit;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 using namespace bb::crypto;
 
 /**
@@ -31,7 +31,7 @@ field_ct process_input_note(field_ct const& account_private_key,
     const bool_ct valid_value = note.value == 0 || is_note_in_use;
     valid_value.assert_equal(true, "padding note non zero");
 
-    const bool_ct exists = bb::stdlib::merkle_tree::check_membership(
+    const bool_ct exists = bb::crypto::merkle_tree::check_membership(
         merkle_root, hash_path, note.commitment, index.value.decompose_into_bits(DATA_TREE_DEPTH));
     const bool_ct valid = exists || is_propagated || !is_note_in_use;
     valid.assert_equal(true, "input note not a member");

@@ -1,11 +1,11 @@
-#include "barretenberg/stdlib/merkle_tree/merkle_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
+#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib/merkle_tree/hash.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_store.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 using TreeType = MerkleTree<MemoryStore, PedersenHashPolicy>;
 

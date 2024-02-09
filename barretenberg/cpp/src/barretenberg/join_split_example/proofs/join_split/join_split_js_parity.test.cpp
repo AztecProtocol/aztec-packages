@@ -3,16 +3,16 @@
 #include "../notes/native/index.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/crypto/merkle_tree/index.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
-#include "barretenberg/stdlib/merkle_tree/index.hpp"
 #include "index.hpp"
 
 namespace bb::join_split_example::proofs::join_split {
 
 using namespace bb;
 // using namespace bb::stdlib::types;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 using namespace bb::join_split_example::proofs::notes::native;
 using key_pair = join_split_example::fixtures::grumpkin_key_pair;
 
