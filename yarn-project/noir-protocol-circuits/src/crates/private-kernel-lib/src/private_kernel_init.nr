@@ -10,8 +10,10 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
-    mocked::{Proof, verify_previous_kernel_state}, transaction::request::TxRequest,
-    traits::is_empty_array
+    messaging::l2_to_l1_message::L2ToL1Message,
+    mocked::{Proof, verify_previous_kernel_state},
+    transaction::request::TxRequest,
+    traits::is_empty_array,
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -322,7 +324,12 @@ mod tests {
     fn input_validation_malformed_arrays_new_l2_to_l1_msgs() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array([0, 9123]);
+        builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(
+            [
+            L2ToL1Message::empty(),
+            L2ToL1Message { recipient: EthAddress::from_field(6), content: 9123 }
+        ]
+        );
 
         builder.failed();
     }

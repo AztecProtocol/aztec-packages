@@ -11,6 +11,7 @@ use crate::abis::public_call_stack_item::PublicCallStackItem;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 use crate::abis::side_effect::SideEffect;
 use crate::contract_class::ContractClassId;
+use crate::messaging::l2_to_l1_message::L2ToL1Message;
 
 #[test]
 fn compute_address() {
@@ -84,11 +85,11 @@ fn compute_tx_request_hash() {
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, EthAddress::from_field(0), 0, 0);
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
     assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
 
     // Non-zero case
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, EthAddress::from_field(3), 4, 5);
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, L2ToL1Message::empty());
     assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
 }
 
