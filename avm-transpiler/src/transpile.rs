@@ -1,7 +1,7 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::brillig::Brillig;
 
-use acvm::brillig_vm::brillig::{BinaryFieldOp, BinaryIntOp, MemoryAddress, Value, ValueOrArray};
+use acvm::brillig_vm::brillig::{BinaryFieldOp, BinaryIntOp, BlackBoxOp, MemoryAddress, Value, ValueOrArray};
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
@@ -203,6 +203,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
             BrilligOpcode::ForeignCall { function, destinations, inputs, destination_value_types:_, input_value_types:_ } => {
                 handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
             },
+            BrilligOpcode::BlackBox(operation) => handle_black_box_function(&mut avm_instrs, operation),
             _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
                 brillig_instr
@@ -348,6 +349,38 @@ fn emit_mov(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
             AvmOperand::U32 { value: dest },
         ],
         ..Default::default()
+    }
+}
+
+fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
+    match operation {
+        BlackBoxOp::Keccak256 { message, output } => {
+            // For the meantime, we output keccak as 32 u8s
+            let hash_offset = message.pointer.0;
+            let hash_size = message.size.0;
+
+            let out_offset = output.pointer.0;
+            let out_size = output.size;
+            assert!(out_size == 32);
+
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::KECCAK,
+                operands: vec![AvmOperand::U32 {
+                    value: hash_offset as u32,
+                },
+                AvmOperand::U32 {
+                    value: hash_size as u32,
+                },
+                AvmOperand::U32 {
+                    value: out_offset as u32,
+                }],
+                ..Default::default()
+            });
+        },
+        _ => panic!(
+            "Transpiler doesn't know how to process BlackBoxOp {:?}",
+            operation
+        ),
     }
 }
 
