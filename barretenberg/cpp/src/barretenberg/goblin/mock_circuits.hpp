@@ -60,7 +60,7 @@ class GoblinMockCircuits {
         builder.queue_ecc_eq();
 
         // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates
-        for (size_t i = 0; i < num_gates - 4; ++i) {
+        for (size_t i = 0; i < ((num_gates - 4) >> 2); ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
@@ -70,6 +70,9 @@ class GoblinMockCircuits {
             uint32_t c_idx = builder.add_variable(c);
             uint32_t d_idx = builder.add_variable(d);
 
+            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
     }
