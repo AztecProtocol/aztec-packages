@@ -335,7 +335,7 @@ export class TaggedMemory {
 
   // Truncates the value to fit the type.
   public static integralFromTag(v: bigint | number, tag: TypeTag): IntegralValue {
-    v = v as bigint;
+    v = BigInt(v);
     switch (tag) {
       case TypeTag.UINT8:
         return new Uint8(v & ((1n << 8n) - 1n));
