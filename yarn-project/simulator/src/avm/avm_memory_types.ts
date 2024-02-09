@@ -204,6 +204,10 @@ export class Field extends MemoryValue {
   public toBigInt(): bigint {
     return this.rep.toBigInt();
   }
+
+  public toBuffer(): Buffer {
+    return this.rep.toBuffer();
+  }
 }
 
 export enum TypeTag {
