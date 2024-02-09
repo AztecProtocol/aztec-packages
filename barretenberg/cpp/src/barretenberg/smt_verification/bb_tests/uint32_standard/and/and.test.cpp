@@ -41,7 +41,7 @@ TEST(uint, and_unique_output){
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "and_unique_output.txt");
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "and_unique_output.out");
 }
 
 TEST(uint, and_unique_witness){
@@ -68,7 +68,7 @@ TEST(uint, and_unique_witness){
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "and_unique_witness.txt");
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "and_unique_witness.out");
 }
 
 TEST(uint, and_unique_random_solution){
@@ -98,5 +98,5 @@ TEST(uint, and_unique_random_solution){
     if(!res){
         return;
     }
-    default_model_single({"a", "b", "c"}, circuit, &s, "and_unique_random_solution.txt");
+    default_model_single({"a", "b", "c"}, circuit, &s, "and_unique_random_solution.out");
 }

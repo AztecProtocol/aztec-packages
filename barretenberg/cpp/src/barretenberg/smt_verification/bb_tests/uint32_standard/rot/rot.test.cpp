@@ -37,7 +37,7 @@ TEST(uint, ror7_unique_output){
     if(!res){
         return;
     }
-    default_model({"a", "b"}, cirs.first, cirs.second, &s, "ror7_unique_output.txt");
+    default_model({"a", "b"}, cirs.first, cirs.second, &s, "ror7_unique_output.out");
 }
 
 TEST(uint, ror7_unique_witness){
@@ -61,7 +61,7 @@ TEST(uint, ror7_unique_witness){
     if(!res){
         return;
     }
-    default_model({"a", "b"}, cirs.first, cirs.second, &s, "ror7_unique_witness.txt");
+    default_model({"a", "b"}, cirs.first, cirs.second, &s, "ror7_unique_witness.out");
 }
 
 TEST(uint, rorol){
@@ -89,5 +89,5 @@ TEST(uint, rorol){
     if(!res){
         return;
     }
-    default_model_single({"a", "b", "c"}, circuit, &s, "rorol7.txt");
+    default_model_single({"a", "b", "c"}, circuit, &s, "rorol7.out");
 } // TODO(alex): didn't terminate in 2hrs

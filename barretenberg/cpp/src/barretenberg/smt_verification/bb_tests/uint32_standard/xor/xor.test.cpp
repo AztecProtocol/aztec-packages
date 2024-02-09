@@ -42,7 +42,7 @@ TEST(uint, xor_unique_output){
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_output.txt");
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_output.out");
 }
 
 TEST(uint, xor_unique_witness){
@@ -69,7 +69,7 @@ TEST(uint, xor_unique_witness){
     if(!res){
         return;
     }
-    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_witness.txt");
+    default_model({"a", "b", "c"}, cirs.first, cirs.second, &s, "xor_unique_witness.out");
 }
 
 TEST(uint, xor_unique_random_solution){
@@ -99,5 +99,5 @@ TEST(uint, xor_unique_random_solution){
     if(!res){
         return;
     }
-    default_model_single({"a", "b", "c"}, circuit, &s, "xor_unique_random_solution.txt");
+    default_model_single({"a", "b", "c"}, circuit, &s, "xor_unique_random_solution.out");
 }
