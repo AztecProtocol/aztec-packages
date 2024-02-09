@@ -16,48 +16,6 @@ namespace bb::field_conversion {
  * @tparam T
  * @return constexpr size_t
  */
-// template <typename T> constexpr size_t calc_num_bn254_frs();
-
-// constexpr size_t calc_num_bn254_frs(bb::fr* /*unused*/)
-// {
-//     return 1;
-// }
-
-// constexpr size_t calc_num_bn254_frs(grumpkin::fr* /*unused*/)
-// {
-//     return 2;
-// }
-
-// template <std::integral T> constexpr size_t calc_num_bn254_frs(T* /*unused*/)
-// {
-//     return 1; // meant for integral types that are less than 254 bits
-// }
-
-// constexpr size_t calc_num_bn254_frs(curve::BN254::AffineElement* /*unused*/)
-// {
-//     return 2 * calc_num_bn254_frs<curve::BN254::BaseField>();
-// }
-
-// constexpr size_t calc_num_bn254_frs(curve::Grumpkin::AffineElement* /*unused*/)
-// {
-//     return 2 * calc_num_bn254_frs<curve::Grumpkin::BaseField>();
-// }
-
-// template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(std::array<T, N>* /*unused*/)
-// {
-//     return N * calc_num_bn254_frs<T>();
-// }
-
-// template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(bb::Univariate<T, N>* /*unused*/)
-// {
-//     return N * calc_num_bn254_frs<T>();
-// }
-
-// template <typename T> constexpr size_t calc_num_bn254_frs()
-// {
-//     return calc_num_bn254_frs(static_cast<T*>(nullptr));
-// }
-
 template <typename T> constexpr size_t calc_num_bn254_frs()
 {
     if constexpr (IsAnyOf<T, uint32_t, bool>) {
@@ -72,6 +30,8 @@ template <typename T> constexpr size_t calc_num_bn254_frs()
     }
 }
 
+grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec);
+
 /**
  * @brief Conversions from vector of bb::fr elements to transcript types.
  * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
@@ -83,80 +43,6 @@ template <typename T> constexpr size_t calc_num_bn254_frs()
  * @param fr_vec
  * @return T
  */
-// template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec);
-
-// bool convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bool* /*unused*/);
-
-// template <std::integral T> inline T convert_from_bn254_frs(std::span<const bb::fr> fr_vec, T* /*unused*/)
-// {
-//     ASSERT(fr_vec.size() == 1);
-//     return static_cast<T>(fr_vec[0]);
-// }
-
-// bb::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bb::fr* /*unused*/);
-
-// grumpkin::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, grumpkin::fr* /*unused*/);
-
-// curve::BN254::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
-//                                                    curve::BN254::AffineElement* /*unused*/);
-
-// curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
-//                                                       curve::Grumpkin::AffineElement* /*unused*/);
-
-// template <size_t N>
-// inline std::array<bb::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec, std::array<bb::fr, N>*
-// /*unused*/)
-// {
-//     std::array<bb::fr, N> val;
-//     for (size_t i = 0; i < N; ++i) {
-//         val[i] = fr_vec[i];
-//     }
-//     return val;
-// }
-
-// template <size_t N>
-// inline std::array<grumpkin::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
-//                                                           std::array<grumpkin::fr, N>* /*unused*/)
-// {
-//     std::array<grumpkin::fr, N> val;
-//     for (size_t i = 0; i < N; ++i) {
-//         std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i],
-//                                         fr_vec[2 * i + 1] }; // each pair of consecutive elements is a grumpkin::fr
-//         val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
-//     }
-//     return val;
-// }
-
-// template <size_t N>
-// inline Univariate<bb::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec, Univariate<bb::fr, N>*
-// /*unused*/)
-// {
-//     Univariate<bb::fr, N> val;
-//     for (size_t i = 0; i < N; ++i) {
-//         val.evaluations[i] = fr_vec[i];
-//     }
-//     return val;
-// }
-
-// template <size_t N>
-// inline Univariate<grumpkin::fr, N> convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
-//                                                           Univariate<grumpkin::fr, N>* /*unused*/)
-// {
-//     Univariate<grumpkin::fr, N> val;
-//     for (size_t i = 0; i < N; ++i) {
-//         std::vector<bb::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
-//         val.evaluations[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
-//     }
-//     return val;
-// }
-
-// template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
-// {
-//     return convert_from_bn254_frs(fr_vec, static_cast<T*>(nullptr));
-// }
-
-grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec);
-
 template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     if constexpr (IsAnyOf<T, bool>) {
@@ -166,10 +52,12 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         ASSERT(fr_vec.size() == 1);
         return static_cast<T>(fr_vec[0]);
     } else if constexpr (IsAnyOf<T, grumpkin::fr>) {
+        ASSERT(fr_vec.size() == 2);
         return convert_grumpkin_fr_from_bn254_frs(fr_vec);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         using BaseField = typename T::Fq;
         constexpr size_t BaseFieldScalarSize = calc_num_bn254_frs<BaseField>();
+        ASSERT(fr_vec.size() == 2 * BaseFieldScalarSize);
         T val;
         val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BaseFieldScalarSize));
         val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BaseFieldScalarSize, BaseFieldScalarSize));
@@ -178,6 +66,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         // Array or Univariate
         T val;
         constexpr size_t FieldScalarSize = calc_num_bn254_frs<typename T::value_type>();
+        ASSERT(fr_vec.size() == FieldScalarSize * std::tuple_size<T>::value);
         size_t i = 0;
         for (auto& x : val) {
             x = convert_from_bn254_frs<typename T::value_type>(fr_vec.subspan(FieldScalarSize * i, FieldScalarSize));
@@ -186,6 +75,8 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         return val;
     }
 }
+
+std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val);
 
 /**
  * @brief Conversion from transcript values to bb::frs
@@ -196,65 +87,28 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
  * @param val
  * @return std::vector<bb::fr>
  */
-template <std::integral T> std::vector<bb::fr> inline convert_to_bn254_frs(const T& val)
+template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
 {
-    std::vector<bb::fr> fr_vec{ val };
-    return fr_vec;
-}
-
-std::vector<bb::fr> convert_to_bn254_frs(const grumpkin::fr& val);
-
-std::vector<bb::fr> convert_to_bn254_frs(const bb::fr& val);
-
-std::vector<bb::fr> convert_to_bn254_frs(const curve::BN254::AffineElement& val);
-
-std::vector<bb::fr> convert_to_bn254_frs(const curve::Grumpkin::AffineElement& val);
-
-template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<bb::fr, N>& val)
-{
-    std::vector<bb::fr> fr_vec(val.begin(), val.end());
-    return fr_vec;
-}
-
-template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const std::array<grumpkin::fr, N>& val)
-{
-    std::vector<bb::fr> fr_vec;
-    for (size_t i = 0; i < N; ++i) {
-        auto tmp_vec = convert_to_bn254_frs(val[i]);
-        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
+    if constexpr (IsAnyOf<T, bool, uint32_t, bb::fr>) {
+        std::vector<bb::fr> fr_vec{ val };
+        return fr_vec;
+    } else if constexpr (IsAnyOf<T, grumpkin::fr>) {
+        return convert_grumpkin_fr_to_bn254_frs(val);
+    } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+        auto fr_vec_x = convert_to_bn254_frs(val.x);
+        auto fr_vec_y = convert_to_bn254_frs(val.y);
+        std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+        fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
+        return fr_vec;
+    } else {
+        // Array or Univariate or AllValues
+        std::vector<bb::fr> fr_vec;
+        for (auto& x : val) {
+            auto tmp_vec = convert_to_bn254_frs(x);
+            fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
+        }
+        return fr_vec;
     }
-    return fr_vec;
-}
-
-template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<bb::fr, N>& val)
-{
-    std::vector<bb::fr> fr_vec;
-    for (size_t i = 0; i < N; ++i) {
-        auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
-        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
-    }
-    return fr_vec;
-}
-
-template <size_t N> std::vector<bb::fr> inline convert_to_bn254_frs(const bb::Univariate<grumpkin::fr, N>& val)
-{
-    std::vector<bb::fr> fr_vec;
-    for (size_t i = 0; i < N; ++i) {
-        auto tmp_vec = convert_to_bn254_frs(val.evaluations[i]);
-        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
-    }
-    return fr_vec;
-}
-
-template <typename AllValues> std::vector<bb::fr> inline convert_to_bn254_frs(const AllValues& val)
-{
-    auto data = val.get_all();
-    std::vector<bb::fr> fr_vec;
-    for (auto& item : data) {
-        auto tmp_vec = convert_to_bn254_frs(item);
-        fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
-    }
-    return fr_vec;
 }
 
 grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f);

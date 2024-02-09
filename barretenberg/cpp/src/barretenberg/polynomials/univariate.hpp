@@ -340,11 +340,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         return result;
     };
 
-    // Begin iterator
+    // Begin iterators
     auto begin() { return evaluations.begin(); }
-
-    // End iterator
+    auto begin() const { return evaluations.begin(); }
+    // End iterators
     auto end() { return evaluations.end(); }
+    auto end() const { return evaluations.end(); }
 };
 
 template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
