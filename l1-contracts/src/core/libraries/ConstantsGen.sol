@@ -78,6 +78,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 8;
+  uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 2;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 25;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;

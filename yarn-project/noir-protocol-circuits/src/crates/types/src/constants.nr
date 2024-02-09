@@ -116,6 +116,7 @@ global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bd
 // Move these constants to a noir file once the issue below is resolved:
 // https://github.com/noir-lang/noir/issues/1734
 global L1_TO_L2_MESSAGE_LENGTH: Field = 8;
+global L2_TO_L1_MESSAGE_LENGTH: Field = 2;
 global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: Field = 25;
 global MAX_NOTE_FIELDS_LENGTH: Field = 20;
 // GET_NOTE_ORACLE_RETURN_LENGT = MAX_NOTE_FIELDS_LENGTH + 1 + 2

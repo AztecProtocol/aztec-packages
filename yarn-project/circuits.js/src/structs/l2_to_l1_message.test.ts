@@ -1,4 +1,4 @@
-import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
+import { L2_TO_L1_MESSAGE_LENGTH } from '../constants.gen.js';
 import { makeL2ToL1Message } from '../tests/factories.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 
@@ -24,6 +24,6 @@ describe('L2ToL1Message', () => {
 
   it('number of fields matches constant', () => {
     const fields = message.toFields();
-    expect(fields.length).toBe(STATE_REFERENCE_LENGTH);
+    expect(fields.length).toBe(L2_TO_L1_MESSAGE_LENGTH);
   });
 });
