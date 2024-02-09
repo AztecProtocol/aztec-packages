@@ -92,7 +92,7 @@ library Constants {
   uint256 internal constant FUNCTION_DATA_LENGTH = 4;
   uint256 internal constant CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 207;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 212;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 214;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 205;

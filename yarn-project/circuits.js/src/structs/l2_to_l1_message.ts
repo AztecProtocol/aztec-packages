@@ -3,8 +3,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class L2ToL1Message {
-  public static readonly MESSAGE_LENGTH: number = 2;
-
   constructor(public recipient: EthAddress, public content: Fr) {}
 
   /**
