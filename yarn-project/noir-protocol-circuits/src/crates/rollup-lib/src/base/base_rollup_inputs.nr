@@ -1,9 +1,5 @@
 use crate::{
     abis::{
-        public_data_tree_leaf::{
-            PublicDataTreeLeaf,
-            PublicDataTreeLeafPreimage,
-        },
         constant_rollup_data::ConstantRollupData,
         base_or_merge_rollup_public_inputs::{
             BaseOrMergeRollupPublicInputs,
@@ -11,11 +7,11 @@ use crate::{
         },
     },
     base::state_diff_hints::StateDiffHints,
+    components,
     merkle_tree::{
         calculate_empty_tree_root,
         calculate_subtree,
     },
-    components,
 };
 use dep::types::{
     abis::{
@@ -61,6 +57,8 @@ use dep::types::{
         Proof
     },
     partial_state_reference::PartialStateReference,
+    public_data_tree_leaf::PublicDataTreeLeaf,
+    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     utils::{
         field::{
             full_field_less_than,
@@ -576,10 +574,6 @@ mod tests {
         abis::{
             constant_rollup_data::ConstantRollupData,
             base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-            public_data_tree_leaf::{
-                PublicDataTreeLeaf,
-                PublicDataTreeLeafPreimage,
-            },
         },
         base::{
             state_diff_hints::StateDiffHints,
@@ -641,6 +635,8 @@ mod tests {
         },
         contract_class::ContractClassId,
         partial_state_reference::PartialStateReference,
+        public_data_tree_leaf::PublicDataTreeLeaf,
+        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
             field::full_field_less_than,
