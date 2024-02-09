@@ -18,6 +18,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using InnerComposer = ::bb::UltraComposer_<InnerFlavor>;
     using ProverInstance = ::bb::ProverInstance_<InnerFlavor>;
     using VerifierInstance = ::bb::VerifierInstance_<InnerFlavor>;
+    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = typename InnerFlavor::Commitment;
@@ -27,7 +28,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using OuterBuilder = GoblinUltraCircuitBuilder;
     using OuterComposer = GoblinUltraComposer;
 
-    using RecursiveVerifierInstances = ::bb::VerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using DeciderVerifier = DeciderVerifier_<InnerFlavor>;
@@ -227,17 +228,17 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(native_result, recursive_result);
 
-        // {
-        //     auto composer = OuterComposer();
-        //     auto instance = composer.create_prover_instance(outer_folding_circuit);
-        //     auto verification_key = composer.compute_verification_key(instance);
-        //     auto prover = composer.create_prover(instance);
-        //     auto verifier = composer.create_verifier(verification_key);
-        //     auto proof = prover.construct_proof();
-        //     bool verified = verifier.verify_proof(proof);
+        {
+            auto composer = OuterComposer();
+            auto instance = composer.create_prover_instance(outer_folding_circuit);
+            auto verification_key = composer.compute_verification_key(instance);
+            auto prover = composer.create_prover(instance);
+            auto verifier = composer.create_verifier(verification_key);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
 
-        //     ASSERT(verified);
-        // }
+            ASSERT(verified);
+        }
     };
 
     /**
@@ -265,7 +266,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     //     auto verifier_instance_2 = inner_composer.create_verifier_instance(prover_instance_2);
 
     //     auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native(
-    //         { prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 }, inner_composer);
+    //         { prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 },
+    // tinner_composer);
 
     //     // Create another circuit to do a second round of folding
     //     InnerBuilder builder3;

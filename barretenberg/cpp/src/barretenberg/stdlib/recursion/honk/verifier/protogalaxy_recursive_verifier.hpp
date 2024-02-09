@@ -5,7 +5,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/recursive_instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
@@ -27,30 +27,23 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-    VerifierInstances instances;
-
     CommitmentLabels commitment_labels;
 
     Builder* builder;
+    VerifierInstances instances;
     std::shared_ptr<Transcript<Builder>> transcript;
 
     ProtoGalaxyRecursiveVerifier_(Builder* builder,
-                                  const std::vector<std::shared_ptr<NativeVerificationKey>> inst_vks,
-                                  std::shared_ptr<Instance> accumulator = nullptr)
+                                  std::shared_ptr<Instance> accumulator,
+                                  const std::vector<std::shared_ptr<NativeVerificationKey>> inst_vks)
         : builder(builder)
-    {
+        , instances(VerifierInstances(builder, accumulator, inst_vks)){};
 
-        std::vector<std::shared_ptr<Instance>> insts;
-        if (accumulator) {
-            insts.emplace_back(accumulator);
-        }
-        for (auto vk : inst_vks) {
-            auto inst = std::make_shared<Instance>();
-            inst->verification_key = std::make_shared<VerificationKey>(builder, vk);
-            insts.emplace_back(std::move(inst));
-        }
-        instances = VerifierInstances(insts);
-    };
+    ProtoGalaxyRecursiveVerifier_(Builder* builder, const std::vector<std::shared_ptr<NativeVerificationKey>> inst_vks)
+        : builder(builder)
+        , instances(VerifierInstances(builder, inst_vks)){
+
+        };
 
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector

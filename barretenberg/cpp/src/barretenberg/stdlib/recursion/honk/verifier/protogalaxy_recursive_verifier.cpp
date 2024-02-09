@@ -1,6 +1,7 @@
 #include "protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/recursive_instances.hpp"
 namespace bb::stdlib::recursion::honk {
 
 template <class VerifierInstances>
@@ -230,5 +231,5 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
 // template class ProtoGalaxyRecursiveVerifier_<VerifierInstances_<UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
 // 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
-    VerifierInstances_<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
+    RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
 } // namespace bb::stdlib::recursion::honk
