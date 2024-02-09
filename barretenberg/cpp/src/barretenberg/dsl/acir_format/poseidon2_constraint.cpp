@@ -18,7 +18,7 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
         state[i] = field_ct::from_witness_index(&builder, constraint.state[i]);
     }
     State output_state;
-    if (builder.NAME_STRING == "GoblinUltraArithmetization") {
+    if constexpr (IsGoblinBuilder<Builder>) {
         output_state =
             bb::stdlib::Poseidon2PermutationClassic<Poseidon2Params, Builder>::goblin_permutation(&builder, state);
     } else {
