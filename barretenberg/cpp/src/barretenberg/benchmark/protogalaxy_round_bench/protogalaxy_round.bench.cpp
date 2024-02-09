@@ -6,9 +6,8 @@
 
 using namespace benchmark;
 
-namespace bb::honk {
+namespace bb {
 using Flavor = GoblinUltraFlavor;
-using Polynomial = Flavor::Polynomial;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
 using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
@@ -35,7 +34,7 @@ void bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver&))
     folding_prover.state.accumulator = instance_1;
     folding_prover.state.deltas.resize(log2_num_gates);
     std::fill_n(folding_prover.state.deltas.begin(), log2_num_gates, 0);
-    folding_prover.state.perturbator = Polynomial::random(1 << log2_num_gates);
+    folding_prover.state.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);
     folding_prover.transcript = Flavor::Transcript::prover_init_empty();
     folding_prover.preparation_round();
 
@@ -52,6 +51,6 @@ BENCHMARK_CAPTURE(bench_round, combiner_quotient, [](auto& prover) { prover.comb
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
-} // namespace bb::honk
+} // namespace bb
 
 BENCHMARK_MAIN();

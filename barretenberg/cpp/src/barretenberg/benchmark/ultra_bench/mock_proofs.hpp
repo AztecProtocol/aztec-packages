@@ -58,7 +58,6 @@ inline UltraProver get_prover(UltraComposer& composer,
     return composer.create_prover(instance);
 }
 
-// goblin ultrahonk
 inline GoblinUltraProver get_prover(GoblinUltraComposer& composer,
                                     void (*test_circuit_function)(GoblinUltraComposer::CircuitBuilder&, size_t),
                                     size_t num_iterations)

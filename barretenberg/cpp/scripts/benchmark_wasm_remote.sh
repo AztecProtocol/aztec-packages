@@ -23,6 +23,3 @@ cd build-wasm-bench
 scp $BB_SSH_KEY ./bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-bench
 ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
   "cd $BB_SSH_CPP_PATH/build-wasm-bench ; /home/ubuntu/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y $COMMAND"
-
-# ./scripts/benchmark_remote_wasm.sh protogalaxy_round_bench
-# ./scripts/benchmark_remote_wasm.sh protogalaxy_round_bench "./protogalaxy_round_bench --benchmark_filter=initial_round/14"

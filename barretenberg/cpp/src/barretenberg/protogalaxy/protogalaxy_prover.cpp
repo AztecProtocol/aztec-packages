@@ -66,7 +66,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
         auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
         instance->compute_sorted_accumulator_polynomials(eta);
 
-        // Commit to the sorted withness-table accumulator and the finalized (i.e. with memory records) fourth wire
+        // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
         // polynomial
         witness_commitments.sorted_accum = commitment_key->commit(instance->prover_polynomials.sorted_accum);
         witness_commitments.w_4 = commitment_key->commit(instance->prover_polynomials.w_4);

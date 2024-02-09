@@ -188,25 +188,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 }
             });
 
-        //     for (size_t row = 0; row < instance_size; row++)
-        // {
-        //     auto row_evaluations = instance_polynomials.get_row(row);
-        //     RelationEvaluations relation_evaluations;
-        //     Utils::zero_elements(relation_evaluations);
-
-        //     // Note that the evaluations are accumulated with the gate separation challenge being 1 at this
-        //     stage, as
-        //     // this specific randomness is added later through the power polynomial univariate specific to
-        //     ProtoGalaxy Utils::template accumulate_relation_evaluations<>(
-        //         row_evaluations, relation_evaluations, relation_parameters, FF(1));
-
-        //     auto output = FF(0);
-        //     auto running_challenge = FF(1);
-        //     Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-
-        //     full_honk_evaluations[row] = output;
-        // }
-
         full_honk_evaluations[0] += linearly_dependent_contribution;
         return full_honk_evaluations;
     }
@@ -498,5 +479,4 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     void combiner_quotient_round();
     void accumulator_update_round();
 };
-
 } // namespace bb
