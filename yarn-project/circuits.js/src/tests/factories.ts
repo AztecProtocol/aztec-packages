@@ -403,7 +403,7 @@ export function makePrivateKernelInnerCircuitPublicInputs(
 ): PrivateKernelInnerCircuitPublicInputs {
   return new PrivateKernelInnerCircuitPublicInputs(
     makeAggregationObject(seed),
-    Fr.zero(),
+    fr(seed + 0x100),
     makeAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
     true,
@@ -419,21 +419,7 @@ export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true):
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
     makeAccumulatedMetaData(seed, full),
-    makeAccumulatedData(seed, full),
-    makeConstantData(seed + 0x100),
-    true,
-  );
-}
-/**
- * Creates arbitrary kernel circuit public inputs.
- * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Kernel circuit public inputs.
- */
-export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): PublicKernelCircuitPublicInputs {
-  return new PublicKernelCircuitPublicInputs(
-    makeAggregationObject(seed),
-    makeAccumulatedMetaData(seed, fullAccumulatedData),
-    makeAccumulatedData(seed, fullAccumulatedData),
+    makeFinalAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
     true,
   );
@@ -539,7 +525,7 @@ export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
  */
 export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernelCircuitPublicInputs): PublicKernelData {
   return new PublicKernelData(
-    kernelPublicInputs ?? makeKernelPublicInputs(seed, true),
+    kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -653,7 +639,7 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @param seed - The seed to use for generating the public kernel inputs.
  * @returns Public kernel inputs.
  */
-export function makePublicKernelInputs(seed = 1): PublicKernelCircuitPrivateInputs {
+export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
   return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
@@ -667,7 +653,7 @@ export function makePublicKernelInputsWithTweak(
   seed = 1,
   tweak?: (publicKernelInputs: PublicKernelCircuitPrivateInputs) => void,
 ): PublicKernelCircuitPrivateInputs {
-  const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
+  const kernelCircuitPublicInputs = makePublicKernelCircuitPublicInputs(seed, false);
   const previousKernel = makePublicKernelData(seed, kernelCircuitPublicInputs);
   const publicCall = makePublicCallData(seed + 0x1000);
   const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);

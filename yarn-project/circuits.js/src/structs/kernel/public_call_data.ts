@@ -34,6 +34,12 @@ export class PublicCallData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.callStackItem, this.proof, this.portalContractAddress, this.bytecodeHash);
+    return serializeToBuffer(
+      this.callStackItem,
+      this.publicCallStack,
+      this.proof,
+      this.portalContractAddress,
+      this.bytecodeHash,
+    );
   }
 }

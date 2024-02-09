@@ -35,6 +35,14 @@ export class PrivateKernelInnerData {
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
   ) {}
 
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelInnerData {
     const reader = BufferReader.asReader(buffer);
     return new this(
@@ -47,20 +55,12 @@ export class PrivateKernelInnerData {
   }
 
   static empty(): PrivateKernelInnerData {
-    return new this(
+    return new PrivateKernelInnerData(
       PrivateKernelInnerCircuitPublicInputs.empty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
     );
-  }
-
-  /**
-   * Serialize this as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
   }
 }
