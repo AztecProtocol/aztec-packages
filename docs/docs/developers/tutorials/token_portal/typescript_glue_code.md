@@ -24,6 +24,7 @@ In `cross_chain_test_harness.ts`, add:
 #include_code cross_chain_test_harness /yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts typescript
 
 This
+
 - gets your Solidity contract ABIs
 - uses Aztec.js to deploy them to Ethereum
 - uses Aztec.js to deploy the token and token bridge contract on L2, sets the bridge's portal address to `tokenPortalAddress` and initializes all the contracts

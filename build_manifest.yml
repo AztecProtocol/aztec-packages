@@ -201,6 +201,7 @@ boxes:
   dependencies:
     - aztec
     - noir
+    - aztec-nr
   runDependencies:
     - aztec
 
