@@ -156,6 +156,7 @@ yarn-project-base:
     - noir-packages
     - boxes-files
     - avm-transpiler
+    - noir-contracts
 
 yarn-project:
   buildDir: yarn-project
