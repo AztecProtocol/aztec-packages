@@ -1,5 +1,5 @@
 import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, Proof, PublicCallRequest, PublicKernelPublicInputs } from '@aztec/circuits.js';
+import { GlobalVariables, Header, Proof, PublicCallRequest, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
@@ -30,39 +30,20 @@ export class FeePreparationPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader);
   }
 
-  extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    const metaHwm = tx.data.metaHwm.toBigInt();
-    const enqueuedIrrevertiblePublicFunctionCalls = tx.enqueuedPublicFunctionCalls.filter(
-      call => call.callContext.startSideEffectCounter < metaHwm,
-    );
-
-    if (enqueuedIrrevertiblePublicFunctionCalls.length > 2) {
-      throw new Error(
-        `Too many enqueued irrevertible public calls in tx ${tx.getTxHash()}. Max 2 allowed. Received ${
-          enqueuedIrrevertiblePublicFunctionCalls.length
-        }`,
-      );
-    } else if (enqueuedIrrevertiblePublicFunctionCalls.length === 2) {
-      // if there are two enqueued irrevertible public calls,
-      // the first is the fee preparation call and the second is the fee distribution call
-      return [enqueuedIrrevertiblePublicFunctionCalls[0]];
-    } else {
-      // if there is only one enqueued irrevertible public call,
-      // it is the fee distribution call
-      return [];
-    }
+  extractEnqueuedPublicCalls(_tx: Tx): PublicCallRequest[] {
+    return [];
   }
 
   // this is a no-op for now
   async handle(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelPublicInputs,
+    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof?: Proof,
   ): Promise<{
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput?: PublicKernelPublicInputs;
+    publicKernelOutput?: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */

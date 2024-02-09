@@ -1,5 +1,5 @@
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
-import { PublicKernelInputs, PublicKernelPublicInputs } from '@aztec/circuits.js';
+import { PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { executePublicKernelAppLogic, executePublicKernelSetup } from '@aztec/noir-protocol-circuits';
@@ -17,7 +17,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async publicKernelCircuitPrivateInput(input: PublicKernelInputs): Promise<PublicKernelPublicInputs> {
+  public async publicKernelCircuitPrivateInput(
+    input: PublicKernelCircuitPrivateInputs,
+  ): Promise<PublicKernelCircuitPublicInputs> {
     if (!input.previousKernel.publicInputs.isPrivate) {
       throw new Error(`Expected private kernel previous inputs`);
     }
@@ -37,7 +39,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async publicKernelCircuitNonFirstIteration(input: PublicKernelInputs): Promise<PublicKernelPublicInputs> {
+  public async publicKernelCircuitNonFirstIteration(
+    input: PublicKernelCircuitPrivateInputs,
+  ): Promise<PublicKernelCircuitPublicInputs> {
     if (input.previousKernel.publicInputs.isPrivate) {
       throw new Error(`Expected public kernel previous inputs`);
     }

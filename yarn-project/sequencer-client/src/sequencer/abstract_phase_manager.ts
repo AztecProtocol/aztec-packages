@@ -8,7 +8,6 @@ import {
   Fr,
   GlobalVariables,
   Header,
-  KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -18,7 +17,6 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  PreviousKernelData,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -26,8 +24,9 @@ import {
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
-  PublicKernelInputs,
-  PublicKernelPublicInputs,
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelCircuitPublicInputs,
+  PublicKernelData,
   RETURN_VALUES_LENGTH,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -78,13 +77,13 @@ export abstract class AbstractPhaseManager {
    */
   abstract handle(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelPublicInputs,
+    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof?: Proof,
   ): Promise<{
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput?: PublicKernelPublicInputs;
+    publicKernelOutput?: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
@@ -98,13 +97,13 @@ export abstract class AbstractPhaseManager {
 
   protected getKernelOutputAndProof(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelPublicInputs,
+    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof?: Proof,
   ): {
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput: PublicKernelPublicInputs;
+    publicKernelOutput: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
@@ -116,9 +115,9 @@ export abstract class AbstractPhaseManager {
         publicKernelProof: previousPublicKernelProof,
       };
     } else {
-      const publicKernelOutput = new KernelCircuitPublicInputs(
+      const publicKernelOutput = new PublicKernelCircuitPublicInputs(
         tx.data.aggregationObject,
-        tx.data.metaHwm,
+        tx.data.endNonRevertibleData,
         CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
         tx.data.constants,
         tx.data.isPrivate,
@@ -133,9 +132,9 @@ export abstract class AbstractPhaseManager {
 
   protected async processEnqueuedPublicCalls(
     enqueuedCalls: PublicCallRequest[],
-    previousPublicKernelOutput: PublicKernelPublicInputs,
+    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof: Proof,
-  ): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
+  ): Promise<[PublicKernelCircuitPublicInputs, Proof, FunctionL2Logs[]]> {
     if (!enqueuedCalls || !enqueuedCalls.length) {
       throw new Error(`Missing preimages for enqueued public calls`);
     }
@@ -185,9 +184,9 @@ export abstract class AbstractPhaseManager {
 
   protected async runKernelCircuit(
     callData: PublicCallData,
-    previousOutput: KernelCircuitPublicInputs,
+    previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
-  ): Promise<[KernelCircuitPublicInputs, Proof]> {
+  ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
     const output = await this.getKernelCircuitOutput(callData, previousOutput, previousProof);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];
@@ -195,29 +194,32 @@ export abstract class AbstractPhaseManager {
 
   protected getKernelCircuitOutput(
     callData: PublicCallData,
-    previousOutput: KernelCircuitPublicInputs,
+    previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
-  ): Promise<KernelCircuitPublicInputs> {
+  ): Promise<PublicKernelCircuitPublicInputs> {
     if (previousOutput?.isPrivate && previousProof) {
       // Run the public kernel circuit with previous private kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
-      const inputs = new PublicKernelInputs(previousKernel, callData);
+      const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
       return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
     } else if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
-      const inputs = new PublicKernelInputs(previousKernel, callData);
+      const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
       return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
     } else {
       throw new Error(`No public kernel circuit for inputs`);
     }
   }
 
-  protected getPreviousKernelData(previousOutput: KernelCircuitPublicInputs, previousProof: Proof): PreviousKernelData {
+  protected getPreviousKernelData(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): PublicKernelData {
     const vk = getVerificationKeys().publicKernelCircuit;
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
-    return new PreviousKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
+    return new PublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
   }
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
@@ -317,7 +319,10 @@ export abstract class AbstractPhaseManager {
    * @param publicInputs - to be patched here: public inputs to the kernel iteration up to this point
    * @param execResult - result of the top/first execution for this enqueued public call
    */
-  private patchPublicStorageActionOrdering(publicInputs: KernelCircuitPublicInputs, execResult: PublicExecutionResult) {
+  private patchPublicStorageActionOrdering(
+    publicInputs: PublicKernelCircuitPublicInputs,
+    execResult: PublicExecutionResult,
+  ) {
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order
     const simPublicDataReads = collectPublicDataReads(execResult);
     const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
@@ -394,7 +399,7 @@ export abstract class AbstractPhaseManager {
     );
   }
 
-  private removeRedundantPublicDataWrites(publicInputs: KernelCircuitPublicInputs) {
+  private removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublicInputs) {
     const lastWritesMap = new Map();
     for (const write of publicInputs.end.publicDataUpdateRequests) {
       const key = write.leafSlot.toString();

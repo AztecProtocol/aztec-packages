@@ -24,7 +24,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
-  PublicKernelPublicInputs,
+  PublicKernelCircuitPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import {
@@ -100,11 +100,12 @@ describe('public_processor', () => {
         {
           isEmpty: false,
           hash,
-          data: new PublicKernelPublicInputs(
+          data: new PublicKernelCircuitPublicInputs(
             tx.data.aggregationObject,
-            tx.data.metaHwm,
+            tx.data.endNonRevertibleData,
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
+            tx.data.isPrivate,
           ),
           proof: tx.proof,
           encryptedLogs: tx.encryptedLogs,
