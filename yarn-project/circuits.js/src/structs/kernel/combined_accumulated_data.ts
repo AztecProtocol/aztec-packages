@@ -453,7 +453,7 @@ export class FinalAccumulatedData {
   }
 }
 
-export class AccumulatedMetaData {
+export class AccumulatedNonRevertibleData {
   constructor(
     /**
      * The new commitments made in this transaction.
@@ -473,9 +473,9 @@ export class AccumulatedMetaData {
     return serializeToBuffer(this.newCommitments, this.newNullifiers, this.publicCallStack);
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): AccumulatedMetaData {
+  static fromBuffer(buffer: Buffer | BufferReader): AccumulatedNonRevertibleData {
     const reader = BufferReader.asReader(buffer);
-    return new AccumulatedMetaData(
+    return new AccumulatedNonRevertibleData(
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
@@ -487,11 +487,11 @@ export class AccumulatedMetaData {
   }
 
   static fromString(str: string) {
-    return AccumulatedMetaData.fromBuffer(Buffer.from(str, 'hex'));
+    return AccumulatedNonRevertibleData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
   static empty() {
-    return new AccumulatedMetaData(
+    return new AccumulatedNonRevertibleData(
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),

@@ -44,7 +44,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The side-effect high watermark of the irrevertible part of the function call.
      */
-    public metaHwm: Fr,
+    public maxNonRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -226,7 +226,7 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
-      this.metaHwm.isZero() &&
+      this.maxNonRevertibleSideEffectCounter.isZero() &&
       isEmptyArray(this.readRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newCommitments) &&
@@ -255,7 +255,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.metaHwm,
+      fields.maxNonRevertibleSideEffectCounter,
       fields.readRequests,
       fields.nullifierKeyValidationRequests,
       fields.newCommitments,

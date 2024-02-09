@@ -9,7 +9,7 @@ import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
-  AccumulatedMetaData,
+  AccumulatedNonRevertibleData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
@@ -34,7 +34,6 @@ import {
   G1AffineElement,
   GrumpkinPrivateKey,
   GrumpkinScalar,
-  KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -74,14 +73,13 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   Point,
-  PreviousKernelData,
   PreviousRollupData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelInputsInit,
-  PrivateKernelInputsInner,
-  PrivateKernelPublicInputsFinal,
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelInnerData,
+  PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -91,7 +89,9 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  PublicKernelInputs,
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelCircuitPublicInputs,
+  PublicKernelData,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequestMembershipWitness,
@@ -106,13 +106,14 @@ import {
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  WitnessedPublicCallData,
   computeContractClassId,
   computePublicBytecodeCommitment,
   packBytecode,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header, NUM_BYTES_PER_SHA256 } from '../structs/header.js';
+import { PrivateKernelInitCircuitPrivateInputs } from '../structs/kernel/private_kernel_init_circuit_private_inputs.js';
+import { PrivateKernelInnerCircuitPrivateInputs } from '../structs/kernel/private_kernel_inner_circuit_private_inputs.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -292,10 +293,10 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
  * @param seed - The seed to use for generating the data.
  * @returns An instance of AccumulatedMetaData.
  */
-export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedMetaData {
+export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedNonRevertibleData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new AccumulatedMetaData(
+  return new AccumulatedNonRevertibleData(
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX_META, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX_META, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x501),
@@ -379,28 +380,48 @@ export function makePublicCircuitPublicInputs(
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Kernel circuit public inputs.
  */
-export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(
+export function makePublicKernelCircuitPublicInputs(
+  seed = 1,
+  fullAccumulatedData = true,
+): PublicKernelCircuitPublicInputs {
+  return new PublicKernelCircuitPublicInputs(
+    makeAggregationObject(seed),
+    makeAccumulatedMetaData(seed, fullAccumulatedData),
+    makeAccumulatedData(seed, fullAccumulatedData),
+    makeConstantData(seed + 0x100),
+    true,
+  );
+}
+/**
+ * Creates arbitrary kernel circuit public inputs.
+ * @param seed - The seed to use for generating the kernel circuit public inputs.
+ * @returns Kernel circuit public inputs.
+ */
+export function makePrivateKernelInnerCircuitPublicInputs(
+  seed = 1,
+  full = true,
+): PrivateKernelInnerCircuitPublicInputs {
+  return new PrivateKernelInnerCircuitPublicInputs(
     makeAggregationObject(seed),
     fr(seed + 0x100),
-    makeAccumulatedData(seed, fullAccumulatedData),
+    makeAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
     true,
   );
 }
 
 /**
- * Creates arbitrary final ordering kernel circuit public inputs.
- * @param seed - The seed to use for generating the final ordering kernel circuit public inputs.
- * @returns Final ordering kernel circuit public inputs.
+ * Creates arbitrary kernel circuit public inputs.
+ * @param seed - The seed to use for generating the kernel circuit public inputs.
+ * @returns Kernel circuit public inputs.
  */
-export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
-  return new PrivateKernelPublicInputsFinal(
+export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
+  return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
-    fr(seed + 0x100),
-    makeAccumulatedMetaData(seed, true),
-    makeFinalAccumulatedData(seed, true),
+    makeAccumulatedMetaData(seed, full),
+    makeFinalAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
+    true,
   );
 }
 
@@ -502,9 +523,28 @@ export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
  * @param kernelPublicInputs - The kernel public inputs to use for generating the previous kernel data.
  * @returns A previous kernel data.
  */
-export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
-  return new PreviousKernelData(
-    kernelPublicInputs ?? makeKernelPublicInputs(seed, true),
+export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernelCircuitPublicInputs): PublicKernelData {
+  return new PublicKernelData(
+    kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
+    new Proof(Buffer.alloc(16, seed + 0x80)),
+    makeVerificationKey(),
+    0x42,
+    makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
+  );
+}
+
+/**
+ * Makes arbitrary previous kernel data.
+ * @param seed - The seed to use for generating the previous kernel data.
+ * @param inputs - The kernel public inputs to use for generating the previous kernel data.
+ * @returns A previous kernel data.
+ */
+export function makePrivateKernelInnerData(
+  seed = 1,
+  inputs?: PrivateKernelInnerCircuitPublicInputs,
+): PrivateKernelInnerData {
+  return new PrivateKernelInnerData(
+    inputs ?? makePrivateKernelInnerCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -526,8 +566,8 @@ export function makeProof(seed = 1) {
  * @param seed - The seed to use for generating the private kernel inputs.
  * @returns Private kernel inputs.
  */
-export function makePrivateKernelInputsInit(seed = 1): PrivateKernelInputsInit {
-  return new PrivateKernelInputsInit(makeTxRequest(seed), makePrivateCallData(seed + 0x1000));
+export function makePrivateKernelInitCircuitPrivateInputs(seed = 1): PrivateKernelInitCircuitPrivateInputs {
+  return new PrivateKernelInitCircuitPrivateInputs(makeTxRequest(seed), makePrivateCallData(seed + 0x1000));
 }
 
 /**
@@ -535,8 +575,11 @@ export function makePrivateKernelInputsInit(seed = 1): PrivateKernelInputsInit {
  * @param seed - The seed to use for generating the private kernel inputs.
  * @returns Private kernel inputs.
  */
-export function makePrivateKernelInputsInner(seed = 1): PrivateKernelInputsInner {
-  return new PrivateKernelInputsInner(makePreviousKernelData(seed), makePrivateCallData(seed + 0x1000));
+export function makePrivateKernelInnerCircuitPrivateInputs(seed = 1): PrivateKernelInnerCircuitPrivateInputs {
+  return new PrivateKernelInnerCircuitPrivateInputs(
+    makePrivateKernelInnerData(seed),
+    makePrivateCallData(seed + 0x1000),
+  );
 }
 
 /**
@@ -592,28 +635,12 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
 }
 
 /**
- * Makes arbitrary witnessed public call data.
- * @param seed - The seed to use for generating the witnessed public call data.
- * @returns A witnessed public call data.
- */
-export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
-  return new WitnessedPublicCallData(
-    makePublicCallData(seed),
-    range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
-      makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
-    ),
-    makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x), seed + 0x200),
-    fr(seed + 0x300),
-  );
-}
-
-/**
  * Makes arbitrary public kernel inputs.
  * @param seed - The seed to use for generating the public kernel inputs.
  * @returns Public kernel inputs.
  */
-export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
-  return new PublicKernelInputs(makePreviousKernelData(seed), makePublicCallData(seed + 0x1000));
+export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
+  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 /**
@@ -624,12 +651,12 @@ export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
  */
 export function makePublicKernelInputsWithTweak(
   seed = 1,
-  tweak?: (publicKernelInputs: PublicKernelInputs) => void,
-): PublicKernelInputs {
-  const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
-  const previousKernel = makePreviousKernelData(seed, kernelCircuitPublicInputs);
+  tweak?: (publicKernelInputs: PublicKernelCircuitPrivateInputs) => void,
+): PublicKernelCircuitPrivateInputs {
+  const kernelCircuitPublicInputs = makePublicKernelCircuitPublicInputs(seed, false);
+  const previousKernel = makePublicKernelData(seed, kernelCircuitPublicInputs);
   const publicCall = makePublicCallData(seed + 0x1000);
-  const publicKernelInputs = new PublicKernelInputs(previousKernel, publicCall);
+  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);
   if (tweak) {
     tweak(publicKernelInputs);
   }
@@ -718,7 +745,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    metaHwm: fr(0),
+    maxNonRevertibleSideEffectCounter: fr(0),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
     nullifierKeyValidationRequests: makeTuple(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
@@ -1036,7 +1063,7 @@ export function makeStateDiffHints(seed = 1): StateDiffHints {
  * @returns A base rollup inputs.
  */
 export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
-  const kernelData = makePreviousKernelData(seed);
+  const kernelData = makePublicKernelData(seed);
 
   const start = makePartialStateReference(seed + 0x100);
 
