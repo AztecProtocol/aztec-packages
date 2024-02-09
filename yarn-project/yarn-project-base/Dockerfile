@@ -59,6 +59,8 @@ COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 # Copy in noir contracts
 COPY --from=noir-contracts /usr/src/noir-contracts /usr/src/noir-contracts
+# Copy in noir protocol circuits
+COPY --from=noir-contracts /usr/src/noir-protocol-circuits /usr/src/noir-protocol-circuits
 # Copy in boxes
 COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
 
