@@ -40,6 +40,9 @@ class AvmMiniTraceBuilder {
     // Division with direct memory access.
     void div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
+    // Bitwise not with direct memory access.
+    void bitwise_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
     // Set a constant from bytecode with direct memory access.
     void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 

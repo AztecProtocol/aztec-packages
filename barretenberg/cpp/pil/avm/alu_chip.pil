@@ -15,6 +15,7 @@ namespace aluChip(256);
     pol commit alu_op_sub;
     pol commit alu_op_mul;
     pol commit alu_op_div;
+    pol commit alu_op_not;
 
     // Flattened boolean instruction tags
     pol commit alu_ff_tag;
@@ -199,3 +200,30 @@ namespace aluChip(256);
           - (alu_cf * 2**64 + alu_u64_r0) * 2**128
           - alu_ic
         ) = 0;
+
+    // ========= BITWISE NOT Operation Constraints ===============================
+    // Constrain mem_tag to not be FF (BITWISE NOT doesn't make sense for FF)
+    // TODO decide if it is done here or in another trace
+
+    // Do not allow alu_ff_tag to be set if we are doing bitwise
+    // XOR between ff and op_not: (a - b)**2 = a**2 - 2ab + b**2 = 0
+    // Given a & b are constrained to be bits we can drop the exponents
+    // a - 2ab + b -1 = 0
+    pol bitwise_sel = alu_op_not; // Add more bitwise operations
+    #[ALU_FF_NOT_XOR]
+    bitwise_sel * alu_ff_tag = 0;
+
+    // The value 2^k
+    pol uint_max = alu_u8_tag * 2**8 + 
+                alu_u16_tag * 2**16 +
+                alu_u32_tag * 2**32 +
+                alu_u64_tag * 2**64 +
+                alu_u128_tag * 2**128 - 1;
+
+    // BITWISE NOT relation is: a + ~a = 2^k - 1
+    // Or (a + ~a - 2^k + 1) = 0;
+    // value of "a" stored n alu_ia and "~a" stored in alu_ic
+    #[ALU_NOT_OP]
+    alu_op_not * (alu_ia + alu_ic - uint_max) = 0;
+
+

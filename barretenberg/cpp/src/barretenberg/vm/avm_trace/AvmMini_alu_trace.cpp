@@ -343,5 +343,61 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
 
     return c;
 }
+/**
+ * @brief Build Alu trace and compute the result of a Bitwise Not of type defined by in_tag.
+ *
+ * @param a Unary operand of Not
+ * @param in_tag Instruction tag defining the number of bits on which the addition applies.
+ *               It is assumed that the caller never uses the type u0.
+ * @param clk Clock referring to the operation in the main trace.
+ *
+ * @return FF The result of the not casted in a finite field element
+ */
+FF AvmMiniAluTraceBuilder::bitwise_not(FF const& a, AvmMemoryTag in_tag, uint32_t const clk)
+{
+    FF c = 0;
+    uint128_t a_u128{ a };
+    uint128_t c_u128 = ~a_u128;
+
+    switch (in_tag) {
+    case AvmMemoryTag::U8:
+        c = FF{ static_cast<uint8_t>(c_u128) };
+        break;
+    case AvmMemoryTag::U16:
+        c = FF{ static_cast<uint16_t>(c_u128) };
+        break;
+    case AvmMemoryTag::U32:
+        c = FF{ static_cast<uint32_t>(c_u128) };
+        break;
+    case AvmMemoryTag::U64:
+        c = FF{ static_cast<uint64_t>(c_u128) };
+        break;
+    case AvmMemoryTag::U128:
+        c = FF{ uint256_t::from_uint128(c_u128) };
+        break;
+    // TODO(ilyas): this should return FF {0} but is used for negative tests
+    // If this returns FF{0} the row is not inserted in trace making it hard to track.
+    case AvmMemoryTag::FF:
+        c = FF{ uint256_t::from_uint128(c_u128) };
+        break;
+    case AvmMemoryTag::U0: // Unsupported as instruction tag {}
+        return FF{ 0 };
+    }
+
+    alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+        .alu_clk = clk,
+        .alu_op_not = true,
+        .alu_ff_tag = in_tag == AvmMemoryTag::FF, // TODO(ilyas): remove this
+        .alu_u8_tag = in_tag == AvmMemoryTag::U8,
+        .alu_u16_tag = in_tag == AvmMemoryTag::U16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::U32,
+        .alu_u64_tag = in_tag == AvmMemoryTag::U64,
+        .alu_u128_tag = in_tag == AvmMemoryTag::U128,
+        .alu_ia = a,
+        .alu_ic = c,
+    });
+
+    return c;
+}
 
 } // namespace avm_trace

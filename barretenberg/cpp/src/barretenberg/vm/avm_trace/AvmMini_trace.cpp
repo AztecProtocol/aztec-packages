@@ -643,6 +643,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         dest.aluChip_alu_op_add = FF(static_cast<uint32_t>(src.alu_op_add));
         dest.aluChip_alu_op_sub = FF(static_cast<uint32_t>(src.alu_op_sub));
         dest.aluChip_alu_op_mul = FF(static_cast<uint32_t>(src.alu_op_mul));
+        dest.aluChip_alu_op_not = FF(static_cast<uint32_t>(src.alu_op_not));
 
         dest.aluChip_alu_ff_tag = FF(static_cast<uint32_t>(src.alu_ff_tag));
         dest.aluChip_alu_u8_tag = FF(static_cast<uint32_t>(src.alu_u8_tag));
@@ -681,5 +682,41 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
 
     return trace;
 }
+
+/**
+ * @brief Bitwise not with direct memory access.
+ *
+ * @param a_offset An index in memory pointing to the only operand of Not.
+ * @param dst_offset An index in memory pointing to the output of not.
+ * @param in_tag The instruction memory tag of the operands.
+ */
+void AvmMiniTraceBuilder::bitwise_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size());
+
+    // Reading from memory and loading into ia resp. ib.
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
+
+    // ~a = c
+    FF c = alu_trace_builder.bitwise_not(read_a.val, in_tag, clk);
+
+    // Write into memory value c from intermediate register ic.
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+
+    main_trace.push_back(Row{
+        .avmMini_clk = clk,
+        .avmMini_pc = FF(pc++),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
+        .avmMini_sel_op_not = FF(1),
+        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avmMini_ia = read_a.val,
+        .avmMini_ic = c,
+        .avmMini_mem_op_a = FF(1),
+        .avmMini_mem_op_c = FF(1),
+        .avmMini_rwc = FF(1),
+        .avmMini_mem_idx_a = FF(a_offset),
+        .avmMini_mem_idx_c = FF(dst_offset),
+    });
+};
 
 } // namespace avm_trace
