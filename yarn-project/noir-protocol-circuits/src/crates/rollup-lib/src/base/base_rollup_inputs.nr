@@ -67,12 +67,6 @@ use dep::types::{
         uint256::U256,
     },
 };
-use dep::types::abis::kernel_data::PublicKernelData;
-use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness, MembershipWitness};
-use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
-use dep::types::abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash};
-use dep::types::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
-use dep::types::partial_state_reference::PartialStateReference;
 
 struct BaseRollupInputs {
     kernel_data: PublicKernelData,
