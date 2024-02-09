@@ -8,7 +8,7 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 
 using namespace bb;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 using namespace bb::stdlib;
 
 namespace {
@@ -22,7 +22,7 @@ using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 using tree = MerkleTree<MemoryStore, PedersenHashPolicy>;
 
-TEST(stdlib_merkle_tree, test_check_membership)
+TEST(crypto_merkle_tree, test_check_membership)
 {
     MemoryStore store;
     auto db = tree(store, 3);
@@ -49,7 +49,7 @@ TEST(stdlib_merkle_tree, test_check_membership)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_merkle_tree, test_batch_update_membership)
+TEST(crypto_merkle_tree, test_batch_update_membership)
 {
     MemoryStore store;
     tree db(store, 4);
@@ -75,7 +75,7 @@ TEST(stdlib_merkle_tree, test_batch_update_membership)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_merkle_tree, test_assert_check_membership)
+TEST(crypto_merkle_tree, test_assert_check_membership)
 {
     MemoryStore store;
     auto db = tree(store, 3);
@@ -92,7 +92,7 @@ TEST(stdlib_merkle_tree, test_assert_check_membership)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_merkle_tree, test_assert_check_membership_fail)
+TEST(crypto_merkle_tree, test_assert_check_membership_fail)
 {
     MemoryStore store;
     auto db = tree(store, 3);
@@ -110,7 +110,7 @@ TEST(stdlib_merkle_tree, test_assert_check_membership_fail)
     EXPECT_EQ(result, false);
 }
 // To test whether both old hash path and new hash path works for the same Merkle tree
-TEST(stdlib_merkle_tree, test_update_members)
+TEST(crypto_merkle_tree, test_update_members)
 {
     {
         MemoryStore store;
@@ -162,7 +162,7 @@ TEST(stdlib_merkle_tree, test_update_members)
     }
 }
 
-TEST(stdlib_merkle_tree, test_tree)
+TEST(crypto_merkle_tree, test_tree)
 {
     size_t depth = 3;
     size_t num = 1UL << depth;
@@ -184,7 +184,7 @@ TEST(stdlib_merkle_tree, test_tree)
     EXPECT_EQ(result, true);
 }
 
-TEST(stdlib_merkle_tree, test_update_memberships)
+TEST(crypto_merkle_tree, test_update_memberships)
 {
     constexpr size_t depth = 4;
     MemoryStore store;

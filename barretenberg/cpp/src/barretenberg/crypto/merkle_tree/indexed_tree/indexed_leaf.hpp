@@ -2,7 +2,7 @@
 
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -24,4 +24,4 @@ struct indexed_leaf {
     std::vector<fr> get_hash_inputs() const { return std::vector<fr>({ value, nextIndex, nextValue }); }
 };
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

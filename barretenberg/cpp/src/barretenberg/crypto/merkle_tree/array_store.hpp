@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -36,4 +36,4 @@ class ArrayStore {
   private:
     std::vector<std::vector<std::pair<bool, std::vector<uint8_t>>>> map_;
 };
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

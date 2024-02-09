@@ -1,12 +1,12 @@
 #pragma once
+#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_store.hpp"
-#include "barretenberg/stdlib/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "hash_path.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 template <typename Builder> using bit_vector = std::vector<bool_t<Builder>>;
 /**
@@ -42,9 +42,9 @@ field_t<Builder> compute_subtree_root(hash_path<Builder> const& hashes,
         field_t<Builder> left = field_t<Builder>::conditional_assign(path_bit, hashes[i].first, current);
         field_t<Builder> right = field_t<Builder>::conditional_assign(path_bit, current, hashes[i].second);
         if (is_updating_tree) {
-            current = pedersen_hash<Builder>::hash({ left, right }, 0);
+            current = bb::stdlib::pedersen_hash<Builder>::hash({ left, right }, 0);
         } else {
-            current = pedersen_hash<Builder>::hash_skip_field_validation({ left, right }, 0);
+            current = bb::stdlib::pedersen_hash<Builder>::hash_skip_field_validation({ left, right }, 0);
         }
     }
 
@@ -143,7 +143,7 @@ void assert_check_membership(field_t<Builder> const& root,
                              bool const is_updating_tree = false,
                              std::string const& msg = "assert_check_membership")
 {
-    auto exists = stdlib::merkle_tree::check_membership(root, hashes, value, index, is_updating_tree);
+    auto exists = check_membership(root, hashes, value, index, is_updating_tree);
     exists.assert_equal(true, msg);
 }
 
@@ -255,7 +255,7 @@ template <typename Builder> field_t<Builder> compute_tree_root(std::vector<field
     while (layer.size() > 1) {
         std::vector<field_t<Builder>> next_layer(layer.size() / 2);
         for (size_t i = 0; i < next_layer.size(); ++i) {
-            next_layer[i] = pedersen_hash<Builder>::hash({ layer[i * 2], layer[i * 2 + 1] });
+            next_layer[i] = bb::stdlib::pedersen_hash<Builder>::hash({ layer[i * 2], layer[i * 2 + 1] });
         }
         layer = std::move(next_layer);
     }
@@ -316,7 +316,7 @@ void batch_update_membership(field_t<Builder> const& new_root,
         new_root, rollup_root, old_root, old_path, zero_subtree_root, start_index.decompose_into_bits(), height, msg);
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree
 
 namespace bb::stdlib {
 /**
@@ -331,8 +331,8 @@ template <typename Builder> static void generate_merkle_membership_test_circuit(
     using namespace stdlib;
     using field_ct = field_t<Builder>;
     using witness_ct = witness_t<Builder>;
-    using MemStore = merkle_tree::MemoryStore;
-    using MerkleTree_ct = merkle_tree::MerkleTree<MemStore, merkle_tree::PedersenHashPolicy>;
+    using MemStore = crypto::merkle_tree::MemoryStore;
+    using MerkleTree_ct = crypto::merkle_tree::MerkleTree<MemStore, crypto::merkle_tree::PedersenHashPolicy>;
 
     MemStore store;
     const size_t tree_depth = 7;
@@ -348,8 +348,11 @@ template <typename Builder> static void generate_merkle_membership_test_circuit(
         auto idx_ct = field_ct(witness_ct(&builder, fr(idx))).decompose_into_bits();
         auto value_ct = field_ct(value);
 
-        merkle_tree::check_membership(
-            root_ct, merkle_tree::create_witness_hash_path(builder, merkle_tree.get_hash_path(idx)), value_ct, idx_ct);
+        crypto::merkle_tree::check_membership(
+            root_ct,
+            crypto::merkle_tree::create_witness_hash_path(builder, merkle_tree.get_hash_path(idx)),
+            value_ct,
+            idx_ct);
     }
 }
 } // namespace bb::stdlib

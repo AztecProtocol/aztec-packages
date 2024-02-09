@@ -3,7 +3,7 @@
 #include "../merkle_tree.hpp"
 #include "nullifier_leaf.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -36,4 +36,4 @@ template <typename Store, typename HashingPolicy> class NullifierTree : public M
     std::vector<WrappedNullifierLeaf<HashingPolicy>> leaves;
 };
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

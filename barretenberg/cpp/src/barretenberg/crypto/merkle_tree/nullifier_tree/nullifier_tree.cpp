@@ -9,7 +9,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 template <typename Store, typename HashingPolicy>
 NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, size_t initial_size, uint8_t tree_id)
@@ -86,4 +86,4 @@ fr NullifierTree<Store, HashingPolicy>::update_element(fr const& value)
 
 template class NullifierTree<MemoryStore, Poseidon2HashPolicy>;
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

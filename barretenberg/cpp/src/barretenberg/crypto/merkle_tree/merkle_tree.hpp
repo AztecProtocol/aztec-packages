@@ -9,7 +9,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -447,4 +447,4 @@ template <typename Store, typename HashingPolicy> void MerkleTree<Store, Hashing
     store_.del(key.to_buffer());
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

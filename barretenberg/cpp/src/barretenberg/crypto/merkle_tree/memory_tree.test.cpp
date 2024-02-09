@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 using HashPolicy = PedersenHashPolicy;
 
@@ -14,7 +14,7 @@ static std::vector<fr> VALUES = []() {
     return values;
 }();
 
-TEST(stdlib_merkle_tree, test_memory_store)
+TEST(crypto_merkle_tree, test_memory_store)
 {
     fr e00 = 0;
     fr e01 = VALUES[1];
@@ -45,7 +45,7 @@ TEST(stdlib_merkle_tree, test_memory_store)
     EXPECT_EQ(db.root(), root);
 }
 
-TEST(stdlib_merkle_tree, test_memory_store_sibling_path)
+TEST(crypto_merkle_tree, test_memory_store_sibling_path)
 {
     fr e00 = 0;
     fr e01 = VALUES[1];

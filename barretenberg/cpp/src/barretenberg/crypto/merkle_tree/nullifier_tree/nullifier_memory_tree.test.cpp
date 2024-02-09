@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 using HashPolicy = PedersenHashPolicy;
 using WrappedLeaf = WrappedNullifierLeaf<HashPolicy>;

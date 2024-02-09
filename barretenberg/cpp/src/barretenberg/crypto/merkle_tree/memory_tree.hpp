@@ -1,7 +1,7 @@
 #pragma once
 #include "hash_path.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -113,4 +113,4 @@ template <typename HashingPolicy> fr MemoryTree<HashingPolicy>::update_element(s
     return root_;
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

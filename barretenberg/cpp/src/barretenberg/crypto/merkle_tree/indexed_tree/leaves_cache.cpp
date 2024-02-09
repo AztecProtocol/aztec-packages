@@ -1,6 +1,6 @@
 #include "leaves_cache.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -48,4 +48,4 @@ void LeavesCache::append_leaf(const indexed_leaf& leaf)
     set_at_index(next_index, leaf, true);
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

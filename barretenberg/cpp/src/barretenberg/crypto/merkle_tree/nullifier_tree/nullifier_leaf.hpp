@@ -3,7 +3,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 typedef uint256_t index_t;
@@ -119,4 +119,4 @@ inline std::pair<size_t, bool> find_closest_leaf(std::vector<WrappedNullifierLea
     return std::make_pair(static_cast<size_t>(it - diff.begin()), repeated);
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

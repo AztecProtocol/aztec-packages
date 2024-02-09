@@ -9,7 +9,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <vector>
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 struct PedersenHashPolicy {
     static fr hash(const std::vector<fr>& inputs) { return crypto::pedersen_hash::hash(inputs); }
@@ -83,4 +83,4 @@ inline std::vector<bb::fr> compute_tree_native(std::vector<bb::fr> const& input)
     return tree;
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

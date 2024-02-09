@@ -3,7 +3,7 @@
 #include "../memory_tree.hpp"
 #include "nullifier_leaf.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 /**
  * An NullifierMemoryTree is structured just like a usual merkle tree:
@@ -171,4 +171,4 @@ template <typename HashingPolicy> fr_hash_path NullifierMemoryTree<HashingPolicy
     return hash_path;
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

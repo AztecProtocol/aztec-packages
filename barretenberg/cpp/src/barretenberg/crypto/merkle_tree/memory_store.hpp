@@ -4,7 +4,7 @@
 #include <map>
 #include <set>
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 class MemoryStore {
   public:
@@ -84,4 +84,4 @@ class MemoryStore {
     std::set<std::string> deletes_;
 };
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

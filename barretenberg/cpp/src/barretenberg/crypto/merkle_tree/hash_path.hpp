@@ -4,9 +4,9 @@
 #include <algorithm>
 #include <vector>
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
-using namespace bb;
+using namespace bb::stdlib;
 
 using fr_hash_path = std::vector<std::pair<fr, fr>>;
 using fr_sibling_path = std::vector<fr>;
@@ -61,13 +61,13 @@ inline fr zero_hash_at_height(size_t height)
     return current;
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree
 
 // We add to std namespace as fr_hash_path is actually a std::vector, and this is the only way
 // to achieve effective ADL.
 namespace std {
 template <typename Ctx>
-inline std::ostream& operator<<(std::ostream& os, bb::stdlib::merkle_tree::hash_path<Ctx> const& path)
+inline std::ostream& operator<<(std::ostream& os, bb::crypto::merkle_tree::hash_path<Ctx> const& path)
 {
     os << "[\n";
     for (size_t i = 0; i < path.size(); ++i) {
@@ -77,7 +77,7 @@ inline std::ostream& operator<<(std::ostream& os, bb::stdlib::merkle_tree::hash_
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, bb::stdlib::merkle_tree::fr_hash_path const& path)
+inline std::ostream& operator<<(std::ostream& os, bb::crypto::merkle_tree::fr_hash_path const& path)
 {
     os << "[\n";
     for (size_t i = 0; i < path.size(); ++i) {

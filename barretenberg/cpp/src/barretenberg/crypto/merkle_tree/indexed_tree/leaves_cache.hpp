@@ -2,7 +2,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "indexed_leaf.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 typedef uint256_t index_t;
 
@@ -24,4 +24,4 @@ class LeavesCache {
     std::vector<indexed_leaf> leaves_;
 };
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

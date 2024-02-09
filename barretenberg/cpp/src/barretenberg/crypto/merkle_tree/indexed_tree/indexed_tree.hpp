@@ -5,7 +5,7 @@
 #include "../hash_path.hpp"
 #include "indexed_leaf.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -378,4 +378,4 @@ fr IndexedTree<Store, LeavesStore, HashingPolicy>::append_subtree(const index_t&
     return AppendOnlyTree<Store, HashingPolicy>::add_values(hashes_to_append);
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

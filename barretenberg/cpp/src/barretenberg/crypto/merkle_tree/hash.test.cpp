@@ -2,29 +2,29 @@
 #include "memory_tree.hpp"
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib/merkle_tree/membership.hpp"
 
 using namespace bb;
-using namespace bb::stdlib;
+using namespace bb::crypto;
 
 using Builder = UltraCircuitBuilder;
 
-using field_ct = field_t<Builder>;
-using witness_ct = witness_t<Builder>;
+using field_ct = bb::stdlib::field_t<Builder>;
+using witness_ct = bb::stdlib::witness_t<Builder>;
 
-TEST(stdlib_merkle_tree_hash, hash_native_vs_circuit)
+TEST(crypto_merkle_tree_hash, hash_native_vs_circuit)
 {
     fr x = uint256_t(0x5ec473eb273a8011, 0x50160109385471ca, 0x2f3095267e02607d, 0x02586f4a39e69b86);
     Builder builder = Builder();
     witness_ct y = witness_ct(&builder, x);
-    field_ct z = pedersen_hash<Builder>::hash({ y, y });
+    field_ct z = bb::stdlib::pedersen_hash<Builder>::hash({ y, y });
     auto zz = merkle_tree::hash_pair_native(x, x);
 
     EXPECT_EQ(z.get_value(), zz);
 }
 
-TEST(stdlib_merkle_tree_hash, compute_tree_root_native_vs_circuit)
+TEST(crypto_merkle_tree_hash, compute_tree_root_native_vs_circuit)
 {
     Builder builder = Builder();
     std::vector<fr> inputs;
@@ -42,7 +42,7 @@ TEST(stdlib_merkle_tree_hash, compute_tree_root_native_vs_circuit)
     EXPECT_EQ(z.get_value(), zz);
 }
 
-TEST(stdlib_merkle_tree_hash, compute_tree_native)
+TEST(crypto_merkle_tree_hash, compute_tree_native)
 {
     constexpr size_t depth = 2;
     merkle_tree::MemoryTree<merkle_tree::PedersenHashPolicy> mem_tree(depth);

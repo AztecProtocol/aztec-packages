@@ -1,7 +1,7 @@
 #pragma once
 #include "../hash_path.hpp"
 
-namespace bb::stdlib::merkle_tree {
+namespace bb::crypto::merkle_tree {
 
 using namespace bb;
 
@@ -192,4 +192,4 @@ std::pair<bool, fr> AppendOnlyTree<Store, HashingPolicy>::read_node(size_t level
     return std::make_pair(true, value);
 }
 
-} // namespace bb::stdlib::merkle_tree
+} // namespace bb::crypto::merkle_tree

@@ -8,7 +8,7 @@
 #include "leaves_cache.hpp"
 
 using namespace bb;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 using HashPolicy = Poseidon2HashPolicy;
 

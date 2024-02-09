@@ -6,7 +6,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 
 using namespace bb;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();

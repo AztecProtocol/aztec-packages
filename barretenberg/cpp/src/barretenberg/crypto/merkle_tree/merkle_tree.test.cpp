@@ -6,7 +6,7 @@
 #include "memory_tree.hpp"
 
 using namespace bb::stdlib;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 using Builder = UltraCircuitBuilder;
 
@@ -25,7 +25,7 @@ static std::vector<fr> VALUES = []() {
     return values;
 }();
 
-TEST(stdlib_merkle_tree, test_kv_memory_vs_memory_consistency)
+TEST(crypto_merkle_tree, test_kv_memory_vs_memory_consistency)
 {
     constexpr size_t depth = 10;
     MemoryTree<PedersenHashPolicy> memdb(depth);
@@ -53,7 +53,7 @@ TEST(stdlib_merkle_tree, test_kv_memory_vs_memory_consistency)
     EXPECT_EQ(db.root(), memdb.root());
 }
 
-TEST(stdlib_merkle_tree, test_size)
+TEST(crypto_merkle_tree, test_size)
 {
     MemoryStore store;
     auto db = MerkleTree<MemoryStore, PedersenHashPolicy>(store, 256);
@@ -81,7 +81,7 @@ TEST(stdlib_merkle_tree, test_size)
     EXPECT_EQ(db.size(), 3ULL);
 }
 
-TEST(stdlib_merkle_tree, test_get_hash_path)
+TEST(crypto_merkle_tree, test_get_hash_path)
 {
     MemoryTree<PedersenHashPolicy> memdb(10);
 
@@ -103,7 +103,7 @@ TEST(stdlib_merkle_tree, test_get_hash_path)
     EXPECT_EQ(db.get_hash_path(512), memdb.get_hash_path(512));
 }
 
-TEST(stdlib_merkle_tree, test_get_sibling_path)
+TEST(crypto_merkle_tree, test_get_sibling_path)
 {
     MemoryTree<PedersenHashPolicy> memdb(10);
 
@@ -125,7 +125,7 @@ TEST(stdlib_merkle_tree, test_get_sibling_path)
     EXPECT_EQ(db.get_sibling_path(512), memdb.get_sibling_path(512));
 }
 
-TEST(stdlib_merkle_tree, test_get_hash_path_layers)
+TEST(crypto_merkle_tree, test_get_hash_path_layers)
 {
     {
         MemoryStore store;
@@ -154,7 +154,7 @@ TEST(stdlib_merkle_tree, test_get_hash_path_layers)
     }
 }
 
-TEST(stdlib_merkle_tree, test_get_sibling_path_layers)
+TEST(crypto_merkle_tree, test_get_sibling_path_layers)
 {
     {
         MemoryStore store;
