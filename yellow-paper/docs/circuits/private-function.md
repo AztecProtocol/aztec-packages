@@ -44,6 +44,7 @@ The public inputs of _every_ private function _must_ adhere to the following ABI
 | `args_hash`                         | `field`                                                                 | Hash of the function arguments.                                       |
 | `return_values`                     | `[field; C]`                                                            | Return values of this function call.                                  |
 | `note_hash_read_requests`           | [`[NoteHashReadRequest; C]`](#notehashreadrequest)                      | Requests to prove the note hashes being read exist.                   |
+| `nullifier_read_requests`           | [`[NullifierReadRequest; C]`](#nullifierreadrequest)                    | Requests to prove the nullifiers being read exist.                    |
 | `nullifier_key_validation_requests` | [`[NullifierKeyValidationRequest]; C]`](#nullifierkeyvalidationrequest) | Requests to validate nullifier keys used in this function call.       |
 | `note_hashes`                       | [`[NoteHash; C]`](#notehash)                                            | New note hashes created in this function call.                        |
 | `nullifiers`                        | [`[Nullifier; C]`](#nullifier)                                          | New nullifiers created in this function call.                         |
@@ -82,6 +83,13 @@ TODO: use different values for each constant, instead of `C`, so that this docum
 | Field       | Type    | Description                            |
 | ----------- | ------- | -------------------------------------- |
 | `note_hash` | `field` | Hash of the note to be read.           |
+| `counter`   | `field` | Counter at which the request was made. |
+
+### `NullifierReadRequest`
+
+| Field       | Type    | Description                            |
+| ----------- | ------- | -------------------------------------- |
+| `nullifier` | `field` | Nullifier to be read.                  |
 | `counter`   | `field` | Counter at which the request was made. |
 
 ### `NullifierKeyValidationRequest`

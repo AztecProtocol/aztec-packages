@@ -8,63 +8,74 @@
 
 A **reset** circuit is designed to abstain from processing individual private function calls. Instead, it injects the outcomes of an initial, inner, or another reset private kernel circuit, scrutinizes the public inputs, and clears the verifiable data within its scope. A reset circuit can be executed either preceding the tail private kernel circuit, or as a means to "reset" public inputs at any point between two private kernels, allowing data to accumulate seamlessly in subsequent iterations.
 
-There are 2 variations of reset circuits:
+There are 3 variations of reset circuits:
 
-<!-- TODO: read requests in app or not is still being debated, very slowly -->
 <!-- TODO: possibly a reset circuit to sha256-hash logs, if logs are pushed to the data bus? Note: if there's room in the data bus at the end of all kernel iterations, then the logs can instead be kept in the data bus, and then hashed by the sequencer in the rollup circuit woooh! -->
 
-- [Note Hash Read Request Reset Private Kernel Circuit](#note-hash-read-request-reset-private-kernel-circuit).
+- [Read Request Reset Private Kernel Circuit](#read-request-reset-private-kernel-circuit).
 - [Nullifier Key Validation Request Reset Private Kernel Circuit](#nullifier-key-validation-request-reset-private-kernel-circuit). <!-- Perhaps consider giving these requests a more generic name. `ParentSecretKeyValidationRequest`? Outgoing viewing keys will also use this pattern. -->
 - [Transient Note Reset Private Kernel Circuit](#transient-note-reset-private-kernel-circuit).
 
 The incorporation of these circuits not only enhances the modularity and repeatability of the "reset" process but also diminishes the overall workload. Rather than conducting resource-intensive computations such as membership checks in each iteration, these tasks are only performed as necessary within the reset circuits.
 
-### Note Hash Read Request Reset Private Kernel Circuit.
+### Read Request Reset Private Kernel Circuit.
 
 <!-- Ideally this circuit would be executed _after_ squashing, so that there are fewer reads to perform. Would that be possible? -->
 
-This reset circuit conducts verification on some or all accumulated note hash read requests and subsequently removes them from the [`note_hash_read_request_contexts`](./private-kernel-initial.mdx/#notehashreadrequestcontext) in the [`transient_accumulated_data`](./private-kernel-initial.mdx#transientaccumulateddata) within the [`public_inputs`](./private-kernel-initial.mdx#publicinputs) of the [`previous_kernel`](#previouskernel).
+This reset circuit conducts verification on some or all accumulated read requests and subsequently removes them from the [`transient_accumulated_data`](./private-kernel-initial.mdx#transientaccumulateddata) within the [`public_inputs`](./private-kernel-initial.mdx#publicinputs) of the [`previous_kernel`](#previouskernel).
 
-A read request can pertain to one of two note types:
+Depending on the value specified in [`hints`](#hints-for-read-request-reset-private-kernel-circuit).`reset_type`, it can target different read requests for resetting:
 
-- A settled note: generated in a prior successful transaction and included in the note hash tree.
-- A pending note: created in the current transaction, not yet part of the note hash tree.
+- For `reset_type == note_hash`: `target_read_requests` = [`note_hash_read_request_contexts`](./private-kernel-initial.mdx/#notehashreadrequestcontext)
+- For `reset_type == nullifier`: `target_read_requests` = [`nullifier_read_requests`](./private-function.md/#nullifierreadrequest)
 
-1. To clear read requests for settled notes, the circuit performs membership checks for the targeted read requests using the [hints](#hints-for-read-request-reset-private-kernel-circuit) provided via `private_inputs`.
+A read request can pertain to one of two types of values:
 
-   For each `persistent_read_index` at index `i` in `persistent_read_indices`:
+- A settled value: generated in a prior successful transaction and included in the tree.
+- A pending value: created in the current transaction, not yet part of the tree.
 
-   1. If the `persistent_read_index` equals the length of the _note_hash_read_request_contexts_ array, there is no read request to be verified. Skip the rest.
-   2. Locate the `read_request`: `note_hash_read_request_contexts[persistent_read_index]`
-   3. Perform a membership check on the note being read. Where:
-      - The leaf corresponds to the hash of the note: `read_request.note_hash`
-      - The index and sibling path are in: `read_request_membership_witnesses[i]`.
-      - The root is the `note_hash_tree_root` in the [block_header](./private-function.md#header) within [`public_inputs`](#public-inputs)[`.constant_data`](./private-kernel-initial.mdx#constantdata).
+1. **To clear read requests for settled values**, the circuit performs membership checks for the target read requests using the [hints](#hints-for-read-request-reset-private-kernel-circuit) provided via `private_inputs`.
+
+   For each `persistent_read_index` at index `i` in `hints.persistent_read_indices`:
+
+   1. If the `persistent_read_index` equals the length of the `target_read_requests` array, there is no read request to be verified. Skip the rest.
+   2. Locate the `read_request` using the index:
+      - `read_request = target_read_requests[persistent_read_index]`
+   3. Perform a membership check on the value being read. Where:
+      - The leaf corresponds to the value: `read_request.value`
+      - The index and sibling path are in: `hints.read_request_membership_witnesses[i]`.
+      - The root is sourced from the [block_header](./private-function.md#header) within [`public_inputs`](#public-inputs)[`.constant_data`](./private-kernel-initial.mdx#constantdata):
+        - For note hash: `note_hash_tree_root`
+        - For nullifier: `nullifier_tree_root`
 
    > Following the above process, at most `N` read requests will be cleared, where `N` is the length of the `persistent_read_indices` array. It's worth noting that there can be multiple versions of this reset circuit, each with a different value of `N`.
 
-2. To clear read requests for pending notes, the circuit ensures that the notes were created before the corresponding read operation, utilizing the [hints](#hints-for-read-request-reset-private-kernel-circuit) provided via `private_inputs`
+2. **To clear read requests for pending values**, the circuit ensures that the values were created before the corresponding read operations, utilizing the [hints](#hints-for-read-request-reset-private-kernel-circuit) provided via `private_inputs`.
 
-   For each `transient_read_index` at index `i` in `transient_read_indices`:
+   For each `transient_read_index` at index `i` in `hints.transient_read_indices`:
 
-   1. If the `transient_read_index` equals the length of the _note_hash_read_request_contexts_ array, there is no read request to be verified. Skip the rest.
-   2. Locate the `read_request`: `note_hash_read_request_contexts[transient_read_index]`
-   3. Locate the `note_hash` being read: `note_hash_contexts[pending_note_indices[i]]`
+   1. If the `transient_read_index` equals the length of the `target_read_requests` array, there is no read request to be verified. Skip the rest.
+   2. Locate the `read_request` using the index:
+      - `read_request = target_read_requests[transient_read_index]`
+   3. Locate the `target` being read using the index `hints.pending_value_indices[i]`:
+      - For note hash: `target = note_hash_contexts[index]`
+      - For nullifier: `target = nullifier_contexts[index]`
    4. Verify the following:
-      - `read_request.note_hash == note_hash.value`
-      - `read_request.contract_address == note_hash.contract_address`
-      - `read_request.counter > note_hash.counter`
-      - `(read_request.counter < note_hash.nullifier_counter) | (note_hash.nullifier_counter == 0)`
+      - `read_request.value == target.value`
+      - `read_request.contract_address == target.contract_address`
+      - `read_request.counter > target.counter`
+   5. When resetting a note hash, verify that the target note hash is not nullified before the read happens:
+      - `(target.nullifier_counter > read_request.counter) | (target.nullifier_counter == 0)`
 
-   > Given that a reset circuit can execute between two private kernel circuits, there's a possibility that a note is created in a nested execution and hasn't been added to the `public_inputs`. In such cases, the read request cannot be verified in the current reset circuit and must be processed in another reset circuit after the note has been included in the `public_inputs`.
+   > Given that a reset circuit can execute between two private kernel circuits, there's a possibility that the value being read is emitted in a nested execution and hasn't been included in the `public_inputs`. In such cases, the read request cannot be verified in the current reset circuit and must be processed in another reset circuit after the value has been aggregated to the `public_inputs`.
 
 3. This circuit then ensures that the read requests that haven't been verified should remain in the [transient_accumulated_data](./private-kernel-initial.mdx#transientaccumulateddata) within its `public_inputs`.
 
-   For each `read_request` at index `i` in the `note_hash_read_request_contexts` within the `private_inputs`, find its `status` at `note_hash_read_request_statuses[i]`:
+   For each `read_request` at index `i` in the `target_read_requests`, find its `status` at `hints.read_request_statuses[i]`. Verify the following:
 
    - If `status.state == persistent`, `i == persistent_read_indices[status.index]`.
    - If `status.state == transient`, `i == transient_read_indices[status.index]`.
-   - If `status.state == nada`, `read_request == public_inputs.transient_accumulated_data.note_hash_read_request_contexts[status.index]`.
+   - If `status.state == nada`, `read_request == public_inputs.transient_accumulated_data.target_read_requests[status.index]`.
 
 ### Nullifier Key Validation Request Reset Private Kernel Circuit.
 
@@ -180,24 +191,16 @@ The preceding proof can be:
 
 #### Verifying the accumulated data.
 
-It ensures that the `accumulated_data` in the `[public_inputs](#public-inputs)` matches the `accumulated_data` in [private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.mdx#public-inputs).
+It ensures that the `accumulated_data` in the [`public_inputs`](#public-inputs) matches the `accumulated_data` in [`private_inputs`](#private-inputs).[`previous_kernel`](#previouskernel).[`public_inputs`](./private-kernel-initial.mdx#public-inputs).
 
 #### Verifying the transient accumulated data.
 
-The following must equal the corresponding arrays in [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./private-kernel-initial.mdx#public-inputs)[`.transient_accumulated_data`](./private-kernel-initial.mdx#transientaccumulateddata):
+All arrays in the `transient_accumulated_data` in the [`public_inputs`](#public-inputs) must equal their corresponding arrays in [`private_inputs`](#private-inputs).[`previous_kernel`](#previouskernel).[`public_inputs`](./private-kernel-initial.mdx#public-inputs).[`transient_accumulated_data`](./private-kernel-initial.mdx#transientaccumulateddata), with the exception of those modified by the reset circuits:
 
-- `l2_to_l1_message_contexts`
-- `private_call_requests`
-- `public_call_requests`
-
-The following must remain the same for [note hash read request reset private kernel circuit](#note-hash-read-request-reset-private-kernel-circuit):
-
-- `note_hash_contexts`
-- `nullifier_contexts`
-
-The following must remain the same for [transient note reset private kernel circuit](#transient-note-reset-private-kernel-circuit):
-
-- `note_hash_read_request_contexts`
+1. [Read request reset circuit](#note-hash-read-request-reset-private-kernel-circuit) (for note hashes): `note_hash_read_request_contexts`
+2. [Read request reset circuit](#nullifier-read-request-reset-private-kernel-circuit) (for nullifiers): `nullifier_read_requests`
+3. [Nullifier key validation request reset circuit](#nullifier-key-validation-request-reset-private-kernel-circuit): `nullifier_key_validation_request_contexts`
+4. [Transient note reset circuit](#transient-note-reset-private-kernel-circuit): `note_hash_contexts` and `nullifier_contexts`
 
 #### Verifying the constant data.
 
@@ -209,24 +212,25 @@ This section follows the same [process](./private-kernel-inner.mdx#verifying-the
 
 The format aligns with the [`PreviousKernel`](./private-kernel-inner.mdx#previouskernel) of the inner private kernel circuit.
 
-### _Hints_ for [Note Hash Read Request Reset Private Kernel Circuit](#note-hash-read-request-reset-private-kernel-circuit)
+### _Hints_ for [Read Request Reset Private Kernel Circuit](#read-request-reset-private-kernel-circuit)
 
-| Field                                         | Type                                                                       | Description                                                                                                  |
-| --------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `transient_read_indices`                      | `[field; N]`                                                               | Indices of the read requests for transient notes.                                                            |
-| `pending_note_indices`                        | `[field; N]`                                                               | Indices of the note hash contexts for transient reads.                                                       |
-| `persistent_read_indices`                     | `[field; M]`                                                               | Indices of the read requests for settled notes.                                                              |
-| `note_hash_read_request_membership_witnesses` | [`[MembershipWitness; M]`](./private-kernel-initial.mdx#membershipwitness) | Membership witnesses for the persistent note hash reads.                                                     |
-| `note_hash_read_request_statuses`             | [`[ReadRequestStatus; C]`](#readrequeststatus)                             | Statuses of the note hash read request contexts. `C` equals the length of `note_hash_read_request_contexts`. |
+| Field                               | Type                                                                       | Description                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `reset_type`                        | `note_hash` \| `nullifier`                                                 | The type of read requests to be reset.                                               |
+| `transient_read_indices`            | `[field; N]`                                                               | Indices of the read requests for transient values.                                   |
+| `pending_value_indices`             | `[field; N]`                                                               | Indices of the values for transient reads.                                           |
+| `persistent_read_indices`           | `[field; M]`                                                               | Indices of the read requests for settled values.                                     |
+| `read_request_membership_witnesses` | [`[MembershipWitness; M]`](./private-kernel-initial.mdx#membershipwitness) | Membership witnesses for the settled values.                                         |
+| `read_request_statuses`             | [`[ReadRequestStatus; C]`](#readrequeststatus)                             | Statuses of the values being read. `C` equals the length of the read requests array. |
 
-> There can be multiple versions of the note hash read request reset private kernel circuit, each with a different values of `N` and `M`.
+> There can be multiple versions of the read request reset private kernel circuit, each with a different values of `N` and `M`.
 
 #### `ReadRequestStatus`
 
-| Field   | Type                              | Description                             |
-| ------- | --------------------------------- | --------------------------------------- |
-| `state` | `persistent \| transient \| nada` | State of the read request.              |
-| `index` | `field`                           | Index of the hint for the read request. |
+| Field   | Type                                  | Description                             |
+| ------- | ------------------------------------- | --------------------------------------- |
+| `state` | `persistent` \| `transient` \| `nada` | State of the read request.              |
+| `index` | `field`                               | Index of the hint for the read request. |
 
 ### _Hints_ for [Nullifier Key Validation Request Reset Private Kernel Circuit](#nullifier-key-validation-request-reset-private-kernel-circuit)
 

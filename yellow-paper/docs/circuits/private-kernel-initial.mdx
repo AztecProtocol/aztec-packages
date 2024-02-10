@@ -136,6 +136,7 @@ The "ordered arrays" include:
 - `note_hashes`
 - `nullifiers`
 - `note_hash_read_requests`
+- `nullifier_read_requests`
 - `unencrypted_log_hashes`
 - `encrypted_log_hashes`
 - `encrypted_note_preimage_hashes`
@@ -200,7 +201,9 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
   - `value`
 - `note_hash_read_request_contexts`
   - `note_hash`, `counter`
-- `nullifier_key_validation_request`
+- `nullifier_read_requests`
+  - `nullifier`, `counter`
+- `nullifier_key_validation_request_contexts`
   - `public_key`, `secret_key`
 - `unencrypted_log_hash_contexts`
   - `hash`, `length`, `counter`
@@ -417,6 +420,7 @@ class PrivateFunctionPublicInputs {
     nullifiers: List~Nullifier~
     l2_to_l1_messages: List~field~
     note_hash_read_requests: List~NoteHashReadRequest~
+    nullifier_read_requests: List~NullifierReadRequest~
     nullifier_key_validation_requests: List~NullifierKeyValidationRequest~
     unencrypted_log_hashes: List~UnencryptedLogHash~
     encrypted_log_hashes: List~EncryptedLogHash~
@@ -431,6 +435,7 @@ PrivateFunctionPublicInputs *-- CallContext: call_context
 PrivateFunctionPublicInputs *-- NoteHash: note_hashes
 PrivateFunctionPublicInputs *-- Nullifier: nullifiers
 PrivateFunctionPublicInputs *-- NoteHashReadRequest: note_hash_read_requests
+PrivateFunctionPublicInputs *-- NullifierReadRequest: nullifier_read_requests
 PrivateFunctionPublicInputs *-- NullifierKeyValidationRequest: nullifier_key_validation_requests
 PrivateFunctionPublicInputs *-- UnencryptedLogHash: unencrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedLogHash: encrypted_log_hashes
@@ -486,6 +491,11 @@ class NoteHashReadRequest {
     counter: field
 }
 NoteHashReadRequest ..> NoteHashReadRequestContext: note_hash_read_requests\n->note_hash_read_request_contexts
+
+class NullifierReadRequest {
+    nullifier: field
+    counter: field
+}
 
 class NullifierKeyValidationRequest {
     public_key: GrumpkinPoint
@@ -620,6 +630,7 @@ class TransientAccumulatedData {
   nullifier_contexts: List~NullifierContext~
   l2_to_l1_message_contexts: List~L2ToL1MessageContext~
   note_hash_read_request_contexts: List~NoteHashReadRequestContext~
+  nullifier_read_requests: List~NullifierReadRequest~
   nullifier_key_validation_request_contexts: List~NullifierKeyValidationRequestContext~
   unencrypted_log_hash_contexts: List~UnencryptedLogHashContext~
   encrypted_log_hash_contexts: List~EncryptedLogHashContext~
@@ -631,6 +642,7 @@ NoteHashContext --* TransientAccumulatedData: note_hash_contexts
 NullifierContext --* TransientAccumulatedData: nullifier_contexts
 L2ToL1MessageContext --* TransientAccumulatedData: l2_to_l1_message_contexts
 NoteHashReadRequestContext --* TransientAccumulatedData: note_hash_read_request_contexts
+NullifierReadRequest --* TransientAccumulatedData: nullifier_read_requests
 NullifierKeyValidationRequestContext --* TransientAccumulatedData: nullifier_key_validation_request_contexts
 UnencryptedLogHashContext --* TransientAccumulatedData: unencrypted_log_hash_contexts
 EncryptedLogHashContext --* TransientAccumulatedData: encrypted_log_hash_contexts
@@ -716,6 +728,7 @@ Would it be accurate to describe this as `AccumulatedTransientSideEffects`, perh
 | `nullifier_contexts`                        | [`[NullifierContext; C]`](#nullifiercontext)                                         | Nullifiers with extra data aiding verification.                             |
 | `l2_to_l1_message_contexts`                 | [`[L2toL1MessageContext; C]`](#l2tol1messagecontext)                                 | L2-to-l1 messages with extra data aiding verification.                      |
 | `note_hash_read_request_contexts`           | [`[NoteHashReadRequestContext; C]`](#notehashreadrequestcontext)                     | Requests to prove the note hashes being read exist.                         |
+| `nullifier_read_requests`                   | [`[NullifierReadRequest; C]`](./private-function#nullifierreadrequest)               | Requests to prove the nullifiers being read exist.                          |
 | `nullifier_key_validation_request_contexts` | [`[NullifierKeyValidationRequestContext; C]`](#nullifierkeyvalidationrequestcontext) | Requests to validate nullifier keys.                                        |
 | `unencrypted_log_hash_contexts`             | [`[UnencryptedLogHashContext; C]`](#unencryptedloghashcontext)                       | Hashes of the unencrypted logs with extra data aiding verification.         |
 | `encrypted_log_hash_contexts`               | [`[EncryptedLogHashContext; C]`](#encryptedloghashcontext)                           | Hashes of the encrypted logs with extra data aiding verification.           |
