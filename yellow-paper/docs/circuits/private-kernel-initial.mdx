@@ -18,22 +18,13 @@ In the **initial** kernel iteration, the process involves taking a [`transaction
 
 #### This first function call of the transaction must match the caller's intent
 
-The following data in the [`private_inputs`](#private-inputs)[`.private_call`](#privatecall) must match the corresponding fields of the user's [`private_inputs`](#private-inputs)[`.transaction_request`](#transactionrequest):
+The following data in the [`private_inputs`](#private-inputs).[`private_call`](#privatecall) must match the corresponding fields of the user's [`private_inputs`](#private-inputs).[`transaction_request`](#transactionrequest):
 
 - `contract_address`
 - `function_data`
 - `args_hash`: Hash of the function arguments.
 
 > Notice: a `transaction_request` doesn't explicitly contain a signature. Aztec implements [account abstraction](../addresses-and-keys/keys-requirements.md#authorization-keys), so the process for authorizing a transaction (if at all) is dictated by the logic of the functions of that transaction. In particular, an account contract can be called as an 'entrypoint' to a transaction, and there, custom authorization logic can be executed.
-
-#### The function call must be a [private function](./private-function.md)
-
-For the [`private_inputs`](#private-inputs)[`.private_call`](#privatecall)[`.call_stack_item`](#privatecallstackitem)[`.function_data`](#functiondata), the circuit verifies that:
-
-- It must be a private function: <!-- Q: is this actually needed? Or is it implied, because private functions look different from public functions (and are verified to exist within a class_id through a different approach to public functions)? -->
-  - `function_data.function_type == private`
-- It must not be an internal function: <!-- TODO: I believe @spalladino has removed `internal` as an enshrined concept, so we can probably get rid of this check. -->
-  - `function_data.is_internal == false`
 
 #### It must be a standard [synchronous function call](../calls/sync-calls.md)
 
@@ -407,8 +398,7 @@ ContractInstance .. PrivateCallStackItem: hash(contract_instance) == contract_ad
 
 class FunctionData {
     function_selector: u32
-    function_type: private|public|unconstrained
-    is_internal: bool
+    function_type: private|public
 }
 
 class PrivateFunctionPublicInputs {
@@ -729,16 +719,10 @@ Would it be accurate to describe this as `AccumulatedTransientSideEffects`, perh
 
 ### `FunctionData`
 
-<!-- Is it even possible for a kernel circuit to process an unconstrained function? Does the `function_type` need to include `unconstrained`? -->
-
-<!-- prettier-ignore -->
-| Field               | Type                               | Description                                         |
-| ------------------- | ---------------------------------- | --------------------------------------------------- |
-| `function_selector` | `u32`                              | Selector of the function being called.              |
-| `function_type`     | `private | public | unconstrained` | Type of the function being called.                  |
-| `is_internal`       | `bool`                             | A flag indicating whether the function is internal. |
-
-<!-- TODO: Palla is considering removing `is_internal` from the protocol and instead making it an explicit check in the body of a public function instead (via a macro). Please discuss with him :) -->
+| Field               | Type                  | Description                            |
+| ------------------- | --------------------- | -------------------------------------- |
+| `function_selector` | `u32`                 | Selector of the function being called. |
+| `function_type`     | `private` \| `public` | Type of the function being called.     |
 
 ### `ContractClass`
 

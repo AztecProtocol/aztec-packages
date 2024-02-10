@@ -28,13 +28,6 @@ The previous proof and the proof for the current function call are verified usin
 
 This section follows the same [process](./private-kernel-initial.mdx#ensuring-the-function-being-called-exists-in-the-contract) as outlined in the initial private kernel circuit.
 
-#### Ensuring the function is legitimate:
-
-For the [`function_data`](./private-kernel-initial.mdx#functiondata) in [`private_call`](#privatecall)[`.call_stack_item`](./private-kernel-initial.mdx#privatecallstackitem), this circuit verifies that:
-
-- It must be a private function:
-  - `function_data.function_type == private`
-
 #### Ensuring the current call matches the call request.
 
 <!-- TODO: we should align the terminology of "call stacks" and "call requests". They appear to be the same thing, but with differing names in different places. -->
@@ -81,11 +74,6 @@ For the `call_context` in the [`public_inputs`](./private-function.md#public-inp
 
    - The previous iteration must not be a static call:
      - `caller_context.is_static_call == false`
-
-4. If it is an internal call: `call_stack_item.function_data.is_internal == true`
-
-   - The `msg_sender` of the current iteration must equal the `storage_contract_address`:
-     - `call_context.msg_sender == call_context.storage_contract_address`
 
 #### Verifying the private function proof.
 
@@ -235,8 +223,7 @@ ContractInstance .. PrivateCallStackItem: hash(contract_data) == contract_addres
 
 class FunctionData {
     function_selector: u32
-    function_type: private|public|unconstrained
-    is_internal: bool
+    function_type: private|public
 }
 
 class PrivateFunctionPublicInputs {
