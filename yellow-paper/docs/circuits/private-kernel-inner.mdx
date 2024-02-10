@@ -246,8 +246,8 @@ class PrivateFunctionPublicInputs {
     note_hashes: List~NoteHash~
     nullifiers: List~Nullifier~
     l2_to_l1_messages: List~field~
-    note_hash_read_requests: List~NoteHashReadRequest~
-    nullifier_read_requests: List~NullifierReadRequest~
+    note_hash_read_requests: List~ReadRequest~
+    nullifier_read_requests: List~ReadRequest~
     nullifier_key_validation_requests: List~NullifierKeyValidationRequest~
     unencrypted_log_hashes: List~UnencryptedLogHash~
     encrypted_log_hashes: List~EncryptedLogHash~
@@ -261,8 +261,8 @@ class PrivateFunctionPublicInputs {
 PrivateFunctionPublicInputs *-- CallContext: call_context
 PrivateFunctionPublicInputs *-- NoteHash: note_hashes
 PrivateFunctionPublicInputs *-- Nullifier: nullifiers
-PrivateFunctionPublicInputs *-- NoteHashReadRequest: note_hash_read_requests
-PrivateFunctionPublicInputs *-- NullifierReadRequest: nullifier_read_requests
+PrivateFunctionPublicInputs *-- ReadRequest: note_hash_read_requests
+PrivateFunctionPublicInputs *-- ReadRequest: nullifier_read_requests
 PrivateFunctionPublicInputs *-- NullifierKeyValidationRequest: nullifier_key_validation_requests
 PrivateFunctionPublicInputs *-- UnencryptedLogHash: unencrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedLogHash: encrypted_log_hashes
@@ -291,7 +291,6 @@ CallContext ..> CallerContext : call_context
 
 CallContext .. NoteHashContext: storage_contract_address\n== contract_address
 CallContext .. NullifierContext: storage_contract_address\n== contract_address
-CallContext .. NoteHashReadRequestContext: storage_contract_address\n== contract_address
 CallContext .. NullifierKeyValidationRequestContext: storage_contract_address\n== contract_address
 CallContext .. UnencryptedLogHashContext: storage_contract_address\n== contract_address
 CallContext .. EncryptedLogHashContext: storage_contract_address\n== contract_address
@@ -313,14 +312,9 @@ class Nullifier {
 }
 Nullifier ..> NullifierContext: nullifiers\n->nullifier_contexts
 
-class NoteHashReadRequest {
+class ReadRequest {
     note_hash: field
-    counter: field
-}
-NoteHashReadRequest ..> NoteHashReadRequestContext: note_hash_read_requests\n->note_hash_read_request_contexts
-
-class NullifierReadRequest {
-    nullifier: field
+    contract_address: AztecAddress
     counter: field
 }
 
@@ -402,12 +396,6 @@ class L2ToL1MessageContext {
     contract_address: AztecAddress
 }
 
-class NoteHashReadRequestContext {
-    note_hash: field
-    counter: field
-    contract_address: AztecAddress
-}
-
 class NullifierKeyValidationRequestContext {
     public_key: field
     secret_key: field
@@ -456,8 +444,8 @@ class TransientAccumulatedData {
   note_hash_contexts: List~NoteHashContext~
   nullifier_contexts: List~NullifierContext~
   l2_to_l1_message_contexts: List~L2ToL1MessageContext~
-  note_hash_read_request_contexts: List~NoteHashReadRequestContext~
-  nullifier_read_requests: List~NullifierReadRequest~
+  note_hash_read_requests: List~ReadRequest~
+  nullifier_read_requests: List~ReadRequest~
   nullifier_key_validation_request_contexts: List~NullifierKeyValidationRequestContext~
   unencrypted_log_hash_contexts: List~UnencryptedLogHashContext~
   encrypted_log_hash_contexts: List~EncryptedLogHashContext~
@@ -468,8 +456,8 @@ class TransientAccumulatedData {
 NoteHashContext --* TransientAccumulatedData: note_hash_contexts
 NullifierContext --* TransientAccumulatedData: nullifier_contexts
 L2ToL1MessageContext --* TransientAccumulatedData: l2_to_l1_message_contexts
-NoteHashReadRequestContext --* TransientAccumulatedData: note_hash_read_request_contexts
-NullifierReadRequest --* TransientAccumulatedData: nullifier_read_requests
+ReadRequest --* TransientAccumulatedData: note_hash_read_requests
+ReadRequest --* TransientAccumulatedData: nullifier_read_requests
 NullifierKeyValidationRequestContext --* TransientAccumulatedData: nullifier_key_validation_request_contexts
 UnencryptedLogHashContext --* TransientAccumulatedData: unencrypted_log_hash_contexts
 EncryptedLogHashContext --* TransientAccumulatedData: encrypted_log_hash_contexts

@@ -26,8 +26,8 @@ This reset circuit conducts verification on some or all accumulated read request
 
 Depending on the value specified in [`hints`](#hints-for-read-request-reset-private-kernel-circuit).`reset_type`, it can target different read requests for resetting:
 
-- For `reset_type == note_hash`: `target_read_requests` = [`note_hash_read_request_contexts`](./private-kernel-initial.mdx/#notehashreadrequestcontext)
-- For `reset_type == nullifier`: `target_read_requests` = [`nullifier_read_requests`](./private-function.md/#nullifierreadrequest)
+- For `reset_type == note_hash`: `target_read_requests = note_hash_read_requests`
+- For `reset_type == nullifier`: `target_read_requests = nullifier_read_requests`
 
 A read request can pertain to one of two types of values:
 
@@ -44,7 +44,7 @@ A read request can pertain to one of two types of values:
    3. Perform a membership check on the value being read. Where:
       - The leaf corresponds to the value: `read_request.value`
       - The index and sibling path are in: `hints.read_request_membership_witnesses[i]`.
-      - The root is sourced from the [block_header](./private-function.md#header) within [`public_inputs`](#public-inputs)[`.constant_data`](./private-kernel-initial.mdx#constantdata):
+      - The root is sourced from the [block_header](./private-function.md#header) within [`public_inputs`](#public-inputs).[`constant_data`](./private-kernel-initial.mdx#constantdata):
         - For note hash: `note_hash_tree_root`
         - For nullifier: `nullifier_tree_root`
 
@@ -197,7 +197,7 @@ It ensures that the `accumulated_data` in the [`public_inputs`](#public-inputs) 
 
 All arrays in the `transient_accumulated_data` in the [`public_inputs`](#public-inputs) must equal their corresponding arrays in [`private_inputs`](#private-inputs).[`previous_kernel`](#previouskernel).[`public_inputs`](./private-kernel-initial.mdx#public-inputs).[`transient_accumulated_data`](./private-kernel-initial.mdx#transientaccumulateddata), with the exception of those modified by the reset circuits:
 
-1. [Read request reset circuit](#note-hash-read-request-reset-private-kernel-circuit) (for note hashes): `note_hash_read_request_contexts`
+1. [Read request reset circuit](#note-hash-read-request-reset-private-kernel-circuit) (for note hashes): `note_hash_read_requests`
 2. [Read request reset circuit](#nullifier-read-request-reset-private-kernel-circuit) (for nullifiers): `nullifier_read_requests`
 3. [Nullifier key validation request reset circuit](#nullifier-key-validation-request-reset-private-kernel-circuit): `nullifier_key_validation_request_contexts`
 4. [Transient note reset circuit](#transient-note-reset-private-kernel-circuit): `note_hash_contexts` and `nullifier_contexts`
