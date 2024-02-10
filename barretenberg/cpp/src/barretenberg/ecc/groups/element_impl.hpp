@@ -637,7 +637,6 @@ template <typename Element, std::size_t NUM_ROUNDS> struct EndomorphismWnaf {
 template <class Fq, class Fr, class T>
 element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent) const noexcept
 {
-    BB_OP_COUNT_TIME();
     constexpr size_t NUM_ROUNDS = 32;
     const Fr converted_scalar = exponent.from_montgomery_form();
 
@@ -785,7 +784,6 @@ template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
     const std::span<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
 {
-    BB_OP_COUNT_TIME();
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = points.size();
 
