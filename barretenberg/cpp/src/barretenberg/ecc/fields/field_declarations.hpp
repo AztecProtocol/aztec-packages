@@ -336,7 +336,7 @@ template <class Params_> struct alignas(32) field {
             k1.data[0] = ret.first[0];
             k1.data[1] = ret.first[1];
             k2.data[0] = ret.second[0];
-            k2.data[1] = ret.second[0];
+            k2.data[1] = ret.second[1];
         }
     }
 

@@ -165,6 +165,23 @@ TEST(AffineElement, InfinityMul)
     EXPECT_TRUE(result.is_point_at_infinity());
 }
 
+TEST(AffineElement, BatchMulMatchesMul)
+{
+    constexpr size_t num_points = 1024;
+    std::vector<grumpkin::g1::affine_element> affine_points;
+    for (size_t i = 0; i < num_points; ++i) {
+        affine_points.emplace_back(grumpkin::g1::affine_element::random_element());
+    }
+    grumpkin::fr exponent = grumpkin::fr::random_element();
+    std::vector<grumpkin::g1::affine_element> result =
+        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, exponent);
+    size_t i = 0;
+    for (grumpkin::g1::affine_element& el : result) {
+        EXPECT_EQ(el, affine_points[i] * exponent);
+        i++;
+    }
+}
+
 TEST(AffineElement, InfinityBatchMul)
 {
     constexpr size_t num_points = 1024;

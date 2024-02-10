@@ -1081,7 +1081,8 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         num_points,
         [&](size_t start, size_t end) {
             for (size_t i = start; i < end; ++i) {
-                work_elements[i] = points[i].is_infinity() ? work_elements[i].set_infinity() : work_elements[i];
+                work_elements[i] =
+                    points[i].is_point_at_infinity() ? work_elements[i].set_infinity() : work_elements[i];
             }
         },
         /*finite_field_additions_per_iteration=*/0,
