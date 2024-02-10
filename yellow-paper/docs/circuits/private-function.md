@@ -38,25 +38,25 @@ Some tweaks might be needed following this discussion: https://docs.google.com/s
 
 The public inputs of _every_ private function _must_ adhere to the following ABI:
 
-| Field                               | Type                                                                    | Description                                                           |
-| ----------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `call_context`                      | [`CallContext`](#callcontext)                                           | Context of the call corresponding to this function execution.         |
-| `args_hash`                         | `field`                                                                 | Hash of the function arguments.                                       |
-| `return_values`                     | `[field; C]`                                                            | Return values of this function call.                                  |
-| `note_hash_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                      | Requests to prove the note hashes being read exist.                   |
-| `nullifier_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                      | Requests to prove the nullifiers being read exist.                    |
-| `nullifier_key_validation_requests` | [`[NullifierKeyValidationRequest]; C]`](#nullifierkeyvalidationrequest) | Requests to validate nullifier keys used in this function call.       |
-| `note_hashes`                       | [`[NoteHash; C]`](#notehash)                                            | New note hashes created in this function call.                        |
-| `nullifiers`                        | [`[Nullifier; C]`](#nullifier)                                          | New nullifiers created in this function call.                         |
-| `l2_to_l1_messages`                 | `[field; C]`                                                            | New L2 to L1 messages created in this function call.                  |
-| `unencrypted_log_hashes`            | [`[UnencryptedLogHash; C]`](#unencryptedloghash)                        | Hashes of the unencrypted logs emitted in this function call.         |
-| `encrypted_log_hashes`              | [`[EncryptedLogHash; C]`](#encryptedloghash)                            | Hashes of the encrypted logs emitted in this function call.           |
-| `encrypted_note_preimage_hashes`    | [`[EncryptedNotePreimageHash]; C]`](#encryptednotepreimagehash)         | Hashes of the encrypted note preimages emitted in this function call. |
-| `private_call_stack_item_hashes`    | `[field; C]`                                                            | Hashes of the private function calls initiated by this function.      |
-| `public_call_stack_item_hashes`     | `[field; C]`                                                            | Hashes of the public function calls initiated by this function.       |
-| `block_header`                      | [`BlockHeader`](#blockheader)                                           | Information about the trees used for the transaction.                 |
-| `chain_id`                          | `field`                                                                 | Chain ID of the transaction.                                          |
-| `version`                           | `field`                                                                 | Version of the transaction.                                           |
+| Field                               | Type                                                                          | Description                                                           |
+| ----------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `call_context`                      | [`CallContext`](#callcontext)                                                 | Context of the call corresponding to this function execution.         |
+| `args_hash`                         | `field`                                                                       | Hash of the function arguments.                                       |
+| `return_values`                     | `[field; C]`                                                                  | Return values of this function call.                                  |
+| `note_hash_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                            | Requests to prove the note hashes being read exist.                   |
+| `nullifier_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                            | Requests to prove the nullifiers being read exist.                    |
+| `nullifier_key_validation_requests` | [`[ParentSecretKeyValidationRequest]; C]`](#parentsecretkeyvalidationrequest) | Requests to validate nullifier keys used in this function call.       |
+| `note_hashes`                       | [`[NoteHash; C]`](#notehash)                                                  | New note hashes created in this function call.                        |
+| `nullifiers`                        | [`[Nullifier; C]`](#nullifier)                                                | New nullifiers created in this function call.                         |
+| `l2_to_l1_messages`                 | `[field; C]`                                                                  | New L2 to L1 messages created in this function call.                  |
+| `unencrypted_log_hashes`            | [`[UnencryptedLogHash; C]`](#unencryptedloghash)                              | Hashes of the unencrypted logs emitted in this function call.         |
+| `encrypted_log_hashes`              | [`[EncryptedLogHash; C]`](#encryptedloghash)                                  | Hashes of the encrypted logs emitted in this function call.           |
+| `encrypted_note_preimage_hashes`    | [`[EncryptedNotePreimageHash]; C]`](#encryptednotepreimagehash)               | Hashes of the encrypted note preimages emitted in this function call. |
+| `private_call_stack_item_hashes`    | `[field; C]`                                                                  | Hashes of the private function calls initiated by this function.      |
+| `public_call_stack_item_hashes`     | `[field; C]`                                                                  | Hashes of the public function calls initiated by this function.       |
+| `block_header`                      | [`BlockHeader`](#blockheader)                                                 | Information about the trees used for the transaction.                 |
+| `chain_id`                          | `field`                                                                       | Chain ID of the transaction.                                          |
+| `version`                           | `field`                                                                       | Version of the transaction.                                           |
 
 After generating a proof for a private function circuit, that proof (and associated public inputs) will be passed-into a private kernel circuit as private inputs. Private kernel circuits use the private function's proof, public inputs, and verification key, to verify the correct execution of the private function. Private kernel circuits then perform a number of checks and computations on the private function's public inputs.
 
@@ -86,14 +86,12 @@ TODO: use different values for each constant, instead of `C`, so that this docum
 | `contract_address` | `AztecAddress` | Address of the contract the value was created. |
 | `counter`          | `field`        | Counter at which the request was made.         |
 
-### `NullifierKeyValidationRequest`
+### `ParentSecretKeyValidationRequest`
 
-<!-- These types might be wrong. The public key needs to be some encoding of a grumpkin point. The secret key needs to be an Fq field instead of an Fr field. -->
-
-| Field        | Type    | Description                                                          |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| `public_key` | `field` | Nullifier public key of an account.                                  |
-| `secret_key` | `field` | Nullifier secret key of an account siloed with the contract address. |
+| Field                       | Type            | Description                                  |
+| --------------------------- | --------------- | -------------------------------------------- |
+| `parent_public_key`         | `GrumpkinPoint` | Claimed parent public key of the secret key. |
+| `hardened_child_secret_key` | `fq`            | Secret key passed to the function.           |
 
 ### `NoteHash`
 

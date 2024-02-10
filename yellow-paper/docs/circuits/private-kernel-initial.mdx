@@ -204,7 +204,7 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
 - `nullifier_read_requests`
   - `value`, `contract_address`, `counter`
 - `nullifier_key_validation_request_contexts`
-  - `public_key`, `secret_key`
+  - `parent_public_key`, `hardened_child_secret_key`
 - `unencrypted_log_hash_contexts`
   - `hash`, `length`, `counter`
 - `encrypted_log_hash_contexts`
@@ -420,7 +420,7 @@ class PrivateFunctionPublicInputs {
     l2_to_l1_messages: List~field~
     note_hash_read_requests: List~ReadRequest~
     nullifier_read_requests: List~ReadRequest~
-    nullifier_key_validation_requests: List~NullifierKeyValidationRequest~
+    nullifier_key_validation_requests: List~ParentSecretKeyValidationRequest~
     unencrypted_log_hashes: List~UnencryptedLogHash~
     encrypted_log_hashes: List~EncryptedLogHash~
     encrypted_note_preimage_hashes: List~EncryptedNotePreimageHash~
@@ -435,7 +435,7 @@ PrivateFunctionPublicInputs *-- NoteHash: note_hashes
 PrivateFunctionPublicInputs *-- Nullifier: nullifiers
 PrivateFunctionPublicInputs *-- ReadRequest: note_hash_read_requests
 PrivateFunctionPublicInputs *-- ReadRequest: nullifier_read_requests
-PrivateFunctionPublicInputs *-- NullifierKeyValidationRequest: nullifier_key_validation_requests
+PrivateFunctionPublicInputs *-- ParentSecretKeyValidationRequest: nullifier_key_validation_requests
 PrivateFunctionPublicInputs *-- UnencryptedLogHash: unencrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedLogHash: encrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedNotePreimageHash: encrypted_note_preimage_hashes
@@ -463,7 +463,7 @@ CallContext ..> CallerContext : call_context
 
 CallContext .. NoteHashContext: storage_contract_address\n== contract_address
 CallContext .. NullifierContext: storage_contract_address\n== contract_address
-CallContext .. NullifierKeyValidationRequestContext: storage_contract_address\n== contract_address
+CallContext .. ParentSecretKeyValidationRequestContext: storage_contract_address\n== contract_address
 CallContext .. UnencryptedLogHashContext: storage_contract_address\n== contract_address
 CallContext .. EncryptedLogHashContext: storage_contract_address\n== contract_address
 CallContext .. EncryptedNotePreimageHashContext: storage_contract_address\n== contract_address
@@ -490,11 +490,11 @@ class ReadRequest {
     counter: field
 }
 
-class NullifierKeyValidationRequest {
-    public_key: GrumpkinPoint
-    secret_key: fq
+class ParentSecretKeyValidationRequest {
+    parent_public_key: GrumpkinPoint
+    hardened_child_secret_key: fq
 }
-NullifierKeyValidationRequest ..> NullifierKeyValidationRequestContext: nullifier_key_validation_requests\n->nullifier_key_validation_request_contexts
+ParentSecretKeyValidationRequest ..> ParentSecretKeyValidationRequestContext: nullifier_key_validation_requests\n->nullifier_key_validation_request_contexts
 
 class UnencryptedLogHash {
     hash: field
@@ -568,9 +568,9 @@ class L2ToL1MessageContext {
     contract_address: AztecAddress
 }
 
-class NullifierKeyValidationRequestContext {
-    public_key: field
-    secret_key: field
+class ParentSecretKeyValidationRequestContext {
+    parent_public_key: GrumpkinPoint
+    hardened_child_secret_key: fq
     contract_address: AztecAddress
 }
 
@@ -618,7 +618,7 @@ class TransientAccumulatedData {
   l2_to_l1_message_contexts: List~L2ToL1MessageContext~
   note_hash_read_requests: List~ReadRequest~
   nullifier_read_requests: List~ReadRequest~
-  nullifier_key_validation_request_contexts: List~NullifierKeyValidationRequestContext~
+  nullifier_key_validation_request_contexts: List~ParentSecretKeyValidationRequestContext~
   unencrypted_log_hash_contexts: List~UnencryptedLogHashContext~
   encrypted_log_hash_contexts: List~EncryptedLogHashContext~
   encrypted_note_preimage_hash_contexts: List~EncryptedNotePreimageHashContext~
@@ -630,7 +630,7 @@ NullifierContext --* TransientAccumulatedData: nullifier_contexts
 L2ToL1MessageContext --* TransientAccumulatedData: l2_to_l1_message_contexts
 ReadRequest --* TransientAccumulatedData: note_hash_read_requests
 ReadRequest --* TransientAccumulatedData: nullifier_read_requests
-NullifierKeyValidationRequestContext --* TransientAccumulatedData: nullifier_key_validation_request_contexts
+ParentSecretKeyValidationRequestContext --* TransientAccumulatedData: nullifier_key_validation_request_contexts
 UnencryptedLogHashContext --* TransientAccumulatedData: unencrypted_log_hash_contexts
 EncryptedLogHashContext --* TransientAccumulatedData: encrypted_log_hash_contexts
 EncryptedNotePreimageHashContext --* TransientAccumulatedData: encrypted_note_preimage_hash_contexts
@@ -709,19 +709,19 @@ Data that remains the same throughout the entire transaction.
 Would it be accurate to describe this as `AccumulatedTransientSideEffects`, perhaps?
 -->
 
-| Field                                       | Type                                                                                 | Description                                                                 |
-| ------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| `note_hash_contexts`                        | [`[NoteHashContext; C]`](#notehashcontext)                                           | Note hashes with extra data aiding verification.                            |
-| `nullifier_contexts`                        | [`[NullifierContext; C]`](#nullifiercontext)                                         | Nullifiers with extra data aiding verification.                             |
-| `l2_to_l1_message_contexts`                 | [`[L2toL1MessageContext; C]`](#l2tol1messagecontext)                                 | L2-to-l1 messages with extra data aiding verification.                      |
-| `note_hash_read_requests`                   | [`[ReadRequest; C]`](./private-function#readrequest)                                 | Requests to prove the note hashes being read exist.                         |
-| `nullifier_read_requests`                   | [`[ReadRequest; C]`](./private-function#readrequest)                                 | Requests to prove the nullifiers being read exist.                          |
-| `nullifier_key_validation_request_contexts` | [`[NullifierKeyValidationRequestContext; C]`](#nullifierkeyvalidationrequestcontext) | Requests to validate nullifier keys.                                        |
-| `unencrypted_log_hash_contexts`             | [`[UnencryptedLogHashContext; C]`](#unencryptedloghashcontext)                       | Hashes of the unencrypted logs with extra data aiding verification.         |
-| `encrypted_log_hash_contexts`               | [`[EncryptedLogHashContext; C]`](#encryptedloghashcontext)                           | Hashes of the encrypted logs with extra data aiding verification.           |
-| `encrypted_note_preimage_hash_contexts`     | [`[EncryptedNotePreimageHashContext; C]`](#encryptednotepreimagehash)                | Hashes of the encrypted note preimages with extra data aiding verification. |
-| `private_call_requests`                     | [`[CallRequest; C]`](#callrequest)                                                   | Requests to call private functions.                                         |
-| `public_call_requests`                      | [`[CallRequest; C]`](#callrequest)                                                   | Requests to call publics functions.                                         |
+| Field                                       | Type                                                                                       | Description                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `note_hash_contexts`                        | [`[NoteHashContext; C]`](#notehashcontext)                                                 | Note hashes with extra data aiding verification.                            |
+| `nullifier_contexts`                        | [`[NullifierContext; C]`](#nullifiercontext)                                               | Nullifiers with extra data aiding verification.                             |
+| `l2_to_l1_message_contexts`                 | [`[L2toL1MessageContext; C]`](#l2tol1messagecontext)                                       | L2-to-l1 messages with extra data aiding verification.                      |
+| `note_hash_read_requests`                   | [`[ReadRequest; C]`](./private-function#readrequest)                                       | Requests to prove the note hashes being read exist.                         |
+| `nullifier_read_requests`                   | [`[ReadRequest; C]`](./private-function#readrequest)                                       | Requests to prove the nullifiers being read exist.                          |
+| `nullifier_key_validation_request_contexts` | [`[ParentSecretKeyValidationRequestContext; C]`](#parentsecretkeyvalidationrequestcontext) | Requests to validate nullifier keys.                                        |
+| `unencrypted_log_hash_contexts`             | [`[UnencryptedLogHashContext; C]`](#unencryptedloghashcontext)                             | Hashes of the unencrypted logs with extra data aiding verification.         |
+| `encrypted_log_hash_contexts`               | [`[EncryptedLogHashContext; C]`](#encryptedloghashcontext)                                 | Hashes of the encrypted logs with extra data aiding verification.           |
+| `encrypted_note_preimage_hash_contexts`     | [`[EncryptedNotePreimageHashContext; C]`](#encryptednotepreimagehash)                      | Hashes of the encrypted note preimages with extra data aiding verification. |
+| `private_call_requests`                     | [`[CallRequest; C]`](#callrequest)                                                         | Requests to call private functions.                                         |
+| `public_call_requests`                      | [`[CallRequest; C]`](#callrequest)                                                         | Requests to call publics functions.                                         |
 
 > The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
 
@@ -841,13 +841,13 @@ etc.
 | `portal_contract_address` | `AztecAddress` | Address of the portal contract to the contract.  |
 | `contract_address`        | `AztecAddress` | Address of the contract the message was created. |
 
-### `NullifierKeyValidationRequestContext`
+### `ParentSecretKeyValidationRequestContext`
 
-| Field              | Type           | Description                                                |
-| ------------------ | -------------- | ---------------------------------------------------------- |
-| `public_key`       | `Field`        | Nullifier public key of an account.                        |
-| `secret_key`       | `Field`        | Secret key of an account siloed with the contract address. |
-| `contract_address` | `AztecAddress` | Address of the contract the request was made.              |
+| Field                       | Type            | Description                                   |
+| --------------------------- | --------------- | --------------------------------------------- |
+| `parent_public_key`         | `GrumpkinPoint` | Claimed parent public key of the secret key.  |
+| `hardened_child_secret_key` | `fq`            | Secret key passed to the contract.            |
+| `contract_address`          | `AztecAddress`  | Address of the contract the request was made. |
 
 ### `UnencryptedLogHashContext`
 
