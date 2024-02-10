@@ -66,6 +66,15 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
         construct_databus_polynomials(circuit);
     }
 
+    construct_sorted_list_polynomials(circuit);
+
+    add_memory_records_to_proving_key(circuit);
+
+    computed_witness = true;
+}
+
+template <class Flavor> void ProverInstance_<Flavor>::construct_sorted_list_polynomials(Circuit& circuit)
+{
     // Initialise the sorted concatenated list polynomials for the lookup argument
     for (auto& s_i : sorted_polynomials) {
         s_i = Polynomial(dyadic_circuit_size);
@@ -122,7 +131,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
             ++s_index;
         }
     }
+}
 
+template <class Flavor> void ProverInstance_<Flavor>::add_memory_records_to_proving_key(Circuit& circuit)
+{
     // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
     // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire
     // polynomials have been committed to. The 4th wire on these gates will be a random linear combination of the
@@ -142,8 +154,6 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
                    circuit.memory_write_records.end(),
                    std::back_inserter(proving_key->memory_write_records),
                    add_public_inputs_offset);
-
-    computed_witness = true;
 }
 
 /**
@@ -210,8 +220,6 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
         return proving_key;
     }
 
-    // Compute lagrange selectors
-
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
 
     construct_selector_polynomials<Flavor>(circuit, proving_key.get());
@@ -220,62 +228,16 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
 
-    polynomial poly_q_table_column_1(dyadic_circuit_size);
-    polynomial poly_q_table_column_2(dyadic_circuit_size);
-    polynomial poly_q_table_column_3(dyadic_circuit_size);
-    polynomial poly_q_table_column_4(dyadic_circuit_size);
+    construct_table_polynomials<Flavor>(circuit, proving_key, dyadic_circuit_size, tables_size);
 
-    size_t offset = dyadic_circuit_size - tables_size;
-
-    // Create lookup selector polynomials which interpolate each table column.
-    // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
-    // put the table column's values at the end. (The first gates are for non-lookup constraints).
-    // [0, ..., 0, ...table, 0, 0, 0, x]
-    //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
-    //  |          table     randomness
-    //  ignored, as used for regular constraints and padding to the next power of 2.
-
-    for (size_t i = 0; i < offset; ++i) {
-        poly_q_table_column_1[i] = 0;
-        poly_q_table_column_2[i] = 0;
-        poly_q_table_column_3[i] = 0;
-        poly_q_table_column_4[i] = 0;
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        compute_databus_id();
     }
-
-    for (const auto& table : circuit.lookup_tables) {
-        const fr table_index(table.table_index);
-
-        for (size_t i = 0; i < table.size; ++i) {
-            poly_q_table_column_1[offset] = table.column_1[i];
-            poly_q_table_column_2[offset] = table.column_2[i];
-            poly_q_table_column_3[offset] = table.column_3[i];
-            poly_q_table_column_4[offset] = table_index;
-            ++offset;
-        }
-    }
-
-    // Polynomial memory is zeroed out when constructed with size hint, so we don't have to initialize trailing
-    // space
-
-    proving_key->table_1 = poly_q_table_column_1.share();
-    proving_key->table_2 = poly_q_table_column_2.share();
-    proving_key->table_3 = poly_q_table_column_3.share();
-    proving_key->table_4 = poly_q_table_column_4.share();
 
     proving_key->recursive_proof_public_input_indices =
         std::vector<uint32_t>(recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
 
     proving_key->contains_recursive_proof = contains_recursive_proof;
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        proving_key->num_ecc_op_gates = num_ecc_op_gates;
-        // Construct simple ID polynomial for databus indexing
-        typename Flavor::Polynomial databus_id(proving_key->circuit_size);
-        for (size_t i = 0; i < databus_id.size(); ++i) {
-            databus_id[i] = i;
-        }
-        proving_key->databus_id = databus_id.share();
-    }
 
     return proving_key;
 }
@@ -409,6 +371,26 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
     // Compute permutation and lookup grand product polynomials
     bb::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
+}
+
+/**
+ * @brief Compute the inverse polynomial used in the log derivative lookup argument
+ *
+ * @tparam Flavor
+ * @param beta
+ * @param gamma
+ */
+template <class Flavor>
+void ProverInstance_<Flavor>::compute_databus_id()
+    requires IsGoblinFlavor<Flavor>
+{
+    proving_key->num_ecc_op_gates = num_ecc_op_gates;
+    // Construct simple ID polynomial for databus indexing
+    typename Flavor::Polynomial databus_id(proving_key->circuit_size);
+    for (size_t i = 0; i < databus_id.size(); ++i) {
+        databus_id[i] = i;
+    }
+    proving_key->databus_id = databus_id.share();
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)

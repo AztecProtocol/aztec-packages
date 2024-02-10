@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {
@@ -58,11 +59,54 @@ template <class Flavor> class ProverInstance_ {
     size_t instance_size;
     size_t log_instance_size;
 
-    ProverInstance_(Circuit& circuit)
+    // ProverInstance_(Circuit& circuit)
+    ProverInstance_(Circuit& circuit, bool old_constructor)
     {
+        (void)old_constructor;
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
+    }
+
+    ProverInstance_(Circuit& circuit)
+    // ProverInstance_(Circuit& circuit, bool new_constructor)
+    {
+        // (void)new_constructor;
+        compute_circuit_size_parameters(circuit);
+        proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
+        {
+            construct_selector_polynomials<Flavor>(circuit, proving_key.get());
+            compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
+            // Construct the conventional wire polynomials
+            auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit, dyadic_circuit_size);
+
+            proving_key->w_l = wire_polynomials[0].share();
+            proving_key->w_r = wire_polynomials[1].share();
+            proving_key->w_o = wire_polynomials[2].share();
+            proving_key->w_4 = wire_polynomials[3].share();
+
+            // If Goblin, construct the ECC op queue wire and databus polynomials
+            if constexpr (IsGoblinFlavor<Flavor>) {
+                construct_ecc_op_wire_polynomials(wire_polynomials);
+                construct_databus_polynomials(circuit);
+            }
+        }
+
+        // Generic precomputable stuff
+        {
+            compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
+            construct_table_polynomials<Flavor>(circuit, proving_key, dyadic_circuit_size, tables_size);
+            if constexpr (IsGoblinFlavor<Flavor>) {
+                compute_databus_id();
+            }
+            proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
+                recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
+            proving_key->contains_recursive_proof = contains_recursive_proof;
+        }
+
+        construct_sorted_list_polynomials(circuit);
+
+        add_memory_records_to_proving_key(circuit);
     }
 
     ProverInstance_() = default;
@@ -75,6 +119,9 @@ template <class Flavor> class ProverInstance_ {
     void compute_sorted_list_accumulator(FF);
 
     void compute_logderivative_inverse(FF, FF)
+        requires IsGoblinFlavor<Flavor>;
+
+    void compute_databus_id()
         requires IsGoblinFlavor<Flavor>;
 
     void compute_grand_product_polynomials(FF, FF);
@@ -101,6 +148,10 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
+
+    void construct_sorted_list_polynomials(Circuit&);
+
+    void add_memory_records_to_proving_key(Circuit&);
 
     void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 

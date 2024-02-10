@@ -134,6 +134,7 @@ std::vector<CyclicPermutation> compute_wire_copy_cycles(const typename Flavor::C
     //
     // This loop initializes the i-th cycle with (i) -> (n+i), meaning that we always expect W^L_i = W^R_i,
     // for all i s.t. row i defines a public input.
+    // WORKTODO: we don't copy constrain wires 3 and 4 over the PI range to be zero. Is that a security issue?
     for (size_t i = 0; i < num_public_inputs; ++i) {
         const uint32_t public_input_index = real_variable_index[public_inputs[i]];
         const auto gate_index = static_cast<uint32_t>(i + pub_inputs_offset);
@@ -176,10 +177,14 @@ std::vector<CyclicPermutation> compute_wire_copy_cycles(const typename Flavor::C
  */
 template <typename Flavor, bool generalized>
 PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
-    const typename Flavor::CircuitBuilder& circuit_constructor, typename Flavor::ProvingKey* proving_key)
+    const typename Flavor::CircuitBuilder& circuit_constructor,
+    typename Flavor::ProvingKey* proving_key,
+    std::vector<CyclicPermutation> wire_copy_cycles = {})
 {
     // Compute wire copy cycles (cycles of permutations)
-    auto wire_copy_cycles = compute_wire_copy_cycles<Flavor>(circuit_constructor);
+    if (wire_copy_cycles.empty()) {
+        wire_copy_cycles = compute_wire_copy_cycles<Flavor>(circuit_constructor);
+    }
 
     PermutationMapping<Flavor::NUM_WIRES> mapping;
 
@@ -516,9 +521,10 @@ void compute_plonk_generalized_sigma_permutations(const typename Flavor::Circuit
  */
 template <typename Flavor>
 void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
-                                                 typename Flavor::ProvingKey* proving_key)
+                                                 typename Flavor::ProvingKey* proving_key,
+                                                 std::vector<CyclicPermutation> copy_cycles = {})
 {
-    auto mapping = compute_permutation_mapping<Flavor, true>(circuit_constructor, proving_key);
+    auto mapping = compute_permutation_mapping<Flavor, true>(circuit_constructor, proving_key, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
     compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
