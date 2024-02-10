@@ -1065,7 +1065,6 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             num_points,
             [beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
-
                     temp_point_vector[i] = lookup_table[0][i];
                     temp_point_vector[i].x *= beta;
                 }
@@ -1079,6 +1078,21 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*sequential_copy_ops_per_iteration=*/1);
         batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     }
+    // handle points at infinity explicitly
+    run_loop_in_parallel_if_effective(
+        num_points,
+        [&](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+                work_elements[i] = points[i].is_infinity() ? work_elements[i].set_infinity() : work_elements[i];
+            }
+        },
+        /*finite_field_additions_per_iteration=*/0,
+        /*finite_field_multiplications_per_iteration=*/1,
+        /*finite_field_inversions_per_iteration=*/0,
+        /*group_element_additions_per_iteration=*/0,
+        /*group_element_doublings_per_iteration=*/0,
+        /*scalar_multiplications_per_iteration=*/0,
+        /*sequential_copy_ops_per_iteration=*/1);
 
     return work_elements;
 }
