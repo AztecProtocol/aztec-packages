@@ -152,8 +152,9 @@ TEST(AffineElement, EndoMulMatchesNonEndo)
 {
     for (int i = 0; i < 100; i++) {
         auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());
-        auto r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, grumpkin::fr::random_element());
-        auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, grumpkin::fr::random_element());
+        auto f1 = grumpkin::fr::random_element();
+        auto r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, f1);
+        auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
         EXPECT_EQ(r1, r2);
     }
 }
