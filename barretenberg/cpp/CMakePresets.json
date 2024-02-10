@@ -167,23 +167,13 @@
       }
     },
     {
-      "name": "op-count-track",
-      "displayName": "Release build with operation counts",
+      "name": "op-counting",
+      "displayName": "Release build with operation counts for benchmarks",
       "description": "Build with op counting",
       "inherits": "clang16",
-      "binaryDir": "build-op-count-track",
+      "binaryDir": "build-op-counting",
       "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
-      }
-    },
-    {
-      "name": "op-count-time",
-      "displayName": "Release build with time and clock counts",
-      "description": "Build with op counting",
-      "inherits": "clang16",
-      "binaryDir": "build-op-count-time",
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
+        "CXXFLAGS": "-DBB_USE_OP_COUNT"
       }
     },
     {
@@ -321,14 +311,9 @@
       "configurePreset": "clang16"
     },
     {
-      "name": "op-count-time",
+      "name": "op-counting",
       "inherits": "default",
-      "configurePreset": "op-count-time"
-    },
-    {
-      "name": "op-count-track",
-      "inherits": "default",
-      "configurePreset": "op-count-track"
+      "configurePreset": "op-counting"
     },
     {
       "name": "clang16-dbg",
