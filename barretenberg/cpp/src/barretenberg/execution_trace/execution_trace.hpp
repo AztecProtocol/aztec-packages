@@ -47,31 +47,16 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
     {
         std::vector<TraceBlock> trace_blocks;
 
-        // Make a block for the basic wires and selectors
-        TraceBlock conventional_gates{ builder.wires, builder.selectors };
-
-        // Make a block for the public inputs
-        Wires public_input_wires;
-        Selectors public_input_selectors;
-        for (auto& idx : builder.public_inputs) {
-            public_input_wires[0].emplace_back(idx);
-            public_input_wires[1].emplace_back(idx);
-            public_input_wires[2].emplace_back(builder.zero_idx);
-            public_input_wires[3].emplace_back(builder.zero_idx);
-        }
-        public_input_selectors.reserve_and_zero(builder.public_inputs.size());
-        TraceBlock public_inputs{ public_input_wires, public_input_selectors };
-
         // Make a block for the zero row
-        Wires zero_row_wires;
-        Selectors zero_row_selectors;
         if constexpr (Flavor::has_zero_row) {
+            Wires zero_row_wires;
+            Selectors zero_row_selectors;
             for (auto& wire : zero_row_wires) {
                 wire.emplace_back(0);
             }
             zero_row_selectors.reserve_and_zero(1);
+            trace_blocks.emplace_back(zero_row_wires, zero_row_selectors);
         }
-        TraceBlock zero_row{ zero_row_wires, zero_row_selectors };
 
         // Make a block for the ecc op wires
         if constexpr (IsGoblinFlavor<Flavor>) {
@@ -79,14 +64,23 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             Selectors ecc_op_selectors;
             // Note: there is no selector for ecc ops
             ecc_op_selectors.reserve_and_zero(builder.num_ecc_op_gates);
-            TraceBlock ecc_op_gates{ ecc_op_wires, ecc_op_selectors };
-            trace_blocks.emplace_back(ecc_op_gates);
+            trace_blocks.emplace_back(ecc_op_wires, ecc_op_selectors);
         }
 
-        // Construct trace
-        trace_blocks.emplace_back(zero_row);
-        trace_blocks.emplace_back(public_inputs);
-        trace_blocks.emplace_back(conventional_gates);
+        // Make a block for the public inputs
+        Wires public_input_wires;
+        Selectors public_input_selectors;
+        public_input_selectors.reserve_and_zero(builder.public_inputs.size());
+        for (auto& idx : builder.public_inputs) {
+            public_input_wires[0].emplace_back(idx);
+            public_input_wires[1].emplace_back(idx);
+            public_input_wires[2].emplace_back(builder.zero_idx);
+            public_input_wires[3].emplace_back(builder.zero_idx);
+        }
+        trace_blocks.emplace_back(public_input_wires, public_input_selectors);
+
+        // Make a block for the basic wires and selectors
+        trace_blocks.emplace_back(builder.wires, builder.selectors);
 
         return trace_blocks;
     }
@@ -121,12 +115,14 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
         dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
     }
 
-    std::shared_ptr<ProvingKey> generate(Builder& builder)
+    std::shared_ptr<ProvingKey> generate(Builder& builder, size_t dyadic_circuit_size)
     {
-        // WORKTODO: need some kind of finalize here to init PK with proper circuit size
+        // WORKTODO: need to do the finalizing here if we ditch prover instance
+        // builder.add_gates_to_ensure_all_polys_are_non_zero();
+        // builder.finalize_circuit();
         // Feels like this should just be park of the pkey constructor?
-        compute_circuit_size_parameters(builder);
-        auto proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
+        // compute_circuit_size_parameters(builder);
+        auto proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size());
 
         auto trace_blocks = create_execution_trace_blocks(builder);
 
@@ -152,10 +148,19 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             }
 
             // Update selector polynomials
-            // WORKTODO: can we just set the values of the polys in the key directly?
-            for (auto [poly, selector_values] : zip_view(ZipAllowDifferentSizes::FLAG,
-                                                         proving_key->get_precomputed_polynomials(),
-                                                         builder.selectors.get())) {
+            // WORKTODO: why cant we just set the values of the polys in the key directly like the wires?
+            info("proving_key->get_selectors().size() = ", proving_key->get_selectors().size());
+            info("builder.selectors.get().size() = ", builder.selectors.get().size());
+            // for (auto [poly, selector_values] :
+            //      zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_selectors(), builder.selectors.get())) {
+            //     // Polynomial selector_poly_lagrange(proving_key->circuit_size);
+            //     for (size_t row_idx = 0; row_idx < selector_values.size(); ++row_idx) {
+            //         poly[row_idx + offset] = selector_values[row_idx];
+            //     }
+            //     // poly = selector_poly_lagrange.share();
+            // }
+            for (auto [poly, selector_values] :
+                 zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_selectors(), builder.selectors.get())) {
                 Polynomial selector_poly_lagrange(proving_key->circuit_size);
                 for (size_t row_idx = 0; row_idx < selector_values.size(); ++row_idx) {
                     selector_poly_lagrange[row_idx + offset] = selector_values[row_idx];

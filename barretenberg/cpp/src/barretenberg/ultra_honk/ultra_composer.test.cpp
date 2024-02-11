@@ -36,7 +36,10 @@ void compare_with_execution_trace(const auto& proving_key, auto& circuit_builder
 {
     using Trace = ExecutionTrace_<UltraFlavor>;
     Trace trace;
-    auto proving_key_new = trace.generate(circuit_builder);
+    auto proving_key_new = trace.generate(circuit_builder, proving_key->circuit_size);
+
+    info("proving_key_new->w_l.size() = ", proving_key_new->w_l.size());
+    info("proving_key->w_l.size() = ", proving_key->w_l.size());
 
     std::vector<std::string> unequal;
     for (auto [new_poly, poly, label] :

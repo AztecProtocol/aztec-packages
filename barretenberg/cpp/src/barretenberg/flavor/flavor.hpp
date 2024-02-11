@@ -115,6 +115,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     RefVector<Polynomial> get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
     RefVector<Polynomial> get_witness_polynomials() { return WitnessPolynomials::get_all(); }
     RefVector<Polynomial> get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
+    RefVector<Polynomial> get_selectors() { return PrecomputedPolynomials::get_selectors(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
