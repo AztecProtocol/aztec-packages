@@ -341,7 +341,7 @@ template <class Params_> struct alignas(32) field {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
-            k2.data[0] = ret.second[0];
+            k2.data[0] = ret.second[0]; // NOLINT
             k2.data[1] = ret.second[1];
 #if !defined(__clang__) && defined(__GNUC__)
 #pragma GCC diagnostic pop

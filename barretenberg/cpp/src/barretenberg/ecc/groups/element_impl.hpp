@@ -954,9 +954,17 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     uint64_t wnaf_table[num_rounds * 2];
     Fr endo_scalar;
 
+    // TODO(AD): We should move away from this hack by adapting split_into_endomorphism_scalars_no_shift
+#if !defined(__clang__) && defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
     // Split single scalar into 2 scalar in endo form
     Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
 
+#if !defined(__clang__) && defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
     bool skew = false;
     bool endo_skew = false;
 
