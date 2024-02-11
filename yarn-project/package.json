@@ -17,7 +17,7 @@
   },
   "workspaces": [
     "accounts",
-    "acir-simulator",
+    "simulator",
     "archiver",
     "aztec-faucet",
     "aztec-node",
@@ -40,6 +40,7 @@
     "noir-protocol-circuits",
     "p2p",
     "p2p-bootstrap",
+    "protocol-contracts",
     "prover-client",
     "rollup-provider",
     "sequencer-client",

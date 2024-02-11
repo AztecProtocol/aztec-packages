@@ -1,11 +1,3 @@
-import {
-  PublicExecution,
-  PublicExecutionResult,
-  PublicExecutor,
-  collectPublicDataReads,
-  collectPublicDataUpdateRequests,
-  isPublicExecutionResult,
-} from '@aztec/acir-simulator';
 import { FunctionL2Logs, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -45,7 +37,17 @@ import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
+import {
+  PublicExecution,
+  PublicExecutionResult,
+  PublicExecutor,
+  collectPublicDataReads,
+  collectPublicDataUpdateRequests,
+  isPublicExecutionResult,
+} from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
+
+import { env } from 'process';
 
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { PublicProver } from '../prover/index.js';
@@ -157,7 +159,15 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-        const result = isExecutionRequest ? await this.publicExecutor.simulate(current, this.globalVariables) : current;
+
+        // NOTE: temporary glue to incorporate avm execution calls
+        const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
+          env.AVM_ENABLED
+            ? this.publicExecutor.simulateAvm(execution, globalVariables)
+            : this.publicExecutor.simulate(execution, globalVariables);
+
+        const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
+
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
         this.log(
