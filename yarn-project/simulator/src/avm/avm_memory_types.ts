@@ -38,188 +38,90 @@ export abstract class IntegralValue extends MemoryValue {
 }
 
 /**
- * This interface describes the required *static* properties for unsigned integer classes.
- * For example: Uint8, Uint16, Uint32, Uint64, Uint128.
- */
-interface UnsignedIntegerClass {
-  readonly bitmask: bigint;
-  readonly mod: bigint;
-  new (n: bigint | number): IntegralValue;
-}
-
-/**
- * This class implements the common operations for unsigned integers.
- * It should not be used directly.
+ * This function creates a class for unsigned integers of a given number of bits.
+ * In TypeScript terms, it's a class mixin.
  **/
-// abstract class UnsignedInteger extends IntegralValue {
-//   protected constructor(private readonly subclassCtor: UnsignedIntegerClass, private n: bigint) {
-//     super();
-//     assert(n < this.subclassCtor.mod, `Value ${n} is too large for ${this.subclassCtor.name}.`);
-//   }
-
-//   public build(n: bigint): MemoryValue {
-//     return new this.subclassCtor(n);
-//   }
-
-//   public add(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor((this.n + rhs.n) & this.subclassCtor.bitmask);
-//   }
-
-//   public sub(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     const res: bigint = this.n - rhs.n;
-//     return new this.subclassCtor(res >= 0 ? res : res + this.subclassCtor.mod);
-//   }
-
-//   public mul(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor((this.n * rhs.n) & this.subclassCtor.bitmask);
-//   }
-
-//   public div(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor(this.n / rhs.n);
-//   }
-
-//   // No sign extension.
-//   public shr(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     // Note that this.n is > 0 by class invariant.
-//     return new this.subclassCtor(this.n >> rhs.n);
-//   }
-
-//   public shl(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor((this.n << rhs.n) & this.subclassCtor.bitmask);
-//   }
-
-//   public and(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor(this.n & rhs.n);
-//   }
-
-//   public or(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor(this.n | rhs.n);
-//   }
-
-//   public xor(rhs: UnsignedInteger): UnsignedInteger {
-//     assert(typeof this == typeof rhs);
-//     return new this.subclassCtor(this.n ^ rhs.n);
-//   }
-
-//   public not(): UnsignedInteger {
-//     return new this.subclassCtor(~this.n & this.subclassCtor.bitmask);
-//   }
-
-//   public equals(rhs: UnsignedInteger): boolean {
-//     assert(typeof this == typeof rhs);
-//     return this.n === rhs.n;
-//   }
-
-//   public lt(rhs: UnsignedInteger): boolean {
-//     assert(typeof this == typeof rhs);
-//     return this.n < rhs.n;
-//   }
-
-//   public toBigInt(): bigint {
-//     return this.n;
-//   }
-// }
-
-/** This function creates a class for unsigned integers of a given number of bits. */
-function UnsignedIntegerClassFactory(bits: number): any {
+function UnsignedIntegerClassFactory(bits: number) {
   return class NewUintClass extends IntegralValue {
     static readonly mod: bigint = 1n << BigInt(bits);
     static readonly bitmask: bigint = this.mod - 1n;
-    private n: bigint;
+    public readonly n: bigint; // Cannot be private due to TS limitations.
 
     public constructor(n: bigint | number) {
       super();
       this.n = BigInt(n);
       assert(n < NewUintClass.mod, `Value ${n} is too large for ${this.constructor.name}.`);
     }
-  
+
     public build(n: bigint): NewUintClass {
-      return new NewUintClass(n);
+      return new this.constructor.prototype.constructor(n);
     }
-  
+
     public add(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass((this.n + rhs.n) & NewUintClass.bitmask);
+      return this.build((this.n + rhs.n) & NewUintClass.bitmask);
     }
-  
+
     public sub(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
       const res: bigint = this.n - rhs.n;
-      return new NewUintClass(res >= 0 ? res : res + NewUintClass.mod);
+      return this.build(res >= 0 ? res : res + NewUintClass.mod);
     }
-  
+
     public mul(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass((this.n * rhs.n) & NewUintClass.bitmask);
+      return this.build((this.n * rhs.n) & NewUintClass.bitmask);
     }
-  
+
     public div(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass(this.n / rhs.n);
+      return this.build(this.n / rhs.n);
     }
-  
+
     // No sign extension.
     public shr(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
       // Note that this.n is > 0 by class invariant.
-      return new NewUintClass(this.n >> rhs.n);
+      return this.build(this.n >> rhs.n);
     }
-  
+
     public shl(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass((this.n << rhs.n) & NewUintClass.bitmask);
+      return this.build((this.n << rhs.n) & NewUintClass.bitmask);
     }
-  
+
     public and(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass(this.n & rhs.n);
+      return this.build(this.n & rhs.n);
     }
-  
+
     public or(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass(this.n | rhs.n);
+      return this.build(this.n | rhs.n);
     }
-  
+
     public xor(rhs: NewUintClass): NewUintClass {
-      assert(typeof this == typeof rhs);
-      return new NewUintClass(this.n ^ rhs.n);
+      return this.build(this.n ^ rhs.n);
     }
-  
+
     public not(): NewUintClass {
-      return new NewUintClass(~this.n & NewUintClass.bitmask);
+      return this.build(~this.n & NewUintClass.bitmask);
     }
-  
+
     public equals(rhs: NewUintClass): boolean {
-      assert(typeof this == typeof rhs);
       return this.n === rhs.n;
     }
-  
+
     public lt(rhs: NewUintClass): boolean {
-      assert(typeof this == typeof rhs);
       return this.n < rhs.n;
     }
-  
+
     public toBigInt(): bigint {
       return this.n;
     }
   };
 }
 
-export const Uint8 = UnsignedIntegerClassFactory(8);
-const _Uint16 = UnsignedIntegerClassFactory(16) as typeof IntegralValue;
-export class Uint16 extends _Uint16 { constructor(n: bigint | number) { super(n); } };
-// export const Uint16 = UnsignedIntegerClassFactory(16);
-export const Uint32 = UnsignedIntegerClassFactory(32);
-export const Uint64 = UnsignedIntegerClassFactory(64);
-export const Uint128 = UnsignedIntegerClassFactory(128);
+// Now we can create the classes for each unsigned integer type.
+// We extend instead of just assigning so that the class has the right name.
+// Otherwise they are all called "NewUintClass".
+export class Uint8 extends UnsignedIntegerClassFactory(8) {}
+export class Uint16 extends UnsignedIntegerClassFactory(16) {}
+export class Uint32 extends UnsignedIntegerClassFactory(32) {}
+export class Uint64 extends UnsignedIntegerClassFactory(64) {}
+export class Uint128 extends UnsignedIntegerClassFactory(128) {}
 
 export class Field extends MemoryValue {
   public static readonly MODULUS: bigint = Fr.MODULUS;
@@ -388,7 +290,7 @@ export class TaggedMemory {
 
   // Truncates the value to fit the type.
   public static integralFromTag(v: bigint | number, tag: TypeTag): IntegralValue {
-    v = v as bigint;
+    v = BigInt(v);
     switch (tag) {
       case TypeTag.UINT8:
         return new Uint8(v & ((1n << 8n) - 1n));
