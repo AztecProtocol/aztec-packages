@@ -55,7 +55,7 @@ Initialized by a contract call, an **execution context** includes the informatio
 | ---                                                       | ---                     |
 | environment                                               | `ExecutionEnvironment`  |
 | [machineState](./state#machine-state)                     | `MachineState`          |
-| [worldState](./state#world-state)                         | `WorldState`            |
+| [worldState](./state#avm-world-state)                     | `AvmWorldState`         |
 | [worldStateAccessTrace](./state#world-state-access-trace) | `WorldStateAccessTrace` |
 | [accruedSubstate](./state#accrued-substate)               | `AccruedSubstate`       |
 | results                                                   | `ContractCallResults`   |
@@ -116,7 +116,7 @@ assert machineState.l2GasLeft - instr.l2GasCost > 0
 assert machineState.daGasLeft - instr.daGasCost > 0
 ```
 
-> Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the [world state](./state#world-state) or [accrued substate](./state#accrued-substate).
+> Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the [world state](./state#avm-world-state) or [accrued substate](./state#accrued-substate).
 
 If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
 
