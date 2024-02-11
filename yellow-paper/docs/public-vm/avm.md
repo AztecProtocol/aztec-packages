@@ -150,7 +150,7 @@ Journal {
 > This journal structure is important for imposing limitations on the maximum number of allowable world state accesses, and for communicating the list of state accesses to the public kernel circuit.
 
 ### Accrued Substate
-The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls. Similar to world state, if a contract call returns normally, its substate is appended to its calling context, but if it reverts its substate is rejected by its caller.
+The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper.pdf), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls. Similar to world state, if a contract call returns normally, its substate is appended to its calling context, but if it reverts its substate is rejected by its caller.
 
 ```
 AccruedSubstate {
