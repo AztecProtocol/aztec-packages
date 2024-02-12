@@ -63,7 +63,7 @@ TEST(uint, add_arithmetic_patch_check1){
     uint_ct c = a + b;
 
     bb::fr tmp = -bb::fr(2).pow(32);
-    bb::fr new_c = c.get_value() + tmp;
+    bb::fr new_c = bb::fr(c.get_value()) + tmp;
 
     builder.variables[130] = new_c;
     builder.variables[131] = 1;
@@ -85,7 +85,7 @@ TEST(uint, add_arithmetic_patch_check2){
     uint_ct c = a + b;
 
     bb::fr tmp = -bb::fr(2).pow(33);
-    bb::fr new_c = c.get_value() + tmp;
+    bb::fr new_c = bb::fr(c.get_value()) + tmp;
 
     builder.variables[130] = new_c;
     builder.variables[131] = 2;
@@ -98,4 +98,17 @@ TEST(uint, add_arithmetic_patch_check2){
     info("=");
     info(builder.variables[c.get_witness_index()]);
     info("and always has been...");
+}
+
+TEST(uint, conversion){
+    StandardCircuitBuilder builder;
+    uint_ct c = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
+ 
+    info("c = ", c.get_value());
+    bb::fr tmp = -bb::fr(2).pow(32);
+    bb::fr new_c = c.get_value() + tmp;
+    info("new_c = ", new_c);
+    info("direct = ", bb::fr(c.get_value()) - bb::fr(2).pow(32));
+    bb::fr tmp1 = bb::fr(c.get_value()) - bb::fr(2).pow(32);
+    info("tmp1 = ", tmp1);
 }
