@@ -25,7 +25,7 @@ export class PrivateEnv {
   }
 }
 
-export const deployerEnv = new PrivateEnv(GRUMPKIN_KEY);
+export const deployerEnv = new PrivateEnv(GRUMPKIN_KEY, process.env.PXE_URL);
 
 const IGNORE_FUNCTIONS = ['constructor', 'compute_note_hash_and_nullifier'];
 export const filteredInterface = BlankContractArtifact.functions.filter(f => !IGNORE_FUNCTIONS.includes(f.name));
