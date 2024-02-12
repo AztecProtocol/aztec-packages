@@ -48,7 +48,7 @@ The entirety of a contract's public code is represented as a single block of byt
 Many terms and definitions here are borrowed from the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper.pdf).
 :::
 
-Initialized by a contract call, an **execution context** includes the information necessary to initiate AVM execution along with all state maintained by the AVM throughout execution:
+An **execution context** includes the information and state relevant to a contract call's execution. When a contract call is made, an execution context is initialized as specified in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](#nested-contract-calls) sections.
 
 #### _AvmContext_
 | Field                                                     | Type                    |
@@ -62,7 +62,7 @@ Initialized by a contract call, an **execution context** includes the informatio
 
 ### Execution Environment
 
-A context's **execution environment** remains constant throughout the context's execution. When a contract call initializes its execution context, it fully specifies the execution environment.
+A context's **execution environment** remains constant throughout a contract call's execution. When a contract call initializes its execution context, it fully specifies the execution environment. This is expanded on in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](#nested-contract-calls) sections.
 
 #### _ExecutionEnvironment_
 | Field                 | Type                         | Description |
