@@ -1291,7 +1291,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     public_call_stack_hashes: mapTuple(publicInputs.publicCallStackHashes, mapFieldToNoir),
     new_commitments: mapTuple(publicInputs.newCommitments, mapSideEffectToNoir),
     new_nullifiers: mapTuple(publicInputs.newNullifiers, mapSideEffectLinkedToNoir),
-    new_l2_to_l1_msgs: mapTuple(publicInputs.newL2ToL1Msgs, mapFieldToNoir),
+    new_l2_to_l1_msgs: mapTuple(publicInputs.newL2ToL1Msgs, mapL2ToL1MessageToNoir),
     unencrypted_logs_hash: mapTuple(publicInputs.unencryptedLogsHash, mapFieldToNoir),
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
