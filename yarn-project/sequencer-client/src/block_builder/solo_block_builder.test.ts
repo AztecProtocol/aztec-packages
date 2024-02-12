@@ -6,8 +6,6 @@ import {
   MerkleTreeId,
   PublicDataWrite,
   Tx,
-  TxEffect,
-  TxEffectLogs,
   makeEmptyLogs,
   mockTx,
 } from '@aztec/circuit-types';
@@ -59,6 +57,7 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 
+import { TxEffect, TxEffectLogs } from '../../../circuit-types/src/tx_effect.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';

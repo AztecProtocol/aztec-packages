@@ -1,13 +1,4 @@
-import {
-  ContractData,
-  L2Block,
-  L2BlockBody,
-  MerkleTreeId,
-  PublicDataWrite,
-  TxEffect,
-  TxEffectLogs,
-  TxL2Logs,
-} from '@aztec/circuit-types';
+import { ContractData, L2Block, L2BlockBody, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -62,6 +53,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 
 import chunk from 'lodash.chunk';
 
+import { TxEffect, TxEffectLogs } from '../../../circuit-types/src/tx_effect.js';
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { ProcessedTx } from '../sequencer/processed_tx.js';

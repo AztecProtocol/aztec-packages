@@ -22,35 +22,7 @@ import { LogType, TxL2Logs } from './logs/index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { TxHash } from './tx/tx_hash.js';
-import { TxEffectLogs } from './logs/tx_effect_logs.js';
-
-class TxEffect {
-  constructor(
-    /**
-     * The commitments to be inserted into the note hash tree.
-     */
-    public newNoteHashes: Fr[],
-    /**
-     * The nullifiers to be inserted into the nullifier tree.
-     */
-    public newNullifiers: Fr[],
-    /**
-     * The L2 to L1 messages to be inserted into the messagebox on L1.
-     */
-    public newL2ToL1Msgs: Fr[],
-    /**
-     * The public data writes to be inserted into the public data tree.
-     */
-    public newPublicDataWrites: PublicDataWrite[],
-    public contractLeaves: Fr[],
-    public contractData: ContractData[],
-    public logs?: TxEffectLogs,
-  ) {
-    if (newNoteHashes.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
-      throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
-    }
-  }
-}
+import { TxEffect, TxEffectLogs } from './tx_effect.js';
 
 export class L2BlockBody {
   constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
@@ -78,27 +50,13 @@ export class L2Block {
     public header: Header,
     /** L2 block body. */
     public body: L2BlockBody,
-    public numberOfTransactions: number,
     /** Associated L1 block num */
     l1BlockNumber?: bigint,
   ) {
     const newNullifiers = body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
-    let numberOfRealTransactions = 0;
-    for (
-      let i = 0;
-      i < body.txEffects.flatMap(txEffect => txEffect.newNullifiers).length;
-      i += MAX_NEW_NULLIFIERS_PER_TX
-    ) {
-      if (!newNullifiers[i].equals(Fr.ZERO)) {
-        numberOfRealTransactions++;
-      }
-    }
-    this.numberOfTxs = numberOfRealTransactions;
-    this.#l1BlockNumber = l1BlockNumber;
-  }
 
-  get number(): number {
-    return Number(this.header.globalVariables.blockNumber.toBigInt());
+    this.numberOfTxs = calculateNumTxsFromNullifiers(newNullifiers);
+    this.#l1BlockNumber = l1BlockNumber;
   }
 
   /**
@@ -115,11 +73,10 @@ export class L2Block {
       /** L2 block header. */
       header: Header;
       body: L2BlockBody;
-      numberOfTransactions: number;
     },
     l1BlockNumber?: bigint,
   ) {
-    return new this(fields.archive, fields.header, fields.body, fields.numberOfTransactions, l1BlockNumber);
+    return new this(fields.archive, fields.header, fields.body, l1BlockNumber);
   }
 
   static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
@@ -140,12 +97,7 @@ export class L2Block {
     let newUnencryptedLogs: L2BlockL2Logs;
 
     // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
-    let numberOfNonEmptyTxs = 0;
-    for (let i = 0; i < newNullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
-      if (!newNullifiers[i].equals(Fr.ZERO)) {
-        numberOfNonEmptyTxs++;
-      }
-    }
+    const numberOfNonEmptyTxs = calculateNumTxsFromNullifiers(newNullifiers);
 
     if (withLogs) {
       newEncryptedLogs = reader.readObject(L2BlockL2Logs);
@@ -190,7 +142,6 @@ export class L2Block {
       archive,
       header,
       body,
-      numberOfTransactions: numberOfNonEmptyTxs,
     });
   }
 
@@ -241,14 +192,14 @@ export class L2Block {
     );
   }
 
-    /**
+  /**
    * Deserializes L2 block without logs from a buffer.
    * @param str - A serialized L2 block.
    * @returns Deserialized L2 block.
    */
-    static fromString(str: string): L2Block {
-      return L2Block.fromBuffer(Buffer.from(str, STRING_ENCODING));
-    }
+  static fromString(str: string): L2Block {
+    return L2Block.fromBuffer(Buffer.from(str, STRING_ENCODING));
+  }
 
   /**
    * Serializes a block without logs to a string.
@@ -342,16 +293,19 @@ export class L2Block {
         archive: makeAppendOnlyTreeSnapshot(1),
         header: makeHeader(0, l2BlockNum),
         body,
-        numberOfTransactions: txsPerBlock,
       },
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
       BigInt(l2BlockNum),
     );
-  }  
+  }
+
+  get number(): number {
+    return Number(this.header.globalVariables.blockNumber.toBigInt());
+  }
 
   /**
- * Gets the L1 block number that included this block
- */
+   * Gets the L1 block number that included this block
+   */
   public getL1BlockNumber(): bigint {
     if (typeof this.#l1BlockNumber === 'undefined') {
       throw new Error('L1 block number has to be attached before calling "getL1BlockNumber"');
@@ -694,6 +648,17 @@ export class L2Block {
 
     return kernelPublicInputsLogsHash;
   }
+}
+
+function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {
+  let numberOfNonEmptyTxs = 0;
+  for (let i = 0; i < nullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
+    if (!nullifiers[i].equals(Fr.ZERO)) {
+      numberOfNonEmptyTxs++;
+    }
+  }
+
+  return numberOfNonEmptyTxs;
 }
 
 /**
