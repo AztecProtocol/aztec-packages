@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Clone noir:
+      - name: Clone noir
         run: |
           # clone noir repo for manipulations, we use aztec bot token for writeability
           git clone https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/noir-lang/noir.git noir-repo
