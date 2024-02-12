@@ -1,11 +1,7 @@
-import {
-  GrumpkinPrivateKey,
-  GrumpkinScalar,
-  createPXEClient,
-} from "@aztec/aztec.js";
-import { BlankContractArtifact } from "../artifacts/Blank";
-import { AccountManager } from "@aztec/aztec.js/account";
-import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
+import { GrumpkinPrivateKey, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
+import { BlankContractArtifact } from '../artifacts/Blank';
+import { AccountManager } from '@aztec/aztec.js/account';
+import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 
 const GRUMPKIN_KEY = GrumpkinScalar.random();
 
@@ -16,15 +12,11 @@ export class PrivateEnv {
 
   constructor(
     private privateKey: GrumpkinPrivateKey,
-    private pxeURL = "http://localhost:8080",
+    private pxeURL?: string,
   ) {
-    this.pxe = createPXEClient(this.pxeURL);
+    this.pxe = createPXEClient(this.pxeURL || 'http://localhost:8080');
     this.accountContract = new SingleKeyAccountContract(privateKey);
-    this.account = new AccountManager(
-      this.pxe,
-      this.privateKey,
-      this.accountContract,
-    );
+    this.account = new AccountManager(this.pxe, this.privateKey, this.accountContract);
   }
 
   async getWallet() {
@@ -35,7 +27,5 @@ export class PrivateEnv {
 
 export const deployerEnv = new PrivateEnv(GRUMPKIN_KEY);
 
-const IGNORE_FUNCTIONS = ["constructor", "compute_note_hash_and_nullifier"];
-export const filteredInterface = BlankContractArtifact.functions.filter(
-  (f) => !IGNORE_FUNCTIONS.includes(f.name),
-);
+const IGNORE_FUNCTIONS = ['constructor', 'compute_note_hash_and_nullifier'];
+export const filteredInterface = BlankContractArtifact.functions.filter(f => !IGNORE_FUNCTIONS.includes(f.name));
