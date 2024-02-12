@@ -160,11 +160,14 @@ bool AvmMiniVerifier::verify_proof(const HonkProof& proof)
     commitments.avmMini_mem_idx_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_mem_idx_c);
     commitments.avmMini_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_last);
+    commitments.equiv_tag_err = transcript->template receive_from_prover<Commitment>(commitment_labels.equiv_tag_err);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));

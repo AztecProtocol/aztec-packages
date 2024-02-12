@@ -14,6 +14,7 @@
 #include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
 #include "barretenberg/relations/generated/AvmMini/alu_chip.hpp"
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
+#include "barretenberg/relations/generated/AvmMini/equiv_tag_err.hpp"
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 
 namespace bb {
@@ -85,19 +86,20 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
-    FF aluChip_alu_u16_r1_shift{};
-    FF aluChip_alu_u16_r0_shift{};
-    FF aluChip_alu_u16_r4_shift{};
-    FF aluChip_alu_u16_r7_shift{};
-    FF aluChip_alu_u16_r5_shift{};
-    FF aluChip_alu_u16_r2_shift{};
+    FF equiv_tag_err{};
     FF aluChip_alu_u16_r6_shift{};
+    FF aluChip_alu_u16_r2_shift{};
+    FF aluChip_alu_u16_r7_shift{};
+    FF aluChip_alu_u16_r0_shift{};
+    FF aluChip_alu_u16_r1_shift{};
+    FF aluChip_alu_u16_r4_shift{};
     FF aluChip_alu_u16_r3_shift{};
-    FF avmMini_pc_shift{};
+    FF aluChip_alu_u16_r5_shift{};
     FF avmMini_internal_return_ptr_shift{};
+    FF avmMini_pc_shift{};
     FF memTrace_m_tag_shift{};
-    FF memTrace_m_addr_shift{};
     FF memTrace_m_val_shift{};
+    FF memTrace_m_addr_shift{};
     FF memTrace_m_rw_shift{};
 };
 
@@ -111,8 +113,8 @@ class AvmMiniCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 80;
-    static constexpr size_t num_polys = 66;
+    static constexpr size_t num_fixed_columns = 81;
+    static constexpr size_t num_polys = 67;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -194,21 +196,22 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_mem_idx_b[i] = rows[i].avmMini_mem_idx_b;
             polys.avmMini_mem_idx_c[i] = rows[i].avmMini_mem_idx_c;
             polys.avmMini_last[i] = rows[i].avmMini_last;
+            polys.equiv_tag_err[i] = rows[i].equiv_tag_err;
         }
 
-        polys.aluChip_alu_u16_r1_shift = Polynomial(polys.aluChip_alu_u16_r1.shifted());
-        polys.aluChip_alu_u16_r0_shift = Polynomial(polys.aluChip_alu_u16_r0.shifted());
-        polys.aluChip_alu_u16_r4_shift = Polynomial(polys.aluChip_alu_u16_r4.shifted());
-        polys.aluChip_alu_u16_r7_shift = Polynomial(polys.aluChip_alu_u16_r7.shifted());
-        polys.aluChip_alu_u16_r5_shift = Polynomial(polys.aluChip_alu_u16_r5.shifted());
-        polys.aluChip_alu_u16_r2_shift = Polynomial(polys.aluChip_alu_u16_r2.shifted());
         polys.aluChip_alu_u16_r6_shift = Polynomial(polys.aluChip_alu_u16_r6.shifted());
+        polys.aluChip_alu_u16_r2_shift = Polynomial(polys.aluChip_alu_u16_r2.shifted());
+        polys.aluChip_alu_u16_r7_shift = Polynomial(polys.aluChip_alu_u16_r7.shifted());
+        polys.aluChip_alu_u16_r0_shift = Polynomial(polys.aluChip_alu_u16_r0.shifted());
+        polys.aluChip_alu_u16_r1_shift = Polynomial(polys.aluChip_alu_u16_r1.shifted());
+        polys.aluChip_alu_u16_r4_shift = Polynomial(polys.aluChip_alu_u16_r4.shifted());
         polys.aluChip_alu_u16_r3_shift = Polynomial(polys.aluChip_alu_u16_r3.shifted());
-        polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
+        polys.aluChip_alu_u16_r5_shift = Polynomial(polys.aluChip_alu_u16_r5.shifted());
         polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
+        polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
         polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
-        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
         polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
+        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
         polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
 
         return polys;
@@ -216,6 +219,19 @@ class AvmMiniCircuitBuilder {
 
     [[maybe_unused]] bool check_circuit()
     {
+
+        const FF gamma = FF::random_element();
+        const FF beta = FF::random_element();
+        bb::RelationParameters<typename Flavor::FF> params{
+            .eta = 0,
+            .beta = beta,
+            .gamma = gamma,
+            .public_input_delta = 0,
+            .lookup_grand_product_delta = 0,
+            .beta_sqr = 0,
+            .beta_cube = 0,
+            .eccvm_set_permutation_delta = 0,
+        };
 
         auto polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
@@ -247,6 +263,27 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
+        const auto evaluate_logderivative = [&]<typename LogDerivativeSettings>(const std::string& lookup_name) {
+            // Check the logderivative relation
+            bb::compute_logderivative_inverse<Flavor, LogDerivativeSettings>(polys, params, num_rows);
+
+            typename LogDerivativeSettings::SumcheckArrayOfValuesOverSubrelations lookup_result;
+
+            for (auto& r : lookup_result) {
+                r = 0;
+            }
+            for (size_t i = 0; i < num_rows; ++i) {
+                LogDerivativeSettings::accumulate(lookup_result, polys.get_row(i), params, 1);
+            }
+            for (auto r : lookup_result) {
+                if (r != 0) {
+                    info("Lookup ", lookup_name, " failed.");
+                    return false;
+                }
+            }
+            return true;
+        };
+
         if (!evaluate_relation.template operator()<AvmMini_vm::alu_chip<FF>>("alu_chip",
                                                                              AvmMini_vm::get_relation_label_alu_chip)) {
             return false;
@@ -257,6 +294,10 @@ class AvmMiniCircuitBuilder {
         }
         if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
                 "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
+            return false;
+        }
+
+        if (!evaluate_logderivative.template operator()<equiv_tag_err_relation<FF>>("equiv_tag_err")) {
             return false;
         }
 
