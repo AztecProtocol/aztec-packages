@@ -283,7 +283,7 @@ export class Archiver implements ArchiveSource {
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
     await Promise.all(
-      retrievedBlocks.retrievedData.map(block =>{
+      retrievedBlocks.retrievedData.map(block => {
         const encryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs));
         const unencryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs));
 
@@ -294,7 +294,8 @@ export class Archiver implements ArchiveSource {
     // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
     await Promise.all(
       retrievedBlocks.retrievedData.map(async block => {
-        const blockLogs = (block.body.txEffects.flatMap(txEffect => txEffect.logs ? [txEffect.logs?.unencryptedLogs] : [] ))
+        const blockLogs = block.body.txEffects
+          .flatMap(txEffect => (txEffect.logs ? [txEffect.logs?.unencryptedLogs] : []))
           .flatMap(txLog => txLog.unrollLogs())
           .map(log => UnencryptedL2Log.fromBuffer(log));
         await this.storeRegisteredContractClasses(blockLogs, block.number);
@@ -326,15 +327,22 @@ export class Archiver implements ArchiveSource {
     await this.store.addBlocks(
       retrievedBlocks.retrievedData.map(block => {
         // Ensure we pad the L1 to L2 message array to the full size before storing.
-        block.body.l1ToL2Messages = padArrayEnd(block.body.l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        block.body.l1ToL2Messages = padArrayEnd(
+          block.body.l1ToL2Messages,
+          Fr.ZERO,
+          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        );
 
         block.body.txEffects.forEach(txEffect => delete txEffect.logs);
 
-        return L2Block.fromFields({
-          archive: block.archive,
-          header: block.header,
-          body: block.body,
-        }, block.getL1BlockNumber());
+        return L2Block.fromFields(
+          {
+            archive: block.archive,
+            header: block.header,
+            body: block.body,
+          },
+          block.getL1BlockNumber(),
+        );
       }),
     );
   }

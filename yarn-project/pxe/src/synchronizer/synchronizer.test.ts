@@ -41,7 +41,9 @@ describe('Synchronizer', () => {
 
   it('sets header from latest block', async () => {
     const block = L2Block.random(1, 4);
-    aztecNode.getLogs.mockResolvedValueOnce([new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))]).mockResolvedValue([new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs))]);
+    aztecNode.getLogs
+      .mockResolvedValueOnce([new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))])
+      .mockResolvedValue([new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs))]);
     block.body.txEffects.forEach(txEffect => delete txEffect.logs);
     aztecNode.getBlocks.mockResolvedValue([block]);
 
@@ -63,7 +65,9 @@ describe('Synchronizer', () => {
     // We then process block with height 1, this should not change the header
     const block1 = L2Block.random(1, 4);
 
-    aztecNode.getLogs.mockResolvedValueOnce([new L2BlockL2Logs(block1.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))]).mockResolvedValue([new L2BlockL2Logs(block1.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs))]);
+    aztecNode.getLogs
+      .mockResolvedValueOnce([new L2BlockL2Logs(block1.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))])
+      .mockResolvedValue([new L2BlockL2Logs(block1.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs))]);
     block1.body.txEffects.forEach(txEffect => delete txEffect.logs);
     aztecNode.getBlocks.mockResolvedValue([block1]);
 
@@ -88,30 +92,46 @@ describe('Synchronizer', () => {
     const blocks = [L2Block.random(1, 4), L2Block.random(2, 4)];
 
     aztecNode.getLogs
-    // called by synchronizer.work
-    .mockResolvedValueOnce([new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))])
-    .mockResolvedValueOnce([new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs))])
-    .mockResolvedValueOnce([new L2BlockL2Logs(blocks[1].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))])
-    .mockResolvedValueOnce([new L2BlockL2Logs(blocks[1].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))])
-    // called by synchronizer.workNoteProcessorCatchUp
-    .mockResolvedValueOnce([new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))])
-    .mockResolvedValueOnce([new L2BlockL2Logs(blocks[1].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs))]);
+      // called by synchronizer.work
+      .mockResolvedValueOnce([
+        new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
+      ])
+      .mockResolvedValueOnce([
+        new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
+      ])
+      .mockResolvedValueOnce([
+        new L2BlockL2Logs(blocks[1].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
+      ])
+      .mockResolvedValueOnce([
+        new L2BlockL2Logs(blocks[1].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
+      ])
+      // called by synchronizer.workNoteProcessorCatchUp
+      .mockResolvedValueOnce([
+        new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
+      ])
+      .mockResolvedValueOnce([
+        new L2BlockL2Logs(blocks[1].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
+      ]);
 
     blocks[0].body.txEffects.forEach(txEffect => delete txEffect.logs);
     blocks[1].body.txEffects.forEach(txEffect => delete txEffect.logs);
 
     aztecNode.getBlocks
       // called by synchronizer.work, we are testing fromFields in this first call
-      .mockResolvedValueOnce([L2Block.fromFields({
-        archive: blocks[0].archive,
-        header: blocks[0].header,
-        body: blocks[0].body,
-      })])
-      .mockResolvedValueOnce([L2Block.fromFields({
-        archive: blocks[1].archive,
-        header: blocks[1].header,
-        body: blocks[1].body,
-      })])
+      .mockResolvedValueOnce([
+        L2Block.fromFields({
+          archive: blocks[0].archive,
+          header: blocks[0].header,
+          body: blocks[0].body,
+        }),
+      ])
+      .mockResolvedValueOnce([
+        L2Block.fromFields({
+          archive: blocks[1].archive,
+          header: blocks[1].header,
+          body: blocks[1].body,
+        }),
+      ])
       // called by synchronizer.workNoteProcessorCatchUp
       .mockResolvedValueOnce([blocks[0]])
       .mockResolvedValueOnce([blocks[1]]);

@@ -259,7 +259,9 @@ describe('L1Publisher integration', () => {
       },
       messages: {
         l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
-        l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs).map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
+        l2ToL1Messages: block.body.txEffects
+          .flatMap(txEffect => txEffect.newL2ToL1Msgs)
+          .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
@@ -433,7 +435,7 @@ describe('L1Publisher integration', () => {
         }
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeFalsy();
       }
-    
+
       // check that values are inserted into the outbox
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
         expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();

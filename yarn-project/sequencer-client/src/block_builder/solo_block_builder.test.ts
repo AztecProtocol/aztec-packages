@@ -215,16 +215,17 @@ describe('sequencer/solo_block_builder', () => {
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
 
-    const txEffects = txs.map(tx => 
-      new TxEffect(
-        tx.data.end.newCommitments.map((sideEffect: SideEffect) => sideEffect.value), 
-        tx.data.end.newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
-        tx.data.end.newL2ToL1Msgs,
-        tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-        tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
-        tx.data.end.newContracts.map(n => new ContractData(n.contractAddress, n.portalContractAddress)),
-        new TxEffectLogs(tx.encryptedLogs, tx.unencryptedLogs)
-      )
+    const txEffects = txs.map(
+      tx =>
+        new TxEffect(
+          tx.data.end.newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
+          tx.data.end.newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
+          tx.data.end.newL2ToL1Msgs,
+          tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+          tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
+          tx.data.end.newContracts.map(n => new ContractData(n.contractAddress, n.portalContractAddress)),
+          new TxEffectLogs(tx.encryptedLogs, tx.unencryptedLogs),
+        ),
     );
 
     const body = new L2BlockBody(mockL1ToL2Messages, txEffects);

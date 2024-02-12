@@ -1,4 +1,13 @@
-import { ContractData, L2Block, L2BlockBody, MerkleTreeId, PublicDataWrite, TxEffect, TxEffectLogs, TxL2Logs } from '@aztec/circuit-types';
+import {
+  ContractData,
+  L2Block,
+  L2BlockBody,
+  MerkleTreeId,
+  PublicDataWrite,
+  TxEffect,
+  TxEffectLogs,
+  TxL2Logs,
+} from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -101,20 +110,20 @@ export class SoloBlockBuilder implements BlockBuilder {
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
-    const txEffects: TxEffect[] = txs.map((tx) => new TxEffect(
-      tx.data.end.newCommitments.map((c: SideEffect) => c.value),
-      tx.data.end.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
-      tx.data.end.newL2ToL1Msgs,
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-      tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
-      tx.data.end.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
-      new TxEffectLogs(tx.encryptedLogs || new TxL2Logs([]), tx.unencryptedLogs || new TxL2Logs([])),
-    ));
-
-    const blockBody = new L2BlockBody(
-      newL1ToL2Messages,
-      txEffects
+    const txEffects: TxEffect[] = txs.map(
+      tx =>
+        new TxEffect(
+          tx.data.end.newCommitments.map((c: SideEffect) => c.value),
+          tx.data.end.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
+          tx.data.end.newL2ToL1Msgs,
+          tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+          tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
+          tx.data.end.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
+          new TxEffectLogs(tx.encryptedLogs || new TxL2Logs([]), tx.unencryptedLogs || new TxL2Logs([])),
+        ),
     );
+
+    const blockBody = new L2BlockBody(newL1ToL2Messages, txEffects);
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,

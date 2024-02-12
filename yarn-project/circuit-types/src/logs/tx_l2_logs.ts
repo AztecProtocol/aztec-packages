@@ -108,13 +108,12 @@ export class TxL2Logs {
     return new TxL2Logs(functionLogs);
   }
 
-    /**
+  /**
    * Checks if two TxL2Logs objects are equal.
    * @param other - Another TxL2Logs object to compare with.
    * @returns True if the two objects are equal, false otherwise.
    */
-    public equals(other: TxL2Logs): boolean {
-      return isEqual(this, other);
-    }
-  
+  public equals(other: TxL2Logs): boolean {
+    return isEqual(this, other);
+  }
 }

@@ -15,15 +15,7 @@ describe('L2Block', () => {
   });
 
   it('can serialize an L2 block without logs to a buffer and back', () => {
-    const block = L2Block.random(
-      42,
-      4,
-      2,
-      3,
-      2,
-      1,
-      false,
-    );
+    const block = L2Block.random(42, 4, 2, 3, 2, 1, false);
 
     const serialized = block.toString();
     const recovered = L2Block.fromString(serialized);

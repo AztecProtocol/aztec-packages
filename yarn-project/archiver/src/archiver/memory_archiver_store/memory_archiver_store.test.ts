@@ -23,9 +23,9 @@ describe('MemoryArchiverStore', () => {
 
       await archiverStore.addBlocks(blocks);
       await Promise.all(
-        blocks.map(block => 
+        blocks.map(block =>
           archiverStore.addLogs(
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)), 
+            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
             new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
             block.number,
           ),

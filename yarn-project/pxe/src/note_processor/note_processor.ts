@@ -209,7 +209,9 @@ export class NoteProcessor {
       });
     }
 
-    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b => b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers));
+    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
+      b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers),
+    );
     const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNotes.forEach(noteDao => {
       this.log(

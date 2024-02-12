@@ -65,7 +65,7 @@ export class TxEffect {
     public contractLeaves: Fr[],
     public contractData: ContractData[],
     public logs?: TxEffectLogs,
-  ){
+  ) {
     if (newNoteHashes.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
     }
@@ -73,10 +73,7 @@ export class TxEffect {
 }
 
 export class L2BlockBody {
-  constructor(
-    public l1ToL2Messages: Fr[],
-    public txEffects: TxEffect[],
-  ){}
+  constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
 }
 
 /**
@@ -104,7 +101,11 @@ export class L2Block {
   ) {
     const newNullifiers = body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
     let numberOfRealTransactions = 0;
-    for (let i = 0; i < body.txEffects.flatMap(txEffect => txEffect.newNullifiers).length; i += MAX_NEW_NULLIFIERS_PER_TX) {
+    for (
+      let i = 0;
+      i < body.txEffects.flatMap(txEffect => txEffect.newNullifiers).length;
+      i += MAX_NEW_NULLIFIERS_PER_TX
+    ) {
       if (!newNullifiers[i].equals(Fr.ZERO)) {
         numberOfRealTransactions++;
       }
@@ -136,40 +137,46 @@ export class L2Block {
     numUnencryptedLogsPerCall = 1,
     withLogs = true,
   ): L2Block {
-    const txEffects = [...new Array(txsPerBlock)].map(_ => new TxEffect(
-      times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
-      times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-      times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
-      times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-      times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
-      times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
-      withLogs ? new TxEffectLogs(
-        TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED), 
-        TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
-      ) : undefined,
-    ));
+    const txEffects = [...new Array(txsPerBlock)].map(
+      _ =>
+        new TxEffect(
+          times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
+          times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
+          times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
+          times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+          times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
+          times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
+          withLogs
+            ? new TxEffectLogs(
+                TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
+                TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
+              )
+            : undefined,
+        ),
+    );
 
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
 
     const body = new L2BlockBody(newL1ToL2Messages, txEffects);
 
-    return L2Block.fromFields({
+    return L2Block.fromFields(
+      {
         archive: makeAppendOnlyTreeSnapshot(1),
         header: makeHeader(0, l2BlockNum),
         body,
-      }, 
+      },
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
       BigInt(l2BlockNum),
     );
   }
 
   /**
-  * Constructs a new instance from named fields.
-  * @param fields - Fields to pass to the constructor.
-  * @param blockHash - Hash of the block.
-  * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
-  * @returns A new instance.
-  */
+   * Constructs a new instance from named fields.
+   * @param fields - Fields to pass to the constructor.
+   * @param blockHash - Hash of the block.
+   * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
+   * @returns A new instance.
+   */
   static fromFields(
     fields: {
       /** Snapshot of archive tree after the block is applied. */
@@ -180,12 +187,7 @@ export class L2Block {
     },
     l1BlockNumber?: bigint,
   ) {
-    return new this(
-      fields.archive,
-      fields.header,
-      fields.body,
-      l1BlockNumber,
-    );
+    return new this(fields.archive, fields.header, fields.body, l1BlockNumber);
   }
 
   /**
@@ -196,7 +198,7 @@ export class L2Block {
    * @returns A serialized L2 block without logs.
    */
   toBuffer(includeLogs: boolean = false, includeHeader: boolean = true) {
-    let logs: [L2BlockL2Logs, L2BlockL2Logs] | []  = [];
+    let logs: [L2BlockL2Logs, L2BlockL2Logs] | [] = [];
 
     if (includeLogs) {
       this.assertLogsAttached();
@@ -208,8 +210,8 @@ export class L2Block {
 
     const newCommitments = this.body.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
     const newNullifiers = this.body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
-    const newPublicDataWrites = this.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);    
-    const newL2ToL1Msgs = this.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);  
+    const newPublicDataWrites = this.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
+    const newL2ToL1Msgs = this.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
     const newContracts = this.body.txEffects.flatMap(txEffect => txEffect.contractLeaves);
     const newContractData = this.body.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.body.l1ToL2Messages;
@@ -271,28 +273,35 @@ export class L2Block {
     }
 
     const numberOfTransactionsIncludingPadded = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
-    
-    if(withLogs) {
+
+    if (withLogs) {
       newEncryptedLogs = reader.readObject(L2BlockL2Logs);
       newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
-      
-      if (new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0 || 
-          new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0) {
+
+      if (
+        new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0 ||
+        new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0
+      ) {
         throw new Error('Logs exist in the padded area');
       }
     }
 
-    const txEffects: TxEffect[] = []
+    const txEffects: TxEffect[] = [];
 
     for (let i = 0; i < numberOfTransactionsIncludingPadded; i += 1) {
-      const logs: TxEffectLogs[] = withLogs ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])] : [];
+      const logs: TxEffectLogs[] = withLogs
+        ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])]
+        : [];
 
       txEffects.push(
         new TxEffect(
           newCommitments.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
           newNullifiers.slice(i * MAX_NEW_NULLIFIERS_PER_TX, (i + 1) * MAX_NEW_NULLIFIERS_PER_TX),
           newL2ToL1Msgs.slice(i * MAX_NEW_L2_TO_L1_MSGS_PER_TX, (i + 1) * MAX_NEW_L2_TO_L1_MSGS_PER_TX),
-          newPublicDataWrites.slice(i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, (i + 1) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+          newPublicDataWrites.slice(
+            i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            (i + 1) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          ),
           newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
           newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
           ...logs,
@@ -326,7 +335,7 @@ export class L2Block {
    */
   attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
     if (
-      new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 || 
+      new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
       new L2BlockL2Logs(unencrypedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
     ) {
       throw new Error('Logs exist in the padded area');
@@ -335,20 +344,23 @@ export class L2Block {
     const txEffects = this.body.txEffects;
 
     if (this.areLogsAttached()) {
-      if (txEffects.every((txEffect, i) => txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) && 
-      txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]))) {
+      if (
+        txEffects.every(
+          (txEffect, i) =>
+            txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
+            txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]),
+        )
+      ) {
         L2Block.logger(`Logs already attached`);
         return;
       } else {
-        throw new Error(
-          `Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`,
-        );    
+        throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
       }
     }
 
     txEffects.forEach((txEffect, i) => {
       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencrypedLogs.txLogs[i]);
-    })
+    });
   }
 
   /**
@@ -530,7 +542,7 @@ export class L2Block {
     const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
     const newContracts = txEffect.contractLeaves.filter(x => !x.isZero());
     const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
-    
+
     // console.log('FROM GETTX', newCommitments[0].toBuffer());
 
     return new L2Tx(
@@ -575,11 +587,23 @@ export class L2Block {
    */
   getStats() {
     const logsStats = this.areLogsAttached() && {
-      encryptedLogLength: this.body.txEffects.reduce((logCount, txEffect) => logCount + (txEffect.logs!.encryptedLogs.getSerializedLength()), 0),
-      encryptedLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + (txEffect.logs!.encryptedLogs.getTotalLogCount()), 0),
-      unencryptedLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + (txEffect.logs!.unencryptedLogs.getSerializedLength()), 0),
-      unencryptedLogSize: this.body.txEffects.reduce((logCount, txEffect) => logCount + (txEffect.logs!.unencryptedLogs.getTotalLogCount()), 0),
-    }
+      encryptedLogLength: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getSerializedLength(),
+        0,
+      ),
+      encryptedLogCount: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getTotalLogCount(),
+        0,
+      ),
+      unencryptedLogCount: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.logs!.unencryptedLogs.getSerializedLength(),
+        0,
+      ),
+      unencryptedLogSize: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.logs!.unencryptedLogs.getTotalLogCount(),
+        0,
+      ),
+    };
 
     return {
       txCount: this.numberOfTxs,
@@ -598,7 +622,7 @@ export class L2Block {
     }
   }
 
-  private assertLogsAttached() {  
+  private assertLogsAttached() {
     if (!this.areLogsAttached()) {
       throw new Error(
         `newEncryptedLogs and newUnencryptedLogs must be defined (block ${this.header.globalVariables.blockNumber})`,
