@@ -15,7 +15,7 @@ struct EasyPrivateUint {
     storage_slot: Field,
 }
 
-impl EasyPrivateUint {
+// Holds a note that can act similarly to an int.
     pub fn new(
         context: Context,
         storage_slot: Field,

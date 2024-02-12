@@ -173,14 +173,18 @@ function generateMarkdown(structs, functions) {
                 methods.forEach(func => {
                     markdown += `### ${escapeHtml(func.name)}\n\n`;
 
-                    // Insert usage code block
-                    const usageParams = func.params.map(param => param.name).join(', ');
-                    markdown += "```rust\n" + `${func.structName}::${func.name}(${usageParams});` + "\n```\n\n";
-
+                   
+                    // Description taken from a comment above the function decalaration
+                    // If the comment is docs:, looks at the comment above
                     if (func.description) {
                         markdown += `${escapeHtml(func.description)}\n\n`;
                     }
 
+                     // Codeblock for example usage
+                     const usageParams = func.params.map(param => param.name).join(', ');
+                     markdown += "```rust\n" + `${func.structName}::${func.name}(${usageParams});` + "\n```\n\n";
+
+                    // Parameters
                     if (func.params.length > 0) {
                         markdown += `#### Parameters\n`;
                         markdown += `| Name | Type |\n| --- | --- |\n`;
@@ -192,6 +196,7 @@ function generateMarkdown(structs, functions) {
                         markdown += 'Takes no parameters.\n\n';
                     }
 
+                    // Returns
                     if (func.returnType) {
                         markdown += `#### Returns\n`;
                         markdown += `| Type |\n| --- |\n`;
