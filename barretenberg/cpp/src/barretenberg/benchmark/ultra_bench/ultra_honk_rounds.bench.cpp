@@ -58,15 +58,12 @@ BB_PROFILE static void test_round(State& state, size_t index) noexcept
     auto log2_num_gates = static_cast<size_t>(state.range(0));
     bb::srs::init_crs_factory("../srs_db/ignition");
 
+    GoblinUltraComposer composer;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
+    GoblinUltraProver prover = bb::mock_proofs::get_prover(
+        composer, &bb::mock_proofs::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_num_gates);
     for (auto _ : state) {
-        state.PauseTiming();
-        GoblinUltraComposer composer;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
-        GoblinUltraProver prover = bb::mock_proofs::get_prover(
-            composer, &bb::mock_proofs::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_num_gates);
         test_round_inner(state, prover, index);
-        state.ResumeTiming();
-        // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
     }
 }
 #define ROUND_BENCHMARK(round)                                                                                         \
