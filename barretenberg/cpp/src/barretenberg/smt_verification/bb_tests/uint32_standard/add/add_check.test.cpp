@@ -62,53 +62,52 @@ TEST(uint, add_arithmetic_patch_check1){
     
     uint_ct c = a + b;
 
-    bb::fr tmp = -bb::fr(2).pow(32);
-    bb::fr new_c = bb::fr(c.get_value()) + tmp;
+    bb::fr new_c;
+    bb::fr d = builder.variables[131];
+    bb::fr initial_c = c.get_value();
 
-    builder.variables[130] = new_c;
-    builder.variables[131] = 1;
+    if(d == 0){
+        new_c = initial_c - bb::fr(2).pow(32);
+        builder.variables[130] = new_c;
+        builder.variables[131] = 1;
+        builder.variables[133] = 0;
+        ASSERT_TRUE(builder.check_circuit());
 
-    ASSERT_TRUE(builder.check_circuit());
+        new_c = initial_c - bb::fr(2).pow(33);
+        builder.variables[130] = new_c;
+        builder.variables[131] = 2;
+        builder.variables[133] = 2;
+        ASSERT_TRUE(builder.check_circuit());
+    }else if(d == 1){
+        new_c = initial_c - bb::fr(2).pow(32);
+        builder.variables[130] = new_c;
+        builder.variables[131] = 2;
+        builder.variables[133] = 2;
+        ASSERT_TRUE(builder.check_circuit());
+
+        new_c = initial_c + bb::fr(2).pow(32);
+        builder.variables[130] = new_c;
+        builder.variables[131] = 0;
+        builder.variables[133] = 0;
+        ASSERT_TRUE(builder.check_circuit());
+    }else if(d == 2){
+        new_c = initial_c + bb::fr(2).pow(32);
+        builder.variables[130] = new_c;
+        builder.variables[131] = 1;
+        builder.variables[133] = 0;
+        ASSERT_TRUE(builder.check_circuit());
+
+        new_c = initial_c + bb::fr(2).pow(33);
+        builder.variables[130] = new_c;
+        builder.variables[131] = 0;
+        builder.variables[133] = 0;
+        ASSERT_TRUE(builder.check_circuit());
+    }
+
     info(builder.variables[a.get_witness_index()]);
     info(" + ");
     info(builder.variables[b.get_witness_index()]);
     info("=");
     info(builder.variables[c.get_witness_index()]);
     info("and always has been...");
-}
-
-TEST(uint, add_arithmetic_patch_check2){
-    StandardCircuitBuilder builder;
-    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-    
-    uint_ct c = a + b;
-
-    bb::fr tmp = -bb::fr(2).pow(33);
-    bb::fr new_c = bb::fr(c.get_value()) + tmp;
-
-    builder.variables[130] = new_c;
-    builder.variables[131] = 2;
-    builder.variables[133] = 2;
-
-    ASSERT_TRUE(builder.check_circuit());
-    info(builder.variables[a.get_witness_index()]);
-    info(" + ");
-    info(builder.variables[b.get_witness_index()]);
-    info("=");
-    info(builder.variables[c.get_witness_index()]);
-    info("and always has been...");
-}
-
-TEST(uint, conversion){
-    StandardCircuitBuilder builder;
-    uint_ct c = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
- 
-    info("c = ", c.get_value());
-    bb::fr tmp = -bb::fr(2).pow(32);
-    bb::fr new_c = c.get_value() + tmp;
-    info("new_c = ", new_c);
-    info("direct = ", bb::fr(c.get_value()) - bb::fr(2).pow(32));
-    bb::fr tmp1 = bb::fr(c.get_value()) - bb::fr(2).pow(32);
-    info("tmp1 = ", tmp1);
 }
