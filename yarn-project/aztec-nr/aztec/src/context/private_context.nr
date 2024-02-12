@@ -195,8 +195,8 @@ impl PrivateContext {
     }
 
     // docs:start:context_message_portal
-    pub fn message_portal(&mut self, content: Field)
-    // docs:end:context_message_portal {
+    pub fn message_portal(&mut self, content: Field) {
+        // docs:end:context_message_portal 
         self.new_l2_to_l1_msgs.push(content);
     }
 
@@ -204,13 +204,8 @@ impl PrivateContext {
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     // docs:start:context_consume_l1_to_l2_message
     // docs:start:consume_l1_to_l2_message
-    pub fn consume_l1_to_l2_message(
-        &mut self,
-        msg_key: Field,
-        content: Field,
-        secret: Field
-    )
-    // docs:end:context_consume_l1_to_l2_message {
+    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
+        // docs:end:context_consume_l1_to_l2_message
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
             self.this_address(),
