@@ -4,6 +4,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   GlobalVariables,
+  L2ToL1Message,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
@@ -94,7 +95,7 @@ export function temporaryConvertAvmResults(
   const nestedExecutions: PublicExecutionResult[] = [];
   const newNullifiers: SideEffectLinkedToNoteHash[] = [];
   const unencryptedLogs = FunctionL2Logs.empty();
-  const newL2ToL1Messages = newWorldState.newL1Messages.map(() => Fr.zero());
+  const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.empty());
 
   return {
     execution,

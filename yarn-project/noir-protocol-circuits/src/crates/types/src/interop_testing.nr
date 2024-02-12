@@ -130,7 +130,7 @@ fn compute_call_stack_item_request_hash() {
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
     // Value from abis.test.ts "Computes a callstack item request hash" test
-    assert_eq(call_stack_item.hash(), 0x28cb4c264eb11e13c77a5e60b251a6b3edfb4cfed786c4f1ec5e1749fede9b78);
+    assert_eq(call_stack_item.hash(), 0x06012506433452c68edbeca83d1fb62bafb2bf4c780716ff15f5b6443593edd8);
 }
 
 #[test]
@@ -147,5 +147,5 @@ fn compute_call_stack_item_hash() {
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
     // Value from abis.test.ts "Computes a callstack item hash" test
-    assert_eq(call_stack_item.hash(), 0x17095bbb9e3e104dc520b6eec9338e9b6ce1fdc0f3a66b06d5ca90b15909ad0e);
+    assert_eq(call_stack_item.hash(), 0x2b785891b7a667a3576473657901dbbd97b884a22b1811464d09bb61f9abe581);
 }
