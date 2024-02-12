@@ -4,7 +4,7 @@ import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
 import { setup } from './fixtures/utils.js';
 
-describe('e2e_native_fee_payments', () => {
+describe('e2e_fees', () => {
   let aliceAddress: AztecAddress;
   let _bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -40,23 +40,25 @@ describe('e2e_native_fee_payments', () => {
     expect(gasTokenContract.address).toEqual(getCanonicalGasToken().address);
   });
 
-  it('pays out the expected fee to the sequencer', async () => {
-    await testContract.methods
-      .mint_public(aliceAddress, 1000)
-      .send({
-        fee: {
-          maxFee: 1,
-          paymentMethod: new NativeFeePaymentMethod(),
-        },
-      })
-      .wait();
+  describe('NativeFeePaymentMethod', () => {
+    it('pays out the expected fee to the sequencer', async () => {
+      await testContract.methods
+        .mint_public(aliceAddress, 1000)
+        .send({
+          fee: {
+            maxFee: 1,
+            paymentMethod: new NativeFeePaymentMethod(),
+          },
+        })
+        .wait();
 
-    const [sequencerBalance, aliceBalance] = await Promise.all([
-      gasTokenContract.methods.balance_of(sequencerAddress).view(),
-      gasTokenContract.methods.balance_of(aliceAddress).view(),
-    ]);
+      const [sequencerBalance, aliceBalance] = await Promise.all([
+        gasTokenContract.methods.balance_of(sequencerAddress).view(),
+        gasTokenContract.methods.balance_of(aliceAddress).view(),
+      ]);
 
-    expect(sequencerBalance).toEqual(1n);
-    expect(aliceBalance).toEqual(999n);
+      expect(sequencerBalance).toEqual(1n);
+      expect(aliceBalance).toEqual(999n);
+    });
   });
 });
