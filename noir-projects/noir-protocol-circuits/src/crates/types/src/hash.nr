@@ -1,7 +1,8 @@
 use crate::address::{AztecAddress, EthAddress};
 use crate::mocked::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
-use crate::abis::function_leaf_preimage::{ContractClassFunctionLeafPreimage, FunctionLeafPreimage};
+use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
+use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class::ContractClassId;
 use crate::abis::new_contract_data::NewContractData as ContractLeafPreimage;
 use crate::abis::function_data::FunctionData;
