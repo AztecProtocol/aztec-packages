@@ -40,7 +40,6 @@ import {
   ContractInstanceWithAddress,
 } from '@aztec/types/contracts';
 
-import omit from 'lodash.omit';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 
 import { ArchiverDataStore } from './archiver_store.js';
@@ -287,7 +286,7 @@ export class Archiver implements ArchiveSource {
         const encryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs));
         const unencryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs));
 
-        this.store.addLogs(encryptedLogs, unencryptedLogs, block.number);
+        return this.store.addLogs(encryptedLogs, unencryptedLogs, block.number);
       }),
     );
 

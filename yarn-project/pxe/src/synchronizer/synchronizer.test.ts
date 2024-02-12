@@ -7,7 +7,6 @@ import { TestKeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import omit from 'lodash.omit';
 
 import { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
