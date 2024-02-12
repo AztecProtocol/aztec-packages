@@ -7,9 +7,10 @@ const TOPICS_IN_SECTIONS = [
     "Name", "Summary", "Category", "Flags", "Args", "Expression", "Details", "Tag checks", "Tag updates", "Bit-size",
 ];
 
-const IN_TAG_DESCRIPTION = "The [tag/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
-const DST_TAG_DESCRIPTION = "The [tag/size](./state-model#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
-const INDIRECT_FLAG_DESCRIPTION = "Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.";
+const IN_TAG_DESCRIPTION = "The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
+const IN_TAG_DESCRIPTION_NO_FIELD = IN_TAG_DESCRIPTION + " `field` type is NOT supported for this instruction.";
+const DST_TAG_DESCRIPTION = "The [tag/size](./memory-model#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
+const INDIRECT_FLAG_DESCRIPTION = "Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.";
 
 const INSTRUCTION_SET_RAW = [
     {
@@ -113,7 +114,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -132,7 +133,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -151,7 +152,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -170,7 +171,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -189,7 +190,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -208,7 +209,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's input"},
@@ -226,7 +227,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -245,7 +246,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -272,7 +273,7 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = cast<dstTag>(M[aOffset])`",
         "Summary": "Type cast",
-        "Details": "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./state-model#cast-and-tag-conversions) for more details.",
+        "Details": "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./memory-model#cast-and-tag-conversions) for more details.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = dstTag`",
     },
@@ -680,7 +681,7 @@ context.machineState.pc = loc
         "Category": "Machine State - Memory",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": "The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
+            {"name": "inTag", "description": "The [type/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
         ],
         "Args": [
             {"name": "const", "description": "an N-bit constant value from the bytecode to store in memory (any type except `field`)", "mode": "immediate"},

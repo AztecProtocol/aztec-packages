@@ -35,11 +35,11 @@ import {
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PreviousKernelData,
   PreviousRollupData,
   Proof,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
+  PublicKernelData,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootRollupInputs,
@@ -411,7 +411,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected getKernelDataFor(tx: ProcessedTx) {
-    return new PreviousKernelData(
+    return new PublicKernelData(
       tx.data,
       tx.proof,
 

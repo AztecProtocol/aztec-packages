@@ -14,7 +14,7 @@ Start by installing our test runner, in this case jest:
 yarn add -D jest
 ```
 
-We'll need to [install and run the Sandbox](../../cli/sandbox-reference.md#installation).
+We'll need to [install and run the Sandbox](../../sandbox/references/sandbox-reference.md#installation).
 
 ## Test setup
 
@@ -30,8 +30,8 @@ import {
   createPXEClient,
   waitForPXE,
 } from "@aztec/aztec.js";
-import { createAccount } from '@aztec/accounts/testing';
-import { TokenContractArtifact } from "@aztec/noir-contracts/Token";
+import { createAccount } from "@aztec/accounts/testing";
+import { TokenContractArtifact } from "@aztec/noir-contracts.js/Token";
 
 const {
   PXE_URL = "http://localhost:8080",

@@ -1,12 +1,11 @@
 contract Blank {
     use dep::aztec::{
-        abi,
         oracle::{
             get_public_key::get_public_key,
         },
         protocol_types::address::AztecAddress
     };
-    
+
     #[aztec(private)]
     fn constructor() {}
 
@@ -24,6 +23,7 @@ contract Blank {
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
+        note_type_id: Field,
         serialized_note: [Field; 0]
     ) -> pub [Field; 4] {
         [0, 0, 0, 0]

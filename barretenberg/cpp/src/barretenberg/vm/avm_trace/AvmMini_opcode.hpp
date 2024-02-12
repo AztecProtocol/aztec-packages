@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <string>
 #include <unordered_map>
 
 namespace avm_trace {
-using std::size_t;
 
 /**
  * All AVM opcodes (Keep in sync with TS counterpart code opcodes.ts)
@@ -101,5 +102,7 @@ class Bytecode {
     static bool has_in_tag(OpCode);
     static const std::unordered_map<OpCode, size_t> OPERANDS_NUM;
 };
+
+std::string to_hex(OpCode opcode);
 
 } // namespace avm_trace
