@@ -71,3 +71,10 @@ fn empty_hash() {
     // Value from function_leaf_preimage.test.ts "computes a function leaf" test
     assert_eq(hash, 0x1f2e3193c7187347a099ee7cb5d6ac077da6b18706fe5508e658a3d0a05494f7);
 }
+
+#[test]
+fn compute_function_leaf() {
+    let leaf = FunctionLeafPreimage { selector: FunctionSelector::from_u32(27), is_internal: false, is_private: true, vk_hash: 1, acir_hash: 2 };
+
+    assert_eq(leaf.hash(), 0x1ad8ece7f40e63d011ae47c6ce6cdaf31d632a23f5cf35bbeaaf69c8302afdbc);
+}
