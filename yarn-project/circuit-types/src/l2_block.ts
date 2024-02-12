@@ -22,29 +22,9 @@ import { LogType, TxL2Logs } from './logs/index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { TxHash } from './tx/tx_hash.js';
+import { TxEffectLogs } from './logs/tx_effect_logs.js';
 
-export class TxEffectLogs {
-  constructor(
-    /**
-     * Encrypted logs emitted by txs in this block.
-     * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
-     *          (e.g. logs from the first tx on the first place...).
-     * @remarks Only private function can emit encrypted logs and for this reason length of
-     *          `newEncryptedLogs.txLogs.functionLogs` is equal to the number of private function invocations in the tx.
-     */
-    public encryptedLogs: TxL2Logs,
-    /**
-     * Unencrypted logs emitted by txs in this block.
-     * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
-     *          (e.g. logs from the first tx on the first place...).
-     * @remarks Both private and public functions can emit unencrypted logs and for this reason length of
-     *          `newUnencryptedLogs.txLogs.functionLogs` is equal to the number of all function invocations in the tx.
-     */
-    public unencryptedLogs: TxL2Logs,
-  ) {}
-}
-
-export class TxEffect {
+class TxEffect {
   constructor(
     /**
      * The commitments to be inserted into the note hash tree.
@@ -85,7 +65,7 @@ export class L2Block {
   private static logger = createDebugLogger('aztec:l2_block');
 
   /**
-   * The number of L2Tx in this L2Block.
+   * The number of L2Tx in this L2Block not including padded txs
    */
   public numberOfTxs: number;
 
@@ -96,7 +76,10 @@ export class L2Block {
     public archive: AppendOnlyTreeSnapshot,
     /** L2 block header. */
     public header: Header,
+    /** L2 block body. */
     public body: L2BlockBody,
+    public numberOfTransactions: number,
+    /** Associated L1 block num */
     l1BlockNumber?: bigint,
   ) {
     const newNullifiers = body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
@@ -119,58 +102,6 @@ export class L2Block {
   }
 
   /**
-   * Creates an L2 block containing random data.
-   * @param l2BlockNum - The number of the L2 block.
-   * @param txsPerBlock - The number of transactions to include in the block.
-   * @param numPrivateCallsPerTx - The number of private function calls to include in each transaction.
-   * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
-   * @param numEncryptedLogsPerCall - The number of encrypted logs per 1 private function invocation.
-   * @param numUnencryptedLogsPerCall - The number of unencrypted logs per 1 public function invocation.
-   * @returns The L2 block.
-   */
-  static random(
-    l2BlockNum: number,
-    txsPerBlock = 4,
-    numPrivateCallsPerTx = 2,
-    numPublicCallsPerTx = 3,
-    numEncryptedLogsPerCall = 2,
-    numUnencryptedLogsPerCall = 1,
-    withLogs = true,
-  ): L2Block {
-    const txEffects = [...new Array(txsPerBlock)].map(
-      _ =>
-        new TxEffect(
-          times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
-          times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-          times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
-          times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-          times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
-          times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
-          withLogs
-            ? new TxEffectLogs(
-                TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
-                TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
-              )
-            : undefined,
-        ),
-    );
-
-    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-
-    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
-
-    return L2Block.fromFields(
-      {
-        archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, l2BlockNum),
-        body,
-      },
-      // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
-      BigInt(l2BlockNum),
-    );
-  }
-
-  /**
    * Constructs a new instance from named fields.
    * @param fields - Fields to pass to the constructor.
    * @param blockHash - Hash of the block.
@@ -184,10 +115,83 @@ export class L2Block {
       /** L2 block header. */
       header: Header;
       body: L2BlockBody;
+      numberOfTransactions: number;
     },
     l1BlockNumber?: bigint,
   ) {
-    return new this(fields.archive, fields.header, fields.body, l1BlockNumber);
+    return new this(fields.archive, fields.header, fields.body, fields.numberOfTransactions, l1BlockNumber);
+  }
+
+  static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
+    const reader = BufferReader.asReader(buf);
+    const header = reader.readObject(Header);
+    const archive = reader.readObject(AppendOnlyTreeSnapshot);
+    const newCommitments = reader.readVector(Fr);
+    const newNullifiers = reader.readVector(Fr);
+    const newPublicDataWrites = reader.readVector(PublicDataWrite);
+    const newL2ToL1Msgs = reader.readVector(Fr);
+    const newContracts = reader.readVector(Fr);
+    const newContractData = reader.readArray(newContracts.length, ContractData);
+    // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
+    // It seems the da/ tx hash would be fine, would only need to edit circuits ?
+    const newL1ToL2Messages = reader.readVector(Fr);
+
+    let newEncryptedLogs: L2BlockL2Logs;
+    let newUnencryptedLogs: L2BlockL2Logs;
+
+    // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
+    let numberOfNonEmptyTxs = 0;
+    for (let i = 0; i < newNullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
+      if (!newNullifiers[i].equals(Fr.ZERO)) {
+        numberOfNonEmptyTxs++;
+      }
+    }
+
+    if (withLogs) {
+      newEncryptedLogs = reader.readObject(L2BlockL2Logs);
+      newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
+
+      if (
+        new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
+        new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
+      ) {
+        throw new Error('Logs exist in the padded area');
+      }
+    }
+
+    const txEffects: TxEffect[] = [];
+
+    const numberOfTxsIncludingEmpty = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
+
+    for (let i = 0; i < numberOfTxsIncludingEmpty; i += 1) {
+      const logs: TxEffectLogs[] = withLogs
+        ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])]
+        : [];
+
+      txEffects.push(
+        new TxEffect(
+          newCommitments.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
+          newNullifiers.slice(i * MAX_NEW_NULLIFIERS_PER_TX, (i + 1) * MAX_NEW_NULLIFIERS_PER_TX),
+          newL2ToL1Msgs.slice(i * MAX_NEW_L2_TO_L1_MSGS_PER_TX, (i + 1) * MAX_NEW_L2_TO_L1_MSGS_PER_TX),
+          newPublicDataWrites.slice(
+            i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            (i + 1) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          ),
+          newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
+          newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
+          ...logs,
+        ),
+      );
+    }
+
+    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
+
+    return L2Block.fromFields({
+      archive,
+      header,
+      body,
+      numberOfTransactions: numberOfNonEmptyTxs,
+    });
   }
 
   /**
@@ -237,6 +241,15 @@ export class L2Block {
     );
   }
 
+    /**
+   * Deserializes L2 block without logs from a buffer.
+   * @param str - A serialized L2 block.
+   * @returns Deserialized L2 block.
+   */
+    static fromString(str: string): L2Block {
+      return L2Block.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    }
+
   /**
    * Serializes a block without logs to a string.
    * @remarks This is used when the block is being served via JSON-RPC because the logs are expected to be served
@@ -245,86 +258,6 @@ export class L2Block {
    */
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);
-  }
-
-  static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
-    const reader = BufferReader.asReader(buf);
-    const header = reader.readObject(Header);
-    const archive = reader.readObject(AppendOnlyTreeSnapshot);
-    const newCommitments = reader.readVector(Fr);
-    const newNullifiers = reader.readVector(Fr);
-    const newPublicDataWrites = reader.readVector(PublicDataWrite);
-    const newL2ToL1Msgs = reader.readVector(Fr);
-    const newContracts = reader.readVector(Fr);
-    const newContractData = reader.readArray(newContracts.length, ContractData);
-    // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
-    // It seems the da/ tx hash would be fine, would only need to edit circuits ?
-    const newL1ToL2Messages = reader.readVector(Fr);
-
-    let newEncryptedLogs: L2BlockL2Logs;
-    let newUnencryptedLogs: L2BlockL2Logs;
-
-    // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
-    let numberOfRealTransactions = 0;
-    for (let i = 0; i < newNullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
-      if (!newNullifiers[i].equals(Fr.ZERO)) {
-        numberOfRealTransactions++;
-      }
-    }
-
-    const numberOfTransactionsIncludingPadded = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
-
-    if (withLogs) {
-      newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-      newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
-
-      if (
-        new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0 ||
-        new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0
-      ) {
-        throw new Error('Logs exist in the padded area');
-      }
-    }
-
-    const txEffects: TxEffect[] = [];
-
-    for (let i = 0; i < numberOfTransactionsIncludingPadded; i += 1) {
-      const logs: TxEffectLogs[] = withLogs
-        ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])]
-        : [];
-
-      txEffects.push(
-        new TxEffect(
-          newCommitments.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
-          newNullifiers.slice(i * MAX_NEW_NULLIFIERS_PER_TX, (i + 1) * MAX_NEW_NULLIFIERS_PER_TX),
-          newL2ToL1Msgs.slice(i * MAX_NEW_L2_TO_L1_MSGS_PER_TX, (i + 1) * MAX_NEW_L2_TO_L1_MSGS_PER_TX),
-          newPublicDataWrites.slice(
-            i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            (i + 1) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-          ),
-          newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          ...logs,
-        ),
-      );
-    }
-
-    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
-
-    return L2Block.fromFields({
-      archive,
-      header,
-      body,
-    });
-  }
-
-  /**
-   * Deserializes L2 block without logs from a buffer.
-   * @param str - A serialized L2 block.
-   * @returns Deserialized L2 block.
-   */
-  static fromString(str: string): L2Block {
-    return L2Block.fromBuffer(Buffer.from(str, STRING_ENCODING));
   }
 
   /**
@@ -364,22 +297,75 @@ export class L2Block {
   }
 
   /**
-   * Sets the L1 block number that included this block
-   * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
+   * Creates an L2 block containing random data.
+   * @param l2BlockNum - The number of the L2 block.
+   * @param txsPerBlock - The number of transactions to include in the block.
+   * @param numPrivateCallsPerTx - The number of private function calls to include in each transaction.
+   * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
+   * @param numEncryptedLogsPerCall - The number of encrypted logs per 1 private function invocation.
+   * @param numUnencryptedLogsPerCall - The number of unencrypted logs per 1 public function invocation.
+   * @returns The L2 block.
    */
-  public setL1BlockNumber(l1BlockNumber: bigint) {
-    this.#l1BlockNumber = l1BlockNumber;
-  }
+  static random(
+    l2BlockNum: number,
+    txsPerBlock = 4,
+    numPrivateCallsPerTx = 2,
+    numPublicCallsPerTx = 3,
+    numEncryptedLogsPerCall = 2,
+    numUnencryptedLogsPerCall = 1,
+    withLogs = true,
+  ): L2Block {
+    const txEffects = [...new Array(txsPerBlock)].map(
+      _ =>
+        new TxEffect(
+          times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
+          times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
+          times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
+          times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+          times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
+          times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
+          withLogs
+            ? new TxEffectLogs(
+                TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
+                TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
+              )
+            : undefined,
+        ),
+    );
+
+    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+
+    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
+
+    return L2Block.fromFields(
+      {
+        archive: makeAppendOnlyTreeSnapshot(1),
+        header: makeHeader(0, l2BlockNum),
+        body,
+        numberOfTransactions: txsPerBlock,
+      },
+      // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
+      BigInt(l2BlockNum),
+    );
+  }  
 
   /**
-   * Gets the L1 block number that included this block
-   */
+ * Gets the L1 block number that included this block
+ */
   public getL1BlockNumber(): bigint {
     if (typeof this.#l1BlockNumber === 'undefined') {
       throw new Error('L1 block number has to be attached before calling "getL1BlockNumber"');
     }
 
     return this.#l1BlockNumber;
+  }
+
+  /**
+   * Sets the L1 block number that included this block
+   * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
+   */
+  public setL1BlockNumber(l1BlockNumber: bigint) {
+    this.#l1BlockNumber = l1BlockNumber;
   }
 
   /**
