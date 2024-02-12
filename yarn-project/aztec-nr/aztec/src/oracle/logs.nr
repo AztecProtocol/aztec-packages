@@ -1,8 +1,4 @@
-use dep::protocol_types::{
-    address::AztecAddress,
-    constants::NUM_FIELDS_PER_SHA256,
-    grumpkin_point::GrumpkinPoint,
-};
+use dep::protocol_types::{address::AztecAddress, constants::NUM_FIELDS_PER_SHA256, grumpkin_point::GrumpkinPoint};
 
 // TODO: Should take encrypted data.
 #[oracle(emitEncryptedLog)]

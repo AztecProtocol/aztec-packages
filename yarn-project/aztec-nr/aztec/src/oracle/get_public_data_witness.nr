@@ -1,12 +1,7 @@
 use dep::protocol_types::{
-    constants::PUBLIC_DATA_TREE_HEIGHT,
-    hash::pedersen_hash,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    traits::{
-        Hash,
-        Serialize,
-    },
-    utils::arr_copy_slice,
+    constants::PUBLIC_DATA_TREE_HEIGHT, hash::pedersen_hash,
+    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::{Hash, Serialize},
+    utils::arr_copy_slice
 };
 
 global LEAF_PREIMAGE_LENGTH: Field = 4;
