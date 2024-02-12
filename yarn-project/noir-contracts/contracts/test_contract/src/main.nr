@@ -202,6 +202,32 @@ contract Test {
         context.message_portal(note.get_commitment());
     }
 
+    #[aztec(public)]
+    fn create_l2_to_l1_message_arbitrary_recipient_public(
+        amount: Field,
+        secret_hash: Field,
+        recipient: EthAddress
+    ) {
+        // Create a commitment to the amount
+        let note = DummyNote::new(amount, secret_hash);
+
+        // Public oracle call to emit new commitment.
+        context.message_recipient(recipient, note.get_commitment());
+    }
+
+    #[aztec(public)]
+    fn create_l2_to_l1_message_arbitrary_recipient_private(
+        amount: Field,
+        secret_hash: Field,
+        recipient: EthAddress
+    ) {
+        // Create a commitment to the amount
+        let note = DummyNote::new(amount, secret_hash);
+
+        // Public oracle call to emit new commitment.
+        context.message_recipient(recipient, note.get_commitment());
+    }
+
     // Purely exists for testing
     #[aztec(public)]
     fn create_nullifier_public(amount: Field, secret_hash: Field) {
