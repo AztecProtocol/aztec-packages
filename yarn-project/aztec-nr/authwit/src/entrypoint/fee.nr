@@ -14,10 +14,12 @@ global FEE_PAYLOAD_SIZE_IN_BYTES: Field = 226;
 
 global MAX_FEE_FUNCTION_CALLS = 2;
 
+// docs:start:fee-payload-struct
 struct FeePayload {
   function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
   nonce: Field,
 }
+// docs:end:fee-payload-struct
 
 impl Serialize<FEE_PAYLOAD_SIZE> for FeePayload {
   // Serializes the entrypoint struct

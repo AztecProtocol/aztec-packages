@@ -8,7 +8,7 @@ import { buildAppPayload, buildFeePayload, hashPayload } from './entrypoint_payl
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
- * for an account, which accepts an EntrypointPayload as defined in noir-libs/aztec-noir/src/entrypoint.nr.
+ * for an account, which accepts an AppPayload and a FeePayload as defined in noir-libs/aztec-noir/src/entrypoint module
  */
 export class DefaultAccountEntrypoint implements EntrypointInterface {
   constructor(

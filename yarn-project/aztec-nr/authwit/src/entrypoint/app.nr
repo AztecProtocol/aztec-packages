@@ -15,12 +15,12 @@ global APP_PAYLOAD_SIZE_IN_BYTES: Field = 420;
 global ACCOUNT_MAX_CALLS: Field = 4;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
-// docs:start:entrypoint-struct
+// docs:start:app-payload-struct
 struct AppPayload {
   function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
   nonce: Field,
 }
-// docs:end:entrypoint-struct
+// docs:end:app-payload-struct
 
 impl Serialize<APP_PAYLOAD_SIZE> for AppPayload {
   // Serializes the entrypoint struct
