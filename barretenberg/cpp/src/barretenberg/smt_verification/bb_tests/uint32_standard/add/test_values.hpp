@@ -136,7 +136,7 @@ const std::vector<std::vector<bb::fr>> add_unique_output = {
 {0, 0},           // var_127_circuit1, var_127_circuit2
 {0, 0},           // var_128_circuit1, var_128_circuit2
 {0, 0},           // b_circuit1 ,b_circuit2 -> 66
-{-bb::fr(65536) * bb::fr(65536), 0},           // c_circuit1, c_circuit2
+{-bb::fr(2).pow(32), 0},           // c_circuit1, c_circuit2
 {1, 0},           // var_131_circuit1, var_131_circuit2
 {0, 0},           // var_132_circuit1, var_132_circuit2
 {0, 0},           // var_133_circuit1, var_133_circuit2
@@ -273,7 +273,7 @@ const std::vector<std::vector<bb::fr>> add_unique_witness = {
 {0, 0},           // var_127_circuit1, var_127_circuit2
 {0, 0},           // var_128_circuit1, var_128_circuit2
 {0, 0},           // b_circuit1 ,b_circuit2 -> 66
-{-bb::fr(65536) * bb::fr(131072), 0},           // c_circuit1, c_circuit2
+{-bb::fr(2).pow(33), 0},           // c_circuit1, c_circuit2
 {2, 0},           // var_131_circuit1, var_131_circuit2
 {0, 0},           // var_132_circuit1, var_132_circuit2
 {2, 0},           // var_133_circuit1, var_133_circuit2

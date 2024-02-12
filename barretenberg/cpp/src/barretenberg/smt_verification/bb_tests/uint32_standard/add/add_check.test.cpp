@@ -55,44 +55,47 @@ TEST(uint, add_unique_witness2_check_via_builder){
     ASSERT_TRUE(builder.check_circuit());
 }
 
-//TEST(uint, xor_stb_patch_check){
-//    StandardCircuitBuilder builder;
-//    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-//    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-//    uint_ct c = a ^ b;
-//
-//    uint32_t arb_out = 0x1337;
-//    auto arb_out_b4 = base4(arb_out);
-//
-//    for(uint32_t i = 15; i < 16; i--){
-//        uint32_t out_quad_idx = 138 + (15 - i) * 12;
-//        builder.variables[builder.real_variable_index[out_quad_idx]] = arb_out_b4.first[i];
-//        builder.variables[builder.real_variable_index[out_quad_idx + 3]] = arb_out_b4.second[i];
-//    }
-//
-//    ASSERT_TRUE(builder.check_circuit());
-//    info(builder.variables[a.get_witness_index()]);
-//    info(" ^ ");
-//    info(builder.variables[b.get_witness_index()]);
-//    info("=");
-//    info(builder.variables[c.get_witness_index()]);
-//    info("and always has been...");
-//}
-//
-//TEST(uint, xor_logic_patch_check){
-//    StandardCircuitBuilder builder;
-//    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-//    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
-//    uint_ct c = a ^ b;
-//
-//    StandardCircuitBuilder builder1;
-//    uint_ct a1 = witness_ct(&builder1, 0xaaaa);
-//    uint_ct b1 = witness_ct(&builder1, 0xbbbb);
-//    uint_ct c1 = a1 ^ b1;
-//
-//    for(uint32_t i = 130; i < builder.get_num_variables(); i++){
-//        builder.variables[i] = builder1.variables[i];
-//    }
-//
-//    ASSERT_TRUE(builder.check_circuit());
-//} // TODO(alex): Make it ASSERT_FALSE when the patches are merged
+TEST(uint, add_arithmetic_patch_check1){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
+    
+    uint_ct c = a + b;
+
+    bb::fr tmp = -bb::fr(2).pow(32);
+    bb::fr new_c = c.get_value() + tmp;
+
+    builder.variables[130] = new_c;
+    builder.variables[131] = 1;
+
+    ASSERT_TRUE(builder.check_circuit());
+    info(builder.variables[a.get_witness_index()]);
+    info(" + ");
+    info(builder.variables[b.get_witness_index()]);
+    info("=");
+    info(builder.variables[c.get_witness_index()]);
+    info("and always has been...");
+}
+
+TEST(uint, add_arithmetic_patch_check2){
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
+    uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
+    
+    uint_ct c = a + b;
+
+    bb::fr tmp = -bb::fr(2).pow(33);
+    bb::fr new_c = c.get_value() + tmp;
+
+    builder.variables[130] = new_c;
+    builder.variables[131] = 2;
+    builder.variables[133] = 2;
+
+    ASSERT_TRUE(builder.check_circuit());
+    info(builder.variables[a.get_witness_index()]);
+    info(" + ");
+    info(builder.variables[b.get_witness_index()]);
+    info("=");
+    info(builder.variables[c.get_witness_index()]);
+    info("and always has been...");
+}
