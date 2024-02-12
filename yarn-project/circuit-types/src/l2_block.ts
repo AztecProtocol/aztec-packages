@@ -8,9 +8,6 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   STRING_ENCODING,
-  PublicKernelPublicInputs,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/factories';
 import { times } from '@aztec/foundation/collection';
@@ -25,7 +22,6 @@ import { LogType, TxL2Logs } from './logs/index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
 import { PublicDataWrite } from './public_data_write.js';
 import { TxHash } from './tx/tx_hash.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
 
 export class TxEffectLogs {
   constructor(
@@ -106,15 +102,15 @@ export class L2Block {
     public body: L2BlockBody,
     l1BlockNumber?: bigint,
   ) {
-    this.numberOfTxs = body.txEffects.length;
+    const newNullifiers = body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
+    let numberOfRealTransactions = 0;
+    for (let i = 0; i < body.txEffects.flatMap(txEffect => txEffect.newNullifiers).length; i += MAX_NEW_NULLIFIERS_PER_TX) {
+      if (!newNullifiers[i].equals(Fr.ZERO)) {
+        numberOfRealTransactions++;
+      }
+    }
+    this.numberOfTxs = numberOfRealTransactions;
     this.#l1BlockNumber = l1BlockNumber;
-
-    // this.header = header;
-    //! Should I derive it like below ?
-    // this.header = new Header(
-    //   archive,
-    //   hash(this.body),
-    // )
   }
 
   get number(): number {
@@ -167,7 +163,6 @@ export class L2Block {
     );
   }
 
-
   /**
   * Constructs a new instance from named fields.
   * @param fields - Fields to pass to the constructor.
@@ -201,23 +196,22 @@ export class L2Block {
    * @returns A serialized L2 block without logs.
    */
   toBuffer(includeLogs: boolean = false, includeHeader: boolean = true) {
-    const paddedTxEffects = this.getPaddedTxEffects();
     let logs: [L2BlockL2Logs, L2BlockL2Logs] | []  = [];
 
     if (includeLogs) {
       this.assertLogsAttached();
 
-      const newEncryptedLogs = paddedTxEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
-      const newUnencryptedLogs = paddedTxEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
+      const newEncryptedLogs = this.body.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
+      const newUnencryptedLogs = this.body.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
       logs = [new L2BlockL2Logs(newEncryptedLogs), new L2BlockL2Logs(newUnencryptedLogs)];
     }
 
-    const newCommitments = paddedTxEffects.flatMap(txEffect => txEffect.newNoteHashes);
-    const newNullifiers = paddedTxEffects.flatMap(txEffect => txEffect.newNullifiers);
-    const newPublicDataWrites = paddedTxEffects.flatMap(txEffect => txEffect.newPublicDataWrites);    
-    const newL2ToL1Msgs = paddedTxEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);  
-    const newContracts = paddedTxEffects.flatMap(txEffect => txEffect.contractLeaves);
-    const newContractData = paddedTxEffects.flatMap(txEffect => txEffect.contractData);
+    const newCommitments = this.body.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
+    const newNullifiers = this.body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
+    const newPublicDataWrites = this.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);    
+    const newL2ToL1Msgs = this.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);  
+    const newContracts = this.body.txEffects.flatMap(txEffect => txEffect.contractLeaves);
+    const newContractData = this.body.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.body.l1ToL2Messages;
 
     const header: [Header, AppendOnlyTreeSnapshot] | [] = includeHeader ? [this.header, this.archive] : [];
@@ -251,23 +245,6 @@ export class L2Block {
     return this.toBuffer().toString(STRING_ENCODING);
   }
 
-    /**
-   * Deserializes L2 block with logs from a buffer.
-   * @param buf - A serialized L2 block.
-   * @returns Deserialized L2 block.
-   */
-    static fromBufferWithLogs(buf: Buffer | BufferReader) {
-      const reader = BufferReader.asReader(buf);
-      const block = L2Block.fromBuffer(reader, false);
-      const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-      const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
-  
-      block.attachLogs(newEncryptedLogs, newUnencryptedLogs);
-  
-      return block;
-    }
-  
-
   static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
@@ -279,31 +256,35 @@ export class L2Block {
     const newContracts = reader.readVector(Fr);
     const newContractData = reader.readArray(newContracts.length, ContractData);
     // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
+    // It seems the da/ tx hash would be fine, would only need to edit circuits ?
     const newL1ToL2Messages = reader.readVector(Fr);
 
     let newEncryptedLogs: L2BlockL2Logs;
     let newUnencryptedLogs: L2BlockL2Logs;
 
-    let numberOfTxs = 0;
+    // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
+    let numberOfRealTransactions = 0;
     for (let i = 0; i < newNullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
       if (!newNullifiers[i].equals(Fr.ZERO)) {
-        numberOfTxs++;
+        numberOfRealTransactions++;
       }
     }
 
+    const numberOfTransactionsIncludingPadded = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
+    
     if(withLogs) {
       newEncryptedLogs = reader.readObject(L2BlockL2Logs);
       newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
       
-      if (new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfTxs)).getTotalLogCount() !== 0 || 
-          new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfTxs)).getTotalLogCount() !== 0) {
+      if (new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0 || 
+          new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfRealTransactions)).getTotalLogCount() !== 0) {
         throw new Error('Logs exist in the padded area');
       }
     }
 
     const txEffects: TxEffect[] = []
 
-    for (let i = 0; i < numberOfTxs; i += 1) {
+    for (let i = 0; i < numberOfTransactionsIncludingPadded; i += 1) {
       const logs: TxEffectLogs[] = withLogs ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])] : [];
 
       txEffects.push(
@@ -460,27 +441,6 @@ export class L2Block {
     return sha256(inputValue);
   }
 
-  private getPaddedTxEffects() {
-    const calc = Math.ceil(Math.log(this.numberOfTxs)/Math.log(2));
-    const leafCount = (calc === 0) ? 2 : 2 ** calc;
-
-    const emptyKernelOutput = PublicKernelPublicInputs.empty();
-
-    const txEffects: TxEffect[] = [...new Array(leafCount - this.numberOfTxs)].map((_) => new TxEffect(
-      emptyKernelOutput.end.newCommitments.map((c: SideEffect) => c.value),
-      emptyKernelOutput.end.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
-      emptyKernelOutput.end.newL2ToL1Msgs,
-      emptyKernelOutput.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-      emptyKernelOutput.end.newContracts.map(cd => computeContractLeaf(cd)),
-      emptyKernelOutput.end.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
-      new TxEffectLogs(new TxL2Logs([]), new TxL2Logs([])),
-    ))
-
-    const newTxEffects = [...this.body.txEffects, ...txEffects];
-
-    return newTxEffects;
-  }
-
   /**
    * Computes the calldata hash for the L2 block
    * This calldata hash is also computed by the rollup contract when the block is submitted,
@@ -514,10 +474,8 @@ export class L2Block {
 
     const leafs: Buffer[] = [];
 
-    const paddedTxEffects = this.getPaddedTxEffects();
-
-    for (let i = 0; i < paddedTxEffects.length; i++) {
-      const txEffect = paddedTxEffects[i];
+    for (let i = 0; i < this.body.txEffects.length; i++) {
+      const txEffect = this.body.txEffects[i];
 
       const commitmentsBuffer = Buffer.concat(txEffect.newNoteHashes.map(x => x.toBuffer()));
       const nullifiersBuffer = Buffer.concat(txEffect.newNullifiers.map(x => x.toBuffer()));
@@ -566,12 +524,14 @@ export class L2Block {
 
     const txEffect = this.body.txEffects[txIndex];
 
-    const newCommitments = txEffect.newNoteHashes.filter(x => !x.isZero);
+    const newCommitments = txEffect.newNoteHashes.filter(x => !x.isZero());
     const newNullifiers = txEffect.newNullifiers.filter(x => !x.isZero());
     const newPublicDataWrites = txEffect.newPublicDataWrites.filter(x => !x.isEmpty());
     const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
     const newContracts = txEffect.contractLeaves.filter(x => !x.isZero());
     const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
+    
+    // console.log('FROM GETTX', newCommitments[0].toBuffer());
 
     return new L2Tx(
       newCommitments,

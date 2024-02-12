@@ -527,9 +527,10 @@ export class MerkleTrees implements MerkleTreeDb {
       const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree;
 
       // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-      for (let i = 0; i < l2Block.numberOfTxs; i++) {
+      for (let i = 0; i < l2Block.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites).length / MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         await publicDataTree.batchInsert(
-          l2Block.body.txEffects[i].newPublicDataWrites
+          l2Block.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites)
+            .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * i, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (i + 1))
             .map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
           PUBLIC_DATA_SUBTREE_HEIGHT,
         );

@@ -101,7 +101,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
-    const txEffects: TxEffect[] = txs.filter(tx => !tx.data.end.newNullifiers[0].value.isZero()).map((tx) => new TxEffect(
+    const txEffects: TxEffect[] = txs.map((tx) => new TxEffect(
       tx.data.end.newCommitments.map((c: SideEffect) => c.value),
       tx.data.end.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
       tx.data.end.newL2ToL1Msgs,
