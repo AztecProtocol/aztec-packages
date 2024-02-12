@@ -15,7 +15,7 @@ template <typename Composer> void fold_one(State& state) noexcept
     using Instance = ProverInstance_<Flavor>;
     using Instances = ProverInstances_<Flavor, 2>;
     using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
-    using Builder = Flavor::CircuitBuilder;
+    using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
 
