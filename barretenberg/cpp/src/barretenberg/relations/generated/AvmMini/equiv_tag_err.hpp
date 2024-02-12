@@ -23,7 +23,7 @@ class equiv_tag_err_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.avmMini_tag_err == 1);
+        return (in.avmMini_tag_err == 1 || in.memTrace_m_tag_err == 1);
     }
 
     /**
@@ -49,7 +49,7 @@ class equiv_tag_err_permutation_settings {
         return std::forward_as_tuple(in.equiv_tag_err,
                                      in.avmMini_tag_err,
                                      in.avmMini_tag_err,
-                                     in.avmMini_tag_err,
+                                     in.memTrace_m_tag_err,
                                      in.avmMini_clk,
                                      in.memTrace_m_clk);
     }
@@ -77,7 +77,7 @@ class equiv_tag_err_permutation_settings {
         return std::forward_as_tuple(in.equiv_tag_err,
                                      in.avmMini_tag_err,
                                      in.avmMini_tag_err,
-                                     in.avmMini_tag_err,
+                                     in.memTrace_m_tag_err,
                                      in.avmMini_clk,
                                      in.memTrace_m_clk);
     }

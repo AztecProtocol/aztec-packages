@@ -88,7 +88,16 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     {
         using View = typename Accumulator::View;
 
-        // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first subrelation
+        // TODO: Check with kesha that this is fine being a the two sets
+
+        // // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first
+        // subrelation Accumulator const& first_set_enabled = Accumulator(
+        //     View(std::get<FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+
+        // Accumulator const& second_set_enabled = Accumulator(
+        //     View(std::get<SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+
+        // return first_set_enabled * second_set_enabled;
         return Accumulator(
             View(std::get<ENABLE_INVERSE_CORRECTNESS_CHECK_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
     }
