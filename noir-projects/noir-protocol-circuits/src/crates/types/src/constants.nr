@@ -88,7 +88,7 @@ global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 32;
 
 // CONTRACT CLASS CONSTANTS
-// This should be around 8192 (assuming 2**15 instructions packed at 8 bytes each), 
+// This should be around 8192 (assuming 2**15 instructions packed at 8 bytes each),
 // but it's reduced to speed up build times, otherwise the ClassRegisterer takes over 5 mins to compile.
 // We are not using 1024 so we can squeeze in a few more args to methods that consume packed public bytecode,
 // such as the ClassRegisterer.register, and still land below the 32 * 32 max args limit for hashing.
@@ -129,7 +129,7 @@ global CALL_CONTEXT_LENGTH: Field = 8;
 global GLOBAL_VARIABLES_LENGTH: Field = 6;
 global PARTIAL_STATE_REFERENCE_LENGTH: Field = 8;
 global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
-global HEADER_LENGTH: Field = 20; // 2 for last_archive, 2 for body hash, 10 for state reference, 6 for global vars 
+global HEADER_LENGTH: Field = 20; // 2 for last_archive, 2 for body hash, 10 for state reference, 6 for global vars
 global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
@@ -137,10 +137,10 @@ global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 207;
 global PRIVATE_CALL_STACK_ITEM_LENGTH: Field = 212;
-global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 3;
+global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 2;
 global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 203;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 187;
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
 global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
@@ -196,6 +196,7 @@ global GENERATOR_INDEX__GLOBAL_VARIABLES = 26;
 global GENERATOR_INDEX__PARTIAL_ADDRESS = 27;
 global GENERATOR_INDEX__BLOCK_HASH = 28;
 global GENERATOR_INDEX__SIDE_EFFECT = 29;
+global GENERATOR_INDEX__FEE_PAYLOAD = 30;
 // Indices with size ≤ 16
 global GENERATOR_INDEX__TX_REQUEST = 33;
 global GENERATOR_INDEX__SIGNATURE_PAYLOAD = 34;
