@@ -44,7 +44,7 @@
 #
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts as noir-contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-projects as noir-projects
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/boxes-files as boxes-files
 
@@ -57,10 +57,8 @@ COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 # Copy in noir packages
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
-# Copy in noir contracts
-COPY --from=noir-contracts /usr/src/noir-contracts /usr/src/noir-contracts
-# Copy in noir protocol circuits
-COPY --from=noir-contracts /usr/src/noir-protocol-circuits /usr/src/noir-protocol-circuits
+# Copy in noir projects
+COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 # Copy in boxes
 COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
 

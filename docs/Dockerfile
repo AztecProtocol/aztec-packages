@@ -1,8 +1,8 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-nr as aztec-nr
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-projects as noir-projects
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project
 
 # Copy in aztec-nr.
-COPY --from=aztec-nr /usr/src/aztec-nr /usr/src/aztec-nr
+COPY --from=noir-projects /usr/src/noir-projects/aztec-nr /usr/src/noir-projects/aztec-nr
 
 WORKDIR /usr/src
 

@@ -37,28 +37,6 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
-# noir-protocol-circuits:
-#   buildDir: noir-protocol-circuits
-#   rebuildPatterns:
-#     - ^noir-protocol-circuits/src
-#   dependencies:
-#     - noir
-
-# noir-contracts:
-#   buildDir: noir-contracts
-#   reuildPatterns:
-#     - ^noir-contracts/contracts
-#     - ^noir-contracts/Nargo.toml
-#     - ^noir-contracts/Package.json
-#   dependencies:
-#     - noir
-#     - aztec-nr
-#     - noir-protocol-circuits
-#     - avm-transpiler
-
-# aztec-nr:
-#   buildDir: aztec-nr
-
 noir-projects:
   buildDir: noir-projects
   dependencies:
