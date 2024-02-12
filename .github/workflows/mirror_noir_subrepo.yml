@@ -41,9 +41,13 @@ jobs:
             # Get the last sync PR's last commit state
             LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json headRefOid --jq=.[0].headRefOid`
             # Use a commit heuristic where we look at when .gitrepo first started to look at that commit state (through a push)
-            COMMIT_HEURISTIC=$(git log -p -S"$LAST_MERGED_PR_HASH" --reverse --source --  noir/.gitrepo | grep -m 1 '^commit'  | awk '{print $2}' || true)
+            COMMIT_HEURISTIC=$(git log -p -S"$LAST_MERGED_PR_HASH" --reverse --source -- noir/.gitrepo | grep -m 1 '^commit' | awk '{print $2}' || true)
             BASE_AZTEC_COMMIT=`git config --file=noir/.gitrepo subrepo.parent`
-            if [[ "$COMMIT_HEURISTIC" = "" ]] ; then
+            if [[ " $COMMIT_HEURISTIC" = "" ]] ; then
+              # If that doesn't work, look for the last 'method = pull' commit
+              COMMIT_HEURISTIC=$(git log -p -S"method = pull" --reverse --source -- noir/.gitrepo | grep -m 1 '^commit' | awk '{print $2}' || true)
+            fi
+            if [[ " $COMMIT_HEURISTIC" = "" ]] ; then
               # It it fails, just use our gitrepo parent commit (last time we pushed or pulled)
               COMMIT_HEURISTIC=$BASE_AZTEC_COMMIT
             fi
