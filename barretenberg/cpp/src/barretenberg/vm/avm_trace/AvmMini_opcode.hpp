@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <unordered_map>
 
 namespace avm_trace {
@@ -103,5 +104,7 @@ class Bytecode {
     static bool has_in_tag(OpCode);
     static const std::unordered_map<OpCode, size_t> OPERANDS_NUM;
 };
+
+std::string to_hex(OpCode opcode);
 
 } // namespace avm_trace
