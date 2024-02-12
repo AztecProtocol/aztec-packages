@@ -39,7 +39,7 @@ jobs:
           # compute_commit_message: Create a filtered git log for release-please changelog / metadata
           function compute_commit_message() {
             # Get the last sync PR's last commit state
-            LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-sync-test --json headRefOid --jq=.[0].headRefOid`
+            LAST_MERGED_PR_HASH=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json headRefOid --jq=.[0].headRefOid`
             # Use a commit heuristic where we look at when .gitrepo first started to look at that commit state (through a push)
             for i in {0..10}; do
               # Search backwards for 10 commits in case some commits got in the last PR without syncing to aztec
