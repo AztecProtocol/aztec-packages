@@ -1,8 +1,4 @@
-use crate::{
-    address::EthAddress,
-    constants::L2_TO_L1_MESSAGE_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-};
+use crate::{address::EthAddress, constants::L2_TO_L1_MESSAGE_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 struct L2ToL1Message {
     recipient: EthAddress,

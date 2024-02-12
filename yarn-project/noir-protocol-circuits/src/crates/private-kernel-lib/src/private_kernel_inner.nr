@@ -2,12 +2,11 @@ use crate::common;
 use dep::std::unsafe;
 use dep::types::{
     abis::{
-        kernel_data::PrivateKernelInnerData,
-        private_kernel::private_call_data::PrivateCallData,
-        kernel_circuit_public_inputs::{PrivateKernelInnerCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    },
-    mocked::verify_previous_kernel_state,
+    kernel_data::PrivateKernelInnerData, private_kernel::private_call_data::PrivateCallData,
+    kernel_circuit_public_inputs::{PrivateKernelInnerCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
+    mocked::verify_previous_kernel_state
 };
 
 struct PrivateKernelInnerCircuitPrivateInputs {
@@ -89,22 +88,12 @@ mod tests {
     use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NEW_COMMITMENTS_PER_TX};
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        },
-        address::{
-            AztecAddress,
-            EthAddress,
-        },
-        hash::compute_logs_hash,
-        messaging::l2_to_l1_message::L2ToL1Message,
-        utils::{
-            arrays::array_length,
-        },
-        tests::{
-            kernel_data_builder::PreviousKernelDataBuilder,
-            private_call_data_builder::PrivateCallDataBuilder,
-        },
+        kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    },
+        address::{AztecAddress, EthAddress}, hash::compute_logs_hash,
+        messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
+        tests::{kernel_data_builder::PreviousKernelDataBuilder, private_call_data_builder::PrivateCallDataBuilder}
     };
 
     struct PrivateKernelInnerInputsBuilder {

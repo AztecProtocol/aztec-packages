@@ -10,9 +10,8 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
-    mocked::{Proof, verify_previous_kernel_state},
-    transaction::request::TxRequest,
-    traits::is_empty_array,
+    mocked::{Proof, verify_previous_kernel_state}, transaction::request::TxRequest,
+    traits::is_empty_array
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -124,28 +123,18 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
-            nullifier_key_validation_request::NullifierKeyValidationRequest,
-            private_kernel::private_call_data::PrivateCallData,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        },
-        address::{
-            AztecAddress,
-            EthAddress,
-            compute_initialization_hash,
-        },
-        constants::MAX_READ_REQUESTS_PER_CALL,
-        grumpkin_point::GrumpkinPoint,
+        kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
+        nullifier_key_validation_request::NullifierKeyValidationRequest,
+        private_kernel::private_call_data::PrivateCallData,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    },
+        address::{AztecAddress, EthAddress, compute_initialization_hash},
+        constants::MAX_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{
-            compute_constructor_hash,
-            compute_logs_hash,
-            stdlib_recursion_verification_key_compress_native_vk,
-        },
+        hash::{compute_constructor_hash, compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
         messaging::l2_to_l1_message::L2ToL1Message,
-        tests::private_call_data_builder::PrivateCallDataBuilder,
-        transaction::request::TxRequest,
-        utils::arrays::array_length,
+        tests::private_call_data_builder::PrivateCallDataBuilder, transaction::request::TxRequest,
+        utils::arrays::array_length
     };
 
     struct PrivateKernelInitInputsBuilder {

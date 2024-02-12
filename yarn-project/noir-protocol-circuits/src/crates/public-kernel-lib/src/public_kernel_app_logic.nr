@@ -60,30 +60,16 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-            public_data_read::PublicDataRead,
-            public_data_update_request::PublicDataUpdateRequest,
-            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-        },
-        hash::{
-            compute_l2_to_l1_hash,
-            compute_logs_hash,
-            silo_commitment,
-            silo_nullifier,
-        },
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    },
+        hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_commitment, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
-        tests::{
-            kernel_data_builder::PreviousKernelDataBuilder,
-            public_call_data_builder::PublicCallDataBuilder,
-        },
-        utils::{
-            arrays::array_eq,
-        },
+        tests::{kernel_data_builder::PreviousKernelDataBuilder, public_call_data_builder::PublicCallDataBuilder},
+        utils::{arrays::array_eq}
     };
-    use dep::types::constants::{
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    };
+    use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
     struct PublicKernelAppLogicCircuitPrivateInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,

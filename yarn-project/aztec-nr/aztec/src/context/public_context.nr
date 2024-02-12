@@ -12,24 +12,13 @@ use dep::protocol_types::{
 },
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        MAX_READ_REQUESTS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
-        RETURN_VALUES_LENGTH,
-    },
-    contrakt::{
-        storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
-    },
-    hash::hash_args,
-    header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message,
-    utils::reader::Reader,
+    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
+    RETURN_VALUES_LENGTH
+},
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    hash::hash_args, header::Header, messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
 };
 
 struct PublicContext {
@@ -166,12 +155,8 @@ impl PublicContext {
         self.message_recipient(recipient, content);
     }
 
-    pub fn message_recipient(&mut self, recipient: EthAddress, content: Field)
-    {
-        let message = L2ToL1Message {
-            recipient,
-            content,
-        };
+    pub fn message_recipient(&mut self, recipient: EthAddress, content: Field) {
+        let message = L2ToL1Message { recipient, content };
         self.new_l2_to_l1_msgs.push(message);
     }
 
