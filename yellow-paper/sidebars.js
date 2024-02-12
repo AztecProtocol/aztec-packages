@@ -116,7 +116,7 @@ const sidebars = {
       type: "category",
       link: { type: "doc", id: "l1-smart-contracts/index" },
       items: [
-        "l1-smart-contracts/proposal",
+        "l1-smart-contracts/frontier",
       ],
     },
     {
@@ -190,7 +190,9 @@ const sidebars = {
       link: { type: "doc", id: "public-vm/avm" },
       items: [
         "public-vm/avm",
-        "public-vm/state-model",
+        "public-vm/state",
+        "public-vm/type-structs",
+        "public-vm/memory-model",
         "public-vm/instruction-set",
         "public-vm/avm-circuit",
         "public-vm/control-flow",
