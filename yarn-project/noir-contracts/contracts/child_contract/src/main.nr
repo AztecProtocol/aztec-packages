@@ -3,7 +3,6 @@ contract Child {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        abi::CallContext,
         context::{PrivateContext, PublicContext, Context},
         log::emit_unencrypted_log,
         state_vars::{
@@ -18,9 +17,8 @@ contract Child {
             note_getter_options::NoteGetterOptions,
         }
     };
-    use dep::value_note::{
-        value_note::{ValueNote, VALUE_NOTE_LEN},
-    };
+    use dep::value_note::value_note::ValueNote;
+
 
     struct Storage {
         current_value: PublicState<Field>,

@@ -304,7 +304,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
-  checkValidStaticCall(childExecutionResult: ExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
     if (childExecutionResult.newNotes.length > 0) {
       throw new Error('Static call cannot create new notes');
     }
@@ -315,7 +315,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
-   * @param sidEffectCounter - The side effect counter at the start of the call.
+   * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
@@ -372,7 +372,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     if (isStaticCall) {
-      this.checkValidStaticCall(childExecutionResult);
+      this.#checkValidStaticCall(childExecutionResult);
     }
 
     this.nestedExecutions.push(childExecutionResult);
