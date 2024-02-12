@@ -4,10 +4,20 @@ import { Fr } from '@aztec/foundation/fields';
 import { FunctionLeafPreimage } from './function_leaf_preimage.js';
 
 describe('FunctionLeafPreimage', () => {
+  let leaf: FunctionLeafPreimage;
+
+  beforeAll(() => {
+    leaf = new FunctionLeafPreimage(new FunctionSelector(8972), false, true, Fr.ZERO, Fr.ZERO);
+  });
+
   it(`serializes to buffer and deserializes it back`, () => {
-    const expected = new FunctionLeafPreimage(new FunctionSelector(8972), false, true, Fr.ZERO, Fr.ZERO);
-    const buffer = expected.toBuffer();
+    const buffer = leaf.toBuffer();
     const res = FunctionLeafPreimage.fromBuffer(buffer);
-    expect(res).toEqual(expected);
+    expect(res).toEqual(leaf);
+  });
+
+  it('computes a function leaf', () => {
+    const res = leaf.hash();
+    expect(res).toMatchSnapshot();
   });
 });

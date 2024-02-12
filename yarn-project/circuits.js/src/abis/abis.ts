@@ -89,26 +89,6 @@ export function hashVK(vkBuf: Buffer) {
   // return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
 }
 
-/**
- * Computes a function leaf from a given preimage.
- * @param fnLeaf - The function leaf preimage.
- * @returns The function leaf.
- */
-export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        numToUInt32BE(fnLeaf.functionSelector.value, 32),
-        boolToBuffer(fnLeaf.isInternal, 32),
-        boolToBuffer(fnLeaf.isPrivate, 32),
-        fnLeaf.vkHash.toBuffer(),
-        fnLeaf.acirHash.toBuffer(),
-      ],
-      GeneratorIndex.FUNCTION_LEAF,
-    ),
-  );
-}
-
 let functionTreeRootCalculator: MerkleTreeCalculator | undefined;
 /**
  * The "zero leaf" of the function tree is the hash of 5 zero fields.

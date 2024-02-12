@@ -5,12 +5,11 @@ import {
   EthAddress,
   Fr,
   FunctionData,
-  FunctionLeafPreimage,
   FunctionSelector,
   NewContractData,
   PublicCallStackItem,
   SideEffect,
-  SideEffectLinkedToNoteHash,
+  SideEffectLinkedToNoteHash
 } from '../index.js';
 import {
   makeAztecAddress,
@@ -23,7 +22,6 @@ import {
   computeCommitmentNonce,
   computeCommitmentsHash,
   computeContractLeaf,
-  computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeNullifierHash,
@@ -38,7 +36,7 @@ import {
   hashTxRequest,
   hashVK,
   siloCommitment,
-  siloNullifier,
+  siloNullifier
 } from './abis.js';
 
 describe('abis', () => {
@@ -57,12 +55,6 @@ describe('abis', () => {
   it('hashes VK', () => {
     const vk = makeVerificationKey();
     const res = hashVK(vk.toBuffer());
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a function leaf', () => {
-    const leaf = new FunctionLeafPreimage(new FunctionSelector(7837), false, true, Fr.ZERO, Fr.ZERO);
-    const res = computeFunctionLeaf(leaf);
     expect(res).toMatchSnapshot();
   });
 

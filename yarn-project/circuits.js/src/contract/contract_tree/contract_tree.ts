@@ -1,5 +1,5 @@
 import { ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
-import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
+import { hashVK } from '@aztec/circuits.js/abis';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 
 /**
@@ -86,7 +86,7 @@ export function generateFunctionLeaves(functions: ContractFunctionDao[]) {
       Fr.fromBuffer(vkHash),
       Fr.fromBuffer(acirHash),
     );
-    const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
+    const fnLeaf = fnLeafPreimage.hash();
     result.push(fnLeaf);
   }
   return result;
