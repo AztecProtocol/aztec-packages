@@ -47,7 +47,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     if constexpr (IsAnyOf<T, bool>) {
         ASSERT(fr_vec.size() == 1);
-        return fr_vec[0] != 0;
+        return bool(fr_vec[0]);
     } else if constexpr (IsAnyOf<T, uint32_t, bb::fr>) {
         ASSERT(fr_vec.size() == 1);
         return static_cast<T>(fr_vec[0]);
@@ -56,11 +56,11 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         return convert_grumpkin_fr_from_bn254_frs(fr_vec);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         using BaseField = typename T::Fq;
-        constexpr size_t BaseFieldScalarSize = calc_num_bn254_frs<BaseField>();
-        ASSERT(fr_vec.size() == 2 * BaseFieldScalarSize);
+        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<BaseField>();
+        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
         T val;
-        val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BaseFieldScalarSize));
-        val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BaseFieldScalarSize, BaseFieldScalarSize));
+        val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
+        val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
         return val;
     } else {
         // Array or Univariate

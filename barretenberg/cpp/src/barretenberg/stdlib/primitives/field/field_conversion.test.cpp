@@ -1,4 +1,5 @@
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include <gtest/gtest.h>
 
 namespace bb::stdlib::field_conversion_tests {
@@ -26,8 +27,8 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
         EXPECT_EQ(x.size(), y.size());
-        for (auto itx = x.begin(), ity = y.begin(); itx != x.end(); itx++, ity++) {
-            EXPECT_EQ(itx->get_value(), ity->get_value());
+        for (auto [val1, val2] : zip_view(x, y)) {
+            EXPECT_EQ(val1.get_value(), val2.get_value());
         }
     }
 };

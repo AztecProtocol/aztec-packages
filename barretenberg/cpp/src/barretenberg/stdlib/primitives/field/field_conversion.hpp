@@ -39,8 +39,9 @@ template <typename Builder> inline std::vector<fr<Builder>> convert_grumpkin_fr_
 /**
  * @brief Calculates the size of a types (in their native form) in terms of fr<Builder>s
  * @details We want to support the following types: fr<Builder>, fq<Builder>,
- * bn254_element<Builder>, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * bn254_element<Builder>, grumpkin_element<Builder, bb::Univariate<FF, N>, std::array<FF, N>, for
  * FF = fr<Builder> or fq<Builder>, and N is arbitrary
+ * @tparam Builder
  * @tparam T
  * @return constexpr size_t
  */
@@ -63,9 +64,11 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
 /**
  * @brief Conversions from vector of fr<Builder> elements to transcript types.
  * @details We want to support the following types: fr<Builder>, fq<Builder>,
- * bn254_element<Builder>, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * bn254_element<Builder>, grumpkin_element<Builder, bb::Univariate<FF, N>, std::array<FF, N>, for
  * FF = fr<Builder> or fq<Builder>, and N is arbitrary
+ * @tparam Builder
  * @tparam T
+ * @param builder
  * @param fr_vec
  * @return T
  */
@@ -80,21 +83,21 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         return result;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
         using BaseField = fq<Builder>;
-        constexpr size_t BaseFieldScalarSize = calc_num_bn254_frs<Builder, BaseField>();
-        ASSERT(fr_vec.size() == 2 * BaseFieldScalarSize);
+        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
+        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
         bn254_element<Builder> result;
-        result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BaseFieldScalarSize));
-        result.y = convert_from_bn254_frs<Builder, BaseField>(builder,
-                                                              fr_vec.subspan(BaseFieldScalarSize, BaseFieldScalarSize));
+        result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
+        result.y = convert_from_bn254_frs<Builder, BaseField>(
+            builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
         return result;
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
-        constexpr size_t BaseFieldScalarSize = calc_num_bn254_frs<Builder, BaseField>();
-        ASSERT(fr_vec.size() == 2 * BaseFieldScalarSize);
+        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
+        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
         grumpkin_element<Builder> result(
-            convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BaseFieldScalarSize)),
-            convert_from_bn254_frs<Builder, fr<Builder>>(builder,
-                                                         fr_vec.subspan(BaseFieldScalarSize, BaseFieldScalarSize)),
+            convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE)),
+            convert_from_bn254_frs<Builder, fr<Builder>>(
+                builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE)),
             false);
         return result;
     } else {
@@ -115,8 +118,9 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
 /**
  * @brief Conversion from transcript values to fr<Builder>s
  * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, fr<Builder>, fq<Builder>,
- * bn254_element<Builder>, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF,
+ * bn254_element<Builder>, grumpkin_element<Builder,, bb::Univariate<FF, N>, std::array<FF,
  * N>, for FF = fr<Builder>/fq<Builder>, and N is arbitrary.
+ * @tparam Builder
  * @tparam T
  * @param val
  * @return std::vector<fr<Builder>>
