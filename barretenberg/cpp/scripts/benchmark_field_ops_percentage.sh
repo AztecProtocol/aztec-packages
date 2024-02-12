@@ -5,7 +5,7 @@ TARGET=${1:-goblin_bench}
 FILTER=${2:-./"GoblinFull/1$"}
 COMMAND=${2:-./$TARGET}
 
-BUILD_OP_COUNTING_DIR=build\-op\-counting
+BUILD_OP_COUNT_TRACK_DIR=build\-op\-count-track
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -14,7 +14,7 @@ cd $(dirname $0)/..
 cmake --preset op-count-track
 cmake --build --preset op-count-track --target $TARGET
 # This can be run multithreaded
-cd $BUILD_OP_COUNTING_DIR
+cd $BUILD_OP_COUNT_TRACK_DIR
 ./bin/$TARGET --benchmark_filter=$FILTER\
               --benchmark_out=$TARGET.json\
               --benchmark_out_format=json\
@@ -28,7 +28,7 @@ if [ ! -f $FIELD_OP_COSTS ]; then
     cmake --preset clang16
     cmake --build --preset clang16 --target $FIELD_OPS_TARGET
     cd build
-    ./bin/$FIELD_OPS_TARGET --benchmark_out=../$BUILD_OP_COUNTING_DIR/$FIELD_OP_COSTS \
+    ./bin/$FIELD_OPS_TARGET --benchmark_out=../$BUILD_OP_COUNT_TRACK_DIR/$FIELD_OP_COSTS \
                             --benchmark_out_format=json
 fi
 
