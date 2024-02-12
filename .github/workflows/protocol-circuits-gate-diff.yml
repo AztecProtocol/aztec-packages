@@ -78,10 +78,10 @@ jobs:
         run: nargo --version
 
       - name: Generate gates report
-        working-directory: ./noir-protocol-circuits/src
+        working-directory: ./noir-projects/noir-protocol-circuits/src
         run: |
           nargo info --json > protocol_circuits_report.json
-          mv protocol_circuits_report.json ../../protocol_circuits_report.json
+          mv protocol_circuits_report.json ../../../protocol_circuits_report.json
         env:
           NARGO_BACKEND_PATH: ../../barretenberg/cpp/build/bin/bb
 

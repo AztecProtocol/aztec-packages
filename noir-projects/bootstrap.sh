@@ -9,5 +9,5 @@ PROJECTS=(
 )
 
 for PROJECT in "${PROJECTS[@]}"; do
-  (cd "../$PROJECT" && ./bootstrap.sh "$@")
+  (cd "./$PROJECT" && ./bootstrap.sh "$@")
 done
