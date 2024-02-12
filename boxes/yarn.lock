@@ -131,6 +131,7 @@ __metadata:
     html-webpack-plugin: "npm:^5.6.0"
     stream-browserify: "npm:^3.0.0"
     tty-browserify: "npm:^0.0.1"
+    typescript: "npm:^5.0.4"
     util: "npm:^0.12.5"
     webpack: "npm:^5.90.1"
     webpack-cli: "npm:^5.1.4"
