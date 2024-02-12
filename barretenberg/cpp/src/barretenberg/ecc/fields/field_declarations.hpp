@@ -326,7 +326,7 @@ template <class Params_> struct alignas(32) field {
      **/
     static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
     {
-        // if the modulus is a 256-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
+        // if the modulus is a >= 255-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
         if constexpr (Params::modulus_3 >= 0x4000000000000000ULL) {
             split_into_endomorphism_scalars_384(k, k1, k2);
         } else {
@@ -348,7 +348,7 @@ template <class Params_> struct alignas(32) field {
         }
     }
 
-    // NOTE: this form is only usable if the modulus is not a 256-bit integer, otherwise see
+    // NOTE: this form is only usable if the modulus is 254 bits or less, otherwise see
     // split_into_endomorphism_scalars_384.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
     static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
