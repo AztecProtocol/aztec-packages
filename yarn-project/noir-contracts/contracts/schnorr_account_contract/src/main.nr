@@ -9,15 +9,12 @@ contract SchnorrAccount {
     use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::aztec::{
-        context::{PrivateContext, Context},
-        note::{ note_header::NoteHeader, utils as note_utils },
-        oracle::get_public_key::get_public_key,
-        state_vars::immutable_singleton::ImmutableSingleton,
+        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
+        oracle::get_public_key::get_public_key, state_vars::immutable_singleton::ImmutableSingleton
     };
-    use dep::authwit:: {
-        entrypoint::{ EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE },
-        account::AccountActions,
-        auth_witness::get_auth_witness,
+    use dep::authwit::{
+        entrypoint::{EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE}, account::AccountActions,
+        auth_witness::get_auth_witness
     };
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
@@ -99,6 +96,7 @@ contract SchnorrAccount {
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
+        note_type_id: Field,
         serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]
     ) -> pub [Field; 4] {
         assert(storage_slot == storage.signing_public_key.get_storage_slot());

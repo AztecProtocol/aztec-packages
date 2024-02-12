@@ -2,10 +2,7 @@
 
 contract AvmTest {
     // Libs
-    use dep::aztec::protocol_types::address::{
-        AztecAddress,
-        EthAddress,
-    };
+    use dep::aztec::protocol_types::address::{AztecAddress, EthAddress};
 
     // avm lib
     use dep::aztec::avm::context::AvmContext;
@@ -92,6 +89,7 @@ contract AvmTest {
         _contract_address: AztecAddress,
         _nonce: Field,
         _storage_slot: Field,
+        _note_type_id: Field,
         _serialized_note: [Field; 1]
     ) -> pub [Field; 4] {
         [0, 0, 0, 0]

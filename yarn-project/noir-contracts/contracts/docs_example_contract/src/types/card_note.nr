@@ -1,20 +1,8 @@
 use dep::aztec::{
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
-    oracle::{
-        nullifier_key::get_nullifier_secret_key,
-        get_public_key::get_public_key,
-    },
-    log::emit_encrypted_log,
-    hash::pedersen_hash,
-    context::PrivateContext,
-    protocol_types::{
-        address::AztecAddress,
-        traits::Empty
-    }
+    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
+    log::emit_encrypted_log, hash::pedersen_hash, context::PrivateContext,
+    protocol_types::{address::AztecAddress, traits::Empty}
 };
 
 // Shows how to create a custom note
@@ -32,12 +20,7 @@ struct CardNote {
 
 impl CardNote {
     pub fn new(points: u8, randomness: Field, owner: AztecAddress) -> Self {
-        CardNote {
-            points,
-            randomness,
-            owner,
-            header: NoteHeader::empty(),
-        }
+        CardNote { points, randomness, owner, header: NoteHeader::empty() }
     }
 }
 
@@ -94,8 +77,15 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
             context,
             (*context).this_address(),
             slot,
+            Self::get_note_type_id(),
             encryption_pub_key,
             self.serialize_content(),
         );
+    }
+
+    fn get_note_type_id() -> Field {
+        // TODO(#4519): autogenerate
+        // python -c "print(int(''.join(str(ord(c)) for c in 'CardNote')))"
+        679711410078111116101
     }
 }

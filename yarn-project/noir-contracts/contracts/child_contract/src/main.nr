@@ -3,17 +3,10 @@ contract Child {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        log::emit_unencrypted_log,
-        state_vars::public_state::PublicState,
+        context::{PrivateContext, PublicContext, Context}, log::emit_unencrypted_log,
+        state_vars::public_state::PublicState
     };
-    use dep::aztec::protocol_types::{
-        abis::{
-            call_context::CallContext,
-            function_selector::FunctionSelector,
-        },
-        address::AztecAddress,
-    };
+    use dep::aztec::protocol_types::{abis::{call_context::CallContext, function_selector::FunctionSelector}, address::AztecAddress};
 
     struct Storage {
         current_value: PublicState<Field>,
@@ -107,6 +100,7 @@ contract Child {
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
+        note_type_id: Field,
         serialized_note: [Field; 0]
     ) -> pub [Field; 4] {
         [0, 0, 0, 0]
