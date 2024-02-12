@@ -1,5 +1,4 @@
 #include "poseidon2_constraint.hpp"
-#include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation_classic.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 namespace acir_format {
@@ -18,12 +17,7 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
         state[i] = field_ct::from_witness_index(&builder, constraint.state[i]);
     }
     State output_state;
-    if constexpr (IsGoblinBuilder<Builder>) {
-        output_state =
-            bb::stdlib::Poseidon2PermutationClassic<Poseidon2Params, Builder>::goblin_permutation(&builder, state);
-    } else {
-        output_state = bb::stdlib::Poseidon2PermutationClassic<Poseidon2Params, Builder>::permutation(&builder, state);
-    }
+    output_state = bb::stdlib::Poseidon2Permutation<Poseidon2Params, Builder>::permutation(&builder, state);
     for (size_t i = 0; i < output_state.size(); ++i) {
         poly_triple assert_equal{
             .a = output_state[i].normalize().witness_index,
