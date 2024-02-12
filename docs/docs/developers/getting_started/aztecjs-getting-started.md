@@ -1,5 +1,5 @@
 ---
-title: Getting Started with Aztec.js
+title: An introduction to Aztec.js
 ---
 
 import Image from "@theme/IdealImage";
@@ -39,7 +39,7 @@ mkdir src
 3. Add necessary yarn packages (and optionally add typescript too)
 
 ```sh
-yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts typescript @types/node
+yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @types/node
 ```
 
 4. [Optional] If creating a typescript file, add a `tsconfig.json` file into the project root, here is an example:
@@ -90,7 +90,7 @@ yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts typescript @types
   "dependencies": {
     "@aztec/accounts": "latest",
     "@aztec/aztec.js": "latest",
-    "@aztec/noir-contracts": "latest",
+    "@aztec/noir-contracts.js": "latest",
     "@types/node": "^20.6.3",
     "typescript": "^5.2.2"
   }
@@ -158,7 +158,7 @@ If you want more accounts, you can find instructions in the [Account creation se
 
 ## Deploy a contract
 
-Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/contracts/token_contract/src). Add this to `index.ts` below the code you added earlier:
+Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
 #include_code Deployment /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -375,4 +375,4 @@ That's it! We have successfully deployed a token contract to an instance of the 
 
 ## Next Steps
 
-Learn more about writing Aztec.nr contracts in the [Aztec.nr getting started guide](./aztecnr-getting-started.md).
+Learn more about writing Aztec.nr contracts on the [next page](./aztecnr-getting-started.md).

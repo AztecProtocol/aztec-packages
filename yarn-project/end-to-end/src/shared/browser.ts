@@ -3,7 +3,7 @@ import * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
 import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
 import * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { Server } from 'http';
 import Koa from 'koa';
@@ -252,12 +252,15 @@ export const browserTestSuite = (
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
           const storageSlot = new Fr(5);
+
+          const noteTypeId = new Fr(84114971101151129711410111011678111116101n);
           const note = new Note([new Fr(initialBalance), secretHash]);
           const extendedNote = new ExtendedNote(
             note,
             ownerAddress,
             token.address,
             storageSlot,
+            noteTypeId,
             mintPrivateReceipt.txHash,
           );
           await pxe.addNote(extendedNote);

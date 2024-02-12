@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: How to setup a new contract project
 ---
 
 import { AztecPackagesVersion } from "@site/src/components/Version";
@@ -70,11 +70,11 @@ type = "contract"
 
 [dependencies]
 # Framework import
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 
 # Utility dependencies
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note"}
+safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/safe-math"}
 ```
 
 :::info
@@ -85,5 +85,5 @@ You are now ready to write your own contracts!
 
 ## Next Steps
 
-- Read up about how to [write a contract](./syntax/main.md) OR
-- Follow a [tutorial](../tutorials/main.md)
+- Follow a [tutorial](../tutorials/main.md) OR
+- Read more

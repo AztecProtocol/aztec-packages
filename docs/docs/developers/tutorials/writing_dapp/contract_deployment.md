@@ -3,7 +3,7 @@
 To add contracts to your application, we'll start by creating a new `aztec-nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
 
 :::info
-Follow the instructions [here](../../cli/sandbox-reference.md) to install `aztec-nargo` if you haven't done so already.
+Follow the instructions [here](../../sandbox/references/sandbox-reference.md) to install `aztec-nargo` if you haven't done so already.
 :::
 
 ## Initialize Aztec project
@@ -19,23 +19,23 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/authwit"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
-compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/compressed-string"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
+safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/safe-math"}
+compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/compressed-string"}
 ```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-#include_code token_all yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code token_all noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### Helper files
 
-The `Token` contract also requires some helper files. You can view the files [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
+The `Token` contract also requires some helper files. You can view the files [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
 ## Compile your contract
 
-We'll now use `aztec-nargo` to [compile](../../contracts/compiling.md) our project. If you haven't installed aztec-nargo and aztec-cli already, it comes with the sandbox, so you can install it via the [Sandbox install command](../../cli/sandbox-reference.md#installation).
+We'll now use `aztec-nargo` to [compile](../../contracts/compiling_contracts/how_to_compile_contract.md) our project. If you haven't installed aztec-nargo and aztec-cli already, it comes with the sandbox, so you can install it via the [Sandbox install command](../../sandbox/references/sandbox-reference.md#installation).
 
 Now run the following from your contract folder (containing Nargo.toml):
 
