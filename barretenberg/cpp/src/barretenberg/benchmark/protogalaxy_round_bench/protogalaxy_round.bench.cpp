@@ -14,7 +14,7 @@ void _bench_round(::benchmark::State& state,
 {
     using Flavor = typename Composer::Flavor;
     using Instance = ProverInstance_<Flavor>;
-    using Builder = Flavor::CircuitBuilder;
+    using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto log2_num_gates = static_cast<size_t>(state.range(0));
