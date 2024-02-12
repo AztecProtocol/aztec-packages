@@ -21,6 +21,9 @@ import { afterEach, beforeAll, expect, jest } from '@jest/globals';
 import { setupEnvironment } from '../environment/index.js';
 
 const TIMEOUT = 60_000;
+const TOKEN_NAME = 'Aztec Token';
+const TOKEN_SYMBOL = 'AZT';
+const TOKEN_DECIMALS = 18n;
 
 describe('e2e_token_contract', () => {
   jest.setTimeout(TIMEOUT);
@@ -59,7 +62,9 @@ describe('e2e_token_contract', () => {
     logger(`Accounts: ${accounts.map(a => a.toReadableString())}`);
     logger(`Wallets: ${wallets.map(w => w.getAddress().toString())}`);
 
-    asset = await TokenContract.deploy(wallets[0], accounts[0].address).send().deployed();
+    asset = await TokenContract.deploy(wallets[0], accounts[0], TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
+      .send()
+      .deployed();
     logger(`Token deployed to ${asset.address}`);
     tokenSim = new TokenSimulator(
       asset,
