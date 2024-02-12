@@ -45,13 +45,14 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     }
 
     // Get challenge for sorted list batching and wire four memory records commitment
-    auto eta = transcript->get_challenge(domain_separator + "_eta");
+    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
     witness_commitments.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
 
     // Get permutation challenges and commitment to permutation and lookup grand products
-    auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
+    auto [beta, gamma] =
+        transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
@@ -73,7 +74,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
 
     // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
+        inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
 }
 
@@ -95,7 +96,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
         // efficient by avoiding the computation of the perturbator
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        auto beta = transcript->get_challenge(domain_separator + "_initial_gate_challenge");
+        auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
         std::vector<FF> gate_challenges(inst->log_instance_size);
         gate_challenges[0] = beta;
         for (size_t i = 1; i < inst->log_instance_size; i++) {
@@ -118,7 +119,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 {
     prepare_for_folding(fold_data);
 
-    auto delta = transcript->get_challenge("delta");
+    auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
@@ -129,7 +130,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 
     perturbator_coeffs[0] = accumulator->target_sum;
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
-    FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
+    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
@@ -140,7 +141,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     }
     Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
         combiner_quotient_evals);
-    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
+    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
@@ -176,8 +177,11 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     for (auto& public_input : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
-            public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
-            inst++;
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
+            if (instance->public_inputs.size() >= next_accumulator->public_input_size) {
+                public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
+                inst++;
+            }
         }
         public_input_idx++;
     }

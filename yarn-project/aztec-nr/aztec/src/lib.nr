@@ -1,6 +1,7 @@
-mod abi;
+mod avm;
 mod context;
 mod hash;
+mod hasher;
 mod history;
 mod key;
 mod log;

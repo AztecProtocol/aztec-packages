@@ -6,8 +6,8 @@ use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::abis::function_selector::FunctionSelector;
-use crate::hash::{compute_l2_to_l1_hash, sha256_to_field};
-use crate::abis::call_stack_item::PublicCallStackItem;
+use crate::hash::{compute_l2_to_l1_hash, sha256_to_field, hash_args};
+use crate::abis::public_call_stack_item::PublicCallStackItem;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 use crate::abis::side_effect::SideEffect;
 use crate::contract_class::ContractClassId;
@@ -45,6 +45,16 @@ fn compute_address_from_partial_and_pubkey() {
 
     let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
     assert(address.to_field() == 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197);
+}
+
+#[test]
+fn compute_var_args_hash() {
+    let mut input = [0; 800];
+    for i in 0..800 {
+        input[i] = i as Field;
+    }
+    let hash = hash_args(input);
+    assert(hash == 1557627899280963684159398665725097926236612957540256425197580046184563077271);
 }
 
 #[test]
@@ -119,7 +129,7 @@ fn compute_call_stack_item_request_hash() {
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
     // Value from abis.test.ts "Computes a callstack item request hash" test
-    assert_eq(call_stack_item.hash(), 0x2c36008a759d932a3a1986429aa295e2c2d4e62c33197a7d259750d29347bf30);
+    assert_eq(call_stack_item.hash(), 0x28cb4c264eb11e13c77a5e60b251a6b3edfb4cfed786c4f1ec5e1749fede9b78);
 }
 
 #[test]
@@ -136,5 +146,5 @@ fn compute_call_stack_item_hash() {
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
     // Value from abis.test.ts "Computes a callstack item hash" test
-    assert_eq(call_stack_item.hash(), 0x037cb5ba672a7c461e23cf22ae618757ab4f1a912f3fdc93b2b2800cfe57bb91);
+    assert_eq(call_stack_item.hash(), 0x17095bbb9e3e104dc520b6eec9338e9b6ce1fdc0f3a66b06d5ca90b15909ad0e);
 }

@@ -24,14 +24,15 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
     static constexpr size_t NUM = VerifierInstances::NUM;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     CommitmentLabels commitment_labels;
 
     Builder* builder;
+    std::shared_ptr<Transcript> transcript;
     VerifierInstances instances;
-    std::shared_ptr<Transcript<Builder>> transcript;
 
     ProtoGalaxyRecursiveVerifier_(Builder* builder,
                                   std::shared_ptr<Instance> accumulator,

@@ -33,9 +33,11 @@ use crate::{
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
-    
+
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
+
+    meta_hwm: u32,
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
@@ -67,12 +69,38 @@ struct PrivateCircuitPublicInputs {
     version: Field,
 }
 
+impl Eq for PrivateCircuitPublicInputs {
+    fn eq(self, other: Self) -> bool {
+        self.call_context.eq(other.call_context) &
+        self.args_hash.eq(other.args_hash) &
+        (self.return_values == other.return_values) &
+        (self.read_requests == other.read_requests) &
+        (self.nullifier_key_validation_requests == other.nullifier_key_validation_requests) &
+        (self.new_commitments == other.new_commitments) &
+        (self.new_nullifiers == other.new_nullifiers) &
+        (self.private_call_stack_hashes == other.private_call_stack_hashes) &
+        (self.public_call_stack_hashes == other.public_call_stack_hashes) &
+        (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+        (self.end_side_effect_counter == other.end_side_effect_counter) &
+        (self.encrypted_logs_hash == other.encrypted_logs_hash) &
+        (self.unencrypted_logs_hash == other.unencrypted_logs_hash) &
+        (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
+        (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
+        self.historical_header.eq(other.historical_header) &
+        self.contract_deployment_data.eq(other.contract_deployment_data) &
+        self.chain_id.eq(other.chain_id) &
+        self.version.eq(other.version)
+    }
+}
+
 impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
+        let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0);
         fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
+
+        fields.push(self.meta_hwm as Field);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.read_requests[i].serialize());
@@ -113,6 +141,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
+            meta_hwm: reader.read() as u32,
             read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
             new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
@@ -143,13 +172,18 @@ impl Hash for PrivateCircuitPublicInputs {
 }
 
 #[test]
-fn serialization_smoke() {
+fn serialization_of_empty() {
     let pcpi: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
-    let _serialized = pcpi.serialize();
+    let serialized = pcpi.serialize();
+    let deserialized = PrivateCircuitPublicInputs::deserialize(serialized);
+    assert(pcpi.eq(deserialized));
 }
 
 #[test]
-fn hash_smoke() {
-    let pcpi: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
-    let _hashed = pcpi.hash();
+fn empty_hash() {
+    let inputs: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let hash = inputs.hash();
+
+    // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
+    assert_eq(hash, 0x1304e6c42e3c53fc7c918cbf1ea70333b4f214726c0784cf9878cd641967dab1);
 }
