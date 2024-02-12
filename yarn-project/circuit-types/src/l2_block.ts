@@ -1,4 +1,14 @@
-import { ContractData } from '@aztec/circuit-types';
+import {
+  ContractData,
+  L2BlockL2Logs,
+  L2Tx,
+  LogType,
+  PublicDataWrite,
+  TxEffect,
+  TxEffectLogs,
+  TxHash,
+  TxL2Logs,
+} from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   Header,
@@ -16,13 +26,6 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { L2Tx } from './l2_tx.js';
-import { LogType, TxL2Logs } from './logs/index.js';
-import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
-import { PublicDataWrite } from './public_data_write.js';
-import { TxHash } from './tx/tx_hash.js';
-import { TxEffect, TxEffectLogs } from './tx_effect.js';
 
 export class L2BlockBody {
   constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
