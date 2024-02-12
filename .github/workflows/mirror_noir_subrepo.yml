@@ -108,7 +108,7 @@ jobs:
             cd noir-repo
             git fetch # see recent change
             git checkout $BRANCH || git checkout -b $BRANCH
-            git merge -Xtheirs $STAGING_BRANCH
+            git merge -Xtheirs origin/$STAGING_BRANCH
             git push origin $BRANCH
             cd ..
           }
