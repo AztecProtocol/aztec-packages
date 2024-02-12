@@ -13,7 +13,7 @@ Since Aztec implements full [signature abstraction](./main.md), signing keys dep
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code entrypoint /noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code entrypoint /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
 Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms. Read [how to write an account contract](../../../developers/contracts/writing_contracts/accounts/write_accounts_contract.md) for a full example of how to manage authentication.
 
@@ -72,7 +72,7 @@ In a future version, encryption keys will be differentiated between incoming and
 
 An application in Aztec.nr can access the encryption public key for a given address using the oracle call `get_public_key`, which you can then use for calls such as `emit_encrypted_log`:
 
-#include_code encrypted /aztec-nr/address-note/src/address_note.nr rust
+#include_code encrypted /noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
 :::info
 In order to be able to provide the public encryption key for a given address, that public key needs to have been registered in advance. At the moment, there is no broadcasting mechanism for public keys, which means that you will need to manually register all addresses you intend to send encrypted notes to. You can do this via the `registerRecipient` method of the Private Execution Environment (PXE), callable either via aztec.js or the CLI.
@@ -85,7 +85,7 @@ In addition to deriving encryption keys, the privacy master key is used for deri
 
 An application in Aztec.nr can request a secret from the current user for computing the nullifier of a note via the `request_nullifier_secret_key` api:
 
-#include_code nullifier /aztec-nr/value-note/src/value_note.nr rust
+#include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust
 
 ### Scoped keys
 

@@ -34,7 +34,7 @@ Returns an instance of `SlowMap` at the specified address.
 
 **Example**
 
-#include_code slowmap_at noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code slowmap_at noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
 ### initialize
 
@@ -54,7 +54,7 @@ Initializes the `SlowMap`.
 
 **Example**
 
-#include_code slowmap_initialize noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code slowmap_initialize noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
 ### read_at_pub
 
@@ -75,7 +75,7 @@ Reads a value at a specified index from a public function.
 
 **Example**
 
-#include_code read_at_pub noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code read_at_pub noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
 ### read_at
 
@@ -96,7 +96,7 @@ Reads a value at a specified index from a private function.
 
 **Example**
 
-#include_code slowmap_read_at noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code slowmap_read_at noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
 ### update_at_private
 
@@ -112,7 +112,7 @@ Updates a value at a specified index from a private function. Does not return an
 
 **Example**
 
-#include_code get_and_update_private noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code get_and_update_private noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
 ## Updating from public
 
@@ -120,4 +120,4 @@ This is not a method in the interface as it can be done using regular Aztec.nr p
 
 **Example**
 
-#include_code write_slow_update_public noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code write_slow_update_public noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust

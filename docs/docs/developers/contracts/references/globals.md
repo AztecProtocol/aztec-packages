@@ -11,7 +11,7 @@ For developers coming from solidity, this concept will be similar to how the glo
 
 ## Private Global Variables
 
-#include_code private-global-variables /aztec-nr/aztec/src/context/globals/private_global_variables.nr rust
+#include_code private-global-variables /noir-projects/aztec-nr/aztec/src/context/globals/private_global_variables.nr rust
 
 The private global variables contain:
 
@@ -33,7 +33,7 @@ context.version();
 
 ## Public Global Variables
 
-#include_code global-variables /noir-protocol-circuits/src/crates/types/src/abis/global_variables.nr rust
+#include_code global-variables /noir-projects/noir-protocol-circuits/src/crates/types/src/abis/global_variables.nr rust
 
 The public global variables contain the values present in the `private global variables` described above, with the addition of:
 

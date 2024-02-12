@@ -32,7 +32,7 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-#include_code private-context /aztec-nr/aztec/src/context/private_context.nr rust
+#include_code private-context /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
 
 ### Private Context Broken Down
 
@@ -40,13 +40,13 @@ The code snippet below shows what is contained within the private context.
 
 The context inputs includes all of the information that is passed from the kernel circuit into the application circuit. It contains the following values.
 
-#include_code private-context-inputs /aztec-nr/aztec/src/context/inputs/private_context_inputs.nr rust
+#include_code private-context-inputs /noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr rust
 
 As shown in the snippet, the application context is made up of 4 main structures. The call context, the block header, the contract deployment data and the private global variables.
 
 First of all, the call context.
 
-#include_code call-context /noir-protocol-circuits/src/crates/types/src/abis/call_context.nr rust
+#include_code call-context /noir-projects/noir-protocol-circuits/src/crates/types/src/abis/call_context.nr rust
 
 The call context contains information about the current call being made:
 
@@ -75,19 +75,19 @@ Another structure that is contained within the context is the Header object.
 In the private context this is a header of a block which used to generate proofs against.
 In the public context this header is set by sequencer (sequencer executes public calls) and it is set to 1 block before the block in which the transaction is included.
 
-#include_code header /noir-protocol-circuits/src/crates/types/src/header.nr rust
+#include_code header /noir-projects/noir-protocol-circuits/src/crates/types/src/header.nr rust
 
 ### Contract Deployment Data
 
 Just like with the `is_contract_deployment` flag mentioned earlier. This data will only be set to true when the current transaction is one in which a contract is being deployed.
 
-#include_code contract-deployment-data /noir-protocol-circuits/src/crates/types/src/contrakt/deployment_data.nr rust
+#include_code contract-deployment-data /noir-projects/noir-protocol-circuits/src/crates/types/src/contrakt/deployment_data.nr rust
 
 ### Private Global Variables
 
 In the private execution context, we only have access to a subset of the total global variables, we are restricted to those which can be reliably proven by the kernel circuits.
 
-#include_code private-global-variables /aztec-nr/aztec/src/context/globals/private_global_variables.nr rust
+#include_code private-global-variables /noir-projects/aztec-nr/aztec/src/context/globals/private_global_variables.nr rust
 
 ### Args Hash
 
@@ -139,10 +139,10 @@ The Public Context includes all of the information passed from the `Public VM` i
 
 In the current version of the system, the public context is almost a clone of the private execution context. It contains the same call context data, access to the same historical tree roots, however it does NOT have access to contract deployment data, this is due to traditional contract deployments only currently being possible from private transactions.
 
-#include_code public-context-inputs /aztec-nr/aztec/src/context/inputs/public_context_inputs.nr rust
+#include_code public-context-inputs /noir-projects/aztec-nr/aztec/src/context/inputs/public_context_inputs.nr rust
 
 ### Public Global Variables
 
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-#include_code global-variables /noir-protocol-circuits/src/crates/types/src/abis/global_variables.nr rust
+#include_code global-variables /noir-projects/noir-protocol-circuits/src/crates/types/src/abis/global_variables.nr rust

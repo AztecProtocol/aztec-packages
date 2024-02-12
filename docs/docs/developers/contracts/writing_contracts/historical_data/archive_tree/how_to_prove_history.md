@@ -35,7 +35,7 @@ For a more extensive reference, go to [the reference page](../../../references/h
 
 ```rust
 aztec::{
-    #include_code imports noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
+    #include_code imports noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
 }
 ```
 
@@ -45,13 +45,13 @@ This imports all functions from the `history` library. You should only import th
 
 In general you will likely have the note you want to prove inclusion of. But if you are just experimenting you can create a note with a function like below:
 
-#include_code create_note noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code create_note noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 ## 3. Get the note from the PXE
 
 Retrieve the note from the user's PXE.
 
-#include_code get_note_from_pxe noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code get_note_from_pxe noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 In this example, the user's notes are stored in a map called `private_values`. We retrieve this map, then select 1 note from it with the value of `1`.
 
@@ -59,7 +59,7 @@ In this example, the user's notes are stored in a map called `private_values`. W
 
 To prove that a note existed in a specified block, call `prove_note_inclusion_at` as shown in this example:
 
-#include_code prove_note_inclusion noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code prove_note_inclusion noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 This function takes in 3 arguments:
 
@@ -69,13 +69,13 @@ This function takes in 3 arguments:
 
 This will only prove the note existed at the specific block number, not whether or not the note has been nullified. You can prove that a note existed and had not been nullified in a specified block by using `prove_note_validity_at` which takes the same arguments:
 
-#include_code prove_note_validity noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code prove_note_validity noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 ## 5. Create a nullifier to prove inclusion of
 
 You can easily nullify a note like so:
 
-#include_code nullify_note noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code nullify_note noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 This function gets a note from the PXE like we did in [step 3](#3-get-the-note-from-the-pxe) and nullifies it with `remove()`.
 
@@ -85,7 +85,7 @@ You can then compute this nullifier with `note.compute_nullifier(&mut context)`.
 
 Call `prove_nullifier_inclusion_at` like so:
 
-#include_code prove_nullifier_inclusion noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code prove_nullifier_inclusion noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 This takes three arguments:
 
