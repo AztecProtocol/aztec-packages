@@ -38,8 +38,9 @@ class GoblinMockCircuits {
      * @param builder
      * @param num_gates
      */
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log2_num_gates = 1)
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log2_num_gates = 4)
     {
+        ASSERT(log2_num_gates > 2);
         size_t num_gates = 1 << log2_num_gates;
         // For good measure, include a gate with some public inputs
         {
