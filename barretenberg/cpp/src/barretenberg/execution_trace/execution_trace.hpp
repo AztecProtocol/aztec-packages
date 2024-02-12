@@ -77,7 +77,9 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             public_input_wires[2].emplace_back(builder.zero_idx);
             public_input_wires[3].emplace_back(builder.zero_idx);
         }
-        trace_blocks.emplace_back(public_input_wires, public_input_selectors);
+        TraceBlock pub_input_block{ public_input_wires, public_input_selectors };
+        pub_input_block.is_public_input = true;
+        trace_blocks.emplace_back(pub_input_block);
 
         // Make a block for the basic wires and selectors
         trace_blocks.emplace_back(builder.wires, builder.selectors);
@@ -127,20 +129,23 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
         auto trace_blocks = create_execution_trace_blocks(builder);
         info("Num trace blocks = ", trace_blocks.size());
 
-        // Initialization of some stuff
+        // Initializate the wire polynomials
         auto wire_polynomials = proving_key->get_wires();
-        auto selector_polynomials = proving_key->get_selectors();
         for (auto wire : wire_polynomials) {
             wire = Polynomial(proving_key->circuit_size);
         }
+        // Initializate the selector polynomials
+        auto selector_polynomials = proving_key->get_selectors();
         for (auto selector : selector_polynomials) {
             selector = Polynomial(proving_key->circuit_size);
         }
+        // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials whose
+        // values are copy constrained to be equal
         const size_t number_of_cycles = builder.variables.size(); // Each variable represents one cycle
         std::vector<CyclicPermutation> copy_cycles(number_of_cycles);
 
         uint32_t offset = 0;
-        size_t block_num = 0;
+        size_t block_num = 0; // debug only
         // For each block in the trace, populate wire polys, copy cycles and selector polys
         for (auto& block : trace_blocks) {
             size_t block_size = block.wires[0].size();
@@ -148,17 +153,22 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             info("block size = ", block_size);
 
             // Update wire polynomials and copy cycles
-            for (uint32_t wire_idx = 0; wire_idx < Builder::NUM_WIRES; ++wire_idx) {
-                for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                    uint32_t var_idx = block.wires[wire_idx][row_idx];
+            // WORKTODO: order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
+            for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < Builder::NUM_WIRES; ++wire_idx) {
+                    uint32_t var_idx = block.wires[wire_idx][row_idx]; // an index into the variables array
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
-
+                    // Insert the real witness values from this block into the wire polys at the correct offset
                     wire_polynomials[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
-                    copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                    // Add the address of the witness value to its corresponding copy cycle
+                    // WORKTODO: can we copy constrain the zeros in wires 3 and 4 together and avoud the special case?
+                    if (!(block.is_public_input && wire_idx > 1)) {
+                        copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                    }
                 }
             }
 
-            // Update selector polynomials
+            // Insert the selector values for this block into the selector polynomials at the correct offset
             for (auto [selector_poly, selector] : zip_view(selector_polynomials, block.selectors.get())) {
                 for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                     selector_poly[row_idx + offset] = selector[row_idx];
@@ -169,7 +179,22 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             offset += block_size;
         }
 
-        // compute_honk_generalized_sigma_permutations(builder, proving_key, copy_cycles);
+        // info("NEW: num copy cycles = ", copy_cycles.size());
+        // size_t cycle_idx = 0;
+        // for (auto& cycle : copy_cycles) {
+        //     info("cycle_idx = ", cycle_idx);
+        //     info("cycle length = ", cycle.size());
+        //     if (!cycle.empty()) {
+        //         info("value = ", wire_polynomials[cycle[0].wire_index][cycle[0].gate_index]);
+        //     }
+        //     for (auto& node : cycle) {
+        //         info("node.wire_index = ", node.wire_index);
+        //         info("node.gate_index = ", node.gate_index);
+        //     }
+        //     cycle_idx++;
+        // }
+
+        compute_honk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), copy_cycles);
 
         return proving_key;
     }

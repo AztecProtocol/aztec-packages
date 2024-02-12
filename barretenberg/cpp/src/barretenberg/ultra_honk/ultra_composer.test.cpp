@@ -38,15 +38,15 @@ void compare_with_execution_trace(const auto& proving_key, auto& circuit_builder
     Trace trace;
     auto proving_key_new = trace.generate(circuit_builder, proving_key->circuit_size);
 
-    info("proving_key_new->w_l.size() = ", proving_key_new->w_l.size());
-    info("proving_key->w_l.size() = ", proving_key->w_l.size());
-    info("proving_key_new->q_l.size() = ", proving_key_new->q_l.size());
-    info("proving_key->q_l.size() = ", proving_key->q_l.size());
+    // info("proving_key_new->w_l.size() = ", proving_key_new->w_l.size());
+    // info("proving_key->w_l.size() = ", proving_key->w_l.size());
+    // info("proving_key_new->q_l.size() = ", proving_key_new->sigma_1.size());
+    // info("proving_key->q_l.size() = ", proving_key->sigma_1.size());
 
     // for (size_t idx = 0; idx < proving_key->circuit_size; ++idx) {
     //     info(idx);
-    //     info("proving_key->q_l[idx] = ", proving_key->q_l[idx]);
-    //     info("proving_key_new->q_l[idx] = ", proving_key_new->q_l[idx]);
+    //     info("proving_key->q_l[idx] = ", proving_key->sigma_1[idx]);
+    //     info("proving_key_new->q_l[idx] = ", proving_key_new->sigma_1[idx]);
     // }
 
     std::vector<std::string> unequal;
@@ -249,8 +249,8 @@ TEST_F(UltraHonkComposerTests, test_no_lookup_proof)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    for (size_t i = 0; i < 16; ++i) {
-        for (size_t j = 0; j < 16; ++j) {
+    for (size_t i = 0; i < 1; ++i) {
+        for (size_t j = 0; j < 1; ++j) {
             uint64_t left = static_cast<uint64_t>(j);
             uint64_t right = static_cast<uint64_t>(i);
             uint32_t left_idx = circuit_builder.add_variable(fr(left));

@@ -184,6 +184,22 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Compute wire copy cycles (cycles of permutations)
     if (wire_copy_cycles.empty()) {
         wire_copy_cycles = compute_wire_copy_cycles<Flavor>(circuit_constructor);
+        // if constexpr (IsHonkFlavor<Flavor>) {
+        //     info("OLD: num copy cycles = ", wire_copy_cycles.size());
+        //     size_t cycle_idx = 0;
+        //     for (auto& cycle : wire_copy_cycles) {
+        //         info("cycle_idx = ", cycle_idx);
+        //         info("cycle length = ", cycle.size());
+        //         if (!cycle.empty()) {
+        //             info("value = ", proving_key->get_wires()[cycle[0].wire_index][cycle[0].gate_index]);
+        //         }
+        //         for (auto& node : cycle) {
+        //             info("node.wire_index = ", node.wire_index);
+        //             info("node.gate_index = ", node.gate_index);
+        //         }
+        //         cycle_idx++;
+        //     }
+        // }
     }
 
     PermutationMapping<Flavor::NUM_WIRES> mapping;
