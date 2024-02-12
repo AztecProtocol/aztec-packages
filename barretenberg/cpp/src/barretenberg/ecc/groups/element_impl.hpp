@@ -906,10 +906,9 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         return results;
     }
 
-    constexpr size_t lookup_size = 8;
-    constexpr size_t num_rounds = 32;
-    constexpr size_t num_wnaf_bits = 4;
-    std::array<std::vector<affine_element>, lookup_size> lookup_table;
+    constexpr size_t LOOKUP_SIZE = 8;
+    constexpr size_t NUM_ROUNDS = 32;
+    std::array<std::vector<affine_element>, LOOKUP_SIZE> lookup_table;
     for (auto& table : lookup_table) {
         table.resize(num_points);
     }
@@ -935,7 +934,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
     // Construct lookup table
     batch_affine_double(&temp_point_vector[0]);
-    for (size_t j = 1; j < lookup_size; ++j) {
+    for (size_t j = 1; j < LOOKUP_SIZE; ++j) {
         run_loop_in_parallel_if_effective(
             num_points,
             [j, &lookup_table](size_t start, size_t end) {
@@ -997,7 +996,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // First cycle of addition
     batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     // Run through SM logic in wnaf form (excluding the skew)
-    for (size_t j = 2; j < num_rounds * 2; ++j) {
+    for (size_t j = 2; j < NUM_ROUNDS * 2; ++j) {
         wnaf_entry = wnaf.table[j];
         index = wnaf_entry & 0x0fffffffU;
         sign = static_cast<bool>((wnaf_entry >> 31) & 1);
@@ -1031,7 +1030,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     }
 
     // Apply skew for the first endo scalar
-    if (skew) {
+    if (wnaf.skew) {
         run_loop_in_parallel_if_effective(
             num_points,
             [&lookup_table, &temp_point_vector](size_t start, size_t end) {
@@ -1050,7 +1049,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     }
     // Apply skew for the second endo scalar
-    if (endo_skew) {
+    if (wnaf.endo_skew) {
         run_loop_in_parallel_if_effective(
             num_points,
             [beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
