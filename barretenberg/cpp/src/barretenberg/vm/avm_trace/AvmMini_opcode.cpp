@@ -1,5 +1,7 @@
 #include "AvmMini_opcode.hpp"
+
 #include <cstdint>
+#include <format>
 
 namespace avm_trace {
 
@@ -148,6 +150,11 @@ bool Bytecode::has_in_tag(OpCode const op_code)
     default:
         return true;
     }
+}
+
+std::string to_hex(OpCode opcode)
+{
+    return std::format("{:02x}", static_cast<uint8_t>(opcode));
 }
 
 } // namespace avm_trace
