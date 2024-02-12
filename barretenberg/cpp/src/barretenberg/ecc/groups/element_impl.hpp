@@ -919,8 +919,10 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         num_points,
         [&temp_point_vector, &lookup_table, &points](size_t start, size_t end) {
             for (size_t i = start; i < end; ++i) {
-                temp_point_vector[i] = points[i];
-                lookup_table[0][i] = points[i];
+                // If the point is at infinity we fix-up the result later
+                // To avoid 'trying to invert zero in the field' we set the point to 'one' here
+                temp_point_vector[i] = points[i].is_point_at_infinity() ? affine_element::one() : points[i];
+                lookup_table[0][i] = points[i].is_point_at_infinity() ? affine_element::one() : points[i];
             }
         },
         /*finite_field_additions_per_iteration=*/0,
