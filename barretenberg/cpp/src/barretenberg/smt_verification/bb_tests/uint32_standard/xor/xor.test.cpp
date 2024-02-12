@@ -17,6 +17,7 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 // 28 min
+// > 10h42 min after patch
 TEST(uint, xor_unique_output){
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(bb::fr::random_element()));
