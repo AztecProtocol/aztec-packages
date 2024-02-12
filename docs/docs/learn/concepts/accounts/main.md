@@ -17,7 +17,7 @@ We'll start with the mandatory "what is AA" section that every single article on
 
 ### What is account abstraction?
 
-We'll refer to AA as the _ability to set the validity conditions of a transaction programmatically_ ([source](https://fuel-labs.ghost.io/account-abstraction-for-everyone-else/)). [Starknet](https://docs.starknet.io/documentation/architecture_and_concepts/Account_Abstraction/introduction/#account_abstraction) goes one step further and splits AA into three different components:
+We'll refer to AA as the _ability to set the validity conditions of a transaction programmatically_ ([source](https://fuel-labs.ghost.io/account-abstraction-for-everyone-else/)). [Starknet](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/introduction/#account_abstraction) goes one step further and splits AA into three different components:
 
 - Signature abstraction (defining when a signature is accepted)
 - Fee abstraction (paying fees)
