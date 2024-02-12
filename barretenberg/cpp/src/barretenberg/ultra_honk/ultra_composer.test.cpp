@@ -38,16 +38,30 @@ void compare_with_execution_trace(const auto& proving_key, auto& circuit_builder
     Trace trace;
     auto proving_key_new = trace.generate(circuit_builder, proving_key->circuit_size);
 
-    // info("proving_key_new->w_l.size() = ", proving_key_new->w_l.size());
-    // info("proving_key->w_l.size() = ", proving_key->w_l.size());
-    // info("proving_key_new->q_l.size() = ", proving_key_new->sigma_1.size());
-    // info("proving_key->q_l.size() = ", proving_key->sigma_1.size());
+    std::vector<std::string> unequal;
+    for (auto [new_poly, poly, label] :
+         zip_view(proving_key_new->get_all(), proving_key->get_all(), proving_key->get_labels())) {
+        if (new_poly != poly) {
+            unequal.emplace_back(label);
+        }
+    }
+    if (unequal.empty()) {
+        info("\n All polynomials are equal.");
+    } else {
+        info("\nThe following polynomials are unequal: ");
+        for (const std::string& label : unequal) {
+            info("\t", label);
+        }
+    }
+}
 
-    // for (size_t idx = 0; idx < proving_key->circuit_size; ++idx) {
-    //     info(idx);
-    //     info("proving_key->q_l[idx] = ", proving_key->sigma_1[idx]);
-    //     info("proving_key_new->q_l[idx] = ", proving_key_new->sigma_1[idx]);
-    // }
+void compare_with_execution_trace_instance(const auto& instance, auto& circuit_builder)
+{
+    using Instance = ProverInstance_<UltraFlavor>;
+    auto new_instance = std::make_shared<Instance>(circuit_builder, true);
+
+    auto proving_key = instance->proving_key;
+    auto proving_key_new = new_instance->proving_key;
 
     std::vector<std::string> unequal;
     for (auto [new_poly, poly, label] :
@@ -75,7 +89,8 @@ void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_resul
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
 
-    compare_with_execution_trace(instance->proving_key, circuit_builder);
+    // compare_with_execution_trace(instance->proving_key, circuit_builder);
+    compare_with_execution_trace_instance(instance, circuit_builder);
 };
 
 void ensure_non_zero(auto& polynomial)

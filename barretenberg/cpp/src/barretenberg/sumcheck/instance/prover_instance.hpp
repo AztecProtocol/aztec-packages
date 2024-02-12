@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
@@ -28,6 +29,8 @@ template <class Flavor> class ProverInstance_ {
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationSeparator = typename Flavor::RelationSeparator;
+
+    using Trace = ExecutionTrace_<Flavor>;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
@@ -59,34 +62,24 @@ template <class Flavor> class ProverInstance_ {
     size_t instance_size;
     size_t log_instance_size;
 
-    // ProverInstance_(Circuit& circuit)
-    ProverInstance_(Circuit& circuit, bool old_constructor)
+    ProverInstance_(Circuit& circuit)
     {
-        (void)old_constructor;
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
     }
 
-    ProverInstance_(Circuit& circuit)
-    // ProverInstance_(Circuit& circuit, bool new_constructor)
+    ProverInstance_(Circuit& circuit, bool new_constructor)
     {
-        // (void)new_constructor;
+        (void)new_constructor;
         compute_circuit_size_parameters(circuit);
-        proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
         {
-            construct_selector_polynomials<Flavor>(circuit, proving_key.get());
-            compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
-            // Construct the conventional wire polynomials
-            auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit, dyadic_circuit_size);
-
-            proving_key->w_l = wire_polynomials[0].share();
-            proving_key->w_r = wire_polynomials[1].share();
-            proving_key->w_o = wire_polynomials[2].share();
-            proving_key->w_4 = wire_polynomials[3].share();
+            Trace trace;
+            proving_key = trace.generate(circuit, dyadic_circuit_size);
 
             // If Goblin, construct the ECC op queue wire and databus polynomials
             if constexpr (IsGoblinFlavor<Flavor>) {
+                auto wire_polynomials = proving_key->get_wires();
                 construct_ecc_op_wire_polynomials(wire_polynomials);
                 construct_databus_polynomials(circuit);
             }
