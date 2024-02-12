@@ -101,7 +101,7 @@ template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
         fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
         return fr_vec;
     } else {
-        // Array or Univariate or AllValues
+        // Array or Univariate
         std::vector<bb::fr> fr_vec;
         for (auto& x : val) {
             auto tmp_vec = convert_to_bn254_frs(x);
