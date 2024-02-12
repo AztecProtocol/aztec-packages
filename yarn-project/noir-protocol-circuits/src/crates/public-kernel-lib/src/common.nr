@@ -95,6 +95,13 @@ fn perform_static_call_checks(public_call: PublicCallData) {
         assert(
             update_requests_length == 0, "No contract storage update requests are allowed for static calls"
         );
+
+        let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
+
+        assert(
+            public_inputs.unencrypted_log_preimages_length == 0, "No unencrypted logs are allowed for static calls"
+        );
     }
 }
 

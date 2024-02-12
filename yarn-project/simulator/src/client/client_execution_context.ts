@@ -305,8 +305,12 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
-    if (childExecutionResult.newNotes.length > 0) {
-      throw new Error('Static call cannot create new notes');
+    if (
+      childExecutionResult.newNotes.length > 0 ||
+      childExecutionResult.encryptedLogs.logs.length == 0 ||
+      childExecutionResult.unencryptedLogs.logs.length > 0
+    ) {
+      throw new Error('Static call cannot create new notes or generate logs');
     }
   }
 

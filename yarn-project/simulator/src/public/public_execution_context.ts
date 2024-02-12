@@ -215,6 +215,8 @@ export class PublicExecutionContext extends TypedOracle {
         childExecutionResult.newCommitments,
         childExecutionResult.newNullifiers,
         childExecutionResult.contractStorageUpdateRequests,
+        childExecutionResult.newL2ToL1Messages,
+        childExecutionResult.unencryptedLogs,
       );
     }
 

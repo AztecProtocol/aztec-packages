@@ -146,8 +146,16 @@ export function checkValidStaticCall(
   newCommitments: SideEffect[],
   newNullifiers: SideEffectLinkedToNoteHash[],
   contractStorageUpdateRequests: ContractStorageUpdateRequest[],
+  newL2ToL1Messages: Fr[],
+  unencryptedLogs: FunctionL2Logs,
 ) {
-  if (contractStorageUpdateRequests.length > 0 || newCommitments.length > 0 || newNullifiers.length > 0) {
+  if (
+    contractStorageUpdateRequests.length > 0 ||
+    newCommitments.length > 0 ||
+    newNullifiers.length > 0 ||
+    newL2ToL1Messages.length > 0 ||
+    unencryptedLogs.logs.length > 0
+  ) {
     throw new Error('Static call cannot update the state');
   }
 }

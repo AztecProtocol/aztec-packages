@@ -137,6 +137,8 @@ export class PublicExecutor {
         executionResult.newCommitments,
         executionResult.newNullifiers,
         executionResult.contractStorageUpdateRequests,
+        executionResult.newL2ToL1Messages,
+        executionResult.unencryptedLogs,
       );
     }
 

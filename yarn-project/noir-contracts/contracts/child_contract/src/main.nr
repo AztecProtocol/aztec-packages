@@ -10,7 +10,10 @@ contract Child {
             set::Set
         },
         protocol_types::{
-            abis::function_selector::FunctionSelector,
+            abis::{
+                function_selector::FunctionSelector,
+                call_context::CallContext
+            },
             address::AztecAddress,
         },
         note::{
@@ -18,7 +21,6 @@ contract Child {
         }
     };
     use dep::value_note::value_note::ValueNote;
-
 
     struct Storage {
         current_value: PublicState<Field>,
