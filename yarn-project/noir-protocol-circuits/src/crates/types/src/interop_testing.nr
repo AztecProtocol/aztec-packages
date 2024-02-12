@@ -89,7 +89,8 @@ fn compute_l2_l1_hash() {
     assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
 
     // Non-zero case
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, L2ToL1Message::empty());
+    let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5 };
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, message);
     assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
 }
 
