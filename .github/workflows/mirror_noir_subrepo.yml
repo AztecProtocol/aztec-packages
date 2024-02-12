@@ -45,7 +45,7 @@ jobs:
             BASE_AZTEC_COMMIT=`git config --file=noir/.gitrepo subrepo.parent`
             if [[ "$COMMIT_HEURISTIC" = "" ]] ; then
               # If that doesn't work, look for the last 'method = pull' commit
-              COMMIT_HEURISTIC=$(git log -p -S"method = pull" --reverse --source -- noir/.gitrepo | grep -m 1 '^commit' | awk '{print $2}' || true)
+              COMMIT_HEURISTIC=$(git log -p -S"method = pull" --source -- noir/.gitrepo | grep -m 1 '^commit' | awk '{print $2}' || true)
             fi
             if [[ "$COMMIT_HEURISTIC" = "" ]] ; then
               # It it fails, just use our gitrepo parent commit (last time we pushed or pulled)
