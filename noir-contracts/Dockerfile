@@ -2,7 +2,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-nr as aztec-nr
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-protocol-circuits as noir-protocol-circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/avm-transpiler as transpiler
-FROM node:18.19.0
+FROM ubuntu:lunar
 
 # Copy in nargo
 COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
@@ -17,4 +17,4 @@ WORKDIR /usr/src/noir-contracts
 # Copy in noir contracts
 COPY . .
 # Build
-RUN yarn build
+RUN ./scripts/compile.sh && ./scripts/transpile.sh
