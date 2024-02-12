@@ -1,34 +1,17 @@
 use crate::{
     abis::{
-        call_context::CallContext,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
-        side_effect::{
-            SideEffect,
-            SideEffectLinkedToNoteHash,
-        },
-    },
+    call_context::CallContext, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
     constants::{
-        MAX_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
-        RETURN_VALUES_LENGTH,
-        PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-        GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
-    },
-    contrakt::deployment_data::ContractDeploymentData,
-    header::Header,
-    hash::pedersen_hash,
-    traits::{
-        Deserialize,
-        Hash,
-        Serialize,
-    },
-    utils::reader::Reader,
+    MAX_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, NUM_FIELDS_PER_SHA256,
+    RETURN_VALUES_LENGTH, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS
+},
+    contrakt::deployment_data::ContractDeploymentData, header::Header, hash::pedersen_hash,
+    traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
 };
 
 struct PrivateCircuitPublicInputs {
@@ -37,7 +20,7 @@ struct PrivateCircuitPublicInputs {
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
 
-    meta_hwm: u32,
+    max_non_revertible_side_effect_counter: u32,
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
@@ -100,7 +83,7 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
 
-        fields.push(self.meta_hwm as Field);
+        fields.push(self.max_non_revertible_side_effect_counter as Field);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.read_requests[i].serialize());
@@ -141,7 +124,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
-            meta_hwm: reader.read() as u32,
+            max_non_revertible_side_effect_counter: reader.read() as u32,
             read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
             new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),

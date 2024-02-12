@@ -1,12 +1,7 @@
 // docs:start:token_types_all
 use dep::aztec::{
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
-    hash::{compute_secret_hash, pedersen_hash},
-    context::PrivateContext,
+    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    hash::{compute_secret_hash, pedersen_hash}, context::PrivateContext
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
@@ -62,6 +57,12 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         assert(false, "TransparentNote does not support broadcast");
     }
+
+    fn get_note_type_id() -> Field {
+        // TODO(#4519): autogenerate
+        // python -c "print(int(''.join(str(ord(c)) for c in 'TransparentNote')))"
+        84114971101151129711410111011678111116101
+    }
 }
 
 impl TransparentNote {
@@ -69,23 +70,13 @@ impl TransparentNote {
     // CONSTRUCTORS
 
     pub fn new(amount: Field, secret_hash: Field) -> Self {
-        TransparentNote {
-            amount: amount,
-            secret_hash: secret_hash,
-            secret: 0,
-            header: NoteHeader::empty(),
-        }
+        TransparentNote { amount, secret_hash, secret: 0, header: NoteHeader::empty() }
     }
 
     // new oracle call primitive
     // get me the secret corresponding to this hash
     pub fn new_from_secret(amount: Field, secret: Field) -> Self {
-        TransparentNote {
-            amount: amount,
-            secret_hash: compute_secret_hash(secret),
-            secret: secret,
-            header: NoteHeader::empty(),
-        }
+        TransparentNote { amount, secret_hash: compute_secret_hash(secret), secret, header: NoteHeader::empty() }
     }
 
     // CUSTOM FUNCTIONS FOR THIS NOTE TYPE

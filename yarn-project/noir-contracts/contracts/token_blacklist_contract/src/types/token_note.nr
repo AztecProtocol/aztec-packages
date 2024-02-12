@@ -1,25 +1,9 @@
 use dep::aztec::{
-    protocol_types::{
-        address::AztecAddress,
-        constants::{
-            MAX_READ_REQUESTS_PER_CALL
-        },
-    },
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
-    context::PrivateContext,
-    state_vars::set::Set,
-    log::emit_encrypted_log,
-    hash::pedersen_hash,
+    protocol_types::{address::AztecAddress, constants::{MAX_READ_REQUESTS_PER_CALL}},
+    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    context::PrivateContext, state_vars::set::Set, log::emit_encrypted_log, hash::pedersen_hash
 };
-use dep::aztec::oracle::{
-    rand::rand,
-    nullifier_key::get_nullifier_secret_key,
-    get_public_key::get_public_key,
-};
+use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
 use dep::safe_math::SafeU120;
 use dep::std::option::Option;
 
@@ -105,11 +89,18 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
               context,
               (*context).this_address(),
               slot,
+              Self::get_note_type_id(),
               encryption_pub_key,
               self.serialize_content(),
           );
       }
-  }
+    }
+
+    fn get_note_type_id() -> Field {
+        // TODO(#4519): autogenerate
+        // python -c "print(int(''.join(str(ord(c)) for c in 'TokenNote')))"
+        8411110710111078111116101
+    }
 }
 
 impl OwnedNote for TokenNote {

@@ -1,17 +1,8 @@
 use dep::aztec::protocol_types::address::AztecAddress;
 use dep::aztec::{
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
-    oracle::{
-        nullifier_key::get_nullifier_secret_key,
-        get_public_key::get_public_key,
-    },
-    log::emit_encrypted_log,
-    hash::pedersen_hash,
-    context::PrivateContext,
+    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
+    log::emit_encrypted_log, hash::pedersen_hash, context::PrivateContext
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
@@ -112,21 +103,21 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
             context,
             (*context).this_address(),
             slot,
+            Self::get_note_type_id(),
             encryption_pub_key,
             self.serialize_content(),
         );
+    }
+
+    fn get_note_type_id() -> Field {
+        // TODO(#4519): autogenerate
+        // python -c "print(int(''.join(str(ord(c)) for c in 'EcdsaPublicKeyNote')))"
+        6999100115978011798108105997510112178111116101
     }
 }
 
 impl EcdsaPublicKeyNote {
     pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
-        EcdsaPublicKeyNote {
-            x,
-            y,
-            owner,
-            header: NoteHeader::empty(),
-        }
+        EcdsaPublicKeyNote { x, y, owner, header: NoteHeader::empty() }
     }
-
-   
 }

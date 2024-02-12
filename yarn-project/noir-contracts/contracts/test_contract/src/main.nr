@@ -3,46 +3,27 @@ contract Test {
     use dep::std::option::Option;
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        address::{
-            AztecAddress,
-            EthAddress,
-        },
-        constants::{
-            MAX_READ_REQUESTS_PER_CALL,
-            MAX_NOTES_PER_PAGE
-        },
-        hash::hash_args,
+        address::{AztecAddress, EthAddress},
+        constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, hash::hash_args
     };
     // docs:start:unencrypted_import
     use dep::aztec::log::emit_unencrypted_log;
     // docs:end:unencrypted_import
 
     use dep::aztec::{
-        context::{
-            Context,
-            inputs::private_context_inputs::PrivateContextInputs,
-        },
-        hash::pedersen_hash,
+        context::{Context, inputs::private_context_inputs::PrivateContextInputs}, hash::pedersen_hash,
         context::PrivateContext,
         note::{
-            note_header::NoteHeader,
-            utils as note_utils,
-            lifecycle::{create_note, destroy_note},
-            note_getter::{get_notes, view_notes},
-            note_getter_options::{NoteGetterOptions, NoteStatus},
-            note_viewer_options::NoteViewerOptions,
-        },
-        oracle::{
-            get_public_key::get_public_key as get_public_key_oracle,
-            context::get_portal_address,
-            rand::rand
-        },
-        state_vars::immutable_singleton::ImmutableSingleton,
-        log::emit_unencrypted_log_from_private,
+        note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
+        note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
+        note_viewer_options::NoteViewerOptions
+    },
+        oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
+        state_vars::immutable_singleton::ImmutableSingleton, log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
-    use dep::value_note::value_note::{ValueNote,VALUE_NOTE_LEN};
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     #[event]
     struct ExampleEvent {
@@ -346,14 +327,11 @@ contract Test {
 
     impl DummyNote {
         fn new(amount: Field, secret_hash: Field) -> Self {
-            Self {
-                amount: amount,
-                secret_hash: secret_hash
-            }
+            Self { amount, secret_hash }
         }
 
         fn get_commitment(self) -> Field {
-            pedersen_hash([self.amount, self.secret_hash],0)
+            pedersen_hash([self.amount, self.secret_hash], 0)
         }
     }
 
@@ -371,13 +349,14 @@ contract Test {
         contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
+        note_type_id: Field,
         serialized_note: [Field; VALUE_NOTE_LEN] // must fit either a FieldNote or a ValueNote
     ) -> pub [Field; 4] {
-        if (storage_slot == storage.example_constant.get_storage_slot()) {
-            let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+
+        if (note_type_id == FieldNote::get_note_type_id()) {
             note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize_content, note_header, serialized_note)
         } else {
-            // For ValueNotes created via write_value_to_storage
             let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
             note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
         }

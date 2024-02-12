@@ -2,22 +2,10 @@
 use dep::aztec::log::emit_encrypted_log;
 // docs:end:encrypted_import
 use dep::aztec::{
-    protocol_types::{
-        address::AztecAddress,
-        traits::Empty
-    },
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
-    oracle::{
-        rand::rand,
-        nullifier_key::get_nullifier_secret_key,
-        get_public_key::get_public_key,
-    },
-    hash::pedersen_hash,
-    context::PrivateContext
+    protocol_types::{address::AztecAddress, traits::Empty},
+    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
+    hash::pedersen_hash, context::PrivateContext
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;
@@ -88,22 +76,24 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
             context,
             (*context).this_address(),
             slot,
+            Self::get_note_type_id(),
             encryption_pub_key,
             self.serialize_content(),
         );
         // docs:end:encrypted
+    }
+
+    fn get_note_type_id() -> Field {
+        // TODO(#4519): autogenerate
+        // python -c "print(int(''.join(str(ord(c)) for c in 'AddressNote')))"
+        6510010011410111511578111116101
     }
 }
 
 impl AddressNote {
     pub fn new(address: AztecAddress, owner: AztecAddress) -> Self {
         let randomness = rand();
-        AddressNote {
-            address,
-            owner,
-            randomness,
-            header: NoteHeader::empty(),
-        }
+        AddressNote { address, owner, randomness, header: NoteHeader::empty() }
     }
-// docs:end:address_note_def
+    // docs:end:address_note_def
 }
