@@ -23,8 +23,7 @@ class Goblin {
   public:
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
-    using Transcript = bb::BaseTranscript;
-
+    using Transcript = NativeTranscript;
     using GoblinUltraComposer = bb::UltraComposer_<GoblinUltraFlavor>;
     using GoblinUltraVerifier = bb::UltraVerifier_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
@@ -35,8 +34,8 @@ class Goblin {
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = bb::GoblinTranslatorComposer;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeProver = bb::MergeProver;
-    using MergeVerifier = bb::MergeVerifier;
+    using MergeProver = bb::MergeProver_<GoblinUltraFlavor>;
+    using MergeVerifier = bb::MergeVerifier_<GoblinUltraFlavor>;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
@@ -118,6 +117,31 @@ class Goblin {
         }
 
         return { ultra_proof, instance->verification_key };
+    };
+
+    /**
+     * @brief Add a recursive merge verifier to input circuit and construct a merge proof for the updated op queue
+     * @details When this method is used, the "prover" functionality of the IVC scheme must be performed explicitly, but
+     * this method has to be called first so that the recursive merge verifier can be "appended" to the circuit being
+     * accumulated
+     *
+     * @param circuit_builder
+     */
+    void merge(GoblinUltraCircuitBuilder& circuit_builder)
+    {
+        // Complete the circuit logic by recursively verifying previous merge proof if it exists
+        if (merge_proof_exists) {
+            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
+        }
+
+        // Construct and store the merge proof to be recursively verified on the next call to accumulate
+        MergeProver merge_prover{ op_queue };
+        merge_proof = merge_prover.construct_proof();
+
+        if (!merge_proof_exists) {
+            merge_proof_exists = true;
+        }
     };
 
     /**

@@ -4,13 +4,13 @@ use dep::types::{
         call_request::CallRequest,
         combined_accumulated_data::CombinedAccumulatedData,
         function_data::FunctionData,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
         membership_witness::ReadRequestMembershipWitness,
         new_contract_data::NewContractData,
         nullifier_key_validation_request::NullifierKeyValidationRequestContext,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        previous_kernel_data::PreviousKernelData,
+        kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
@@ -102,8 +102,8 @@ pub fn validate_read_requests(
 }
 
 pub fn initialize_end_values(
-    previous_kernel: PreviousKernelData,
-    public_inputs: &mut KernelCircuitPublicInputsBuilder
+    previous_kernel: PrivateKernelInnerData,
+    public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
 ) {
     public_inputs.constants = previous_kernel.public_inputs.constants;
 
@@ -127,7 +127,6 @@ pub fn initialize_end_values(
     public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
     public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
-    public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
     public_inputs.end.new_contracts = array_to_bounded_vec(start.new_contracts);
 }
 
@@ -171,7 +170,10 @@ fn validate_call_requests<N>(
     }
 }
 
-pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+pub fn update_end_values(
+    private_call: PrivateCallData,
+    public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
+) {
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(private_call);
 
@@ -299,7 +301,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
 
 pub fn contract_logic(
     private_call: PrivateCallData,
-    public_inputs: &mut KernelCircuitPublicInputsBuilder,
+    public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder,
     contract_dep_data: ContractDeploymentData,
     function_data: FunctionData
 ) {

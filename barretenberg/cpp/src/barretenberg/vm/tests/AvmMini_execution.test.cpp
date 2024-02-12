@@ -6,13 +6,22 @@
 #include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
 #include "barretenberg/vm/avm_trace/AvmMini_opcode.hpp"
 #include "barretenberg/vm/tests/helpers.test.hpp"
+#include "gmock/gmock.h"
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
 
+namespace tests_avm {
+
 using namespace bb;
+using namespace avm_trace;
+using namespace testing;
+
+using bb::utils::hex_to_bytes;
+
 namespace {
+
 void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
                             std::vector<Row>&& trace,
                             std::vector<FF> const& calldata)
@@ -29,10 +38,6 @@ void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
     EXPECT_TRUE(verifier.verify_proof(proof));
 }
 } // namespace
-
-namespace tests_avm {
-using namespace avm_trace;
-using bb::utils::hex_to_bytes;
 
 class AvmMiniExecutionTests : public ::testing::Test {
   public:
@@ -64,28 +69,23 @@ TEST_F(AvmMiniExecutionTests, basicAddReturn)
     auto instructions = Deserialization::parse(bytecode);
 
     // 2 instructions
-    EXPECT_EQ(instructions.size(), 2);
+    ASSERT_THAT(instructions, SizeIs(2));
 
     // ADD
-    EXPECT_EQ(instructions.at(0).op_code, OpCode::ADD);
-
-    auto operands = instructions.at(0).operands;
-    EXPECT_EQ(operands.size(), 4);
-    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U8);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 7);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 9);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
+    EXPECT_THAT(instructions.at(0),
+                AllOf(Field(&Instruction::op_code, OpCode::ADD),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
+                                        VariantWith<uint32_t>(7),
+                                        VariantWith<uint32_t>(9),
+                                        VariantWith<uint32_t>(1)))));
 
     // RETURN
-    EXPECT_EQ(instructions.at(1).op_code, OpCode::RETURN);
-
-    operands = instructions.at(1).operands;
-    EXPECT_EQ(operands.size(), 2);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::RETURN),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = Execution::gen_trace(instructions);
-
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
@@ -112,35 +112,32 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_EQ(instructions.size(), 4);
+    ASSERT_THAT(instructions, SizeIs(4));
 
     // SET
-    EXPECT_EQ(instructions.at(0).op_code, OpCode::SET);
-
-    auto operands = instructions.at(0).operands;
-    EXPECT_EQ(operands.size(), 3);
-    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U16);
-    EXPECT_EQ(std::get<uint16_t>(operands.at(1)), 47123);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 170);
+    EXPECT_THAT(instructions.at(0),
+                AllOf(Field(&Instruction::op_code, OpCode::SET),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
+                                        VariantWith<uint16_t>(47123),
+                                        VariantWith<uint32_t>(170)))));
 
     // SET
-    EXPECT_EQ(instructions.at(1).op_code, OpCode::SET);
-
-    operands = instructions.at(1).operands;
-    EXPECT_EQ(operands.size(), 3);
-    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U16);
-    EXPECT_EQ(std::get<uint16_t>(operands.at(1)), 37123);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 51);
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::SET),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
+                                        VariantWith<uint16_t>(37123),
+                                        VariantWith<uint32_t>(51)))));
 
     // SUB
-    EXPECT_EQ(instructions.at(2).op_code, OpCode::SUB);
-
-    operands = instructions.at(2).operands;
-    EXPECT_EQ(operands.size(), 4);
-    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U16);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 170);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 51);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
+    EXPECT_THAT(instructions.at(2),
+                AllOf(Field(&Instruction::op_code, OpCode::SUB),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
+                                        VariantWith<uint32_t>(170),
+                                        VariantWith<uint32_t>(51),
+                                        VariantWith<uint32_t>(1)))));
 
     auto trace = Execution::gen_trace(instructions);
 
@@ -180,8 +177,7 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
                                 "00000000"  // ret offset 0
                                 "00000000"; // ret size 0
 
-    uint8_t num = 12;
-    while (num-- > 0) {
+    for (int i = 0; i < 12; i++) {
         bytecode_hex.append(mul_hex);
     }
 
@@ -190,35 +186,30 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_EQ(instructions.size(), 15);
+    ASSERT_THAT(instructions, SizeIs(15));
 
     // MUL first pos
-    EXPECT_EQ(instructions.at(2).op_code, OpCode::MUL);
-
-    auto operands = instructions.at(2).operands;
-    EXPECT_EQ(operands.size(), 4);
-    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U64);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 1);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
+    EXPECT_THAT(instructions.at(2),
+                AllOf(Field(&Instruction::op_code, OpCode::MUL),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
+                                        VariantWith<uint32_t>(0),
+                                        VariantWith<uint32_t>(1),
+                                        VariantWith<uint32_t>(1)))));
 
     // MUL last pos
-    EXPECT_EQ(instructions.at(13).op_code, OpCode::MUL);
-
-    operands = instructions.at(13).operands;
-    EXPECT_EQ(operands.size(), 4);
-    EXPECT_EQ(std::get<AvmMemoryTag>(operands.at(0)), AvmMemoryTag::U64);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 1);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(3)), 1);
+    EXPECT_THAT(instructions.at(13),
+                AllOf(Field(&Instruction::op_code, OpCode::MUL),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
+                                        VariantWith<uint32_t>(0),
+                                        VariantWith<uint32_t>(1),
+                                        VariantWith<uint32_t>(1)))));
 
     // RETURN
-    EXPECT_EQ(instructions.at(14).op_code, OpCode::RETURN);
-    operands = instructions.at(14).operands;
-
-    EXPECT_EQ(operands.size(), 2);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 0);
+    EXPECT_THAT(instructions.at(14),
+                AllOf(Field(&Instruction::op_code, OpCode::RETURN),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = Execution::gen_trace(instructions);
 
@@ -265,14 +256,14 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_EQ(instructions.size(), 6);
+    EXPECT_THAT(instructions, SizeIs(6));
 
     // We test parsing step for INTERNALCALL and INTERNALRETURN.
 
     // INTERNALCALL
-    EXPECT_EQ(instructions.at(1).op_code, OpCode::INTERNALCALL);
-    EXPECT_EQ(instructions.at(1).operands.size(), 1);
-    EXPECT_EQ(std::get<uint32_t>(instructions.at(1).operands.at(0)), 4);
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::INTERNALCALL),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(4)))));
 
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
@@ -342,7 +333,7 @@ TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_EQ(instructions.size(), 12);
+    ASSERT_THAT(instructions, SizeIs(12));
 
     // Expected sequence of opcodes
     std::vector<OpCode> const opcode_sequence{ OpCode::SET,          OpCode::SET,
@@ -405,23 +396,21 @@ TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_EQ(instructions.size(), 5);
+    ASSERT_THAT(instructions, SizeIs(5));
 
     // We test parsing steps for CALLDATACOPY and JUMP.
 
     // CALLDATACOPY
-    EXPECT_EQ(instructions.at(0).op_code, OpCode::CALLDATACOPY);
-    EXPECT_EQ(instructions.at(0).operands.size(), 3);
-
-    auto operands = instructions.at(0).operands;
-    EXPECT_EQ(std::get<uint32_t>(operands.at(0)), 0);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(1)), 2);
-    EXPECT_EQ(std::get<uint32_t>(operands.at(2)), 10);
+    EXPECT_THAT(
+        instructions.at(0),
+        AllOf(Field(&Instruction::op_code, OpCode::CALLDATACOPY),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint32_t>(0), VariantWith<uint32_t>(2), VariantWith<uint32_t>(10)))));
 
     // JUMP
-    EXPECT_EQ(instructions.at(1).op_code, OpCode::JUMP);
-    EXPECT_EQ(instructions.at(1).operands.size(), 1);
-    EXPECT_EQ(std::get<uint32_t>(instructions.at(1).operands.at(0)), 3);
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::JUMP),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(3)))));
 
     auto trace = Execution::gen_trace(instructions, std::vector<FF>{ 13, 156 });
 

@@ -49,6 +49,7 @@ else()
 endif()
 
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/common)
 add_subdirectory(barretenberg/crypto)
@@ -126,7 +127,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
+    $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>

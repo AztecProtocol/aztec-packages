@@ -11,7 +11,6 @@ export abstract class MemoryValue {
   public abstract div(rhs: MemoryValue): MemoryValue;
 
   public abstract equals(rhs: MemoryValue): boolean;
-  public abstract lt(rhs: MemoryValue): boolean;
 
   // We need this to be able to build an instance of the subclasses.
   public abstract build(n: bigint): MemoryValue;
@@ -32,6 +31,8 @@ export abstract class IntegralValue extends MemoryValue {
   public abstract or(rhs: IntegralValue): IntegralValue;
   public abstract xor(rhs: IntegralValue): IntegralValue;
   public abstract not(): IntegralValue;
+
+  public abstract lt(rhs: MemoryValue): boolean;
 }
 
 // TODO: Optimize calculation of mod, etc. Can only do once per class?
@@ -200,10 +201,6 @@ export class Field extends MemoryValue {
     return this.rep.equals(rhs.rep);
   }
 
-  public lt(rhs: Field): boolean {
-    return this.rep.lt(rhs.rep);
-  }
-
   public toBigInt(): bigint {
     return this.rep.toBigInt();
   }
@@ -223,15 +220,16 @@ export enum TypeTag {
 // TODO: Consider automatic conversion when getting undefined values.
 export class TaggedMemory {
   // FIXME: memory should be 2^32, but TS doesn't allow for arrays that big.
-  static readonly MAX_MEMORY_SIZE = Number(1n << 31n); // 1n << 32n
+  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 2n);
   private _mem: MemoryValue[];
 
   constructor() {
-    // Initialize memory size, but leave all entries undefined.
-    this._mem = new Array(TaggedMemory.MAX_MEMORY_SIZE);
+    // We do not initialize memory size here because otherwise tests blow up when diffing.
+    this._mem = [];
   }
 
   public get(offset: number): MemoryValue {
+    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     return this.getAs<MemoryValue>(offset);
   }
 
@@ -243,16 +241,19 @@ export class TaggedMemory {
 
   public getSlice(offset: number, size: number): MemoryValue[] {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size);
   }
 
   public getSliceAs<T>(offset: number, size: number): T[] {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size) as T[];
   }
 
   public getSliceTags(offset: number, size: number): TypeTag[] {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size).map(TaggedMemory.getTag);
   }
 
@@ -263,6 +264,11 @@ export class TaggedMemory {
 
   public setSlice(offset: number, vs: MemoryValue[]) {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + vs.length < TaggedMemory.MAX_MEMORY_SIZE);
+    // We may need to extend the memory size, otherwise splice doesn't insert.
+    if (offset + vs.length > this._mem.length) {
+      this._mem.length = offset + vs.length;
+    }
     this._mem.splice(offset, vs.length, ...vs);
   }
 
@@ -275,7 +281,13 @@ export class TaggedMemory {
    */
   public checkTag(tag: TypeTag, offset: number) {
     if (this.getTag(offset) !== tag) {
-      throw new TagCheckError(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+    }
+  }
+
+  public static checkIsIntegralTag(tag: TypeTag) {
+    if (![TypeTag.UINT8, TypeTag.UINT16, TypeTag.UINT32, TypeTag.UINT64, TypeTag.UINT128].includes(tag)) {
+      throw TagCheckError.forTag(TypeTag[tag], 'integral');
     }
   }
 

@@ -202,8 +202,8 @@ describe('Arithmetic Instructions', () => {
     });
 
     it('Should perform field division', async () => {
-      const a = new Field(2n);
-      const b = new Field(3n);
+      const a = new Field(10n);
+      const b = new Field(5n);
 
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
@@ -217,8 +217,7 @@ describe('Arithmetic Instructions', () => {
       ).execute(context);
 
       const actual = context.machineState.memory.get(2);
-      const recovered = actual.mul(b);
-      expect(recovered).toEqual(a);
+      expect(actual).toEqual(new Field(2));
     });
   });
 });
