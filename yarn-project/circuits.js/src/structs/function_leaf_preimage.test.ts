@@ -17,7 +17,11 @@ describe('FunctionLeafPreimage', () => {
   });
 
   it('computes a function leaf', () => {
-    const res = leaf.hash();
-    expect(res).toMatchSnapshot();
+    const emptyLeaf = new FunctionLeafPreimage(new FunctionSelector(0), false, false, Fr.ZERO, Fr.ZERO);
+    const hash = emptyLeaf.hash();
+    expect(hash).toMatchSnapshot();
+
+    // Value used in empty_hash test in function_leaf_preimage.nr
+    // console.log("hash", hash.toString());
   });
 });
