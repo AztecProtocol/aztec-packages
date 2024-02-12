@@ -55,8 +55,7 @@ PROJECTS=(
   noir
   l1-contracts
   avm-transpiler
-  noir-contracts
-  noir-protocol-circuits
+  noir-projects
   yarn-project
 )
 

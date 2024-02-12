@@ -37,23 +37,32 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
-noir-protocol-circuits:
-  buildDir: noir-protocol-circuits
-  rebuildPatterns:
-    - ^noir-protocol-circuits/src
-  dependencies:
-    - noir
+# noir-protocol-circuits:
+#   buildDir: noir-protocol-circuits
+#   rebuildPatterns:
+#     - ^noir-protocol-circuits/src
+#   dependencies:
+#     - noir
 
-noir-contracts:
-  buildDir: noir-contracts
-  reuildPatterns:
-    - ^noir-contracts/contracts
-    - ^noir-contracts/Nargo.toml
-    - ^noir-contracts/Package.json
+# noir-contracts:
+#   buildDir: noir-contracts
+#   reuildPatterns:
+#     - ^noir-contracts/contracts
+#     - ^noir-contracts/Nargo.toml
+#     - ^noir-contracts/Package.json
+#   dependencies:
+#     - noir
+#     - aztec-nr
+#     - noir-protocol-circuits
+#     - avm-transpiler
+
+# aztec-nr:
+#   buildDir: aztec-nr
+
+noir-projects:
+  buildDir: noir-projects
   dependencies:
     - noir
-    - aztec-nr
-    - noir-protocol-circuits
     - avm-transpiler
 
 noir-compile-acir-tests:
@@ -140,9 +149,6 @@ boxes-files:
   buildDir: boxes
   dockerfile: Dockerfile.files
 
-aztec-nr:
-  buildDir: aztec-nr
-
 yarn-project-base:
   buildDir: yarn-project
   projectDir: yarn-project/yarn-project-base
@@ -156,7 +162,7 @@ yarn-project-base:
     - noir-packages
     - boxes-files
     - avm-transpiler
-    - noir-contracts
+    - noir-projects
 
 yarn-project:
   buildDir: yarn-project
@@ -201,7 +207,7 @@ boxes:
   dependencies:
     - aztec
     - noir
-    - aztec-nr
+    - noir-projects
   runDependencies:
     - aztec
 
@@ -229,7 +235,7 @@ docs:
     - ^.*.nr$
   dependencies:
     - yarn-project
-    - aztec-nr
+    - noir-projects
 
 yellow-paper:
   buildDir: yellow-paper
