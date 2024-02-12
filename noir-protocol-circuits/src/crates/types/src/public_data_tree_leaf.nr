@@ -12,7 +12,7 @@ impl Eq for PublicDataTreeLeaf {
     }
 }
 
-impl Empty for PublicDataTreeLeaf  {
+impl Empty for PublicDataTreeLeaf  {    
     fn empty() -> Self {
         Self {
             slot: 0,
