@@ -40,6 +40,14 @@ void compare_with_execution_trace(const auto& proving_key, auto& circuit_builder
 
     info("proving_key_new->w_l.size() = ", proving_key_new->w_l.size());
     info("proving_key->w_l.size() = ", proving_key->w_l.size());
+    info("proving_key_new->q_l.size() = ", proving_key_new->q_l.size());
+    info("proving_key->q_l.size() = ", proving_key->q_l.size());
+
+    // for (size_t idx = 0; idx < proving_key->circuit_size; ++idx) {
+    //     info(idx);
+    //     info("proving_key->q_l[idx] = ", proving_key->q_l[idx]);
+    //     info("proving_key_new->q_l[idx] = ", proving_key_new->q_l[idx]);
+    // }
 
     std::vector<std::string> unequal;
     for (auto [new_poly, poly, label] :

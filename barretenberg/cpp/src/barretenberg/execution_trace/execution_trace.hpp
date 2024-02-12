@@ -125,49 +125,47 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
         auto proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size());
 
         auto trace_blocks = create_execution_trace_blocks(builder);
+        info("Num trace blocks = ", trace_blocks.size());
 
         // Initialization of some stuff
         auto wire_polynomials = proving_key->get_wires();
+        auto selector_polynomials = proving_key->get_selectors();
+        for (auto wire : wire_polynomials) {
+            wire = Polynomial(proving_key->circuit_size);
+        }
+        for (auto selector : selector_polynomials) {
+            selector = Polynomial(proving_key->circuit_size);
+        }
         const size_t number_of_cycles = builder.variables.size(); // Each variable represents one cycle
         std::vector<CyclicPermutation> copy_cycles(number_of_cycles);
 
         uint32_t offset = 0;
+        size_t block_num = 0;
         // For each block in the trace, populate wire polys, copy cycles and selector polys
         for (auto& block : trace_blocks) {
             size_t block_size = block.wires[0].size();
+            info("block num = ", block_num);
+            info("block size = ", block_size);
 
             // Update wire polynomials and copy cycles
             for (uint32_t wire_idx = 0; wire_idx < Builder::NUM_WIRES; ++wire_idx) {
                 for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                    uint32_t wire_val = block.wires[wire_idx][row_idx];
-                    uint32_t var_index = builder.real_variable_index[wire_val];
+                    uint32_t var_idx = block.wires[wire_idx][row_idx];
+                    uint32_t real_var_idx = builder.real_variable_index[var_idx];
 
-                    wire_polynomials[wire_idx][row_idx + offset] = builder.get_variable(wire_val);
-                    copy_cycles[var_index].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                    wire_polynomials[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
+                    copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
                 }
             }
 
             // Update selector polynomials
-            // WORKTODO: why cant we just set the values of the polys in the key directly like the wires?
-            info("proving_key->get_selectors().size() = ", proving_key->get_selectors().size());
-            info("builder.selectors.get().size() = ", builder.selectors.get().size());
-            // for (auto [poly, selector_values] :
-            //      zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_selectors(), builder.selectors.get())) {
-            //     // Polynomial selector_poly_lagrange(proving_key->circuit_size);
-            //     for (size_t row_idx = 0; row_idx < selector_values.size(); ++row_idx) {
-            //         poly[row_idx + offset] = selector_values[row_idx];
-            //     }
-            //     // poly = selector_poly_lagrange.share();
-            // }
-            for (auto [poly, selector_values] :
-                 zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_selectors(), builder.selectors.get())) {
-                Polynomial selector_poly_lagrange(proving_key->circuit_size);
-                for (size_t row_idx = 0; row_idx < selector_values.size(); ++row_idx) {
-                    selector_poly_lagrange[row_idx + offset] = selector_values[row_idx];
+            for (auto [selector_poly, selector] : zip_view(selector_polynomials, block.selectors.get())) {
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                    selector_poly[row_idx + offset] = selector[row_idx];
                 }
-                poly = selector_poly_lagrange.share();
             }
 
+            block_num++;
             offset += block_size;
         }
 
