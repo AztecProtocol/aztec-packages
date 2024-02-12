@@ -37,7 +37,7 @@ template <typename Builder> struct StdlibTranscriptParams {
     }
     template <typename T> static constexpr size_t calc_num_bn254_frs()
     {
-        return bb::stdlib::field_conversion::calc_num_bn254_frs<T>();
+        return bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
     }
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {

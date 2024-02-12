@@ -44,41 +44,20 @@ template <typename Builder> inline std::array<fr<Builder>, 2> convert_grumpkin_f
  * @tparam T
  * @return constexpr size_t
  */
-template <typename T> constexpr size_t calc_num_bn254_frs();
-
-template <typename Builder> constexpr size_t calc_num_bn254_frs(fr<Builder>* /*unused*/)
+template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
 {
-    return 1;
-}
-
-template <typename Builder> constexpr size_t calc_num_bn254_frs(fq<Builder>* /*unused*/)
-{
-    return 2;
-}
-
-template <typename Builder> constexpr size_t calc_num_bn254_frs(bn254_element<Builder>* /*unused*/)
-{
-    return 2 * calc_num_bn254_frs<fq<Builder>>();
-}
-
-template <typename Builder> constexpr size_t calc_num_bn254_frs(grumpkin_element<Builder>* /*unused*/)
-{
-    return 2 * calc_num_bn254_frs<fr<Builder>>();
-}
-
-template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(std::array<T, N>* /*unused*/)
-{
-    return N * calc_num_bn254_frs<T>();
-}
-
-template <typename T, std::size_t N> constexpr size_t calc_num_bn254_frs(bb::Univariate<T, N>* /*unused*/)
-{
-    return N * calc_num_bn254_frs<T>();
-}
-
-template <typename T> constexpr size_t calc_num_bn254_frs()
-{
-    return calc_num_bn254_frs(static_cast<T*>(nullptr));
+    if constexpr (IsAnyOf<T, fr<Builder>>) {
+        return Bn254FrParams::NUM_BN254_SCALARS;
+    } else if constexpr (IsAnyOf<T, fq<Builder>>) {
+        return Bn254FqParams::NUM_BN254_SCALARS;
+    } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+        return 2 * calc_num_bn254_frs<Builder, fq<Builder>>();
+    } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
+        return 2 * calc_num_bn254_frs<Builder, fr<Builder>>();
+    } else {
+        // Array or Univariate
+        return calc_num_bn254_frs<Builder, typename T::value_type>() * (std::tuple_size<T>::value);
+    }
 }
 
 /**
@@ -90,6 +69,37 @@ template <typename T> constexpr size_t calc_num_bn254_frs()
  * @param fr_vec
  * @return T
  */
+// template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const fr<Builder>> fr_vec)
+// {
+//     if constexpr (IsAnyOf<T, fr<Builder>>) {
+//         ASSERT(fr_vec.size() == 1);
+//         return fr_vec[0];
+//     } else if constexpr (IsAnyOf < T, fq<Builder>) {
+//         ASSERT(fr_vec.size() == 2);
+//         fq<Builder> result(fr_vec[0], fr_vec[1], 0, 0);
+//         return result;
+//     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+//         using BaseField = typename T::Fq;
+//         constexpr size_t BaseFieldScalarSize = calc_num_bn254_frs<BaseField>();
+//         ASSERT(fr_vec.size() == 2 * BaseFieldScalarSize);
+//         T val;
+//         val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BaseFieldScalarSize));
+//         val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BaseFieldScalarSize, BaseFieldScalarSize));
+//         return val;
+//     } else {
+//         // Array or Univariate
+//         T val;
+//         constexpr size_t FieldScalarSize = calc_num_bn254_frs<typename T::value_type>();
+//         ASSERT(fr_vec.size() == FieldScalarSize * std::tuple_size<T>::value);
+//         size_t i = 0;
+//         for (auto& x : val) {
+//             x = convert_from_bn254_frs<typename T::value_type>(fr_vec.subspan(FieldScalarSize * i, FieldScalarSize));
+//             ++i;
+//         }
+//         return val;
+//     }
+// }
+
 template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec);
 
 template <typename Builder>

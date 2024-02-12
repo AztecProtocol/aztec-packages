@@ -21,7 +21,7 @@ template <typename T> constexpr size_t calc_num_bn254_frs()
     if constexpr (IsAnyOf<T, uint32_t, bool>) {
         return 1;
     } else if constexpr (IsAnyOf<T, bb::fr, grumpkin::fr>) {
-        return T::NUM_BN254_SCALARS;
+        return T::Params::NUM_BN254_SCALARS;
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         return 2 * calc_num_bn254_frs<typename T::Fq>();
     } else {

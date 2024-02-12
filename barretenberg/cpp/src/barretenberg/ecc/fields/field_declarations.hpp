@@ -30,9 +30,6 @@ template <class Params_> struct alignas(32) field {
     using out_buf = uint8_t*;
     using vec_out_buf = uint8_t**;
 
-    // Used for conversion to BN254 scalars
-    static constexpr size_t NUM_BN254_SCALARS = Params::NUM_BN254_SCALARS;
-
     // We don't initialize data in the default constructor since we'd lose a lot of time on huge array initializations.
     // Other alternatives have been noted, such as casting to get around constructors where they matter,
     // however it is felt that sanitizer tools (e.g. MSAN) can detect garbage well, whereas doing
