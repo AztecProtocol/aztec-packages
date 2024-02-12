@@ -24,5 +24,11 @@ mod tests;
 
 mod state_reference;
 mod partial_state_reference;
+mod public_data_tree_leaf;
+mod public_data_tree_leaf_preimage;
 
-use abis::kernel_circuit_public_inputs::{ KernelCircuitPublicInputs, KernelCircuitPublicInputsFinal };
+use abis::kernel_circuit_public_inputs::{ 
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
+  PublicKernelCircuitPublicInputs,
+};
