@@ -953,26 +953,8 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         batch_affine_add_internal(&temp_point_vector[0], &lookup_table[j][0]);
     }
 
-    uint64_t wnaf_table[num_rounds * 2];
-    Fr endo_scalar;
-
-    // TODO(AD): We should move away from this hack by adapting split_into_endomorphism_scalars_no_shift
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-    // Split single scalar into 2 scalar in endo form
-    Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
-
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-    bool skew = false;
-    bool endo_skew = false;
-
-    // Construct wnaf forms from scalars
-    wnaf::fixed_wnaf(&endo_scalar.data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
-    wnaf::fixed_wnaf(&endo_scalar.data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
+    detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars_no_shift(converted_scalar);
+    detail::EndomorphismWnaf<element, NUM_ROUNDS> wnaf{ endo_scalars };
 
     std::vector<affine_element> work_elements(num_points);
 
@@ -982,7 +964,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     bool sign = 0;
     // Prepare elements for the first batch addition
     for (size_t j = 0; j < 2; ++j) {
-        wnaf_entry = wnaf_table[j];
+        wnaf_entry = wnaf.table[j];
         index = wnaf_entry & 0x0fffffffU;
         sign = static_cast<bool>((wnaf_entry >> 31) & 1);
         const bool is_odd = ((j & 1) == 1);
@@ -1016,7 +998,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     // Run through SM logic in wnaf form (excluding the skew)
     for (size_t j = 2; j < num_rounds * 2; ++j) {
-        wnaf_entry = wnaf_table[j];
+        wnaf_entry = wnaf.table[j];
         index = wnaf_entry & 0x0fffffffU;
         sign = static_cast<bool>((wnaf_entry >> 31) & 1);
         const bool is_odd = ((j & 1) == 1);
