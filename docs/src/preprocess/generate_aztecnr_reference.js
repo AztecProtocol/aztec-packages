@@ -155,46 +155,50 @@ function generateMarkdown(structs, functions) {
                 markdown += `${escapeHtml(structInfo.description)}\n\n`;
             }
 
-            markdown += `## Fields\n`;
-            markdown += `| Field | Type |\n| --- | --- |\n`;
-            structInfo.fields.forEach(field => {
-                if (field && field.type) {
+            if (structInfo.fields.length > 0) {
+                markdown += `## Fields\n`;
+                markdown += `| Field | Type |\n| --- | --- |\n`;
+                structInfo.fields.forEach(field => {
                     const cleanType = escapeHtml(field.type.replace(/[\[:;,]$/g, '').replace(/^[\[:;,]/g, ''));
                     const fieldName = escapeHtml(field.name.replace(/[:;]/g, ''));
                     markdown += `| ${fieldName} | ${cleanType} |\n`;
-                }
-            });
-            markdown += '\n';
+                });
+                markdown += '\n';
+            }
 
-            // Generate markdown for methods of this struct
+            // Filter methods for this struct
             const methods = functions.filter(f => f.isMethod && f.structName === escapeHtml(structInfo.structName));
             if (methods.length > 0) {
                 markdown += `## Methods\n\n`;
                 methods.forEach(func => {
                     markdown += `### ${escapeHtml(func.name)}\n\n`;
+
+                    // Insert usage code block
+                    const usageParams = func.params.map(param => param.name).join(', ');
+                    markdown += "```rust\n" + `${func.structName}::${func.name}(${usageParams});` + "\n```\n\n";
+
                     if (func.description) {
                         markdown += `${escapeHtml(func.description)}\n\n`;
                     }
-            
+
                     if (func.params.length > 0) {
                         markdown += `#### Parameters\n`;
                         markdown += `| Name | Type |\n| --- | --- |\n`;
                         func.params.forEach(({ name, type }) => {
                             markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
                         });
+                        markdown += '\n';
                     } else {
-                        markdown += `#### Parameters\nTakes no parameters.\n\n`;
+                        markdown += 'Takes no parameters.\n\n';
                     }
-            
+
                     if (func.returnType) {
-                        markdown += `\n#### Returns\n`;
+                        markdown += `#### Returns\n`;
                         markdown += `| Type |\n| --- |\n`;
-                        markdown += `| ${escapeHtml(func.returnType)} |\n`;
+                        markdown += `| ${escapeHtml(func.returnType)} |\n\n`;
                     }
-                    markdown += '\n';
                 });
             }
-            
         }
     });
 
@@ -204,29 +208,37 @@ function generateMarkdown(structs, functions) {
         markdown += `## Standalone Functions\n\n`;
         standaloneFunctions.forEach(func => {
             markdown += `### ${escapeHtml(func.name)}\n\n`;
+
+            // Insert usage code block
+            const usageParams = func.params.map(param => param.name).join(', ');
+            markdown += "```rust\n" + `${func.name}(${usageParams});` + "\n```\n\n";
+
             if (func.description) {
                 markdown += `${escapeHtml(func.description)}\n\n`;
             }
+
             if (func.params.length > 0) {
                 markdown += `#### Parameters\n`;
                 markdown += `| Name | Type |\n| --- | --- |\n`;
                 func.params.forEach(({ name, type }) => {
                     markdown += `| ${escapeHtml(name)} | ${escapeHtml(type)} |\n`;
                 });
+                markdown += '\n';
             } else {
-                markdown += `#### Parameters\nTakes no parameters.\n\n`;
+                markdown += 'Takes no parameters.\n\n';
             }
+
             if (func.returnType) {
-                markdown += `\n#### Returns\n`;
+                markdown += `#### Returns\n`;
                 markdown += `| Type |\n| --- |\n`;
-                markdown += `| ${escapeHtml(func.returnType)} |\n`;
+                markdown += `| ${escapeHtml(func.returnType)} |\n\n`;
             }
-            markdown += '\n';
         });
     }
 
     return markdown;
 }
+
 
 function processFiles(baseDir, outputBaseDir) {
     const nrFiles = listNrFiles(baseDir);
