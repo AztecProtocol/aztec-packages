@@ -330,12 +330,12 @@ template <class Params_> struct alignas(32) field {
         if constexpr (Params::modulus_3 >= 0x4000000000000000ULL) {
             split_into_endomorphism_scalars_384(k, k1, k2);
         } else {
-            std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> ret =
-                split_into_endomorphism_scalars_no_shift(k);
+            std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> ret = split_into_endomorphism_scalars(k);
             k1.data[0] = ret.first[0];
             k1.data[1] = ret.first[1];
 
-            // TODO(AD): We should move away from this hack by adapting split_into_endomorphism_scalars_no_shift
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): We should move away from this hack by
+            // returning pair of uint64_t[2] instead of a half-set field
 #if !defined(__clang__) && defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
@@ -348,8 +348,10 @@ template <class Params_> struct alignas(32) field {
         }
     }
 
-    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars_no_shift(
-        const field& k)
+    // NOTE: this form is only usable if the modulus is not a 256-bit integer, otherwise see
+    // split_into_endomorphism_scalars_384.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
+    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
     {
         static_assert(Params::modulus_3 < 0x4000000000000000ULL);
         field input = k.reduce_once();

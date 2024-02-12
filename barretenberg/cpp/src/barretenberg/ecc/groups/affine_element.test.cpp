@@ -132,7 +132,9 @@ TEST(AffineElement, Msgpack)
 }
 
 namespace bb::group_elements {
-// Kludge to access mul_without_endomorphism;
+// mul_with_endomorphism and mul_without_endomorphism are private in affine_element.
+// We could make those public to test or create other public utilities, but to keep the API intact we
+// instead mark TestElementPrivate as a friend class so that our test functions can have access.
 class TestElementPrivate {
   public:
     template <typename Element, typename Scalar>
@@ -148,7 +150,8 @@ class TestElementPrivate {
 };
 } // namespace bb::group_elements
 
-TEST(AffineElement, EndoMulMatchesNonEndo)
+// Our endomorphism-specialized multiplication should match our generic multiplication
+TEST(AffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 {
     for (int i = 0; i < 100; i++) {
         auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());
@@ -159,19 +162,23 @@ TEST(AffineElement, EndoMulMatchesNonEndo)
     }
 }
 
-TEST(AffineElement, InfinityMul)
+// Multiplication of a point at infinity by a scalar should be a point at infinity
+TEST(AffineElement, InfinityMulByScalarIsInfinity)
 {
     auto result = grumpkin::g1::affine_element::infinity() * grumpkin::fr::random_element();
     EXPECT_TRUE(result.is_point_at_infinity());
 }
 
-TEST(AffineElement, BatchMulMatchesMul)
+// Batched multiplication of points should match
+TEST(AffineElement, BatchMulMatchesNonBatchMul)
 {
-    constexpr size_t num_points = 1024;
+    constexpr size_t num_points = 512;
     std::vector<grumpkin::g1::affine_element> affine_points;
-    for (size_t i = 0; i < num_points; ++i) {
+    for (size_t i = 0; i < num_points - 1; ++i) {
         affine_points.emplace_back(grumpkin::g1::affine_element::random_element());
     }
+    // Include a point at infinity to test the mixed infinity + non-infinity case
+    affine_points.emplace_back(grumpkin::g1::affine_element::infinity());
     grumpkin::fr exponent = grumpkin::fr::random_element();
     std::vector<grumpkin::g1::affine_element> result =
         grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, exponent);
@@ -182,7 +189,8 @@ TEST(AffineElement, BatchMulMatchesMul)
     }
 }
 
-TEST(AffineElement, InfinityBatchMul)
+// Batched multiplication of a point at infinity by a scalar should result in points at infinity
+TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
 {
     constexpr size_t num_points = 1024;
     std::vector<grumpkin::g1::affine_element> affine_points;

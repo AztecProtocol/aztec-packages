@@ -595,9 +595,9 @@ element<Fq, Fr, T> element<Fq, Fr, T>::random_element(numeric::RNG* engine) noex
 }
 
 template <class Fq, class Fr, class T>
-element<Fq, Fr, T> element<Fq, Fr, T>::mul_without_endomorphism(const Fr& exponent) const noexcept
+element<Fq, Fr, T> element<Fq, Fr, T>::mul_without_endomorphism(const Fr& scalar) const noexcept
 {
-    const uint256_t converted_scalar(exponent);
+    const uint256_t converted_scalar(scalar);
 
     if (converted_scalar == 0) {
         return element::infinity();
@@ -617,30 +617,49 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_without_endomorphism(const Fr& expone
 }
 
 namespace detail {
+// Represents the result of
 using EndoScalars = std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>>;
+
+/**
+ * @brief Handles the WNAF computation for scalars that are split using an endomorphism,
+ * achieved through `split_into_endomorphism_scalars`. It facilitates efficient computation of elliptic curve
+ * point multiplication by optimizing the representation of these scalars.
+ *
+ * @tparam Element The data type of elements in the elliptic curve.
+ * @tparam NUM_ROUNDS The number of computation rounds for WNAF.
+ */
 template <typename Element, std::size_t NUM_ROUNDS> struct EndomorphismWnaf {
-
+    // NUM_WNAF_BITS: Number of bits per window in the WNAF representation.
     static constexpr size_t NUM_WNAF_BITS = 4;
-
+    // table: Stores the WNAF representation of the scalars.
     std::array<uint64_t, NUM_ROUNDS * 2> table;
+    // skew and endo_skew: Indicate if our original scalar is even or odd.
     bool skew = false;
     bool endo_skew = false;
 
+    /**
+     * @param scalars A pair of 128-bit scalars (as two uint64_t arrays), split using an endomorphism.
+     */
     EndomorphismWnaf(const EndoScalars& scalars)
     {
         wnaf::fixed_wnaf(&scalars.first[0], &table[0], skew, 0, 2, NUM_WNAF_BITS);
         wnaf::fixed_wnaf(&scalars.second[0], &table[1], endo_skew, 0, 2, NUM_WNAF_BITS);
     }
 };
+
 } // namespace detail
 
 template <class Fq, class Fr, class T>
-element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent) const noexcept
+element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& scalar) const noexcept
 {
+    // Consider the infinity flag, return infinity if set
+    if (is_point_at_infinity()) {
+        return element::infinity();
+    }
     constexpr size_t NUM_ROUNDS = 32;
-    const Fr converted_scalar = exponent.from_montgomery_form();
+    const Fr converted_scalar = scalar.from_montgomery_form();
 
-    if (converted_scalar.is_zero() || is_point_at_infinity()) {
+    if (converted_scalar.is_zero()) {
         return element::infinity();
     }
     static constexpr size_t LOOKUP_SIZE = 8;
@@ -652,7 +671,7 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent)
         lookup_table[i] = lookup_table[i - 1] + d2;
     }
 
-    detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars_no_shift(converted_scalar);
+    detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
     detail::EndomorphismWnaf<element, NUM_ROUNDS> wnaf{ endo_scalars };
     element accumulator{ T::one_x, T::one_y, Fq::one() };
     accumulator.self_set_infinity();
@@ -771,18 +790,18 @@ void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr,
 }
 
 /**
- * @brief Multiply each point by the same exponent
+ * @brief Multiply each point by the same scalar
  *
- * @details We use the fact that all points are being multiplied by the same exponent to batch the operations (perform
+ * @details We use the fact that all points are being multiplied by the same scalar to batch the operations (perform
  * batch affine additions and doublings with batch inversion trick)
  *
  * @param points The span of individual points that need to be scaled
- * @param exponent The scalar we multiply all the points by
+ * @param scalar The scalar we multiply all the points by
  * @return std::vector<affine_element<Fq, Fr, T>> Vector of new points where each point is exponent⋅points[i]
  */
 template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
-    const std::span<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
+    const std::span<affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
 {
     BB_OP_COUNT_TIME();
     typedef affine_element<Fq, Fr, T> affine_element;
@@ -883,7 +902,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*finite_field_multiplications_per_iteration=*/6);
     };
     // Compute wnaf for scalar
-    const Fr converted_scalar = exponent.from_montgomery_form();
+    const Fr converted_scalar = scalar.from_montgomery_form();
 
     // If the scalar is zero, just set results to the point at infinity
     if (converted_scalar.is_zero()) {
@@ -953,7 +972,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         batch_affine_add_internal(&temp_point_vector[0], &lookup_table[j][0]);
     }
 
-    detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars_no_shift(converted_scalar);
+    detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
     detail::EndomorphismWnaf<element, NUM_ROUNDS> wnaf{ endo_scalars };
 
     std::vector<affine_element> work_elements(num_points);
