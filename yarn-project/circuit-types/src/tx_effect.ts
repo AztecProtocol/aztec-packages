@@ -1,8 +1,5 @@
+import { ContractData, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
 import { Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
-
-import { ContractData } from './contract_data.js';
-import { TxL2Logs } from './logs/tx_l2_logs.js';
-import { PublicDataWrite } from './public_data_write.js';
 
 export class TxEffect {
   constructor(

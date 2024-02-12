@@ -1,3 +1,4 @@
+import { ContractData } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   Header,
@@ -16,7 +17,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ContractData } from './contract_data.js';
 import { L2Tx } from './l2_tx.js';
 import { LogType, TxL2Logs } from './logs/index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
