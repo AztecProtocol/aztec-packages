@@ -1,6 +1,6 @@
 import { FeeOptions } from '@aztec/aztec.js/account';
+import { Fr } from '@aztec/aztec.js/fields';
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
