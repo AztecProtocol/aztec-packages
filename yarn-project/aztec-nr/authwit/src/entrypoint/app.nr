@@ -1,9 +1,5 @@
 use dep::aztec::context::PrivateContext;
-use dep::aztec::protocol_types::{
-  constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
-  hash::pedersen_hash,
-  traits::{Hash, Serialize}
-};
+use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
 
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
@@ -44,34 +40,30 @@ impl Hash for AppPayload {
 }
 
 impl AppPayload {
-  // Serializes the payload as an array of bytes. Useful for hashing with sha256.
-  fn to_be_bytes(self) -> [u8; APP_PAYLOAD_SIZE_IN_BYTES] {
-    let mut bytes: BoundedVec<u8, APP_PAYLOAD_SIZE_IN_BYTES> = BoundedVec::new(0);
+    // Serializes the payload as an array of bytes. Useful for hashing with sha256.
+    fn to_be_bytes(self) -> [u8; APP_PAYLOAD_SIZE_IN_BYTES] {
+        let mut bytes: BoundedVec<u8, APP_PAYLOAD_SIZE_IN_BYTES> = BoundedVec::new(0);
 
-    for i in 0..ACCOUNT_MAX_CALLS {
-      bytes.extend_from_array(self.function_calls[i].to_be_bytes());
-    }
-    bytes.extend_from_array(self.nonce.to_be_bytes(32));
-
-    bytes.storage
-  }
-
-  // Executes all private and public calls
-  // docs:start:entrypoint-execute-calls
-  fn execute_calls(self, context: &mut PrivateContext) {
-    for call in self.function_calls {
-      if !call.target_address.is_zero() {
-        if call.is_public {
-          context.call_public_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash
-          );
-        } else {
-          let _result = context.call_private_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash
-          );
+        for i in 0..ACCOUNT_MAX_CALLS {
+            bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-      }
+        bytes.extend_from_array(self.nonce.to_be_bytes(32));
+
+        bytes.storage
     }
-  }
-  // docs:end:entrypoint-execute-calls
+
+    // Executes all private and public calls
+    // docs:start:entrypoint-execute-calls
+    fn execute_calls(self, context: &mut PrivateContext) {
+        for call in self.function_calls {
+            if !call.target_address.is_zero() {
+                if call.is_public {
+                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash);
+                } else {
+                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash);
+                }
+            }
+        }
+    }
+    // docs:end:entrypoint-execute-calls
 }

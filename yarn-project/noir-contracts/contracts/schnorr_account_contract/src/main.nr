@@ -13,9 +13,8 @@ contract SchnorrAccount {
         oracle::get_public_key::get_public_key, state_vars::immutable_singleton::ImmutableSingleton
     };
     use dep::authwit::{
-        entrypoint::{app::AppPayload, fee::FeePayload},
-        account::AccountActions,
-        auth_witness::get_auth_witness,
+        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
+        auth_witness::get_auth_witness
     };
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};

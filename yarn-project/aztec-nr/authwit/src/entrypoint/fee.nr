@@ -1,9 +1,5 @@
 use dep::aztec::context::PrivateContext;
-use dep::aztec::protocol_types::{
-  constants::GENERATOR_INDEX__FEE_PAYLOAD,
-  hash::pedersen_hash,
-  traits::{Hash, Serialize}
-};
+use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
 use crate::entrypoint::function_call::{FunctionCall};
 
 // 2 * 4 (function call) + 1
@@ -43,31 +39,27 @@ impl Hash for FeePayload {
 }
 
 impl FeePayload {
-  fn to_be_bytes(self) -> [u8; FEE_PAYLOAD_SIZE_IN_BYTES] {
-    let mut bytes: BoundedVec<u8, FEE_PAYLOAD_SIZE_IN_BYTES> = BoundedVec::new(0);
+    fn to_be_bytes(self) -> [u8; FEE_PAYLOAD_SIZE_IN_BYTES] {
+        let mut bytes: BoundedVec<u8, FEE_PAYLOAD_SIZE_IN_BYTES> = BoundedVec::new(0);
 
-    for i in 0..MAX_FEE_FUNCTION_CALLS {
-      bytes.extend_from_array(self.function_calls[i].to_be_bytes());
-    }
-    bytes.extend_from_array(self.nonce.to_be_bytes(32));
-
-    bytes.storage
-  }
-
-  fn execute_calls(self, context: &mut PrivateContext) {
-    for call in self.function_calls {
-      if !call.target_address.is_zero() {
-        if call.is_public {
-          context.call_public_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash
-          );
-        } else {
-          let _result = context.call_private_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash
-          );
+        for i in 0..MAX_FEE_FUNCTION_CALLS {
+            bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-      }
+        bytes.extend_from_array(self.nonce.to_be_bytes(32));
+
+        bytes.storage
     }
-  }
+
+    fn execute_calls(self, context: &mut PrivateContext) {
+        for call in self.function_calls {
+            if !call.target_address.is_zero() {
+                if call.is_public {
+                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash);
+                } else {
+                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash);
+                }
+            }
+        }
+    }
 }
 

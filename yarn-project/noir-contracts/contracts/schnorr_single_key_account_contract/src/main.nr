@@ -5,10 +5,7 @@ contract SchnorrSingleKeyAccount {
     use dep::std::{option::Option};
     use dep::aztec::context::{PrivateContext, PublicContext, Context};
 
-    use dep::authwit::{
-        entrypoint::{app::AppPayload, fee::FeePayload},
-        account::AccountActions,
-    };
+    use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 
     use crate::{util::recover_address, auth_oracle::get_auth_witness};
 

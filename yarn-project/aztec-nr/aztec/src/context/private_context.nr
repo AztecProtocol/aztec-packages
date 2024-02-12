@@ -157,7 +157,9 @@ impl PrivateContext {
     }
 
     pub fn capture_max_non_revertible_side_effect_counter(&mut self) {
-        assert(self.max_non_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter");
+        assert(
+            self.max_non_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter"
+        );
         self.max_non_revertible_side_effect_counter = self.side_effect_counter;
     }
 

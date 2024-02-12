@@ -11,10 +11,9 @@ contract EcdsaAccount {
         note::{note_header::NoteHeader, utils as note_utils}, oracle::get_public_key::get_public_key,
         state_vars::immutable_singleton::ImmutableSingleton
     };
-    use dep::authwit:: {
-        entrypoint::{app::AppPayload, fee::FeePayload },
-        account::AccountActions,
-        auth_witness::get_auth_witness,
+    use dep::authwit::{
+        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
+        auth_witness::get_auth_witness
     };
 
     use crate::ecdsa_public_key_note::{EcdsaPublicKeyNote, ECDSA_PUBLIC_KEY_NOTE_LEN};

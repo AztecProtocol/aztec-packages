@@ -53,7 +53,6 @@ impl AccountActions {
         )
     }
 
-
     // docs:start:entrypoint
     pub fn entrypoint(self, app_payload: AppPayload, fee_payload: FeePayload) {
         let valid_fn = self.is_valid_impl;
