@@ -25,10 +25,7 @@ describe('e2e_static_calls', () => {
 
   describe('direct calls', () => {
     it('performs legal private static calls', async () => {
-      await childContract.methods
-        .privateGetValue(42n, wallet.getCompleteAddress().address)
-        .send({ static: true })
-        .wait();
+      await childContract.methods.privateGetValue(42n, wallet.getCompleteAddress().address).simulate({ static: true });
 
       if (isGenerateTestDataEnabled()) {
         {
@@ -61,18 +58,18 @@ describe('e2e_static_calls', () => {
     }, 100_000);
 
     it('performs legal public static calls', async () => {
-      await childContract.methods.pubGetValue(42n).send({ static: true }).wait();
+      await childContract.methods.pubGetValue(42n).simulate({ static: true });
     }, 100_000);
 
     it('fails when performing illegal private static calls', async () => {
       await expect(
-        childContract.methods.privateSetValue(42n, wallet.getCompleteAddress().address).send({ static: true }).wait(),
-      ).rejects.toThrow('Static call cannot create new notes');
+        childContract.methods.privateSetValue(42n, wallet.getCompleteAddress().address).simulate({ static: true }),
+      ).rejects.toThrow('Static call cannot create new notes, emit L2->L1 messages or generate logs');
     }, 100_000);
 
     it('fails when performing illegal public static calls', async () => {
-      await expect(childContract.methods.pubSetValue(42n).send({ static: true }).wait()).rejects.toThrow(
-        'Static call cannot update the state',
+      await expect(childContract.methods.pubSetValue(42n).simulate({ static: true })).rejects.toThrow(
+        'Static call cannot update state, emit L2->L1 messages or generate logs',
       );
     }, 100_000);
   });
@@ -111,7 +108,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot create new notes');
+      ).rejects.toThrow('Static call cannot create new notes, emit L2->L1 messages or generate logs');
     }, 100_000);
 
     it('fails when performing illegal public to public static calls', async () => {
@@ -120,7 +117,7 @@ describe('e2e_static_calls', () => {
           .publicStaticCall(childContract.address, childContract.methods.pubSetValue.selector, [42n])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state');
+      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
     }, 100_000);
 
     it('fails when performing illegal enqueued public static calls', async () => {
@@ -129,7 +126,7 @@ describe('e2e_static_calls', () => {
           .enqueueStaticCallToPubFunction(childContract.address, childContract.methods.pubSetValue.selector, [42n])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state');
+      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
     }, 100_000);
   });
 });

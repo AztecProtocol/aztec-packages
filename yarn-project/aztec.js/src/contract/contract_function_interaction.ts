@@ -47,14 +47,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }
 
   /**
-   * Custom send supporting extended options
-   * @param options - An optional object containing additional configuration for the transaction.
-   * */
-  public send(options: ExecutionRequestOptions = {}) {
-    return super.send(options);
-  }
-
-  /**
    * Custom simulate supporting extended options
    * @param options - An optional object containing additional configuration for the transaction.
    * */

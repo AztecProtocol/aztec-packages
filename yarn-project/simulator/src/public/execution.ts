@@ -156,6 +156,6 @@ export function checkValidStaticCall(
     newL2ToL1Messages.length > 0 ||
     unencryptedLogs.logs.length > 0
   ) {
-    throw new Error('Static call cannot update the state');
+    throw new Error('Static call cannot update the state, emit L2->L1 messages or generate logs');
   }
 }

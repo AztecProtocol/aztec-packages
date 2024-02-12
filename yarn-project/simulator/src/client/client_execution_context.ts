@@ -306,11 +306,13 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
     if (
-      childExecutionResult.newNotes.length > 0 ||
-      childExecutionResult.encryptedLogs.logs.length == 0 ||
-      childExecutionResult.unencryptedLogs.logs.length > 0
+      childExecutionResult.callStackItem.publicInputs.newCommitments.length > 0 ||
+      childExecutionResult.callStackItem.publicInputs.newNullifiers.length > 0 ||
+      childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isZero()) ||
+      !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.isZero() ||
+      !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.isZero()
     ) {
-      throw new Error('Static call cannot create new notes or generate logs');
+      throw new Error('Static call cannot create new notes, emit L2->L1 messages or generate logs');
     }
   }
 
