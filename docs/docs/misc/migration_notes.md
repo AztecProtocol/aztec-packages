@@ -26,18 +26,18 @@ import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 ### [Aztec.nr] aztec-nr contracts location change in Nargo.toml
 
-Aztec contracts are now moved outside of the `yarn-project` folder, so you need to update your imports.
+Aztec contracts are now moved outside of the `yarn-project` folder and into `noir-projects`, so you need to update your imports.
 
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
 ```
 
-Now, just remove the `yarn-project` folder,:
+Now, update the `yarn-project` folder for `noir-projects`:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-contracts/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.24.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
 ```
 
 ## 0.22.0
