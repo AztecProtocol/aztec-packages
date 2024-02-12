@@ -64,7 +64,7 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             Selectors ecc_op_selectors;
             // Note: there is no selector for ecc ops
             ecc_op_selectors.reserve_and_zero(builder.num_ecc_op_gates);
-            trace_blocks.emplace_back(ecc_op_wires, ecc_op_selectors);
+            trace_blocks.emplace_back(ecc_op_wires, ecc_op_selectors, /*is_public_input=*/false, /*is_goblin_op=*/true);
         }
 
         // Make a block for the public inputs
@@ -77,9 +77,7 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             public_input_wires[2].emplace_back(builder.zero_idx);
             public_input_wires[3].emplace_back(builder.zero_idx);
         }
-        TraceBlock pub_input_block{ public_input_wires, public_input_selectors };
-        pub_input_block.is_public_input = true;
-        trace_blocks.emplace_back(pub_input_block);
+        trace_blocks.emplace_back(public_input_wires, public_input_selectors, /*is_public_input=*/true);
 
         // Make a block for the basic wires and selectors
         trace_blocks.emplace_back(builder.wires, builder.selectors);
@@ -172,6 +170,18 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             for (auto [selector_poly, selector] : zip_view(selector_polynomials, block.selectors.get())) {
                 for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                     selector_poly[row_idx + offset] = selector[row_idx];
+                }
+            }
+
+            // WORKTODO: this can go away if we just let the goblin op selector be a normal selector. Actually this
+            // would be a good test case for the concept of gate blocks.
+            if constexpr (IsGoblinFlavor<Flavor>) {
+                if (block.is_goblin_op) {
+                    Polynomial poly{ proving_key->circuit_size };
+                    for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                        poly[row_idx + offset] = 1;
+                    }
+                    proving_key->lagrange_ecc_op = poly.share();
                 }
             }
 
