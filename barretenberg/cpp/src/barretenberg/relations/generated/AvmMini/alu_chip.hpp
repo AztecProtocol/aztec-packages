@@ -7,60 +7,60 @@
 namespace bb::AvmMini_vm {
 
 template <typename FF> struct Alu_chipRow {
-    FF aluChip_alu_u16_r7{};
-    FF aluChip_alu_u16_r1_shift{};
-    FF aluChip_alu_u64_tag{};
-    FF aluChip_alu_u16_r7_shift{};
-    FF aluChip_alu_u8_r0{};
-    FF aluChip_alu_u16_r1{};
+    FF aluChip_alu_ff_tag{};
+    FF aluChip_alu_op_add{};
+    FF aluChip_alu_u16_r3{};
+    FF aluChip_alu_ib{};
+    FF aluChip_alu_u16_r6_shift{};
+    FF aluChip_alu_u64_r0{};
+    FF aluChip_alu_u8_r1{};
+    FF aluChip_alu_u16_tag{};
+    FF aluChip_alu_op_sub{};
+    FF aluChip_alu_ic{};
+    FF aluChip_alu_u128_tag{};
+    FF aluChip_alu_u8_tag{};
+    FF aluChip_alu_u16_r3_shift{};
+    FF aluChip_alu_u16_r2{};
     FF aluChip_alu_u16_r5{};
     FF aluChip_alu_u16_r2_shift{};
-    FF aluChip_alu_u32_tag{};
-    FF aluChip_alu_cf{};
+    FF aluChip_alu_op_mul{};
+    FF aluChip_alu_u16_r1{};
     FF aluChip_alu_ia{};
     FF aluChip_alu_u16_r0{};
-    FF aluChip_alu_ic{};
-    FF aluChip_alu_u16_r3_shift{};
+    FF aluChip_alu_u16_r7_shift{};
+    FF aluChip_alu_u16_r4_shift{};
     FF aluChip_alu_u16_r5_shift{};
     FF aluChip_alu_u16_r4{};
-    FF aluChip_alu_op_mul{};
-    FF aluChip_alu_u16_r3{};
-    FF aluChip_alu_u8_r1{};
-    FF aluChip_alu_op_sub{};
+    FF aluChip_alu_u16_r7{};
+    FF aluChip_alu_u16_r1_shift{};
     FF aluChip_alu_u16_r0_shift{};
-    FF aluChip_alu_u8_tag{};
-    FF aluChip_alu_u16_r4_shift{};
-    FF aluChip_alu_op_add{};
-    FF aluChip_alu_u128_tag{};
-    FF aluChip_alu_u64_r0{};
-    FF aluChip_alu_u16_r2{};
-    FF aluChip_alu_ff_tag{};
-    FF aluChip_alu_u16_tag{};
     FF aluChip_alu_u16_r6{};
-    FF aluChip_alu_u16_r6_shift{};
-    FF aluChip_alu_ib{};
+    FF aluChip_alu_u64_tag{};
+    FF aluChip_alu_u32_tag{};
+    FF aluChip_alu_u8_r0{};
+    FF aluChip_alu_cf{};
 };
 
 inline std::string get_relation_label_alu_chip(int index)
 {
     switch (index) {
-    case 7:
-        return "ALU_ADD_SUB_2";
+    case 6:
+        return "ALU_ADD_SUB_1";
 
     case 13:
         return "ALU_MULTIPLICATION_OUT_U128";
 
-    case 6:
-        return "ALU_ADD_SUB_1";
+    case 10:
+        return "ALU_MUL_COMMON_2";
 
-    case 9:
-        return "ALU_MUL_COMMON_1";
+    case 7:
+        return "ALU_ADD_SUB_2";
 
     case 8:
         return "ALU_MULTIPLICATION_FF";
 
-    case 10:
-        return "ALU_MUL_COMMON_2";
+    case 9:
+        return "ALU_MUL_COMMON_1";
     }
     return std::to_string(index);
 }

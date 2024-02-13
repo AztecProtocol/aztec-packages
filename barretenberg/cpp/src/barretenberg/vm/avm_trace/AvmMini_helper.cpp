@@ -14,59 +14,67 @@ void log_avmMini_trace(std::vector<Row> const& trace, size_t beg, size_t end)
     info("Built circuit with ", trace.size(), " rows");
 
     for (size_t i = beg; i < end; i++) {
-        info("=====================================================================================");
+        Row row = trace.at(i);
+        // info("=====================================================================================");
         info("==        ROW       ", i);
-        info("=====================================================================================");
+        // info("=====================================================================================");
 
-        info("=======MEMORY TRACE==================================================================");
-        info("m_addr:             ", trace.at(i).memTrace_m_addr);
-        info("m_clk:              ", trace.at(i).memTrace_m_clk);
-        info("m_sub_clk:          ", trace.at(i).memTrace_m_sub_clk);
-        info("m_val:              ", trace.at(i).memTrace_m_val);
-        info("m_rw:               ", trace.at(i).memTrace_m_rw);
-        info("m_tag:              ", trace.at(i).memTrace_m_tag);
-        info("m_in_tag:           ", trace.at(i).memTrace_m_in_tag);
-        info("m_tag_err:          ", trace.at(i).memTrace_m_tag_err);
-        info("m_one_min_inv:      ", trace.at(i).memTrace_m_one_min_inv);
+        // info("=======MEMORY TRACE==================================================================");
+        info("m_trace_m_tag_err:             ", row.memTrace_m_tag_err);
+        info("m_clk:                         ", row.memTrace_m_clk);
+        info("");
+        info("tag err:                       ", row.avmMini_tag_err);
+        info("clk:                           ", row.avmMini_clk);
+        // info("m_tag_err_trace_counts:        ", row.equiv_tag_err_counts);
 
-        info("m_lastAccess:       ", trace.at(i).memTrace_m_lastAccess);
-        info("m_last:             ", trace.at(i).memTrace_m_last);
-        info("m_val_shift:        ", trace.at(i).memTrace_m_val_shift);
+        // info("m_addr:             ", row.memTrace_m_addr);
+        // info("m_clk:              ", row.memTrace_m_clk);
+        // info("m_sub_clk:          ", row.memTrace_m_sub_clk);
+        // info("m_val:              ", row.memTrace_m_val);
+        // info("m_rw:               ", row.memTrace_m_rw);
+        // info("m_tag:              ", row.memTrace_m_tag);
+        // info("m_in_tag:           ", row.memTrace_m_in_tag);
+        // info("m_tag_err:          ", row.memTrace_m_tag_err);
+        // info("m_one_min_inv:      ", row.memTrace_m_one_min_inv);
 
-        info("=======CONTROL_FLOW===================================================================");
-        info("pc:                 ", trace.at(i).avmMini_pc);
-        info("internal_call:      ", trace.at(i).avmMini_sel_internal_call);
-        info("internal_return:    ", trace.at(i).avmMini_sel_internal_return);
-        info("internal_return_ptr:", trace.at(i).avmMini_internal_return_ptr);
+        // info("m_lastAccess:       ", row.memTrace_m_lastAccess);
+        // info("m_last:             ", row.memTrace_m_last);
+        // info("m_val_shift:        ", row.memTrace_m_val_shift);
 
-        info("=======ALU TRACE=====================================================================");
-        info("alu_clk             ", trace.at(i).aluChip_alu_clk);
-        info("alu_ia              ", trace.at(i).aluChip_alu_ia);
-        info("alu_ib              ", trace.at(i).aluChip_alu_ib);
-        info("alu_ic              ", trace.at(i).aluChip_alu_ic);
+        // info("=======CONTROL_FLOW===================================================================");
+        // info("pc:                 ", row.avmMini_pc);
+        // info("internal_call:      ", row.avmMini_sel_internal_call);
+        // info("internal_return:    ", row.avmMini_sel_internal_return);
+        // info("internal_return_ptr:", row.avmMini_internal_return_ptr);
 
-        info("=======MAIN TRACE====================================================================");
-        info("ia:                 ", trace.at(i).avmMini_ia);
-        info("ib:                 ", trace.at(i).avmMini_ib);
-        info("ic:                 ", trace.at(i).avmMini_ic);
-        info("first:              ", trace.at(i).avmMini_first);
-        info("last:               ", trace.at(i).avmMini_last);
+        // info("=======ALU TRACE=====================================================================");
+        // info("alu_clk             ", row.aluChip_alu_clk);
+        // info("alu_ia              ", row.aluChip_alu_ia);
+        // info("alu_ib              ", row.aluChip_alu_ib);
+        // info("alu_ic              ", row.aluChip_alu_ic);
 
-        info("=======MEM_OP_A======================================================================");
-        info("clk:                ", trace.at(i).avmMini_clk);
-        info("mem_op_a:           ", trace.at(i).avmMini_mem_op_a);
-        info("mem_idx_a:          ", trace.at(i).avmMini_mem_idx_a);
-        info("rwa:                ", trace.at(i).avmMini_rwa);
+        // info("=======MAIN TRACE====================================================================");
+        // info("clk:                ", row.avmMini_clk);
+        // info("ia:                 ", row.avmMini_ia);
+        // info("ib:                 ", row.avmMini_ib);
+        // info("ic:                 ", row.avmMini_ic);
+        // info("first:              ", row.avmMini_first);
+        // info("last:               ", row.avmMini_last);
 
-        info("=======MEM_OP_B======================================================================");
-        info("mem_op_b:           ", trace.at(i).avmMini_mem_op_b);
-        info("mem_idx_b:          ", trace.at(i).avmMini_mem_idx_b);
-        info("rwb:                ", trace.at(i).avmMini_rwb);
+        // info("=======MEM_OP_A======================================================================");
+        // info("mem_op_a:           ", row.avmMini_mem_op_a);
+        // info("mem_idx_a:          ", row.avmMini_mem_idx_a);
+        // info("rwa:                ", row.avmMini_rwa);
 
-        info("=======MEM_OP_C======================================================================");
-        info("mem_op_c:           ", trace.at(i).avmMini_mem_op_c);
-        info("mem_idx_c:          ", trace.at(i).avmMini_mem_idx_c);
-        info("rwc:                ", trace.at(i).avmMini_rwc);
+        // info("=======MEM_OP_B======================================================================");
+        // info("mem_op_b:           ", row.avmMini_mem_op_b);
+        // info("mem_idx_b:          ", row.avmMini_mem_idx_b);
+        // info("rwb:                ", row.avmMini_rwb);
+
+        // info("=======MEM_OP_C======================================================================");
+        // info("mem_op_c:           ", row.avmMini_mem_op_c);
+        // info("mem_idx_c:          ", row.avmMini_mem_idx_c);
+        // info("rwc:                ", row.avmMini_rwc);
         info("\n");
     }
 }

@@ -73,11 +73,19 @@ bool ToyVerifier::verify_proof(const HonkProof& proof)
     commitments.toy_q_xor = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_q_xor);
     commitments.toy_q_xor_table =
         transcript->template receive_from_prover<Commitment>(commitment_labels.toy_q_xor_table);
+    commitments.toy_q_err = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_q_err);
+    commitments.toy_q_err_check =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.toy_q_err_check);
+    commitments.toy_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_clk);
+    commitments.toy_m_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_m_clk);
     commitments.two_column_perm =
         transcript->template receive_from_prover<Commitment>(commitment_labels.two_column_perm);
     commitments.lookup_xor = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_xor);
+    commitments.lookup_err = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_err);
     commitments.lookup_xor_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_xor_counts);
+    commitments.lookup_err_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_err_counts);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);

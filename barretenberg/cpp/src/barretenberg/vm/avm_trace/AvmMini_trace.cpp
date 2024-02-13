@@ -44,6 +44,9 @@ void AvmMiniTraceBuilder::add(uint32_t a_offset, uint32_t b_offset, uint32_t dst
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
+    info(clk);
+    info("");
+
     // Reading from memory and loading into ia resp. ib.
     auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
@@ -578,6 +581,13 @@ void AvmMiniTraceBuilder::internal_return()
     internal_return_ptr--;
 }
 
+void AvmMiniTraceBuilder::add_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts)
+{
+    for (auto const& [clk, count] : tag_err_lookup_counts) {
+        main_trace.at(clk).equiv_tag_err_counts = count;
+    }
+}
+
 /**
  * @brief Finalisation of the memory trace and incorporating it to the main trace.
  *        In particular, sorting the memory trace, setting .m_lastAccess and
@@ -593,6 +603,9 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
     size_t mem_trace_size = mem_trace.size();
     size_t main_trace_size = main_trace.size();
     size_t alu_trace_size = alu_trace.size();
+
+    // Get tag_err counts from the mem_trace_builder
+    this->add_lookup_counts(mem_trace_builder.m_tag_err_lookup_counts);
 
     // TODO: We will have to handle this through error handling and not an assertion
     // Smaller than N because we have to add an extra initial row to support shifted

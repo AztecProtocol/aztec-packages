@@ -161,6 +161,8 @@ bool AvmMiniVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_mem_idx_c);
     commitments.avmMini_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_last);
     commitments.equiv_tag_err = transcript->template receive_from_prover<Commitment>(commitment_labels.equiv_tag_err);
+    commitments.equiv_tag_err_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.equiv_tag_err_counts);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);

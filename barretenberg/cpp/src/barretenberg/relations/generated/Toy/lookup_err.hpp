@@ -23,7 +23,7 @@ namespace bb {
  * FF>>;)`
  *
  */
-class equiv_tag_err_lookup_settings {
+class lookup_err_lookup_settings {
   public:
     /**
      * @brief The number of read terms (how many lookups we perform) in each row
@@ -87,7 +87,7 @@ class equiv_tag_err_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.memTrace_m_tag_err == 1 || in.avmMini_tag_err == 1);
+        return (in.toy_q_err_check == 1 || in.toy_q_err == 1);
     }
 
     /**
@@ -104,8 +104,8 @@ class equiv_tag_err_lookup_settings {
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.memTrace_m_tag_err);
-        const auto is_table_entry = View(in.avmMini_tag_err);
+        const auto is_operation = View(in.toy_q_err_check);
+        const auto is_table_entry = View(in.toy_q_err);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -133,12 +133,8 @@ class equiv_tag_err_lookup_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.equiv_tag_err,
-                                     in.equiv_tag_err_counts,
-                                     in.memTrace_m_tag_err,
-                                     in.avmMini_tag_err,
-                                     in.memTrace_m_clk,
-                                     in.avmMini_clk);
+        return std::forward_as_tuple(
+            in.lookup_err, in.lookup_err_counts, in.toy_q_err_check, in.toy_q_err, in.toy_m_clk, in.toy_clk);
     }
 
     /**
@@ -151,16 +147,12 @@ class equiv_tag_err_lookup_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.equiv_tag_err,
-                                     in.equiv_tag_err_counts,
-                                     in.memTrace_m_tag_err,
-                                     in.avmMini_tag_err,
-                                     in.memTrace_m_clk,
-                                     in.avmMini_clk);
+        return std::forward_as_tuple(
+            in.lookup_err, in.lookup_err_counts, in.toy_q_err_check, in.toy_q_err, in.toy_m_clk, in.toy_clk);
     }
 };
 
-template <typename FF_> using equiv_tag_err_relation = GenericLookupRelation<equiv_tag_err_lookup_settings, FF_>;
-template <typename FF_> using equiv_tag_err = GenericLookup<equiv_tag_err_lookup_settings, FF_>;
+template <typename FF_> using lookup_err_relation = GenericLookupRelation<lookup_err_lookup_settings, FF_>;
+template <typename FF_> using lookup_err = GenericLookup<lookup_err_lookup_settings, FF_>;
 
 } // namespace bb

@@ -187,6 +187,7 @@ namespace avmMini(256);
     // Inter-table Constraints
     
     #[equiv_tag_err]
-    tag_err {clk} is memTrace.m_tag_err {memTrace.m_clk};
+    memTrace.m_tag_err {memTrace.m_clk} in tag_err {clk};
+
     // TODO: Map memory trace with intermediate register values whenever there is no tag error, sthg like:
     // mem_op_a * (1 - tag_err) {mem_idx_a, clk, ia, rwa} IS m_sub_clk == 0 && 1 - m_tag_err {m_addr, m_clk, m_val, m_rw}

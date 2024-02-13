@@ -10,6 +10,7 @@ namespace tests_avm {
  */
 void validate_trace_proof(std::vector<Row>&& trace)
 {
+
     auto circuit_builder = AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
@@ -18,17 +19,15 @@ void validate_trace_proof(std::vector<Row>&& trace)
     auto composer = AvmMiniComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();
-    info("proof created");
 
     auto verifier = composer.create_verifier(circuit_builder);
     bool verified = verifier.verify_proof(proof);
-    info("proof verified");
 
     EXPECT_TRUE(verified);
 
-    // if (!verified) {
-    //     avm_trace::log_avmMini_trace(circuit_builder.rows, 0, 10);
-    // }
+    if (!verified) {
+        avm_trace::log_avmMini_trace(circuit_builder.rows, 1, 10);
+    }
 };
 
 /**
