@@ -47,13 +47,13 @@ export class Tx {
      */
     public readonly newContracts: Tuple<ExtendedContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
   ) {
-    if (this.unencryptedLogs.functionLogs.length < this.encryptedLogs.functionLogs.length) {
+    if (this.unencryptedLogs.allFunctionLogs.length < this.encryptedLogs.allFunctionLogs.length) {
       // This check is present because each private function invocation creates encrypted FunctionL2Logs object and
       // both public and private function invocations create unencrypted FunctionL2Logs object. Hence "num unencrypted"
       // >= "num encrypted".
       throw new Error(
-        `Number of function logs in unencrypted logs (${this.unencryptedLogs.functionLogs.length}) has to be equal
-        or larger than number function logs in encrypted logs (${this.encryptedLogs.functionLogs.length})`,
+        `Number of function logs in unencrypted logs (${this.unencryptedLogs.allFunctionLogs.length}) has to be equal
+        or larger than number function logs in encrypted logs (${this.encryptedLogs.allFunctionLogs.length})`,
       );
     }
 

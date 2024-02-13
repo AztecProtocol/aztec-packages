@@ -14,7 +14,7 @@ type BlockContext = {
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
-export class BlockStore {
+export class BlockBodyStore {
   /** Map block number to block data */
   #blocks: AztecMap<number, BlockContext>;
 
@@ -54,7 +54,7 @@ export class BlockStore {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         }
 
-        for (const [i, contractData] of block.body.txEffects.flatMap(txEffect => txEffect.contractData).entries()) {
+        for (const [i, contractData] of block.newContractData.entries()) {
           if (contractData.contractAddress.isZero()) {
             continue;
           }

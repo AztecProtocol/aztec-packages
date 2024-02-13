@@ -131,8 +131,7 @@ export class Synchronizer {
 
       // attach logs to blocks
       blocks.forEach((block, i) => {
-        block.attachLogs(encryptedLogs[i], LogType.ENCRYPTED);
-        block.attachLogs(unencryptedLogs[i], LogType.UNENCRYPTED);
+        block.attachLogs(encryptedLogs[i], unencryptedLogs[i]);
       });
 
       // Wrap blocks in block contexts & only keep those that match our query

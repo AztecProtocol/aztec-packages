@@ -154,7 +154,7 @@ export class L1Publisher implements L2BlockReceiver {
       return false;
     }
 
-    const encodedBody = block.bodyToBuffer();
+    const encodedBody = block.body.toBuffer(true);
 
     // Publish block transaction effects
     while (!this.interrupted) {
@@ -193,7 +193,7 @@ export class L1Publisher implements L2BlockReceiver {
     const processTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      txsHash: block.getCalldataHash(),
+      txsHash: block.body.getCalldataHash(),
       body: encodedBody,
       proof: Buffer.alloc(0),
     };

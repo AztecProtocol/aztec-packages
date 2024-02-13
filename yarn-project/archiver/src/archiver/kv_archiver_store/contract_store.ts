@@ -77,7 +77,8 @@ export class ContractStore {
     }
 
     const block = this.#blockStore.getBlock(blockNumber);
-    return block?.newContractData[index];
+    // Assuming each txEffect only has one contract
+    return block?.body.txEffects[index].contractData[0];
   }
 
   /**
@@ -88,6 +89,6 @@ export class ContractStore {
    */
   getContractDataInBlock(blockNumber: number): ContractData[] {
     const block = this.#blockStore.getBlock(blockNumber);
-    return block?.newContractData ?? [];
+    return block?.body.txEffects.flatMap(txEffect => txEffect.contractData) ?? [];
   }
 }

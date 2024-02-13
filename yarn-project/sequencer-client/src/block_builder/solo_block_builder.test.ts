@@ -2,11 +2,12 @@ import {
   ContractData,
   ExtendedContractData,
   L2Block,
-  L2BlockL2Logs,
+  L2BlockBody,
   MerkleTreeId,
   PublicDataWrite,
   Tx,
-  TxL2Logs,
+  TxEffect,
+  TxEffectLogs,
   makeEmptyLogs,
   mockTx,
 } from '@aztec/circuit-types';
@@ -214,38 +215,31 @@ describe('sequencer/solo_block_builder', () => {
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
 
-    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
-    const newContractData = txs
-      .flatMap(tx => tx.data.end.newContracts)
-      .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
-    const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+    const txEffects = txs.map(
+      tx =>
+        new TxEffect(
+          tx.data.end.newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
+          tx.data.end.newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
+          tx.data.end.newL2ToL1Msgs,
+          tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+          tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
+          tx.data.end.newContracts.map(n => new ContractData(n.contractAddress, n.portalContractAddress)),
+          new TxEffectLogs(tx.encryptedLogs, tx.unencryptedLogs),
+        ),
     );
-    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
-    const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
-    const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
 
+    const body = new L2BlockBody(mockL1ToL2Messages, txEffects);
     // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
     const l2Block = L2Block.fromFields({
       archive: AppendOnlyTreeSnapshot.zero(),
       header: Header.empty(),
       // Only the values below go to body hash/calldata hash
-      newCommitments: newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
-      newNullifiers: newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
-      newContracts,
-      newContractData,
-      newPublicDataWrites,
-      newL1ToL2Messages: mockL1ToL2Messages,
-      newL2ToL1Msgs,
-      newEncryptedLogs,
-      newUnencryptedLogs,
+      body,
     });
 
     // Now we update can make the final header, compute the block hash and update archive
     rootRollupOutput.header.globalVariables = globalVariables;
-    rootRollupOutput.header.bodyHash = l2Block.getCalldataHash();
+    rootRollupOutput.header.bodyHash = l2Block.body.getCalldataHash();
     rootRollupOutput.header.state = await getStateReference();
 
     await updateArchive();
@@ -314,8 +308,8 @@ describe('sequencer/solo_block_builder', () => {
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-      processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-      processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+      processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
+      processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
       return processedTx;
     };
