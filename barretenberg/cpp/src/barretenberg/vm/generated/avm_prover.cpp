@@ -1,6 +1,6 @@
 
 
-#include "AvmMini_prover.hpp"
+#include "avm_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -13,19 +13,18 @@
 
 namespace bb {
 
-using Flavor = AvmMiniFlavor;
+using Flavor = AvmFlavor;
 using FF = Flavor::FF;
 
 /**
- * Create AvmMiniProver from proving key, witness and manifest.
+ * Create AvmProver from proving key, witness and manifest.
  *
  * @param input_key Proving key.
  * @param input_manifest Input manifest
  *
  * @tparam settings Settings class.
  * */
-AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
-                             std::shared_ptr<PCSCommitmentKey> commitment_key)
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key)
     : key(input_key)
     , commitment_key(commitment_key)
 {
@@ -44,7 +43,7 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
  */
-void AvmMiniProver::execute_preamble_round()
+void AvmProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
@@ -55,7 +54,7 @@ void AvmMiniProver::execute_preamble_round()
  * @brief Compute commitments to the first three wires
  *
  */
-void AvmMiniProver::execute_wire_commitments_round()
+void AvmProver::execute_wire_commitments_round()
 {
     auto wire_polys = key->get_wires();
     auto labels = commitment_labels.get_wires();
@@ -68,7 +67,7 @@ void AvmMiniProver::execute_wire_commitments_round()
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
  */
-void AvmMiniProver::execute_relation_check_rounds()
+void AvmProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
 
@@ -88,7 +87,7 @@ void AvmMiniProver::execute_relation_check_rounds()
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
-void AvmMiniProver::execute_zeromorph_rounds()
+void AvmProver::execute_zeromorph_rounds()
 {
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
@@ -99,13 +98,13 @@ void AvmMiniProver::execute_zeromorph_rounds()
                      transcript);
 }
 
-HonkProof& AvmMiniProver::export_proof()
+HonkProof& AvmProver::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-HonkProof& AvmMiniProver::construct_proof()
+HonkProof& AvmProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

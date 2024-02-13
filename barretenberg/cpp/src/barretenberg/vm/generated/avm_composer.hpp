@@ -2,17 +2,17 @@
 
 #pragma once
 
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/vm/generated/AvmMini_prover.hpp"
-#include "barretenberg/vm/generated/AvmMini_verifier.hpp"
+#include "barretenberg/vm/generated/avm_prover.hpp"
+#include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
-class AvmMiniComposer {
+class AvmComposer {
   public:
-    using Flavor = AvmMiniFlavor;
-    using CircuitConstructor = AvmMiniCircuitBuilder;
+    using Flavor = AvmFlavor;
+    using CircuitConstructor = AvmCircuitBuilder;
     using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using PCS = Flavor::PCS;
@@ -20,7 +20,7 @@ class AvmMiniComposer {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
 
     // TODO: which of these will we really need
-    static constexpr std::string_view NAME_STRING = "AvmMini";
+    static constexpr std::string_view NAME_STRING = "Avm";
     static constexpr size_t NUM_RESERVED_GATES = 0;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
@@ -37,26 +37,26 @@ class AvmMiniComposer {
     bool contains_recursive_proof = false;
     bool computed_witness = false;
 
-    AvmMiniComposer() { crs_factory_ = bb::srs::get_crs_factory(); }
+    AvmComposer() { crs_factory_ = bb::srs::get_crs_factory(); }
 
-    AvmMiniComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+    AvmComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
     {}
 
-    AvmMiniComposer(AvmMiniComposer&& other) noexcept = default;
-    AvmMiniComposer(AvmMiniComposer const& other) noexcept = default;
-    AvmMiniComposer& operator=(AvmMiniComposer&& other) noexcept = default;
-    AvmMiniComposer& operator=(AvmMiniComposer const& other) noexcept = default;
-    ~AvmMiniComposer() = default;
+    AvmComposer(AvmComposer&& other) noexcept = default;
+    AvmComposer(AvmComposer const& other) noexcept = default;
+    AvmComposer& operator=(AvmComposer&& other) noexcept = default;
+    AvmComposer& operator=(AvmComposer const& other) noexcept = default;
+    ~AvmComposer() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(CircuitConstructor& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(CircuitConstructor& circuit_constructor);
 
     void compute_witness(CircuitConstructor& circuit_constructor);
 
-    AvmMiniProver create_prover(CircuitConstructor& circuit_constructor);
-    AvmMiniVerifier create_verifier(CircuitConstructor& circuit_constructor);
+    AvmProver create_prover(CircuitConstructor& circuit_constructor);
+    AvmVerifier create_verifier(CircuitConstructor& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 

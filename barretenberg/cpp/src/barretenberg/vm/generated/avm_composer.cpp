@@ -1,15 +1,15 @@
 
 
-#include "./AvmMini_composer.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
+#include "./avm_composer.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/vm/generated/AvmMini_verifier.hpp"
+#include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
 
-using Flavor = AvmMiniFlavor;
-void AvmMiniComposer::compute_witness(CircuitConstructor& circuit)
+using Flavor = AvmFlavor;
+void AvmComposer::compute_witness(CircuitConstructor& circuit)
 {
     if (computed_witness) {
         return;
@@ -25,22 +25,22 @@ void AvmMiniComposer::compute_witness(CircuitConstructor& circuit)
     computed_witness = true;
 }
 
-AvmMiniProver AvmMiniComposer::create_prover(CircuitConstructor& circuit_constructor)
+AvmProver AvmComposer::create_prover(CircuitConstructor& circuit_constructor)
 {
     compute_proving_key(circuit_constructor);
     compute_witness(circuit_constructor);
     compute_commitment_key(circuit_constructor.get_circuit_subgroup_size());
 
-    AvmMiniProver output_state(proving_key, commitment_key);
+    AvmProver output_state(proving_key, commitment_key);
 
     return output_state;
 }
 
-AvmMiniVerifier AvmMiniComposer::create_verifier(CircuitConstructor& circuit_constructor)
+AvmVerifier AvmComposer::create_verifier(CircuitConstructor& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 
-    AvmMiniVerifier output_state(verification_key);
+    AvmVerifier output_state(verification_key);
 
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
 
@@ -49,7 +49,7 @@ AvmMiniVerifier AvmMiniComposer::create_verifier(CircuitConstructor& circuit_con
     return output_state;
 }
 
-std::shared_ptr<Flavor::ProvingKey> AvmMiniComposer::compute_proving_key(CircuitConstructor& circuit_constructor)
+std::shared_ptr<Flavor::ProvingKey> AvmComposer::compute_proving_key(CircuitConstructor& circuit_constructor)
 {
     if (proving_key) {
         return proving_key;
@@ -66,8 +66,7 @@ std::shared_ptr<Flavor::ProvingKey> AvmMiniComposer::compute_proving_key(Circuit
     return proving_key;
 }
 
-std::shared_ptr<Flavor::VerificationKey> AvmMiniComposer::compute_verification_key(
-    CircuitConstructor& circuit_constructor)
+std::shared_ptr<Flavor::VerificationKey> AvmComposer::compute_verification_key(CircuitConstructor& circuit_constructor)
 {
     if (verification_key) {
         return verification_key;

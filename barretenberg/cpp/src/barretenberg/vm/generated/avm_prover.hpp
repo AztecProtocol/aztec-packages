@@ -2,7 +2,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
+#include "barretenberg/flavor/generated/avm_flavor.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -10,9 +10,9 @@
 
 namespace bb {
 
-class AvmMiniProver {
+class AvmProver {
 
-    using Flavor = AvmMiniFlavor;
+    using Flavor = AvmFlavor;
     using FF = Flavor::FF;
     using PCS = Flavor::PCS;
     using PCSCommitmentKey = Flavor::CommitmentKey;
@@ -24,7 +24,7 @@ class AvmMiniProver {
     using Transcript = Flavor::Transcript;
 
   public:
-    explicit AvmMiniProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit AvmProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
