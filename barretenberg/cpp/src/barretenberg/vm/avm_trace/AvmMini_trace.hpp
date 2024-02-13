@@ -71,7 +71,8 @@ class AvmMiniTraceBuilder {
     std::vector<Row> main_trace;
     AvmMiniMemTraceBuilder mem_trace_builder;
     AvmMiniAluTraceBuilder alu_trace_builder;
-    void add_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts);
+
+    void finalise_mem_trace_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts);
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;

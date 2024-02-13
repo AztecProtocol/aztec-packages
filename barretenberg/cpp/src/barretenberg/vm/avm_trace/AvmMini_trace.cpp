@@ -581,7 +581,14 @@ void AvmMiniTraceBuilder::internal_return()
     internal_return_ptr--;
 }
 
-void AvmMiniTraceBuilder::add_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts)
+// Finalise Lookup Counts
+//
+// For log derivative lookups, we require a column that contains the number of times each lookup is consumed
+// As we build the trace, we keep track of the reads made in a mapping, so that they can be applied to the
+// counts column here
+//
+// NOTE: its coupled to pil - this is not the final iteration
+void AvmMiniTraceBuilder::finalise_mem_trace_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts)
 {
     for (auto const& [clk, count] : tag_err_lookup_counts) {
         main_trace.at(clk).equiv_tag_err_counts = count;
@@ -605,7 +612,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
     size_t alu_trace_size = alu_trace.size();
 
     // Get tag_err counts from the mem_trace_builder
-    this->add_lookup_counts(mem_trace_builder.m_tag_err_lookup_counts);
+    this->finalise_mem_trace_lookup_counts(mem_trace_builder.m_tag_err_lookup_counts);
 
     // TODO: We will have to handle this through error handling and not an assertion
     // Smaller than N because we have to add an extra initial row to support shifted
