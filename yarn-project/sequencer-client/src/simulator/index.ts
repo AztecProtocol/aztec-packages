@@ -48,4 +48,10 @@ export interface PublicKernelCircuitSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   publicKernelCircuitAppLogic(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
+  /**
+   * Simulates the public kernel teardown circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  publicKernelCircuitTeardown(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
 }
