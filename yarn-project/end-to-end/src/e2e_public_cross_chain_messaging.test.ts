@@ -14,6 +14,8 @@ import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 import { TestContract } from '@aztec/noir-contracts';
+import { encodeAbiParameters } from 'viem/utils';
+import { Hex } from 'viem';
 
 describe('e2e_public_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -198,18 +200,43 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
 
-    const l2Actor = [testContract.address.toString(), 1];
-    const l1Actor = [recipient.toString(), Number(crossChainTestHarness.publicClient.chain.id.toString())];
+    // const l2Actor = [testContract.address.toString() as Hex, 1n];
+    // const l1Actor = [recipient.toString() as Hex, BigInt(crossChainTestHarness.publicClient.chain.id)];
 
-    const l2ToL1Message = [
-      ...l2Actor,
-      ...l1Actor,
-      content.toString(),
-    ] as const;
+    // const l2ToL1Message = [
+    //   ...l2Actor,
+    //   ...l1Actor,
+    //   content.toString() as Hex,
+    // ];
 
-    console.log(l2ToL1Message);
+    // const l2Actor = {actor: testContract.address.toString(), version: 1};
+    // const l1Actor = {actor: recipient.toString(), chainId: Number(crossChainTestHarness.publicClient.chain.id.toString())};
 
-    const entryKey = await outbox.write.consume(l2ToL1Message, {} as any);
+    // const l2ToL1Message = {
+    //   sender: l2Actor,
+    //   recipient: l1Actor,
+    //   content: content.toString(),
+    // };
+
+    // const args = [l2ToL1Message] as const;
+
+    // console.log(args);
+
+    const encodedData = encodeAbiParameters(
+      [
+        { name: 'actor', type: 'bytes32' },
+        { name: 'version', type: 'uint' },
+        { name: 'actor', type: 'address' },
+        { name: 'chainId', type: 'uint' },
+        { name: 'content', type: 'bytes32' },
+      ],
+      // l2ToL1Message as const
+      [testContract.address.toString() as Hex, 1n, recipient.toString() as Hex, BigInt(crossChainTestHarness.publicClient.chain.id), content.toString() as Hex] as const
+    )
+
+    console.log(encodedData);
+
+    const entryKey = await outbox.write.consume([encodedData], {} as any);
     console.log("entryKey", entryKey);
-  }, 60_000);
+  }, 120_000);
 });
