@@ -43,8 +43,6 @@ The public inputs of _every_ private function _must_ adhere to the following ABI
 | `call_context`                      | [`CallContext`](#callcontext)                                                 | Context of the call corresponding to this function execution.         |
 | `args_hash`                         | `field`                                                                       | Hash of the function arguments.                                       |
 | `return_values`                     | `[field; C]`                                                                  | Return values of this function call.                                  |
-| `note_hash_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                            | Requests to prove the note hashes being read exist.                   |
-| `nullifier_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                            | Requests to prove the nullifiers being read exist.                    |
 | `nullifier_key_validation_requests` | [`[ParentSecretKeyValidationRequest]; C]`](#parentsecretkeyvalidationrequest) | Requests to validate nullifier keys used in this function call.       |
 | `note_hashes`                       | [`[NoteHash; C]`](#notehash)                                                  | New note hashes created in this function call.                        |
 | `nullifiers`                        | [`[Nullifier; C]`](#nullifier)                                                | New nullifiers created in this function call.                         |
@@ -52,8 +50,10 @@ The public inputs of _every_ private function _must_ adhere to the following ABI
 | `unencrypted_log_hashes`            | [`[UnencryptedLogHash; C]`](#unencryptedloghash)                              | Hashes of the unencrypted logs emitted in this function call.         |
 | `encrypted_log_hashes`              | [`[EncryptedLogHash; C]`](#encryptedloghash)                                  | Hashes of the encrypted logs emitted in this function call.           |
 | `encrypted_note_preimage_hashes`    | [`[EncryptedNotePreimageHash]; C]`](#encryptednotepreimagehash)               | Hashes of the encrypted note preimages emitted in this function call. |
-| `private_call_stack_item_hashes`    | `[field; C]`                                                                  | Hashes of the private function calls initiated by this function.      |
-| `public_call_stack_item_hashes`     | `[field; C]`                                                                  | Hashes of the public function calls initiated by this function.       |
+| `note_hash_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                            | Requests to prove the note hashes being read exist.                   |
+| `nullifier_read_requests`           | [`[ReadRequest; C]`](#readrequest)                                            | Requests to prove the nullifiers being read exist.                    |
+| `public_call_requests`              | [`[PublicCallRequest; C]`](#publiccallrequest)                                | Requests to call public functions.                                    |
+| `private_call_requests`             | [`[PrivateCallRequest; C]`](#privatecallrequest)                              | Requests to call Private functions.                                   |
 | `block_header`                      | [`BlockHeader`](#blockheader)                                                 | Information about the trees used for the transaction.                 |
 | `chain_id`                          | `field`                                                                       | Chain ID of the transaction.                                          |
 | `version`                           | `field`                                                                       | Version of the transaction.                                           |
@@ -77,21 +77,6 @@ TODO: use different values for each constant, instead of `C`, so that this docum
 | `portal_contract_address`  | `AztecAddress` | Address of the portal contract to the storage contract.                                                                                                                                   |
 | `is_delegate_call`         | `bool`         | A flag indicating whether the call is a [delegate call](../calls/delegate-calls.md).                                                                                                      |
 | `is_static_call`           | `bool`         | A flag indicating whether the call is a [static call](../calls/static-calls.md).                                                                                                          |
-
-### `ReadRequest`
-
-| Field              | Type           | Description                                    |
-| ------------------ | -------------- | ---------------------------------------------- |
-| `value`            | `field`        | Value being read.                              |
-| `contract_address` | `AztecAddress` | Address of the contract the value was created. |
-| `counter`          | `field`        | Counter at which the request was made.         |
-
-### `ParentSecretKeyValidationRequest`
-
-| Field                       | Type            | Description                                  |
-| --------------------------- | --------------- | -------------------------------------------- |
-| `parent_public_key`         | `GrumpkinPoint` | Claimed parent public key of the secret key. |
-| `hardened_child_secret_key` | `fq`            | Secret key passed to the function.           |
 
 ### `NoteHash`
 
@@ -135,6 +120,38 @@ TODO: use different values for each constant, instead of `C`, so that this docum
 | `length`            | `field` | Number of fields of the note preimage.  |
 | `counter`           | `field` | Counter at which the hash was emitted.  |
 | `note_hash_counter` | `field` | Counter of the corresponding note hash. |
+
+### `ReadRequest`
+
+| Field              | Type           | Description                                    |
+| ------------------ | -------------- | ---------------------------------------------- |
+| `value`            | `field`        | Value being read.                              |
+| `contract_address` | `AztecAddress` | Address of the contract the value was created. |
+| `counter`          | `field`        | Counter at which the request was made.         |
+
+### `ParentSecretKeyValidationRequest`
+
+| Field                       | Type            | Description                                  |
+| --------------------------- | --------------- | -------------------------------------------- |
+| `parent_public_key`         | `GrumpkinPoint` | Claimed parent public key of the secret key. |
+| `hardened_child_secret_key` | `fq`            | Secret key passed to the function.           |
+
+### `PublicCallRequest`
+
+| Field                  | Type    | Description                            |
+| ---------------------- | ------- | -------------------------------------- |
+| `call_stack_item_hash` | `Field` | Hash of the call stack item.           |
+| `counter`              | `Field` | Counter at which the request was made. |
+
+<!-- TODO: change call_stack_item_hash to actual data for the public call request -->
+
+### `PrivateCallRequest`
+
+| Field                  | Type    | Description                              |
+| ---------------------- | ------- | ---------------------------------------- |
+| `call_stack_item_hash` | `Field` | Hash of the call stack item.             |
+| `counter_start`        | `Field` | Counter at which the call was initiated. |
+| `counter_end`          | `Field` | Counter at which the call ended.         |
 
 ### `BlockHeader`
 

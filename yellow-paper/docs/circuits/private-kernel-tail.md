@@ -24,7 +24,7 @@ It checks the data within [`private_inputs`](#private-inputs)[`.previous_kernel`
 
 1. The following must be empty to ensure all the private function calls are processed:
 
-   - `private_call_requests`
+   - `private_call_request_stack`
 
 2. The following must be empty to ensure a comprehensive final reset:
 
@@ -56,16 +56,16 @@ Siloing a value with the address of the contract generating the value ensures th
 
    For each `note_hash` at index `i` in the `note_hash_contexts` within `private_inputs`, if `note_hash.value != 0`:
 
-   `note_hash_contexts[i].value = hash(nonce, siloed_hash)`
+   `note_hash_contexts[i].value = hash(note_nonce, siloed_hash)`
 
    Where:
 
-   - `nonce = hash(first_nullifier, index)`
+   - `note_nonce = hash(first_nullifier, index)`
      - `first_nullifier = nullifier_contexts[0].value`.
      - `index = note_hash_hints[i]`, which is the index of the same note hash within `public_inputs.note_hashes`. Where `note_hash_hints` is provided as [hints](#hints) via `private_inputs`.
    - `siloed_hash = hash(note_hash.contract_address, note_hash.value)`
 
-   > Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
+   > Siloing with a `note_nonce` guarantees that each final note hash is a unique value in the note hash tree.
 
 3. Verify the `l2_to_l1_messages` within [`public_inputs`](#public-inputs)[`.accumulated_data`](./public-kernel-tail.md#accumulateddata):
 
@@ -101,40 +101,40 @@ This circuit ensures the correct ordering of the following arrays:
 
 - `note_hashes`
 - `nullifiers`
-- `public_call_requests`
+- `public_call_request_stack`
 - `ordered_unencrypted_log_hashes`
 - `ordered_encrypted_log_hashes`
 - `ordered_encrypted_note_preimage_hashes`
 
 Where:
 
-- `note_hashes`, `nullifiers`, and `public_call_requests` are within [`public_inputs`](#public-inputs)[`.accumulated_data`](./public-kernel-tail.md#accumulateddata).
+- `note_hashes` and `nullifiers` are within [`public_inputs`](#public-inputs)[`.accumulated_data`](./public-kernel-tail.md#accumulateddata).
+- `public_call_request_stack` is in [`public_inputs`](#public-inputs)[`.transient_accumulated_data`](./public-kernel-tail.md#transientaccumulateddata).
 - `ordered_unencrypted_log_hashes`, `ordered_encrypted_log_hashes`, and `ordered_encrypted_note_preimage_hashes` are provided as hints through `private_inputs`.
 - Every corresponding unordered array for each of the ordered array is sourced from [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./private-kernel-initial.mdx#public-inputs)[`.transient_accumulated_data`](./private-kernel-initial.mdx#transientaccumulateddata).
 
-1. Verify ordered `public_call_requests`:
+1. Verify ordered `public_call_request_stack`:
 
-   For each `request` at index `i` in `private_inputs.previous_kernel.public_inputs.transient_accumulated_data.public_call_requests[i]`, the associated `mapped_request` is at `public_call_requests[public_call_request_hints[i]]` within `public_inputs`.
+   For each `request` at index `i` in `private_inputs.previous_kernel.public_inputs.transient_accumulated_data.public_call_request_contexts[i]`, the associated `mapped_request` is at `public_call_request_stack[public_call_request_hints[i]]` within `public_inputs`.
 
-   - If `request.hash != 0`, verify that:
-     - `request.hash == mapped_request.hash`
-     - `request.caller_contract == mapped_request.caller_contract`
-     - `request.caller_context == mapped_request.caller_context`
+   - If `request.call_stack_item_hash != 0`, verify that:
+     - `request == mapped_request`
      - If `i > 0`, verify that:
-       - `mapped_request[i].counter < mapped_request[i - 1].counter`
+       - `public_call_request_stack[i].counter < public_call_request_stack[i - 1].counter`
    - Else:
-     - All the subsequent requests (_index >= i_) in both `public_call_requests` and `unordered_requests` must be empty.
+     - All the subsequent requests (`index >= i`) in both `public_call_request_contexts` and `public_call_request_stack` must be empty.
 
-   > Note that `public_call_requests` must be arranged in descending order to ensure the calls are executed in chronological order.
+   > Note that requests in `public_call_request_stack` must be arranged in descending order to ensure the calls are executed in chronological order.
 
 2. Verify the rest of the ordered arrays:
 
-   For each `note_hash_context` at index `i` in the **unordered** `note_hash_contexts` within `private_inputs`, the associated `note_hash` is at `note_hashes[note_hash_hints[i]]`.
+   For each `note_hash_context` at index `i` in the **unordered** `note_hash_contexts` within `private_inputs`, the associated `note_hash` is at `note_hashes[note_hash_hints[i].index]` within `public_inputs`.
 
    - If `note_hash != 0`, verify that:
      - `note_hash == note_hash_context.value`
+     - `note_hash_hints[note_hash_hints[i].index].counter == note_hash_context.counter`
      - If `i > 0`, verify that:
-       - `note_hashes[i].counter > note_hashes[i - 1].counter`
+       - `note_hash_hints[i].counter > note_hash_hints[i - 1].counter`
    - Else:
      - All the subsequent items (index `>= i`) in both `note_hashes` and `note_hash_contexts` must be empty.
 
@@ -144,17 +144,15 @@ Where:
 
 #### Recalibrating counters.
 
-While the `counter_start` of a `public_call_request` is initially assigned in the private function circuit to ensure proper ordering within the transaction, it should be modified in this step. As using `counter_start` values obtained from private function circuits may leak information.
+While the `counter` of a `public_call_request` is initially assigned in the private function circuit to ensure proper ordering within the transaction, it should be modified in this step. As using `counter` values obtained from private function circuits may leak information.
 
-The `counter_start` in the `public_call_requests` within `public_inputs` should have been recalibrated. This circuit validates the values through the following checks:
+The requests in the `public_call_request_stack` within `public_inputs` have been [sorted in descending order](#verifying-ordered-arrays) in the previous step. This circuit recalibrates their counters through the following steps:
 
-- The `counter_start` of the non-empty requests are continuous values in descending order:
-  - `public_call_requests[i].counter_start == public_call_requests[i + 1].counter_start + 1`
-- The `counter_start` of the last non-empty request must be `1`.
+- The `counter` of the last non-empty request is set to `1`.
+- The `counter`s of the other non-empty requests are continuous values in descending order:
+  - `public_call_request_stack[i].counter = public_call_request_stack[i + 1].counter + 1`
 
-> It's crucial for the `counter_start` of the last request to be `1`, as it's assumed in the [tail public kernel circuit](./public-kernel-tail.md#grouping-storage-writes) that no storage writes have a counter `1`.
-
-> The `counter_end` for a public call request is determined by the overall count of call requests, reads and writes, note hashes and nullifiers within its scope, including those nested within its child function executions. This calculation will be performed by the sequencer for the executions of public function calls.
+> It's crucial for the `counter` of the last request to be `1`, as it's assumed in the [tail public kernel circuit](./public-kernel-tail.md#grouping-storage-writes) that no storage writes have a counter `1`.
 
 ### Validating Public Inputs
 
@@ -191,9 +189,9 @@ The `counter_start` in the `public_call_requests` within `public_inputs` should 
 
 #### Verifying the transient accumulated data.
 
-It ensures that all data in the [`transient_accumulated_data`](./public-kernel-tail.md#transientaccumulateddata) within [`public_inputs`](#public-inputs) is empty, with the exception of the `public_call_requests`.
+It ensures that all data in the [`transient_accumulated_data`](./public-kernel-tail.md#transientaccumulateddata) within [`public_inputs`](#public-inputs) is empty, with the exception of the `public_call_request_stack`.
 
-The `public_call_requests` must [adhere to a specific order](#verifying-ordered-arrays) with [recalibrated counters](#recalibrating-counters), as verified in the previous steps.
+The `public_call_request_stack` must [adhere to a specific order](#verifying-ordered-arrays) with [recalibrated counters](#recalibrating-counters), as verified in the previous steps.
 
 #### Verifying the constant data.
 
@@ -205,21 +203,28 @@ This section follows the same [process](./private-kernel-inner.mdx#verifying-the
 
 The format aligns with the [PreviousKernel](./private-kernel-inner.mdx#previouskernel) of the inner private kernel circuit.
 
-### _Hints_
+### `Hints`
 
 Data that aids in the verifications carried out in this circuit:
 
-| Field                                    | Type         | Description                                                                                                                                                        |
-| ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `note_hash_hints`                        | `[field; C]` | Indices of ordered `note_hashes` for `note_hash_contexts`. `C` equals the length of `note_hash_contexts`.                                                          |
-| `nullifier_hints`                        | `[field; C]` | Indices of ordered `nullifiers` for `nullifier_contexts`. `C` equals the length of `nullifier_contexts`.                                                           |
-| `public_call_request_hints`              | `[field; C]` | Indices of ordered `public_call_requests` for `public_call_requests`. `C` equals the length of `public_call_requests`.                                             |
-| `ordered_unencrypted_log_hashes`         | `[field; C]` | Ordered `unencrypted_log_hashes`. `C` equals the length of `unencrypted_log_hash_contexts`.                                                                        |
-| `unencrypted_log_hash_hints`             | `[field; C]` | Indices of `ordered_unencrypted_log_hashes` for `unencrypted_log_hash_contexts`. `C` equals the length of `unencrypted_log_hash_contexts`.                         |
-| `ordered_encrypted_log_hashes`           | `[field; C]` | Ordered `encrypted_log_hashes`. `C` equals the length of `encrypted_log_hash_contexts`.                                                                            |
-| `encrypted_log_hash_hints`               | `[field; C]` | Indices of `ordered_encrypted_log_hashes` for `encrypted_log_hash_contexts`. `C` equals the length of `encrypted_log_hash_contexts`.                               |
-| `ordered_encrypted_note_preimage_hashes` | `[field; C]` | Ordered `encrypted_note_preimage_hashes`. `C` equals the length of `encrypted_note_preimage_hash_contexts`.                                                        |
-| `encrypted_note_preimage_hints`          | `[field; C]` | Indices of `ordered_encrypted_note_preimage_hashes` for `encrypted_note_preimage_hash_contexts`. `C` equals the length of `encrypted_note_preimage_hash_contexts`. |
+| Field                                    | Type                             | Description                                                                                                                   |
+| ---------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `note_hash_hints`                        | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `note_hash_contexts`. `C` equals the length of `note_hash_contexts`.                                       |
+| `nullifier_hints`                        | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `nullifier_contexts`. `C` equals the length of `nullifier_contexts`.                                       |
+| `public_call_request_hints`              | `[field; C]`                     | Indices of ordered `public_call_request_contexts`. `C` equals the length of `public_call_request_contexts`.                   |
+| `ordered_unencrypted_log_hashes`         | `[field; C]`                     | Ordered `unencrypted_log_hashes`. `C` equals the length of `unencrypted_log_hash_contexts`.                                   |
+| `unencrypted_log_hash_hints`             | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `unencrypted_log_hash_contexts`. `C` equals the length of `unencrypted_log_hash_contexts`.                 |
+| `ordered_encrypted_log_hashes`           | `[field; C]`                     | Ordered `encrypted_log_hashes`. `C` equals the length of `encrypted_log_hash_contexts`.                                       |
+| `encrypted_log_hash_hints`               | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `encrypted_log_hash_contexts`. `C` equals the length of `encrypted_log_hash_contexts`.                     |
+| `ordered_encrypted_note_preimage_hashes` | `[field; C]`                     | Ordered `encrypted_note_preimage_hashes`. `C` equals the length of `encrypted_note_preimage_hash_contexts`.                   |
+| `encrypted_note_preimage_hints`          | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `encrypted_note_preimage_hash_contexts`. `C` equals the length of `encrypted_note_preimage_hash_contexts`. |
+
+#### `OrderHint`
+
+| Field     | Type    | Description                                           |
+| --------- | ------- | ----------------------------------------------------- |
+| `index`   | `field` | Index of the mapped element in the ordered array.     |
+| `counter` | `field` | Counter of the mapped element in the unordered array. |
 
 ## `PublicInputs`
 

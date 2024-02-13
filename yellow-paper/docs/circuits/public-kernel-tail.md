@@ -22,7 +22,7 @@ The preceding proof can only be:
 
 The following must be empty to ensure all the public function calls are processed:
 
-- `public_call_requests` within [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./public-kernel-tail.md#public-inputs)[`.transient_accumulated_data`](./public-kernel-tail.md#transientaccumulateddata).
+- `public_call_request_stack` within [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./public-kernel-tail.md#public-inputs)[`.transient_accumulated_data`](./public-kernel-tail.md#transientaccumulateddata).
 
 ### Processing Final Outputs
 
@@ -323,7 +323,7 @@ Data accumulated during the execution of the transaction.
 | `l2_to_l1_message_contexts` | [`[L2toL1MessageContext; C]`](./private-kernel-initial.mdx#l2tol1messagecontext) | L2-to-l1 messages with extra data aiding verification. |
 | `storage_reads`             | [`[StorageRead; C]`](#storageread)                                               | Reads of the public data.                              |
 | `storage_writes`            | [`[StorageWrite; C]`](#storagewrite)                                             | Writes of the public data.                             |
-| `public_call_requests`      | [`[CallRequest; C]`](./private-kernel-initial.mdx#callrequest)                   | Requests to call publics functions.                    |
+| `public_call_request_stack` | [`[PublicCallRequestContext; C]`](#publiccallrequestcontext)                     | Requests to call public functions.                     |
 
 > The above `C`s represent constants defined by the protocol. Each `C` might have a different value from the others.
 
@@ -392,3 +392,12 @@ Data accumulated during the execution of the transaction.
 | `value`        | `field` | Value of the storage slot.     |
 | `next_slot`    | `field` | Storage slot of the next leaf. |
 | `next_index`   | `field` | Index of the next leaf.        |
+
+### `PublicCallRequestContext`
+
+| Field                     | Type                                                          | Description                                   |
+| ------------------------- | ------------------------------------------------------------- | --------------------------------------------- |
+| `call_stack_item_hash`    | `Field`                                                       | Hash of the call stack item.                  |
+| `counter`                 | `Field`                                                       | Counter at which the request was made.        |
+| `caller_contract_address` | `AztecAddress`                                                | Address of the contract calling the function. |
+| `caller_context`          | [`CallerContext`](./private-kernel-initial.mdx#callercontext) | Context of the contract calling the function. |
