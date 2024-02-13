@@ -120,7 +120,7 @@ export const cliTestSuite = (
 
     it.each([
       ['an example Token contract', 'TokenContractArtifact', '0'],
-      ['a Nargo artifact', '../noir-contracts/target/token_contract-Token.json', '1'],
+      ['a Nargo artifact', '../noir-contracts.js/artifacts/token_contract-Token.json', '1'],
     ])(
       'deploys %s & sends transactions',
       async (_, artifact, salt) => {
@@ -160,7 +160,7 @@ export const cliTestSuite = (
         const txHashes = findMultipleInLogs(/Transaction Hash: ([0-9a-f]{64})/i);
         const mintPrivateTxHash = txHashes[txHashes.length - 1][1];
         await run(
-          `add-note ${ownerAddress} ${contractAddress} 5 ${mintPrivateTxHash} --note ${INITIAL_BALANCE} ${secretHash}`,
+          `add-note ${ownerAddress} ${contractAddress} 5 84114971101151129711410111011678111116101 ${mintPrivateTxHash} --note ${INITIAL_BALANCE} ${secretHash}`,
         );
 
         debug('Redeem tokens.');
