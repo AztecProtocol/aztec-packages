@@ -1,6 +1,6 @@
 import { ContractData, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
-import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { sha256 } from '@aztec/foundation/crypto';
 
 export class TxEffect {
   constructor(
@@ -40,7 +40,7 @@ export class TxEffect {
 
   hash() {
     if (this.logs === undefined) {
-      throw new Error('Hashing of a Transaction Effect requires logs to be attached ')
+      throw new Error('Hashing of a Transaction Effect requires logs to be attached ');
     }
 
     const commitmentsBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
@@ -49,7 +49,7 @@ export class TxEffect {
     const newL2ToL1MsgsBuffer = Buffer.concat(this.newL2ToL1Msgs.map(x => x.toBuffer()));
     const encryptedLogsHashKernel0 = this.logs!.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.logs!.unencryptedLogs.hash();
-    
+
     const inputValue = Buffer.concat([
       commitmentsBuffer,
       nullifiersBuffer,
@@ -67,35 +67,35 @@ export class TxEffect {
     return sha256(inputValue);
   }
 
-//   attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
-//     if (
-//       new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
-//       new L2BlockL2Logs(unencrypedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
-//     ) {
-//       throw new Error('Logs exist in the padded area');
-//     }
+  //   attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
+  //     if (
+  //       new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
+  //       new L2BlockL2Logs(unencrypedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
+  //     ) {
+  //       throw new Error('Logs exist in the padded area');
+  //     }
 
-//     const txEffects = this.body.txEffects;
+  //     const txEffects = this.body.txEffects;
 
-//     if (this.areLogsAttached()) {
-//       if (
-//         txEffects.every(
-//           (txEffect, i) =>
-//             txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
-//             txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]),
-//         )
-//       ) {
-//         L2Block.logger(`Logs already attached`);
-//         return;
-//       } else {
-//         throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
-//       }
-//     }
+  //     if (this.areLogsAttached()) {
+  //       if (
+  //         txEffects.every(
+  //           (txEffect, i) =>
+  //             txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
+  //             txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]),
+  //         )
+  //       ) {
+  //         L2Block.logger(`Logs already attached`);
+  //         return;
+  //       } else {
+  //         throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
+  //       }
+  //     }
 
-//     txEffects.forEach((txEffect, i) => {
-//       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencrypedLogs.txLogs[i]);
-//     });
-//   }
+  //     txEffects.forEach((txEffect, i) => {
+  //       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencrypedLogs.txLogs[i]);
+  //     });
+  //   }
 }
 
 export class TxEffectLogs {

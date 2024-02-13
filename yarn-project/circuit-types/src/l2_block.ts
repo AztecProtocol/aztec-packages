@@ -79,7 +79,7 @@ export class L2Block {
     return new this(fields.archive, fields.header, fields.body, l1BlockNumber);
   }
 
-    /**
+  /**
    * Deserializes a block from a buffer
    * @returns A deserialized L2 block.
    */
@@ -156,11 +156,7 @@ export class L2Block {
    * @returns A serialized L2 block logs.
    */
   toBuffer(includeLogs: boolean = false) {
-    return serializeToBuffer(
-      this.header,
-      this.archive,
-      this.body.toBuffer(includeLogs),
-    );
+    return serializeToBuffer(this.header, this.archive, this.body.toBuffer(includeLogs));
   }
 
   /**

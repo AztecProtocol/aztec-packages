@@ -119,12 +119,12 @@ export class TxL2Logs {
   }
 
   /**
- * Computes logs hash as is done in the kernel and app circuits.
- * @param logs - Logs to be hashed.
- * @returns The hash of the logs.
- * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
- *       for more details.
- */
+   * Computes logs hash as is done in the kernel and app circuits.
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
   public hash(): Buffer {
     const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
     let kernelPublicInputsLogsHash = Buffer.alloc(32);

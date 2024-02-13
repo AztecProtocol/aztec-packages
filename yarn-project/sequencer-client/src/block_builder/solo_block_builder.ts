@@ -133,8 +133,8 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.bodyHash)) {
       throw new Error(
-        `Calldata hash mismatch, ${l2Block
-          .body.getCalldataHash()
+        `Calldata hash mismatch, ${l2Block.body
+          .getCalldataHash()
           .toString('hex')} == ${circuitsOutput.header.bodyHash.toString('hex')} `,
       );
     }

@@ -1,8 +1,4 @@
-import {
-  L2BlockL2Logs,
-  TxEffect,
-  TxEffectLogs,
-} from '@aztec/circuit-types';
+import { L2BlockL2Logs, TxEffect, TxEffectLogs } from '@aztec/circuit-types';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -36,7 +32,6 @@ export class L2BlockBody {
     const newContractData = this.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.l1ToL2Messages;
 
-
     return serializeToBuffer(
       newCommitments.length,
       newCommitments,
@@ -56,11 +51,11 @@ export class L2BlockBody {
   }
 
   /**
- * Computes the calldata hash for the L2 block
- * This calldata hash is also computed by the rollup contract when the block is submitted,
- * and inside the circuit, it is part of the public inputs.
- * @returns The calldata hash.
- */
+   * Computes the calldata hash for the L2 block
+   * This calldata hash is also computed by the rollup contract when the block is submitted,
+   * and inside the circuit, it is part of the public inputs.
+   * @returns The calldata hash.
+   */
   getCalldataHash() {
     this.assertLogsAttached();
 
@@ -93,9 +88,7 @@ export class L2BlockBody {
 
   public assertLogsAttached() {
     if (!this.areLogsAttached()) {
-      throw new Error(
-        `newEncryptedLogs and newUnencryptedLogs must be defined`,
-      );
+      throw new Error(`newEncryptedLogs and newUnencryptedLogs must be defined`);
     }
   }
 
