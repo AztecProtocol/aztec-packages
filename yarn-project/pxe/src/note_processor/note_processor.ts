@@ -127,7 +127,7 @@ export class NoteProcessor {
         const newCommitments = block.body.txEffects[indexOfTxInABlock].newNoteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
-        const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
+        const txFunctionLogs = txLogs[indexOfTxInABlock].allFunctionLogs;
         const excludedIndices: Set<number> = new Set();
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {

@@ -1,5 +1,6 @@
 import {
   ContractData,
+  L2BlockBody,
   L2BlockL2Logs,
   L2Tx,
   LogType,
@@ -26,10 +27,6 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-export class L2BlockBody {
-  constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
-}
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -155,43 +152,11 @@ export class L2Block {
    * Otherwise it is used with logs, and no header when serializing a block to be published on L1
    * @returns A serialized L2 block without logs.
    */
-  toBuffer(includeLogs: boolean = false, includeHeader: boolean = true) {
-    let logs: [L2BlockL2Logs, L2BlockL2Logs] | [] = [];
-
-    if (includeLogs) {
-      this.assertLogsAttached();
-
-      const newEncryptedLogs = this.body.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
-      const newUnencryptedLogs = this.body.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
-      logs = [new L2BlockL2Logs(newEncryptedLogs), new L2BlockL2Logs(newUnencryptedLogs)];
-    }
-
-    const newCommitments = this.body.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
-    const newNullifiers = this.body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
-    const newPublicDataWrites = this.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
-    const newL2ToL1Msgs = this.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
-    const newContracts = this.body.txEffects.flatMap(txEffect => txEffect.contractLeaves);
-    const newContractData = this.body.txEffects.flatMap(txEffect => txEffect.contractData);
-    const newL1ToL2Messages = this.body.l1ToL2Messages;
-
-    const header: [Header, AppendOnlyTreeSnapshot] | [] = includeHeader ? [this.header, this.archive] : [];
-
+  toBuffer(includeLogs: boolean = false) {
     return serializeToBuffer(
-      ...header,
-      newCommitments.length,
-      newCommitments,
-      newNullifiers.length,
-      newNullifiers,
-      newPublicDataWrites.length,
-      newPublicDataWrites,
-      newL2ToL1Msgs.length,
-      newL2ToL1Msgs,
-      newContracts.length,
-      newContracts,
-      newContractData,
-      newL1ToL2Messages.length,
-      newL1ToL2Messages,
-      ...logs,
+      this.header,
+      this.archive,
+      this.body.toBuffer(includeLogs),
     );
   }
 
@@ -230,7 +195,7 @@ export class L2Block {
 
     const txEffects = this.body.txEffects;
 
-    if (this.areLogsAttached()) {
+    if (this.body.areLogsAttached()) {
       if (
         txEffects.every(
           (txEffect, i) =>
@@ -354,7 +319,7 @@ export class L2Block {
       this.header.state.partial.publicDataTree,
       this.header.state.l1ToL2MessageTree,
       this.archive,
-      this.getCalldataHash(),
+      this.body.getCalldataHash(),
       this.getL1ToL2MessagesHash(),
     );
 
@@ -397,68 +362,6 @@ export class L2Block {
   }
 
   /**
-   * Computes the calldata hash for the L2 block
-   * This calldata hash is also computed by the rollup contract when the block is submitted,
-   * and inside the circuit, it is part of the public inputs.
-   * @returns The calldata hash.
-   */
-  getCalldataHash() {
-    this.assertLogsAttached();
-
-    const computeRoot = (leafs: Buffer[]): Buffer => {
-      const layers: Buffer[][] = [leafs];
-      let activeLayer = 0;
-
-      while (layers[activeLayer].length > 1) {
-        const layer: Buffer[] = [];
-        const layerLength = layers[activeLayer].length;
-
-        for (let i = 0; i < layerLength; i += 2) {
-          const left = layers[activeLayer][i];
-          const right = layers[activeLayer][i + 1];
-
-          layer.push(sha256(Buffer.concat([left, right])));
-        }
-
-        layers.push(layer);
-        activeLayer++;
-      }
-
-      return layers[layers.length - 1][0];
-    };
-
-    const leafs: Buffer[] = [];
-
-    for (let i = 0; i < this.body.txEffects.length; i++) {
-      const txEffect = this.body.txEffects[i];
-
-      const commitmentsBuffer = Buffer.concat(txEffect.newNoteHashes.map(x => x.toBuffer()));
-      const nullifiersBuffer = Buffer.concat(txEffect.newNullifiers.map(x => x.toBuffer()));
-      const publicDataUpdateRequestsBuffer = Buffer.concat(txEffect.newPublicDataWrites.map(x => x.toBuffer()));
-      const newL2ToL1MsgsBuffer = Buffer.concat(txEffect.newL2ToL1Msgs.map(x => x.toBuffer()));
-      const encryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(txEffect.logs!.encryptedLogs);
-      const unencryptedLogsHashKernel0 = L2Block.computeKernelLogsHash(txEffect.logs!.unencryptedLogs);
-
-      const inputValue = Buffer.concat([
-        commitmentsBuffer,
-        nullifiersBuffer,
-        publicDataUpdateRequestsBuffer,
-        newL2ToL1MsgsBuffer,
-        // We get the first one because we only support 1 new contract per tx
-        txEffect.contractLeaves[0].toBuffer(),
-        txEffect.contractData[0].contractAddress.toBuffer(),
-        // TODO(#3938): make portal address 20 bytes here when updating the hashing
-        txEffect.contractData[0].portalContractAddress.toBuffer32(),
-        encryptedLogsHashKernel0,
-        unencryptedLogsHashKernel0,
-      ]);
-      leafs.push(sha256(inputValue));
-    }
-
-    return computeRoot(leafs);
-  }
-
-  /**
    * Compute the hash of all of this blocks l1 to l2 messages,
    * The hash is also calculated within the contract when the block is submitted.
    * @returns The hash of all of the l1 to l2 messages.
@@ -485,8 +388,6 @@ export class L2Block {
     const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
     const newContracts = txEffect.contractLeaves.filter(x => !x.isZero());
     const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
-
-    // console.log('FROM GETTX', newCommitments[0].toBuffer());
 
     return new L2Tx(
       newCommitments,
@@ -529,7 +430,7 @@ export class L2Block {
    * @returns Stats on tx count, number, and log size and count.
    */
   getStats() {
-    const logsStats = this.areLogsAttached() && {
+    const logsStats = this.body.areLogsAttached() && {
       encryptedLogLength: this.body.txEffects.reduce(
         (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getSerializedLength(),
         0,
@@ -564,19 +465,6 @@ export class L2Block {
       });
     }
   }
-
-  private assertLogsAttached() {
-    if (!this.areLogsAttached()) {
-      throw new Error(
-        `newEncryptedLogs and newUnencryptedLogs must be defined (block ${this.header.globalVariables.blockNumber})`,
-      );
-    }
-  }
-
-  private areLogsAttached() {
-    return this.body.txEffects.every(txEffect => txEffect.logs !== undefined);
-  }
-
   // /**
   //  * Inspect for debugging purposes..
   //  * @param maxBufferSize - The number of bytes to be extracted from buffer.
@@ -629,28 +517,6 @@ export class L2Block {
   //     `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
   //   ].join('\n');
   // }
-
-  /**
-   * Computes logs hash as is done in the kernel and app circuits.
-   * @param logs - Logs to be hashed.
-   * @returns The hash of the logs.
-   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
-   *       for more details.
-   */
-  static computeKernelLogsHash(logs: TxL2Logs): Buffer {
-    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
-    let kernelPublicInputsLogsHash = Buffer.alloc(32);
-
-    for (const functionLogs of logs.functionLogs) {
-      logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = functionLogs.hash(); // privateCircuitPublicInputsLogsHash
-
-      // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
-    }
-
-    return kernelPublicInputsLogsHash;
-  }
 }
 
 function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {

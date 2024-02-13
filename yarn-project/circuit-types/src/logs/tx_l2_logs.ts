@@ -1,3 +1,4 @@
+import { sha256 } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
@@ -13,7 +14,7 @@ export class TxL2Logs {
     /**
      * An array containing logs emitted in individual function invocations in this tx.
      */
-    public readonly functionLogs: FunctionL2Logs[],
+    public readonly allFunctionLogs: FunctionL2Logs[],
   ) {}
 
   /**
@@ -21,7 +22,7 @@ export class TxL2Logs {
    * @returns A buffer containing the serialized logs.
    */
   public toBuffer(): Buffer {
-    const serializedFunctionLogs = this.functionLogs.map(logs => logs.toBuffer());
+    const serializedFunctionLogs = this.allFunctionLogs.map(logs => logs.toBuffer());
     // Concatenate all serialized function logs into a single buffer and prefix it with 4 bytes for its total length.
     return prefixBufferWithLength(Buffer.concat(serializedFunctionLogs));
   }
@@ -31,12 +32,12 @@ export class TxL2Logs {
    * @returns Total length of serialized data.
    */
   public getSerializedLength(): number {
-    return this.functionLogs.reduce((acc, logs) => acc + logs.getSerializedLength(), 0) + 4;
+    return this.allFunctionLogs.reduce((acc, logs) => acc + logs.getSerializedLength(), 0) + 4;
   }
 
   /** Gets the total number of logs. */
   public getTotalLogCount() {
-    return this.functionLogs.reduce((acc, logs) => acc + logs.logs.length, 0);
+    return this.allFunctionLogs.reduce((acc, logs) => acc + logs.logs.length, 0);
   }
 
   /**
@@ -45,7 +46,7 @@ export class TxL2Logs {
    * @remarks Used by sequencer to append unencrypted logs emitted in public function calls.
    */
   public addFunctionLogs(functionLogs: FunctionL2Logs[]) {
-    this.functionLogs.push(...functionLogs);
+    this.allFunctionLogs.push(...functionLogs);
   }
 
   /**
@@ -86,7 +87,7 @@ export class TxL2Logs {
    */
   public toJSON() {
     return {
-      functionLogs: this.functionLogs.map(log => log.toJSON()),
+      functionLogs: this.allFunctionLogs.map(log => log.toJSON()),
     };
   }
 
@@ -95,7 +96,7 @@ export class TxL2Logs {
    * @returns Unrolled logs.
    */
   public unrollLogs(): Buffer[] {
-    return this.functionLogs.flatMap(functionLog => functionLog.logs);
+    return this.allFunctionLogs.flatMap(functionLog => functionLog.logs);
   }
 
   /**
@@ -115,5 +116,27 @@ export class TxL2Logs {
    */
   public equals(other: TxL2Logs): boolean {
     return isEqual(this, other);
+  }
+
+  /**
+ * Computes logs hash as is done in the kernel and app circuits.
+ * @param logs - Logs to be hashed.
+ * @returns The hash of the logs.
+ * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
+ *       for more details.
+ */
+  public hash(): Buffer {
+    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
+    let kernelPublicInputsLogsHash = Buffer.alloc(32);
+
+    for (const functionLogs of this.allFunctionLogs) {
+      logsHashes[0] = kernelPublicInputsLogsHash;
+      logsHashes[1] = functionLogs.hash(); // privateCircuitPublicInputsLogsHash
+
+      // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
+      kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
+    }
+
+    return kernelPublicInputsLogsHash;
   }
 }

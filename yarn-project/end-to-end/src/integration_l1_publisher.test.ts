@@ -188,8 +188,8 @@ describe('L1Publisher integration', () => {
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-    processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-    processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+    processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
+    processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -267,8 +267,8 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        body: `0x${block.toBuffer(true, false).toString('hex')}`,
-        calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        body: `0x${block.body.toBuffer(true).toString('hex')}`,
+        calldataHash: `0x${block.body.getCalldataHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           bodyHash: `0x${block.header.bodyHash.toString('hex').padStart(64, '0')}`,
           globalVariables: {
@@ -421,8 +421,8 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.getCalldataHash().toString('hex')}`,
-          `0x${block.toBuffer(true, false).toString('hex')}`,
+          `0x${block.body.getCalldataHash().toString('hex')}`,
+          `0x${block.body.toBuffer(true).toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
@@ -494,8 +494,8 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.getCalldataHash().toString('hex')}`,
-          `0x${block.toBuffer(true, false).toString('hex')}`,
+          `0x${block.body.getCalldataHash().toString('hex')}`,
+          `0x${block.body.toBuffer(true).toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });

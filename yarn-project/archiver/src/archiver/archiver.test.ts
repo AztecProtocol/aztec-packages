@@ -289,7 +289,7 @@ function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
       l2BlockNum: BigInt(l2Block.number),
       aztecAddress: extendedContractData.contractData.contractAddress.toString(),
       portalAddress: extendedContractData.contractData.portalContractAddress.toString(),
-      l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
+      l2BlockHash: `0x${l2Block.body.getCalldataHash().toString('hex')}`,
       contractClassId: extendedContractData.contractClassId.toString(),
       saltedInitializationHash: extendedContractData.saltedInitializationHash.toString(),
       publicKeyHash: extendedContractData.publicKeyHash.toString(),
@@ -351,8 +351,8 @@ function makeL1ToL2MessageCancelledEvents(l1BlockNum: bigint, entryKeys: string[
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const txsHash = toHex(l2Block.getCalldataHash());
-  const body = toHex(l2Block.toBuffer(true, false));
+  const txsHash = toHex(l2Block.body.getCalldataHash());
+  const body = toHex(l2Block.body.toBuffer(true));
   const proof = `0x`;
   const input = encodeFunctionData({
     abi: RollupAbi,

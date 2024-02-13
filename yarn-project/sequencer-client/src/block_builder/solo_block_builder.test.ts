@@ -239,7 +239,7 @@ describe('sequencer/solo_block_builder', () => {
 
     // Now we update can make the final header, compute the block hash and update archive
     rootRollupOutput.header.globalVariables = globalVariables;
-    rootRollupOutput.header.bodyHash = l2Block.getCalldataHash();
+    rootRollupOutput.header.bodyHash = l2Block.body.getCalldataHash();
     rootRollupOutput.header.state = await getStateReference();
 
     await updateArchive();
@@ -308,8 +308,8 @@ describe('sequencer/solo_block_builder', () => {
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-      processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-      processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+      processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
+      processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
       return processedTx;
     };

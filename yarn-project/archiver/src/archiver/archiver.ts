@@ -268,7 +268,7 @@ export class Archiver implements ArchiveSource {
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
     const blockHashMapping: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockHashMapping[block.number] = block.getCalldataHash();
+      blockHashMapping[block.number] = block.body.getCalldataHash();
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,

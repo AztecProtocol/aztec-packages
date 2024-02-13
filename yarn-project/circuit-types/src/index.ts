@@ -7,6 +7,7 @@ export * from './keys/index.js';
 export * from './notes/index.js';
 export * from './l1_to_l2_message.js';
 export * from './l2_block.js';
+export * from './l2_block_body.js';
 export * from './l2_block_context.js';
 export * from './l2_block_downloader/index.js';
 export * from './l2_block_source.js';

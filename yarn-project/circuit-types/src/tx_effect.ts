@@ -1,4 +1,5 @@
 import { ContractData, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
+import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 
 export class TxEffect {
@@ -36,6 +37,71 @@ export class TxEffect {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
     }
   }
+
+  hash() {
+    if (this.logs === undefined) {
+      throw new Error('Hashing of a Transaction Effect requires logs to be attached ')
+    }
+
+    const commitmentsBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
+    const nullifiersBuffer = Buffer.concat(this.newNullifiers.map(x => x.toBuffer()));
+    const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
+    const newL2ToL1MsgsBuffer = Buffer.concat(this.newL2ToL1Msgs.map(x => x.toBuffer()));
+    const encryptedLogsHashKernel0 = this.logs!.encryptedLogs.hash();
+    const unencryptedLogsHashKernel0 = this.logs!.unencryptedLogs.hash();
+    
+    const inputValue = Buffer.concat([
+      commitmentsBuffer,
+      nullifiersBuffer,
+      publicDataUpdateRequestsBuffer,
+      newL2ToL1MsgsBuffer,
+      // We get the first one because we only support 1 new contract per tx
+      this.contractLeaves[0].toBuffer(),
+      this.contractData[0].contractAddress.toBuffer(),
+      // TODO(#3938): make portal address 20 bytes here when updating the hashing
+      this.contractData[0].portalContractAddress.toBuffer32(),
+      encryptedLogsHashKernel0,
+      unencryptedLogsHashKernel0,
+    ]);
+
+    return sha256(inputValue);
+  }
+
+  /**
+ * Helper function to attach logs related to a block.
+ * @param logs - The logs to be attached to a block.
+ * @param logType - The type of logs to be attached.
+ * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
+//  */
+//   attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
+//     if (
+//       new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
+//       new L2BlockL2Logs(unencrypedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
+//     ) {
+//       throw new Error('Logs exist in the padded area');
+//     }
+
+//     const txEffects = this.body.txEffects;
+
+//     if (this.areLogsAttached()) {
+//       if (
+//         txEffects.every(
+//           (txEffect, i) =>
+//             txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
+//             txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]),
+//         )
+//       ) {
+//         L2Block.logger(`Logs already attached`);
+//         return;
+//       } else {
+//         throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
+//       }
+//     }
+
+//     txEffects.forEach((txEffect, i) => {
+//       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencrypedLogs.txLogs[i]);
+//     });
+//   }
 }
 
 export class TxEffectLogs {

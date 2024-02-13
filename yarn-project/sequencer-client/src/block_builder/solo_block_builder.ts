@@ -131,10 +131,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       body: blockBody,
     });
 
-    if (!l2Block.getCalldataHash().equals(circuitsOutput.header.bodyHash)) {
+    if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.bodyHash)) {
       throw new Error(
         `Calldata hash mismatch, ${l2Block
-          .getCalldataHash()
+          .body.getCalldataHash()
           .toString('hex')} == ${circuitsOutput.header.bodyHash.toString('hex')} `,
       );
     }
