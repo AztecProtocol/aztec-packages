@@ -293,6 +293,7 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
+    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const callStackItem = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
@@ -300,6 +301,7 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
+      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return callStackItem.toFields().map(toACVMField);
   }

@@ -54,9 +54,20 @@ impl FeePayload {
         for call in self.function_calls {
             if !call.target_address.is_zero() {
                 if call.is_public {
-                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, false);
+                    context.call_public_function_with_packed_args(
+                        call.target_address,
+                        call.function_selector,
+                        call.args_hash,
+                        false
+                    );
                 } else {
-                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, false);
+                    let _result = context.call_private_function_with_packed_args(
+                        call.target_address,
+                        call.function_selector,
+                        call.args_hash,
+                        false,
+                        false
+                    );
                 }
             }
         }

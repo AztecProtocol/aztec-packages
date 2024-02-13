@@ -195,6 +195,7 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideffectCounter: number,
     _isStaticCall: boolean,
+    _isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
     throw new Error('Not available.');
   }

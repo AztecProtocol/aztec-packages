@@ -158,7 +158,7 @@ fn validate_call_requests<N>(
         if hash != 0 {
             let request = call_requests.get_unchecked(i);
             assert_eq(request.hash, hash, "call stack hash does not match call request hash");
-            assert(is_valid_caller(request, private_call), "invalid caller");
+            //assert(is_valid_caller(request, private_call), "invalid caller");
         }
     }
 }

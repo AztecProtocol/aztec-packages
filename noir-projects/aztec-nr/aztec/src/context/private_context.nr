@@ -249,7 +249,7 @@ impl PrivateContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false)
+        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
     pub fn call_private_function_static<ARGS_COUNT>(
@@ -260,7 +260,18 @@ impl PrivateContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true)
+        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
+    }
+
+    pub fn delegate_call_private_function<ARGS_COUNT>(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
     pub fn call_private_function_no_args(
@@ -268,15 +279,15 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false)
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
     pub fn call_private_function_no_args_static(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
+        function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
     pub fn call_private_function_with_packed_args(
@@ -285,13 +296,15 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
+        is_delegate_call: bool
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let item = call_private_function_internal(
             contract_address,
             function_selector,
             args_hash,
             self.side_effect_counter,
-            is_static_call
+            is_static_call,
+            is_delegate_call
         );
 
         assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
@@ -306,7 +319,7 @@ impl PrivateContext {
         // We are issuing a regular call which is not delegate, static, or deployment. We also constrain
         // the msg_sender in the nested call to be equal to our address, and the execution context address
         // for the nested call to be equal to the address we actually called.
-        assert(item.public_inputs.call_context.is_delegate_call == false);
+        assert(item.public_inputs.call_context.is_delegate_call == is_delegate_call);
         assert(item.public_inputs.call_context.is_static_call == is_static_call);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
         assert(
@@ -349,10 +362,10 @@ impl PrivateContext {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
-     pub fn call_public_function_no_args_static(
+    pub fn call_public_function_no_args_static(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
+        function_selector: FunctionSelector
     ) {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
     }
@@ -362,7 +375,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool,
+        is_static_call: bool
     ) {
         let fields = enqueue_public_function_call_internal(
             contract_address,
