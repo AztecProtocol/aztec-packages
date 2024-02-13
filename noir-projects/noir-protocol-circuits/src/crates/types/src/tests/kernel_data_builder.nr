@@ -16,7 +16,7 @@ use crate::{
     tests::{fixtures, testing_harness::build_tx_context}, transaction::context::TxContext
 };
 use crate::constants::{
-    MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX_META, MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NEW_COMMITMENTS_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256,
     VK_TREE_HEIGHT
 };
@@ -172,7 +172,7 @@ impl PreviousKernelDataBuilder {
     pub fn append_new_nullifiers_non_revertible(&mut self, num_extra_nullifier: Field) {
         let first_nullifier = self.end_non_revertible.new_nullifiers.get(0);
         let mocked_value_offset = first_nullifier.value + self.end_non_revertible.new_nullifiers.len();
-        for i in 1..MAX_NEW_NULLIFIERS_PER_TX_META {
+        for i in 1..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
             if i as u64 <= num_extra_nullifier as u64 {
                 // The default value is its index + the value of the first nullifier.
                 self.end_non_revertible.new_nullifiers.push(

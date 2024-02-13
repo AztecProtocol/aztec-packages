@@ -37,26 +37,29 @@ import {
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX_META,
+  MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
@@ -275,10 +278,10 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new FinalAccumulatedData(
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
+    tupleGenerator(MAX_REVERTIBLE_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
+    tupleGenerator(MAX_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
+    tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
@@ -297,9 +300,9 @@ export function makeAccumulatedNonRevertibleData(seed = 1, full = false): Accumu
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new AccumulatedNonRevertibleData(
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX_META, sideEffectFromNumber, seed + 0x101),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX_META, sideEffectLinkedFromNumber, seed + 0x201),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x501),
+    tupleGenerator(MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x101),
+    tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
+    tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
   );
 }
 

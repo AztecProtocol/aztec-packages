@@ -1,24 +1,28 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX_META,
+  MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
@@ -285,10 +289,10 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
-      finalData.newCommitments,
-      finalData.newNullifiers,
+      padArrayEnd(finalData.newCommitments, SideEffect.empty(), MAX_NEW_COMMITMENTS_PER_TX),
+      padArrayEnd(finalData.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_TX),
       finalData.privateCallStack,
-      finalData.publicCallStack,
+      padArrayEnd(finalData.publicCallStack, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX),
       finalData.newL2ToL1Msgs,
       finalData.encryptedLogsHash,
       finalData.unencryptedLogsHash,
@@ -338,11 +342,11 @@ export class FinalAccumulatedData {
     /**
      * The new commitments made in this transaction.
      */
-    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_REVERTIBLE_COMMITMENTS_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      * TODO(#3417): Given this field must empty, should we just remove it?
@@ -351,7 +355,7 @@ export class FinalAccumulatedData {
     /**
      * Current public call stack.
      */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public publicCallStack: Tuple<CallRequest, typeof MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
@@ -407,10 +411,10 @@ export class FinalAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_REVERTIBLE_COMMITMENTS_PER_TX, SideEffect),
+      reader.readArray(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      reader.readArray(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
       reader.readArray(2, Fr),
       reader.readArray(2, Fr),
@@ -431,10 +435,10 @@ export class FinalAccumulatedData {
 
   static empty() {
     return new FinalAccumulatedData(
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_REVERTIBLE_COMMITMENTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       makeTuple(2, Fr.zero),
       makeTuple(2, Fr.zero),
@@ -450,15 +454,15 @@ export class AccumulatedNonRevertibleData {
     /**
      * The new non-revertible commitments made in this transaction.
      */
-    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX_META>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX>,
     /**
      * The new non-revertible nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX_META>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
     /**
      * Current public call stack that will produce non-revertible side effects.
      */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
+    public publicCallStack: Tuple<CallRequest, typeof MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -468,9 +472,9 @@ export class AccumulatedNonRevertibleData {
   static fromBuffer(buffer: Buffer | BufferReader): AccumulatedNonRevertibleData {
     const reader = BufferReader.asReader(buffer);
     return new AccumulatedNonRevertibleData(
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest),
+      reader.readArray(MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
     );
   }
 
@@ -484,9 +488,9 @@ export class AccumulatedNonRevertibleData {
 
   static empty() {
     return new AccumulatedNonRevertibleData(
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX_META, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX_META, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, CallRequest.empty),
+      makeTuple(MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
     );
   }
 }

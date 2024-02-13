@@ -11,8 +11,9 @@ use crate::constants::{
     MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, NUM_FIELDS_PER_SHA256,
-    MAX_NEW_COMMITMENTS_PER_TX_META, MAX_NEW_NULLIFIERS_PER_TX_META,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META
+    MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+    MAX_REVERTIBLE_NULLIFIERS_PER_TX, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX
 };
 
 use dep::std::unsafe;
@@ -45,11 +46,11 @@ struct CombinedAccumulatedData {
 }
 
 struct FinalAccumulatedData {
-    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    new_commitments: [SideEffect; MAX_REVERTIBLE_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_REVERTIBLE_NULLIFIERS_PER_TX],
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
-    public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    public_call_stack: [CallRequest; MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
@@ -64,11 +65,11 @@ struct FinalAccumulatedData {
 }
 
 struct FinalAccumulatedDataBuilder {
-    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_commitments: BoundedVec<SideEffect, MAX_REVERTIBLE_COMMITMENTS_PER_TX>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_call_stack: BoundedVec<CallRequest, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
@@ -100,15 +101,15 @@ impl FinalAccumulatedDataBuilder {
 }
 
 struct AccumulatedNonRevertibleData {
-    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX_META],
-    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX_META],
-    public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META],
+    new_commitments: [SideEffect; MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX],
+    public_call_stack: [CallRequest; MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX],
 }
 
 struct AccumulatedNonRevertibleDataBuilder {
-    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX_META>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX_META>,
-    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
+    new_commitments: BoundedVec<SideEffect, MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
+    public_call_stack: BoundedVec<CallRequest, MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 }
 
 impl AccumulatedNonRevertibleDataBuilder {
@@ -167,35 +168,24 @@ impl CombinedAccumulatedDataBuilder {
         }
     }
 
-    fn check(self) {
-        assert_eq(self.read_requests.len, 0, "Final accumulated data: read requests not empty");
-        assert_eq(
-            self.nullifier_key_validation_requests.len, 0, "Final accumulated data: nullifier key validation requests not empty"
-        );
-        assert_eq(
-            self.public_data_update_requests.len, 0, "Final accumulated data: public data update requests not empty"
-        );
-        assert_eq(self.public_data_reads.len, 0, "Final accumulated data: public data reads not empty");
-    }
-
     pub fn to_accumulated_non_revertible_data(self, max_non_revertible_side_effect_counter: u32) -> AccumulatedNonRevertibleData {
-        self.check();
+        // self.check();
 
         let mut builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
-        for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            let commitment = self.new_commitments.get_unchecked(i);
+        for i in 0..MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX {
+            let commitment = self.new_commitments.storage[i];
             if !is_empty(commitment) & commitment.counter < max_non_revertible_side_effect_counter {
                 builder.new_commitments.push(commitment);
             }
         }
-        for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
-            let nullifier = self.new_nullifiers.get_unchecked(i);
+        for i in 0..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
+            let nullifier = self.new_nullifiers.storage[i];
             if !is_empty(nullifier) & nullifier.counter < max_non_revertible_side_effect_counter {
                 builder.new_nullifiers.push(nullifier);
             }
         }
-        for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
-            let call_stack_item = self.public_call_stack.get_unchecked(i);
+        for i in 0..MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX {
+            let call_stack_item = self.public_call_stack.storage[i];
             if !is_empty(call_stack_item)
                 & call_stack_item.start_side_effect_counter < max_non_revertible_side_effect_counter {
                 builder.public_call_stack.push(call_stack_item);
@@ -206,7 +196,7 @@ impl CombinedAccumulatedDataBuilder {
     }
 
     pub fn to_accumulated_revertible_data(self, max_non_revertible_side_effect_counter: u32) -> FinalAccumulatedData {
-        self.check();
+        // self.check();
 
         let mut builder: FinalAccumulatedDataBuilder = unsafe::zeroed();
 

@@ -26,18 +26,21 @@ import {
   GrumpkinScalar,
   Header,
   MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX_META,
+  MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
@@ -890,8 +893,12 @@ export function mapCombinedAccumulatedDataFromNoir(
  */
 export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccumulatedDataNoir): FinalAccumulatedData {
   return new FinalAccumulatedData(
-    mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
-    mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
+    mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_REVERTIBLE_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      finalAccumulatedData.new_nullifiers,
+      MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+      mapSideEffectLinkedFromNoir,
+    ),
     mapTupleFromNoir(
       finalAccumulatedData.private_call_stack,
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -899,7 +906,7 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
     ),
     mapTupleFromNoir(
       finalAccumulatedData.public_call_stack,
-      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(finalAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
@@ -920,11 +927,15 @@ export function mapAccumulatedMetaDataFromNoir(
   accumulatedMetaData: AccumulatedNonRevertibleDataNoir,
 ): AccumulatedNonRevertibleData {
   return new AccumulatedNonRevertibleData(
-    mapTupleFromNoir(accumulatedMetaData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX_META, mapSideEffectFromNoir),
-    mapTupleFromNoir(accumulatedMetaData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX_META, mapSideEffectLinkedFromNoir),
+    mapTupleFromNoir(accumulatedMetaData.new_commitments, MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      accumulatedMetaData.new_nullifiers,
+      MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+      mapSideEffectLinkedFromNoir,
+    ),
     mapTupleFromNoir(
       accumulatedMetaData.public_call_stack,
-      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+      MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       mapCallRequestFromNoir,
     ),
   );

@@ -19,9 +19,9 @@ import {
   FunctionData,
   GlobalVariables,
   Header,
+  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
@@ -93,9 +93,9 @@ describe('public_processor', () => {
 
     it('skips txs without public execution requests', async function () {
       const tx = mockTx();
-      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+      tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
       tx.data.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
       const hash = await tx.getTxHash();
@@ -167,12 +167,12 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(
         callStackItems,
         CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
 
@@ -207,11 +207,11 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
 
@@ -252,11 +252,11 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
       const tx = new Tx(
@@ -299,13 +299,13 @@ describe('public_processor', () => {
         // and callRequests is in the order of the calls
         [callRequests[1].toCallRequest(), callRequests[0].toCallRequest()],
         CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
 
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callRequests[2].toCallRequest()],
         CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
