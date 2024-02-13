@@ -23,22 +23,13 @@ struct SelectorProperties {
  */
 std::shared_ptr<plonk::proving_key> initialize_proving_key(const auto& circuit_constructor,
                                                            bb::srs::factories::CrsFactory<curve::BN254>* crs_factory,
-                                                           const size_t minimum_circuit_size,
-                                                           const size_t num_randomized_gates,
+                                                           const size_t subgroup_size,
                                                            CircuitType circuit_type)
 {
-    const size_t num_gates = circuit_constructor.num_gates;
-
-    const size_t num_public_inputs = circuit_constructor.public_inputs.size();
-    const size_t num_constraints = num_gates + num_public_inputs;
-    const size_t total_num_constraints = std::max(minimum_circuit_size, num_constraints);
-    const size_t subgroup_size =
-        circuit_constructor.get_circuit_subgroup_size(total_num_constraints + num_randomized_gates); // next power of 2
-
     auto crs = crs_factory->get_prover_crs(subgroup_size + 1);
 
-    // Differentiate between Honk and Plonk here since Plonk pkey requires crs whereas Honk pkey does not
-    auto proving_key = std::make_shared<plonk::proving_key>(subgroup_size, num_public_inputs, crs, circuit_type);
+    auto proving_key = std::make_shared<plonk::proving_key>(
+        subgroup_size, circuit_constructor.public_inputs.size(), crs, circuit_type);
 
     return proving_key;
 }

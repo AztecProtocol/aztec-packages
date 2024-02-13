@@ -948,6 +948,32 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     }
 
     /**
+     * @brief Get combined size of all tables used in circuit
+     *
+     */
+    size_t get_tables_size() const
+    {
+        size_t tables_size = 0;
+        for (const auto& table : lookup_tables) {
+            tables_size += table.size;
+        }
+        return tables_size;
+    }
+
+    /**
+     * @brief Get total number of lookups used in circuit
+     *
+     */
+    size_t get_lookups_size() const
+    {
+        size_t lookups_size = 0;
+        for (const auto& table : lookup_tables) {
+            lookups_size += table.lookup_gates.size();
+        }
+        return lookups_size;
+    }
+
+    /**
      * @brief Get the size of the circuit if it was finalized now
      *
      * @details This method estimates the size of the circuit without rounding up to the next power of 2. It takes into

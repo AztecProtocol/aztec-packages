@@ -63,12 +63,14 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(const 
     if (circuit_proving_key) {
         return circuit_proving_key;
     }
-    const size_t minimum_circuit_size = 0;
-    const size_t num_randomized_gates = NUM_RESERVED_GATES;
+    const size_t total_num_gates =
+        circuit_constructor.num_gates + circuit_constructor.public_inputs.size() + NUM_RESERVED_GATES;
+    const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates); // next power of 2
+
     // Initialize circuit_proving_key
     // TODO(#392)(Kesha): replace composer types.
-    circuit_proving_key = initialize_proving_key(
-        circuit_constructor, crs_factory_.get(), minimum_circuit_size, num_randomized_gates, CircuitType::STANDARD);
+    circuit_proving_key =
+        initialize_proving_key(circuit_constructor, crs_factory_.get(), subgroup_size, CircuitType::STANDARD);
     // Compute lagrange selectors
     construct_selector_polynomials<Flavor>(circuit_constructor, circuit_proving_key.get());
     // Make all selectors nonzero

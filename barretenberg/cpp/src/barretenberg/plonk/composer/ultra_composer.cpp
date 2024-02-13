@@ -27,21 +27,16 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit_constructor)
         return;
     }
 
-    size_t tables_size = 0;
-    size_t lookups_size = 0;
-    for (const auto& table : circuit_constructor.lookup_tables) {
-        tables_size += table.size;
-        lookups_size += table.lookup_gates.size();
-    }
-
+    const size_t tables_size = circuit_constructor.get_tables_size();
+    const size_t lookups_size = circuit_constructor.get_lookups_size();
     const size_t filled_gates = circuit_constructor.num_gates + circuit_constructor.public_inputs.size();
     const size_t total_num_gates = std::max(filled_gates, tables_size + lookups_size);
-
     const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates + NUM_RESERVED_GATES);
 
     // Pad the wires (pointers to `witness_indices` of the `variables` vector).
     // Note: the remaining NUM_RESERVED_GATES indices are padded with zeros within `compute_witness_base` (called
     // next).
+    // WORKTODO: I dont think this is necessary
     for (size_t i = filled_gates; i < total_num_gates; ++i) {
         circuit_constructor.w_l().emplace_back(circuit_constructor.zero_idx);
         circuit_constructor.w_r().emplace_back(circuit_constructor.zero_idx);
@@ -347,6 +342,14 @@ UltraWithKeccakVerifier UltraComposer::create_ultra_with_keccak_verifier(Circuit
     return output_state;
 }
 
+size_t UltraComposer::compute_dyadic_circuit_size(CircuitBuilder& circuit)
+{
+    const size_t filled_gates = circuit.num_gates + circuit.public_inputs.size();
+    const size_t size_required_for_lookups = circuit.get_tables_size() + circuit.get_lookups_size();
+    const size_t total_num_gates = std::max(filled_gates, size_required_for_lookups);
+    return circuit.get_circuit_subgroup_size(total_num_gates + NUM_RESERVED_GATES);
+}
+
 std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& circuit_constructor)
 {
     if (circuit_proving_key) {
@@ -354,21 +357,13 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     }
 
     circuit_constructor.finalize_circuit();
+    const size_t subgroup_size = compute_dyadic_circuit_size(circuit_constructor);
 
-    size_t tables_size = 0;
-    size_t lookups_size = 0;
-    for (const auto& table : circuit_constructor.lookup_tables) {
-        tables_size += table.size;
-        lookups_size += table.lookup_gates.size();
-    }
-
-    const size_t minimum_circuit_size = tables_size + lookups_size;
-    const size_t num_randomized_gates = NUM_RESERVED_GATES;
     auto crs_factory = srs::get_crs_factory();
     // Initialize circuit_proving_key
     // TODO(#392)(Kesha): replace composer types.
-    circuit_proving_key = initialize_proving_key(
-        circuit_constructor, crs_factory.get(), minimum_circuit_size, num_randomized_gates, CircuitType::ULTRA);
+    circuit_proving_key =
+        initialize_proving_key(circuit_constructor, crs_factory.get(), subgroup_size, CircuitType::ULTRA);
 
     construct_selector_polynomials<Flavor>(circuit_constructor, circuit_proving_key.get());
 
@@ -378,14 +373,12 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
 
     compute_plonk_generalized_sigma_permutations<Flavor>(circuit_constructor, circuit_proving_key.get());
 
-    const size_t subgroup_size = circuit_proving_key->circuit_size;
-
     polynomial poly_q_table_column_1(subgroup_size);
     polynomial poly_q_table_column_2(subgroup_size);
     polynomial poly_q_table_column_3(subgroup_size);
     polynomial poly_q_table_column_4(subgroup_size);
 
-    size_t offset = subgroup_size - tables_size - s_randomness - 1;
+    size_t offset = subgroup_size - circuit_constructor.get_tables_size() - s_randomness - 1;
 
     // Create lookup selector polynomials which interpolate each table column.
     // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
