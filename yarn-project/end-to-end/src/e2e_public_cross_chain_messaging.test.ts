@@ -189,16 +189,27 @@ describe('e2e_public_cross_chain_messaging', () => {
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
-  it.only("can send an L2 -> L1 message from to a non-portal address", async () => {
+  it.only("can send an L2 -> L1 message to a non-portal address", async () => {
     // Deploy test account contract
     const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
-    const amount = 10n;
-    const secretHash = Fr.random();
-    const recipient = EthAddress.random();
+    const content = Fr.random();
+    const recipient = crossChainTestHarness.ethAccount;
 
-    const receipt = await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(amount, secretHash, recipient).send().wait();
+    await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
 
-    console.log(receipt);
-  });
+    const l2Actor = [testContract.address.toString(), 1];
+    const l1Actor = [recipient.toString(), Number(crossChainTestHarness.publicClient.chain.id.toString())];
+
+    const l2ToL1Message = [
+      ...l2Actor,
+      ...l1Actor,
+      content.toString(),
+    ] as const;
+
+    console.log(l2ToL1Message);
+
+    const entryKey = await outbox.write.consume(l2ToL1Message, {} as any);
+    console.log("entryKey", entryKey);
+  }, 60_000);
 });

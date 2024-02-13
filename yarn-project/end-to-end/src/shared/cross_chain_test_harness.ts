@@ -137,6 +137,7 @@ export class CrossChainTestHarness {
     const outbox = getContract({
       address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
+      walletClient,
       publicClient,
     });
 
