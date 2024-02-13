@@ -155,6 +155,10 @@ TEST(ToyAVMCircuitBuilder, MultiLookup)
     // Check circuit passes
     circuit_builder.set_trace(std::move(rows));
     EXPECT_EQ(circuit_builder.check_circuit(), true);
+
+    // Turn off row_3 lookup selector, expect failure
+    circuit_builder.rows[2].toy_m_clk = FF(0);
+    EXPECT_EQ(circuit_builder.check_circuit(), false);
 }
 
 TEST(ToyAVMCircuitBuilder, EmptyLookups)
@@ -173,4 +177,38 @@ TEST(ToyAVMCircuitBuilder, EmptyLookups)
 
     circuit_builder.set_trace(std::move(rows));
     EXPECT_EQ(circuit_builder.check_circuit(), true);
+}
+
+TEST(ToyAVMCircuitBuilder, SparsePermutation)
+{
+    // Test sparse permutation, where the permutation check is not active on all rows
+    using FF = ToyFlavor::FF;
+    using Builder = ToyCircuitBuilder;
+    using Row = Builder::Row;
+    Builder circuit_builder;
+
+    const size_t circuit_size = 16;
+    std::vector<Row> rows;
+    // init empty rows
+    for (size_t i = 0; i < circuit_size; i++) {
+        Row row{};
+        rows.push_back(row);
+    }
+
+    // Activate lhs on row 1
+    Row& row_1 = rows[0];
+    row_1.toy_sparse_lhs = FF(1);
+    row_1.toy_sparse_column_1 = FF(420);
+
+    // Activate rhs on row 5
+    Row& row_5 = rows[4];
+    row_5.toy_sparse_rhs = FF(1);
+    row_5.toy_sparse_column_2 = FF(420);
+
+    circuit_builder.set_trace(std::move(rows));
+    EXPECT_EQ(circuit_builder.check_circuit(), true);
+
+    // Expect it to break after changing row5
+    circuit_builder.rows[4].toy_sparse_column_2 = FF(421);
+    EXPECT_EQ(circuit_builder.check_circuit(), false);
 }

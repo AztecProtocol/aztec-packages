@@ -61,6 +61,12 @@ bool ToyVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.toy_set_2_column_1);
     commitments.toy_set_2_column_2 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.toy_set_2_column_2);
+    commitments.toy_sparse_column_1 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.toy_sparse_column_1);
+    commitments.toy_sparse_column_2 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.toy_sparse_column_2);
+    commitments.toy_sparse_lhs = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_sparse_lhs);
+    commitments.toy_sparse_rhs = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_sparse_rhs);
     commitments.toy_xor_a = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_xor_a);
     commitments.toy_xor_b = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_xor_b);
     commitments.toy_xor_c = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_xor_c);
@@ -80,6 +86,8 @@ bool ToyVerifier::verify_proof(const HonkProof& proof)
     commitments.toy_m_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.toy_m_clk);
     commitments.two_column_perm =
         transcript->template receive_from_prover<Commitment>(commitment_labels.two_column_perm);
+    commitments.two_column_sparse_perm =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.two_column_sparse_perm);
     commitments.lookup_xor = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_xor);
     commitments.lookup_err = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_err);
     commitments.lookup_xor_counts =

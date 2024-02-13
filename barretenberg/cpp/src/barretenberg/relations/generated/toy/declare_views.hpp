@@ -8,6 +8,10 @@
     [[maybe_unused]] auto toy_set_1_column_2 = View(new_term.toy_set_1_column_2);                                      \
     [[maybe_unused]] auto toy_set_2_column_1 = View(new_term.toy_set_2_column_1);                                      \
     [[maybe_unused]] auto toy_set_2_column_2 = View(new_term.toy_set_2_column_2);                                      \
+    [[maybe_unused]] auto toy_sparse_column_1 = View(new_term.toy_sparse_column_1);                                    \
+    [[maybe_unused]] auto toy_sparse_column_2 = View(new_term.toy_sparse_column_2);                                    \
+    [[maybe_unused]] auto toy_sparse_lhs = View(new_term.toy_sparse_lhs);                                              \
+    [[maybe_unused]] auto toy_sparse_rhs = View(new_term.toy_sparse_rhs);                                              \
     [[maybe_unused]] auto toy_xor_a = View(new_term.toy_xor_a);                                                        \
     [[maybe_unused]] auto toy_xor_b = View(new_term.toy_xor_b);                                                        \
     [[maybe_unused]] auto toy_xor_c = View(new_term.toy_xor_c);                                                        \
@@ -21,6 +25,7 @@
     [[maybe_unused]] auto toy_clk = View(new_term.toy_clk);                                                            \
     [[maybe_unused]] auto toy_m_clk = View(new_term.toy_m_clk);                                                        \
     [[maybe_unused]] auto two_column_perm = View(new_term.two_column_perm);                                            \
+    [[maybe_unused]] auto two_column_sparse_perm = View(new_term.two_column_sparse_perm);                              \
     [[maybe_unused]] auto lookup_xor = View(new_term.lookup_xor);                                                      \
     [[maybe_unused]] auto lookup_err = View(new_term.lookup_err);                                                      \
     [[maybe_unused]] auto lookup_xor_counts = View(new_term.lookup_xor_counts);                                        \
