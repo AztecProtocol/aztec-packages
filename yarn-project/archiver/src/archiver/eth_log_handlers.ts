@@ -6,6 +6,7 @@ import {
   L1ToL2Message,
   L2Actor,
   L2Block,
+  L2BlockBody,
 } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -117,8 +118,7 @@ export async function processBlockBodyLogs(
 async function getBlockBodiesFromCallData(
   publicClient: PublicClient,
   txHash: `0x${string}`,
-): Promise<L2Block> {
-  console.log('INSIDE getBlockBodiesFromCallData', txHash);
+): Promise<L2BlockBody> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
@@ -130,7 +130,6 @@ async function getBlockBodiesFromCallData(
     throw new Error(`Unexpected method called ${functionName}`);
   }
   const [bodyHex] = args! as [Hex];
-  console.log('getBlockBodiesFromCallData', bodyHex);
 
   const blockBuffer = Buffer.concat([
     // Buffer.from(hexToBytes(headerHex)),
@@ -171,7 +170,7 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
+  const [headerHex, archiveRootHex, txsHash, bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
   console.log('getBlockFromCallData', bodyHex !== undefined);
 
   const blockBuffer = Buffer.concat([
@@ -207,12 +206,6 @@ export async function getL2BlockProcessedLogs(
     abi: RollupAbi,
     name: 'L2BlockProcessed',
   });
-  const logs = await publicClient.getLogs<typeof abiItem, true>({
-    address: getAddress(rollupAddress.toString()),
-    event: abiItem,
-    fromBlock,
-    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
-  });
 
   return await publicClient.getLogs<typeof abiItem, true>({
     address: getAddress(rollupAddress.toString()),
@@ -241,13 +234,6 @@ export async function getL2BlockProcessedLogsFromDataAvailabilityOracle(
   const abiItem = getAbiItem({
     abi: AvailabilityOracleAbi,
     name: 'TxsPublished',
-  });
-
-  const logs = await publicClient.getLogs<typeof abiItem, true>({
-    address: getAddress(rollupAddress.toString()),
-    event: abiItem,
-    fromBlock,
-    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
 
   return await publicClient.getLogs<typeof abiItem, true>({

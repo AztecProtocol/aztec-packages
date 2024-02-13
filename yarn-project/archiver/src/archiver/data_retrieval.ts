@@ -41,7 +41,7 @@ type DataRetrieval<T> = {
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
  * @returns An array of L2 Blocks and the next eth block to search from
  */
-export async function retrieveBlocks(
+export async function retrieveBlockHashesFromRollup(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   blockUntilSynced: boolean,
@@ -82,7 +82,7 @@ export async function retrieveBlocks(
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
  * @returns An array of L2 Blocks and the next eth block to search from
  */
-export async function retrieveBlockBodies(
+export async function retrieveBlockBodiesFromDataAvailability(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   blockUntilSynced: boolean,
@@ -105,8 +105,6 @@ export async function retrieveBlockBodies(
     if (l2BlockProcessedLogs.length === 0) {
       break;
     }
-
-    console.log('RETRIEVE BLOCK BODIES CALLED')
 
     const newBlocks = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
     retrievedBlocks.push(...newBlocks);

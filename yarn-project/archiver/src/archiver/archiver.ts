@@ -45,8 +45,8 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
-  retrieveBlockBodies,
-  retrieveBlocks,
+  retrieveBlockBodiesFromDataAvailability,
+  retrieveBlockHashesFromRollup,
   retrieveNewCancelledL1ToL2Messages,
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
@@ -252,18 +252,19 @@ export class Archiver implements ArchiveSource {
     console.log('Availability Oracle Address', this.availabilityOracleAddress);
 
     const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
-    const retrievedBlocks = await retrieveBlocks(
+
+    const retrievedBlockBodies = await retrieveBlockBodiesFromDataAvailability(
       this.publicClient,
-      this.rollupAddress,
+      this.availabilityOracleAddress,
       blockUntilSynced,
       lastL1Blocks.addedBlock + 1n,
       currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
 
-    const retrievedBlockBodies = await retrieveBlockBodies(
+    const retrievedBlocks = await retrieveBlockHashesFromRollup(
       this.publicClient,
-      this.availabilityOracleAddress,
+      this.rollupAddress,
       blockUntilSynced,
       lastL1Blocks.addedBlock + 1n,
       currentL1BlockNumber,
