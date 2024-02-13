@@ -51,6 +51,7 @@ compiler_version = ">=0.18.0"
 
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note"}
 easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/easy-private-state"}
 ```
 
@@ -80,6 +81,12 @@ Context gives us access to the environment information such as `msg.sender`. We 
 `map::Map`
 
 Map is a private state variable that functions like a dictionary, relating Fields to other state variables.
+
+`value_note`
+
+Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of an amount of tokens associated with an address, while encrypting the amount and owner. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, eg a balance - or, in our case, a counter.
+
+We are also using `balance_utils` from this import, a useful library that allows us to utilize value notes as if they are simple balances.
 
 `EasyPrivateUint`
 
