@@ -47,11 +47,11 @@ The following table defines an AVM context's world state interface:
 | Field            | AVM Instructions & Access |
 | ---              | ---                       |
 | `contracts`      | [`*CALL`](./instruction-set#isa-section-call) (special case, see below\*)           |
-| `publicStorage`  | [`SLOAD`](./instruction-set#isa-section-sload) (membership-checks (latest) & reads), [`SSTORE`](./instruction-set#isa-section-sstore) (writes)                                 |
+| `publicStorage`  | [`SLOAD`](./instruction-set#isa-section-sload) (membership-checks (latest) & reads), [`SSTORE`](./instruction-set#isa-section-sstore) (writes)                                |
 | `noteHashes`     | [`NOTEHASHEXISTS`](./instruction-set#isa-section-notehashexists) (membership-checks (start-of-block)), [`EMITNOTEHASH`](./instruction-set#isa-section-emitnotehash) (appends) |
-| `nullifiers`     | [`NULLIFIERSEXISTS`](./instruction-set#isa-section-nullifierexists) membership-checks (latest), [`EMITNULLIFIER`](./instruction-set#isa-section-emitnullifier) (appends)        |
-| `l1ToL2Messages` | [`READL1TOL2MSG`](./instruction-set#isa-section-readl1tol2msg) (membership-checks (start-of-block) & leaf-preimage-reads)                                                   |
-| `headers`        | [`HEADERMEMBER`](./instruction-set#isa-section-headermember) (membership-checks & leaf-preimage-reads)                                                                      |
+| `nullifiers`     | [`NULLIFIERSEXISTS`](./instruction-set#isa-section-nullifierexists) membership-checks (latest), [`EMITNULLIFIER`](./instruction-set#isa-section-emitnullifier) (appends)      |
+| `l1ToL2Messages` | [`READL1TOL2MSG`](./instruction-set#isa-section-readl1tol2msg) (membership-checks (start-of-block) & leaf-preimage-reads)                                                     |
+| `headers`        | [`HEADERMEMBER`](./instruction-set#isa-section-headermember) (membership-checks & leaf-preimage-reads)                                                                        |
 
 > \* `*CALL` is short for `CALL`/`STATICCALL`/`DELEGATECALL`.
 
