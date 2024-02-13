@@ -12,7 +12,7 @@ An Aztec transaction may include one or more **public execution requests**. A pu
 
 In order to execute public contract bytecode, the AVM requires some context. An [**execution context**](#execution-context) contains all information necessary to initiate AVM execution, including the relevant contract's bytecode and all state maintained by the AVM. A **contract call** initializes an execution context and triggers AVM execution within that context.
 
-Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context ends when the AVM encounters a [**halt**](#halting).
+Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context (in particular its [state](./state)) according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context ends when the AVM encounters a [**halt**](#halting).
 
 During execution, additional contract calls may be made. While an [**initial contract call**](#initial-contract-calls) initializes a new execution context directly from a public execution request, a [**nested contract call**](#nested-contract-calls) occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-call), or `DELEGATECALL`). It initializes a new execution context (**nested context**) from the current one (**calling context**) and triggers execution within it. When nested call's execution completes, execution proceeds in the calling context.
 
@@ -21,7 +21,7 @@ A **caller** is a contract call's initiator. The caller of an initial contract c
 ## Outline
 
 - [**Public contract bytecode**](#public-contract-bytecode) (aka AVM bytecode)
-- [**Execution context**](#execution-context), outlining the AVM's environment and state
+- [**Execution context**](#execution-context), outlining the AVM's execution context
 - [**Execution**](#execution), outlining control flow, gas tracking, normal halting, and exceptional halting
 - [**Initial contract calls**](#initial-contract-calls), outlining the initiation of a contract call from a public execution request
 - [**Nested contract calls**](#nested-contract-calls), outlining the initiation of a contract call from an instruction as well as the processing of nested execution results, gas refunds, and state reverts
@@ -29,8 +29,9 @@ A **caller** is a contract call's initiator. The caller of an initial contract c
 > This document is meant to provide a high-level definition of the Aztec Virtual Machine as opposed to a specification of its SNARK implementation. The document therefore mostly omits SNARK or circuit-centric verbiage except when particularly relevant to high-level design decisions.
 
 This document is supplemented by the following resources:
+- **[AVM State](./state.md)**
 - **[AVM Instruction Set](./instruction-set)**
-- **[AVM Memory Model](./state-model.md)**
+- **[AVM Memory Model](./memory-model.md)**
 - **[AVM Circuit](./avm-circuit.md)**
 
 ## Public contract bytecode
@@ -47,130 +48,53 @@ The entirety of a contract's public code is represented as a single block of byt
 Many terms and definitions here are borrowed from the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper.pdf).
 :::
 
-Initialized by a contract call, an **execution context** includes the information necessary to initiate AVM execution along with all state maintained by the AVM throughout execution:
+An **execution context** includes the information and state relevant to a contract call's execution. When a contract call is made, an execution context is initialized as specified in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](#nested-contract-calls) sections.
 
-```
-AvmContext {
-    environment: ExecutionEnvironment,
-    machineState: MachineState,
-    worldState: WorldState,
-    journal: Journal,
-    accruedSubstate: AccruedSubstate,
-    results: ContractCallResults,
-}
-```
+#### _AvmContext_
+| Field                                                     | Type                    |
+| ---                                                       | ---                     |
+| environment                                               | `ExecutionEnvironment`  |
+| [machineState](./state#machine-state)                     | `MachineState`          |
+| [worldState](./state#avm-world-state)                     | `AvmWorldState`         |
+| [worldStateAccessTrace](./state#world-state-access-trace) | `WorldStateAccessTrace` |
+| [accruedSubstate](./state#accrued-substate)               | `AccruedSubstate`       |
+| results                                                   | `ContractCallResults`   |
 
 ### Execution Environment
 
-A context's **execution environment** remains constant throughout the context's execution. When a contract call initializes its execution context, it fully specifies the execution environment.
+A context's **execution environment** remains constant throughout a contract call's execution. When a contract call initializes its execution context, it fully specifies the execution environment. This is expanded on in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](#nested-contract-calls) sections.
 
-```
-ExecutionEnvironment {
-    address: AztecAddress,
-    storageAddress: AztecAddress,
-    origin: AztecAddress,
-    sender: AztecAddress,
-    portal: EthAddress,
-    feePerL1Gas: field,
-    feePerL2Gas: field,
-    feePerDaGas: field,
-    contractCallDepth: field,
-    globals: PublicGlobalVariables,
-    isStaticCall: boolean,
-    isDelegateCall: boolean,
-    calldata: [field; <calldata-length>],
-    bytecode: [field; <bytecode-length>],
-}
-```
-
-### Machine State
-
-A context's **machine state** is transformed on an instruction-per-instruction basis. When a contract call initializes its execution context, it specifies the first few fields (`*GasLeft`) of the machine state and initializes the remaining members as follows:
-
-```
-MachineState {
-    l1GasLeft: field,
-    l2GasLeft: field,
-    daGasLeft: field,
-    pc: field = 0,
-    internalCallStack: Vector<field> = [], // initialized as empty
-    memory: [field; 2^32] = [0, ..., 0],   // all 2^32 entries are initialized to zero
-}
-```
-
-The machine state's entries are defined as follows:
-- `l1GasLeft`: how much L1 gas remains
-- `l2GasLeft`: how much L2 gas remains
-- `daGasLeft`: how much DA (data availability) gas remains
-- `pc` (program counter): index to the current instruction being executed in the context's bytecode
-- `internalCallStack`: a stack of program counters pushed to and popped from by `INTERNALCALL` and `INTERNALRETURN` instructions
-- `memory`: a $2^{32}$ entry memory space accessible by user code (bytecode instructions) and initialized to all zeros upon context initialization
-
-### World State
-
-The AVM has access to a subset of [Aztec's persistent global state](../state), and an AVM execution context exposes a limited interface to that state. In particular, while much of Aztec's state is implemented as readable/writeable merkle trees, these structures are exposed in the AVM as simple mappings or vectors with access-limitations.
-
-An execution context's **world state** is its interface to Aztec's global state. When an [_initial_ contract call](#initial-contract-calls) is made, its context is initialized with a snapshot of Aztec's latest global state. When a [_nested_ contract call](#nested-contract-calls) is made, its context is initialized with a snapshot of the calling context's current world state.
-
-When a context's execution [halts](#halting), the caller accepts or rejects its world state modifications. If execution [returned](./instruction-set#isa-section-return) without reverting, the caller accepts its world state modifications and updates its world state accordingly. If execution reverted ([normally](./instruction-set#isa-section-revert) or [exceptionally](#exceptional-halting)), the caller rejects its world state modifications.
-
-A context's world state interface is defined as follows:
-```
-WorldState {
-    contracts: AztecAddress => {bytecode, portalAddress}, // read-only from within AVM
-    blockHeaders: Vector<Header>,                    // read-only from within AVM
-    publicStorage: (AztecAddress, field) => value,        // read/write
-    l1ToL2Messages: field => message,                     // read-only from within AVM
-    l2ToL1Messages: Vector<[field; <msg-length>]>,        // append-only (no reads) from within AVM
-    noteHashes: Vector<field>,                            // append-only (no reads) from within AVM
-    nullifiers: Vector<field>,                            // append-only (no reads) from within AVM
-}
-```
-> The notation `key => value` describes a mapping from `key` to `value`.
-
-> Read-only or append-only structures in the world state may have more open access-limitations outside of the AVM, but the AVM's interface imposes the above-listed access-limitations. As an example, private execution can deploy new contracts, but contract deployments are not supported by the AVM. Thus `contracts` is read-only here.
-
-
-### Journal
-
-**Journal** tracks all world state accesses (reads and writes) that have taken place thus far during a contract call's execution. Unlike world state, a context's journal is accepted by its caller regardless of whether execution reverts.
-```
-Journal {
-    nestedCalls: Vector<(AztecAddress, boolean)>,
-    blockHeaderReads: Vector<(field, Header)>,
-    publicStorageAccesses: Vector<StorageReadContext | StorageWriteContext>,
-    l1ToL2MessageReads: Vector<(L1toL2MessageContext, [field; <msg-length>])>,
-    newL2ToL1Messages: Vector<(L2toL1MessageContext, [field; <msg-length>])>,
-    newNoteHashes: Vector<NoteHashContext>,
-    newNullifiers: Vector<NullifierContext>,
-}
-```
-> The types tracked in the journal vectors are listed in Aztec's [private function types specification](../circuits/private-function#types) and Aztec's [public kernel types specification](../circuits/public-kernel-tail#types).
-
-> This journal structure is important for imposing limitations on the maximum number of allowable world state accesses, and for communicating the list of state accesses to the public kernel circuit.
-
-### Accrued Substate
-The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls. Similar to world state, if a contract call returns normally, its substate is appended to its calling context, but if it reverts its substate is rejected by its caller.
-
-```
-AccruedSubstate {
-    unencryptedLogs: Vector<[field; <log-length>]>,
-}
-```
+#### _ExecutionEnvironment_
+| Field                 | Type                         | Description |
+| ---                   | ---                          | ---         |
+| origin                | `AztecAddress`               |  |
+| feePerL1Gas           | `field`                      |  |
+| feePerL2Gas           | `field`                      |  |
+| feePerDaGas           | `field`                      |  |
+| globals               | `PublicGlobalVariables`      |  |
+| address               | `AztecAddress`               |  |
+| storageAddress        | `AztecAddress`               |  |
+| sender                | `AztecAddress`               |  |
+| portal                | `AztecAddress`               |  |
+| contractCallDepth     | `field`                      |  |
+| isStaticCall          | `boolean`                    |  |
+| isDelegateCall        | `boolean`                    |  |
+| calldata              | `[field; <calldata-length>]` |  |
+| bytecode              | `[field; <bytecode-length>]` |  |
 
 ### Contract Call Results
+
 Finally, when a contract call halts, it sets the context's **contract call results** to communicate results to the caller.
 
-```
-ContractCallResults {
-    reverted: boolean,
-    output: [field; <output-length>],
-}
-```
+#### _ContractCallResults_
+| Field        | Type                       | Description |
+| ---          | ---                        | ---         |
+| reverted     | `boolean`                  |  |
+| output       | `[field; <output-length>]` |  |
 
 ## Execution
 
-Once an execution context has been initialized for a contract call, the machine state's program counter determines which instruction the AVM executes. For any contract call, the program counter starts at zero, and so instruction execution begins with the very first entry in a contract's bytecode.
+Once an execution context has been initialized for a contract call, the [machine state's](./state#machine-state) program counter determines which instruction the AVM executes. For any contract call, the program counter starts at zero, and so instruction execution begins with the very first entry in a contract's bytecode.
 
 ### Program Counter and Control Flow
 
@@ -192,7 +116,7 @@ assert machineState.l2GasLeft - instr.l2GasCost > 0
 assert machineState.daGasLeft - instr.daGasCost > 0
 ```
 
-> Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the world state, journal, or accrued substate.
+> Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the [world state](./state#avm-world-state) or [accrued substate](./state#accrued-substate).
 
 If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
 
@@ -286,9 +210,9 @@ The AVM's exceptional halting conditions area listed below:
 1. **World state modification attempt during a static call**
     ```
     assert !environment.isStaticCall
-        OR environment.bytecode[machineState.pc].opcode not in WS_MODIFYING_OPS
+        OR environment.bytecode[machineState.pc].opcode not in WS_AS_MODIFYING_OPS
     ```
-    > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
+    > Definition: `WS_AS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state or accrued substate.
 1. **Maximum contract call depth (1024) exceeded**
     ```
     assert environment.contractCallDepth <= 1024
@@ -297,9 +221,9 @@ The AVM's exceptional halting conditions area listed below:
     ```
 1. **Maximum contract call calls per execution request (1024) exceeded**
     ```
-    assert journal.nestedCalls.length <= 1024
+    assert worldStateAccessTrace.contractCalls.length <= 1024
     assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
-        OR journal.nestedCalls.length < 1024
+        OR worldStateAccessTrace.contractCalls.length < 1024
     ```
 1. **Maximum internal call depth (1024) exceeded**
     ```
@@ -307,35 +231,57 @@ The AVM's exceptional halting conditions area listed below:
     assert environment.bytecode[machineState.pc].opcode != INTERNALCALL
         OR environment.contractCallDepth < 1024
     ```
-1. **Maximum world state accesses (1024-per-type) exceeded**
+1. **Maximum world state accesses (1024-per-category) exceeded**
     ```
-    assert publicStorageAccesses.length <= 1024
-        AND l1ToL2MessagesReads.length <= 1024
-        AND newL2ToL1Messages.length <= 1024
-        AND newNoteHashes.length <= 1024
-        AND newNullifiers.length <= 1024
+    assert worldStateAccessTrace.publicStorageReads.length <= 1024
+        AND worldStateAccessTrace.publicStorageWrites.length <= 1024
+        AND worldStateAccessTrace.noteHashChecks.length <= 1024
+        AND worldStateAccessTrace.newNoteHashes.length <= 1024
+        AND worldStateAccessTrace.nullifierChecks.length <= 1024
+        AND worldStateAccessTrace.newNullifiers.length <= 1024
+        AND worldStateAccessTrace.l1ToL2MessageReads.length <= 1024
+        AND worldStateAccessTrace.archiveChecks.length <= 1024
 
     // Storage
-    assert environment.bytecode[machineState.pc].opcode not in {SLOAD, SSTORE}
-        OR publicStorageAccesses.length < 1024
-
-    // L1 to L2 messages
-    assert environment.bytecode[machineState.pc].opcode != GETL1TOL2MSG
-        OR l1ToL2MessagesReads.length < 1024
-
-    // L2 to L1 messages
-    assert environment.bytecode[machineState.pc].opcode != SENDL2TOL1MSG
-        OR newL2ToL1Messages.length < 1024
+    assert environment.bytecode[machineState.pc].opcode != SLOAD
+        OR worldStateAccessTrace.publicStorageReads.length < 1024
+    assert environment.bytecode[machineState.pc].opcode != SSTORE
+        OR worldStateAccessTrace.publicStorageWrites.length < 1024
 
     // Note hashes
+    assert environment.bytecode[machineState.pc].opcode != NOTEHASHEXISTS
+        OR noteHashChecks.length < 1024
     assert environment.bytecode[machineState.pc].opcode != EMITNOTEHASH
         OR newNoteHashes.length < 1024
 
     // Nullifiers
+    assert environment.bytecode[machineState.pc].opcode != NULLIFIEREXISTS
+        OR nullifierChecks.length < 1024
     assert environment.bytecode[machineState.pc].opcode != EMITNULLIFIER
         OR newNullifiers.length < 1024
+
+    // Read L1 to L2 messages
+    assert environment.bytecode[machineState.pc].opcode != READL1TOL2MSG
+        OR worldStateAccessTrace.l1ToL2MessagesReads.length < 1024
+
+    // Archive tree & Headers
+    assert environment.bytecode[machineState.pc].opcode != HEADERMEMBER
+        OR archiveChecks.length < 1024
     ```
-    > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
+1. **Maximum accrued substate entries (per-category) exceeded**
+    ```
+    assert accruedSubstate.unencryptedLogs.length <= MAX_UNENCRYPTED_LOGS
+        AND accruedSubstate.sentL2ToL1Messages.length <= MAX_SENT_L2_TO_L1_MESSAGES
+
+    // Unencrypted logs
+    assert environment.bytecode[machineState.pc].opcode != ULOG
+        OR unencryptedLogs.length < MAX_UNENCRYPTED_LOGS
+
+    // Sent L2 to L1 messages
+    assert environment.bytecode[machineState.pc].opcode != SENDL2TOL1MSG
+        OR sentL2ToL1Messages.length < MAX_SENT_L2_TO_L1_MESSAGES
+    ```
+    > Note that ideally the AVM should limit the _total_ accrued substate entries per-category instead of the entries per-call.
 
 ## Initial contract calls
 
@@ -349,8 +295,8 @@ context = AvmContext {
     environment = INITIAL_EXECUTION_ENVIRONMENT,
     machineState = INITIAL_MACHINE_STATE,
     worldState = <latest world state>,
-    journal = INITIAL_JOURNAL,
-    accruedSubstate = INITIAL_ACCRUED_SUBSTATE,
+    worldStateAccessTrace = { [], [], ... [] }, // all trace vectors empty,
+    accruedSubstate =  { [], ... [], }, // all substate vectors empty
     results = INITIAL_CONTRACT_CALL_RESULTS,
 }
 ```
@@ -386,20 +332,6 @@ INITIAL_MACHINE_STATE = MachineState {
     memory = [0, ..., 0],   // all 2^32 entries are initialized to zero
 }
 
-INITIAL_JOURNAL = Journal {
-    nestedCalls = [],           // initialized as empty
-    blockHeaderReads = [],      // initialized as empty
-    publicStorageAccesses = [], // initialized as empty
-    l1ToL2MessageReads = [],    // initialized as empty
-    newL2ToL1Messages = [],     // initialized as empty
-    newNoteHashes = [],         // initialized as empty
-    newNullifiers = [],         // initialized as empty
-}
-
-INITIAL_ACCRUED_SUBSTATE = AccruedSubstate {
-    unencryptedLogs = [], // initialized as empty
-}
-
 INITIAL_CONTRACT_CALL_RESULTS = ContractCallResults {
     reverted = false,
     output = [], // initialized as empty
@@ -419,8 +351,8 @@ nestedContext = AvmContext {
     environment: nestedExecutionEnvironment, // defined below
     machineState: nestedMachineState,        // defined below
     worldState: callingContext.worldState,
-    journal: callingContext.journal,
-    accruedSubstate: INITIAL_ACCRUED_SUBSTATE,
+    worldStateAccessTrace: callingContext.worldStateAccessTrace,
+    accruedSubstate =  { [], ... [], }, // all substate vectors empty
     results: INITIAL_CONTRACT_CALL_RESULTS,
 }
 ```
@@ -508,10 +440,10 @@ if !nestedContext.results.reverted AND instr.opcode != STATICCALL_OP:
     context.accruedSubstate.append(nestedContext.accruedSubstate)
 ```
 
-Regardless of whether a nested context has reverted, its journal updates are absorbed into the calling context along with a new `nestedCalls` entry.
+Regardless of whether a nested context has reverted, its [world state access trace](./state#world-state-access-trace) updates are absorbed into the calling context along with a new `contractCalls` entry.
 ```
-context.journal = nestedContext.journal
-context.journal.append(nestedContext.address, nestedContext.machineState.reverted)
+context.worldStateAccessTrace = nestedContext.worldStateAccessTrace
+context.worldStateAccessTrace.contractCalls.append({nestedContext.address, nestedContext.storageAddress, clk})
 ```
 
-> Reminder: a nested call cannot make updates to the world state, journal, or accrued substate if it is a [`STATICCALL`](./instruction-set/#isa-section-staticcall).
+> Reminder: a nested call cannot make updates to the world state or accrued substate if it is a [`STATICCALL`](./instruction-set/#isa-section-staticcall).
