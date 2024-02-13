@@ -5,11 +5,6 @@ use serde::{Deserialize, Serialize};
 /// They are implemented as native functions in the VM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlackBoxOp {
-    /// Calculates the SHA256 hash of the inputs.
-    Sha256 {
-        message: HeapVector,
-        output: HeapArray,
-    },
     /// Calculates the Blake2s hash of the inputs.
     Blake2s {
         message: HeapVector,

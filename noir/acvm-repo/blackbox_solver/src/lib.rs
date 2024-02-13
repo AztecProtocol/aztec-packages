@@ -10,7 +10,6 @@
 use acir::BlackBoxFunc;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2s256, Digest};
-use sha2::Sha256;
 use sha3::Keccak256;
 use thiserror::Error;
 
@@ -22,11 +21,6 @@ pub use curve_specific_solver::{BlackBoxFunctionSolver, StubbedBlackBoxSolver};
 pub enum BlackBoxResolutionError {
     #[error("failed to solve blackbox function: {0}, reason: {1}")]
     Failed(BlackBoxFunc, String),
-}
-
-pub fn sha256(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
-    generic_hash_256::<Sha256>(inputs)
-        .map_err(|err| BlackBoxResolutionError::Failed(BlackBoxFunc::SHA256, err))
 }
 
 pub fn blake2s(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {

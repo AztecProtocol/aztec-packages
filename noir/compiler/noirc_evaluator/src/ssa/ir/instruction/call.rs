@@ -400,7 +400,6 @@ fn simplify_black_box_func(
     dfg: &mut DataFlowGraph,
 ) -> SimplifyResult {
     match bb_func {
-        BlackBoxFunc::SHA256 => simplify_hash(dfg, arguments, acvm::blackbox_solver::sha256),
         BlackBoxFunc::Blake2s => simplify_hash(dfg, arguments, acvm::blackbox_solver::blake2s),
         BlackBoxFunc::Blake3 => simplify_hash(dfg, arguments, acvm::blackbox_solver::blake3),
         BlackBoxFunc::Keccakf1600 => SimplifyResult::None, //TODO(Guillaume)

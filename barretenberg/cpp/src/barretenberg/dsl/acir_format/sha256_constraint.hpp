@@ -34,10 +34,6 @@ struct Sha256Compression {
     MSGPACK_FIELDS(inputs, hash_values, result);
 };
 
-// This function does not work (properly) because the stdlib:sha256 function is not working correctly for 512 bits
-// pair<witness_index, bits>
-template <typename Builder> void create_sha256_constraints(Builder& builder, const Sha256Constraint& constraint);
-
 template <typename Builder>
 void create_sha256_compression_constraints(Builder& builder, const Sha256Compression& constraint);
 

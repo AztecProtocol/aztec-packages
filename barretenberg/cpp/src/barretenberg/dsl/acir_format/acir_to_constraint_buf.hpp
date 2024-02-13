@@ -128,17 +128,6 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .witness = arg.input.witness.value,
                     .num_bits = arg.input.num_bits,
                 });
-            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::SHA256>) {
-                af.sha256_constraints.push_back(Sha256Constraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      return Sha256Input{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
-                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
                     .inputs = map(arg.inputs,

@@ -15,19 +15,6 @@ pub(crate) fn convert_black_box_call(
     function_results: &[BrilligVariable],
 ) {
     match bb_func {
-        BlackBoxFunc::SHA256 => {
-            if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
-                (function_arguments, function_results)
-            {
-                let message_vector = convert_array_or_vector(brillig_context, message, bb_func);
-                brillig_context.black_box_op_instruction(BlackBoxOp::Sha256 {
-                    message: message_vector.to_heap_vector(),
-                    output: result_array.to_heap_array(),
-                });
-            } else {
-                unreachable!("ICE: SHA256 expects one array argument and one array result")
-            }
-        }
         BlackBoxFunc::Blake2s => {
             if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
                 (function_arguments, function_results)

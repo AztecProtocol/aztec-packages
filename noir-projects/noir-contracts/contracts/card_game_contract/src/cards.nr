@@ -198,7 +198,7 @@ pub fn get_pack_cards(seed: Field, owner: AztecAddress, context: &mut PrivateCon
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nullifier_secret_key(owner);
     let mix = secret.high + secret.low + seed;
-    let random_bytes = std::hash::sha256(mix.to_le_bytes(32));
+    let random_bytes = std::hash::sha256(mix.to_le_32_bytes());
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards
