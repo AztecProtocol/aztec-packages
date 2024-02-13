@@ -154,7 +154,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
       '<artifact>',
-      "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js",
     )
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
@@ -215,7 +215,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .requiredOption(
       '-c, --contract-artifact <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
     .requiredOption('--init-hash <init hash>', 'Initialization hash', parseFieldFromHexString)
@@ -341,7 +341,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
       '-c, --contract-artifact <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
     .addOption(createPrivateKeyOption("The sender's private key.", true))
@@ -371,7 +371,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
       '-c, --contract-artifact <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
     .option('-f, --from <string>', 'Aztec address of the caller. If empty, will use the first account from RPC.')
@@ -396,12 +396,22 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
     .argument('<storageSlot>', 'The storage slot of the note.', parseField)
+    .argument('<noteTypeId>', 'The type ID of the note.', parseField)
     .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
     .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
     .addOption(pxeOption)
-    .action(async (address, contractAddress, storageSlot, txHash, options) => {
+    .action(async (address, contractAddress, storageSlot, noteTypeId, txHash, options) => {
       const { addNote } = await import('./cmds/add_note.js');
-      await addNote(address, contractAddress, storageSlot, txHash, options.note, options.rpcUrl, debugLogger);
+      await addNote(
+        address,
+        contractAddress,
+        storageSlot,
+        noteTypeId,
+        txHash,
+        options.note,
+        options.rpcUrl,
+        debugLogger,
+      );
     });
 
   // Helper for users to decode hex strings into structs if needed.
@@ -411,7 +421,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<encodedString>', 'The encoded hex string')
     .requiredOption(
       '-c, --contract-artifact <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
     .requiredOption('-p, --parameter <parameterName>', 'The name of the struct parameter to decode into')
     .action(async (encodedString, options) => {
@@ -430,7 +440,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('example-contracts')
-    .description('Lists the example contracts available to deploy from @aztec/noir-contracts')
+    .description('Lists the example contracts available to deploy from @aztec/noir-contracts.js')
     .action(async () => {
       const { exampleContracts } = await import('./cmds/example_contracts.js');
       await exampleContracts(log);
@@ -465,7 +475,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description('Shows list of external callable functions for a contract')
     .argument(
       '<contractArtifactFile>',
-      `A compiled Noir contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts`,
+      `A compiled Noir contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js`,
     )
     .action(async (contractArtifactFile: string) => {
       const { inspectContract } = await import('./cmds/inspect_contract.js');

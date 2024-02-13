@@ -7,16 +7,6 @@ const config: Config = {
   },
   testRegex: './src/.*\\.test\\.(js|mjs|ts)$',
   rootDir: './src',
-  // extensionsToTreatAsEsm: ['.ts'],
-  // moduleFileExtensions: ['js', 'ts', 'cts'],
-  // transform: {
-  //   '^.+\\.tsx?$': [
-  //     'ts-jest',
-  //     {
-  //       useESM: true,
-  //     },
-  //   ],
-  // },
 };
 
 export default config;
