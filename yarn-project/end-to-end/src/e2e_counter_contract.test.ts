@@ -1,10 +1,9 @@
-import { AccountWallet, AztecAddress, CompleteAddress, DebugLogger, Fr, TxStatus } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, CompleteAddress, DebugLogger, TxStatus } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_counter_contract', () => {
-  // let pxe: PXE;
   let wallet: AccountWallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
@@ -17,7 +16,6 @@ describe('e2e_counter_contract', () => {
     // Setup environment
     ({
       teardown,
-      // pxe,
       accounts,
       wallets: [wallet],
       logger,

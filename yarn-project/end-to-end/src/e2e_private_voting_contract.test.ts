@@ -4,7 +4,6 @@ import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateV
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_voting_contract', () => {
-  //   let pxe: PXE;
   let wallet: AccountWallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
@@ -17,7 +16,6 @@ describe('e2e_voting_contract', () => {
     // Setup environment
     ({
       teardown,
-      //   pxe,
       accounts,
       wallets: [wallet],
       logger,
