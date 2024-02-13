@@ -29,9 +29,11 @@ describe('e2e_counter_contract', () => {
 
   afterEach(() => teardown(), 30_000);
 
-  describe('increments', async () => {
-    const receipt = await counterContract.methods.increment(owner).send().wait();
-    expect(receipt.status).toBe(TxStatus.MINED);
-    expect(await counterContract.methods.get_counter(owner).view()).toBe(1n);
+  describe('increments', () => {
+    it('counts', async () => {
+      const receipt = await counterContract.methods.increment(owner).send().wait();
+      expect(receipt.status).toBe(TxStatus.MINED);
+      expect(await counterContract.methods.get_counter(owner).view()).toBe(1n);
+    });
   });
 });
