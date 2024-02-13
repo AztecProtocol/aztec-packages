@@ -1,4 +1,4 @@
-import { Keccak, Poseidon2 } from '../opcodes/hashing.js';
+import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import {
   Add,
   Address,
@@ -131,6 +131,8 @@ const INSTRUCTION_SET = () =>
     // //// Gadgets
     [Keccak.opcode, Keccak],
     [Poseidon2.opcode, Poseidon2],
+    [Sha256.opcode, Sha256],
+    [Pedersen.opcode, Pedersen],
   ]);
 
 interface Serializable {

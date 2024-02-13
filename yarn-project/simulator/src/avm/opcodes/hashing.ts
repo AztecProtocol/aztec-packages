@@ -1,4 +1,4 @@
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 
 import { AvmContext } from '../avm_context.js';
@@ -24,17 +24,12 @@ export class Poseidon2 extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    // TODO: types are going through buffers to deal with two different Fr types in bb.js and foundation
-    const hashDataBigint = context.machineState.memory
+    const hashData = context.machineState.memory
       .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
-      .map(word => word.toBigInt());
+      .map(word => word.toBuffer());
 
-    // We give each field 32 bytes of space
-    const hashData = hashDataBigint.map(bigint => toBufferBE(bigint, 32));
-
-    // Yucky casting
     const hash = poseidonHash(hashData);
-    context.machineState.memory.set(this.destOffset, new Field(toBigIntBE(hash)));
+    context.machineState.memory.set(this.destOffset, new Field(hash));
 
     context.machineState.incrementPc();
   }
@@ -59,13 +54,11 @@ export class Keccak extends Instruction {
   // Note hash output is 32 bytes, so takes up two fields
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    const hashDataBigint = context.machineState.memory
+    const hashData = context.machineState.memory
       .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
-      .map(word => word.toBigInt());
+      .map(word => word.toBuffer());
 
-    // TODO: one hashing api takes an array of buffers, the other one big buffer wtf?
-    const hashData = Buffer.concat(hashDataBigint.map(bigint => toBufferBE(bigint, 32)));
-    const hash = keccak(hashData);
+    const hash = keccak(Buffer.concat(hashData));
 
     // Split output into two fields
     const high = new Field(toBigIntBE(hash.subarray(0, 16)));
@@ -97,13 +90,11 @@ export class Sha256 extends Instruction {
   // Note hash output is 32 bytes, so takes up two fields
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    const hashDataBigint = context.machineState.memory
+    const hashData = context.machineState.memory
       .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
-      .map(word => word.toBigInt());
+      .map(word => word.toBuffer());
 
-    // TODO: one hashing api takes an array of buffers, the other one big buffer wtf?
-    const hashData = Buffer.concat(hashDataBigint.map(bigint => toBufferBE(bigint, 32)));
-    const hash = sha256(hashData);
+    const hash = sha256(Buffer.concat(hashData));
 
     // Split output into two fields
     const high = new Field(toBigIntBE(hash.subarray(0, 16)));
@@ -134,18 +125,13 @@ export class Pedersen extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    // TODO: types are going through buffers to deal with two different Fr types in bb.js and foundation
-    const hashDataBigint = context.machineState.memory
+    const hashData = context.machineState.memory
       .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
-      .map(word => word.toBigInt());
+      .map(word => word.toBuffer());
 
-    // We give each field 32 bytes of space
-    const hashData = hashDataBigint.map(bigint => toBufferBE(bigint, 32));
-
-    // yucky casting
     // No domain sep for now
     const hash = pedersenHash(hashData);
-    context.machineState.memory.set(this.destOffset, new Field(toBigIntBE(hash)));
+    context.machineState.memory.set(this.destOffset, new Field(hash));
 
     context.machineState.incrementPc();
   }
