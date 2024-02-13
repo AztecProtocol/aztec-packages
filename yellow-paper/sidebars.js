@@ -185,13 +185,14 @@ const sidebars = {
       ],
     },
     {
-      label: "Public VM",
+      label: "Aztec (Public) VM",
       type: "category",
-      link: { type: "doc", id: "public-vm/avm" },
+      link: { type: "doc", id: "public-vm/intro" },
       items: [
-        "public-vm/introduction",
+        "public-vm/intro",
         "public-vm/state",
         "public-vm/memory-model",
+        "public-vm/context",
         "public-vm/execution",
         "public-vm/nested-calls",
         "public-vm/instruction-set",

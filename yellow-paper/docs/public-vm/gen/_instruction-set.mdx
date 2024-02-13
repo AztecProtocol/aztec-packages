@@ -1687,7 +1687,7 @@ Call into another contract
                     execution resumes in the current/calling context.
                     A non-existent contract or one with no code will return success. 
     The expression's syntax above is shorthand. This instruction is
-    explained further in the ["Nested contract calls"](./avm#nested-contract-calls)
+    explained further in the ["Nested contract calls"](./nested-calls)
     section, which details nested context derivation, gas cost and refunds, handling
     a call's results, and world state access tracing.
 - **Tag checks**: `T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`
@@ -1727,7 +1727,7 @@ Call into another contract, disallowing World State and Accrued Substate modific
 </CodeBlock>
 - **Details**: Same as `CALL`, but disallows World State and Accrued Substate modifications. 
     The expression's syntax above is shorthand. This instruction is
-    explained further in the ["Nested contract calls"](./avm#nested-contract-calls)
+    explained further in the ["Nested contract calls"](./nested-calls)
     section, which details nested context derivation, gas cost and refunds, handling
     a call's results, and world state access tracing.
 - **Tag checks**: `T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`
@@ -1768,7 +1768,7 @@ Call into another contract, but keep the caller's `sender` and `storageAddress`
 - **Details**: Same as `CALL`, but `sender` and `storageAddress` remains
                     the same in the nested call as they were in the caller. 
     The expression's syntax above is shorthand. This instruction is
-    explained further in the ["Nested contract calls"](./avm#nested-contract-calls)
+    explained further in the ["Nested contract calls"](./nested-calls)
     section, which details nested context derivation, gas cost and refunds, handling
     a call's results, and world state access tracing.
 - **Tag checks**: `T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`
@@ -1797,7 +1797,7 @@ Halt execution within this context (without revert), optionally returning some d
 {`context.contractCallResults.output = M[retOffset:retOffset+retSize]
 halt`}
 </CodeBlock>
-- **Details**: Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See ["Halting"](./avm#halting) to learn more. See ["Nested contract calls"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.
+- **Details**: Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.
 - **Bit-size**: 88
 
 [![](./images/bit-formats/RETURN.png)](./images/bit-formats/RETURN.png)
@@ -1820,7 +1820,7 @@ Halt execution within this context as `reverted`, optionally returning some data
 context.contractCallResults.reverted = true
 halt`}
 </CodeBlock>
-- **Details**: Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See ["Halting"](./avm#halting) to learn more. See ["Nested contract calls"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.
+- **Details**: Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.
 - **Bit-size**: 88
 
 [![](./images/bit-formats/REVERT.png)](./images/bit-formats/REVERT.png)

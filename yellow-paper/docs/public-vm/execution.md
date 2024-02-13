@@ -1,0 +1,190 @@
+# Execution, Gas, Halting
+
+Once an execution context has been initialized for a contract call, the [machine state's](./state#machine-state) program counter determines which instruction the AVM executes. For any contract call, the program counter starts at zero, and so instruction execution begins with the very first entry in a contract's bytecode.
+
+## Program Counter and Control Flow
+
+The program counter (`machineState.pc`) determines which instruction the AVM executes next (`instr = environment.bytecode[pc]`). Each instruction's execution updates the program counter in some way, which allows the AVM to progress to the next instruction at each step.
+
+Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./instruction-set#isa-section-jump), [`JUMPI`](./instruction-set#isa-section-jumpi), [`INTERNALCALL`](./instruction-set#isa-section-internalcall)) modify the program counter based on arguments.
+
+The `INTERNALCALL` instruction pushes `machineState.pc+1` to `machineState.internalCallStack` and then updates `pc` to the instruction's destination argument (`instr.args.loc`). The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and assigns the result to `pc`.
+
+> An instruction will never assign program counter a value from memory (`machineState.memory`). A `JUMP`, `JUMPI`, or `INTERNALCALL` instruction's destination is a constant from the program bytecode. This property allows for easier static program analysis.
+
+## Gas limits and tracking
+> See ["Gas and Fees"](../gas-and-fees) for a deeper dive into Aztec's gas model and for definitions of each type of gas.
+
+Each instruction has an associated `l1GasCost`, `l2GasCost`, and `daGasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
+```
+assert machineState.l1GasLeft - instr.l1GasCost > 0
+assert machineState.l2GasLeft - instr.l2GasCost > 0
+assert machineState.daGasLeft - instr.daGasCost > 0
+```
+
+> Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the [world state](./state#avm-world-state) or [accrued substate](./state#accrued-substate).
+
+If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
+
+```
+machineState.l1GasLeft -= instr.l1GasCost
+machineState.l2GasLeft -= instr.l2GasCost
+machineState.daGasLeft -= instr.daGasCost
+```
+
+If either of these assertions _fail_ for an instruction, this triggers an exceptional halt. The gas left is set to 0 and execution reverts.
+
+```
+machineState.l1GasLeft = 0
+machineState.l2GasLeft = 0
+machineState.daGasLeft = 0
+```
+
+> Reverting and exceptional halts are covered in more detail in the ["Halting" section](#halting).
+
+## Gas cost notes and examples
+
+An instruction's gas cost is meant to reflect the computational cost of generating a proof of its correct execution. For some instructions, this computational cost changes based on inputs. Here are some examples and important notes:
+- [`JUMP`](./instruction-set/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost`, `l2GasCost`, and `daGasCost`.
+- The [`SET`](./instruction-set/#isa-section-set) instruction operates on a different sized constant (based on its `dstTag`). Therefore, this instruction's gas cost increases with the size of its input.
+- Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./instruction-set/#isa-section-calldatacopy) argument which copies `copySize` words from `environment.calldata` to `machineState.memory`.
+- The [`CALL`](./instruction-set/#isa-section-call)/[`STATICCALL`](./instruction-set/#isa-section-call)/`DELEGATECALL` instruction's gas cost is determined by its `*Gas` arguments, but any gas unused by the nested contract call's execution is refunded after its completion ([more on this later](./nested-calls#updating-the-calling-context-after-nested-call-halts)).
+- An instruction with "offset" arguments (like [`ADD`](./instruction-set/#isa-section-add) and many others), has increased cost for each offset argument that is flagged as "indirect".
+
+> An instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
+
+> An instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). A contract call instruction (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's complete execution as well as any work required by the public kernel circuit for this additional call.
+
+## Halting
+
+A context's execution can end with a **normal halt** or **exceptional halt**. A halt ends execution within the current context and returns control flow to the calling context.
+
+### Normal halting
+
+A normal halt occurs when the VM encounters an explicit halting instruction ([`RETURN`](./instruction-set#isa-section-return) or [`REVERT`](./instruction-set#isa-section-revert)). Such instructions consume gas normally and optionally initialize some output data before finally halting the current context's execution.
+
+```
+machineState.l1GasLeft -= instr.l1GasCost
+machineState.l2GasLeft -= instr.l2GasCost
+machineState.daGasLeft -= instr.daGasCost
+results.reverted = instr.opcode == REVERT
+results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+instr.args.retSize]
+```
+
+> Definitions: `retOffset` and `retSize` here are arguments to the [`RETURN`](./instruction-set/#isa-section-return) and [`REVERT`](./instruction-set#isa-section-revert) instructions. If `retSize` is 0, the context will have no output. Otherwise, these arguments point to a region of memory to output.
+
+> `results.output` is only relevant when the caller is a contract call itself. In other words, it is only relevant for [nested contract calls](./nested-calls). When an [initial contract call](./context#initial-contract-calls) (initiated by a public execution request) halts normally, its `results.output` is ignored.
+
+### Exceptional halting
+
+An exceptional halt is not explicitly triggered by an instruction but instead occurs when an exceptional condition is met.
+
+When an exceptional halt occurs, the context is flagged as consuming all of its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
+
+```
+machineState.l1GasLeft = 0
+machineState.l2GasLeft = 0
+machineState.daGasLeft = 0
+results.reverted = true
+// results.output remains empty
+```
+
+The AVM's exceptional halting conditions area listed below:
+
+1. **Insufficient gas**
+    ```
+    assert machineState.l1GasLeft - instr.l1GasCost > 0
+    assert machineState.l2GasLeft - instr.l2GasCost > 0
+    assert machineState.daGasLeft - instr.l2GasCost > 0
+    ```
+1. **Invalid instruction encountered**
+    ```
+    assert environment.bytecode[machineState.pc].opcode <= MAX_AVM_OPCODE
+    ```
+1. **Jump destination past end of bytecode**
+    ```
+    assert environment.bytecode[machineState.pc].opcode not in {JUMP, JUMPI, INTERNALCALL}
+        OR instr.args.loc < environment.bytecode.length
+    ```
+1. **Failed memory tag check**
+    - Defined per-instruction in the [Instruction Set](./instruction-set)
+1. **Maximum memory index ($2^{32}$) exceeded**
+    ```
+    for offset in instr.args.*Offset:
+        assert offset < 2^32
+    ```
+1. **World state modification attempt during a static call**
+    ```
+    assert !environment.isStaticCall
+        OR environment.bytecode[machineState.pc].opcode not in WS_AS_MODIFYING_OPS
+    ```
+    > Definition: `WS_AS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state or accrued substate.
+1. **Maximum contract call depth (1024) exceeded**
+    ```
+    assert environment.contractCallDepth <= 1024
+    assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+        OR environment.contractCallDepth < 1024
+    ```
+1. **Maximum contract call calls per execution request (1024) exceeded**
+    ```
+    assert worldStateAccessTrace.contractCalls.length <= 1024
+    assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+        OR worldStateAccessTrace.contractCalls.length < 1024
+    ```
+1. **Maximum internal call depth (1024) exceeded**
+    ```
+    assert machineState.internalCallStack.length <= 1024
+    assert environment.bytecode[machineState.pc].opcode != INTERNALCALL
+        OR environment.contractCallDepth < 1024
+    ```
+1. **Maximum world state accesses (1024-per-category) exceeded**
+    ```
+    assert worldStateAccessTrace.publicStorageReads.length <= 1024
+        AND worldStateAccessTrace.publicStorageWrites.length <= 1024
+        AND worldStateAccessTrace.noteHashChecks.length <= 1024
+        AND worldStateAccessTrace.newNoteHashes.length <= 1024
+        AND worldStateAccessTrace.nullifierChecks.length <= 1024
+        AND worldStateAccessTrace.newNullifiers.length <= 1024
+        AND worldStateAccessTrace.l1ToL2MessageReads.length <= 1024
+        AND worldStateAccessTrace.archiveChecks.length <= 1024
+
+    // Storage
+    assert environment.bytecode[machineState.pc].opcode != SLOAD
+        OR worldStateAccessTrace.publicStorageReads.length < 1024
+    assert environment.bytecode[machineState.pc].opcode != SSTORE
+        OR worldStateAccessTrace.publicStorageWrites.length < 1024
+
+    // Note hashes
+    assert environment.bytecode[machineState.pc].opcode != NOTEHASHEXISTS
+        OR noteHashChecks.length < 1024
+    assert environment.bytecode[machineState.pc].opcode != EMITNOTEHASH
+        OR newNoteHashes.length < 1024
+
+    // Nullifiers
+    assert environment.bytecode[machineState.pc].opcode != NULLIFIEREXISTS
+        OR nullifierChecks.length < 1024
+    assert environment.bytecode[machineState.pc].opcode != EMITNULLIFIER
+        OR newNullifiers.length < 1024
+
+    // Read L1 to L2 messages
+    assert environment.bytecode[machineState.pc].opcode != READL1TOL2MSG
+        OR worldStateAccessTrace.l1ToL2MessagesReads.length < 1024
+
+    // Archive tree & Headers
+    assert environment.bytecode[machineState.pc].opcode != HEADERMEMBER
+        OR archiveChecks.length < 1024
+    ```
+1. **Maximum accrued substate entries (per-category) exceeded**
+    ```
+    assert accruedSubstate.unencryptedLogs.length <= MAX_UNENCRYPTED_LOGS
+        AND accruedSubstate.sentL2ToL1Messages.length <= MAX_SENT_L2_TO_L1_MESSAGES
+
+    // Unencrypted logs
+    assert environment.bytecode[machineState.pc].opcode != ULOG
+        OR unencryptedLogs.length < MAX_UNENCRYPTED_LOGS
+
+    // Sent L2 to L1 messages
+    assert environment.bytecode[machineState.pc].opcode != SENDL2TOL1MSG
+        OR sentL2ToL1Messages.length < MAX_SENT_L2_TO_L1_MESSAGES
+    ```
+    > Note that ideally the AVM should limit the _total_ accrued substate entries per-category instead of the entries per-call.

@@ -23,7 +23,7 @@ const CALL_INSTRUCTION_ARGS = [
 ];
 const CALL_INSTRUCTION_DETAILS = `
     The expression's syntax above is shorthand. This instruction is
-    explained further in the ["Nested contract calls"](./avm#nested-contract-calls)
+    explained further in the ["Nested contract calls"](./nested-calls)
     section, which details nested context derivation, gas cost and refunds, handling
     a call's results, and world state access tracing.`;
 
@@ -1201,7 +1201,7 @@ context.contractCallResults.output = M[retOffset:retOffset+retSize]
 halt
 `,
         "Summary": "Halt execution within this context (without revert), optionally returning some data",
-        "Details": "Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See [\"Halting\"](./avm#halting) to learn more. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
+        "Details": "Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See [\"Halting\"](./execution#halting) to learn more. See [\"Nested contract calls\"](./nested-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "",
         "Tag updates": "",
     },
@@ -1222,7 +1222,7 @@ context.contractCallResults.reverted = true
 halt
 `,
         "Summary": "Halt execution within this context as `reverted`, optionally returning some data",
-        "Details": "Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See [\"Halting\"](./avm#halting) to learn more. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
+        "Details": "Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See [\"Halting\"](./execution#halting) to learn more. See [\"Nested contract calls\"](./nested-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "",
         "Tag updates": "",
     },
