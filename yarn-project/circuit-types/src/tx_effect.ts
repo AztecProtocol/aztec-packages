@@ -66,36 +66,6 @@ export class TxEffect {
 
     return sha256(inputValue);
   }
-
-  //   attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
-  //     if (
-  //       new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
-  //       new L2BlockL2Logs(unencrypedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
-  //     ) {
-  //       throw new Error('Logs exist in the padded area');
-  //     }
-
-  //     const txEffects = this.body.txEffects;
-
-  //     if (this.areLogsAttached()) {
-  //       if (
-  //         txEffects.every(
-  //           (txEffect, i) =>
-  //             txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
-  //             txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]),
-  //         )
-  //       ) {
-  //         L2Block.logger(`Logs already attached`);
-  //         return;
-  //       } else {
-  //         throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
-  //       }
-  //     }
-
-  //     txEffects.forEach((txEffect, i) => {
-  //       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencrypedLogs.txLogs[i]);
-  //     });
-  //   }
 }
 
 export class TxEffectLogs {
