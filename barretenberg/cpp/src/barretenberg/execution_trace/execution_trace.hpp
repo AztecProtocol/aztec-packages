@@ -55,7 +55,8 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
                 wire.emplace_back(0);
             }
             zero_row_selectors.reserve_and_zero(1);
-            trace_blocks.emplace_back(zero_row_wires, zero_row_selectors);
+            TraceBlock zero_block{ zero_row_wires, zero_row_selectors };
+            trace_blocks.emplace_back(zero_block);
         }
 
         // Make a block for the ecc op wires
@@ -64,7 +65,8 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             Selectors ecc_op_selectors;
             // Note: there is no selector for ecc ops
             ecc_op_selectors.reserve_and_zero(builder.num_ecc_op_gates);
-            trace_blocks.emplace_back(ecc_op_wires, ecc_op_selectors, /*is_public_input=*/false, /*is_goblin_op=*/true);
+            TraceBlock ecc_op_block{ ecc_op_wires, ecc_op_selectors, /*is_public_input=*/false, /*is_goblin_op=*/true };
+            trace_blocks.emplace_back(ecc_op_block);
         }
 
         // Make a block for the public inputs
@@ -77,10 +79,12 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             public_input_wires[2].emplace_back(builder.zero_idx);
             public_input_wires[3].emplace_back(builder.zero_idx);
         }
-        trace_blocks.emplace_back(public_input_wires, public_input_selectors, /*is_public_input=*/true);
+        TraceBlock public_input_block{ public_input_wires, public_input_selectors, /*is_public_input=*/true };
+        trace_blocks.emplace_back(public_input_block);
 
         // Make a block for the basic wires and selectors
-        trace_blocks.emplace_back(builder.wires, builder.selectors);
+        TraceBlock conventional_block{ builder.wires, builder.selectors };
+        trace_blocks.emplace_back(conventional_block);
 
         return trace_blocks;
     }
