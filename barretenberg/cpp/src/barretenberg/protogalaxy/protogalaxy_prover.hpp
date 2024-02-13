@@ -18,7 +18,7 @@ template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
 
     std::shared_ptr<Instance> accumulator;
     Polynomial<FF> perturbator;
-    std::vector<FF> deltas; // WORKTODO: might resize? prob not?
+    std::vector<FF> deltas;
     Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
     FF compressed_perturbator;
     FoldingResult<typename ProverInstances_::Flavor> result;
