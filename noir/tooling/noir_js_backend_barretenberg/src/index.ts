@@ -4,6 +4,7 @@ import { Backend, CompiledCircuit, ProofData } from '@noir-lang/types';
 import { BackendOptions } from './types.js';
 import { deflattenPublicInputs, flattenPublicInputsAsArray } from './public_inputs.js';
 import { type Barretenberg } from '@aztec/bb.js';
+import { cpus } from 'os';
 
 export { publicInputsToWitnessMap } from './public_inputs.js';
 
@@ -24,7 +25,7 @@ export class BarretenbergBackend implements Backend {
 
   constructor(
     acirCircuit: CompiledCircuit,
-    private options: BackendOptions = { threads: 1 },
+    private options: BackendOptions = { threads: navigator ? navigator.hardwareConcurrency : cpus().length },
   ) {
     const acirBytecodeBase64 = acirCircuit.bytecode;
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecodeBase64);
@@ -34,7 +35,7 @@ export class BarretenbergBackend implements Backend {
   async instantiate(): Promise<void> {
     if (!this.api) {
       const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
-      const api = await Barretenberg.new({ threads: this.options.threads });
+      const api = await Barretenberg.new(this.options);
 
       const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode);
       const crs = await Crs.new(subgroupSize + 1);

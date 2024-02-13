@@ -10,7 +10,7 @@ const debug = createDebug('bb.js:wasm');
 
 export type BackendOptions = {
   threads?: number;
-  memory?: { initial?: number; maximum?: number };
+  memory?: { maximum: number };
 };
 
 /**
@@ -32,7 +32,7 @@ export class Barretenberg extends BarretenbergApi {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(desiredThreads);
-    await wasm.init(module, threads, proxy(debug), memory?.initial, memory?.maximum);
+    await wasm.init(module, threads, proxy(debug), memory?.maximum);
     return new Barretenberg(worker, wasm);
   }
 
