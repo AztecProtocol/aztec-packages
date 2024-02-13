@@ -67,24 +67,24 @@ A context's **execution environment** remains constant throughout a contract cal
 #### _ExecutionEnvironment_
 | Field                 | Type                         | Description |
 | ---                   | ---                          | ---         |
+| address               | `AztecAddress`               |  |
+| storageAddress        | `AztecAddress`               |  |
 | origin                | `AztecAddress`               |  |
+| sender                | `AztecAddress`               |  |
+| portal                | `EthAddress`                 |  |
 | feePerL1Gas           | `field`                      |  |
 | feePerL2Gas           | `field`                      |  |
 | feePerDaGas           | `field`                      |  |
+| contractCallDepth     | `field`                      | Depth of the current call (how many nested calls deep is it). |
+| contractCallPointer   | `field`                      | Uniquely identifies each contract call processed by an AVM session. An initial call is assigned pointer value of 1 (expanded on in the AVM circuit section's ["Call Pointer"](./avm-circuit#call-pointer) subsection). |
 | globals               | `PublicGlobalVariables`      |  |
-| address               | `AztecAddress`               |  |
-| storageAddress        | `AztecAddress`               |  |
-| sender                | `AztecAddress`               |  |
-| portal                | `AztecAddress`               |  |
-| contractCallDepth     | `field`                      |  |
 | isStaticCall          | `boolean`                    |  |
 | isDelegateCall        | `boolean`                    |  |
 | calldata              | `[field; <calldata-length>]` |  |
-| bytecode              | `[field; <bytecode-length>]` |  |
 
 ### Contract Call Results
 
-Finally, when a contract call halts, it sets the context's **contract call results** to communicate results to the caller.
+When a contract call halts, it sets the context's **contract call results** to communicate results to the caller.
 
 #### _ContractCallResults_
 | Field        | Type                       | Description |
@@ -100,7 +100,7 @@ Once an execution context has been initialized for a contract call, the [machine
 
 The program counter (`machineState.pc`) determines which instruction the AVM executes next (`instr = environment.bytecode[pc]`). Each instruction's execution updates the program counter in some way, which allows the AVM to progress to the next instruction at each step.
 
-Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./instruction-set#isa-section-jump), [`JUMPI`](./instruction-set#isa-section-jumpi), `INTERNALCALL`) modify the program counter based on arguments.
+Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./instruction-set#isa-section-jump), [`JUMPI`](./instruction-set#isa-section-jumpi), [`INTERNALCALL`](./instruction-set#isa-section-internalcall)) modify the program counter based on arguments.
 
 The `INTERNALCALL` instruction pushes `machineState.pc+1` to `machineState.internalCallStack` and then updates `pc` to the instruction's destination argument (`instr.args.loc`). The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and assigns the result to `pc`.
 
@@ -295,7 +295,7 @@ context = AvmContext {
     environment = INITIAL_EXECUTION_ENVIRONMENT,
     machineState = INITIAL_MACHINE_STATE,
     worldState = <latest world state>,
-    worldStateAccessTrace = { [], [], ... [] }, // all trace vectors empty,
+    worldStateAccessTrace = INITIAL_WORLD_STATE_ACCESS_TRACE,
     accruedSubstate =  { [], ... [], }, // all substate vectors empty
     results = INITIAL_CONTRACT_CALL_RESULTS,
 }
@@ -307,30 +307,45 @@ Given a [`PublicCallRequest`](../transactions/tx-object#public-call-request) and
 
 ```
 INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
-    address = PublicCallRequest.contractAddress,
-    storageAddress = PublicCallRequest.CallContext.storageContractAddress,
-    origin = TxRequest.origin,
-    sender = PublicCallRequest.CallContext.msgSender,
-    portal = PublicCallRequest.CallContext.portalContractAddress,
-    feePerL1Gas = TxRequest.feePerL1Gas,
-    feePerL2Gas = TxRequest.feePerL2Gas,
-    feePerDaGas = TxRequest.feePerDaGas,
-    contractCallDepth = 0,
-    globals = <latest global variable values>
-    isStaticCall = PublicCallRequest.CallContext.isStaticCall,
-    isDelegateCall = PublicCallRequest.CallContext.isDelegateCall,
-    calldata = PublicCallRequest.args,
-    bytecode = worldState.contracts[PublicCallRequest.contractAddress],
+    address: PublicCallRequest.contractAddress,
+    storageAddress: PublicCallRequest.CallContext.storageContractAddress,
+    origin: TxRequest.origin,
+    sender: PublicCallRequest.CallContext.msgSender,
+    portal: PublicCallRequest.CallContext.portalContractAddress,
+    feePerL1Gas: TxRequest.feePerL1Gas,
+    feePerL2Gas: TxRequest.feePerL2Gas,
+    feePerDaGas: TxRequest.feePerDaGas,
+    contractCallDepth: 0,
+    contractCallPointer: 1,
+    globals: <current block's global variables>
+    isStaticCall: PublicCallRequest.CallContext.isStaticCall,
+    isDelegateCall: PublicCallRequest.CallContext.isDelegateCall,
+    calldata: PublicCallRequest.args,
+    bytecode: worldState.contracts[PublicCallRequest.contractAddress],
 }
 
 INITIAL_MACHINE_STATE = MachineState {
-    l1GasLeft = TxRequest.l1GasLimit,
-    l2GasLeft = TxRequest.l2GasLimit,
-    daGasLeft = TxRequest.daGasLimit,
-    pc = 0,
-    internalCallStack = [], // initialized as empty
-    memory = [0, ..., 0],   // all 2^32 entries are initialized to zero
+    l1GasLeft: TxRequest.l1GasLimit,
+    l2GasLeft: TxRequest.l2GasLimit,
+    daGasLeft: TxRequest.daGasLimit,
+    pc: 0,
+    internalCallStack: [], // initialized as empty
+    memory: [0, ..., 0],   // all 2^32 entries are initialized to zero
 }
+
+INITIAL_WORLD_STATE_ACCESS_TRACE = WorldStateAccessTrace {
+    accessCounter: 1,
+    contractCalls: [ // initial contract call is traced
+        TracedContractCall {
+            callPointer: nestedContext.environment.callPointer,
+            address: nestedContext.address,
+            storageAddress: nestedContext.storageAddress,
+            counter: 0,
+            endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
+        }
+    ],
+    [], ... [], // remaining entries are empty
+},
 
 INITIAL_CONTRACT_CALL_RESULTS = ContractCallResults {
     reverted = false,
@@ -381,6 +396,7 @@ nestedExecutionEnvironment = ExecutionEnvironment {
     feePerL2Gas: callingContext.feePerL2Gas,
     feePerDaGas: callingContext.feePerDaGas,
     contractCallDepth: callingContext.contractCallDepth + 1,
+    contractCallPointer: callingContext.worldStateAccessTrace.contractCalls.length + 1,
     globals: callingContext.globals,
     isStaticCall: isStaticCall,
     isDelegateCall: isDelegateCall,
@@ -440,10 +456,25 @@ if !nestedContext.results.reverted AND instr.opcode != STATICCALL_OP:
     context.accruedSubstate.append(nestedContext.accruedSubstate)
 ```
 
-Regardless of whether a nested context has reverted, its [world state access trace](./state#world-state-access-trace) updates are absorbed into the calling context along with a new `contractCalls` entry.
+Before the nested call's world state access trace is absorbed into the calling context, if the nested context reverted, all accesses made during the nested call (or any further nested calls) must be flagged with an **end-lifetime**, signifying that the access is only relevant up until that point. Thus, the `endLifetime` for all accesses made during the nested call (or any deeper nested calls) is updated according to the nested call's final `accessCounter`.
+```
+if nestedContext.results.reverted:
+    // process all traces (this is shorthand)
+    for trace in nestedContext.worldStateAccessTrace:
+        for access in trace:
+            if access.callPointer >= nestedContext.environment.callPointer:
+                // don't override end-lifetime already set by a deeper nested call
+                if access.endLifetime == 0:
+                    access.endLifetime = nestedContext.worldStateAccessTrace.accessCounter
+```
+
+> Note that `endLifetime` of 0 signifies "no end".
+
+> Note this also updates the nested call's entry in the `contractCalls` trace.
+
+Regardless of whether a nested context has reverted, its [world state access trace](./state#world-state-access-trace) updates are absorbed into the calling context.
 ```
 context.worldStateAccessTrace = nestedContext.worldStateAccessTrace
-context.worldStateAccessTrace.contractCalls.append({nestedContext.address, nestedContext.storageAddress, clk})
 ```
 
 > Reminder: a nested call cannot make updates to the world state or accrued substate if it is a [`STATICCALL`](./instruction-set/#isa-section-staticcall).
