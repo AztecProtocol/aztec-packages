@@ -1,6 +1,6 @@
-include "avm_mini.pil";
+include "avm_main.pil";
 
-namespace aluChip(256);
+namespace avm_alu(256);
 
     // ========= Table ALU-TR =================================================
 

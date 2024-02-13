@@ -1,8 +1,8 @@
 
 
-include "avm_mini.pil";
+include "avm_main.pil";
 
-namespace memTrace(256);
+namespace avm_mem(256);
     // ========= Table MEM-TR =================
     pol commit m_clk;
     pol commit m_sub_clk;

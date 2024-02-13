@@ -1,8 +1,8 @@
 
-include "mem_trace.pil";
-include "alu_chip.pil";
+include "avm_mem.pil";
+include "avm_alu.pil";
 
-namespace avmMini(256);
+namespace avm_main(256);
 
     //===== CONSTANT POLYNOMIALS ==================================================
     pol constant clk(i) { i };
@@ -42,7 +42,7 @@ namespace avmMini(256);
 
     // Errors
     pol commit op_err; // Boolean flag pertaining to an operation error
-    pol commit tag_err; // Boolean flag (foreign key to memTrace.m_tag_err)
+    pol commit tag_err; // Boolean flag (foreign key to avm_mem.m_tag_err)
 
     // A helper witness being the inverse of some value
     // to show a non-zero equality
@@ -89,7 +89,7 @@ namespace avmMini(256);
     sel_halt * (1 - sel_halt) = 0;
 
     op_err * (1 - op_err) = 0;
-    tag_err * (1 - tag_err) = 0; // Potential optimization (boolean constraint derivation from equivalence check to memTrace)?
+    tag_err * (1 - tag_err) = 0; // Potential optimization (boolean constraint derivation from equivalence check to avm_mem)?
 
     mem_op_a * (1 - mem_op_a) = 0;
     mem_op_b * (1 - mem_op_b) = 0;
@@ -189,6 +189,6 @@ namespace avmMini(256);
 
     // Inter-table Constraints
     
-    // TODO: tag_err {clk} IS memTrace.m_tag_err {memTrace.m_clk}
+    // TODO: tag_err {clk} IS avm_mem.m_tag_err {avm_mem.m_clk}
     // TODO: Map memory trace with intermediate register values whenever there is no tag error, sthg like:
     // mem_op_a * (1 - tag_err) {mem_idx_a, clk, ia, rwa} IS m_sub_clk == 0 && 1 - m_tag_err {m_addr, m_clk, m_val, m_rw}
