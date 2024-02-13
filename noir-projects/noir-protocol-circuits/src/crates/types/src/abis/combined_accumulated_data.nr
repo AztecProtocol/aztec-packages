@@ -45,6 +45,13 @@ struct CombinedAccumulatedData {
     public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
 }
 
+impl CombinedAccumulatedData {
+    pub fn needs_app_logic(self) -> bool {
+        // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
+        !self.public_call_stack[0].is_empty()
+    }
+}
+
 struct FinalAccumulatedData {
     new_commitments: [SideEffect; MAX_REVERTIBLE_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_REVERTIBLE_NULLIFIERS_PER_TX],
@@ -62,6 +69,13 @@ struct FinalAccumulatedData {
     unencrypted_log_preimages_length: Field,
 
     new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
+}
+
+impl FinalAccumulatedData {
+    pub fn needs_app_logic(self) -> bool {
+        // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
+        !self.public_call_stack[0].is_empty()
+    }
 }
 
 struct FinalAccumulatedDataBuilder {
@@ -104,6 +118,21 @@ struct AccumulatedNonRevertibleData {
     new_commitments: [SideEffect; MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX],
     public_call_stack: [CallRequest; MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+}
+
+impl AccumulatedNonRevertibleData {
+    pub fn needs_setup(self) -> bool {
+        // By definition, the final non-revertible enqueued call is for teardown.
+        // since this is a stack, the teardown call would be the 0th element.
+        // So if we have more than one element, we need setup.
+        !self.public_call_stack[1].is_empty()
+    }
+
+    pub fn needs_teardown(self) -> bool {
+        // By definition, the final non-revertible enqueued call is for teardown.
+        // since this is a stack, the teardown call would be the 0th element.
+        self.public_call_stack[0].is_empty()
+    }
 }
 
 struct AccumulatedNonRevertibleDataBuilder {

@@ -97,9 +97,25 @@ export abstract class AbstractPhaseManager {
 
   protected extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
     const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
-    const callRequestsStack = publicCallsStack.map(call => call.toCallRequest());
-
     const nonRevertibleCallStack = tx.data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
+    const revertibleCallStack = tx.data.end.publicCallStack.filter(i => !i.isEmpty());
+
+    const callRequestsStack = publicCallsStack
+      .map(call => call.toCallRequest())
+      .filter(
+        // filter out enqueued calls that are not in the public call stack
+        // TODO mitch left a question about whether this is only needed when unit testing
+        // with mock data
+        call => revertibleCallStack.find(p => p.equals(call)) || nonRevertibleCallStack.find(p => p.equals(call)),
+      );
+
+    if (callRequestsStack.length === 0) {
+      return {
+        [PublicKernelPhase.SETUP]: [],
+        [PublicKernelPhase.APP_LOGIC]: [],
+        [PublicKernelPhase.TEARDOWN]: [],
+      };
+    }
 
     // find the first call that is not revertible
     const firstNonRevertibleCallIndex = callRequestsStack.findIndex(
@@ -151,7 +167,9 @@ export abstract class AbstractPhaseManager {
         tx.data.endNonRevertibleData,
         CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
         tx.data.constants,
-        tx.data.isPrivate,
+        tx.data.needsSetup,
+        tx.data.needsAppLogic,
+        tx.data.needsTeardown,
       );
       const publicKernelProof = previousPublicKernelProof || tx.proof;
       return {

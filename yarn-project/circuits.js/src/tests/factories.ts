@@ -393,6 +393,8 @@ export function makePublicKernelCircuitPublicInputs(
     makeAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     true,
+    true,
+    true,
   );
 }
 /**
@@ -424,6 +426,8 @@ export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true):
     makeAccumulatedNonRevertibleData(seed + 0x100, full),
     makeFinalAccumulatedData(seed + 0x200, full),
     makeConstantData(seed + 0x300),
+    true,
+    true,
     true,
   );
 }

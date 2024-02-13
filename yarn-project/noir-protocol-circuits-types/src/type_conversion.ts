@@ -1034,7 +1034,9 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapAccumulatedMetaDataToNoir(inputs.endNonRevertibleData),
-    is_private: inputs.isPrivate,
+    needs_setup: inputs.needsSetup,
+    needs_app_logic: inputs.needsAppLogic,
+    needs_teardown: inputs.needsTeardown,
   };
 }
 
@@ -1122,7 +1124,9 @@ export function mapPrivateKernelTailCircuitPublicInputsFromNoir(
     mapAccumulatedMetaDataFromNoir(inputs.end_non_revertible),
     mapFinalAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
-    inputs.is_private,
+    inputs.needs_setup,
+    inputs.needs_app_logic,
+    inputs.needs_teardown,
   );
 }
 
@@ -1134,7 +1138,9 @@ export function mapPrivateKernelTailCircuitPublicInputsToNoir(
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapFinalAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapAccumulatedMetaDataToNoir(inputs.endNonRevertibleData),
-    is_private: inputs.isPrivate,
+    needs_setup: inputs.needsSetup,
+    needs_app_logic: inputs.needsAppLogic,
+    needs_teardown: inputs.needsTeardown,
   };
 }
 
@@ -1189,7 +1195,9 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
     mapAccumulatedMetaDataFromNoir(inputs.end_non_revertible),
     mapCombinedAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
-    inputs.is_private,
+    inputs.needs_setup,
+    inputs.needs_app_logic,
+    inputs.needs_teardown,
   );
 }
 

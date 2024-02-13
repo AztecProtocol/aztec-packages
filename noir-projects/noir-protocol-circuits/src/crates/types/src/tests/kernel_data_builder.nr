@@ -241,25 +241,33 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn to_private_kernel_tail_data(self) -> PrivateKernelTailData {
+        let end_non_revertible = self.end_non_revertible.finish();
+        let end = self.end.to_accumulated_revertible_data(0);
         let public_inputs = PrivateKernelTailCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            end_non_revertible: self.end_non_revertible.finish(),
+            end_non_revertible,
             // side effects are already paritioned by this builder
-            end: self.end.to_accumulated_revertible_data(0),
+            end,
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
-            is_private: self.is_private
+            needs_setup: end_non_revertible.needs_setup(),
+            needs_app_logic: end.needs_app_logic(),
+            needs_teardown: end_non_revertible.needs_teardown()
         };
 
         PrivateKernelTailData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_kernel_data(self) -> PublicKernelData {
+        let end_non_revertible = self.end_non_revertible.finish();
+        let end = self.end.finish();
         let public_inputs = PublicKernelCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            end_non_revertible: self.end_non_revertible.finish(),
-            end: self.end.finish(),
+            end_non_revertible,
+            end,
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
-            is_private: self.is_private
+            needs_setup: end_non_revertible.needs_setup(),
+            needs_app_logic: end.needs_app_logic(),
+            needs_teardown: end_non_revertible.needs_teardown()
         };
 
         PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }

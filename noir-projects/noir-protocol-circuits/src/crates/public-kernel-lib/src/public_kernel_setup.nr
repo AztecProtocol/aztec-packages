@@ -31,10 +31,8 @@ impl PublicKernelSetupCircuitPrivateInputs {
             );
         }
 
-        let previous_call_is_private = self.previous_kernel.public_inputs.is_private;
-        assert(
-            previous_call_is_private == true, "Previous kernel must be private when in this public kernel version"
-        );
+        let needs_setup = self.previous_kernel.public_inputs.needs_setup;
+        assert(needs_setup == true, "Cannot run unnecessary setup");
     }
 
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {

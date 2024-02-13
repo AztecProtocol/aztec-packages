@@ -15,13 +15,12 @@ struct PublicKernelTeardownCircuitPrivateInputs {
 
 impl PublicKernelTeardownCircuitPrivateInputs {
     fn validate_inputs(self) {
-        let public_app_call_stack = self.previous_kernel.public_inputs.end.public_call_stack;
-        for i in 0..public_app_call_stack.len() {
-            let private_call = public_app_call_stack[i];
-            assert(
-                private_call.is_empty(), "Public revertible call stack must be empty when executing the public teardown kernel"
-            );
-        }
+        let needs_setup = self.previous_kernel.public_inputs.needs_setup;
+        assert(needs_setup == false, "Cannot run teardown before setup");
+        let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic;
+        assert(needs_app_logic == false, "Cannot run teardown before app logic");
+        let needs_teardown = self.previous_kernel.public_inputs.needs_teardown;
+        assert(needs_teardown == true, "Cannot run unnecessary teardown");
     }
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {

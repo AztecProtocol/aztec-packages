@@ -12,12 +12,11 @@ struct PublicKernelAppLogicCircuitPrivateInputs {
 
 impl PublicKernelAppLogicCircuitPrivateInputs {
 
-    // this is the only difference between the two PublicKernels' logic:
     fn validate_inputs(self) {
-        let previous_call_is_private = self.previous_kernel.public_inputs.is_private;
-        assert(
-            previous_call_is_private == false, "Previous kernel must be public when in this public kernel version"
-        );
+        let needs_setup = self.previous_kernel.public_inputs.needs_setup;
+        assert(needs_setup == false, "Cannot run app logic before setup");
+        let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic;
+        assert(needs_app_logic == true, "Cannot run unnecessary app logic");
     }
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {

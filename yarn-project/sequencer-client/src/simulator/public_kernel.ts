@@ -24,8 +24,8 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   public async publicKernelCircuitSetup(
     input: PublicKernelCircuitPrivateInputs,
   ): Promise<PublicKernelCircuitPublicInputs> {
-    if (!input.previousKernel.publicInputs.isPrivate) {
-      throw new Error(`Expected private kernel previous inputs`);
+    if (!input.previousKernel.publicInputs.needsSetup) {
+      throw new Error(`Expected previous kernel inputs to need setup`);
     }
     const [duration, result] = await elapsed(() => executePublicKernelSetup(input));
     this.log(`Simulated public kernel setup circuit`, {
@@ -46,8 +46,8 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   public async publicKernelCircuitAppLogic(
     input: PublicKernelCircuitPrivateInputs,
   ): Promise<PublicKernelCircuitPublicInputs> {
-    if (input.previousKernel.publicInputs.isPrivate) {
-      throw new Error(`Expected public kernel previous inputs`);
+    if (!input.previousKernel.publicInputs.needsAppLogic) {
+      throw new Error(`Expected previous kernel inputs to need app logic`);
     }
     const [duration, result] = await elapsed(() => executePublicKernelAppLogic(input));
     this.log(`Simulated public kernel app logic circuit`, {
@@ -68,8 +68,8 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   public async publicKernelCircuitTeardown(
     input: PublicKernelCircuitPrivateInputs,
   ): Promise<PublicKernelCircuitPublicInputs> {
-    if (input.previousKernel.publicInputs.isPrivate) {
-      throw new Error(`Expected public kernel previous inputs`);
+    if (!input.previousKernel.publicInputs.needsTeardown) {
+      throw new Error(`Expected previous kernel inputs to need teardown`);
     }
     const [duration, result] = await elapsed(() => executePublicKernelTeardown(input));
     this.log(`Simulated public kernel teardown circuit`, {

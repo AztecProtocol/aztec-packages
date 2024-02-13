@@ -27,9 +27,17 @@ export class PublicKernelCircuitPublicInputs {
      */
     public constants: CombinedConstantData,
     /**
-     * Indicates whether the input is for a private or public kernel.
+     * Indicates whether the setup kernel is needed.
      */
-    public isPrivate: boolean,
+    public needsSetup: boolean,
+    /**
+     * Indicates whether the app logic kernel is needed.
+     */
+    public needsAppLogic: boolean,
+    /**
+     * Indicates whether the teardown kernel is needed.
+     */
+    public needsTeardown: boolean,
   ) {}
 
   toBuffer() {
@@ -38,7 +46,9 @@ export class PublicKernelCircuitPublicInputs {
       this.endNonRevertibleData,
       this.end,
       this.constants,
-      this.isPrivate,
+      this.needsSetup,
+      this.needsAppLogic,
+      this.needsTeardown,
     );
   }
 
@@ -55,6 +65,8 @@ export class PublicKernelCircuitPublicInputs {
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readBoolean(),
     );
   }
 
@@ -64,6 +76,8 @@ export class PublicKernelCircuitPublicInputs {
       AccumulatedNonRevertibleData.empty(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
+      true,
+      true,
       true,
     );
   }

@@ -15,7 +15,7 @@ struct PrivateKernelInnerCircuitPublicInputs {
     max_non_revertible_side_effect_counter: u32,
     end: CombinedAccumulatedData,
     constants: CombinedConstantData,
-    is_private: bool,
+    is_private: bool, // TODO can we remove this?
 }
 
 struct PrivateKernelTailCircuitPublicInputs {
@@ -23,7 +23,9 @@ struct PrivateKernelTailCircuitPublicInputs {
     end_non_revertible: AccumulatedNonRevertibleData,
     end: FinalAccumulatedData,
     constants: CombinedConstantData,
-    is_private: bool,
+    needs_setup: bool,
+    needs_app_logic: bool,
+    needs_teardown: bool,
 }
 
 struct PublicKernelCircuitPublicInputs {
@@ -31,7 +33,9 @@ struct PublicKernelCircuitPublicInputs {
     end_non_revertible: AccumulatedNonRevertibleData,
     end: CombinedAccumulatedData,
     constants: CombinedConstantData,
-    is_private: bool,
+    needs_setup: bool,
+    needs_app_logic: bool,
+    needs_teardown: bool,
 }
 
 struct PrivateKernelCircuitPublicInputsBuilder {
@@ -54,12 +58,16 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     }
 
     pub fn to_tail(self) -> PrivateKernelTailCircuitPublicInputs {
+        let end_non_revertible = self.end.to_accumulated_non_revertible_data(self.max_non_revertible_side_effect_counter);
+        let end = self.end.to_accumulated_revertible_data(self.max_non_revertible_side_effect_counter);
         PrivateKernelTailCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
-            end_non_revertible: self.end.to_accumulated_non_revertible_data(self.max_non_revertible_side_effect_counter),
-            end: self.end.to_accumulated_revertible_data(self.max_non_revertible_side_effect_counter),
+            end_non_revertible,
+            end,
             constants: self.constants,
-            is_private: self.is_private
+            needs_setup: end_non_revertible.needs_setup(),
+            needs_app_logic: end.needs_app_logic(),
+            needs_teardown: end_non_revertible.needs_teardown()
         }
     }
 }
@@ -74,12 +82,16 @@ struct PublicKernelCircuitPublicInputsBuilder {
 
 impl PublicKernelCircuitPublicInputsBuilder {
     pub fn to_inner(self) -> PublicKernelCircuitPublicInputs {
+        let end_non_revertible = self.end_non_revertible.finish();
+        let end = self.end.finish();
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
-            end_non_revertible: self.end_non_revertible.finish(),
-            end: self.end.finish(),
+            end_non_revertible,
+            end,
             constants: self.constants,
-            is_private: self.is_private
+            needs_setup: end_non_revertible.needs_setup(),
+            needs_app_logic: end.needs_app_logic(),
+            needs_teardown: end_non_revertible.needs_teardown()
         }
     }
 }
