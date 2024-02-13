@@ -84,6 +84,8 @@ class UltraComposer {
 
     void add_table_column_selector_poly_to_proving_key(polynomial& small, const std::string& tag);
 
+    void construct_table_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
+
     size_t compute_dyadic_circuit_size(CircuitBuilder& circuit_constructor);
 
     /**

@@ -290,77 +290,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
 
     compute_plonk_generalized_sigma_permutations<Flavor>(circuit_constructor, circuit_proving_key.get());
 
-    polynomial poly_q_table_column_1(subgroup_size);
-    polynomial poly_q_table_column_2(subgroup_size);
-    polynomial poly_q_table_column_3(subgroup_size);
-    polynomial poly_q_table_column_4(subgroup_size);
-
-    size_t offset = subgroup_size - circuit_constructor.get_tables_size() - s_randomness - 1;
-
-    // Create lookup selector polynomials which interpolate each table column.
-    // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
-    // put the table column's values at the end. (The first gates are for non-lookup constraints).
-    // [0, ..., 0, ...table, 0, 0, 0, x]
-    //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
-    //  |          table     randomness
-    //  ignored, as used for regular constraints and padding to the next power of 2.
-
-    for (size_t i = 0; i < offset; ++i) {
-        poly_q_table_column_1[i] = 0;
-        poly_q_table_column_2[i] = 0;
-        poly_q_table_column_3[i] = 0;
-        poly_q_table_column_4[i] = 0;
-    }
-
-    for (const auto& table : circuit_constructor.lookup_tables) {
-        const fr table_index(table.table_index);
-
-        for (size_t i = 0; i < table.size; ++i) {
-            poly_q_table_column_1[offset] = table.column_1[i];
-            poly_q_table_column_2[offset] = table.column_2[i];
-            poly_q_table_column_3[offset] = table.column_3[i];
-            poly_q_table_column_4[offset] = table_index;
-            ++offset;
-        }
-    }
-
-    // Initialize the last `s_randomness` positions in table polynomials with 0. We don't need to actually randomize
-    // the table polynomials.
-    for (size_t i = 0; i < s_randomness; ++i) {
-        poly_q_table_column_1[offset] = 0;
-        poly_q_table_column_2[offset] = 0;
-        poly_q_table_column_3[offset] = 0;
-        poly_q_table_column_4[offset] = 0;
-        ++offset;
-    }
-
-    // // In the case of using UltraPlonkComposer for a circuit which does _not_ make use of any lookup tables, all four
-    // // table columns would be all zeros. This would result in these polys' commitments all being the point at
-    // infinity
-    // // (which is bad because our point arithmetic assumes we'll never operate on the point at infinity). To avoid
-    // this,
-    // // we set the last evaluation of each poly to be nonzero. The last `num_roots_cut_out_of_vanishing_poly = 4`
-    // // evaluations are ignored by constraint checks; we arbitrarily choose the very-last evaluation to be nonzero.
-    // See
-    // // ComposerBase::compute_proving_key_base for further explanation, as a similar trick is done there. We could
-    // // have chosen `1` for each such evaluation here, but that would have resulted in identical commitments for
-    // // all four columns. We don't want to have equal commitments, because biggroup operations assume no points are
-    // // equal, so if we tried to verify an ultra proof in a circuit, the biggroup operations would fail. To combat
-    // // this, we just choose distinct values:
-    ASSERT(offset == subgroup_size - 1);
-    auto unique_last_value =
-        get_num_selectors() + 1; // Note: in compute_proving_key_base, moments earlier, each selector
-                                 // vector was given a unique last value from 1..num_selectors. So we
-                                 // avoid those values and continue the count, to ensure uniqueness.
-    poly_q_table_column_1[subgroup_size - 1] = unique_last_value;
-    poly_q_table_column_2[subgroup_size - 1] = ++unique_last_value;
-    poly_q_table_column_3[subgroup_size - 1] = ++unique_last_value;
-    poly_q_table_column_4[subgroup_size - 1] = ++unique_last_value;
-
-    add_table_column_selector_poly_to_proving_key(poly_q_table_column_1, "table_value_1");
-    add_table_column_selector_poly_to_proving_key(poly_q_table_column_2, "table_value_2");
-    add_table_column_selector_poly_to_proving_key(poly_q_table_column_3, "table_value_3");
-    add_table_column_selector_poly_to_proving_key(poly_q_table_column_4, "table_value_4");
+    construct_table_polynomials(circuit_constructor, subgroup_size);
 
     // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
     // Note: might be better to add these polys to cache only after they've been computed, as is convention
@@ -426,6 +356,40 @@ void UltraComposer::add_table_column_selector_poly_to_proving_key(polynomial& se
     circuit_proving_key->polynomial_store.put(tag, std::move(selector_poly_coeff_form));
     circuit_proving_key->polynomial_store.put(tag + "_lagrange", std::move(selector_poly_lagrange_form_copy));
     circuit_proving_key->polynomial_store.put(tag + "_fft", std::move(selector_poly_coset_form));
+}
+
+void UltraComposer::construct_table_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
+{
+    size_t additional_offset = s_randomness + 1;
+    auto table_polynomials = construct_table_polynomials<Flavor>(circuit, subgroup_size, additional_offset);
+
+    // // In the case of using UltraPlonkComposer for a circuit which does _not_ make use of any lookup tables, all four
+    // // table columns would be all zeros. This would result in these polys' commitments all being the point at
+    // infinity
+    // // (which is bad because our point arithmetic assumes we'll never operate on the point at infinity). To avoid
+    // this,
+    // // we set the last evaluation of each poly to be nonzero. The last `num_roots_cut_out_of_vanishing_poly = 4`
+    // // evaluations are ignored by constraint checks; we arbitrarily choose the very-last evaluation to be nonzero.
+    // See
+    // // ComposerBase::compute_proving_key_base for further explanation, as a similar trick is done there. We could
+    // // have chosen `1` for each such evaluation here, but that would have resulted in identical commitments for
+    // // all four columns. We don't want to have equal commitments, because biggroup operations assume no points are
+    // // equal, so if we tried to verify an ultra proof in a circuit, the biggroup operations would fail. To combat
+    // // this, we just choose distinct values:
+    // ASSERT(offset == subgroup_size - 1);
+    auto unique_last_value =
+        get_num_selectors() + 1; // Note: in compute_proving_key_base, moments earlier, each selector
+                                 // vector was given a unique last value from 1..num_selectors. So we
+                                 // avoid those values and continue the count, to ensure uniqueness.
+    table_polynomials[0][subgroup_size - 1] = unique_last_value;
+    table_polynomials[1][subgroup_size - 1] = ++unique_last_value;
+    table_polynomials[2][subgroup_size - 1] = ++unique_last_value;
+    table_polynomials[3][subgroup_size - 1] = ++unique_last_value;
+
+    add_table_column_selector_poly_to_proving_key(table_polynomials[0], "table_value_1");
+    add_table_column_selector_poly_to_proving_key(table_polynomials[1], "table_value_2");
+    add_table_column_selector_poly_to_proving_key(table_polynomials[2], "table_value_3");
+    add_table_column_selector_poly_to_proving_key(table_polynomials[3], "table_value_4");
 }
 
 } // namespace bb::plonk

@@ -69,9 +69,8 @@ template <class Flavor> class ProverInstance_ {
         compute_witness(circuit);
     }
 
-    ProverInstance_(Circuit& circuit, bool new_constructor)
+    ProverInstance_(Circuit& circuit, [[maybe_unused]] bool new_constructor)
     {
-        (void)new_constructor;
         compute_circuit_size_parameters(circuit);
         Trace trace;
         proving_key = trace.generate(circuit, dyadic_circuit_size);
@@ -87,7 +86,7 @@ template <class Flavor> class ProverInstance_ {
         // Generic precomputable stuff
         {
             compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
-            construct_table_polynomials<Flavor>(circuit, proving_key, dyadic_circuit_size, tables_size);
+            construct_table_polynomials(circuit, dyadic_circuit_size);
             if constexpr (IsGoblinFlavor<Flavor>) {
                 compute_databus_id();
             }
@@ -140,6 +139,8 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
+
+    void construct_table_polynomials(Circuit&, size_t);
 
     void add_memory_records_to_proving_key(Circuit&);
 

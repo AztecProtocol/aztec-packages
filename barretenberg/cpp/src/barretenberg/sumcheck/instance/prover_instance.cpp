@@ -154,6 +154,16 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 }
 
 template <class Flavor>
+void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size_t dyadic_circuit_size)
+{
+    auto table_polynomials = construct_table_polynomials<Flavor>(circuit, dyadic_circuit_size);
+    proving_key->table_1 = table_polynomials[0].share();
+    proving_key->table_2 = table_polynomials[1].share();
+    proving_key->table_3 = table_polynomials[2].share();
+    proving_key->table_4 = table_polynomials[3].share();
+}
+
+template <class Flavor>
 std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_proving_key(Circuit& circuit)
 {
     if (proving_key) {
@@ -168,7 +178,7 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
 
-    construct_table_polynomials<Flavor>(circuit, proving_key, dyadic_circuit_size, tables_size);
+    construct_table_polynomials(circuit, dyadic_circuit_size);
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         compute_databus_id();

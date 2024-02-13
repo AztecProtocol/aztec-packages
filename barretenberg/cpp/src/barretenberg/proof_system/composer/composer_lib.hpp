@@ -147,17 +147,14 @@ std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base(
 }
 
 template <typename Flavor>
-void construct_table_polynomials(const typename Flavor::CircuitBuilder& circuit,
-                                 const std::shared_ptr<typename Flavor::ProvingKey>& proving_key,
-                                 size_t dyadic_circuit_size,
-                                 size_t tables_size)
+std::array<typename Flavor::Polynomial, Flavor::CircuitBuilder::NUM_WIRES> construct_table_polynomials(
+    const typename Flavor::CircuitBuilder& circuit, size_t dyadic_circuit_size, size_t additional_offset = 0)
 {
-    polynomial poly_q_table_column_1(dyadic_circuit_size);
-    polynomial poly_q_table_column_2(dyadic_circuit_size);
-    polynomial poly_q_table_column_3(dyadic_circuit_size);
-    polynomial poly_q_table_column_4(dyadic_circuit_size);
-
-    size_t offset = dyadic_circuit_size - tables_size;
+    using Polynomial = typename Flavor::Polynomial;
+    std::array<Polynomial, Flavor::CircuitBuilder::NUM_WIRES> table_polynomials;
+    for (auto& poly : table_polynomials) {
+        poly = Polynomial(dyadic_circuit_size);
+    }
 
     // Create lookup selector polynomials which interpolate each table column.
     // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
@@ -166,33 +163,20 @@ void construct_table_polynomials(const typename Flavor::CircuitBuilder& circuit,
     //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
-
-    for (size_t i = 0; i < offset; ++i) {
-        poly_q_table_column_1[i] = 0;
-        poly_q_table_column_2[i] = 0;
-        poly_q_table_column_3[i] = 0;
-        poly_q_table_column_4[i] = 0;
-    }
+    size_t offset = dyadic_circuit_size - circuit.get_tables_size() - additional_offset;
 
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
 
         for (size_t i = 0; i < table.size; ++i) {
-            poly_q_table_column_1[offset] = table.column_1[i];
-            poly_q_table_column_2[offset] = table.column_2[i];
-            poly_q_table_column_3[offset] = table.column_3[i];
-            poly_q_table_column_4[offset] = table_index;
+            table_polynomials[0][offset] = table.column_1[i];
+            table_polynomials[1][offset] = table.column_2[i];
+            table_polynomials[2][offset] = table.column_3[i];
+            table_polynomials[3][offset] = table_index;
             ++offset;
         }
     }
-
-    // Polynomial memory is zeroed out when constructed with size hint, so we don't have to initialize trailing
-    // space
-
-    proving_key->table_1 = poly_q_table_column_1.share();
-    proving_key->table_2 = poly_q_table_column_2.share();
-    proving_key->table_3 = poly_q_table_column_3.share();
-    proving_key->table_4 = poly_q_table_column_4.share();
+    return table_polynomials;
 }
 
 /**

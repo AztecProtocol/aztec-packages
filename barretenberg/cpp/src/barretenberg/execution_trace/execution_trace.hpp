@@ -146,7 +146,7 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
         size_t block_num = 0; // debug only
         // For each block in the trace, populate wire polys, copy cycles and selector polys
         for (auto& block : trace_blocks) {
-            size_t block_size = block.wires[0].size();
+            auto block_size = static_cast<uint32_t>(block.wires[0].size());
             info("block num = ", block_num);
             info("block size = ", block_size);
 
