@@ -13,6 +13,7 @@ import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
+import { TestContract } from '@aztec/noir-contracts';
 
 describe('e2e_public_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -187,4 +188,17 @@ describe('e2e_public_cross_chain_messaging', () => {
         .simulate(),
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
+
+  it.only("can send an L2 -> L1 message from to a non-portal address", async () => {
+    // Deploy test account contract
+    const testContract = await TestContract.deploy(user1Wallet).send().deployed();
+
+    const amount = 10n;
+    const secretHash = Fr.random();
+    const recipient = EthAddress.random();
+
+    const receipt = await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(amount, secretHash, recipient).send().wait();
+
+    console.log(receipt);
+  });
 });
