@@ -147,10 +147,9 @@ export class L2Block {
 
   /**
    * Serializes a block
-   * @remarks This is used specifying no logs, and a header when the block is being served via JSON-RPC because the logs are expected to be served
+   * @remarks This can be used specifying no logs, which is used when the block is being served via JSON-RPC because the logs are expected to be served
    * separately.
-   * Otherwise it is used with logs, and no header when serializing a block to be published on L1
-   * @returns A serialized L2 block without logs.
+   * @returns A serialized L2 block logs.
    */
   toBuffer(includeLogs: boolean = false) {
     return serializeToBuffer(
