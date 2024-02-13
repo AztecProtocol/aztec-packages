@@ -332,16 +332,9 @@ export class Archiver implements ArchiveSource {
           NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         );
 
-        block.body.txEffects.forEach(txEffect => delete txEffect.logs);
+        block.body.detachLogs();
 
-        return L2Block.fromFields(
-          {
-            archive: block.archive,
-            header: block.header,
-            body: block.body,
-          },
-          block.getL1BlockNumber(),
-        );
+        return block;
       }),
     );
   }

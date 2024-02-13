@@ -115,4 +115,8 @@ export class L2BlockBody {
       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencryptedLogs.txLogs[i]);
     });
   }
+
+  public detachLogs() {
+    this.txEffects.forEach(txEffect => delete txEffect.logs);
+  }
 }
