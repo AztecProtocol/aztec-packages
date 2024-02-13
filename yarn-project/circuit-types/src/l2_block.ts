@@ -79,6 +79,10 @@ export class L2Block {
     return new this(fields.archive, fields.header, fields.body, l1BlockNumber);
   }
 
+    /**
+   * Deserializes a block from a buffer
+   * @returns A deserialized L2 block.
+   */
   static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
@@ -184,34 +188,25 @@ export class L2Block {
    * @param logType - The type of logs to be attached.
    * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
    */
-  attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
+  attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
     if (
       new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
-      new L2BlockL2Logs(unencrypedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
+      new L2BlockL2Logs(unencryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
     ) {
       throw new Error('Logs exist in the padded area');
     }
 
-    const txEffects = this.body.txEffects;
-
     if (this.body.areLogsAttached()) {
-      if (
-        txEffects.every(
-          (txEffect, i) =>
-            txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
-            txEffect.logs?.unencryptedLogs.equals(unencrypedLogs.txLogs[i]),
-        )
-      ) {
+      if (this.body.areLogsEqual(encryptedLogs, unencryptedLogs)) {
         L2Block.logger(`Logs already attached`);
+
         return;
-      } else {
-        throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
       }
+
+      throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
     }
 
-    txEffects.forEach((txEffect, i) => {
-      txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencrypedLogs.txLogs[i]);
-    });
+    this.body.attachLogs(encryptedLogs, unencryptedLogs);
   }
 
   /**

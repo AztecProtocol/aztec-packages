@@ -67,12 +67,6 @@ export class TxEffect {
     return sha256(inputValue);
   }
 
-  /**
- * Helper function to attach logs related to a block.
- * @param logs - The logs to be attached to a block.
- * @param logType - The type of logs to be attached.
- * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
-//  */
 //   attachLogs(encryptedLogs: L2BlockL2Logs, unencrypedLogs: L2BlockL2Logs) {
 //     if (
 //       new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||

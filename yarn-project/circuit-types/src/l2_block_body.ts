@@ -1,12 +1,16 @@
 import {
   L2BlockL2Logs,
   TxEffect,
+  TxEffectLogs,
 } from '@aztec/circuit-types';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class L2BlockBody {
+  private static logger = createDebugLogger('aztec:l2_block');
+
   constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
 
   /**
@@ -97,5 +101,25 @@ export class L2BlockBody {
 
   public areLogsAttached() {
     return this.txEffects.every(txEffect => txEffect.logs !== undefined);
+  }
+
+  public areLogsEqual(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
+    if (
+      this.txEffects.every(
+        (txEffect, i) =>
+          txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
+          txEffect.logs?.unencryptedLogs.equals(unencryptedLogs.txLogs[i]),
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  public attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
+    this.txEffects.forEach((txEffect, i) => {
+      txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencryptedLogs.txLogs[i]);
+    });
   }
 }
