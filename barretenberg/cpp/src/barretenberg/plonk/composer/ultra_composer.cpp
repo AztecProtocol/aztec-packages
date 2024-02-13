@@ -29,6 +29,17 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit)
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
 
+    construct_wire_polynomials(circuit, subgroup_size);
+
+    construct_sorted_list_polynomials(circuit, subgroup_size);
+
+    populate_memory_records(circuit);
+
+    computed_witness = true;
+}
+
+void UltraComposer::construct_wire_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
+{
     auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit, subgroup_size);
 
     for (size_t j = 0; j < program_width; ++j) {
@@ -36,9 +47,10 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit)
         circuit_proving_key->polynomial_store.put("w_" + index + "_lagrange",
                                                   std::move(wire_polynomial_evaluations[j]));
     }
+}
 
-    polynomial z_lookup(subgroup_size + 1); // Only instantiated in this function; nothing assigned.
-
+void UltraComposer::construct_sorted_list_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
+{
     // Save space in the sorted list polynomials for randomness (zk) plus one additional spot used to ensure the polys
     // aren't identically 0.
     size_t additional_offset = s_randomness + 1;
@@ -48,29 +60,6 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit)
     circuit_proving_key->polynomial_store.put("s_2_lagrange", std::move(sorted_polynomials[1]));
     circuit_proving_key->polynomial_store.put("s_3_lagrange", std::move(sorted_polynomials[2]));
     circuit_proving_key->polynomial_store.put("s_4_lagrange", std::move(sorted_polynomials[3]));
-
-    // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
-    // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire polynomials
-    // have been committed to. The 4th wire on these gates will be a random linear combination of the first 3 wires,
-    // using the plookup challenge `eta`. Because we shift the gates by the number of public inputs, we need to update
-    // the records with the public_inputs offset
-    const uint32_t public_inputs_count = static_cast<uint32_t>(circuit.public_inputs.size());
-    auto add_public_inputs_offset = [public_inputs_count](uint32_t gate_index) {
-        return gate_index + public_inputs_count;
-    };
-    circuit_proving_key->memory_read_records = std::vector<uint32_t>();
-    circuit_proving_key->memory_write_records = std::vector<uint32_t>();
-
-    std::transform(circuit.memory_read_records.begin(),
-                   circuit.memory_read_records.end(),
-                   std::back_inserter(circuit_proving_key->memory_read_records),
-                   add_public_inputs_offset);
-    std::transform(circuit.memory_write_records.begin(),
-                   circuit.memory_write_records.end(),
-                   std::back_inserter(circuit_proving_key->memory_write_records),
-                   add_public_inputs_offset);
-
-    computed_witness = true;
 }
 
 UltraProver UltraComposer::create_prover(CircuitBuilder& circuit_constructor)
@@ -80,7 +69,22 @@ UltraProver UltraComposer::create_prover(CircuitBuilder& circuit_constructor)
     compute_proving_key(circuit_constructor);
     compute_witness(circuit_constructor);
 
-    UltraProver output_state(circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()));
+    return construct_prover(circuit_constructor);
+}
+
+UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit_constructor)
+{
+    circuit_constructor.finalize_circuit();
+
+    compute_proving_key(circuit_constructor);
+    compute_witness(circuit_constructor);
+
+    return construct_prover(circuit_constructor);
+}
+
+UltraProver UltraComposer::construct_prover(CircuitBuilder& circuit_constructor)
+{
+    UltraProver prover{ circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()) };
 
     auto permutation_widget = std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
     auto plookup_widget = std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
@@ -89,20 +93,20 @@ UltraProver UltraComposer::create_prover(CircuitBuilder& circuit_constructor)
     auto elliptic_widget = std::make_unique<ProverEllipticWidget<ultra_settings>>(circuit_proving_key.get());
     auto auxiliary_widget = std::make_unique<ProverPlookupAuxiliaryWidget<ultra_settings>>(circuit_proving_key.get());
 
-    output_state.random_widgets.emplace_back(std::move(permutation_widget));
-    output_state.random_widgets.emplace_back(std::move(plookup_widget));
+    prover.random_widgets.emplace_back(std::move(permutation_widget));
+    prover.random_widgets.emplace_back(std::move(plookup_widget));
 
-    output_state.transition_widgets.emplace_back(std::move(arithmetic_widget));
-    output_state.transition_widgets.emplace_back(std::move(sort_widget));
-    output_state.transition_widgets.emplace_back(std::move(elliptic_widget));
-    output_state.transition_widgets.emplace_back(std::move(auxiliary_widget));
+    prover.transition_widgets.emplace_back(std::move(arithmetic_widget));
+    prover.transition_widgets.emplace_back(std::move(sort_widget));
+    prover.transition_widgets.emplace_back(std::move(elliptic_widget));
+    prover.transition_widgets.emplace_back(std::move(auxiliary_widget));
 
     std::unique_ptr<KateCommitmentScheme<ultra_settings>> kate_commitment_scheme =
         std::make_unique<KateCommitmentScheme<ultra_settings>>();
 
-    output_state.commitment_scheme = std::move(kate_commitment_scheme);
+    prover.commitment_scheme = std::move(kate_commitment_scheme);
 
-    return output_state;
+    return prover;
 }
 
 /**
@@ -390,6 +394,30 @@ void UltraComposer::construct_table_polynomials(CircuitBuilder& circuit, size_t 
     add_table_column_selector_poly_to_proving_key(table_polynomials[1], "table_value_2");
     add_table_column_selector_poly_to_proving_key(table_polynomials[2], "table_value_3");
     add_table_column_selector_poly_to_proving_key(table_polynomials[3], "table_value_4");
+}
+
+void UltraComposer::populate_memory_records(CircuitBuilder& circuit)
+{
+    // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
+    // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire polynomials
+    // have been committed to. The 4th wire on these gates will be a random linear combination of the first 3 wires,
+    // using the plookup challenge `eta`. Because we shift the gates by the number of public inputs, we need to update
+    // the records with the public_inputs offset
+    const auto public_inputs_count = static_cast<uint32_t>(circuit.public_inputs.size());
+    auto add_public_inputs_offset = [public_inputs_count](uint32_t gate_index) {
+        return gate_index + public_inputs_count;
+    };
+    circuit_proving_key->memory_read_records = std::vector<uint32_t>();
+    circuit_proving_key->memory_write_records = std::vector<uint32_t>();
+
+    std::transform(circuit.memory_read_records.begin(),
+                   circuit.memory_read_records.end(),
+                   std::back_inserter(circuit_proving_key->memory_read_records),
+                   add_public_inputs_offset);
+    std::transform(circuit.memory_write_records.begin(),
+                   circuit.memory_write_records.end(),
+                   std::back_inserter(circuit_proving_key->memory_write_records),
+                   add_public_inputs_offset);
 }
 
 } // namespace bb::plonk

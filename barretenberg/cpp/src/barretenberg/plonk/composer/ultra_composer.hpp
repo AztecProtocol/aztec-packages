@@ -74,6 +74,7 @@ class UltraComposer {
     void compute_witness(CircuitBuilder& circuit_constructor);
 
     UltraProver create_prover(CircuitBuilder& circuit_constructor);
+    UltraProver create_prover_new(CircuitBuilder& circuit_constructor);
     UltraVerifier create_verifier(CircuitBuilder& circuit_constructor);
 
     UltraToStandardProver create_ultra_to_standard_prover(CircuitBuilder& circuit_constructor);
@@ -83,8 +84,6 @@ class UltraComposer {
     UltraWithKeccakVerifier create_ultra_with_keccak_verifier(CircuitBuilder& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(polynomial& small, const std::string& tag);
-
-    void construct_table_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
 
     size_t compute_dyadic_circuit_size(CircuitBuilder& circuit_constructor);
 
@@ -99,6 +98,16 @@ class UltraComposer {
     {
         return Flavor::create_manifest(num_public_inputs);
     }
-};
 
+  private:
+    UltraProver construct_prover(CircuitBuilder& circuit_constructor);
+
+    void construct_wire_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
+
+    void construct_sorted_list_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
+
+    void populate_memory_records(CircuitBuilder& circuit_constructor);
+
+    void construct_table_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
+};
 } // namespace bb::plonk
