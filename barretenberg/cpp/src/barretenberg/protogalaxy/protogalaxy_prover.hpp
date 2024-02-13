@@ -193,8 +193,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     /**
-     * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that
-     * at each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
+     * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
+     * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
      * additional factor of X.
      */
     static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
@@ -202,8 +202,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                        const std::vector<std::vector<FF>>& prev_level_coeffs,
                                                        size_t level = 1)
     {
-        // if we are at level t in the tree, where t = logn and n is the instance size, we have reached the root
-        // which contains the coefficients of the perturbator polynomial
+        // if we are at level t in the tree, where t = logn and n is the instance size, we have reached the root which
+        // contains the coefficients of the perturbator polynomial
         if (level == betas.size()) {
             return prev_level_coeffs[0];
         }
