@@ -8,7 +8,9 @@ import {
   getContractDeploymentLogs,
   getL1ToL2MessageCancelledLogs,
   getL2BlockProcessedLogs,
+  getL2BlockProcessedLogsFromDataAvailabilityOracle,
   getPendingL1ToL2MessageLogs,
+  processBlockBodyLogs,
   processBlockLogs,
   processCancelledL1ToL2MessagesLogs,
   processContractDeploymentLogs,
@@ -63,6 +65,50 @@ export async function retrieveBlocks(
     }
 
     const newBlocks = await processBlockLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    retrievedBlocks.push(...newBlocks);
+    searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+    expectedNextL2BlockNum += BigInt(newBlocks.length);
+  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlocks };
+}
+
+/**
+ * Fetches new L2 Blocks.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param rollupAddress - The address of the rollup contract.
+ * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
+ * @param searchStartBlock - The block number to use for starting the search.
+ * @param searchEndBlock - The highest block number that we should search up to.
+ * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
+ * @returns An array of L2 Blocks and the next eth block to search from
+ */
+export async function retrieveBlockBodies(
+  publicClient: PublicClient,
+  rollupAddress: EthAddress,
+  blockUntilSynced: boolean,
+  searchStartBlock: bigint,
+  searchEndBlock: bigint,
+  expectedNextL2BlockNum: bigint,
+): Promise<DataRetrieval<L2Block>> {
+  const retrievedBlocks: L2Block[] = [];
+
+  do {
+    if (searchStartBlock > searchEndBlock) {
+      break;
+    }
+    const l2BlockProcessedLogs = await getL2BlockProcessedLogsFromDataAvailabilityOracle(
+      publicClient,
+      rollupAddress,
+      searchStartBlock,
+      searchEndBlock,
+    );
+    if (l2BlockProcessedLogs.length === 0) {
+      break;
+    }
+
+    console.log('RETRIEVE BLOCK BODIES CALLED')
+
+    const newBlocks = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlocks.length);

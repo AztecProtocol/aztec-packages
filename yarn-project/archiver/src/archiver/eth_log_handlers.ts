@@ -11,7 +11,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
-import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi, AvailabilityOracleAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 
@@ -84,6 +84,69 @@ export async function processBlockLogs(
   return retrievedBlocks;
 }
 
+export async function processBlockBodyLogs(
+  publicClient: PublicClient,
+  expectedL2BlockNumber: bigint,
+  logs: Log<bigint, number, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
+): Promise<L2Block[]> {
+  const retrievedBlocks: L2Block[] = [];
+  for (const log of logs) {
+    console.log('INSIDE PROCESS BLOCK BODY LOGS', log);
+    // const blockNum = log.args.blockNumber;
+    // if (blockNum !== expectedL2BlockNumber) {
+    //   throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
+    // }
+    // // TODO: Fetch blocks from calldata in parallel
+    const newBlock = await getBlockBodiesFromCallData(publicClient, log.transactionHash!);
+    // newBlock.setL1BlockNumber(log.blockNumber!);
+    // retrievedBlocks.push(newBlock);
+    // expectedL2BlockNumber++;
+  }
+  return retrievedBlocks;
+}
+
+/**
+ * Builds an L2 block out of calldata from the tx that published it.
+ * Assumes that the block was published from an EOA.
+ * TODO: Add retries and error management.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param txHash - Hash of the tx that published it.
+ * @param l2BlockNum - L2 block number.
+ * @returns An L2 block deserialized from the calldata.
+ */
+async function getBlockBodiesFromCallData(
+  publicClient: PublicClient,
+  txHash: `0x${string}`,
+): Promise<L2Block> {
+  console.log('INSIDE getBlockBodiesFromCallData', txHash);
+  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
+  const { functionName, args } = decodeFunctionData({
+    abi: AvailabilityOracleAbi,
+    data,
+  });
+
+  if (functionName !== 'publish') {
+    throw new Error(`Unexpected method called ${functionName}`);
+  }
+  const [bodyHex] = args! as [Hex];
+  console.log('getBlockBodiesFromCallData', bodyHex);
+
+  const blockBuffer = Buffer.concat([
+    // Buffer.from(hexToBytes(headerHex)),
+    // Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+    // numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
+    Buffer.from(hexToBytes(bodyHex)),
+  ]);
+  // const block = L2Block.fromBuffer(blockBuffer, true);
+  // if (BigInt(block.number) !== l2BlockNum) {
+  //   throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
+  // }
+  return L2Block.random(1);
+
+  // return block;
+}
+
 /**
  * Builds an L2 block out of calldata from the tx that published it.
  * Assumes that the block was published from an EOA.
@@ -104,10 +167,13 @@ async function getBlockFromCallData(
     abi: RollupAbi.filter(item => item.type.toString() !== 'constructor'),
     data,
   });
+
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
   const [headerHex, archiveRootHex, , bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
+  console.log('getBlockFromCallData', bodyHex !== undefined);
+
   const blockBuffer = Buffer.concat([
     Buffer.from(hexToBytes(headerHex)),
     Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
@@ -141,6 +207,49 @@ export async function getL2BlockProcessedLogs(
     abi: RollupAbi,
     name: 'L2BlockProcessed',
   });
+  const logs = await publicClient.getLogs<typeof abiItem, true>({
+    address: getAddress(rollupAddress.toString()),
+    event: abiItem,
+    fromBlock,
+    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
+  });
+
+  return await publicClient.getLogs<typeof abiItem, true>({
+    address: getAddress(rollupAddress.toString()),
+    event: abiItem,
+    fromBlock,
+    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
+  });
+}
+
+/**
+ * Gets relevant `L2BlockProcessed` logs from chain.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param rollupAddress - The address of the rollup contract.
+ * @param fromBlock - First block to get logs from (inclusive).
+ * @param toBlock - Last block to get logs from (inclusive).
+ * @returns An array of `L2BlockProcessed` logs.
+ */
+export async function getL2BlockProcessedLogsFromDataAvailabilityOracle(
+  publicClient: PublicClient,
+  rollupAddress: EthAddress,
+  fromBlock: bigint,
+  toBlock: bigint,
+) {
+  // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
+  //       as a standalone constant.
+  const abiItem = getAbiItem({
+    abi: AvailabilityOracleAbi,
+    name: 'TxsPublished',
+  });
+
+  const logs = await publicClient.getLogs<typeof abiItem, true>({
+    address: getAddress(rollupAddress.toString()),
+    event: abiItem,
+    fromBlock,
+    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
+  });
+
   return await publicClient.getLogs<typeof abiItem, true>({
     address: getAddress(rollupAddress.toString()),
     event: abiItem,

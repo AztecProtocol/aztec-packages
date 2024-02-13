@@ -46,6 +46,7 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
+  retrieveBlockBodies,
   retrieveBlocks,
   retrieveNewCancelledL1ToL2Messages,
   retrieveNewContractData,
@@ -93,6 +94,7 @@ export class Archiver implements ArchiveSource {
   constructor(
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
+    private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly contractDeploymentEmitterAddress: EthAddress,
@@ -123,6 +125,7 @@ export class Archiver implements ArchiveSource {
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
+      config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       config.l1Contracts.contractDeploymentEmitterAddress,
@@ -246,10 +249,22 @@ export class Archiver implements ArchiveSource {
     // ********** Events that are processed per L2 block **********
 
     // Read all data from chain and then write to our stores at the end
+    console.log('Rollup Address', this.rollupAddress);
+    console.log('Availability Oracle Address', this.availabilityOracleAddress);
+
     const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
     const retrievedBlocks = await retrieveBlocks(
       this.publicClient,
       this.rollupAddress,
+      blockUntilSynced,
+      lastL1Blocks.addedBlock + 1n,
+      currentL1BlockNumber,
+      nextExpectedL2BlockNum,
+    );
+
+    const retrievedBlockBodies = await retrieveBlockBodies(
+      this.publicClient,
+      this.availabilityOracleAddress,
       blockUntilSynced,
       lastL1Blocks.addedBlock + 1n,
       currentL1BlockNumber,
