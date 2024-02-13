@@ -1,4 +1,4 @@
-#include "AvmMini_opcode.hpp"
+#include "avm_opcode.hpp"
 
 #include <cstdint>
 #include <iomanip>

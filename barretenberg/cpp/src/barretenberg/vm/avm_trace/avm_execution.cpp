@@ -1,12 +1,12 @@
-#include "AvmMini_execution.hpp"
+#include "avm_execution.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_common.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_instructions.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_opcode.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_trace.hpp"
-#include "barretenberg/vm/generated/AvmMini_composer.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_instructions.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+#include "barretenberg/vm/avm_trace/avm_trace.hpp"
+#include "barretenberg/vm/generated/avm_composer.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -30,10 +30,10 @@ HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::ve
 {
     auto instructions = Deserialization::parse(bytecode);
     auto trace = gen_trace(instructions, calldata);
-    auto circuit_builder = bb::AvmMiniCircuitBuilder();
+    auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    auto composer = AvmMiniComposer();
+    auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     return prover.construct_proof();
 }
@@ -47,7 +47,7 @@ HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::ve
  */
 std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions, std::vector<FF> const& calldata)
 {
-    AvmMiniTraceBuilder trace_builder;
+    AvmTraceBuilder trace_builder;
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution

@@ -1,7 +1,7 @@
-#include "AvmMini_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_common.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_instructions.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_opcode.hpp"
+#include "avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_instructions.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

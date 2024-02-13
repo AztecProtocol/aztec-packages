@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <vector>
 
-#include "AvmMini_trace.hpp"
+#include "avm_trace.hpp"
 
 namespace avm_trace {
 
@@ -16,7 +16,7 @@ namespace avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmMiniTraceBuilder::AvmMiniTraceBuilder()
+AvmTraceBuilder::AvmTraceBuilder()
 {
     main_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -25,7 +25,7 @@ AvmMiniTraceBuilder::AvmMiniTraceBuilder()
  * @brief Resetting the internal state so that a new trace can be rebuilt using the same object.
  *
  */
-void AvmMiniTraceBuilder::reset()
+void AvmTraceBuilder::reset()
 {
     main_trace.clear();
     mem_trace_builder.reset();
@@ -40,7 +40,7 @@ void AvmMiniTraceBuilder::reset()
  * @param dst_offset An index in memory pointing to the output of the addition.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmMiniTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -58,22 +58,22 @@ void AvmMiniTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t 
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc++),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_op_add = FF(1),
-        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avmMini_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
-        .avmMini_mem_op_a = FF(1),
-        .avmMini_mem_op_b = FF(1),
-        .avmMini_mem_op_c = FF(1),
-        .avmMini_rwc = FF(1),
-        .avmMini_mem_idx_a = FF(a_offset),
-        .avmMini_mem_idx_b = FF(b_offset),
-        .avmMini_mem_idx_c = FF(dst_offset),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_op_add = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .avm_main_ia = a,
+        .avm_main_ib = b,
+        .avm_main_ic = c,
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_a = FF(a_offset),
+        .avm_main_mem_idx_b = FF(b_offset),
+        .avm_main_mem_idx_c = FF(dst_offset),
     });
 };
 
@@ -85,7 +85,7 @@ void AvmMiniTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t 
  * @param dst_offset An index in memory pointing to the output of the subtraction.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmMiniTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -103,22 +103,22 @@ void AvmMiniTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t 
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc++),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_op_sub = FF(1),
-        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avmMini_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
-        .avmMini_mem_op_a = FF(1),
-        .avmMini_mem_op_b = FF(1),
-        .avmMini_mem_op_c = FF(1),
-        .avmMini_rwc = FF(1),
-        .avmMini_mem_idx_a = FF(a_offset),
-        .avmMini_mem_idx_b = FF(b_offset),
-        .avmMini_mem_idx_c = FF(dst_offset),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_op_sub = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .avm_main_ia = a,
+        .avm_main_ib = b,
+        .avm_main_ic = c,
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_a = FF(a_offset),
+        .avm_main_mem_idx_b = FF(b_offset),
+        .avm_main_mem_idx_c = FF(dst_offset),
     });
 };
 
@@ -130,7 +130,7 @@ void AvmMiniTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t 
  * @param dst_offset An index in memory pointing to the output of the multiplication.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmMiniTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -148,22 +148,22 @@ void AvmMiniTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t 
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc++),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_op_mul = FF(1),
-        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avmMini_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
-        .avmMini_mem_op_a = FF(1),
-        .avmMini_mem_op_b = FF(1),
-        .avmMini_mem_op_c = FF(1),
-        .avmMini_rwc = FF(1),
-        .avmMini_mem_idx_a = FF(a_offset),
-        .avmMini_mem_idx_b = FF(b_offset),
-        .avmMini_mem_idx_c = FF(dst_offset),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_op_mul = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .avm_main_ia = a,
+        .avm_main_ib = b,
+        .avm_main_ic = c,
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_a = FF(a_offset),
+        .avm_main_mem_idx_b = FF(b_offset),
+        .avm_main_mem_idx_c = FF(dst_offset),
     });
 }
 
@@ -175,7 +175,7 @@ void AvmMiniTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t 
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmMiniTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -206,24 +206,24 @@ void AvmMiniTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t 
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc++),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_op_div = FF(1),
-        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avmMini_op_err = tag_match ? error : FF(1),
-        .avmMini_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avmMini_inv = tag_match ? inv : FF(1),
-        .avmMini_ia = tag_match ? a : FF(0),
-        .avmMini_ib = tag_match ? b : FF(0),
-        .avmMini_ic = tag_match ? c : FF(0),
-        .avmMini_mem_op_a = FF(1),
-        .avmMini_mem_op_b = FF(1),
-        .avmMini_mem_op_c = FF(1),
-        .avmMini_rwc = FF(1),
-        .avmMini_mem_idx_a = FF(a_offset),
-        .avmMini_mem_idx_b = FF(b_offset),
-        .avmMini_mem_idx_c = FF(dst_offset),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_op_div = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avm_main_op_err = tag_match ? error : FF(1),
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .avm_main_inv = tag_match ? inv : FF(1),
+        .avm_main_ia = tag_match ? a : FF(0),
+        .avm_main_ib = tag_match ? b : FF(0),
+        .avm_main_ic = tag_match ? c : FF(0),
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_a = FF(a_offset),
+        .avm_main_mem_idx_b = FF(b_offset),
+        .avm_main_mem_idx_c = FF(dst_offset),
     });
 }
 
@@ -240,7 +240,7 @@ void AvmMiniTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t 
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmMiniTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
     auto val_ff = FF{ uint256_t::from_uint128(val) };
@@ -248,14 +248,14 @@ void AvmMiniTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag i
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, val_ff, in_tag);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc++),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avmMini_ic = val_ff,
-        .avmMini_mem_op_c = FF(1),
-        .avmMini_rwc = FF(1),
-        .avmMini_mem_idx_c = FF(dst_offset),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avm_main_ic = val_ff,
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_c = FF(dst_offset),
     });
 }
 
@@ -279,10 +279,10 @@ void AvmMiniTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag i
  * @param dst_offset The starting index of memory where calldata will be copied to.
  * @param call_data_mem The vector containing calldata.
  */
-void AvmMiniTraceBuilder::calldata_copy(uint32_t cd_offset,
-                                        uint32_t copy_size,
-                                        uint32_t dst_offset,
-                                        std::vector<FF> const& call_data_mem)
+void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
+                                    uint32_t copy_size,
+                                    uint32_t dst_offset,
+                                    std::vector<FF> const& call_data_mem)
 {
     // We parallelize storing memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
@@ -333,22 +333,22 @@ void AvmMiniTraceBuilder::calldata_copy(uint32_t cd_offset,
         }
 
         main_trace.push_back(Row{
-            .avmMini_clk = clk,
-            .avmMini_pc = FF(pc++),
-            .avmMini_internal_return_ptr = FF(internal_return_ptr),
-            .avmMini_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-            .avmMini_ia = ia,
-            .avmMini_ib = ib,
-            .avmMini_ic = ic,
-            .avmMini_mem_op_a = FF(mem_op_a),
-            .avmMini_mem_op_b = FF(mem_op_b),
-            .avmMini_mem_op_c = FF(mem_op_c),
-            .avmMini_rwa = FF(rwa),
-            .avmMini_rwb = FF(rwb),
-            .avmMini_rwc = FF(rwc),
-            .avmMini_mem_idx_a = FF(mem_idx_a),
-            .avmMini_mem_idx_b = FF(mem_idx_b),
-            .avmMini_mem_idx_c = FF(mem_idx_c),
+            .avm_main_clk = clk,
+            .avm_main_pc = FF(pc++),
+            .avm_main_internal_return_ptr = FF(internal_return_ptr),
+            .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .avm_main_ia = ia,
+            .avm_main_ib = ib,
+            .avm_main_ic = ic,
+            .avm_main_mem_op_a = FF(mem_op_a),
+            .avm_main_mem_op_b = FF(mem_op_b),
+            .avm_main_mem_op_c = FF(mem_op_c),
+            .avm_main_rwa = FF(rwa),
+            .avm_main_rwb = FF(rwb),
+            .avm_main_rwc = FF(rwc),
+            .avm_main_mem_idx_a = FF(mem_idx_a),
+            .avm_main_mem_idx_b = FF(mem_idx_b),
+            .avm_main_mem_idx_c = FF(mem_idx_c),
         });
 
         if (copy_size - pos > 2) { // Guard to prevent overflow if copy_size is close to uint32_t maximum value.
@@ -373,7 +373,7 @@ void AvmMiniTraceBuilder::calldata_copy(uint32_t cd_offset,
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
 {
     if (ret_size == 0) {
         halt();
@@ -430,20 +430,20 @@ std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret
         }
 
         main_trace.push_back(Row{
-            .avmMini_clk = clk,
-            .avmMini_pc = FF(pc),
-            .avmMini_internal_return_ptr = FF(internal_return_ptr),
-            .avmMini_sel_halt = FF(1),
-            .avmMini_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-            .avmMini_ia = ia,
-            .avmMini_ib = ib,
-            .avmMini_ic = ic,
-            .avmMini_mem_op_a = FF(mem_op_a),
-            .avmMini_mem_op_b = FF(mem_op_b),
-            .avmMini_mem_op_c = FF(mem_op_c),
-            .avmMini_mem_idx_a = FF(mem_idx_a),
-            .avmMini_mem_idx_b = FF(mem_idx_b),
-            .avmMini_mem_idx_c = FF(mem_idx_c),
+            .avm_main_clk = clk,
+            .avm_main_pc = FF(pc),
+            .avm_main_internal_return_ptr = FF(internal_return_ptr),
+            .avm_main_sel_halt = FF(1),
+            .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .avm_main_ia = ia,
+            .avm_main_ib = ib,
+            .avm_main_ic = ic,
+            .avm_main_mem_op_a = FF(mem_op_a),
+            .avm_main_mem_op_b = FF(mem_op_b),
+            .avm_main_mem_op_c = FF(mem_op_c),
+            .avm_main_mem_idx_a = FF(mem_idx_a),
+            .avm_main_mem_idx_b = FF(mem_idx_b),
+            .avm_main_mem_idx_c = FF(mem_idx_c),
         });
 
         if (ret_size - pos > 2) { // Guard to prevent overflow if ret_size is close to uint32_t maximum value.
@@ -462,15 +462,15 @@ std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret
  *        ensures the program counter increments on each opcode.
  *        i.e. the program counter should freeze and the halt flag is set to 1.
  */
-void AvmMiniTraceBuilder::halt()
+void AvmTraceBuilder::halt()
 {
     auto clk = main_trace.size();
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_halt = FF(1),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_halt = FF(1),
     });
 
     pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
@@ -484,16 +484,16 @@ void AvmMiniTraceBuilder::halt()
  *
  * @param jmp_dest - The destination to jump to
  */
-void AvmMiniTraceBuilder::jump(uint32_t jmp_dest)
+void AvmTraceBuilder::jump(uint32_t jmp_dest)
 {
     auto clk = main_trace.size();
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_jump = FF(1),
-        .avmMini_ia = FF(jmp_dest),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_jump = FF(1),
+        .avm_main_ia = FF(jmp_dest),
     });
 
     // Adjust parameters for the next row
@@ -513,7 +513,7 @@ void AvmMiniTraceBuilder::jump(uint32_t jmp_dest)
  *
  * @param jmp_dest - The destination to jump to
  */
-void AvmMiniTraceBuilder::internal_call(uint32_t jmp_dest)
+void AvmTraceBuilder::internal_call(uint32_t jmp_dest)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -525,15 +525,15 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmp_dest)
     mem_trace_builder.write_into_memory(clk, IntermRegister::IB, internal_return_ptr, FF(stored_pc), AvmMemoryTag::FF);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_internal_call = FF(1),
-        .avmMini_ia = FF(jmp_dest),
-        .avmMini_ib = stored_pc,
-        .avmMini_mem_op_b = FF(1),
-        .avmMini_rwb = FF(1),
-        .avmMini_mem_idx_b = FF(internal_return_ptr),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_internal_call = FF(1),
+        .avm_main_ia = FF(jmp_dest),
+        .avm_main_ib = stored_pc,
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_rwb = FF(1),
+        .avm_main_mem_idx_b = FF(internal_return_ptr),
     });
 
     // Adjust parameters for the next row
@@ -551,7 +551,7 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmp_dest)
  *
  *  TODO(https://github.com/AztecProtocol/aztec-packages/issues/3740): This function MUST come after a call instruction.
  */
-void AvmMiniTraceBuilder::internal_return()
+void AvmTraceBuilder::internal_return()
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -561,14 +561,14 @@ void AvmMiniTraceBuilder::internal_return()
         mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::FF);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = pc,
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_internal_return = FF(1),
-        .avmMini_ia = read_a.val,
-        .avmMini_mem_op_a = FF(1),
-        .avmMini_rwa = FF(0),
-        .avmMini_mem_idx_a = FF(internal_return_ptr - 1),
+        .avm_main_clk = clk,
+        .avm_main_pc = pc,
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_internal_return = FF(1),
+        .avm_main_ia = read_a.val,
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_rwa = FF(0),
+        .avm_main_mem_idx_a = FF(internal_return_ptr - 1),
     });
 
     // We want the next row to be the one pointed by jmp_dest
@@ -586,7 +586,7 @@ void AvmMiniTraceBuilder::internal_return()
  *
  * @return The main trace
  */
-std::vector<Row> AvmMiniTraceBuilder::finalize()
+std::vector<Row> AvmTraceBuilder::finalize()
 {
     auto mem_trace = mem_trace_builder.finalize();
     auto alu_trace = alu_trace_builder.finalize();
@@ -607,29 +607,29 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         main_trace.push_back({});
     }
 
-    main_trace.at(main_trace_size - 1).avmMini_last = FF(1);
+    main_trace.at(main_trace_size - 1).avm_main_last = FF(1);
 
     // Memory trace inclusion
     for (size_t i = 0; i < mem_trace_size; i++) {
         auto const& src = mem_trace.at(i);
         auto& dest = main_trace.at(i);
 
-        dest.memTrace_m_clk = FF(src.m_clk);
-        dest.memTrace_m_sub_clk = FF(src.m_sub_clk);
-        dest.memTrace_m_addr = FF(src.m_addr);
-        dest.memTrace_m_val = src.m_val;
-        dest.memTrace_m_rw = FF(static_cast<uint32_t>(src.m_rw));
-        dest.memTrace_m_in_tag = FF(static_cast<uint32_t>(src.m_in_tag));
-        dest.memTrace_m_tag = FF(static_cast<uint32_t>(src.m_tag));
-        dest.memTrace_m_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
-        dest.memTrace_m_one_min_inv = src.m_one_min_inv;
+        dest.avm_mem_m_clk = FF(src.m_clk);
+        dest.avm_mem_m_sub_clk = FF(src.m_sub_clk);
+        dest.avm_mem_m_addr = FF(src.m_addr);
+        dest.avm_mem_m_val = src.m_val;
+        dest.avm_mem_m_rw = FF(static_cast<uint32_t>(src.m_rw));
+        dest.avm_mem_m_in_tag = FF(static_cast<uint32_t>(src.m_in_tag));
+        dest.avm_mem_m_tag = FF(static_cast<uint32_t>(src.m_tag));
+        dest.avm_mem_m_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
+        dest.avm_mem_m_one_min_inv = src.m_one_min_inv;
 
         if (i + 1 < mem_trace_size) {
             auto const& next = mem_trace.at(i + 1);
-            dest.memTrace_m_lastAccess = FF(static_cast<uint32_t>(src.m_addr != next.m_addr));
+            dest.avm_mem_m_lastAccess = FF(static_cast<uint32_t>(src.m_addr != next.m_addr));
         } else {
-            dest.memTrace_m_lastAccess = FF(1);
-            dest.memTrace_m_last = FF(1);
+            dest.avm_mem_m_lastAccess = FF(1);
+            dest.avm_mem_m_last = FF(1);
         }
     }
 
@@ -638,43 +638,43 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         auto const& src = alu_trace.at(i);
         auto& dest = main_trace.at(i);
 
-        dest.aluChip_alu_clk = FF(static_cast<uint32_t>(src.alu_clk));
+        dest.avm_alu_alu_clk = FF(static_cast<uint32_t>(src.alu_clk));
 
-        dest.aluChip_alu_op_add = FF(static_cast<uint32_t>(src.alu_op_add));
-        dest.aluChip_alu_op_sub = FF(static_cast<uint32_t>(src.alu_op_sub));
-        dest.aluChip_alu_op_mul = FF(static_cast<uint32_t>(src.alu_op_mul));
-        dest.aluChip_alu_op_not = FF(static_cast<uint32_t>(src.alu_op_not));
+        dest.avm_alu_alu_op_add = FF(static_cast<uint32_t>(src.alu_op_add));
+        dest.avm_alu_alu_op_sub = FF(static_cast<uint32_t>(src.alu_op_sub));
+        dest.avm_alu_alu_op_mul = FF(static_cast<uint32_t>(src.alu_op_mul));
+        dest.avm_alu_alu_op_not = FF(static_cast<uint32_t>(src.alu_op_not));
 
-        dest.aluChip_alu_ff_tag = FF(static_cast<uint32_t>(src.alu_ff_tag));
-        dest.aluChip_alu_u8_tag = FF(static_cast<uint32_t>(src.alu_u8_tag));
-        dest.aluChip_alu_u16_tag = FF(static_cast<uint32_t>(src.alu_u16_tag));
-        dest.aluChip_alu_u32_tag = FF(static_cast<uint32_t>(src.alu_u32_tag));
-        dest.aluChip_alu_u64_tag = FF(static_cast<uint32_t>(src.alu_u64_tag));
-        dest.aluChip_alu_u128_tag = FF(static_cast<uint32_t>(src.alu_u128_tag));
+        dest.avm_alu_alu_ff_tag = FF(static_cast<uint32_t>(src.alu_ff_tag));
+        dest.avm_alu_alu_u8_tag = FF(static_cast<uint32_t>(src.alu_u8_tag));
+        dest.avm_alu_alu_u16_tag = FF(static_cast<uint32_t>(src.alu_u16_tag));
+        dest.avm_alu_alu_u32_tag = FF(static_cast<uint32_t>(src.alu_u32_tag));
+        dest.avm_alu_alu_u64_tag = FF(static_cast<uint32_t>(src.alu_u64_tag));
+        dest.avm_alu_alu_u128_tag = FF(static_cast<uint32_t>(src.alu_u128_tag));
 
-        dest.aluChip_alu_ia = src.alu_ia;
-        dest.aluChip_alu_ib = src.alu_ib;
-        dest.aluChip_alu_ic = src.alu_ic;
+        dest.avm_alu_alu_ia = src.alu_ia;
+        dest.avm_alu_alu_ib = src.alu_ib;
+        dest.avm_alu_alu_ic = src.alu_ic;
 
-        dest.aluChip_alu_cf = FF(static_cast<uint32_t>(src.alu_cf));
+        dest.avm_alu_alu_cf = FF(static_cast<uint32_t>(src.alu_cf));
 
-        dest.aluChip_alu_u8_r0 = FF(src.alu_u8_r0);
-        dest.aluChip_alu_u8_r1 = FF(src.alu_u8_r1);
+        dest.avm_alu_alu_u8_r0 = FF(src.alu_u8_r0);
+        dest.avm_alu_alu_u8_r1 = FF(src.alu_u8_r1);
 
-        dest.aluChip_alu_u16_r0 = FF(src.alu_u16_reg.at(0));
-        dest.aluChip_alu_u16_r1 = FF(src.alu_u16_reg.at(1));
-        dest.aluChip_alu_u16_r2 = FF(src.alu_u16_reg.at(2));
-        dest.aluChip_alu_u16_r3 = FF(src.alu_u16_reg.at(3));
-        dest.aluChip_alu_u16_r4 = FF(src.alu_u16_reg.at(4));
-        dest.aluChip_alu_u16_r5 = FF(src.alu_u16_reg.at(5));
-        dest.aluChip_alu_u16_r6 = FF(src.alu_u16_reg.at(6));
-        dest.aluChip_alu_u16_r7 = FF(src.alu_u16_reg.at(7));
+        dest.avm_alu_alu_u16_r0 = FF(src.alu_u16_reg.at(0));
+        dest.avm_alu_alu_u16_r1 = FF(src.alu_u16_reg.at(1));
+        dest.avm_alu_alu_u16_r2 = FF(src.alu_u16_reg.at(2));
+        dest.avm_alu_alu_u16_r3 = FF(src.alu_u16_reg.at(3));
+        dest.avm_alu_alu_u16_r4 = FF(src.alu_u16_reg.at(4));
+        dest.avm_alu_alu_u16_r5 = FF(src.alu_u16_reg.at(5));
+        dest.avm_alu_alu_u16_r6 = FF(src.alu_u16_reg.at(6));
+        dest.avm_alu_alu_u16_r7 = FF(src.alu_u16_reg.at(7));
 
-        dest.aluChip_alu_u64_r0 = FF(src.alu_u64_r0);
+        dest.avm_alu_alu_u64_r0 = FF(src.alu_u64_r0);
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.
-    Row first_row = Row{ .avmMini_first = FF(1), .memTrace_m_lastAccess = FF(1) };
+    Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_m_lastAccess = FF(1) };
     main_trace.insert(main_trace.begin(), first_row);
 
     auto trace = std::move(main_trace);
@@ -690,7 +690,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
  * @param dst_offset An index in memory pointing to the output of Not.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmMiniTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
@@ -704,18 +704,18 @@ void AvmMiniTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemo
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
-        .avmMini_clk = clk,
-        .avmMini_pc = FF(pc++),
-        .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_sel_op_not = FF(1),
-        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avmMini_ia = read_a.val,
-        .avmMini_ic = c,
-        .avmMini_mem_op_a = FF(1),
-        .avmMini_mem_op_c = FF(1),
-        .avmMini_rwc = FF(1),
-        .avmMini_mem_idx_a = FF(a_offset),
-        .avmMini_mem_idx_c = FF(dst_offset),
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_op_not = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avm_main_ia = read_a.val,
+        .avm_main_ic = c,
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_a = FF(a_offset),
+        .avm_main_mem_idx_c = FF(dst_offset),
     });
 };
 

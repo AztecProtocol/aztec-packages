@@ -1,4 +1,4 @@
-#include "AvmMini_alu_trace.hpp"
+#include "avm_alu_trace.hpp"
 
 namespace avm_trace {
 
@@ -6,7 +6,7 @@ namespace avm_trace {
  * @brief Constructor of Alu trace builder of AVM. Only serves to set the capacity of the
  *        underlying trace.
  */
-AvmMiniAluTraceBuilder::AvmMiniAluTraceBuilder()
+AvmAluTraceBuilder::AvmAluTraceBuilder()
 {
     alu_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -15,7 +15,7 @@ AvmMiniAluTraceBuilder::AvmMiniAluTraceBuilder()
  * @brief Resetting the internal state so that a new Alu trace can be rebuilt using the same object.
  *
  */
-void AvmMiniAluTraceBuilder::reset()
+void AvmAluTraceBuilder::reset()
 {
     alu_trace.clear();
 }
@@ -25,7 +25,7 @@ void AvmMiniAluTraceBuilder::reset()
  *
  * @return The Alu trace (which is moved).
  */
-std::vector<AvmMiniAluTraceBuilder::AluTraceEntry> AvmMiniAluTraceBuilder::finalize()
+std::vector<AvmAluTraceBuilder::AluTraceEntry> AvmAluTraceBuilder::finalize()
 {
     return std::move(alu_trace);
 }
@@ -45,7 +45,7 @@ std::vector<AvmMiniAluTraceBuilder::AluTraceEntry> AvmMiniAluTraceBuilder::final
  *
  * @return FF The result of the addition casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     bool carry = false;
@@ -98,7 +98,7 @@ FF AvmMiniAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag,
         }
     }
 
-    alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_add = true,
         .alu_ff_tag = in_tag == AvmMemoryTag::FF,
@@ -134,7 +134,7 @@ FF AvmMiniAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag,
  *
  * @return FF The result of the subtraction casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     bool carry = false;
@@ -186,7 +186,7 @@ FF AvmMiniAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag,
         }
     }
 
-    alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_sub = true,
         .alu_ff_tag = in_tag == AvmMemoryTag::FF,
@@ -218,7 +218,7 @@ FF AvmMiniAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag,
  *
  * @return FF The result of the multiplication casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     bool carry = false;
@@ -274,7 +274,7 @@ FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag,
         // c_high := 2^128 * a_h * b_h
         uint256_t c_high = ((a_u256 >> 64) * (b_u256 >> 64)) << 128;
 
-        // From PIL relation in alu_chip.pil, we need to determine the bit CF and 64-bit value R' in
+        // From PIL relation in avm_alu.pil, we need to determine the bit CF and 64-bit value R' in
         // a * b_l + a_l * b_h * 2^64 = (CF * 2^64 + R') * 2^128 + c
         // LHS is c_u256 - c_high
 
@@ -285,7 +285,7 @@ FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag,
 
         c = FF{ uint256_t::from_uint128(c_u128) };
 
-        alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+        alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
             .alu_clk = clk,
             .alu_op_mul = true,
             .alu_u128_tag = in_tag == AvmMemoryTag::U128,
@@ -297,7 +297,7 @@ FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag,
             .alu_u64_r0 = alu_u64_r0,
         });
 
-        alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+        alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
             .alu_u16_reg = alu_u16_reg_b,
         });
 
@@ -324,7 +324,7 @@ FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag,
     }
 
     // Following code executed for: ff, u8, u16, u32, u64 (u128 returned handled specifically)
-    alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_mul = true,
         .alu_ff_tag = in_tag == AvmMemoryTag::FF,
@@ -353,7 +353,7 @@ FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag,
  *
  * @return FF The result of the not casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     uint128_t a_u128{ a };
@@ -380,7 +380,7 @@ FF AvmMiniAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t con
         return FF{ 0 };
     }
 
-    alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_not = true,
         .alu_u8_tag = in_tag == AvmMemoryTag::U8,

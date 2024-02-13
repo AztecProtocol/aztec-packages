@@ -2,26 +2,26 @@
 
 #include <stack>
 
-#include "AvmMini_alu_trace.hpp"
-#include "AvmMini_common.hpp"
-#include "AvmMini_instructions.hpp"
-#include "AvmMini_mem_trace.hpp"
+#include "avm_alu_trace.hpp"
+#include "avm_common.hpp"
+#include "avm_instructions.hpp"
+#include "avm_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 
-#include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
+#include "barretenberg/relations/generated/avm/avm_main.hpp"
 
 namespace avm_trace {
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
-// At the end of circuit building, mainTrace can be moved to AvmMiniCircuitBuilder by calling
-// AvmMiniCircuitBuilder::set_trace(rows).
-class AvmMiniTraceBuilder {
+// At the end of circuit building, mainTrace can be moved to AvmCircuitBuilder by calling
+// AvmCircuitBuilder::set_trace(rows).
+class AvmTraceBuilder {
 
   public:
     static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
 
-    AvmMiniTraceBuilder();
+    AvmTraceBuilder();
 
     std::vector<Row> finalize();
     void reset();
@@ -72,8 +72,8 @@ class AvmMiniTraceBuilder {
 
   private:
     std::vector<Row> main_trace;
-    AvmMiniMemTraceBuilder mem_trace_builder;
-    AvmMiniAluTraceBuilder alu_trace_builder;
+    AvmMemTraceBuilder mem_trace_builder;
+    AvmAluTraceBuilder alu_trace_builder;
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;

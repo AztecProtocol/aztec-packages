@@ -1,14 +1,14 @@
 #pragma once
 
 #include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
 #include <cstdint>
 
 namespace avm_trace {
 
-using Flavor = bb::AvmMiniFlavor;
+using Flavor = bb::AvmFlavor;
 using FF = Flavor::FF;
-using Row = bb::AvmMiniFullRow<bb::fr>;
+using Row = bb::AvmFullRow<bb::fr>;
 
 // Number of rows
 static const size_t AVM_TRACE_SIZE = 256;

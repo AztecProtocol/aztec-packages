@@ -1,10 +1,10 @@
 #pragma once
 
-#include "AvmMini_common.hpp"
+#include "avm_common.hpp"
 
 namespace avm_trace {
 
-class AvmMiniMemTraceBuilder {
+class AvmMemTraceBuilder {
 
   public:
     static const size_t MEM_SIZE = 1024;
@@ -60,7 +60,7 @@ class AvmMiniMemTraceBuilder {
         FF val{};
     };
 
-    AvmMiniMemTraceBuilder();
+    AvmMemTraceBuilder();
 
     void reset();
 

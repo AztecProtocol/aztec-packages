@@ -1,10 +1,10 @@
 #pragma once
 
-#include "AvmMini_common.hpp"
+#include "avm_common.hpp"
 
 namespace avm_trace {
 
-class AvmMiniAluTraceBuilder {
+class AvmAluTraceBuilder {
 
   public:
     struct AluTraceEntry {
@@ -36,7 +36,7 @@ class AvmMiniAluTraceBuilder {
         uint64_t alu_u64_r0{};
     };
 
-    AvmMiniAluTraceBuilder();
+    AvmAluTraceBuilder();
     void reset();
     std::vector<AluTraceEntry> finalize();
 

@@ -1,10 +1,10 @@
-#include "AvmMini_common.test.hpp"
+#include "barretenberg/vm/avm_trace/avm_execution.hpp"
+#include "avm_common.test.hpp"
 #include "barretenberg/common/utils.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_common.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_execution.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_opcode.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_helper.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/tests/helpers.test.hpp"
 #include "gmock/gmock.h"
 #include <cstdint>
@@ -26,11 +26,11 @@ void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
                             std::vector<Row>&& trace,
                             std::vector<FF> const& calldata)
 {
-    auto circuit_builder = AvmMiniCircuitBuilder();
+    auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 
-    auto composer = AvmMiniComposer();
+    auto composer = AvmComposer();
     auto verifier = composer.create_verifier(circuit_builder);
 
     auto proof = avm_trace::Execution::run_and_prove(bytecode, calldata);
@@ -39,22 +39,22 @@ void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
 }
 } // namespace
 
-class AvmMiniExecutionTests : public ::testing::Test {
+class AvmExecutionTests : public ::testing::Test {
   public:
-    AvmMiniTraceBuilder trace_builder;
+    AvmTraceBuilder trace_builder;
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
         srs::init_crs_factory("../srs_db/ignition");
-        trace_builder = AvmMiniTraceBuilder(); // Clean instance for every run.
+        trace_builder = AvmTraceBuilder(); // Clean instance for every run.
     };
 };
 
 // Basic positive test with an ADD and RETURN opcode.
 // Parsing, trace generation and proving is verified.
-TEST_F(AvmMiniExecutionTests, basicAddReturn)
+TEST_F(AvmExecutionTests, basicAddReturn)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD
                                "01"                       // U8
@@ -90,7 +90,7 @@ TEST_F(AvmMiniExecutionTests, basicAddReturn)
 }
 
 // Positive test for SET and SUB opcodes
-TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
+TEST_F(AvmExecutionTests, setAndSubOpcodes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
                                "02"                       // U16
@@ -142,8 +142,8 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
     auto trace = Execution::gen_trace(instructions);
 
     // Find the first row enabling the subtraction selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == 1; });
-    EXPECT_EQ(row->avmMini_ic, 10000); // 47123 - 37123 = 10000
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == 1; });
+    EXPECT_EQ(row->avm_main_ic, 10000); // 47123 - 37123 = 10000
 
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }
@@ -154,7 +154,7 @@ TEST_F(AvmMiniExecutionTests, setAndSubOpcodes)
 // Repeat 12 times a multiplication of value
 // at offset 0 (5) with value at offset 1 and store
 // the result at offset 1.
-TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
+TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET) +   // opcode SET
                                "04"                    // U64
@@ -215,8 +215,8 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
 
     // Find the first row enabling the multiplication selector and pc = 13
     auto row = std::ranges::find_if(
-        trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == 1 && r.avmMini_pc == 13; });
-    EXPECT_EQ(row->avmMini_ic, 244140625); // 5^12 = 244140625
+        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == 1 && r.avm_main_pc == 13; });
+    EXPECT_EQ(row->avm_main_ic, 244140625); // 5^12 = 244140625
 
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }
@@ -230,7 +230,7 @@ TEST_F(AvmMiniExecutionTests, powerWithMulOpcodes)
 // Internal routine bytecode is at the end.
 // Bytecode layout: SET INTERNAL_CALL ADD RETURN SET INTERNAL_RETURN
 //                   0        1        2     3    4         5
-TEST_F(AvmMiniExecutionTests, simpleInternalCall)
+TEST_F(AvmExecutionTests, simpleInternalCall)
 {
     std::string bytecode_hex = to_hex(OpCode::SET) +            // opcode SET
                                "03"                             // U32
@@ -274,12 +274,12 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
 
     for (size_t i = 0; i < 6; i++) {
-        EXPECT_EQ(trace.at(i + 1).avmMini_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the addition selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == 1; });
-    EXPECT_EQ(row->avmMini_ic, 345567789);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == 1; });
+    EXPECT_EQ(row->avm_main_ic, 345567789);
 
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }
@@ -296,7 +296,7 @@ TEST_F(AvmMiniExecutionTests, simpleInternalCall)
 // BYTECODE(F1): ADD(2,3,2) INTERNAL_RETURN
 // BYTECODE(F2): MUL(2,3,2) INTERNAL_RETURN
 // BYTECODE(G): INTERNAL_CALL(6) SET(17,3) INTERNAL_CALL(4) INTERNAL_RETURN
-TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
+TEST_F(AvmExecutionTests, nestedInternalCalls)
 {
     auto internalCallInstructionHex = [](std::string const& dst_offset) {
         return to_hex(OpCode::INTERNALCALL) // opcode INTERNALCALL
@@ -350,13 +350,13 @@ TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
     std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };
 
     for (size_t i = 0; i < 6; i++) {
-        EXPECT_EQ(trace.at(i + 1).avmMini_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the multiplication selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == 1; });
-    EXPECT_EQ(row->avmMini_ic, 187);
-    EXPECT_EQ(row->avmMini_pc, 4);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == 1; });
+    EXPECT_EQ(row->avm_main_ic, 187);
+    EXPECT_EQ(row->avm_main_pc, 4);
 
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }
@@ -367,7 +367,7 @@ TEST_F(AvmMiniExecutionTests, nestedInternalCalls)
 // Calldata: [13, 156]
 // Bytecode layout: CALLDATACOPY  JUMP  SUB  DIV  RETURN
 //                        0         1    2    3     4
-TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
+TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 {
     std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
                                "00000000"                     // cd_offset
@@ -415,15 +415,15 @@ TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
     std::vector<FF> pc_sequence{ 0, 1, 3, 4 };
 
     for (size_t i = 0; i < 4; i++) {
-        EXPECT_EQ(trace.at(i + 1).avmMini_pc, pc_sequence.at(i));
+        EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the division selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_div == 1; });
-    EXPECT_EQ(row->avmMini_ic, 12);
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == 1; });
+    EXPECT_EQ(row->avm_main_ic, 12);
 
     // Find the first row enabling the subtraction selector.
-    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == 1; });
+    row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sub == 1; });
     // It must have failed as subtraction was "jumped over".
     EXPECT_EQ(row, trace.end());
 
@@ -431,7 +431,7 @@ TEST_F(AvmMiniExecutionTests, jumpAndCalldatacopy)
 }
 
 // Negative test detecting an invalid opcode byte.
-TEST_F(AvmMiniExecutionTests, invalidOpcode)
+TEST_F(AvmExecutionTests, invalidOpcode)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) + // opcode ADD
                                "02"                  // U16
@@ -447,7 +447,7 @@ TEST_F(AvmMiniExecutionTests, invalidOpcode)
 }
 
 // Negative test detecting an invalid memmory instruction tag.
-TEST_F(AvmMiniExecutionTests, invalidInstructionTag)
+TEST_F(AvmExecutionTests, invalidInstructionTag)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD
                                "00"                       // Wrong type
@@ -463,7 +463,7 @@ TEST_F(AvmMiniExecutionTests, invalidInstructionTag)
 }
 
 // Negative test detecting SET opcode with instruction memory tag set to FF.
-TEST_F(AvmMiniExecutionTests, ffInstructionTagSetOpcode)
+TEST_F(AvmExecutionTests, ffInstructionTagSetOpcode)
 {
     std::string bytecode_hex = "00"                    // ADD
                                "05"                    // U128
@@ -479,7 +479,7 @@ TEST_F(AvmMiniExecutionTests, ffInstructionTagSetOpcode)
 }
 
 // Negative test detecting SET opcode without any operand.
-TEST_F(AvmMiniExecutionTests, SetOpcodeNoOperand)
+TEST_F(AvmExecutionTests, SetOpcodeNoOperand)
 {
     std::string bytecode_hex = "00"                   // ADD
                                "05"                   // U128
@@ -493,7 +493,7 @@ TEST_F(AvmMiniExecutionTests, SetOpcodeNoOperand)
 }
 
 // Negative test detecting an incomplete instruction: missing instruction tag
-TEST_F(AvmMiniExecutionTests, truncatedInstructionNoTag)
+TEST_F(AvmExecutionTests, truncatedInstructionNoTag)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +  // opcode ADD
                                "02"                   // U16
@@ -507,7 +507,7 @@ TEST_F(AvmMiniExecutionTests, truncatedInstructionNoTag)
 }
 
 // Negative test detecting an incomplete instruction: instruction tag present but an operand is missing
-TEST_F(AvmMiniExecutionTests, truncatedInstructionNoOperand)
+TEST_F(AvmExecutionTests, truncatedInstructionNoOperand)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +   // opcode ADD
                                "02"                    // U16

@@ -1,4 +1,4 @@
-#include "AvmMini_mem_trace.hpp"
+#include "avm_mem_trace.hpp"
 
 namespace avm_trace {
 
@@ -6,7 +6,7 @@ namespace avm_trace {
  * @brief Constructor of a memory trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmMiniMemTraceBuilder::AvmMiniMemTraceBuilder()
+AvmMemTraceBuilder::AvmMemTraceBuilder()
 {
     mem_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -15,7 +15,7 @@ AvmMiniMemTraceBuilder::AvmMiniMemTraceBuilder()
  * @brief Resetting the internal state so that a new memory trace can be rebuilt using the same object.
  *
  */
-void AvmMiniMemTraceBuilder::reset()
+void AvmMemTraceBuilder::reset()
 {
     mem_trace.clear();
     memory.fill(FF(0));
@@ -26,9 +26,9 @@ void AvmMiniMemTraceBuilder::reset()
  *
  * @return The memory trace (which is moved).
  */
-std::vector<AvmMiniMemTraceBuilder::MemoryTraceEntry> AvmMiniMemTraceBuilder::finalize()
+std::vector<AvmMemTraceBuilder::MemoryTraceEntry> AvmMemTraceBuilder::finalize()
 {
-    // Sort memTrace
+    // Sort avm_mem
     std::sort(mem_trace.begin(), mem_trace.end());
     return std::move(mem_trace);
 }
@@ -43,12 +43,12 @@ std::vector<AvmMiniMemTraceBuilder::MemoryTraceEntry> AvmMiniMemTraceBuilder::fi
  * @param m_in_tag Memory tag pertaining to the instruction
  * @param m_rw Boolean telling whether it is a load (false) or store operation (true).
  */
-void AvmMiniMemTraceBuilder::insert_in_mem_trace(uint32_t const m_clk,
-                                                 uint32_t const m_sub_clk,
-                                                 uint32_t const m_addr,
-                                                 FF const& m_val,
-                                                 AvmMemoryTag const m_in_tag,
-                                                 bool const m_rw)
+void AvmMemTraceBuilder::insert_in_mem_trace(uint32_t const m_clk,
+                                             uint32_t const m_sub_clk,
+                                             uint32_t const m_addr,
+                                             FF const& m_val,
+                                             AvmMemoryTag const m_in_tag,
+                                             bool const m_rw)
 {
     mem_trace.emplace_back(MemoryTraceEntry{
         .m_clk = m_clk,
@@ -76,12 +76,12 @@ void AvmMiniMemTraceBuilder::insert_in_mem_trace(uint32_t const m_clk,
  * @param m_in_tag Memory tag pertaining to the instruction
  * @param m_tag Memory tag pertaining to the address
  */
-void AvmMiniMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
-                                                            uint32_t const m_sub_clk,
-                                                            uint32_t const m_addr,
-                                                            FF const& m_val,
-                                                            AvmMemoryTag const m_in_tag,
-                                                            AvmMemoryTag const m_tag)
+void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
+                                                        uint32_t const m_sub_clk,
+                                                        uint32_t const m_addr,
+                                                        FF const& m_val,
+                                                        AvmMemoryTag const m_in_tag,
+                                                        AvmMemoryTag const m_tag)
 {
     FF one_min_inv = FF(1) - (FF(static_cast<uint32_t>(m_in_tag)) - FF(static_cast<uint32_t>(m_tag))).invert();
     mem_trace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
@@ -107,7 +107,7 @@ void AvmMiniMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk
  * @return A boolean indicating that memory tag matches (resp. does not match) the
  *         instruction tag. Set to false in case of a mismatch.
  */
-bool AvmMiniMemTraceBuilder::load_in_mem_trace(
+bool AvmMemTraceBuilder::load_in_mem_trace(
     uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
     uint32_t sub_clk = 0;
@@ -144,7 +144,7 @@ bool AvmMiniMemTraceBuilder::load_in_mem_trace(
  * @param val The value to be stored
  * @param m_in_tag The memory tag of the instruction
  */
-void AvmMiniMemTraceBuilder::store_in_mem_trace(
+void AvmMemTraceBuilder::store_in_mem_trace(
     uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
     uint32_t sub_clk = 0;
@@ -176,10 +176,10 @@ void AvmMiniMemTraceBuilder::store_in_mem_trace(
  * @return Result of the read operation containing the value and a boolean telling
  *         potential mismatch between instruction tag and memory tag of the address.
  */
-AvmMiniMemTraceBuilder::MemRead AvmMiniMemTraceBuilder::read_and_load_from_memory(uint32_t const clk,
-                                                                                  IntermRegister const interm_reg,
-                                                                                  uint32_t const addr,
-                                                                                  AvmMemoryTag const m_in_tag)
+AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::read_and_load_from_memory(uint32_t const clk,
+                                                                          IntermRegister const interm_reg,
+                                                                          uint32_t const addr,
+                                                                          AvmMemoryTag const m_in_tag)
 {
     FF val = memory.at(addr);
     bool tagMatch = load_in_mem_trace(clk, interm_reg, addr, val, m_in_tag);
@@ -201,7 +201,7 @@ AvmMiniMemTraceBuilder::MemRead AvmMiniMemTraceBuilder::read_and_load_from_memor
  * @param val Value to be written into memory
  * @param m_in_tag Memory instruction tag
  */
-void AvmMiniMemTraceBuilder::write_into_memory(
+void AvmMemTraceBuilder::write_into_memory(
     uint32_t const clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
     memory.at(addr) = val;
