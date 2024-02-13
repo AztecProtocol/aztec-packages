@@ -16,7 +16,7 @@ export class PrivateEnv {
 
   constructor(
     private privateKey: GrumpkinPrivateKey,
-    private pxeURL = "http://localhost:8080",
+    private pxeURL : string,
   ) {
     this.pxe = createPXEClient(this.pxeURL);
     this.accountContract = new SingleKeyAccountContract(privateKey);
@@ -33,7 +33,7 @@ export class PrivateEnv {
   }
 }
 
-export const deployerEnv = new PrivateEnv(GRUMPKIN_KEY);
+export const deployerEnv = new PrivateEnv(GRUMPKIN_KEY, process.env.PXE_URL || "http://localhost:8080");
 
 const IGNORE_FUNCTIONS = ["constructor", "compute_note_hash_and_nullifier"];
 export const filteredInterface = BlankContractArtifact.functions.filter(
