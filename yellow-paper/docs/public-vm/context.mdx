@@ -4,7 +4,7 @@
 Many terms and definitions here are borrowed from the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper.pdf).
 :::
 
-An **execution context** includes the information and state relevant to a contract call's execution. When a contract call is made, an execution context is initialized as specified in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](./nested-calls) sections.
+An **execution context** contains the information and state relevant to a contract call's execution. When a contract call is made, an execution context is initialized before the contract code's execution begins. Context initialization is expanded on in ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](#nested-contract-calls).
 
 #### _AvmContext_
 | Field                                                     | Type                    |
@@ -18,7 +18,7 @@ An **execution context** includes the information and state relevant to a contra
 
 ## Execution Environment
 
-A context's **execution environment** remains constant throughout a contract call's execution. When a contract call initializes its execution context, it fully specifies the execution environment. This is expanded on in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](./nested-calls) sections.
+A context's **execution environment** remains constant throughout a contract call's execution. When a contract call initializes its execution context, it fully specifies the execution environment. This is expanded on in the ["Initial contract calls"](#initial-contract-calls) and ["Nested contract calls"](#nested-contract-calls) sections.
 
 ### _ExecutionEnvironment_
 | Field                 | Type                         | Description |
@@ -50,11 +50,8 @@ When a contract call halts, it sets the context's **contract call results** to c
 
 ## Initial contract calls
 
-### Context initialization for initial contract calls
-
 An **initial contract call** initializes a new execution context from a public execution request.
 
-An initial contract call initializes its execution context as follows:
 ```
 context = AvmContext {
     environment = INITIAL_EXECUTION_ENVIRONMENT,
@@ -117,3 +114,11 @@ INITIAL_CONTRACT_CALL_RESULTS = ContractCallResults {
     output = [], // initialized as empty
 }
 ```
+
+## Nested contract calls
+
+> See the dedicated ("Nested Contract Calls")[./nested-calls] page for a detailed explanation of nested contract calls.
+
+import NestedContext from "./_nested-context.md";
+
+<NestedContext />

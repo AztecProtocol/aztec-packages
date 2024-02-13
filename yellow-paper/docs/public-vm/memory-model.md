@@ -1,4 +1,4 @@
-# Memory State Model
+# Memory Model
 
 This section describes the AVM memory model, and in particular specifies "internal" VM abstractions that can be mapped to the VM's circuit architecture.
 
