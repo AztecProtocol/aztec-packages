@@ -31,20 +31,21 @@ export class FeePreparationPhaseManager extends AbstractPhaseManager {
   }
 
   extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    const enqueuedCallRequests = tx.enqueuedPublicFunctionCalls.slice().map(call => call.toCallRequest());
+    const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
+    const callRequestsStack = publicCallsStack.map(call => call.toCallRequest());
 
     const nonRevertibleCallStack = tx.data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
 
-    // find the last enqueued call that is not revertible
-    const lastNonRevertibleCallIndex = enqueuedCallRequests.findLastIndex(
+    // find the first call that is not revertible
+    const firstNonRevertibleCallIndex = callRequestsStack.findIndex(
       c => nonRevertibleCallStack.findIndex(p => p.equals(c)) !== -1,
     );
 
-    if (lastNonRevertibleCallIndex === -1) {
+    if (firstNonRevertibleCallIndex === -1) {
       return [];
     } else {
       // Note: we're dropping the final non-revertible call, as it will be handled in teardown
-      return tx.enqueuedPublicFunctionCalls.slice(0, lastNonRevertibleCallIndex);
+      return publicCallsStack.slice(firstNonRevertibleCallIndex + 1);
     }
   }
 

@@ -295,7 +295,9 @@ describe('public_processor', () => {
       // the first two calls are non-revertible
       // the first is for setup, the second is for teardown
       kernelOutput.endNonRevertibleData.publicCallStack = padArrayEnd(
-        [callRequests[0].toCallRequest(), callRequests[1].toCallRequest()],
+        // this is a stack, so the first item is the last call
+        // and callRequests is in the order of the calls
+        [callRequests[1].toCallRequest(), callRequests[0].toCallRequest()],
         CallRequest.empty(),
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
       );
