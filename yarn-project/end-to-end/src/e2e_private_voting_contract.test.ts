@@ -31,7 +31,7 @@ describe('e2e_voting_contract', () => {
 
   describe('it votes', async () => {
     const candidate = new Fr(1);
-    const tx = await votingContract.methods.cast_vote(candidate).send();
+    const tx = votingContract.methods.cast_vote(candidate).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
     expect(await votingContract.methods.get_vote(candidate).view()).toBe(1n);
