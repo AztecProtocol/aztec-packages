@@ -79,8 +79,9 @@ UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
 
     // TODO(#392)(Kesha): replace composer types.
+    auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
     circuit_proving_key =
-        initialize_proving_key(circuit, srs::get_crs_factory().get(), subgroup_size, CircuitType::ULTRA);
+        std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, CircuitType::ULTRA);
 
     construct_selector_polynomials<Flavor>(circuit, circuit_proving_key.get());
 
@@ -317,11 +318,9 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     circuit_constructor.finalize_circuit();
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit_constructor);
 
-    auto crs_factory = srs::get_crs_factory();
-    // Initialize circuit_proving_key
-    // TODO(#392)(Kesha): replace composer types.
-    circuit_proving_key =
-        initialize_proving_key(circuit_constructor, crs_factory.get(), subgroup_size, CircuitType::ULTRA);
+    auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
+    circuit_proving_key = std::make_shared<plonk::proving_key>(
+        subgroup_size, circuit_constructor.public_inputs.size(), crs, CircuitType::ULTRA);
 
     construct_selector_polynomials<Flavor>(circuit_constructor, circuit_proving_key.get());
 
@@ -402,7 +401,7 @@ void UltraComposer::add_table_column_selector_poly_to_proving_key(polynomial& se
 void UltraComposer::construct_table_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
 {
     size_t additional_offset = s_randomness + 1;
-    auto table_polynomials = construct_table_polynomials<Flavor>(circuit, subgroup_size, additional_offset);
+    auto table_polynomials = construct_lookup_table_polynomials<Flavor>(circuit, subgroup_size, additional_offset);
 
     // // In the case of using UltraPlonkComposer for a circuit which does _not_ make use of any lookup tables, all four
     // // table columns would be all zeros. This would result in these polys' commitments all being the point at
