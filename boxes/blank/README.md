@@ -45,10 +45,10 @@ This sandbox requires [Docker](https://www.docker.com/) to be installed _and run
 Time to build. Run:
 
 ```bash
-yarn start
+yarn dev
 ```
 
-Your React app is waiting for you on port 5176. Time to make it your own!
+Your app is waiting for you on port 5176. Time to make it your own!
 
 In the `src/contracts` folder, you'll find the default contract being deployed. Don't forget to recompile with `aztec-nargo compile`! Read the [aztec.nr documentation](https://docs.aztec.network/dev_docs/contracts/main) to get started with the `aztec.nr` framework.
 
