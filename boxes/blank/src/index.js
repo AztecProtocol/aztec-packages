@@ -39,7 +39,7 @@ document.querySelector('#set').addEventListener('submit', async e => {
   const { value } = document.querySelector('#number');
   const owner = (await window.wallet.getCompleteAddress()).address;
   console.log(owner);
-  await contract.methods.setNumber(Fr.random(), owner).send().wait();
+  await contract.methods.setNumber(parseInt(value), owner).send().wait();
   alert('Number set!');
 
   setWait(false);

@@ -1,23 +1,18 @@
 {
-  "name": "@signorecello/boxes",
-  "packageManager": "yarn@4.0.2",
+  "name": "@aztec/boxes",
+  "packageManager": "yarn@3.6.3",
   "type": "module",
   "private": true,
   "scripts": {
-    "compile": "FORCE_COLOR=true yarn workspaces foreach -A -p -j unlimited -v run compile:local",
-    "build": "FORCE_COLOR=true yarn workspaces foreach -A -p -j unlimited -v run build"
+    "compile": "yarn workspaces foreach -A -p -j unlimited -v run compile",
+    "build": "yarn workspaces foreach -A -p -j unlimited -v run build"
   },
   "workspaces": [
     "blank",
-    "blank-react",
-    "token"
+    "blank-react"
   ],
   "bin": {
     "create-aztec": "npx.js"
-  },
-  "resolutions": {
-    "@aztec/accounts": "portal:../yarn-project/accounts",
-    "@aztec/aztec.js": "portal:../yarn-project/aztec.js"
   },
   "devDependencies": {
     "@inquirer/confirm": "^3.0.0",
