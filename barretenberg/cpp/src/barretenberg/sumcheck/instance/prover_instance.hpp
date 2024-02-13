@@ -96,7 +96,7 @@ template <class Flavor> class ProverInstance_ {
             proving_key->contains_recursive_proof = contains_recursive_proof;
         }
 
-        construct_sorted_list_polynomials(circuit);
+        sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
         add_memory_records_to_proving_key(circuit);
     }
@@ -140,8 +140,6 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
-
-    void construct_sorted_list_polynomials(Circuit&);
 
     void add_memory_records_to_proving_key(Circuit&);
 

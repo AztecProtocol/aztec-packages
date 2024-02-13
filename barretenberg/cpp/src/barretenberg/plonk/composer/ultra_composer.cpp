@@ -21,30 +21,15 @@ namespace bb::plonk {
  * elsewhere.
  */
 
-void UltraComposer::compute_witness(CircuitBuilder& circuit_constructor)
+void UltraComposer::compute_witness(CircuitBuilder& circuit)
 {
     if (computed_witness) {
         return;
     }
 
-    const size_t tables_size = circuit_constructor.get_tables_size();
-    const size_t lookups_size = circuit_constructor.get_lookups_size();
-    const size_t filled_gates = circuit_constructor.num_gates + circuit_constructor.public_inputs.size();
-    const size_t total_num_gates = std::max(filled_gates, tables_size + lookups_size);
-    const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates + NUM_RESERVED_GATES);
+    const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
 
-    // Pad the wires (pointers to `witness_indices` of the `variables` vector).
-    // Note: the remaining NUM_RESERVED_GATES indices are padded with zeros within `compute_witness_base` (called
-    // next).
-    // WORKTODO: I dont think this is necessary
-    for (size_t i = filled_gates; i < total_num_gates; ++i) {
-        circuit_constructor.w_l().emplace_back(circuit_constructor.zero_idx);
-        circuit_constructor.w_r().emplace_back(circuit_constructor.zero_idx);
-        circuit_constructor.w_o().emplace_back(circuit_constructor.zero_idx);
-        circuit_constructor.w_4().emplace_back(circuit_constructor.zero_idx);
-    }
-
-    auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit_constructor, subgroup_size);
+    auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit, subgroup_size);
 
     for (size_t j = 0; j < program_width; ++j) {
         std::string index = std::to_string(j + 1);
@@ -52,104 +37,36 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit_constructor)
                                                   std::move(wire_polynomial_evaluations[j]));
     }
 
-    polynomial s_1(subgroup_size);
-    polynomial s_2(subgroup_size);
-    polynomial s_3(subgroup_size);
-    polynomial s_4(subgroup_size);
     polynomial z_lookup(subgroup_size + 1); // Only instantiated in this function; nothing assigned.
 
-    // Save space for adding random scalars in the s polynomial later.
-    // The subtracted 1 allows us to insert a `1` at the end, to ensure the evaluations (and hence coefficients) aren't
-    // all 0.
-    // See ComposerBase::compute_proving_key_base for further explanation, as a similar trick is done there.
-    size_t count = subgroup_size - tables_size - lookups_size - s_randomness - 1;
-    for (size_t i = 0; i < count; ++i) {
-        s_1[i] = 0;
-        s_2[i] = 0;
-        s_3[i] = 0;
-        s_4[i] = 0;
-    }
+    // Save space in the sorted list polynomials for randomness (zk) plus one additional spot used to ensure the polys
+    // aren't identically 0.
+    size_t additional_offset = s_randomness + 1;
+    auto sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, subgroup_size, additional_offset);
 
-    for (auto& table : circuit_constructor.lookup_tables) {
-        const fr table_index(table.table_index);
-        auto& lookup_gates = table.lookup_gates;
-        for (size_t i = 0; i < table.size; ++i) {
-            if (table.use_twin_keys) {
-                lookup_gates.push_back({
-                    {
-                        table.column_1[i].from_montgomery_form().data[0],
-                        table.column_2[i].from_montgomery_form().data[0],
-                    },
-                    {
-                        table.column_3[i],
-                        0,
-                    },
-                });
-            } else {
-                lookup_gates.push_back({
-                    {
-                        table.column_1[i].from_montgomery_form().data[0],
-                        0,
-                    },
-                    {
-                        table.column_2[i],
-                        table.column_3[i],
-                    },
-                });
-            }
-        }
-
-#ifdef NO_TBB
-        std::sort(lookup_gates.begin(), lookup_gates.end());
-#else
-        std::sort(std::execution::par_unseq, lookup_gates.begin(), lookup_gates.end());
-#endif
-
-        for (const auto& entry : lookup_gates) {
-            const auto components = entry.to_sorted_list_components(table.use_twin_keys);
-            s_1[count] = components[0];
-            s_2[count] = components[1];
-            s_3[count] = components[2];
-            s_4[count] = table_index;
-            ++count;
-        }
-    }
-
-    // Initialize the `s_randomness` positions in the s polynomials with 0.
-    // These will be the positions where we will be adding random scalars to add zero knowledge
-    // to plookup (search for `Blinding` in plonk/proof_system/widgets/random_widgets/plookup_widget_impl.hpp
-    // ProverPlookupWidget::compute_sorted_list_polynomial())
-    for (size_t i = 0; i < s_randomness; ++i) {
-        s_1[count] = 0;
-        s_2[count] = 0;
-        s_3[count] = 0;
-        s_4[count] = 0;
-        ++count;
-    }
-
-    circuit_proving_key->polynomial_store.put("s_1_lagrange", std::move(s_1));
-    circuit_proving_key->polynomial_store.put("s_2_lagrange", std::move(s_2));
-    circuit_proving_key->polynomial_store.put("s_3_lagrange", std::move(s_3));
-    circuit_proving_key->polynomial_store.put("s_4_lagrange", std::move(s_4));
+    circuit_proving_key->polynomial_store.put("s_1_lagrange", std::move(sorted_polynomials[0]));
+    circuit_proving_key->polynomial_store.put("s_2_lagrange", std::move(sorted_polynomials[1]));
+    circuit_proving_key->polynomial_store.put("s_3_lagrange", std::move(sorted_polynomials[2]));
+    circuit_proving_key->polynomial_store.put("s_4_lagrange", std::move(sorted_polynomials[3]));
 
     // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
     // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire polynomials
     // have been committed to. The 4th wire on these gates will be a random linear combination of the first 3 wires,
     // using the plookup challenge `eta`. Because we shift the gates by the number of public inputs, we need to update
     // the records with the public_inputs offset
-    const uint32_t public_inputs_count = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
+    const uint32_t public_inputs_count = static_cast<uint32_t>(circuit.public_inputs.size());
     auto add_public_inputs_offset = [public_inputs_count](uint32_t gate_index) {
         return gate_index + public_inputs_count;
     };
     circuit_proving_key->memory_read_records = std::vector<uint32_t>();
     circuit_proving_key->memory_write_records = std::vector<uint32_t>();
 
-    std::transform(circuit_constructor.memory_read_records.begin(),
-                   circuit_constructor.memory_read_records.end(),
+    std::transform(circuit.memory_read_records.begin(),
+                   circuit.memory_read_records.end(),
                    std::back_inserter(circuit_proving_key->memory_read_records),
                    add_public_inputs_offset);
-    std::transform(circuit_constructor.memory_write_records.begin(),
-                   circuit_constructor.memory_write_records.end(),
+    std::transform(circuit.memory_write_records.begin(),
+                   circuit.memory_write_records.end(),
                    std::back_inserter(circuit_proving_key->memory_write_records),
                    add_public_inputs_offset);
 

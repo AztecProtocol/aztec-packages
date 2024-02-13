@@ -66,71 +66,11 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
         construct_databus_polynomials(circuit);
     }
 
-    construct_sorted_list_polynomials(circuit);
+    sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
     add_memory_records_to_proving_key(circuit);
 
     computed_witness = true;
-}
-
-template <class Flavor> void ProverInstance_<Flavor>::construct_sorted_list_polynomials(Circuit& circuit)
-{
-    // Initialise the sorted concatenated list polynomials for the lookup argument
-    for (auto& s_i : sorted_polynomials) {
-        s_i = Polynomial(dyadic_circuit_size);
-    }
-
-    // The sorted list polynomials have (tables_size + lookups_size) populated entries. We define the index below so
-    // that these entries are written into the last indices of the polynomials. The values on the first
-    // dyadic_circuit_size - (tables_size + lookups_size) indices are automatically initialized to zero via the
-    // polynomial constructor.
-    size_t s_index = dyadic_circuit_size - tables_size - lookups_size;
-    ASSERT(s_index > 0); // We need at least 1 row of zeroes for the permutation argument
-
-    for (auto& table : circuit.lookup_tables) {
-        const fr table_index(table.table_index);
-        auto& lookup_gates = table.lookup_gates;
-        for (size_t i = 0; i < table.size; ++i) {
-            if (table.use_twin_keys) {
-                lookup_gates.push_back({
-                    {
-                        table.column_1[i].from_montgomery_form().data[0],
-                        table.column_2[i].from_montgomery_form().data[0],
-                    },
-                    {
-                        table.column_3[i],
-                        0,
-                    },
-                });
-            } else {
-                lookup_gates.push_back({
-                    {
-                        table.column_1[i].from_montgomery_form().data[0],
-                        0,
-                    },
-                    {
-                        table.column_2[i],
-                        table.column_3[i],
-                    },
-                });
-            }
-        }
-
-#ifdef NO_TBB
-        std::sort(lookup_gates.begin(), lookup_gates.end());
-#else
-        std::sort(std::execution::par_unseq, lookup_gates.begin(), lookup_gates.end());
-#endif
-
-        for (const auto& entry : lookup_gates) {
-            const auto components = entry.to_sorted_list_components(table.use_twin_keys);
-            sorted_polynomials[0][s_index] = components[0];
-            sorted_polynomials[1][s_index] = components[1];
-            sorted_polynomials[2][s_index] = components[2];
-            sorted_polynomials[3][s_index] = table_index;
-            ++s_index;
-        }
-    }
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::add_memory_records_to_proving_key(Circuit& circuit)
