@@ -38,9 +38,8 @@ class GoblinMockCircuits {
      * @param builder
      * @param num_gates
      */
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log2_num_gates = 4)
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log2_num_gates = 0)
     {
-        ASSERT(log2_num_gates > 1);
         size_t num_gates = 1 << log2_num_gates;
         // For good measure, include a gate with some public inputs
         {
@@ -56,10 +55,6 @@ class GoblinMockCircuits {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
 
-        builder.queue_ecc_add_accum({ 1, 2 });
-        builder.queue_ecc_mul_accum({ 1, 2 }, 2);
-        builder.queue_ecc_eq();
-
         // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates
         FF a = FF::random_element();
         FF b = FF::random_element();
@@ -70,7 +65,7 @@ class GoblinMockCircuits {
         uint32_t c_idx = builder.add_variable(c);
         uint32_t d_idx = builder.add_variable(d);
 
-        for (size_t i = 0; i < num_gates - 4; ++i) {
+        for (size_t i = 0; i < num_gates - 1; ++i) {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
     }

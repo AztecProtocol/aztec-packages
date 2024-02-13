@@ -158,7 +158,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         FF linearly_dependent_contribution = FF(0);
         std::vector<FF> full_honk_evaluations(instance_size);
 
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             instance_size,
             [&full_honk_evaluations,
              &instance_polynomials,
