@@ -1,6 +1,6 @@
 {
   "name": "@aztec/boxes",
-  "packageManager": "yarn@3.6.3",
+  "packageManager": "yarn@4.0.2",
   "type": "module",
   "private": true,
   "scripts": {

@@ -8,7 +8,15 @@ export default (_, argv) => ({
   mode: 'production',
   devtool: 'source-map',
   entry: {
-    main: './src/index.js',
+    main: './src/index.ts',
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts?$/,
+        use: 'ts-loader',
+      },
+    ],
   },
   plugins: [
     new HtmlWebpackPlugin({

@@ -45,9 +45,10 @@ function updatePathEnvVar() {
 
 program.action(async () => {
   const appType = await select({
-    message: "Please choose an option:",
+    message: "Please choose your boilerplate:",
     choices: [
-      { value: "blank-react", name: "Start a barebones React project" },
+      { value: "blank", name: "Barebones HTML/TS project" },
+      { value: "blank-react", name: "Not-so-barebones React project" },
     ],
   });
 
