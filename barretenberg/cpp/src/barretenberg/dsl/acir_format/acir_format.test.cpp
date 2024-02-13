@@ -307,7 +307,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = range_constraints,
-        ,
         .sha256_compression = {},
         .schnorr_constraints = { schnorr_constraint },
         .ecdsa_k1_constraints = {},
