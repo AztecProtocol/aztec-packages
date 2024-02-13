@@ -217,6 +217,9 @@ describe('public_processor', () => {
         CallRequest.empty,
       );
 
+      kernelOutput.needsSetup = false;
+      kernelOutput.needsTeardown = false;
+
       const tx = new Tx(
         kernelOutput,
         proof,

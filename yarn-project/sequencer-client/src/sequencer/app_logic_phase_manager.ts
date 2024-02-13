@@ -8,7 +8,6 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { FailedTx } from './processed_tx.js';
-import { TeardownPhaseManager } from './teardown_phase_manager.js';
 
 /**
  * The phase manager responsible for performing the fee preparation phase.
@@ -23,7 +22,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    protected phase: PublicKernelPhase = PublicKernelPhase.APP_LOGIC,
+    public phase: PublicKernelPhase = PublicKernelPhase.APP_LOGIC,
   ) {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
   }
@@ -36,11 +35,11 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput?: PublicKernelCircuitPublicInputs;
+    publicKernelOutput: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
-    publicKernelProof?: Proof;
+    publicKernelProof: Proof;
   }> {
     // add new contracts to the contracts db so that their functions may be found and called
     this.log(`Processing tx ${await tx.getTxHash()}`);
@@ -57,19 +56,6 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     await this.publicStateDB.commit();
 
     return { publicKernelOutput, publicKernelProof };
-  }
-
-  nextPhase() {
-    return new TeardownPhaseManager(
-      this.db,
-      this.publicExecutor,
-      this.publicKernel,
-      this.publicProver,
-      this.globalVariables,
-      this.historicalHeader,
-      this.publicContractsDB,
-      this.publicStateDB,
-    );
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {

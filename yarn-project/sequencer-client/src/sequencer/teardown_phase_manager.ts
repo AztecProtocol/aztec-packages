@@ -22,7 +22,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    protected phase: PublicKernelPhase = PublicKernelPhase.TEARDOWN,
+    public phase: PublicKernelPhase = PublicKernelPhase.TEARDOWN,
   ) {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
   }
@@ -35,11 +35,11 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput?: PublicKernelCircuitPublicInputs;
+    publicKernelOutput: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
-    publicKernelProof?: Proof;
+    publicKernelProof: Proof;
   }> {
     this.log(`Processing tx ${await tx.getTxHash()}`);
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
@@ -54,10 +54,6 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     await this.publicStateDB.commit();
 
     return { publicKernelOutput, publicKernelProof };
-  }
-
-  nextPhase() {
-    return undefined;
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {

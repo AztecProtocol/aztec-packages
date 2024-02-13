@@ -68,7 +68,7 @@ export abstract class AbstractPhaseManager {
     protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
-    protected phase: PublicKernelPhase,
+    public phase: PublicKernelPhase,
   ) {
     this.log = createDebugLogger(`aztec:sequencer:${phase}`);
   }
@@ -86,13 +86,12 @@ export abstract class AbstractPhaseManager {
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput?: PublicKernelCircuitPublicInputs;
+    publicKernelOutput: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
-    publicKernelProof?: Proof;
+    publicKernelProof: Proof;
   }>;
-  abstract nextPhase(): AbstractPhaseManager | undefined;
   abstract rollback(tx: Tx, err: unknown): Promise<FailedTx>;
 
   protected extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {

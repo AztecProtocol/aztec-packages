@@ -131,7 +131,7 @@ impl AccumulatedNonRevertibleData {
     pub fn needs_teardown(self) -> bool {
         // By definition, the final non-revertible enqueued call is for teardown.
         // since this is a stack, the teardown call would be the 0th element.
-        self.public_call_stack[0].is_empty()
+        !self.public_call_stack[0].is_empty()
     }
 }
 

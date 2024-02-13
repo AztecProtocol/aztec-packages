@@ -121,7 +121,6 @@ pub fn update_public_end_non_revertible_values(
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
 ) {
     // Updates the circuit outputs with new state changes, call stack etc
-    circuit_outputs.is_private = false;
 
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(public_call);
@@ -142,7 +141,6 @@ pub fn update_public_end_non_revertible_values(
 
 pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
     // Updates the circuit outputs with new state changes, call stack etc
-    circuit_outputs.is_private = false;
 
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(public_call);

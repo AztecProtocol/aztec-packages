@@ -13,8 +13,8 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
+import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { SetupPhaseManager } from './setup_phase_manager.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -86,7 +86,8 @@ export class PublicProcessor {
     const failed: FailedTx[] = [];
 
     for (const tx of txs) {
-      let phase: AbstractPhaseManager | undefined = new SetupPhaseManager(
+      let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
+        tx,
         this.db,
         this.publicExecutor,
         this.publicKernel,
@@ -105,7 +106,18 @@ export class PublicProcessor {
           const output = await phase.handle(tx, publicKernelOutput, publicKernelProof);
           publicKernelOutput = output.publicKernelOutput;
           publicKernelProof = output.publicKernelProof;
-          phase = phase.nextPhase();
+          phase = PhaseManagerFactory.phaseFromOutput(
+            publicKernelOutput,
+            phase,
+            this.db,
+            this.publicExecutor,
+            this.publicKernel,
+            this.publicProver,
+            this.globalVariables,
+            this.historicalHeader,
+            this.publicContractsDB,
+            this.publicStateDB,
+          );
         }
 
         const processedTransaction = await makeProcessedTx(tx, publicKernelOutput, publicKernelProof);

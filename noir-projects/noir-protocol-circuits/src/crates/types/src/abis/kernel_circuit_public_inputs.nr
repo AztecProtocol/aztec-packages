@@ -77,7 +77,6 @@ struct PublicKernelCircuitPublicInputsBuilder {
     end_non_revertible: AccumulatedNonRevertibleDataBuilder,
     end: CombinedAccumulatedDataBuilder,
     constants: CombinedConstantData,
-    is_private: bool,
 }
 
 impl PublicKernelCircuitPublicInputsBuilder {

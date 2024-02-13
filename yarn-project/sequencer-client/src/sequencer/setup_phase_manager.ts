@@ -7,7 +7,6 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
-import { AppLogicPhaseManager } from './app_logic_phase_manager.js';
 import { FailedTx } from './processed_tx.js';
 
 /**
@@ -23,7 +22,7 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    protected phase: PublicKernelPhase = PublicKernelPhase.SETUP,
+    public phase: PublicKernelPhase = PublicKernelPhase.SETUP,
   ) {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
   }
@@ -37,11 +36,11 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     /**
      * the output of the public kernel circuit for this phase
      */
-    publicKernelOutput?: PublicKernelCircuitPublicInputs;
+    publicKernelOutput: PublicKernelCircuitPublicInputs;
     /**
      * the proof of the public kernel circuit for this phase
      */
-    publicKernelProof?: Proof;
+    publicKernelProof: Proof;
   }> {
     this.log(`Processing tx ${await tx.getTxHash()}`);
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
@@ -56,19 +55,6 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     await this.publicStateDB.commit();
 
     return { publicKernelOutput, publicKernelProof };
-  }
-
-  nextPhase(): AbstractPhaseManager {
-    return new AppLogicPhaseManager(
-      this.db,
-      this.publicExecutor,
-      this.publicKernel,
-      this.publicProver,
-      this.globalVariables,
-      this.historicalHeader,
-      this.publicContractsDB,
-      this.publicStateDB,
-    );
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {
