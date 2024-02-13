@@ -24,9 +24,6 @@ type EntrypointFunctionCall = {
   // eslint-disable-next-line camelcase
   /** Whether the function is public or private */
   is_public: boolean;
-  // eslint-disable-next-line camelcase
-  /** Whether the function is able to modify state */
-  is_static: boolean;
 };
 
 /** Encoded payload for the account contract entrypoint */
@@ -70,8 +67,6 @@ function buildPayload(calls: FunctionCall[], maxCalls: number): PayloadWithArgum
     target_address: call.to.toField(),
     // eslint-disable-next-line camelcase
     is_public: !call.functionData.isPrivate,
-    // eslint-disable-next-line camelcase
-    is_static: call.static,
   }));
 
   return {
@@ -111,7 +106,6 @@ function flattenPayload(payload: EntrypointPayload) {
       call.function_selector,
       call.target_address,
       new Fr(call.is_public),
-      new Fr(call.is_static),
     ]),
     payload.nonce,
   ];

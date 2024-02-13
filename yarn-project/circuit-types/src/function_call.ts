@@ -8,8 +8,6 @@ export type FunctionCall = {
   functionData: FunctionData;
   /** The encoded args */
   args: Fr[];
-  /** Whether it's able to alter state or not */
-  static: boolean;
 };
 
 /**
@@ -21,6 +19,5 @@ export function emptyFunctionCall() {
     to: AztecAddress.ZERO,
     functionData: FunctionData.empty(),
     args: [],
-    static: false,
   };
 }

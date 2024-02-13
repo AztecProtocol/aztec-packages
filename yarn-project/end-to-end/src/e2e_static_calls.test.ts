@@ -1,8 +1,5 @@
 import { Wallet } from '@aztec/aztec.js';
-import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
-import { ChildContract, ParentContract } from '@aztec/noir-contracts';
-
-import { writeFileSync } from 'fs';
+import { ChildContract, ParentContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
 
@@ -24,7 +21,7 @@ describe('e2e_static_calls', () => {
   }, 100_000);
 
   describe('parent calls child', () => {
-    it.only('performs legal private to private static calls', async () => {
+    it('performs legal private to private static calls', async () => {
       await parentContract.methods
         .privateStaticCall(childContract.address, childContract.methods.privateGetValue.selector, [
           42n,

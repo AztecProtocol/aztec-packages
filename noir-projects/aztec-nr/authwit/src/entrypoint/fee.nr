@@ -3,7 +3,7 @@ use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::
 use crate::entrypoint::function_call::{FunctionCall};
 
 // 2 * 4 (function call) + 1
-global FEE_PAYLOAD_SIZE: Field = 11;
+global FEE_PAYLOAD_SIZE: Field = 9;
 
 // 2*97 + 32
 global FEE_PAYLOAD_SIZE_IN_BYTES: Field = 226;
@@ -54,9 +54,9 @@ impl FeePayload {
         for call in self.function_calls {
             if !call.target_address.is_zero() {
                 if call.is_public {
-                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, call.is_static);
+                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, false);
                 } else {
-                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, call.is_static);
+                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, false);
                 }
             }
         }

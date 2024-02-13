@@ -201,7 +201,6 @@ export class AcirSimulator {
       to: contractAddress,
       functionData: FunctionData.empty(),
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
-      static: false,
     };
 
     const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(

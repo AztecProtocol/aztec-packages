@@ -307,7 +307,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
-  #checkValidStaticCall(childExecutionResult: ExecutionResult, childName: string) {
+  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
     if (
       childExecutionResult.callStackItem.publicInputs.newCommitments.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
@@ -315,7 +315,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(new Fr(4)) ||
       !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(new Fr(4))
     ) {
-      throw new Error(`Static call to ${childName} cannot create new notes, emit L2->L1 messages or generate logs`);
+      throw new Error(`Static call cannot create new notes, emit L2->L1 messages or generate logs`);
     }
   }
 
@@ -381,7 +381,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     if (isStaticCall) {
-      this.#checkValidStaticCall(childExecutionResult, targetArtifact.name);
+      this.#checkValidStaticCall(childExecutionResult);
     }
 
     this.nestedExecutions.push(childExecutionResult);

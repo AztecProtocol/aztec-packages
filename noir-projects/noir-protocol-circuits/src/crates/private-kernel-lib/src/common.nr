@@ -125,12 +125,14 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
         assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
 
+        // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
+        // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
         assert(
-            public_inputs.encrypted_log_preimages_length == 0, "No encrypted logs are allowed for static calls"
+            public_inputs.encrypted_log_preimages_length == 4, "No encrypted logs are allowed for static calls"
         );
 
         assert(
-            public_inputs.unencrypted_log_preimages_length == 0, "No unencrypted logs are allowed for static calls"
+            public_inputs.unencrypted_log_preimages_length == 4, "No unencrypted logs are allowed for static calls"
         );
     }
 }

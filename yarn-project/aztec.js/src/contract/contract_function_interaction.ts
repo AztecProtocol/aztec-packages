@@ -19,17 +19,6 @@ export type ViewMethodOptions = {
 };
 
 /**
- * Options for sending a function execution request to a contract.
- * Allows specifying whether it is a static call or not, and additional send method options.
- */
-export type ExecutionRequestOptions = {
-  /**
-   * Wether the execution is static, i.e. it does not modify state
-   */
-  static?: boolean;
-} & SendMethodOptions;
-
-/**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
  * It contains available interactions one can call on a method, including view.
  */
@@ -47,25 +36,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }
 
   /**
-   * Custom simulate supporting extended options
-   * @param options - An optional object containing additional configuration for the transaction.
-   * */
-  public simulate(options: ExecutionRequestOptions = {}) {
-    return super.simulate(options);
-  }
-
-  /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: ExecutionRequestOptions = {}): Promise<TxExecutionRequest> {
+  public async create(): Promise<TxExecutionRequest> {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest([this.request(options)]);
+      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()]);
     }
     return this.txRequest;
   }
@@ -73,13 +53,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   /**
    * Returns an execution request that represents this operation. Useful as a building
    * block for constructing batch requests.
-   * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public request(options: ExecutionRequestOptions = {}): FunctionCall {
+  public request(): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
     const functionData = FunctionData.fromAbi(this.functionDao);
-    return { args, functionData, to: this.contractAddress, static: options.static ?? false };
+    return { args, functionData, to: this.contractAddress };
   }
 
   /**

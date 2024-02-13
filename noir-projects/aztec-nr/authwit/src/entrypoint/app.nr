@@ -4,9 +4,9 @@ use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, 
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
 // FUNCTION_CALL_SIZE * ACCOUNT_MAX_CALLS + 1
-global APP_PAYLOAD_SIZE: Field = 21;
+global APP_PAYLOAD_SIZE: Field = 17;
 // FUNCTION_CALL_SIZE_IN_BYTES * ACCOUNT_MAX_CALLS + 32
-global APP_PAYLOAD_SIZE_IN_BYTES: Field = 424;
+global APP_PAYLOAD_SIZE_IN_BYTES: Field = 420;
 
 global ACCOUNT_MAX_CALLS: Field = 4;
 
@@ -58,9 +58,9 @@ impl AppPayload {
         for call in self.function_calls {
             if !call.target_address.is_zero() {
                 if call.is_public {
-                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, call.is_static);
+                    context.call_public_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, false);
                 } else {
-                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, call.is_static);
+                    let _result = context.call_private_function_with_packed_args(call.target_address, call.function_selector, call.args_hash, false);
                 }
             }
         }
