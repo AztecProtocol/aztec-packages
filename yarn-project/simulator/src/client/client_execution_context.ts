@@ -65,7 +65,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly contractAddress: AztecAddress,
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
-    private readonly callContext: CallContext,
+    public readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
     protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
@@ -304,15 +304,15 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
-  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: ExecutionResult, childName: string) {
     if (
-      childExecutionResult.callStackItem.publicInputs.newCommitments.length > 0 ||
-      childExecutionResult.callStackItem.publicInputs.newNullifiers.length > 0 ||
+      childExecutionResult.callStackItem.publicInputs.newCommitments.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isZero()) ||
-      !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.isZero() ||
-      !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.isZero()
+      !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(new Fr(4)) ||
+      !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(new Fr(4))
     ) {
-      throw new Error('Static call cannot create new notes, emit L2->L1 messages or generate logs');
+      throw new Error(`Static call to ${childName} cannot create new notes, emit L2->L1 messages or generate logs`);
     }
   }
 
@@ -378,7 +378,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     if (isStaticCall) {
-      this.#checkValidStaticCall(childExecutionResult);
+      this.#checkValidStaticCall(childExecutionResult, targetArtifact.name);
     }
 
     this.nestedExecutions.push(childExecutionResult);

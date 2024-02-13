@@ -24,6 +24,7 @@ export async function executePrivateFunction(
 ): Promise<ExecutionResult> {
   const functionSelector = functionData.selector;
   log(`Executing external function ${contractAddress}:${functionSelector}`);
+  console.log(`Executing external function ${contractAddress}:${artifact.name}:${context.callContext.isStaticCall}`);
 
   const acir = Buffer.from(artifact.bytecode, 'base64');
   const initialWitness = context.getInitialWitness(artifact);
@@ -61,6 +62,8 @@ export async function executePrivateFunction(
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
 
   log(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
+
+  console.log(`returnting from call ${contractAddress}:${artifact.name}:${context.callContext.isStaticCall}`);
 
   return {
     acir,

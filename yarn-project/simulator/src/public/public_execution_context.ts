@@ -100,7 +100,6 @@ export class PublicExecutionContext extends TypedOracle {
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
-    throw Error('tuhmuertoh');
     this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 

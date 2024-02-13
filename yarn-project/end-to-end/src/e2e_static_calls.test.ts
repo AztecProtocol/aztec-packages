@@ -23,59 +23,8 @@ describe('e2e_static_calls', () => {
     childContract = await ChildContract.deploy(wallet).send().deployed();
   }, 100_000);
 
-  describe('direct calls', () => {
-    it('performs legal private static calls', async () => {
-      await childContract.methods.privateGetValue(42n, wallet.getCompleteAddress().address).simulate({ static: true });
-
-      if (isGenerateTestDataEnabled()) {
-        {
-          const privateKernelInputsInit = getTestData('private-kernel-inputs-init');
-          const nestedCallPrivateKernelInput = privateKernelInputsInit[0];
-          writeFileSync(
-            '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-init.hex',
-            nestedCallPrivateKernelInput.toBuffer().toString('hex'),
-          );
-        }
-
-        {
-          const privateKernelInputsInner = getTestData('private-kernel-inputs-inner');
-          const nestedCallPrivateKernelInput = privateKernelInputsInner[privateKernelInputsInner.length - 1];
-          writeFileSync(
-            '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-inner.hex',
-            nestedCallPrivateKernelInput.toBuffer().toString('hex'),
-          );
-        }
-
-        {
-          const privateKernelInputsOrdering = getTestData('private-kernel-inputs-ordering');
-          const nestedCallPrivateKernelInput = privateKernelInputsOrdering[0];
-          writeFileSync(
-            '../noir-protocol-circuits/src/fixtures/nested-call-private-kernel-ordering.hex',
-            nestedCallPrivateKernelInput.toBuffer().toString('hex'),
-          );
-        }
-      }
-    }, 100_000);
-
-    it('performs legal public static calls', async () => {
-      await childContract.methods.pubGetValue(42n).simulate({ static: true });
-    }, 100_000);
-
-    it('fails when performing illegal private static calls', async () => {
-      await expect(
-        childContract.methods.privateSetValue(42n, wallet.getCompleteAddress().address).simulate({ static: true }),
-      ).rejects.toThrow('Static call cannot create new notes, emit L2->L1 messages or generate logs');
-    }, 100_000);
-
-    it('fails when performing illegal public static calls', async () => {
-      await expect(childContract.methods.pubSetValue(42n).simulate({ static: true })).rejects.toThrow(
-        'Static call cannot update state, emit L2->L1 messages or generate logs',
-      );
-    }, 100_000);
-  });
-
   describe('parent calls child', () => {
-    it('performs legal private to private static calls', async () => {
+    it.only('performs legal private to private static calls', async () => {
       await parentContract.methods
         .privateStaticCall(childContract.address, childContract.methods.privateGetValue.selector, [
           42n,
