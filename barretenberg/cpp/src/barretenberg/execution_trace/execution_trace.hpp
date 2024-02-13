@@ -167,6 +167,7 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             }
 
             // Insert the selector values for this block into the selector polynomials at the correct offset
+            // WORKTODO: comment about coupling of arith and flavor stuff
             for (auto [selector_poly, selector] : zip_view(selector_polynomials, block.selectors.get())) {
                 for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                     selector_poly[row_idx + offset] = selector[row_idx];

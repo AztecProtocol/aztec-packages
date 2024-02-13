@@ -73,16 +73,15 @@ template <class Flavor> class ProverInstance_ {
     {
         (void)new_constructor;
         compute_circuit_size_parameters(circuit);
-        {
-            Trace trace;
-            proving_key = trace.generate(circuit, dyadic_circuit_size);
+        Trace trace;
+        proving_key = trace.generate(circuit, dyadic_circuit_size);
 
-            // If Goblin, construct the ECC op queue wire and databus polynomials
-            if constexpr (IsGoblinFlavor<Flavor>) {
-                auto wire_polynomials = proving_key->get_wires();
-                construct_ecc_op_wire_polynomials(wire_polynomials);
-                construct_databus_polynomials(circuit);
-            }
+        // If Goblin, construct the ECC op queue wire and databus polynomials
+        // WORKTODO: this probably belongs in exec trace generate
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            auto wire_polynomials = proving_key->get_wires();
+            construct_ecc_op_wire_polynomials(wire_polynomials);
+            construct_databus_polynomials(circuit);
         }
 
         // Generic precomputable stuff
