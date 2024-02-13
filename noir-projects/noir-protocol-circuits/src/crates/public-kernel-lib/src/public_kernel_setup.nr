@@ -51,10 +51,10 @@ impl PublicKernelSetupCircuitPrivateInputs {
         self.validate_inputs();
 
         // Pops the item from the call stack and validates it against the current execution.
-        let call_request = public_inputs.end.public_call_stack.pop();
+        let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
-        common::update_public_end_values(self.public_call, &mut public_inputs);
+        common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
         common::accumulate_unencrypted_logs(
             self.public_call,
@@ -100,7 +100,7 @@ mod tests {
 
     impl PublicKernelSetupCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new();
+            let previous_kernel = PreviousKernelDataBuilder::new(true);
             let public_call = PublicCallDataBuilder::new();
 
             PublicKernelSetupCircuitPrivateInputsBuilder { previous_kernel, public_call }
@@ -134,7 +134,7 @@ mod tests {
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_public_call_request(hash, is_delegate_call);
+            self.previous_kernel.push_public_call_request_non_revertible(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.to_public_kernel_data();
 
             let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
@@ -254,7 +254,7 @@ mod tests {
 
         let hash = public_call.call_stack_item.hash();
         // Tweak the call stack item hash.
-        builder.previous_kernel.push_public_call_request(hash + 1, false);
+        builder.previous_kernel.push_public_call_request_non_revertible(hash + 1, false);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data();
 
         let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
@@ -296,7 +296,7 @@ mod tests {
         let hash = public_call.call_stack_item.hash();
         // Caller context is empty for regular calls.
         let is_delegate_call = false;
-        builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
+        builder.previous_kernel.push_public_call_request_non_revertible(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data();
 
         let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
@@ -417,7 +417,10 @@ mod tests {
 
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
-        assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
+        assert_eq_call_requests(
+            public_inputs.end_non_revertible.public_call_stack,
+            public_call_stack
+        );
         assert_eq_public_data_update_requests(
             public_inputs.end.public_data_update_requests,
             update_requests

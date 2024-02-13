@@ -1,21 +1,19 @@
 import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, Proof, PublicCallRequest, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { isArrayEmpty } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
-import { AbstractPhaseManager } from './abstract_phase_manager.js';
-import { FeeDistributionPhaseManager } from './fee_distribution_phase_manager.js';
+import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { FailedTx } from './processed_tx.js';
+import { TeardownPhaseManager } from './teardown_phase_manager.js';
 
 /**
  * The phase manager responsible for performing the fee preparation phase.
  */
-export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
+export class AppLogicPhaseManager extends AbstractPhaseManager {
   constructor(
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
@@ -25,19 +23,9 @@ export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-
-    protected log = createDebugLogger('aztec:sequencer:application-logic'),
+    protected phase: PublicKernelPhase = PublicKernelPhase.APP_LOGIC,
   ) {
-    super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader);
-  }
-
-  extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    if (!tx.enqueuedPublicFunctionCalls) {
-      throw new Error(`Missing preimages for enqueued public calls`);
-    }
-    // Note: the first enqueued public call is for fee payments
-    // TODO(dbanks12): why must these be reversed?
-    return tx.enqueuedPublicFunctionCalls.slice().reverse();
+    super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
   }
 
   async handle(
@@ -57,31 +45,22 @@ export class ApplicationLogicPhaseManager extends AbstractPhaseManager {
     // add new contracts to the contracts db so that their functions may be found and called
     this.log(`Processing tx ${await tx.getTxHash()}`);
     await this.publicContractsDB.addNewContracts(tx);
-    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
-      const outputAndProof = this.getKernelOutputAndProof(tx, previousPublicKernelOutput, previousPublicKernelProof);
+    this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
+    const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
+      tx,
+      previousPublicKernelOutput,
+      previousPublicKernelProof,
+    );
+    tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
-      this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
-      const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
-        this.extractEnqueuedPublicCalls(tx),
-        outputAndProof.publicKernelPublicInput,
-        outputAndProof.publicKernelProof,
-      );
-      tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+    // commit the state updates from this transaction
+    await this.publicStateDB.commit();
 
-      // commit the state updates from this transaction
-      await this.publicStateDB.commit();
-
-      return { publicKernelOutput, publicKernelProof };
-    } else {
-      return {
-        publicKernelOutput: undefined,
-        publicKernelProof: undefined,
-      };
-    }
+    return { publicKernelOutput, publicKernelProof };
   }
 
   nextPhase() {
-    return new FeeDistributionPhaseManager(
+    return new TeardownPhaseManager(
       this.db,
       this.publicExecutor,
       this.publicKernel,

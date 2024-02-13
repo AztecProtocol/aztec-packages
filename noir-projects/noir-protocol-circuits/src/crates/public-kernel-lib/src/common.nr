@@ -66,6 +66,11 @@ pub fn initialize_end_values(
     circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
 
     circuit_outputs.end.new_contracts = array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts);
+
+    let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
+    circuit_outputs.end_non_revertible.new_commitments = array_to_bounded_vec(start_non_revertible.new_commitments);
+    circuit_outputs.end_non_revertible.new_nullifiers = array_to_bounded_vec(start_non_revertible.new_nullifiers);
+    circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(start_non_revertible.public_call_stack);
 }
 
 fn perform_static_call_checks(public_call: PublicCallData) {
@@ -109,6 +114,30 @@ fn validate_call_requests<N>(
             assert(is_valid_caller(request, public_call), "invalid caller");
         }
     }
+}
+
+pub fn update_public_end_non_revertible_values(
+    public_call: PublicCallData,
+    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    // Updates the circuit outputs with new state changes, call stack etc
+    circuit_outputs.is_private = false;
+
+    // If this call is a static call, certain operations are disallowed, such as creating new state.
+    perform_static_call_checks(public_call);
+
+    // Update public call stack.
+    let public_call_requests = array_to_bounded_vec(public_call.public_call_stack);
+    let hashes = public_call.call_stack_item.public_inputs.public_call_stack_hashes;
+    validate_call_requests(public_call_requests, hashes, public_call);
+    circuit_outputs.end_non_revertible.public_call_stack.extend_from_bounded_vec(public_call_requests);
+
+    propagate_new_nullifiers_non_revertible(public_call, circuit_outputs);
+    propagate_new_commitments_non_revertible(public_call, circuit_outputs);
+    // TODO(fees) propagate the following to non-revertible
+    // propagate_new_l2_to_l1_messages(public_call, circuit_outputs);
+    // propagate_valid_public_data_update_requests(public_call, circuit_outputs);
+    // propagate_valid_public_data_reads(public_call, circuit_outputs);
 }
 
 pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
@@ -176,6 +205,26 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
     circuit_outputs.end.public_data_reads.extend_from_bounded_vec(public_data_reads);
 }
 
+fn propagate_new_commitments_non_revertible(
+    public_call: PublicCallData,
+    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    let public_call_public_inputs = public_call.call_stack_item.public_inputs;
+
+    let new_commitments = public_call.call_stack_item.public_inputs.new_commitments;
+    let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
+
+    let mut siloed_new_commitments : BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::empty());
+    for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
+        let new_commitment = new_commitments[i].value;
+        if new_commitment != 0 {
+            let siloed_new_commitment = silo_commitment(storage_contract_address, new_commitment);
+            siloed_new_commitments.push(SideEffect { value: siloed_new_commitment, counter: new_commitments[i].counter });
+        }
+    }
+    circuit_outputs.end_non_revertible.new_commitments.extend_from_bounded_vec(siloed_new_commitments);
+}
+
 fn propagate_new_commitments(
     public_call: PublicCallData,
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
@@ -194,6 +243,32 @@ fn propagate_new_commitments(
         }
     }
     circuit_outputs.end.new_commitments.extend_from_bounded_vec(siloed_new_commitments);
+}
+
+fn propagate_new_nullifiers_non_revertible(
+    public_call: PublicCallData,
+    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    let new_nullifiers = public_call.call_stack_item.public_inputs.new_nullifiers;
+    let storage_contract_address = public_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
+    let mut siloed_new_nullifiers : BoundedVec<SideEffectLinkedToNoteHash,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
+    for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
+        let new_nullifier = new_nullifiers[i].value;
+        if new_nullifier != 0 {
+            let siloed_new_nullifier = silo_nullifier(storage_contract_address, new_nullifier);
+            siloed_new_nullifiers.push(
+                SideEffectLinkedToNoteHash {
+                value: siloed_new_nullifier,
+                counter: new_nullifiers[i].counter,
+                note_hash: new_nullifiers[i].note_hash
+            }
+            );
+        }
+    }
+
+    circuit_outputs.end_non_revertible.new_nullifiers.extend_from_bounded_vec(siloed_new_nullifiers);
 }
 
 fn propagate_new_nullifiers(

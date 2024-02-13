@@ -21,6 +21,7 @@ import {
   Header,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
@@ -93,6 +94,10 @@ describe('public_processor', () => {
     it('skips txs without public execution requests', async function () {
       const tx = mockTx();
       tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+      tx.data.endNonRevertibleData.publicCallStack = makeTuple(
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        CallRequest.empty,
+      );
       const hash = await tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 
@@ -166,6 +171,11 @@ describe('public_processor', () => {
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
+      kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        CallRequest.empty,
+      );
+
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), callRequests, [
         ExtendedContractData.random(),
       ]);
@@ -200,6 +210,10 @@ describe('public_processor', () => {
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        CallRequest.empty,
+      );
 
       const tx = new Tx(
         kernelOutput,
@@ -241,7 +255,10 @@ describe('public_processor', () => {
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
-
+      kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+        CallRequest.empty,
+      );
       const tx = new Tx(
         kernelOutput,
         proof,
@@ -268,6 +285,51 @@ describe('public_processor', () => {
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
+    });
+
+    it('runs a tx with setup and teardown phases', async function () {
+      const callRequests: PublicCallRequest[] = [0x100, 0x200, 0x300].map(makePublicCallRequest);
+
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
+
+      // the first two calls are non-revertible
+      // the first is for setup, the second is for teardown
+      kernelOutput.endNonRevertibleData.publicCallStack = padArrayEnd(
+        // this is a stack, so the first item is the last call
+        // and callRequests is in the order of the calls
+        [callRequests[1].toCallRequest(), callRequests[0].toCallRequest()],
+        CallRequest.empty(),
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
+      );
+
+      kernelOutput.end.publicCallStack = padArrayEnd(
+        [callRequests[2].toCallRequest()],
+        CallRequest.empty(),
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      );
+      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+
+      const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), callRequests, [
+        ExtendedContractData.random(),
+      ]);
+
+      publicExecutor.simulate.mockImplementation(execution => {
+        for (const request of callRequests) {
+          if (execution.contractAddress.equals(request.contractAddress)) {
+            return Promise.resolve(makePublicExecutionResultFromRequest(request));
+          }
+        }
+        throw new Error(`Unexpected execution request: ${execution}`);
+      });
+
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toHaveLength(1);
+      expect(processed).toEqual([await expectedTxByHash(tx)]);
+      expect(failed).toHaveLength(0);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(3);
+      expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
     });
   });
 });

@@ -34,7 +34,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import {
   PublicExecution,
@@ -53,15 +53,14 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { FailedTx } from './processed_tx.js';
 
-/**
- * A phase manager is responsible for performing/rolling back a phase of a transaction.
- *
- * The phases are as follows:
- * 1. Fee Preparation
- * 2. Application Logic
- * 3. Fee Distribution
- */
+export enum PublicKernelPhase {
+  SETUP = 'setup',
+  APP_LOGIC = 'app-logic',
+  TEARDOWN = 'teardown',
+}
+
 export abstract class AbstractPhaseManager {
+  protected log: DebugLogger;
   constructor(
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
@@ -69,8 +68,10 @@ export abstract class AbstractPhaseManager {
     protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
-    protected log = createDebugLogger('aztec:sequencer:phase-manager'),
-  ) {}
+    protected phase: PublicKernelPhase,
+  ) {
+    this.log = createDebugLogger(`aztec:sequencer:${phase}`);
+  }
   /**
    *
    * @param tx - the tx to be processed
@@ -94,8 +95,36 @@ export abstract class AbstractPhaseManager {
   abstract nextPhase(): AbstractPhaseManager | undefined;
   abstract rollback(tx: Tx, err: unknown): Promise<FailedTx>;
 
-  // Extract the public calls from the tx for this phase
-  abstract extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[];
+  protected extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
+    const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
+    const callRequestsStack = publicCallsStack.map(call => call.toCallRequest());
+
+    const nonRevertibleCallStack = tx.data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
+
+    // find the first call that is not revertible
+    const firstNonRevertibleCallIndex = callRequestsStack.findIndex(
+      c => nonRevertibleCallStack.findIndex(p => p.equals(c)) !== -1,
+    );
+
+    if (firstNonRevertibleCallIndex === -1) {
+      return {
+        [PublicKernelPhase.SETUP]: [],
+        [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
+        [PublicKernelPhase.TEARDOWN]: [],
+      };
+    } else {
+      // return publicCallsStack.slice(0, firstNonRevertibleCallIndex);
+      return {
+        [PublicKernelPhase.SETUP]: publicCallsStack.slice(firstNonRevertibleCallIndex + 1),
+        [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(0, firstNonRevertibleCallIndex),
+        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[firstNonRevertibleCallIndex]],
+      };
+    }
+  }
+
+  protected extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
+    return this.extractEnqueuedPublicCallsByPhase(tx)[this.phase];
+  }
 
   protected getKernelOutputAndProof(
     tx: Tx,
@@ -133,15 +162,21 @@ export abstract class AbstractPhaseManager {
   }
 
   protected async processEnqueuedPublicCalls(
-    enqueuedCalls: PublicCallRequest[],
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
+    tx: Tx,
+    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
+    previousPublicKernelProof?: Proof,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof, FunctionL2Logs[]]> {
+    let { publicKernelPublicInput: kernelOutput, publicKernelProof: kernelProof } = this.getKernelOutputAndProof(
+      tx,
+      previousPublicKernelOutput,
+      previousPublicKernelProof,
+    );
+
+    const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
+
     if (!enqueuedCalls || !enqueuedCalls.length) {
-      throw new Error(`Missing preimages for enqueued public calls`);
+      return [kernelOutput, kernelProof, []];
     }
-    let kernelOutput = previousPublicKernelOutput;
-    let kernelProof = previousPublicKernelProof;
 
     const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
 

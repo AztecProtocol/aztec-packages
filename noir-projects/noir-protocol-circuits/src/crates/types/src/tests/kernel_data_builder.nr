@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_context::CallContext, call_request::{CallerContext, CallRequest},
     combined_constant_data::CombinedConstantData,
-    combined_accumulated_data::{CombinedAccumulatedDataBuilder, AccumulatedNonRevertibleData},
+    combined_accumulated_data::{CombinedAccumulatedDataBuilder, AccumulatedNonRevertibleDataBuilder},
     kernel_circuit_public_inputs::{
     PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
     PublicKernelCircuitPublicInputs
@@ -16,14 +16,16 @@ use crate::{
     tests::{fixtures, testing_harness::build_tx_context}, transaction::context::TxContext
 };
 use crate::constants::{
-    MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256, VK_TREE_HEIGHT
+    MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX_META, MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256,
+    VK_TREE_HEIGHT
 };
 
 struct PreviousKernelDataBuilder {
     contract_address: AztecAddress,
     portal_contract_address: EthAddress,
     end: CombinedAccumulatedDataBuilder,
+    end_non_revertible: AccumulatedNonRevertibleDataBuilder,
     historical_header: Header,
     tx_context: TxContext,
     is_private: bool,
@@ -32,12 +34,23 @@ struct PreviousKernelDataBuilder {
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     sideffect_counter: u32,
+    max_non_revertible_side_effect_counter: u32
 }
 
 impl PreviousKernelDataBuilder {
-    pub fn new() -> Self {
+    pub fn new(is_for_public: bool) -> Self {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
-        end.new_nullifiers.push(SideEffectLinkedToNoteHash { value: 321, note_hash: 0, counter: 0 }); // 0th nullifier must be non-zero.
+        let mut end_non_revertible: AccumulatedNonRevertibleDataBuilder = dep::std::unsafe::zeroed();
+        // 0th nullifier must be non-zero.
+        let tx_nullifier = SideEffectLinkedToNoteHash { value: 321, note_hash: 0, counter: 0 };
+        // but the public kernels expect this first nullifier to have been partitioned into
+        // the non-revertible set
+
+        if is_for_public == true {
+            end_non_revertible.new_nullifiers.push(tx_nullifier);
+        } else {
+            end.new_nullifiers.push(tx_nullifier);
+        }
 
         let tx_context = build_tx_context(false, 0);
 
@@ -45,6 +58,7 @@ impl PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
             end,
+            end_non_revertible,
             historical_header: fixtures::HEADER,
             tx_context,
             is_private: true,
@@ -52,7 +66,8 @@ impl PreviousKernelDataBuilder {
             vk: VerificationKey {},
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
-            sideffect_counter: 2
+            sideffect_counter: 2,
+            max_non_revertible_side_effect_counter: 2
         }
     }
 
@@ -117,13 +132,50 @@ impl PreviousKernelDataBuilder {
         }
     }
 
-    pub fn append_new_nullifiers(&mut self, num_extra_nullifier: Field) {
+    pub fn append_new_nullifiers_from_private(&mut self, num_extra_nullifier: Field) {
+        // in private kernel, the nullifiers have not yet been partitioned
+        // (that is part of the job of the private kernel tail)
+        // so the tx nullifier is in `end`
         let first_nullifier = self.end.new_nullifiers.get(0);
         let mocked_value_offset = first_nullifier.value + self.end.new_nullifiers.len();
         for i in 1..MAX_NEW_NULLIFIERS_PER_TX {
             if i as u64 <= num_extra_nullifier as u64 {
                 // The default value is its index + the value of the first nullifier.
                 self.end.new_nullifiers.push(
+                    SideEffectLinkedToNoteHash {
+                    value: i + mocked_value_offset,
+                    note_hash: first_nullifier.note_hash,
+                    counter: self.next_sideffect_counter()
+                }
+                );
+            }
+        }
+    }
+
+    pub fn append_new_nullifiers_from_public(&mut self, num_extra_nullifier: Field) {
+        let first_nullifier = self.end_non_revertible.new_nullifiers.get(0);
+        let mocked_value_offset = first_nullifier.value + self.end.new_nullifiers.len();
+        for i in 1..MAX_NEW_NULLIFIERS_PER_TX {
+            if i as u64 <= num_extra_nullifier as u64 {
+                // The default value is its index + the value of the first nullifier.
+                self.end.new_nullifiers.push(
+                    SideEffectLinkedToNoteHash {
+                    value: i + mocked_value_offset,
+                    note_hash: first_nullifier.note_hash,
+                    counter: self.next_sideffect_counter()
+                }
+                );
+            }
+        }
+    }
+
+    pub fn append_new_nullifiers_non_revertible(&mut self, num_extra_nullifier: Field) {
+        let first_nullifier = self.end_non_revertible.new_nullifiers.get(0);
+        let mocked_value_offset = first_nullifier.value + self.end_non_revertible.new_nullifiers.len();
+        for i in 1..MAX_NEW_NULLIFIERS_PER_TX_META {
+            if i as u64 <= num_extra_nullifier as u64 {
+                // The default value is its index + the value of the first nullifier.
+                self.end_non_revertible.new_nullifiers.push(
                     SideEffectLinkedToNoteHash {
                     value: i + mocked_value_offset,
                     note_hash: first_nullifier.note_hash,
@@ -152,6 +204,11 @@ impl PreviousKernelDataBuilder {
     pub fn push_public_call_request(&mut self, hash: Field, is_delegate_call: bool) {
         let call_stack_item = self.generate_call_request(hash, is_delegate_call);
         self.end.public_call_stack.push(call_stack_item);
+    }
+
+    pub fn push_public_call_request_non_revertible(&mut self, hash: Field, is_delegate_call: bool) {
+        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
+        self.end_non_revertible.public_call_stack.push(call_stack_item);
     }
 
     fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
@@ -184,12 +241,11 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn to_private_kernel_tail_data(self) -> PrivateKernelTailData {
-        // TODO(fees) probably need to add this to the builder once it is implemented.
-        let end_non_revertible: AccumulatedNonRevertibleData = dep::std::unsafe::zeroed();
         let public_inputs = PrivateKernelTailCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            end_non_revertible,
-            end: self.end.to_final(),
+            end_non_revertible: self.end_non_revertible.finish(),
+            // side effects are already paritioned by this builder
+            end: self.end.to_accumulated_revertible_data(0),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             is_private: self.is_private
         };
@@ -198,11 +254,9 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn to_public_kernel_data(self) -> PublicKernelData {
-        // TODO(fees) probably need to add this to the builder once it is implemented.
-        let end_non_revertible: AccumulatedNonRevertibleData = dep::std::unsafe::zeroed();
         let public_inputs = PublicKernelCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            end_non_revertible,
+            end_non_revertible: self.end_non_revertible.finish(),
             end: self.end.finish(),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             is_private: self.is_private
