@@ -72,14 +72,51 @@ UltraProver UltraComposer::create_prover(CircuitBuilder& circuit_constructor)
     return construct_prover(circuit_constructor);
 }
 
-UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit_constructor)
+UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
 {
-    circuit_constructor.finalize_circuit();
+    circuit.finalize_circuit();
 
-    compute_proving_key(circuit_constructor);
-    compute_witness(circuit_constructor);
+    const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
 
-    return construct_prover(circuit_constructor);
+    // TODO(#392)(Kesha): replace composer types.
+    circuit_proving_key =
+        initialize_proving_key(circuit, srs::get_crs_factory().get(), subgroup_size, CircuitType::ULTRA);
+
+    construct_selector_polynomials<Flavor>(circuit, circuit_proving_key.get());
+
+    compute_plonk_generalized_sigma_permutations<Flavor>(circuit, circuit_proving_key.get());
+
+    construct_wire_polynomials(circuit, subgroup_size);
+
+    computed_witness = true;
+
+    // Other stuff
+    {
+        enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
+
+        compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
+
+        construct_table_polynomials(circuit, subgroup_size);
+
+        construct_sorted_list_polynomials(circuit, subgroup_size);
+
+        populate_memory_records(circuit);
+
+        // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
+        // Note: might be better to add these polys to cache only after they've been computed, as is convention
+        // TODO(luke): Don't put empty polynomials in the store, just add these where they're computed
+        polynomial z_lookup_fft(subgroup_size * 4);
+        polynomial s_fft(subgroup_size * 4);
+        circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
+        circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
+
+        circuit_proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
+            circuit.recursive_proof_public_input_indices.begin(), circuit.recursive_proof_public_input_indices.end());
+
+        circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
+    }
+
+    return construct_prover(circuit);
 }
 
 UltraProver UltraComposer::construct_prover(CircuitBuilder& circuit_constructor)

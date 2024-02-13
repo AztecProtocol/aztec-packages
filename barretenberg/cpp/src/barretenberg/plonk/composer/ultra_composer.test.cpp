@@ -41,7 +41,7 @@ template <typename T> class ultra_plonk_composer : public ::testing::Test {
             bool verified = verifier.verify_proof(proof);
             EXPECT_EQ(verified, expected_result);
         } else {
-            auto prover = composer.create_prover(builder);
+            auto prover = composer.create_prover_new(builder);
             auto verifier = composer.create_verifier(builder);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -290,9 +290,6 @@ TYPED_TEST(ultra_plonk_composer, bad_tag_permutation)
 
         builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, 1, 1, 0, 0 });
         builder.create_add_gate({ c_idx, d_idx, builder.zero_idx, 1, 1, 0, -1 });
-
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
 
         TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
     }
