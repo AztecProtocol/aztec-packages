@@ -1,10 +1,12 @@
 use crate::abis::{
     combined_accumulated_data::{
     CombinedAccumulatedData, FinalAccumulatedData, AccumulatedNonRevertibleData,
-    AccumulatedNonRevertibleDataBuilder, CombinedAccumulatedDataBuilder
+    AccumulatedNonRevertibleDataBuilder, CombinedAccumulatedDataBuilder, FinalAccumulatedDataBuilder
 },
     combined_constant_data::CombinedConstantData
 };
+use dep::std::{unsafe};
+use crate::constants::{MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX};
 
 use crate::mocked::AggregationObject;
 
@@ -51,14 +53,11 @@ impl PrivateKernelCircuitPublicInputsBuilder {
         }
     }
 
-    pub fn to_tail(
-        self,
-        end_non_revertible: AccumulatedNonRevertibleData
-    ) -> PrivateKernelTailCircuitPublicInputs {
+    pub fn to_tail(self) -> PrivateKernelTailCircuitPublicInputs {
         PrivateKernelTailCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
-            end_non_revertible,
-            end: self.end.to_final(),
+            end_non_revertible: self.end.to_accumulated_non_revertible_data(self.max_non_revertible_side_effect_counter),
+            end: self.end.to_accumulated_revertible_data(self.max_non_revertible_side_effect_counter),
             constants: self.constants,
             is_private: self.is_private
         }
@@ -84,4 +83,3 @@ impl PublicKernelCircuitPublicInputsBuilder {
         }
     }
 }
-

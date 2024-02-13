@@ -2,8 +2,7 @@ use crate::common;
 use dep::std::{cmp::Eq, option::Option, unsafe};
 use dep::types::{
     abis::{
-    call_request::CallRequest, combined_accumulated_data::AccumulatedNonRevertibleData,
-    nullifier_key_validation_request::NullifierKeyValidationRequestContext,
+    call_request::CallRequest, nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputsBuilder, PrivateKernelTailCircuitPublicInputs},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
@@ -221,10 +220,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         PrivateKernelTailCircuitPrivateInputs::apply_commitment_nonces(&mut public_inputs);
 
-        // TODO(fees) populate this
-        let end_non_revertible : AccumulatedNonRevertibleData = unsafe::zeroed();
-
-        public_inputs.to_tail(end_non_revertible)
+        public_inputs.to_tail()
     }
 }
 

@@ -34,6 +34,7 @@ struct PreviousKernelDataBuilder {
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     sideffect_counter: u32,
+    max_non_revertible_side_effect_counter: u32
 }
 
 impl PreviousKernelDataBuilder {
@@ -65,7 +66,8 @@ impl PreviousKernelDataBuilder {
             vk: VerificationKey {},
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
-            sideffect_counter: 2
+            sideffect_counter: 2,
+            max_non_revertible_side_effect_counter: 2
         }
     }
 
@@ -242,7 +244,8 @@ impl PreviousKernelDataBuilder {
         let public_inputs = PrivateKernelTailCircuitPublicInputs {
             aggregation_object: AggregationObject {},
             end_non_revertible: self.end_non_revertible.finish(),
-            end: self.end.to_final(),
+            // side effects are already paritioned by this builder
+            end: self.end.to_accumulated_revertible_data(0),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             is_private: self.is_private
         };
