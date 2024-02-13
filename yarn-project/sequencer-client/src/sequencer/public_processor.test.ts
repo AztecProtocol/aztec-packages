@@ -98,6 +98,10 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
+      tx.data.needsSetup = false;
+      tx.data.needsAppLogic = false;
+      tx.data.needsTeardown = false;
+
       const hash = await tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 
@@ -181,6 +185,9 @@ describe('public_processor', () => {
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), callRequests, [
         ExtendedContractData.random(),
       ]);
+
+      tx.data.needsSetup = false;
+      tx.data.needsTeardown = false;
 
       publicExecutor.simulate.mockImplementation(execution => {
         for (const request of callRequests) {
@@ -272,6 +279,9 @@ describe('public_processor', () => {
         [callRequest],
         [ExtendedContractData.random()],
       );
+
+      tx.data.needsSetup = false;
+      tx.data.needsTeardown = false;
 
       const publicExecutionResult = makePublicExecutionResultFromRequest(callRequest);
       publicExecutionResult.nestedExecutions = [
