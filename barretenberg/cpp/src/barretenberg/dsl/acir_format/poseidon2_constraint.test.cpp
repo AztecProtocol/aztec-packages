@@ -16,6 +16,10 @@ class Poseidon2Tests : public ::testing::Test {
 };
 using fr = field<Bn254FrParams>;
 
+/**
+ * @brief Create a circuit testing the Poseidon2 permutation function
+ *
+ */
 TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
 {
     Poseidon2Constraint
