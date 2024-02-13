@@ -89,7 +89,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     {
         using View = typename Accumulator::View;
 
-        // // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first
+        // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first
         // subrelation
         Accumulator const& first_set_enabled = Accumulator(
             View(std::get<FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));

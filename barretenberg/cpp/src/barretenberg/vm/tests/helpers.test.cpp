@@ -26,7 +26,7 @@ void validate_trace_proof(std::vector<Row>&& trace)
     EXPECT_TRUE(verified);
 
     if (!verified) {
-        avm_trace::log_avmMini_trace(circuit_builder.rows, 1, 10);
+        avm_trace::log_avmMini_trace(circuit_builder.rows, 0, 10);
     }
 };
 

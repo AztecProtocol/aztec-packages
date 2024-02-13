@@ -44,9 +44,6 @@ void AvmMiniTraceBuilder::add(uint32_t a_offset, uint32_t b_offset, uint32_t dst
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
-    info(clk);
-    info("");
-
     // Reading from memory and loading into ia resp. ib.
     auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);

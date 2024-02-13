@@ -47,7 +47,7 @@ namespace toy(256);
     #[lookup_xor]
     q_xor { xor_a, xor_b, xor_c } in q_xor_table { table_xor_a, table_xor_b, table_xor_c };
 
-    // Minimum repro to try and fix jean's lookup issue
+    // Minimum repro testing multiple lookups
     pol commit q_err, q_err_check;
     pol commit clk, m_clk;
 
