@@ -34,6 +34,8 @@ These sections are meant to provide a high-level definition of the Aztec Virtual
 
 ## Public contract bytecode
 
+<!-- TODO: Merge this section into ../bytecode -->
+
 A contract's public bytecode is a series of execution instructions for the AVM. Refer to the ["AVM Instruction Set"](./instruction-set) for the details of all supported instructions along with how they modify AVM state.
 
 The entirety of a contract's public code is represented as a single block of bytecode with a maximum of `MAX_PUBLIC_INSTRUCTIONS_PER_CONTRACT` ($2^{15} = 32768$) instructions. The mechanism used to distinguish between different "functions" in an AVM bytecode program is left as a higher-level abstraction (_e.g._ similar to Solidity's concept of a function selector).
