@@ -45,7 +45,7 @@ std::vector<AvmMiniAluTraceBuilder::AluTraceEntry> AvmMiniAluTraceBuilder::final
  *
  * @return FF The result of the addition casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmMiniAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     bool carry = false;
@@ -134,7 +134,7 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
  *
  * @return FF The result of the subtraction casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmMiniAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     bool carry = false;
@@ -218,7 +218,7 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
  *
  * @return FF The result of the multiplication casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmMiniAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     bool carry = false;
@@ -353,7 +353,7 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
  *
  * @return FF The result of the not casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::bitwise_not(FF const& a, AvmMemoryTag in_tag, uint32_t const clk)
+FF AvmMiniAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c = 0;
     uint128_t a_u128{ a };
@@ -375,11 +375,7 @@ FF AvmMiniAluTraceBuilder::bitwise_not(FF const& a, AvmMemoryTag in_tag, uint32_
     case AvmMemoryTag::U128:
         c = FF{ uint256_t::from_uint128(c_u128) };
         break;
-    // TODO(ilyas): this should return FF {0} but is used for negative tests
-    // If this returns FF{0} the row is not inserted in trace making it hard to track.
-    case AvmMemoryTag::FF:
-        c = FF{ uint256_t::from_uint128(c_u128) };
-        break;
+    case AvmMemoryTag::FF: // Unsupported as instruction tag {}
     case AvmMemoryTag::U0: // Unsupported as instruction tag {}
         return FF{ 0 };
     }
@@ -387,7 +383,6 @@ FF AvmMiniAluTraceBuilder::bitwise_not(FF const& a, AvmMemoryTag in_tag, uint32_
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_not = true,
-        .alu_ff_tag = in_tag == AvmMemoryTag::FF, // TODO(ilyas): remove this
         .alu_u8_tag = in_tag == AvmMemoryTag::U8,
         .alu_u16_tag = in_tag == AvmMemoryTag::U16,
         .alu_u32_tag = in_tag == AvmMemoryTag::U32,

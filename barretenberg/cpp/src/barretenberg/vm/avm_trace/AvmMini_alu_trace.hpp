@@ -40,10 +40,10 @@ class AvmMiniAluTraceBuilder {
     void reset();
     std::vector<AluTraceEntry> finalize();
 
-    FF add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
-    FF sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
-    FF mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
-    FF bitwise_not(FF const& a, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_not(FF const& a, AvmMemoryTag in_tag, uint32_t clk);
 
   private:
     std::vector<AluTraceEntry> alu_trace;

@@ -7,62 +7,62 @@
 namespace bb::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
-    FF avmMini_mem_idx_b{};
-    FF avmMini_op_err{};
-    FF avmMini_tag_err{};
-    FF avmMini_sel_op_sub{};
-    FF avmMini_internal_return_ptr_shift{};
-    FF avmMini_ib{};
-    FF avmMini_sel_internal_return{};
     FF avmMini_sel_op_div{};
-    FF avmMini_pc_shift{};
-    FF avmMini_pc{};
-    FF avmMini_inv{};
-    FF avmMini_mem_op_c{};
-    FF avmMini_mem_idx_a{};
-    FF avmMini_first{};
-    FF avmMini_ia{};
-    FF avmMini_sel_op_mul{};
-    FF avmMini_sel_op_add{};
-    FF avmMini_sel_internal_call{};
-    FF avmMini_internal_return_ptr{};
-    FF avmMini_sel_op_not{};
-    FF avmMini_mem_op_b{};
-    FF avmMini_sel_halt{};
-    FF avmMini_rwa{};
-    FF avmMini_sel_jump{};
     FF avmMini_ic{};
-    FF avmMini_rwb{};
+    FF avmMini_sel_internal_call{};
+    FF avmMini_mem_idx_b{};
     FF avmMini_rwc{};
+    FF avmMini_mem_idx_a{};
+    FF avmMini_sel_op_sub{};
+    FF avmMini_rwa{};
+    FF avmMini_sel_halt{};
+    FF avmMini_tag_err{};
+    FF avmMini_sel_jump{};
+    FF avmMini_ib{};
+    FF avmMini_pc{};
+    FF avmMini_sel_internal_return{};
+    FF avmMini_inv{};
+    FF avmMini_sel_op_mul{};
+    FF avmMini_internal_return_ptr_shift{};
+    FF avmMini_rwb{};
+    FF avmMini_op_err{};
+    FF avmMini_internal_return_ptr{};
+    FF avmMini_sel_op_add{};
+    FF avmMini_mem_op_b{};
+    FF avmMini_pc_shift{};
+    FF avmMini_sel_op_not{};
+    FF avmMini_ia{};
+    FF avmMini_first{};
+    FF avmMini_mem_op_c{};
     FF avmMini_mem_op_a{};
 };
 
 inline std::string get_relation_label_avm_mini(int index)
 {
     switch (index) {
-    case 23:
-        return "SUBOP_ERROR_RELEVANT_OP";
-
-    case 22:
-        return "SUBOP_DIVISION_ZERO_ERR2";
+    case 20:
+        return "SUBOP_DIVISION_FF";
 
     case 37:
         return "INTERNAL_RETURN_POINTER_CONSISTENCY";
-
-    case 25:
-        return "RETURN_POINTER_INCREMENT";
-
-    case 31:
-        return "RETURN_POINTER_DECREMENT";
-
-    case 20:
-        return "SUBOP_DIVISION_FF";
 
     case 36:
         return "PC_INCREMENT";
 
     case 21:
         return "SUBOP_DIVISION_ZERO_ERR1";
+
+    case 25:
+        return "RETURN_POINTER_INCREMENT";
+
+    case 23:
+        return "SUBOP_ERROR_RELEVANT_OP";
+
+    case 22:
+        return "SUBOP_DIVISION_ZERO_ERR2";
+
+    case 31:
+        return "RETURN_POINTER_DECREMENT";
     }
     return std::to_string(index);
 }
