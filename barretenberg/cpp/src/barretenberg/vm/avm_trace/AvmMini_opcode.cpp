@@ -1,5 +1,8 @@
 #include "AvmMini_opcode.hpp"
+
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 
 namespace avm_trace {
 
@@ -18,7 +21,7 @@ const std::unordered_map<OpCode, size_t> Bytecode::OPERANDS_NUM = {
     //{OpCode::AND, },
     //{OpCode::OR, },
     //{OpCode::XOR, },
-    //{OpCode::NOT, },
+    // { OpCode::NOT, 2 },
     //{OpCode::SHL, },
     //{OpCode::SHR, },
     //// Compute - Type Conversions
@@ -63,16 +66,18 @@ const std::unordered_map<OpCode, size_t> Bytecode::OPERANDS_NUM = {
     //{ OpCode::CMOV, },
 
     //// World State
-    //{ OpCode::BLOCKHEADERBYNUMBER, },
     //{ OpCode::SLOAD, }, // Public Storage
     //{ OpCode::SSTORE, }, // Public Storage
-    //{ OpCode::READL1TOL2MSG, }, // Messages
-    //{ OpCode::SENDL2TOL1MSG, }, // Messages
+    //{ OpCode::NOTEHASHEXISTS, }, // Notes & Nullifiers
     //{ OpCode::EMITNOTEHASH, }, // Notes & Nullifiers
+    //{ OpCode::NULLIFIEREXISTS, }, // Notes & Nullifiers
     //{ OpCode::EMITNULLIFIER, }, // Notes & Nullifiers
+    //{ OpCode::READL1TOL2MSG, }, // Messages
+    //{ OpCode::HEADERMEMBER, },
 
     //// Accrued Substate
     //{ OpCode::EMITUNENCRYPTEDLOG, },
+    //{ OpCode::SENDL2TOL1MSG, },
 
     //// Control Flow - Contract Calls
     //{ OpCode::CALL, },
@@ -132,14 +137,16 @@ bool Bytecode::has_in_tag(OpCode const op_code)
     case OpCode::INTERNALRETURN:
     case OpCode::MOV:
     case OpCode::CMOV:
-    case OpCode::BLOCKHEADERBYNUMBER:
     case OpCode::SLOAD:
     case OpCode::SSTORE:
-    case OpCode::READL1TOL2MSG:
-    case OpCode::SENDL2TOL1MSG:
+    case OpCode::NOTEHASHEXISTS:
     case OpCode::EMITNOTEHASH:
+    case OpCode::NULLIFIEREXISTS:
     case OpCode::EMITNULLIFIER:
+    case OpCode::READL1TOL2MSG:
+    case OpCode::HEADERMEMBER:
     case OpCode::EMITUNENCRYPTEDLOG:
+    case OpCode::SENDL2TOL1MSG:
     case OpCode::CALL:
     case OpCode::STATICCALL:
     case OpCode::RETURN:
@@ -148,6 +155,14 @@ bool Bytecode::has_in_tag(OpCode const op_code)
     default:
         return true;
     }
+}
+
+std::string to_hex(OpCode opcode)
+{
+    std::ostringstream stream;
+    // pad with 0s to fill exactly 2 hex characters
+    stream << std::setfill('0') << std::setw(2) << std::hex << (static_cast<uint8_t>(opcode) & 0xFF);
+    return stream.str();
 }
 
 } // namespace avm_trace

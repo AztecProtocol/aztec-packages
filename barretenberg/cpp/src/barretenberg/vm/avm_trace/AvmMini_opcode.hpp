@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <string>
 #include <unordered_map>
 
 namespace avm_trace {
-using std::size_t;
 
 /**
  * All AVM opcodes (Keep in sync with TS counterpart code opcodes.ts)
@@ -73,16 +74,18 @@ enum class OpCode : uint8_t {
     CMOV,
 
     // World State
-    BLOCKHEADERBYNUMBER,
-    SLOAD,         // Public Storage
-    SSTORE,        // Public Storage
-    READL1TOL2MSG, // Messages
-    SENDL2TOL1MSG, // Messages
-    EMITNOTEHASH,  // Notes & Nullifiers
-    EMITNULLIFIER, // Notes & Nullifiers
+    SLOAD,           // Public Storage
+    SSTORE,          // Public Storage
+    NOTEHASHEXISTS,  // Notes & Nullifiers
+    EMITNOTEHASH,    // Notes & Nullifiers
+    NULLIFIEREXISTS, // Notes & Nullifiers
+    EMITNULLIFIER,   // Notes & Nullifiers
+    READL1TOL2MSG,   // Messages
+    HEADERMEMBER,    // Archive tree & Headers
 
     // Accrued Substate
     EMITUNENCRYPTEDLOG,
+    SENDL2TOL1MSG, // Messages
 
     // Control Flow - Contract Calls
     CALL,
@@ -101,5 +104,7 @@ class Bytecode {
     static bool has_in_tag(OpCode);
     static const std::unordered_map<OpCode, size_t> OPERANDS_NUM;
 };
+
+std::string to_hex(OpCode opcode);
 
 } // namespace avm_trace

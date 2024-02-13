@@ -317,6 +317,7 @@ dependencies = [
 name = "aztec_macros"
 version = "0.23.0"
 dependencies = [
+ "convert_case",
  "iter-extended",
  "noirc_frontend",
 ]
@@ -551,6 +552,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
 
 [[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -749,6 +759,12 @@ dependencies = [
  "rand_core",
  "subtle",
 ]
+
+[[package]]
+name = "fixedbitset"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
@@ -1076,6 +1092,7 @@ dependencies = [
  "noirc_errors",
  "noirc_evaluator",
  "noirc_frontend",
+ "noirc_macros",
  "rust-embed",
  "serde",
  "tracing",
@@ -1092,6 +1109,7 @@ dependencies = [
  "codespan-reporting",
  "flate2",
  "fm",
+ "noirc_printable_type",
  "serde",
  "serde_json",
  "serde_with",
@@ -1125,6 +1143,7 @@ dependencies = [
  "iter-extended",
  "noirc_errors",
  "noirc_printable_type",
+ "petgraph",
  "regex",
  "rustc-hash",
  "serde",
@@ -1133,6 +1152,14 @@ dependencies = [
  "smol_str",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "noirc_macros"
+version = "0.23.0"
+dependencies = [
+ "iter-extended",
+ "noirc_frontend",
 ]
 
 [[package]]
@@ -1200,6 +1227,16 @@ name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+
+[[package]]
+name = "petgraph"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
+dependencies = [
+ "fixedbitset",
+ "indexmap 2.2.1",
+]
 
 [[package]]
 name = "pin-project-lite"
@@ -1774,6 +1811,12 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4c87d22b6e3f4a18d4d40ef354e97c90fcb14dd91d7dc0aa9d8a1172ebf7202"
 
 [[package]]
 name = "unicode-width"

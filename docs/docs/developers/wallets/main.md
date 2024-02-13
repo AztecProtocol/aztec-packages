@@ -1,4 +1,12 @@
-# Wallets
+---
+title: Wallets
+---
+
+In this page we will cover the main responsibilities of a wallet in the Aztec network.
+
+Refer to [_writing an account contract_](../contracts/writing_contracts/accounts/write_accounts_contract.md) for a tutorial on how to write a contract to back a user's account.
+
+Go to [\_wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
 
 Wallets are the applications through which users manage their accounts. Users rely on wallets to browse through their accounts, monitor their balances, and create new accounts. Wallets also store seed phrases and private keys, or interact with external keystores such as hardware wallets.
 
@@ -6,13 +14,11 @@ Wallets also provide an interface for dapps. Dapps may request access to see the
 
 In addition to these usual responsibilities, wallets in Aztec also need to track private state. This implies keeping a local database of all private notes encrypted for any of the user's accounts, so dapps and contracts can query the user's private state. Aztec wallets are also responsible for producing local proofs of execution for private functions.
 
-In this page we will cover the main responsibilities of a wallet in the Aztec network. Refer to [_writing an account contract_](./writing_an_account_contract.md) for a tutorial on how to write a contract to back a user's account, or to [_wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
-
 ## Account setup
 
 The first step for any wallet is to let the user set up their [accounts](../../learn/concepts/accounts/main.md). An account in Aztec is represented on-chain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
 
-A wallet must support at least one specific [account contract implementation](./writing_an_account_contract.md), which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/account_contract/index.ts).
+A wallet must support at least one specific [account contract implementation](../contracts/writing_contracts/accounts/write_accounts_contract.md), which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/account_contract/index.ts).
 
 Note that users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](../../learn/concepts/accounts/keys.md#addresses-partial-addresses-and-public-keys) without having to interact with the network, so they can share it with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialization arguments, a deployment salt, and a privacy key. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
 
@@ -20,7 +26,7 @@ Note that users must be able to receive funds in Aztec before deploying their ac
 
 Every transaction in Aztec is broadcast to the network as a zero-knowledge proof of correct execution, in order to preserve privacy. This means that transaction proofs are generated on the wallet and not on a remote node. This is one of the biggest differences with regard to EVM chain wallets.
 
-A wallet is responsible for **creating** an [_execution request_](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/types/src/tx_execution_request.ts) out of one or more [_function calls_](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/types/src/function_call.ts) requested by a dapp. For example, a dapp may request a wallet to "invoke the `transfer` function on the contract at `0x1234` with the following arguments", in response to a user action. The wallet [turns that into an execution request](../../learn/concepts/accounts/main.md#execution-requests) with the signed instructions to execute that function call from the user's account contract. In an [ECDSA-based account](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/ecdsa_account_contract/src/main.nr), for instance, this is an execution request that encodes the function call in the _entrypoint payload_, and includes its ECDSA signature with the account's signing private key.
+A wallet is responsible for **creating** an [_execution request_](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/types/src/tx_execution_request.ts) out of one or more [_function calls_](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/types/src/function_call.ts) requested by a dapp. For example, a dapp may request a wallet to "invoke the `transfer` function on the contract at `0x1234` with the following arguments", in response to a user action. The wallet [turns that into an execution request](../../learn/concepts/accounts/main.md#execution-requests) with the signed instructions to execute that function call from the user's account contract. In an [ECDSA-based account](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr), for instance, this is an execution request that encodes the function call in the _entrypoint payload_, and includes its ECDSA signature with the account's signing private key.
 
 Once the _execution request_ is created, the wallet is responsible for **simulating** and **proving** the execution of its private functions. The simulation yields an execution trace, which can be used to provide the user with a list of side effects of the private execution of the transaction. During this simulation, the wallet is responsible of providing data to the virtual machine, such as private notes, encryption keys, or nullifier secrets. This execution trace is fed into the prover, which returns a zero-knowledge proof that guarantees correct execution and hides all private information. The output of this process is a [_transaction_](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/types/src/tx/tx.ts) object.
 
@@ -47,6 +53,7 @@ As in EVM-based chains, wallets are expected to manage user keys, or provide an 
 :::info
 Due to limitations in the current architecture, privacy keys need to be available in the wallet software itself and cannot be punted to an external keystore. This restriction may be lifted in a future release.
 :::
+
 ## Recipient encryption keys
 
 Wallets are also expected to manage the public encryption keys of any recipients of local transactions. When creating an encrypted note for a recipient given their address, the wallet needs to provide their [complete address](../../learn/concepts/accounts/keys.md#addresses-partial-addresses-and-public-keys). Recipients broadcast their complete addresses when deploying their account contracts, and wallets collect this information and save it in a local registry for easy access when needed.
