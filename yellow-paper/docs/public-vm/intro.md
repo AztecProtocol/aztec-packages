@@ -27,7 +27,7 @@ These sections are meant to provide a high-level definition of the Aztec Virtual
 - [**Nested contract calls**](./nested-calls): the initiation of a contract call from an instruction as well as the processing of nested execution results, gas refunds, and state reverts
 - [**Instruction set**](./instruction-set): the list of all instructions supported by the AVM
 
-> Refer to the ["AVM Bytecode"](./bytecode#avm-bytecode) section of ["Bytecode"](./bytecode) for an explanation of the AVM's bytecode.
+> Refer to the ["AVM Bytecode"](../bytecode#avm-bytecode) section of ["Bytecode"](../bytecode) for an explanation of the AVM's bytecode.
 
 ## VM Circuit Sections
 
