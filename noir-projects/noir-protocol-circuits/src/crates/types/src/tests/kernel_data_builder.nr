@@ -232,7 +232,7 @@ impl PreviousKernelDataBuilder {
     pub fn to_private_kernel_inner_data(self) -> PrivateKernelInnerData {
         let public_inputs = PrivateKernelInnerCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            max_non_revertible_side_effect_counter: 0,
+            max_non_revertible_side_effect_counter: self.max_non_revertible_side_effect_counter,
             end: self.end.finish(),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             is_private: self.is_private
