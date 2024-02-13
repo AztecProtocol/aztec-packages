@@ -8,7 +8,7 @@ import {
   createPXEClient,
   waitForPXE,
 } from '@aztec/aztec.js';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -31,8 +31,16 @@ describe('token', () => {
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
     const storageSlot = new Fr(5);
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
     const note = new Note([new Fr(initialBalance), secretHash]);
-    const extendedNote = new ExtendedNote(note, owner.getAddress(), token.address, storageSlot, receipt.txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      owner.getAddress(),
+      token.address,
+      storageSlot,
+      noteTypeId,
+      receipt.txHash,
+    );
     await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
