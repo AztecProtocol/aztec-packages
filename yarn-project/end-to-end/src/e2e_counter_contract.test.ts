@@ -1,0 +1,39 @@
+import { AccountWallet, AztecAddress, CompleteAddress, DebugLogger, Fr, TxStatus } from '@aztec/aztec.js';
+import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+
+import { setup } from './fixtures/utils.js';
+
+describe('e2e_counter_contract', () => {
+  // let pxe: PXE;
+  let wallet: AccountWallet;
+  let accounts: CompleteAddress[];
+  let logger: DebugLogger;
+  let teardown: () => Promise<void>;
+
+  let counterContract: CounterContract;
+  let owner: AztecAddress;
+
+  beforeEach(async () => {
+    // Setup environment
+    ({
+      teardown,
+      // pxe,
+      accounts,
+      wallets: [wallet],
+      logger,
+    } = await setup(1));
+    owner = accounts[0].address;
+
+    counterContract = await CounterContract.deploy(wallet, 0, owner).send().deployed();
+
+    logger(`Counter contract deployed at ${counterContract.address}`);
+  }, 100_000);
+
+  afterEach(() => teardown(), 30_000);
+
+  describe('increments', async () => {
+    const receipt = await counterContract.methods.increment(owner).send().wait();
+    expect(receipt.status).toBe(TxStatus.MINED);
+    expect(await counterContract.methods.get_counter(owner).view()).toBe(1n);
+  });
+});
