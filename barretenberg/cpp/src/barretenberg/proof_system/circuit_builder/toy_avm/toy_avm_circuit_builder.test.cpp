@@ -1,7 +1,7 @@
-#include "../generated/Toy_circuit_builder.hpp"
+#include "../generated/toy_circuit_builder.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
-#include "barretenberg/flavor/generated/Toy_flavor.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/Toy_circuit_builder.hpp"
+#include "barretenberg/flavor/generated/toy_flavor.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/toy_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
 
@@ -153,6 +153,24 @@ TEST(ToyAVMCircuitBuilder, MultiLookup)
     row_3.toy_q_err_check = FF(1);
 
     // Check circuit passes
+    circuit_builder.set_trace(std::move(rows));
+    EXPECT_EQ(circuit_builder.check_circuit(), true);
+}
+
+TEST(ToyAVMCircuitBuilder, EmptyLookups)
+{
+    using Builder = ToyCircuitBuilder;
+    using Row = Builder::Row;
+    Builder circuit_builder;
+
+    const size_t circuit_size = 16;
+    std::vector<Row> rows;
+    // init empty rows
+    for (size_t i = 0; i < circuit_size; i++) {
+        Row row{};
+        rows.push_back(row);
+    }
+
     circuit_builder.set_trace(std::move(rows));
     EXPECT_EQ(circuit_builder.check_circuit(), true);
 }
