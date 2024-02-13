@@ -361,12 +361,11 @@ std::shared_ptr<plonk::verification_key> UltraComposer::compute_verification_key
         return circuit_verification_key;
     }
 
-    auto crs_factory = srs::get_crs_factory();
-
     if (!circuit_proving_key) {
         compute_proving_key(circuit_constructor);
     }
-    circuit_verification_key = compute_verification_key_common(circuit_proving_key, crs_factory->get_verifier_crs());
+    circuit_verification_key =
+        compute_verification_key_common(circuit_proving_key, srs::get_crs_factory()->get_verifier_crs());
 
     circuit_verification_key->circuit_type = CircuitType::ULTRA;
 

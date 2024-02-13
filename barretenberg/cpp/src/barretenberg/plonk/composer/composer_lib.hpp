@@ -11,30 +11,6 @@ struct SelectorProperties {
 };
 
 /**
- * @brief Initilalize proving key and load the crs
- *
- * @param circuit_constructor  Object containing the circuit
- * @param crs_factory Produces the prover's reference string
- * @param minimum_circuit_size The minimum size of polynomials without randomized elements
- * @param num_randomized_gates Number of gates with randomized witnesses
- * @param circuit_type This is passed in the case of Plonk since we use flavor-independent proving and verification keys
- * in that case.
- * @return std::shared_ptr<typename Flavor::ProvingKey>
- */
-std::shared_ptr<plonk::proving_key> initialize_proving_key(const auto& circuit_constructor,
-                                                           bb::srs::factories::CrsFactory<curve::BN254>* crs_factory,
-                                                           const size_t subgroup_size,
-                                                           CircuitType circuit_type)
-{
-    auto crs = crs_factory->get_prover_crs(subgroup_size + 1);
-
-    auto proving_key = std::make_shared<plonk::proving_key>(
-        subgroup_size, circuit_constructor.public_inputs.size(), crs, circuit_type);
-
-    return proving_key;
-}
-
-/**
  * @brief Fill the last index of each selector polynomial in lagrange form with a non-zero value
  *
  * @tparam Flavor
