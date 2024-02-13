@@ -155,5 +155,6 @@
   "C_Cpp.vcpkg.enabled": false,
   "C_Cpp.default.includePath": [
     "barretenberg/cpp/src"
-  ]
+  ],
+  "cmake.sourceDirectory": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp"
 }
