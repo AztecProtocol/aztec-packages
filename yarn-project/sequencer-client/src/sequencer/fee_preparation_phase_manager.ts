@@ -1,6 +1,5 @@
 import { Tx } from '@aztec/circuit-types';
 import { GlobalVariables, Header, Proof, PublicCallRequest, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { isArrayEmpty } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
@@ -32,15 +31,13 @@ export class FeePreparationPhaseManager extends AbstractPhaseManager {
   }
 
   extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    const enqueuedCallRequests = tx.enqueuedPublicFunctionCalls
-      .slice()
-      // TODO(fees) why are we reversing here? this question is asked elsewhere
-      .reverse()
-      .map(call => call.toCallRequest());
+    const enqueuedCallRequests = tx.enqueuedPublicFunctionCalls.slice().map(call => call.toCallRequest());
+
+    const nonRevertibleCallStack = tx.data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
 
     // find the last enqueued call that is not revertible
     const lastNonRevertibleCallIndex = enqueuedCallRequests.findLastIndex(
-      c => tx.data.endNonRevertibleData.publicCallStack.findIndex(p => p.equals(c)) !== -1,
+      c => nonRevertibleCallStack.findIndex(p => p.equals(c)) !== -1,
     );
 
     if (lastNonRevertibleCallIndex === -1) {
@@ -67,12 +64,13 @@ export class FeePreparationPhaseManager extends AbstractPhaseManager {
     publicKernelProof?: Proof;
   }> {
     this.log(`Processing tx ${await tx.getTxHash()}`);
-    if (!isArrayEmpty(tx.data.endNonRevertibleData.publicCallStack, item => item.isEmpty())) {
+    const publicCalls = this.extractEnqueuedPublicCalls(tx);
+    if (publicCalls.length > 0) {
       const outputAndProof = this.getKernelOutputAndProof(tx, previousPublicKernelOutput, previousPublicKernelProof);
 
       this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
-        this.extractEnqueuedPublicCalls(tx),
+        publicCalls,
         outputAndProof.publicKernelPublicInput,
         outputAndProof.publicKernelProof,
       );

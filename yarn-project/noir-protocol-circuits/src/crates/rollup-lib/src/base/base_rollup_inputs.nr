@@ -706,8 +706,8 @@ mod tests {
             inputs.constants.global_variables.chain_id = 1;
             inputs.constants.global_variables.version = 0;
 
-            let mut builder = PreviousKernelDataBuilder::new();
-            let _nullifier = builder.end.new_nullifiers.pop();
+            let mut builder = PreviousKernelDataBuilder::new(true);
+            let _nullifier = builder.end_non_revertible.new_nullifiers.pop();
             inputs.kernel_data = builder.is_public();
 
             inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();

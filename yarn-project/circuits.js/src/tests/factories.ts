@@ -418,9 +418,9 @@ export function makePrivateKernelInnerCircuitPublicInputs(
 export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
-    makeAccumulatedNonRevertibleData(seed, full),
-    makeFinalAccumulatedData(seed, full),
-    makeConstantData(seed + 0x100),
+    makeAccumulatedNonRevertibleData(seed + 0x100, full),
+    makeFinalAccumulatedData(seed + 0x200, full),
+    makeConstantData(seed + 0x300),
     true,
   );
 }

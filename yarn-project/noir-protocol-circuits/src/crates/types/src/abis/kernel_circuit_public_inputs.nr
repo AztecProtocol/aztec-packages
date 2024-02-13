@@ -1,10 +1,11 @@
 use crate::abis::{
     combined_accumulated_data::{
     CombinedAccumulatedData, FinalAccumulatedData, AccumulatedNonRevertibleData,
-    CombinedAccumulatedDataBuilder
+    AccumulatedNonRevertibleDataBuilder, CombinedAccumulatedDataBuilder
 },
     combined_constant_data::CombinedConstantData
 };
+
 use crate::mocked::AggregationObject;
 
 struct PrivateKernelInnerCircuitPublicInputs {
@@ -66,7 +67,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
 
 struct PublicKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
-    end_non_revertible: AccumulatedNonRevertibleData,
+    end_non_revertible: AccumulatedNonRevertibleDataBuilder,
     end: CombinedAccumulatedDataBuilder,
     constants: CombinedConstantData,
     is_private: bool,
@@ -76,7 +77,7 @@ impl PublicKernelCircuitPublicInputsBuilder {
     pub fn to_inner(self) -> PublicKernelCircuitPublicInputs {
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
-            end_non_revertible: self.end_non_revertible,
+            end_non_revertible: self.end_non_revertible.finish(),
             end: self.end.finish(),
             constants: self.constants,
             is_private: self.is_private

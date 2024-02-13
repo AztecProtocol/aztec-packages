@@ -77,7 +77,7 @@ mod tests {
 
     impl PublicKernelAppLogicCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new().is_public();
+            let previous_kernel = PreviousKernelDataBuilder::new(true).is_public();
             let public_call = PublicCallDataBuilder::new();
 
             PublicKernelAppLogicCircuitPrivateInputsBuilder { previous_kernel, public_call }
@@ -146,7 +146,7 @@ mod tests {
     #[test(should_fail_with="Previous kernel must be public when in this public kernel version")]
     fn public_previous_kernel_private_previous_kernel_should_fail() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = PreviousKernelDataBuilder::new();
+        builder.previous_kernel = PreviousKernelDataBuilder::new(true);
 
         builder.failed();
     }
@@ -217,12 +217,12 @@ mod tests {
         let contract_address = builder.public_call.contract_address;
 
         // Setup 2 new nullifiers on the previous kernel.
-        builder.previous_kernel.append_new_nullifiers(2);
+        builder.previous_kernel.append_new_nullifiers_from_public(2);
         let previous = builder.previous_kernel.end.new_nullifiers.storage;
         // Setup 2 new commitments on the current public inputs.
 
         let current = [
-            SideEffectLinkedToNoteHash { value: previous[2].value + 1, note_hash: 0, counter: 3 }, SideEffectLinkedToNoteHash { value: previous[2].value + 2, note_hash: 0, counter: 4 }
+            SideEffectLinkedToNoteHash { value: previous[1].value + 1, note_hash: 0, counter: 4 }, SideEffectLinkedToNoteHash { value: previous[1].value + 2, note_hash: 0, counter: 5 }
         ];
 
         let siloed = current.map(
@@ -231,8 +231,9 @@ mod tests {
         );
 
         builder.public_call.public_inputs.new_nullifiers.extend_from_array(current);
-        // There are 3 nullifiers in the previous kernel. The first one is the tx nullifier.
-        let new_nullifiers = [previous[0], previous[1], previous[2], siloed[0], siloed[1]];
+        // There are 2 revertible nullifiers in the previous kernel.
+        // The tx nullifier is part of the non-revertible nullifiers.
+        let new_nullifiers = [previous[0], previous[1], siloed[0], siloed[1]];
 
         let public_inputs = builder.execute();
 

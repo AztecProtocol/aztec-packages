@@ -250,7 +250,7 @@ mod tests {
     impl PrivateKernelOrderingInputsBuilder {
         pub fn new() -> Self {
             PrivateKernelOrderingInputsBuilder {
-                previous_kernel: PreviousKernelDataBuilder::new(),
+                previous_kernel: PreviousKernelDataBuilder::new(false),
                 read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
                 nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX]
             }
@@ -286,7 +286,7 @@ mod tests {
         }
 
         pub fn append_nullifiers(&mut self, num_nullifiers: Field) {
-            self.previous_kernel.append_new_nullifiers(num_nullifiers);
+            self.previous_kernel.append_new_nullifiers_from_private(num_nullifiers);
         }
 
         pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: Field) {

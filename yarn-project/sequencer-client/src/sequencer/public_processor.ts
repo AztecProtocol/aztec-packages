@@ -1,6 +1,7 @@
 import { ContractDataSource, L1ToL2MessageSource, Tx } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
@@ -99,6 +100,7 @@ export class PublicProcessor {
       let publicKernelProof: Proof | undefined = undefined;
       const timer = new Timer();
       try {
+        // PublicProcessor.checkTxCallStackLengths(tx);
         while (phase) {
           const output = await phase.handle(tx, publicKernelOutput, publicKernelProof);
           publicKernelOutput = output.publicKernelOutput;
@@ -132,5 +134,17 @@ export class PublicProcessor {
   public makeEmptyProcessedTx(): Promise<ProcessedTx> {
     const { chainId, version } = this.globalVariables;
     return makeEmptyProcessedTx(this.historicalHeader, chainId, version);
+  }
+
+  public static checkTxCallStackLengths(tx: Tx) {
+    const enqueuedLength = tx.enqueuedPublicFunctionCalls.length;
+    const nonRevertibleLength = arrayNonEmptyLength(tx.data.endNonRevertibleData.publicCallStack, c => !c.isEmpty());
+    const appLogicLength = arrayNonEmptyLength(tx.data.end.publicCallStack, c => !c.isEmpty());
+
+    if (enqueuedLength !== nonRevertibleLength + appLogicLength) {
+      throw new Error(
+        `Tx ${tx.data.end.newNullifiers[0]} has inconsistent public call stack lengths: enqueued (total)=${enqueuedLength}, nonRevertible=${nonRevertibleLength}, appLogic=${appLogicLength}`,
+      );
+    }
   }
 }

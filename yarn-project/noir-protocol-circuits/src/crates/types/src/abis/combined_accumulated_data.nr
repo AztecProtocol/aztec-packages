@@ -66,6 +66,22 @@ struct AccumulatedNonRevertibleData {
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META],
 }
 
+struct AccumulatedNonRevertibleDataBuilder {
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX_META>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX_META>,
+    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META>,
+}
+
+impl AccumulatedNonRevertibleDataBuilder {
+    pub fn finish(self) -> AccumulatedNonRevertibleData {
+        AccumulatedNonRevertibleData {
+            new_commitments: self.new_commitments.storage,
+            new_nullifiers: self.new_nullifiers.storage,
+            public_call_stack: self.public_call_stack.storage
+        }
+    }
+}
+
 struct CombinedAccumulatedDataBuilder {
     read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
