@@ -147,9 +147,8 @@ std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base(
 }
 
 template <typename Flavor>
-std::array<typename Flavor::Polynomial, 4> construct_table_polynomials(const typename Flavor::CircuitBuilder& circuit,
-                                                                       size_t dyadic_circuit_size,
-                                                                       size_t additional_offset = 0)
+std::array<typename Flavor::Polynomial, 4> construct_lookup_table_polynomials(
+    const typename Flavor::CircuitBuilder& circuit, size_t dyadic_circuit_size, size_t additional_offset = 0)
 {
     using Polynomial = typename Flavor::Polynomial;
     std::array<Polynomial, 4> table_polynomials;
