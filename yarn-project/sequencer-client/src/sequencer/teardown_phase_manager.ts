@@ -1,5 +1,5 @@
 import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, Proof, PublicCallRequest, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -27,12 +27,6 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
   }
 
-  // this is a no-op for now
-  extractEnqueuedPublicCalls(_tx: Tx): PublicCallRequest[] {
-    return [];
-  }
-
-  // this is a no-op for now
   async handle(
     tx: Tx,
     previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
@@ -47,11 +41,19 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
      */
     publicKernelProof?: Proof;
   }> {
-    this.log.debug(`Handle ${await tx.getTxHash()} with no-op`);
-    return {
-      publicKernelOutput: previousPublicKernelOutput,
-      publicKernelProof: previousPublicKernelProof,
-    };
+    this.log(`Processing tx ${await tx.getTxHash()}`);
+    this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
+    const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
+      tx,
+      previousPublicKernelOutput,
+      previousPublicKernelProof,
+    );
+    tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+
+    // commit the state updates from this transaction
+    await this.publicStateDB.commit();
+
+    return { publicKernelOutput, publicKernelProof };
   }
 
   nextPhase() {
@@ -60,6 +62,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {
     this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
+    await this.publicStateDB.rollback();
     return {
       tx,
       error: err instanceof Error ? err : new Error('Unknown error'),

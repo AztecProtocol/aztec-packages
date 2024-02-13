@@ -17,7 +17,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async publicKernelCircuitPrivateInput(
+  public async publicKernelCircuitSetup(
     input: PublicKernelCircuitPrivateInputs,
   ): Promise<PublicKernelCircuitPublicInputs> {
     if (!input.previousKernel.publicInputs.isPrivate) {
@@ -39,7 +39,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async publicKernelCircuitNonFirstIteration(
+  public async publicKernelCircuitAppLogic(
     input: PublicKernelCircuitPrivateInputs,
   ): Promise<PublicKernelCircuitPublicInputs> {
     if (input.previousKernel.publicInputs.isPrivate) {

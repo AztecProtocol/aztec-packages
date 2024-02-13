@@ -242,18 +242,17 @@ export abstract class AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): Promise<PublicKernelCircuitPublicInputs> {
-    if (previousOutput?.isPrivate && previousProof) {
-      // Run the public kernel circuit with previous private kernel
-      const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
-      const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
-      return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
-    } else if (previousOutput && previousProof) {
-      // Run the public kernel circuit with previous public kernel
-      const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
-      const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
-      return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
-    } else {
-      throw new Error(`No public kernel circuit for inputs`);
+    const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+    const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
+    switch (this.phase) {
+      case PublicKernelPhase.SETUP:
+        return this.publicKernel.publicKernelCircuitSetup(inputs);
+      case PublicKernelPhase.APP_LOGIC:
+        return this.publicKernel.publicKernelCircuitAppLogic(inputs);
+      case PublicKernelPhase.TEARDOWN:
+        return this.publicKernel.publicKernelCircuitTeardown(inputs);
+      default:
+        throw new Error(`No public kernel circuit for inputs`);
     }
   }
 
