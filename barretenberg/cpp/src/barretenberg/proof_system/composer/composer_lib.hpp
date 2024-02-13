@@ -186,14 +186,15 @@ std::array<typename Flavor::Polynomial, 4> construct_lookup_table_polynomials(
  * @param circuit
  * @param dyadic_circuit_size
  * @param additional_offset Additional space needed in polynomials to add randomness for zk (Plonk only)
- * @return std::array<typename Flavor::Polynomial, Flavor::CircuitBuilder::NUM_WIRES>
+ * @return std::array<typename Flavor::Polynomial, 4>
  */
 template <typename Flavor>
-std::array<typename Flavor::Polynomial, Flavor::CircuitBuilder::NUM_WIRES> construct_sorted_list_polynomials(
-    typename Flavor::CircuitBuilder& circuit, const size_t dyadic_circuit_size, size_t additional_offset = 0)
+std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typename Flavor::CircuitBuilder& circuit,
+                                                                             const size_t dyadic_circuit_size,
+                                                                             size_t additional_offset = 0)
 {
     using Polynomial = typename Flavor::Polynomial;
-    std::array<Polynomial, Flavor::CircuitBuilder::NUM_WIRES> sorted_polynomials;
+    std::array<Polynomial, 4> sorted_polynomials;
     // Initialise the sorted concatenated list polynomials for the lookup argument
     for (auto& s_i : sorted_polynomials) {
         s_i = Polynomial(dyadic_circuit_size);

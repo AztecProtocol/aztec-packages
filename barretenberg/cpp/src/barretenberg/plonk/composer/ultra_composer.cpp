@@ -31,7 +31,7 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit)
 
     construct_wire_polynomials(circuit, subgroup_size);
 
-    construct_sorted_list_polynomials(circuit, subgroup_size);
+    construct_sorted_polynomials(circuit, subgroup_size);
 
     populate_memory_records(circuit);
 
@@ -49,7 +49,7 @@ void UltraComposer::construct_wire_polynomials(CircuitBuilder& circuit, size_t s
     }
 }
 
-void UltraComposer::construct_sorted_list_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
+void UltraComposer::construct_sorted_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
 {
     // Save space in the sorted list polynomials for randomness (zk) plus one additional spot used to ensure the polys
     // aren't identically 0.
@@ -99,7 +99,7 @@ UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
 
         construct_table_polynomials(circuit, subgroup_size);
 
-        construct_sorted_list_polynomials(circuit, subgroup_size);
+        construct_sorted_polynomials(circuit, subgroup_size);
 
         populate_memory_records(circuit);
 
