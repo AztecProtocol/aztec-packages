@@ -78,15 +78,8 @@ UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
     { // Execution trace stuff
-        auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
-        circuit_proving_key =
-            std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, CircuitType::ULTRA);
-
-        construct_selector_polynomials<Flavor>(circuit, circuit_proving_key.get());
-
-        compute_plonk_generalized_sigma_permutations<Flavor>(circuit, circuit_proving_key.get());
-
-        construct_wire_polynomials(circuit, subgroup_size);
+        Trace trace;
+        circuit_proving_key = trace.generate_for_plonk(circuit, subgroup_size);
     }
 
     // other stuff
