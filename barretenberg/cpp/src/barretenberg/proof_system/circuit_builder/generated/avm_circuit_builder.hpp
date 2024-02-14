@@ -90,20 +90,20 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_mem_idx_b{};
     FF avm_main_mem_idx_c{};
     FF avm_main_last{};
+    FF avm_mem_m_rw_shift{};
+    FF avm_mem_m_tag_shift{};
+    FF avm_mem_m_val_shift{};
+    FF avm_mem_m_addr_shift{};
     FF avm_main_internal_return_ptr_shift{};
     FF avm_main_pc_shift{};
-    FF avm_alu_alu_u16_r2_shift{};
     FF avm_alu_alu_u16_r6_shift{};
-    FF avm_alu_alu_u16_r7_shift{};
-    FF avm_alu_alu_u16_r4_shift{};
-    FF avm_alu_alu_u16_r5_shift{};
-    FF avm_alu_alu_u16_r3_shift{};
     FF avm_alu_alu_u16_r0_shift{};
+    FF avm_alu_alu_u16_r2_shift{};
+    FF avm_alu_alu_u16_r7_shift{};
+    FF avm_alu_alu_u16_r3_shift{};
     FF avm_alu_alu_u16_r1_shift{};
-    FF avm_mem_m_val_shift{};
-    FF avm_mem_m_rw_shift{};
-    FF avm_mem_m_addr_shift{};
-    FF avm_mem_m_tag_shift{};
+    FF avm_alu_alu_u16_r5_shift{};
+    FF avm_alu_alu_u16_r4_shift{};
 };
 
 class AvmCircuitBuilder {
@@ -206,20 +206,20 @@ class AvmCircuitBuilder {
             polys.avm_main_last[i] = rows[i].avm_main_last;
         }
 
+        polys.avm_mem_m_rw_shift = Polynomial(polys.avm_mem_m_rw.shifted());
+        polys.avm_mem_m_tag_shift = Polynomial(polys.avm_mem_m_tag.shifted());
+        polys.avm_mem_m_val_shift = Polynomial(polys.avm_mem_m_val.shifted());
+        polys.avm_mem_m_addr_shift = Polynomial(polys.avm_mem_m_addr.shifted());
         polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());
         polys.avm_main_pc_shift = Polynomial(polys.avm_main_pc.shifted());
-        polys.avm_alu_alu_u16_r2_shift = Polynomial(polys.avm_alu_alu_u16_r2.shifted());
         polys.avm_alu_alu_u16_r6_shift = Polynomial(polys.avm_alu_alu_u16_r6.shifted());
-        polys.avm_alu_alu_u16_r7_shift = Polynomial(polys.avm_alu_alu_u16_r7.shifted());
-        polys.avm_alu_alu_u16_r4_shift = Polynomial(polys.avm_alu_alu_u16_r4.shifted());
-        polys.avm_alu_alu_u16_r5_shift = Polynomial(polys.avm_alu_alu_u16_r5.shifted());
-        polys.avm_alu_alu_u16_r3_shift = Polynomial(polys.avm_alu_alu_u16_r3.shifted());
         polys.avm_alu_alu_u16_r0_shift = Polynomial(polys.avm_alu_alu_u16_r0.shifted());
+        polys.avm_alu_alu_u16_r2_shift = Polynomial(polys.avm_alu_alu_u16_r2.shifted());
+        polys.avm_alu_alu_u16_r7_shift = Polynomial(polys.avm_alu_alu_u16_r7.shifted());
+        polys.avm_alu_alu_u16_r3_shift = Polynomial(polys.avm_alu_alu_u16_r3.shifted());
         polys.avm_alu_alu_u16_r1_shift = Polynomial(polys.avm_alu_alu_u16_r1.shifted());
-        polys.avm_mem_m_val_shift = Polynomial(polys.avm_mem_m_val.shifted());
-        polys.avm_mem_m_rw_shift = Polynomial(polys.avm_mem_m_rw.shifted());
-        polys.avm_mem_m_addr_shift = Polynomial(polys.avm_mem_m_addr.shifted());
-        polys.avm_mem_m_tag_shift = Polynomial(polys.avm_mem_m_tag.shifted());
+        polys.avm_alu_alu_u16_r5_shift = Polynomial(polys.avm_alu_alu_u16_r5.shifted());
+        polys.avm_alu_alu_u16_r4_shift = Polynomial(polys.avm_alu_alu_u16_r4.shifted());
 
         return polys;
     }
@@ -257,16 +257,16 @@ class AvmCircuitBuilder {
             return true;
         };
 
+        if (!evaluate_relation.template operator()<Avm_vm::avm_mem<FF>>("avm_mem",
+                                                                        Avm_vm::get_relation_label_avm_mem)) {
+            return false;
+        }
         if (!evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",
                                                                          Avm_vm::get_relation_label_avm_main)) {
             return false;
         }
         if (!evaluate_relation.template operator()<Avm_vm::avm_alu<FF>>("avm_alu",
                                                                         Avm_vm::get_relation_label_avm_alu)) {
-            return false;
-        }
-        if (!evaluate_relation.template operator()<Avm_vm::avm_mem<FF>>("avm_mem",
-                                                                        Avm_vm::get_relation_label_avm_mem)) {
             return false;
         }
 

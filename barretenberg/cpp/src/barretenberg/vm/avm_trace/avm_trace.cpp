@@ -700,7 +700,8 @@ void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTa
     auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
 
     // ~a = c
-    FF c = alu_trace_builder.op_not(read_a.val, in_tag, clk);
+    FF a = read_a.tag_match ? read_a.val : FF(0);
+    FF c = alu_trace_builder.op_not(a, in_tag, clk);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
@@ -711,7 +712,8 @@ void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTa
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_sel_op_not = FF(1),
         .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avm_main_ia = read_a.val,
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
+        .avm_main_ia = a,
         .avm_main_ic = c,
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_c = FF(1),
@@ -736,9 +738,12 @@ void AvmTraceBuilder::op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_o
     // Reading from memory and loading into ia resp. ib.
     auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
+    bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // c = a == b ? 1 : 0
-    FF c = alu_trace_builder.op_eq(read_a.val, read_b.val, in_tag, clk);
+    FF a = tag_match ? read_a.val : FF(0);
+    FF b = tag_match ? read_b.val : FF(0);
+    FF c = alu_trace_builder.op_eq(a, b, in_tag, clk);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
@@ -749,8 +754,9 @@ void AvmTraceBuilder::op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_o
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_sel_op_eq = FF(1),
         .avm_main_in_tag = FF(static_cast<uint32_t>(in_tag)),
-        .avm_main_ia = read_a.val,
-        .avm_main_ib = read_b.val,
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .avm_main_ia = a,
+        .avm_main_ib = b,
         .avm_main_ic = c,
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
