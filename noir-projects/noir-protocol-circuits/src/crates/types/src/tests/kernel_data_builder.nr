@@ -186,6 +186,12 @@ impl PreviousKernelDataBuilder {
         }
     }
 
+    // snapshot the side effects
+    // this is useful in the private tail circuit to test side effect splitting
+    pub fn capture_max_non_revertible_side_effect_counter(&mut self) {
+        self.max_non_revertible_side_effect_counter = self.sideffect_counter;
+    }
+
     pub fn set_encrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
         self.end.encrypted_logs_hash = hash;
         self.end.encrypted_log_preimages_length = preimages_length;
