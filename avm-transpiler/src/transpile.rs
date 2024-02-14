@@ -93,7 +93,6 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                             value: destination.to_usize() as u32,
                         },
                     ],
-                    ..Default::default()
                 });
             }
             BrilligOpcode::CalldataCopy { destination_address, size, offset } => {
@@ -231,7 +230,7 @@ fn handle_foreign_call(
     inputs: &Vec<ValueOrArray>,
 ) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 0);
+    assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
@@ -317,7 +316,7 @@ fn emit_set(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstruction {
                 AvmTypeTag::UINT64 => AvmOperand::U64 {
                     value: value as u64,
                 },
-                AvmTypeTag::UINT128 => AvmOperand::U128 { value: value },
+                AvmTypeTag::UINT128 => AvmOperand::U128 { value },
                 _ => panic!("Invalid type tag {:?} for set", tag),
             },
             // dest offset
@@ -343,7 +342,7 @@ fn emit_cast(source: u32, destination: u32, dst_tag: AvmTypeTag) -> AvmInstructi
 fn emit_mov(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
     AvmInstruction {
         opcode: AvmOpcode::MOV,
-        indirect: indirect,
+        indirect,
         operands: vec![
             AvmOperand::U32 { value: source },
             AvmOperand::U32 { value: dest },
@@ -402,10 +401,7 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
         let num_avm_instrs_for_this_brillig_instr = match &brillig.bytecode[i] {
             BrilligOpcode::Load { .. } => 2,
             BrilligOpcode::Store { .. } => 2,
-            BrilligOpcode::Const { bit_size, .. } => match bit_size {
-                254 => 2, // Field.
-                _ => 1,
-            },
+            BrilligOpcode::Const { bit_size: 254, .. } => 2 ,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
