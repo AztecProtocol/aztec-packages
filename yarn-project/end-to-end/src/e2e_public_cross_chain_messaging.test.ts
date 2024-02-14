@@ -193,20 +193,17 @@ describe('e2e_public_cross_chain_messaging', () => {
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
-  // describe('Consuming message from non-portal address', () => {
-  //   let testContract: TestContract;
-  //   beforeAll(async () => {
-  //     // Deploy test account contract
-  //     testContract = await TestContract.deploy(user1Wallet).send().deployed();
-  //   });
+  describe('Consuming message from non-portal address', () => {
+    let testContract: TestContract;
+
+    beforeEach(async () => {
+      // Deploy test account contract
+      testContract = await TestContract.deploy(user1Wallet).send().deployed();
+    });
 
     it.each([true, false])(
-    // it.only(
       'can send an L2 -> L1 message to a non-portal address from private or public',
       async (isPrivate: boolean) => {
-        const testContract = await TestContract.deploy(user1Wallet).send().deployed();
-
-        // const isPrivate = true;
         const content = Fr.random();
         const recipient = crossChainTestHarness.ethAccount;
 
@@ -254,5 +251,5 @@ describe('e2e_public_cross_chain_messaging', () => {
       },
       60_000,
     );
-  // });
+  });
 });
