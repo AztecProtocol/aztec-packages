@@ -146,7 +146,7 @@ export function checkValidStaticCall(
   newCommitments: SideEffect[],
   newNullifiers: SideEffectLinkedToNoteHash[],
   contractStorageUpdateRequests: ContractStorageUpdateRequest[],
-  newL2ToL1Messages: Fr[],
+  newL2ToL1Messages: L2ToL1Message[],
   unencryptedLogs: FunctionL2Logs,
 ) {
   if (
