@@ -43,7 +43,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
 
     auto fold_proof_3 = ivc.accumulate(kernel_circuit);
     auto verifier_inst_3 = ivc.get_verifier_instance();
-    EXPECT_EQ(ivc.prover_instance->log_instance_size, 16);
+    EXPECT_EQ(ivc.prover_instance->log_instance_size, 17);
 
     GoblinUltraCircuitBuilder circuit_4{ ivc.goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_4);
@@ -54,6 +54,6 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
     new_acc = GoblinMockCircuits::construct_mock_folding_kernel(
         new_kernel_circuit, fold_proof_3, fold_proof_4, verifier_inst_3, verifier_inst_4, new_acc);
     GoblinUltraComposer composer;
-    auto instance = composer.create_prover_instance(kernel_circuit);
-    EXPECT_EQ(instance->proving_key->log_circuit_size, 16);
+    auto instance = composer.create_prover_instance(new_kernel_circuit);
+    EXPECT_EQ(instance->proving_key->log_circuit_size, 17);
 }

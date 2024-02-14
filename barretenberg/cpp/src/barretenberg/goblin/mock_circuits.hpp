@@ -200,6 +200,7 @@ class GoblinMockCircuits {
             RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
             verifier2.verify_proof(prev_kernel_accum.proof);
         }
+        info(builder.get_num_gates());
     }
 
     /**
@@ -229,24 +230,18 @@ class GoblinMockCircuits {
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17 (130914 gates)
-        // const size_t NUM_MERKLE_CHECKS = 20;
-        // const size_t NUM_ECDSA_VERIFICATIONS = 1;
-        // const size_t NUM_SHA_HASHES = 1;
-        // info(builder.get_num_gates());
-        // stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
-        // info(builder.get_num_gates());
-        // stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
-        // info(builder.get_num_gates());
-        // stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
-        // info(builder.get_num_gates());
+        const size_t NUM_MERKLE_CHECKS = 35;
+        const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        const size_t NUM_SHA_HASHES = 1;
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
         FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { verifier_inst_1->verification_key } };
         auto fctn_verifier_accum = verifier_1.verify_folding_proof(fold_proof_1);
         auto native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
-        info(builder.get_num_gates());
         FoldingRecursiveVerifier verifier_2{ &builder, native_acc, { verifier_inst_2->verification_key } };
         auto kernel_verifier_accum = verifier_2.verify_folding_proof(fold_proof_2);
-        info(builder.get_num_gates());
         return std::make_shared<VerifierInstance>(kernel_verifier_accum->get_value());
     }
 
