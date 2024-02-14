@@ -21,7 +21,7 @@ use crate::constants::{
 use dep::std::unsafe;
 use crate::traits::is_empty;
 
-use crate::utils::arrays::{array_cp, array_concat};
+use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedData {
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
@@ -304,6 +304,43 @@ struct CombinedAccumulatedDataBuilder {
 }
 
 impl CombinedAccumulatedDataBuilder {
+    pub fn recombine(
+        non_revertible: PublicAccumulatedNonRevertibleData,
+        revertible: PublicAccumulatedRevertibleData
+    ) -> CombinedAccumulatedDataBuilder {
+        CombinedAccumulatedDataBuilder {
+            read_requests: array_to_bounded_vec(revertible.read_requests),
+            nullifier_key_validation_requests: array_to_bounded_vec(revertible.nullifier_key_validation_requests),
+            new_commitments: array_to_bounded_vec(array_concat(non_revertible.new_commitments, revertible.new_commitments)),
+            new_nullifiers: array_to_bounded_vec(array_concat(non_revertible.new_nullifiers, revertible.new_nullifiers)),
+            private_call_stack: array_to_bounded_vec(revertible.private_call_stack),
+            public_call_stack: array_to_bounded_vec(
+                array_concat(
+                    non_revertible.public_call_stack,
+                    revertible.public_call_stack
+                )
+            ),
+            new_l2_to_l1_msgs: array_to_bounded_vec(revertible.new_l2_to_l1_msgs),
+            encrypted_logs_hash: revertible.encrypted_logs_hash,
+            unencrypted_logs_hash: revertible.unencrypted_logs_hash,
+            encrypted_log_preimages_length: revertible.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: revertible.unencrypted_log_preimages_length,
+            new_contracts: array_to_bounded_vec(revertible.new_contracts),
+            public_data_update_requests: array_to_bounded_vec(
+                array_concat(
+                    non_revertible.public_data_update_requests,
+                    revertible.public_data_update_requests
+                )
+            ),
+            public_data_reads: array_to_bounded_vec(
+                array_concat(
+                    non_revertible.public_data_reads,
+                    revertible.public_data_reads
+                )
+            )
+        }
+    }
+
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
             read_requests: self.read_requests.storage,

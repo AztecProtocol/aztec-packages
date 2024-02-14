@@ -2,7 +2,7 @@ use crate::common;
 use dep::types::abis::{
     kernel_circuit_public_inputs::{
     PrivateKernelTailCircuitPublicInputs, RollupKernelCircuitPublicInputs,
-    RollupKernelCircuitPublicInputsBuilder
+    RollupKernelCircuitPublicInputsBuilder, CombinedAccumulatedDataBuilder
 },
     kernel_data::PublicKernelData, public_call_data::PublicCallData
 };
@@ -75,23 +75,19 @@ impl PublicKernelRecombineCircuitPrivateInputs {
 
         let start = self.previous_kernel.public_inputs.end;
 
-        public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
-        public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
-
-        public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
-        public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
-
-        public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-        public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
-        public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-
-        public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
-        public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
-
-        public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-        public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
-
-        public_inputs.end.new_contracts = array_to_bounded_vec(start.new_contracts);
+        public_inputs.end = CombinedAccumulatedDataBuilder::recombine(self.previous_kernel.public_inputs.end_non_revertible, self.previous_kernel.public_inputs.end);
+        // public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
+        // public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
+        // public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
+        // public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
+        // public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+        // public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+        // public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+        // public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
+        // public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+        // public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+        // public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+        // public_inputs.end.new_contracts = array_to_bounded_vec(start.new_contracts);
     }
 
     fn public_kernel_recombine(self) -> RollupKernelCircuitPublicInputs {
