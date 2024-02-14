@@ -70,7 +70,7 @@ impl PrivateContext {
         PrivateContext {
             inputs,
             side_effect_counter: inputs.call_context.start_side_effect_counter,
-            max_non_revertible_side_effect_counter: 0,
+            max_non_revertible_side_effect_counter: inputs.call_context.start_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(0),
             read_requests: BoundedVec::new(SideEffect::empty()),
@@ -157,9 +157,9 @@ impl PrivateContext {
     }
 
     pub fn capture_max_non_revertible_side_effect_counter(&mut self) {
-        assert(
-            self.max_non_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter"
-        );
+        // assert(
+        //     self.max_non_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter"
+        // );
         self.max_non_revertible_side_effect_counter = self.side_effect_counter;
     }
 
