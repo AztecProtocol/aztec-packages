@@ -158,7 +158,7 @@ export class Tx {
   getTxHash(): TxHash {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
     const firstNullifier = this.data?.endNonRevertibleData.newNullifiers[0];
-    if (!firstNullifier) {
+    if (!firstNullifier || firstNullifier.isEmpty()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
     return new TxHash(firstNullifier.value.toBuffer());
@@ -193,9 +193,9 @@ export class Tx {
    * @param tx - Tx-like object.
    * @returns - The hash.
    */
-  static getHash(tx: Tx | HasHash): Promise<TxHash> {
+  static getHash(tx: Tx | HasHash): TxHash {
     const hasHash = (tx: Tx | HasHash): tx is HasHash => (tx as HasHash).hash !== undefined;
-    return Promise.resolve(hasHash(tx) ? tx.hash : tx.getTxHash());
+    return hasHash(tx) ? tx.hash : tx.getTxHash();
   }
 
   /**
@@ -203,8 +203,8 @@ export class Tx {
    * @param txs - The txs to get the hashes from.
    * @returns The corresponding array of hashes.
    */
-  static async getHashes(txs: (Tx | HasHash)[]): Promise<TxHash[]> {
-    return await Promise.all(txs.map(tx => Tx.getHash(tx)));
+  static getHashes(txs: (Tx | HasHash)[]): TxHash[] {
+    return txs.map(tx => Tx.getHash(tx));
   }
 
   /**

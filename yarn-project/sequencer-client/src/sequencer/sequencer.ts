@@ -304,13 +304,13 @@ export class Sequencer {
         continue;
       }
       if (await this.isTxDoubleSpend(tx)) {
-        this.log(`Deleting double spend tx ${await Tx.getHash(tx)}`);
+        this.log(`Deleting double spend tx ${Tx.getHash(tx)}`);
         txsToDelete.push(tx);
         continue;
       } else if (this.isTxDoubleSpendSameBlock(tx, thisBlockNullifiers)) {
         // We don't drop these txs from the p2p pool immediately since they become valid
         // again if the current block fails to be published for some reason.
-        this.log(`Skipping tx with double-spend for this same block ${await Tx.getHash(tx)}`);
+        this.log(`Skipping tx with double-spend for this same block ${Tx.getHash(tx)}`);
         continue;
       }
 
@@ -385,7 +385,10 @@ export class Sequencer {
    */
   protected isTxDoubleSpendSameBlock(tx: Tx | ProcessedTx, thisBlockNullifiers: Set<bigint>): boolean {
     // We only consider non-empty nullifiers
-    const newNullifiers = tx.data.end.newNullifiers.filter(n => !n.isEmpty());
+    const newNullifiers = [
+      ...tx.data.endNonRevertibleData.newNullifiers.filter(n => !n.isEmpty()),
+      ...tx.data.end.newNullifiers.filter(n => !n.isEmpty()),
+    ];
 
     for (const nullifier of newNullifiers) {
       if (thisBlockNullifiers.has(nullifier.value.toBigInt())) {
@@ -403,7 +406,10 @@ export class Sequencer {
    */
   protected async isTxDoubleSpend(tx: Tx | ProcessedTx): Promise<boolean> {
     // We only consider non-empty nullifiers
-    const newNullifiers = tx.data.end.newNullifiers.filter(n => !n.isEmpty());
+    const newNullifiers = [
+      ...tx.data.endNonRevertibleData.newNullifiers.filter(n => !n.isEmpty()),
+      ...tx.data.end.newNullifiers.filter(n => !n.isEmpty()),
+    ];
 
     // Ditch this tx if it has a repeated nullifiers
     const uniqNullifiers = new Set(newNullifiers.map(n => n.value.toBigInt()));
