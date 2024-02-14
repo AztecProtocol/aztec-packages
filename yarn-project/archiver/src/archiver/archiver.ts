@@ -269,7 +269,6 @@ export class Archiver implements ArchiveSource {
 
     await this.store.addBlockBodies(blockBodies);
 
-    console.log('l2blockbodes', l2BlockBodies);
     console.log('RETRIEVEDBLOCKBODIES', retrievedBlockBodies);
 
     const retrievedBlockMetadata = await retrieveBlockHashesFromRollup(
@@ -296,8 +295,6 @@ export class Archiver implements ArchiveSource {
         )),
     }
 
-    console.log('RETRIEVED BLOCK METADATA', )
-
     if (retrievedBlocks.retrievedData.length === 0) {
       return;
     } else {
@@ -311,7 +308,7 @@ export class Archiver implements ArchiveSource {
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
     const blockHashMapping: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockHashMapping[block.number] = block.body.getCalldataHash();
+      blockHashMapping[block.number] = block.header.bodyHash;
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,

@@ -36,13 +36,13 @@ export class BlockBodyStore {
   addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean> {
     return this.db.transaction(() => {
       for (const body of blockBodies) {
-        body.l1ToL2Messages = padArrayEnd(
-          body.l1ToL2Messages,
-          Fr.ZERO,
-          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
+        // body.l1ToL2Messages = padArrayEnd(
+        //   body.l1ToL2Messages,
+        //   Fr.ZERO,
+        //   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        // );
 
-        void this.#blockBodies.set(body.getCalldataHash().toString('hex'), body.toBuffer());
+        void this.#blockBodies.set(body.getCalldataHash().toString('hex'), body.toBuffer(true));
       }
 
       return true;
@@ -61,7 +61,7 @@ export class BlockBodyStore {
       throw new Error('Weird')
     }
 
-    return blockBodiesBuffer.map(blockBodyBuffer => L2BlockBody.fromBuffer(blockBodyBuffer!))
+    return blockBodiesBuffer.map(blockBodyBuffer => L2BlockBody.fromBuffer(blockBodyBuffer!, true));
   }
 
   // /**
