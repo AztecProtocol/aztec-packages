@@ -8,14 +8,15 @@ import {
   computeAuthWitMessageHash,
   sleep,
 } from '@aztec/aztec.js';
+import { TestContract } from '@aztec/noir-contracts';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
+import { Hex } from 'viem';
+import { encodeAbiParameters } from 'viem/utils';
+
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
-import { TestContract } from '@aztec/noir-contracts';
-import { encodeAbiParameters } from 'viem/utils';
-import { Hex } from 'viem';
 
 describe('e2e_public_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -191,7 +192,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
-  it.only("can send an L2 -> L1 message to a non-portal address", async () => {
+  it.only('can send an L2 -> L1 message to a non-portal address', async () => {
     // Deploy test account contract
     const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
@@ -200,43 +201,21 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
 
-    // const l2Actor = [testContract.address.toString() as Hex, 1n];
-    // const l1Actor = [recipient.toString() as Hex, BigInt(crossChainTestHarness.publicClient.chain.id)];
+    const l2Actor = { actor: testContract.address.toString() as Hex, version: 1n };
+    const l1Actor = {
+      actor: recipient.toString() as Hex,
+      chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
+    };
 
-    // const l2ToL1Message = [
-    //   ...l2Actor,
-    //   ...l1Actor,
-    //   content.toString() as Hex,
-    // ];
+    const l2ToL1Message = {
+      sender: l2Actor,
+      recipient: l1Actor,
+      content: content.toString() as Hex,
+    };
 
-    // const l2Actor = {actor: testContract.address.toString(), version: 1};
-    // const l1Actor = {actor: recipient.toString(), chainId: Number(crossChainTestHarness.publicClient.chain.id.toString())};
+    const args = [l2ToL1Message] as const;
 
-    // const l2ToL1Message = {
-    //   sender: l2Actor,
-    //   recipient: l1Actor,
-    //   content: content.toString(),
-    // };
-
-    // const args = [l2ToL1Message] as const;
-
-    // console.log(args);
-
-    const encodedData = encodeAbiParameters(
-      [
-        { name: 'actor', type: 'bytes32' },
-        { name: 'version', type: 'uint' },
-        { name: 'actor', type: 'address' },
-        { name: 'chainId', type: 'uint' },
-        { name: 'content', type: 'bytes32' },
-      ],
-      // l2ToL1Message as const
-      [testContract.address.toString() as Hex, 1n, recipient.toString() as Hex, BigInt(crossChainTestHarness.publicClient.chain.id), content.toString() as Hex] as const
-    )
-
-    console.log(encodedData);
-
-    const entryKey = await outbox.write.consume([encodedData], {} as any);
-    console.log("entryKey", entryKey);
+    const entryKey = await outbox.write.consume(args, {} as any);
+    console.log('entryKey', entryKey);
   }, 120_000);
 });
