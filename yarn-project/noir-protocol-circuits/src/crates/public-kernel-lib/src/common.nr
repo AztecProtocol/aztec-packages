@@ -16,13 +16,7 @@ use dep::types::{
     MAX_PUBLIC_DATA_READS_PER_CALL, NUM_FIELDS_PER_SHA256
 },
     hash::{silo_commitment, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
-    utils::{
-        arrays::{array_length, array_to_bounded_vec},
-    },
-    traits::{
-        is_empty,
-        is_empty_array
-    },
+    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
 };
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
