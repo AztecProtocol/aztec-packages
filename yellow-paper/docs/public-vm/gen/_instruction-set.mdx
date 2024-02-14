@@ -1290,7 +1290,7 @@ M[dstOffset] = value`}
         slot: M[slotOffset],
         exists: exists, // defined above
         value: value, // defined above
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )`}
 </CodeBlock>
@@ -1331,7 +1331,7 @@ context.worldState.publicStorage.set({
         callPointer: context.environment.callPointer,
         slot: M[slotOffset],
         value: M[srcOffset],
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )`}
 </CodeBlock>
@@ -1369,7 +1369,7 @@ M[existsOffset] = exists`}
         leafIndex: M[leafIndexOffset]
         leaf: M[leafOffset],
         exists: exists, // defined above
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )`}
 </CodeBlock>
@@ -1438,7 +1438,7 @@ Emit a new note hash to be inserted into the note hash tree
     TracedNoteHash {
         callPointer: context.environment.callPointer,
         value: M[noteHashOffset], // unsiloed note hash
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )`}
 </CodeBlock>
@@ -1473,7 +1473,7 @@ M[existsOffset] = exists`}
         callPointer: context.environment.callPointer,
         leaf: M[nullifierOffset],
         exists: exists, // defined above
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )`}
 </CodeBlock>
@@ -1505,7 +1505,7 @@ Emit a new nullifier to be inserted into the nullifier tree
     TracedNullifier {
         callPointer: context.environment.callPointer,
         value: M[nullifierOffset], // unsiloed nullifier
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )`}
 </CodeBlock>

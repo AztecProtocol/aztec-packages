@@ -776,7 +776,7 @@ context.worldStateAccessTrace.publicStorageReads.append(
         slot: M[slotOffset],
         exists: exists, // defined above
         value: value, // defined above
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
 `,
@@ -812,7 +812,7 @@ context.worldStateAccessTrace.publicStorageWrites.append(
         callPointer: context.environment.callPointer,
         slot: M[slotOffset],
         value: M[srcOffset],
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
 `,
@@ -847,7 +847,7 @@ context.worldStateAccessTrace.noteHashChecks.append(
         leafIndex: M[leafIndexOffset]
         leaf: M[leafOffset],
         exists: exists, // defined above
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
 `,
@@ -910,7 +910,7 @@ context.worldStateAccessTrace.newNoteHashes.append(
     TracedNoteHash {
         callPointer: context.environment.callPointer,
         value: M[noteHashOffset], // unsiloed note hash
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
 `,
@@ -942,7 +942,7 @@ context.worldStateAccessTrace.nullifierChecks.append(
         callPointer: context.environment.callPointer,
         leaf: M[nullifierOffset],
         exists: exists, // defined above
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
 `,
@@ -971,7 +971,7 @@ context.worldStateAccessTrace.newNullifiers.append(
     TracedNullifier {
         callPointer: context.environment.callPointer,
         value: M[nullifierOffset], // unsiloed nullifier
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
 `,

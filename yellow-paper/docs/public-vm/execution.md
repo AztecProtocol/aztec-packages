@@ -108,7 +108,7 @@ The AVM's exceptional halting conditions area listed below:
     ```
 1. **Failed memory tag check**
     - Defined per-instruction in the [Instruction Set](./instruction-set)
-1. **Maximum memory index ($2^{32}$) exceeded**
+1. **Out of bounds memory access (max memory offset is $2^{32}-1$)**
     ```
     for offset in instr.args.*Offset:
         assert offset < 2^32

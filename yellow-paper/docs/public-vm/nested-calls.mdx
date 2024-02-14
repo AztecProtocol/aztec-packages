@@ -19,7 +19,7 @@ context.worldStateAccessTrace.contractCalls.append(
         callPointer: context.worldStateAccessTrace.contractCalls.length + 1,
         address: M[addrOffset],
         storageAddress: M[addrOffset],
-        counter: context.worldStateAccessTrace.accessCounter++,
+        counter: ++context.worldStateAccessTrace.accessCounter,
         endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
     }
 )
@@ -78,7 +78,7 @@ context.daGasLeft += nestedContext.machineState.daGasLeft
 If the call instruction specifies non-zero `retSize`, the caller copies any returned output data to its memory.
 ```jsx
 if retSize > 0:
-    context.memory[retOffset:retOffset+retSize] = nestedContext.results.output
+    context.machineState.memory[retOffset:retOffset+retSize] = nestedContext.results.output
 ```
 
 If the nested call succeeded, the caller accepts its world state and accrued substate modifications.
