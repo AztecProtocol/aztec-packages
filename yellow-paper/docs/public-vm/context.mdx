@@ -85,7 +85,6 @@ INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
     isStaticCall: PublicCallRequest.CallContext.isStaticCall,
     isDelegateCall: PublicCallRequest.CallContext.isDelegateCall,
     calldata: PublicCallRequest.args,
-    bytecode: worldState.contracts[PublicCallRequest.contractAddress],
 }
 
 INITIAL_MACHINE_STATE = MachineState {

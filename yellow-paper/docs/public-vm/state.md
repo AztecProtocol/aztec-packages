@@ -17,6 +17,8 @@ This section describes the types of state maintained by the AVM.
 | `internalCallStack`   | `Vector<field>` | A stack of program counters pushed to and popped from by `INTERNALCALL` and `INTERNALRETURN` instructions. Initialized as empty during context initialization. |
 | `memory`              | `[field; 2^32]` | A $2^{32}$ entry memory space accessible by user code (AVM instructions). All $2^{32}$ entries are assigned default value 0 during context initialization. See ["Memory Model"](./memory-model) for a complete description of AVM memory. |
 
+<!-- TODO(4608): formally define memory's type - not just an array of fields, but tagged... -->
+
 ## World State
 
 ### AVM's access to Aztec State

@@ -56,10 +56,12 @@ When the nested call halts, it may not have used up its entire gas allocation. A
 
 ## Nested execution
 
-Once the execution context is initialized, execution begins in the nested context. Note that this will modify the nested context.
+Once the nested call's context is initialized, execution within that context begins.
 ```jsx
 execute(nestedContext)
 ```
+
+Execution is detailed in ["Execution, Gas, Halting"](./execution). Note that execution mutates the nested context.
 
 ## Updating the calling context after nested call halts
 

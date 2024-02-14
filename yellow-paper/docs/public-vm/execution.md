@@ -1,10 +1,66 @@
 # Execution, Gas, Halting
 
-Once an execution context has been initialized for a contract call, the [machine state's](./state#machine-state) program counter determines which instruction the AVM executes. For any contract call, the program counter starts at zero, and so instruction execution begins with the very first entry in a contract's bytecode.
+
+Execution of an AVM program, within a provided [execution context](./context), includes the following steps:
+
+1. Fetch contract bytecode and decode into a vector of [AVM instructions](./instruction-set)
+1. Repeat the next step until a [halt](#halting) is reached
+1. Execute the instruction at the index specified by the context's [program counter](#program-counter-and-control-flow)
+    - Instruction execution will update the program counter
+
+This routine is represented with the syntax `execute(context)` in ["Nested execution"](./nested-calls#nested-execution) and other sections.
+
+## Bytecode fetch and decode
+
+Before execution begins, a contract's bytecode is retrieved.
+```jsx
+bytecode = context.worldState.contracts[context.environment.address].bytecode
+```
+
+> As described in ["Contract Deployment"](../contract-deployment), contracts are not stored in a dedicated tree. A [contract class](../contract-deployment/classes) is [represented](../contract-deployment/classes#registration) as an unencrypted log containing the `ContractClass` structure (which contains the bytecode) and a nullifier representing the class identifier. A [contract instance](../contract-deployment/instances) is [represented](../contract-deployment/classes#registration) as an unencrypted log containing the `ContractInstance` structure and a nullifier representing the contract address.
+
+> Thus, the syntax used above for bytecode retrieval is shorthand for:
+>1. Perform a membership check of the contract instance address nullifier
+>1. Retrieve the `ContractInstance` from a database that tracks all such unencrypted logs
+>    ```jsx
+>    contractInstance = contractInstances[context.environment.address]
+>    ```
+>1. Perform a membership check of the contract class identifier nullifier
+>1. Retrieve the `ContractClass` and its bytecode from a database that tracks all such unencrypted logs
+>    ```jsx
+>    contractClass = contractClasses[contractInstance.contract_class_id]
+>    bytecode = contractClass.packed_public_bytecode
+>    ```
+
+The bytecode is then decoded into a vector of `instructions`. An instruction is referenced throughout this document according to the following interface:
+
+| Member     | Description |
+| ---        | ---         |
+| `opcode`   | The 8-bit opcode value that identifies the operation an instruction is meant to perform. |
+| `indirect` | Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`. |
+| `inTag`    | The [tag/size](./memory-model.md#tags-and-tagged-memory) to check inputs against and/or tag the destination with. |
+| `args`     | Named arguments as specified for an instruction in the ["Instruction Set"](./instruction-set). As an example, `instr.args.aOffset` refers to an instructions argument named `aOffset`. |
+| `execute`  | Apply this instruction's transition function to an execution context (_e.g._ `instr.execute(context)`). |
+
+
+## Instruction execution
+
+Once bytecode has been fetched and decoded into the `instructions` vector, instruction execution begins.
+
+The AVM executes the instruction at the index specified by the context's program counter.
+```jsx
+while (!halted)
+    instr = instructions[machineState.pc]
+    instr.execute(context)
+```
+
+An instruction's execution mutates the context's state as specified in the ["Instruction Set"](./instruction-set).
 
 ## Program Counter and Control Flow
 
-The program counter (`machineState.pc`) determines which instruction the AVM executes next (`instr = environment.bytecode[pc]`). Each instruction's execution updates the program counter in some way, which allows the AVM to progress to the next instruction at each step.
+A context is initialized with a program counter of zero, and so instruction execution always begins with a contract's the very first instruction.
+
+The program counter specifies which instruction the AVM will execute next, and each instruction's execution updates the program counter in some way. This allows the AVM to progress to the next instruction at each step.
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./instruction-set#isa-section-jump), [`JUMPI`](./instruction-set#isa-section-jumpi), [`INTERNALCALL`](./instruction-set#isa-section-internalcall)) modify the program counter based on arguments.
 
@@ -42,7 +98,7 @@ machineState.daGasLeft = 0
 
 > Reverting and exceptional halts are covered in more detail in the ["Halting" section](#halting).
 
-## Gas cost notes and examples
+### Gas cost notes and examples
 
 An instruction's gas cost is meant to reflect the computational cost of generating a proof of its correct execution. For some instructions, this computational cost changes based on inputs. Here are some examples and important notes:
 - [`JUMP`](./instruction-set/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost`, `l2GasCost`, and `daGasCost`.
@@ -79,7 +135,7 @@ results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+i
 
 An exceptional halt is not explicitly triggered by an instruction but instead occurs when an exceptional condition is met.
 
-When an exceptional halt occurs, the context is flagged as consuming all of its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
+When an exceptional halt occurs, the context is flagged as consuming all of its allocated gas and is marked as `reverted` with _no output data_, and then execution within the current context ends.
 
 ```
 machineState.l1GasLeft = 0
@@ -99,12 +155,12 @@ The AVM's exceptional halting conditions area listed below:
     ```
 1. **Invalid instruction encountered**
     ```
-    assert environment.bytecode[machineState.pc].opcode <= MAX_AVM_OPCODE
+    assert instructions[machineState.pc].opcode <= MAX_AVM_OPCODE
     ```
-1. **Jump destination past end of bytecode**
+1. **Jump destination past end of program**
     ```
-    assert environment.bytecode[machineState.pc].opcode not in {JUMP, JUMPI, INTERNALCALL}
-        OR instr.args.loc < environment.bytecode.length
+    assert instructions[machineState.pc].opcode not in {JUMP, JUMPI, INTERNALCALL}
+        OR instr.args.loc < instructions.length
     ```
 1. **Failed memory tag check**
     - Defined per-instruction in the [Instruction Set](./instruction-set)
@@ -116,25 +172,25 @@ The AVM's exceptional halting conditions area listed below:
 1. **World state modification attempt during a static call**
     ```
     assert !environment.isStaticCall
-        OR environment.bytecode[machineState.pc].opcode not in WS_AS_MODIFYING_OPS
+        OR instructions[machineState.pc].opcode not in WS_AS_MODIFYING_OPS
     ```
     > Definition: `WS_AS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state or accrued substate.
 1. **Maximum contract call depth (1024) exceeded**
     ```
     assert environment.contractCallDepth <= 1024
-    assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+    assert instructions[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
         OR environment.contractCallDepth < 1024
     ```
 1. **Maximum contract call calls per execution request (1024) exceeded**
     ```
     assert worldStateAccessTrace.contractCalls.length <= 1024
-    assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+    assert instructions[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
         OR worldStateAccessTrace.contractCalls.length < 1024
     ```
 1. **Maximum internal call depth (1024) exceeded**
     ```
     assert machineState.internalCallStack.length <= 1024
-    assert environment.bytecode[machineState.pc].opcode != INTERNALCALL
+    assert instructions[machineState.pc].opcode != INTERNALCALL
         OR environment.contractCallDepth < 1024
     ```
 1. **Maximum world state accesses (1024-per-category) exceeded**
@@ -149,29 +205,29 @@ The AVM's exceptional halting conditions area listed below:
         AND worldStateAccessTrace.archiveChecks.length <= 1024
 
     // Storage
-    assert environment.bytecode[machineState.pc].opcode != SLOAD
+    assert instructions[machineState.pc].opcode != SLOAD
         OR worldStateAccessTrace.publicStorageReads.length < 1024
-    assert environment.bytecode[machineState.pc].opcode != SSTORE
+    assert instructions[machineState.pc].opcode != SSTORE
         OR worldStateAccessTrace.publicStorageWrites.length < 1024
 
     // Note hashes
-    assert environment.bytecode[machineState.pc].opcode != NOTEHASHEXISTS
+    assert instructions[machineState.pc].opcode != NOTEHASHEXISTS
         OR noteHashChecks.length < 1024
-    assert environment.bytecode[machineState.pc].opcode != EMITNOTEHASH
+    assert instructions[machineState.pc].opcode != EMITNOTEHASH
         OR newNoteHashes.length < 1024
 
     // Nullifiers
-    assert environment.bytecode[machineState.pc].opcode != NULLIFIEREXISTS
+    assert instructions[machineState.pc].opcode != NULLIFIEREXISTS
         OR nullifierChecks.length < 1024
-    assert environment.bytecode[machineState.pc].opcode != EMITNULLIFIER
+    assert instructions[machineState.pc].opcode != EMITNULLIFIER
         OR newNullifiers.length < 1024
 
     // Read L1 to L2 messages
-    assert environment.bytecode[machineState.pc].opcode != READL1TOL2MSG
+    assert instructions[machineState.pc].opcode != READL1TOL2MSG
         OR worldStateAccessTrace.l1ToL2MessagesReads.length < 1024
 
     // Archive tree & Headers
-    assert environment.bytecode[machineState.pc].opcode != HEADERMEMBER
+    assert instructions[machineState.pc].opcode != HEADERMEMBER
         OR archiveChecks.length < 1024
     ```
 1. **Maximum accrued substate entries (per-category) exceeded**
@@ -180,11 +236,11 @@ The AVM's exceptional halting conditions area listed below:
         AND accruedSubstate.sentL2ToL1Messages.length <= MAX_SENT_L2_TO_L1_MESSAGES
 
     // Unencrypted logs
-    assert environment.bytecode[machineState.pc].opcode != ULOG
+    assert instructions[machineState.pc].opcode != ULOG
         OR unencryptedLogs.length < MAX_UNENCRYPTED_LOGS
 
     // Sent L2 to L1 messages
-    assert environment.bytecode[machineState.pc].opcode != SENDL2TOL1MSG
+    assert instructions[machineState.pc].opcode != SENDL2TOL1MSG
         OR sentL2ToL1Messages.length < MAX_SENT_L2_TO_L1_MESSAGES
     ```
     > Note that ideally the AVM should limit the _total_ accrued substate entries per-category instead of the entries per-call.

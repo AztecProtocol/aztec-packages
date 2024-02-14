@@ -192,7 +192,6 @@ AvmSessionPublicInputs {
     sessionResults: AvmSessionResults,
 }
 ```
-> The `ExecutionEnvironment` structure is defined in [the AVM's execution context](./context). `initialEnvironment` here omits `calldata` and `bytecode`.
 
 > The `WorldStateAccessTrace` and `AccruedSubstate` types are defined in ["State"](./state). Their vectors are assigned constant/maximum lengths when used as circuit inputs.
 
