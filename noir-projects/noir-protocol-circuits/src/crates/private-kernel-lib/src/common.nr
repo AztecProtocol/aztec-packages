@@ -139,8 +139,15 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
 
 fn is_valid_caller(request: CallRequest, private_call: PrivateCallData) -> bool {
     let call_context = private_call.call_stack_item.public_inputs.call_context;
-    let valid_caller_context = request.caller_context.msg_sender.eq(call_context.msg_sender)
+    let mut valid_caller_context = false;
+    if call_context.is_delegate_call {
+        valid_caller_context = request.caller_context.msg_sender.eq(call_context.storage_contract_address) 
+        & request.caller_context.storage_contract_address.eq(call_context.msg_sender);
+    } else {
+        valid_caller_context = request.caller_context.msg_sender.eq(call_context.msg_sender)
         & request.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
+    }
+
     request.caller_contract_address.eq(private_call.call_stack_item.contract_address)
         & (request.caller_context.is_empty() | valid_caller_context)
 }
@@ -158,7 +165,7 @@ fn validate_call_requests<N>(
         if hash != 0 {
             let request = call_requests.get_unchecked(i);
             assert_eq(request.hash, hash, "call stack hash does not match call request hash");
-            //assert(is_valid_caller(request, private_call), "invalid caller");
+            assert(is_valid_caller(request, private_call), "invalid caller");
         }
     }
 }
