@@ -57,7 +57,7 @@ The following table defines an AVM context's world state interface:
 
 > \* `*CALL` is short for `CALL`/`STATICCALL`/`DELEGATECALL`.
 
-> \* For the purpose of the AVM, the world state's `contracts` entry is readable to retrieve bytecode on context-creation, and it is effectively updated when a new nullifier is created for a contract class identifier or contract address.
+> \* For the purpose of the AVM, the world state's `contracts` member is readable for [bytecode fetching](./execution#bytecode-fetch-and-decode), and it is effectively updated when a new contract class or instance is created (along with a nullifier for the contract class identifier or contract address).
 
 ### World State Access Trace
 
