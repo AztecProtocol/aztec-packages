@@ -19,6 +19,7 @@
     "@aztec/aztec.js": "latest"
   },
   "devDependencies": {
+    "@types/node": "^20.11.17",
     "copy-webpack-plugin": "^11.0.0",
     "html-webpack-plugin": "^5.6.0",
     "stream-browserify": "^3.0.0",
