@@ -6,6 +6,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
+  L2BlockBody,
   L2BlockContext,
   L2BlockL2Logs,
   L2Tx,
@@ -21,6 +22,7 @@ import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/c
 
 import { ArchiverDataStore } from '../archiver_store.js';
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -30,6 +32,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the L2 blocks that have been fetched so far.
    */
   private l2BlockContexts: L2BlockContext[] = [];
+
+/**
+ * A mapping of contract address to extended contract data.
+ */
+  private l2BlockBodies: Map<string, L2BlockBody> = new Map();
 
   /**
    * An array containing all the L2 Txs in the L2 blocks that have been fetched so far.
@@ -112,6 +119,40 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
     this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
+  }
+
+  /**
+   * Append new blocks to the store's list.
+   * @param blocks - The L2 blocks to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean> {
+    for (const body of blockBodies) {
+      body.l1ToL2Messages = padArrayEnd(
+        body.l1ToL2Messages,
+        Fr.ZERO,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+      );
+
+      void this.l2BlockBodies.set(body.getCalldataHash().toString('hex'), body);
+    }
+
+    return Promise.resolve(true);
+  }
+
+  /**
+ * Gets an L2 block.
+ * @param blockNumber - The number of the block to return.
+ * @returns The requested L2 block, without logs attached
+ */
+  getBlockBodies(txsHashes: Buffer[]): Promise<L2BlockBody[]> {
+    const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));
+
+    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
+      throw new Error('Weird')
+    }
+
+    return Promise.resolve(blockBodies as L2BlockBody[]);
   }
 
   /**

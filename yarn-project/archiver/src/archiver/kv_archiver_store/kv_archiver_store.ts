@@ -4,6 +4,7 @@ import {
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
+  L2BlockBody,
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
@@ -23,12 +24,14 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { ContractStore } from './contract_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
+import { BlockBodyStore } from './block_body_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
   #blockStore: BlockStore;
+  #blockBodyStore: BlockBodyStore;
   #logStore: LogStore;
   #contractStore: ContractStore;
   #messageStore: MessageStore;
@@ -39,6 +42,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockStore = new BlockStore(db);
+    this.#blockBodyStore = new BlockBodyStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#contractStore = new ContractStore(db, this.#blockStore);
     this.#messageStore = new MessageStore(db);
@@ -60,6 +64,24 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c)))).every(Boolean);
+  }
+
+  /**
+   * Append new blocks to the store's list.
+   * @param blocks - The L2 blocks to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean> {
+    return this.#blockBodyStore.addBlockBodies(blockBodies);
+  }
+
+  /**
+   * Append new blocks to the store's list.
+   * @param blocks - The L2 blocks to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  getBlockBodies(txsHashes: Buffer[]): Promise<L2BlockBody[]> {
+    return this.#blockBodyStore.getBlockBodies(txsHashes);
   }
 
   /**

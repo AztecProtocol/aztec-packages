@@ -4,6 +4,7 @@ import {
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
+  L2BlockBody,
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
@@ -37,6 +38,20 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addBlocks(blocks: L2Block[]): Promise<boolean>;
+
+    /**
+   * Append new blocks to the store's list.
+   * @param blocks - The L2 blocks to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean>;
+
+/**
+ * Append new blocks to the store's list.
+ * @param blocks - The L2 blocks to be added to the store.
+ * @returns True if the operation is successful.
+ */
+  getBlockBodies(txsHashes: Buffer[]): Promise<L2BlockBody[]>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.

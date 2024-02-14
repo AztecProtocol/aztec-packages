@@ -46,7 +46,6 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
-  DataRetrieval,
   retrieveBlockBodiesFromDataAvailability,
   retrieveBlockHashesFromRollup,
   retrieveNewCancelledL1ToL2Messages,
@@ -266,7 +265,9 @@ export class Archiver implements ArchiveSource {
       nextExpectedL2BlockNum,
     );
 
-    retrievedBlockBodies.retrievedData.forEach(([body, hash]) => l2BlockBodies.set(hash.toString('hex'), body));
+    const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);
+
+    await this.store.addBlockBodies(blockBodies);
 
     console.log('l2blockbodes', l2BlockBodies);
     console.log('RETRIEVEDBLOCKBODIES', retrievedBlockBodies);
@@ -282,25 +283,19 @@ export class Archiver implements ArchiveSource {
 
     console.log('RETRIEVEDBLOCKMETADATA', retrievedBlockMetadata);
 
-    const retDat= retrievedBlockMetadata.retrievedData
-      .map(metadata => {
-        console.log('GET FROM MAP',metadata[0])
-        console.log('GET FROM MAP',metadata[0].bodyHash)
-        console.log('GET FROM MAP',l2BlockBodies.get(metadata[0].bodyHash.toString('hex')))
-        console.log('GET FROM MAP MAP', l2BlockBodies);
-        console.log(        metadata[1], metadata[0]
-          )
-        return new L2Block(
-        metadata[1], 
-        metadata[0], 
-        l2BlockBodies.get(metadata[0].bodyHash.toString('hex'))!,
-        metadata[2],
-        )})
+    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(([header]) => header.bodyHash);
 
+    const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
     const retrievedBlocks = {
-      retrievedData: retDat,
+      retrievedData: retrievedBlockMetadata.retrievedData.map((blockMetadata, i) => new L2Block(
+        blockMetadata[1], 
+        blockMetadata[0], 
+        blockBodiesFromStore[i],
+        blockMetadata[2],
+        )),
     }
+
     console.log('RETRIEVED BLOCK METADATA', )
 
     if (retrievedBlocks.retrievedData.length === 0) {
