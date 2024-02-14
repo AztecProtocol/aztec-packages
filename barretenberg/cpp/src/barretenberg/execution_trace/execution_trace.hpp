@@ -36,6 +36,11 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
     size_t num_public_inputs = 0;
     size_t num_ecc_op_gates = 0;
 
+    std::array<Polynomial, Flavor::NUM_WIRES> wire_polynomials_;
+    std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> selector_polynomials_;
+    std::vector<CyclicPermutation> copy_cycles_;
+    Polynomial ecc_op_selector_;
+
     /**
      * @brief Temporary helper method to construct execution trace blocks from existing builder structures
      * @details Eventually the builder will construct blocks directly
@@ -212,6 +217,98 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
         compute_honk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), copy_cycles);
 
         return proving_key;
+    }
+
+    std::shared_ptr<ProvingKey> generate_for_honk(Builder& builder, size_t dyadic_circuit_size)
+    {
+        auto proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size());
+
+        generate_trace_polynomials(builder, dyadic_circuit_size);
+
+        info("proving_key->get_wires().size() = ", proving_key->get_wires().size());
+        info("wire_polynomials_.size() = ", wire_polynomials_.size());
+        // WORKTODO: this diff size issue goes away once adam fixes the get_wires bug
+        for (auto [pkey_wire, wire] :
+             zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_wires(), wire_polynomials_)) {
+            pkey_wire = wire.share();
+        }
+        for (auto [pkey_selector, selector] : zip_view(proving_key->get_selectors(), selector_polynomials_)) {
+            pkey_selector = selector.share();
+        }
+
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            proving_key->lagrange_ecc_op = ecc_op_selector_.share();
+        }
+
+        compute_honk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), copy_cycles_);
+
+        return proving_key;
+    }
+
+    void generate_trace_polynomials(Builder& builder, size_t dyadic_circuit_size)
+    {
+        auto trace_blocks = create_execution_trace_blocks(builder);
+        info("Num trace blocks = ", trace_blocks.size());
+
+        // WORKTODO: all of this initialization can happen in constructor
+        // Initializate the wire polynomials
+        for (auto& wire : wire_polynomials_) {
+            wire = Polynomial(dyadic_circuit_size);
+        }
+        // Initializate the selector polynomials
+        for (auto& selector : selector_polynomials_) {
+            selector = Polynomial(dyadic_circuit_size);
+        }
+        // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials whose
+        // values are copy constrained to be equal. Each variable represents one cycle.
+        copy_cycles_.resize(builder.variables.size());
+
+        uint32_t offset = 0;
+        size_t block_num = 0; // debug only
+        // For each block in the trace, populate wire polys, copy cycles and selector polys
+        for (auto& block : trace_blocks) {
+            auto block_size = static_cast<uint32_t>(block.wires[0].size());
+            info("block num = ", block_num);
+            info("block size = ", block_size);
+
+            // Update wire polynomials and copy cycles
+            // WORKTODO: order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
+            for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < Builder::NUM_WIRES; ++wire_idx) {
+                    uint32_t var_idx = block.wires[wire_idx][row_idx]; // an index into the variables array
+                    uint32_t real_var_idx = builder.real_variable_index[var_idx];
+                    // Insert the real witness values from this block into the wire polys at the correct offset
+                    wire_polynomials_[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
+                    // Add the address of the witness value to its corresponding copy cycle
+                    // WORKTODO: can we copy constrain the zeros in wires 3 and 4 together and avoud the special case?
+                    if (!(block.is_public_input && wire_idx > 1)) {
+                        copy_cycles_[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                    }
+                }
+            }
+
+            // Insert the selector values for this block into the selector polynomials at the correct offset
+            // WORKTODO: comment about coupling of arith and flavor stuff
+            for (auto [selector_poly, selector] : zip_view(selector_polynomials_, block.selectors.get())) {
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                    selector_poly[row_idx + offset] = selector[row_idx];
+                }
+            }
+
+            // WORKTODO: this can go away if we just let the goblin op selector be a normal selector. Actually this
+            // would be a good test case for the concept of gate blocks.
+            if constexpr (IsGoblinFlavor<Flavor>) {
+                if (block.is_goblin_op) {
+                    ecc_op_selector_ = Polynomial{ dyadic_circuit_size };
+                    for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                        ecc_op_selector_[row_idx + offset] = 1;
+                    }
+                }
+            }
+
+            block_num++;
+            offset += block_size;
+        }
     }
 };
 
