@@ -12,7 +12,7 @@ describe('e2e_counter_contract', () => {
   let counterContract: CounterContract;
   let owner: AztecAddress;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     // Setup environment
     ({
       teardown,
@@ -25,9 +25,9 @@ describe('e2e_counter_contract', () => {
     counterContract = await CounterContract.deploy(wallet, 0, owner).send().deployed();
 
     logger(`Counter contract deployed at ${counterContract.address}`);
-  }, 100_000);
+  }, 25_000);
 
-  afterEach(() => teardown(), 30_000);
+  afterAll(() => teardown());
 
   describe('increments', () => {
     it('counts', async () => {

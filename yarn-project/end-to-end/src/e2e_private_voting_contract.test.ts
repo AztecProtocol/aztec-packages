@@ -12,7 +12,7 @@ describe('e2e_voting_contract', () => {
   let votingContract: EasyPrivateVotingContract;
   let owner: AztecAddress;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     // Setup environment
     ({
       teardown,
@@ -25,9 +25,9 @@ describe('e2e_voting_contract', () => {
     votingContract = await EasyPrivateVotingContract.deploy(wallet, owner).send().deployed();
 
     logger(`Counter contract deployed at ${votingContract.address}`);
-  }, 100_000);
+  }, 25_000);
 
-  afterEach(() => teardown(), 30_000);
+  afterAll(() => teardown());
 
   describe('votes', () => {
     it('votes', async () => {
