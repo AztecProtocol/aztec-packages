@@ -1,4 +1,5 @@
 #include "avm_mem_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace avm_trace {
 

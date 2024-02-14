@@ -7,50 +7,47 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct Avm_mainRow {
-    FF avm_main_mem_op_b{};
-    FF avm_main_sel_jump{};
-    FF avm_main_sel_op_not{};
-    FF avm_main_rwb{};
-    FF avm_main_op_err{};
-    FF avm_main_ic{};
-    FF avm_main_mem_idx_a{};
-    FF avm_main_internal_return_ptr_shift{};
-    FF avm_main_sel_internal_return{};
-    FF avm_main_sel_op_add{};
-    FF avm_main_mem_op_c{};
-    FF avm_main_sel_halt{};
     FF avm_main_pc{};
-    FF avm_main_sel_internal_call{};
-    FF avm_main_sel_op_sub{};
-    FF avm_main_rwc{};
-    FF avm_main_mem_idx_b{};
-    FF avm_main_mem_op_a{};
-    FF avm_main_sel_op_div{};
-    FF avm_main_first{};
-    FF avm_main_sel_op_mul{};
-    FF avm_main_ia{};
-    FF avm_main_internal_return_ptr{};
-    FF avm_main_ib{};
-    FF avm_main_inv{};
-    FF avm_main_tag_err{};
-    FF avm_main_pc_shift{};
     FF avm_main_rwa{};
+    FF avm_main_internal_return_ptr_shift{};
+    FF avm_main_internal_return_ptr{};
+    FF avm_main_mem_op_b{};
+    FF avm_main_mem_idx_b{};
+    FF avm_main_mem_idx_a{};
+    FF avm_main_ib{};
+    FF avm_main_tag_err{};
+    FF avm_main_inv{};
+    FF avm_main_mem_op_a{};
+    FF avm_main_op_err{};
+    FF avm_main_sel_internal_return{};
+    FF avm_main_sel_internal_call{};
+    FF avm_main_rwc{};
+    FF avm_main_mem_op_c{};
+    FF avm_main_sel_op_mul{};
+    FF avm_main_sel_op_sub{};
+    FF avm_main_rwb{};
+    FF avm_main_sel_op_not{};
+    FF avm_main_sel_halt{};
+    FF avm_main_ic{};
+    FF avm_main_sel_op_add{};
+    FF avm_main_ia{};
+    FF avm_main_pc_shift{};
+    FF avm_main_sel_jump{};
+    FF avm_main_first{};
+    FF avm_main_sel_op_div{};
 };
 
 inline std::string get_relation_label_avm_main(int index)
 {
     switch (index) {
-    case 37:
-        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
-
-    case 36:
-        return "PC_INCREMENT";
-
     case 20:
         return "SUBOP_DIVISION_FF";
 
-    case 22:
-        return "SUBOP_DIVISION_ZERO_ERR2";
+    case 23:
+        return "SUBOP_ERROR_RELEVANT_OP";
+
+    case 37:
+        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
 
     case 21:
         return "SUBOP_DIVISION_ZERO_ERR1";
@@ -58,11 +55,14 @@ inline std::string get_relation_label_avm_main(int index)
     case 31:
         return "RETURN_POINTER_DECREMENT";
 
+    case 22:
+        return "SUBOP_DIVISION_ZERO_ERR2";
+
+    case 36:
+        return "PC_INCREMENT";
+
     case 25:
         return "RETURN_POINTER_INCREMENT";
-
-    case 23:
-        return "SUBOP_ERROR_RELEVANT_OP";
     }
     return std::to_string(index);
 }

@@ -90,14 +90,14 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_last{};
     FF equiv_tag_err{};
     FF equiv_tag_err_counts{};
+    FF avm_alu_alu_u16_r7_shift{};
     FF avm_alu_alu_u16_r0_shift{};
+    FF avm_alu_alu_u16_r6_shift{};
+    FF avm_alu_alu_u16_r3_shift{};
     FF avm_alu_alu_u16_r2_shift{};
     FF avm_alu_alu_u16_r4_shift{};
-    FF avm_alu_alu_u16_r1_shift{};
     FF avm_alu_alu_u16_r5_shift{};
-    FF avm_alu_alu_u16_r3_shift{};
-    FF avm_alu_alu_u16_r6_shift{};
-    FF avm_alu_alu_u16_r7_shift{};
+    FF avm_alu_alu_u16_r1_shift{};
     FF avm_mem_m_tag_shift{};
     FF avm_mem_m_val_shift{};
     FF avm_mem_m_rw_shift{};
@@ -205,14 +205,14 @@ class AvmCircuitBuilder {
             polys.equiv_tag_err_counts[i] = rows[i].equiv_tag_err_counts;
         }
 
+        polys.avm_alu_alu_u16_r7_shift = Polynomial(polys.avm_alu_alu_u16_r7.shifted());
         polys.avm_alu_alu_u16_r0_shift = Polynomial(polys.avm_alu_alu_u16_r0.shifted());
+        polys.avm_alu_alu_u16_r6_shift = Polynomial(polys.avm_alu_alu_u16_r6.shifted());
+        polys.avm_alu_alu_u16_r3_shift = Polynomial(polys.avm_alu_alu_u16_r3.shifted());
         polys.avm_alu_alu_u16_r2_shift = Polynomial(polys.avm_alu_alu_u16_r2.shifted());
         polys.avm_alu_alu_u16_r4_shift = Polynomial(polys.avm_alu_alu_u16_r4.shifted());
-        polys.avm_alu_alu_u16_r1_shift = Polynomial(polys.avm_alu_alu_u16_r1.shifted());
         polys.avm_alu_alu_u16_r5_shift = Polynomial(polys.avm_alu_alu_u16_r5.shifted());
-        polys.avm_alu_alu_u16_r3_shift = Polynomial(polys.avm_alu_alu_u16_r3.shifted());
-        polys.avm_alu_alu_u16_r6_shift = Polynomial(polys.avm_alu_alu_u16_r6.shifted());
-        polys.avm_alu_alu_u16_r7_shift = Polynomial(polys.avm_alu_alu_u16_r7.shifted());
+        polys.avm_alu_alu_u16_r1_shift = Polynomial(polys.avm_alu_alu_u16_r1.shifted());
         polys.avm_mem_m_tag_shift = Polynomial(polys.avm_mem_m_tag.shifted());
         polys.avm_mem_m_val_shift = Polynomial(polys.avm_mem_m_val.shifted());
         polys.avm_mem_m_rw_shift = Polynomial(polys.avm_mem_m_rw.shifted());
