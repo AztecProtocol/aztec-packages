@@ -10,7 +10,7 @@ import { AvmSimulator } from './avm_simulator.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
-import { poseidonHash } from '@aztec/foundation/crypto';
+import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 
 describe('AVM simulator', () => {
   it('Should execute bytecode that performs basic addition', async () => {
@@ -83,17 +83,19 @@ describe('AVM simulator', () => {
       });
     });
 
-    describe("Hashes in noir contracts", () => {
-      it('Should execute contract function that performs Poseidon2 hash', async () => {
+    describe.each([
+      ["avm_sha256_hash", sha256],
+      ["avm_keccak_hash", keccak]
+    ])("Hashes with 2 fields returned in noir contracts", (name: string, hashFunction: (data: Buffer)=> Buffer) => {
+      it(`Should execute contract function that performs ${name} hash`, async () => {
         const calldata = [new Fr(1), new Fr(2), new Fr(3)];
-        const hash = poseidonHash(calldata.map(f => f.toBuffer()));
-        console.log(hash);
+        const hash = hashFunction(Buffer.concat(calldata.map(f => f.toBuffer())));
 
         // Get contract function artifact
-        const poseidonArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_poseidon')!;
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === name)!;
 
         // Decode bytecode into instructions
-        const bytecode = Buffer.from(poseidonArtifact.bytecode, 'base64');
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
 
         const context = initContext({ env: initExecutionEnvironment({ calldata }) });
         jest
@@ -105,34 +107,41 @@ describe('AVM simulator', () => {
         expect(results.reverted).toBe(false);
 
         const returnData = results.output;
-        console.log(returnData);
-        expect(returnData).toEqual([new Fr(hash)]);
+        const reconstructedHash = Buffer.concat([returnData[0].toBuffer().subarray(16, 32), returnData[1].toBuffer().subarray(16, 32)]);
+        expect(reconstructedHash ).toEqual(hash);
       });
 
-      // it('Should execute contract function that performs Keccak hash', async () => {
-      //   const calldata = [new Fr(1), new Fr(2), new Fr(3)];
-      //   const hash = Fr.random();
-
-      //   // Get contract function artifact
-      //   const keccakArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_keccak')!;
-
-      //   // Decode bytecode into instructions
-      //   const bytecode = Buffer.from(keccakArtifact.bytecode, 'base64');
-
-      //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      //   jest
-      //     .spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode')
-      //     .mockReturnValue(Promise.resolve(bytecode));
-
-      //   const results = await new AvmSimulator(context).execute();
-
-      //   expect(results.reverted).toBe(false);
-
-      //   const returnData = results.output;
-      //   expect(returnData).toEqual([hash.toField()]);
-      // });
-
     })
+
+    describe.each([
+      ["avm_poseidon_hash", poseidonHash],
+      ["avm_pedersen_hash", pedersenHash]
+    ])("Hashes with field returned in noir contracts", (name: string, hashFunction: (data: Buffer[])=> Buffer) => {
+
+      it(`Should execute contract function that performs ${name} hash`, async () => {
+        const calldata = [new Fr(1), new Fr(2), new Fr(3)];
+        const hash = hashFunction(calldata.map(f => f.toBuffer()));
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === name)!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+        const returnData = results.output;
+        expect(returnData).toEqual([new Fr(hash)]);
+      });
+    });
+
 
     describe('Test env getters from noir contract', () => {
       const testEnvGetter = async (valueName: string, value: any, functionName: string, globalVar: boolean = false) => {

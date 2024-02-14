@@ -1,3 +1,5 @@
+use core::num;
+
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::brillig::Brillig;
 
@@ -272,6 +274,7 @@ fn handle_2_field_hash_instruction(
 
             avm_instrs.push(AvmInstruction {
                 opcode,
+                indirect: Some(3), // 11 - addressing mode, indirect for input and output
                 operands: vec![AvmOperand::U32 {
                     value: dest_offset as u32,
                 },
@@ -316,6 +319,7 @@ fn handle_field_hash_instruction(
 
             avm_instrs.push(AvmInstruction {
                 opcode,
+                indirect: Some(1),
                 operands: vec![AvmOperand::U32 {
                     value: dest_offset as u32,
                 },
@@ -465,18 +469,19 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let hash_offset = inputs.pointer.0;
             let hash_size = inputs.size.0;
 
-            let out_offset = output.0;
+            let dest_offset = output.0;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
+                indirect: Some(1),
                 operands: vec![AvmOperand::U32 {
+                    value: dest_offset as u32,
+                },
+                AvmOperand::U32 {
                     value: hash_offset as u32,
                 },
                 AvmOperand::U32 {
                     value: hash_size as u32,
-                },
-                AvmOperand::U32 {
-                    value: out_offset as u32,
                 }],
                 ..Default::default()
             });
@@ -504,11 +509,12 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
     pc_map[0] = initial_offset;
     for i in 0..brillig.bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig.bytecode[i] {
-            BrilligOpcode::Load { .. } => 2,
-            BrilligOpcode::Store { .. } => 2,
             BrilligOpcode::Const { bit_size: 254, .. } => 2 ,
             _ => 1,
         };
+        if num_avm_instrs_for_this_brillig_instr > 1 {
+            println!("num_avm_instrs_for_this_brillig_instr: {:?}", &brillig.bytecode[i]);
+        }
         // next Brillig pc will map to an AVM pc offset by the
         // number of AVM instructions generated for this Brillig one
         pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;

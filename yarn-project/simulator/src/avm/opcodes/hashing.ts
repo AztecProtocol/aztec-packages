@@ -5,6 +5,7 @@ import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
+import { Addressing } from './addressing_mode.js';
 
 export class Poseidon2 extends Instruction {
   static type: string = 'POSEIDON2';
@@ -13,28 +14,30 @@ export class Poseidon2 extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
+    OperandType.UINT8,
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
   ];
 
-  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private indirect: number, private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    console.log(context.machineState.memory);
+    const [hashOffset ] = Addressing.fromWire(this.indirect).resolve(
+      [this.hashOffset],
+      context.machineState.memory,
+    );
+
     // Memory pointer will be indirect
-    const hashDataPtr = context.machineState.memory.get(this.hashOffset);
     const hashData = context.machineState.memory
-      .getSlice(hashDataPtr., this.hashSize)
+      .getSlice(hashOffset, this.hashSize)
       .map(word => word.toBuffer());
-    console.log("hashData: ", hashData);
 
     const hash = poseidonHash(hashData);
     context.machineState.memory.set(this.dstOffset, new Field(hash));
-    console.log("hash: ", hash);
 
     context.machineState.incrementPc();
   }
@@ -47,20 +50,26 @@ export class Keccak extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
+    OperandType.UINT8,
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
   ];
 
-  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private indirect: number, private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
   // Note hash output is 32 bytes, so takes up two fields
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
+    const [hashOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.hashOffset, this.dstOffset],
+      context.machineState.memory,
+    );
+
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashSize)
+      .getSlice(hashOffset, this.hashSize)
       .map(word => word.toBuffer());
 
     const hash = keccak(Buffer.concat(hashData));
@@ -69,8 +78,8 @@ export class Keccak extends Instruction {
     const high = new Field(toBigIntBE(hash.subarray(0, 16)));
     const low = new Field(toBigIntBE(hash.subarray(16, 32)));
 
-    context.machineState.memory.set(this.dstOffset, high);
-    context.machineState.memory.set(this.dstOffset + 1, low);
+    context.machineState.memory.set(dstOffset, high);
+    context.machineState.memory.set(dstOffset + 1, low);
 
     context.machineState.incrementPc();
   }
@@ -83,20 +92,26 @@ export class Sha256 extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
+    OperandType.UINT8,
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
   ];
 
-  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private indirect: number, private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
   // Note hash output is 32 bytes, so takes up two fields
   async execute(context: AvmContext): Promise<void> {
+    const [hashOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.hashOffset, this.dstOffset],
+      context.machineState.memory,
+    );
+
     // We hash a set of field elements
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashSize)
+      .getSlice(hashOffset, this.hashSize)
       .map(word => word.toBuffer());
 
     const hash = sha256(Buffer.concat(hashData));
@@ -105,8 +120,8 @@ export class Sha256 extends Instruction {
     const high = new Field(toBigIntBE(hash.subarray(0, 16)));
     const low = new Field(toBigIntBE(hash.subarray(16, 32)));
 
-    context.machineState.memory.set(this.dstOffset, high);
-    context.machineState.memory.set(this.dstOffset + 1, low);
+    context.machineState.memory.set(dstOffset, high);
+    context.machineState.memory.set(dstOffset + 1, low);
 
     context.machineState.incrementPc();
   }
@@ -119,19 +134,25 @@ export class Pedersen extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
+    OperandType.UINT8,
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
   ];
 
-  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private indirect: number, private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
   async execute(context: AvmContext): Promise<void> {
+    const [hashOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.hashOffset],
+      context.machineState.memory,
+    );
+
     // We hash a set of field elements
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashSize)
+      .getSlice(hashOffset, this.hashSize)
       .map(word => word.toBuffer());
 
     // No domain sep for now
