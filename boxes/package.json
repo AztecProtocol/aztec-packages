@@ -3,12 +3,12 @@
   "packageManager": "yarn@4.1.0",
   "private": true,
   "scripts": {
-    "compile": "yarn workspaces foreach -A -p -j unlimited -v run compile",
-    "build": "yarn workspaces foreach -A -p -j unlimited -v run build"
+    "compile": "yarn workspaces foreach -A -v run compile",
+    "build": "yarn workspaces foreach -A -v run build"
   },
   "workspaces": [
-    "blank",
-    "blank-react"
+    "blank-react",
+    "blank"
   ],
   "bin": {
     "create-aztec": "npx.js"
