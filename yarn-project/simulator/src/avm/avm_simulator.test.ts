@@ -1,4 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
@@ -10,7 +11,6 @@ import { AvmSimulator } from './avm_simulator.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
-import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 
 describe('AVM simulator', () => {
   it('Should execute bytecode that performs basic addition', async () => {
@@ -84,9 +84,9 @@ describe('AVM simulator', () => {
     });
 
     describe.each([
-      ["avm_sha256_hash", sha256],
-      ["avm_keccak_hash", keccak]
-    ])("Hashes with 2 fields returned in noir contracts", (name: string, hashFunction: (data: Buffer)=> Buffer) => {
+      ['avm_sha256_hash', sha256],
+      ['avm_keccak_hash', keccak],
+    ])('Hashes with 2 fields returned in noir contracts', (name: string, hashFunction: (data: Buffer) => Buffer) => {
       it(`Should execute contract function that performs ${name} hash`, async () => {
         const calldata = [new Fr(1), new Fr(2), new Fr(3)];
         const hash = hashFunction(Buffer.concat(calldata.map(f => f.toBuffer())));
@@ -107,17 +107,18 @@ describe('AVM simulator', () => {
         expect(results.reverted).toBe(false);
 
         const returnData = results.output;
-        const reconstructedHash = Buffer.concat([returnData[0].toBuffer().subarray(16, 32), returnData[1].toBuffer().subarray(16, 32)]);
-        expect(reconstructedHash ).toEqual(hash);
+        const reconstructedHash = Buffer.concat([
+          returnData[0].toBuffer().subarray(16, 32),
+          returnData[1].toBuffer().subarray(16, 32),
+        ]);
+        expect(reconstructedHash).toEqual(hash);
       });
-
-    })
+    });
 
     describe.each([
-      ["avm_poseidon_hash", poseidonHash],
-      ["avm_pedersen_hash", pedersenHash]
-    ])("Hashes with field returned in noir contracts", (name: string, hashFunction: (data: Buffer[])=> Buffer) => {
-
+      ['avm_poseidon_hash', poseidonHash],
+      ['avm_pedersen_hash', pedersenHash],
+    ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Buffer[]) => Buffer) => {
       it(`Should execute contract function that performs ${name} hash`, async () => {
         const calldata = [new Fr(1), new Fr(2), new Fr(3)];
         const hash = hashFunction(calldata.map(f => f.toBuffer()));
@@ -141,7 +142,6 @@ describe('AVM simulator', () => {
         expect(returnData).toEqual([new Fr(hash)]);
       });
     });
-
 
     describe('Test env getters from noir contract', () => {
       const testEnvGetter = async (valueName: string, value: any, functionName: string, globalVar: boolean = false) => {

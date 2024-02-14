@@ -18,7 +18,6 @@ export class AvmSimulator {
    */
   public async execute(): Promise<AvmContractCallResults> {
     const instructions = await this.fetchAndDecodeBytecode();
-    console.log(instructions);
     return this.executeInstructions(instructions);
   }
 
