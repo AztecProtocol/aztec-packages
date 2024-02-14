@@ -11,6 +11,7 @@ import { AvmSimulator } from './avm_simulator.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { poseidonHash } from '@aztec/foundation/crypto';
 
 describe('AVM simulator', () => {
   it('Should execute bytecode that performs basic addition', async () => {
