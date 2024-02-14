@@ -6,6 +6,7 @@ import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
+import { Addressing } from './addressing_mode.js';
 
 export class Poseidon2 extends Instruction {
   static type: string = 'POSEIDON2';

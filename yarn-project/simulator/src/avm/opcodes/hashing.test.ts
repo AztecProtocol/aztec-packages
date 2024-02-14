@@ -64,6 +64,7 @@ describe('Hashing Opcodes', () => {
       const result = context.machineState.memory.get(dstOffset);
       expect(result).toEqual(new Field(expectedHash));
     });
+    // TODO: indirect
   });
 
   describe('Keccak', () => {
