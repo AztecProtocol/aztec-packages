@@ -7,6 +7,8 @@ import { computePublicCallStackItemHash } from '../abis/abis.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
+import { GeneratorIndex } from '../constants.gen.js';
+import { pedersenHash } from '@aztec/foundation/crypto';
 
 /**
  * Call stack item on a public call.
@@ -91,8 +93,19 @@ export class PublicCallStackItem {
    * @returns Hash.
    */
   public hash() {
-    return computePublicCallStackItemHash(this);
-  }
+    if (this.isExecutionRequest) {
+      const { callContext, argsHash } = this.publicInputs;
+      this.publicInputs = PublicCircuitPublicInputs.empty();
+      this.publicInputs.callContext = callContext;
+      this.publicInputs.argsHash = argsHash;
+    }
+  
+    return Fr.fromBuffer(
+      pedersenHash(
+        [this.contractAddress, this.functionData.hash(), this.publicInputs.hash()].map(f => f.toBuffer()),
+        GeneratorIndex.CALL_STACK_ITEM,
+      ),
+    );  }
 
   /**
    * Creates a new CallRequest with values of the calling contract.

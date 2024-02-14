@@ -24,7 +24,6 @@ import {
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeNullifierHash,
-  computePublicCallStackItemHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretMessageHash,
@@ -143,12 +142,6 @@ describe('abis', () => {
   it('compute tx hash', () => {
     const txRequest = makeTxRequest();
     const hash = computeTxHash(txRequest);
-    expect(hash).toMatchSnapshot();
-  });
-
-  it('compute public call stack item hash', () => {
-    const item = makePublicCallStackItem();
-    const hash = computePublicCallStackItemHash(item);
     expect(hash).toMatchSnapshot();
   });
 

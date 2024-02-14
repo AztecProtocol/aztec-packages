@@ -323,32 +323,6 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
 }
 
 /**
- * Computes a call stack item hash.
- * @param callStackItem - The call stack item.
- * @returns The call stack item hash.
- */
-export function computePublicCallStackItemHash({
-  contractAddress,
-  functionData,
-  publicInputs,
-  isExecutionRequest,
-}: PublicCallStackItem): Fr {
-  if (isExecutionRequest) {
-    const { callContext, argsHash } = publicInputs;
-    publicInputs = PublicCircuitPublicInputs.empty();
-    publicInputs.callContext = callContext;
-    publicInputs.argsHash = argsHash;
-  }
-
-  return Fr.fromBuffer(
-    pedersenHash(
-      [contractAddress, functionData.hash(), publicInputs.hash()].map(f => f.toBuffer()),
-      GeneratorIndex.CALL_STACK_ITEM,
-    ),
-  );
-}
-
-/**
  * Computes a secret message hash for sending secret l1 to l2 messages.
  * @param secretMessage - The secret message.
  * @returns
