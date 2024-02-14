@@ -193,12 +193,12 @@ src/core/Rollup.sol#L27-L103
 
 
  - [ ] ID-19
-The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L149) contract:
+The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L148) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L29-L31)
-	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L78-L85)
-	[Outbox.contains(bytes32)](src/core/messagebridge/Outbox.sol#L92-L94)
+	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L77-L84)
+	[Outbox.contains(bytes32)](src/core/messagebridge/Outbox.sol#L91-L93)
 
-src/core/messagebridge/Outbox.sol#L21-L149
+src/core/messagebridge/Outbox.sol#L21-L148
 
 
  - [ ] ID-20
@@ -271,9 +271,9 @@ src/core/libraries/decoders/Decoder.sol#L401-L407
 
 
  - [ ] ID-29
-[Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L115-L117) is never used and should be removed
+[Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L114-L116) is never used and should be removed
 
-src/core/messagebridge/Outbox.sol#L115-L117
+src/core/messagebridge/Outbox.sol#L114-L116
 
 
  - [ ] ID-30
@@ -325,9 +325,9 @@ src/core/libraries/decoders/Decoder.sol#L132-L134
 
 
  - [ ] ID-38
-[Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L130-L148) is never used and should be removed
+[Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L129-L147) is never used and should be removed
 
-src/core/messagebridge/Outbox.sol#L130-L148
+src/core/messagebridge/Outbox.sol#L129-L147
 
 
 ## solc-version
