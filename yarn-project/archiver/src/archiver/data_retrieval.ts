@@ -1,5 +1,5 @@
-import { ExtendedContractData, L1ToL2Message, L2Block } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { ExtendedContractData, L1ToL2Message, L2Block, L2BlockBody } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Fr, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PublicClient } from 'viem';
@@ -20,7 +20,7 @@ import {
 /**
  * Data retrieved from logs
  */
-type DataRetrieval<T> = {
+export type DataRetrieval<T> = {
   /**
    * The next block number.
    */
@@ -48,8 +48,8 @@ export async function retrieveBlockHashesFromRollup(
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   expectedNextL2BlockNum: bigint,
-): Promise<DataRetrieval<L2Block>> {
-  const retrievedBlocks: L2Block[] = [];
+): Promise<DataRetrieval<[Header, AppendOnlyTreeSnapshot, bigint]>> {
+  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, bigint][] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -64,12 +64,12 @@ export async function retrieveBlockHashesFromRollup(
       break;
     }
 
-    const newBlocks = await processBlockLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
-    retrievedBlocks.push(...newBlocks);
+    const newBlockMetadata = await processBlockLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
-    expectedNextL2BlockNum += BigInt(newBlocks.length);
+    expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlocks };
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockMetadata };
 }
 
 /**
@@ -89,8 +89,8 @@ export async function retrieveBlockBodiesFromDataAvailability(
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   expectedNextL2BlockNum: bigint,
-): Promise<DataRetrieval<L2Block>> {
-  const retrievedBlocks: L2Block[] = [];
+): Promise<DataRetrieval<[L2BlockBody, Buffer]>> {
+  const retrievedBlockBodies: [L2BlockBody, Buffer][] = [];
 
   do {
     if (searchStartBlock > searchEndBlock) {
@@ -106,12 +106,11 @@ export async function retrieveBlockBodiesFromDataAvailability(
       break;
     }
 
-    const newBlocks = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
-    retrievedBlocks.push(...newBlocks);
+    const newBlockBodies = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    retrievedBlockBodies.push(...newBlockBodies);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
-    expectedNextL2BlockNum += BigInt(newBlocks.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlocks };
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
 }
 
 /**

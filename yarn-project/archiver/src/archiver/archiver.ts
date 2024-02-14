@@ -7,6 +7,7 @@ import {
   L1ToL2Message,
   L1ToL2MessageSource,
   L2Block,
+  L2BlockBody,
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
@@ -45,6 +46,7 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
+  DataRetrieval,
   retrieveBlockBodiesFromDataAvailability,
   retrieveBlockHashesFromRollup,
   retrieveNewCancelledL1ToL2Messages,
@@ -62,6 +64,8 @@ export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & 
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
+
+const l2BlockBodies = new Map<string, L2BlockBody>();
 export class Archiver implements ArchiveSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
@@ -262,7 +266,12 @@ export class Archiver implements ArchiveSource {
       nextExpectedL2BlockNum,
     );
 
-    const retrievedBlocks = await retrieveBlockHashesFromRollup(
+    retrievedBlockBodies.retrievedData.forEach(([body, hash]) => l2BlockBodies.set(hash.toString('hex'), body));
+
+    console.log('l2blockbodes', l2BlockBodies);
+    console.log('RETRIEVEDBLOCKBODIES', retrievedBlockBodies);
+
+    const retrievedBlockMetadata = await retrieveBlockHashesFromRollup(
       this.publicClient,
       this.rollupAddress,
       blockUntilSynced,
@@ -270,6 +279,29 @@ export class Archiver implements ArchiveSource {
       currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
+
+    console.log('RETRIEVEDBLOCKMETADATA', retrievedBlockMetadata);
+
+    const retDat= retrievedBlockMetadata.retrievedData
+      .map(metadata => {
+        console.log('GET FROM MAP',metadata[0])
+        console.log('GET FROM MAP',metadata[0].bodyHash)
+        console.log('GET FROM MAP',l2BlockBodies.get(metadata[0].bodyHash.toString('hex')))
+        console.log('GET FROM MAP MAP', l2BlockBodies);
+        console.log(        metadata[1], metadata[0]
+          )
+        return new L2Block(
+        metadata[1], 
+        metadata[0], 
+        l2BlockBodies.get(metadata[0].bodyHash.toString('hex'))!,
+        metadata[2],
+        )})
+
+
+    const retrievedBlocks = {
+      retrievedData: retDat,
+    }
+    console.log('RETRIEVED BLOCK METADATA', )
 
     if (retrievedBlocks.retrievedData.length === 0) {
       return;

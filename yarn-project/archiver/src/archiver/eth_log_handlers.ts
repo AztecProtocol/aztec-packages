@@ -8,6 +8,7 @@ import {
   L2Block,
   L2BlockBody,
 } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -69,41 +70,41 @@ export async function processBlockLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
-): Promise<L2Block[]> {
-  const retrievedBlocks: L2Block[] = [];
+): Promise<[Header, AppendOnlyTreeSnapshot, bigint][]> {
+  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, bigint][] = [];
   for (const log of logs) {
     const blockNum = log.args.blockNumber;
     if (blockNum !== expectedL2BlockNumber) {
       throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
     }
     // TODO: Fetch blocks from calldata in parallel
-    const newBlock = await getBlockFromCallData(publicClient, log.transactionHash!, log.args.blockNumber);
-    newBlock.setL1BlockNumber(log.blockNumber!);
-    retrievedBlocks.push(newBlock);
+    const [header, archive] = await getBlockHashFromCallData(publicClient, log.transactionHash!, log.args.blockNumber);
+
+    retrievedBlockMetadata.push([header, archive, log.blockNumber!]);
     expectedL2BlockNumber++;
   }
-  return retrievedBlocks;
+
+  return retrievedBlockMetadata;
 }
 
 export async function processBlockBodyLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
-): Promise<L2Block[]> {
-  const retrievedBlocks: L2Block[] = [];
+): Promise<[L2BlockBody, Buffer][]> {
+  const retrievedBlockBodies: [L2BlockBody, Buffer][] = [];
   for (const log of logs) {
-    console.log('INSIDE PROCESS BLOCK BODY LOGS', log);
-    // const blockNum = log.args.blockNumber;
-    // if (blockNum !== expectedL2BlockNumber) {
-    //   throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
-    // }
+    console.log('INSIDE PROCESS BLOCK BODY LOGS', log.args.txsHash);
     // // TODO: Fetch blocks from calldata in parallel
-    const newBlock = await getBlockBodiesFromCallData(publicClient, log.transactionHash!);
+    const newBlockBody = await getBlockBodiesFromCallData(publicClient, log.transactionHash!);
+    console.log('NEW BLOCK BODY FROM PROCESS BODY BLOCK LOGS', newBlockBody);
     // newBlock.setL1BlockNumber(log.blockNumber!);
     // retrievedBlocks.push(newBlock);
     // expectedL2BlockNumber++;
+    retrievedBlockBodies.push([newBlockBody, Buffer.from(hexToBytes(log.args.txsHash))]);
   }
-  return retrievedBlocks;
+
+  return retrievedBlockBodies;
 }
 
 /**
@@ -129,21 +130,12 @@ async function getBlockBodiesFromCallData(
   if (functionName !== 'publish') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
+
   const [bodyHex] = args! as [Hex];
 
-  const blockBuffer = Buffer.concat([
-    // Buffer.from(hexToBytes(headerHex)),
-    // Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
-    // numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
-    Buffer.from(hexToBytes(bodyHex)),
-  ]);
-  // const block = L2Block.fromBuffer(blockBuffer, true);
-  // if (BigInt(block.number) !== l2BlockNum) {
-  //   throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
-  // }
-  return L2Block.random(1);
+  const blockBody = L2BlockBody.fromBuffer(Buffer.from(hexToBytes(bodyHex)), true);
 
-  // return block;
+  return blockBody;
 }
 
 /**
@@ -155,11 +147,11 @@ async function getBlockBodiesFromCallData(
  * @param l2BlockNum - L2 block number.
  * @returns An L2 block deserialized from the calldata.
  */
-async function getBlockFromCallData(
+async function getBlockHashFromCallData(
   publicClient: PublicClient,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
-): Promise<L2Block> {
+): Promise<[Header, AppendOnlyTreeSnapshot]> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
@@ -170,20 +162,22 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, txsHash, bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
-  console.log('getBlockFromCallData', bodyHex !== undefined);
+  const [headerHex, archiveRootHex] = args! as [Hex, Hex, Hex, Hex, Hex];
 
-  const blockBuffer = Buffer.concat([
-    Buffer.from(hexToBytes(headerHex)),
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+
+  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
+
+  if (blockNumberFromHeader!== l2BlockNum) {
+    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
+  }
+
+  const archive = AppendOnlyTreeSnapshot.fromBuffer(Buffer.concat([
     Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
     numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
-    Buffer.from(hexToBytes(bodyHex)),
-  ]);
-  const block = L2Block.fromBuffer(blockBuffer, true);
-  if (BigInt(block.number) !== l2BlockNum) {
-    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
-  }
-  return block;
+  ]));
+
+  return [header, archive];
 }
 
 /**
