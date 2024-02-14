@@ -187,7 +187,7 @@ const sidebars = {
     {
       label: "Aztec (Public) VM",
       type: "category",
-      link: { type: "doc", id: "public-vm/intro" },
+      link: { type: "doc", id: "public-vm/index" },
       items: [
         "public-vm/intro",
         "public-vm/state",
@@ -196,10 +196,17 @@ const sidebars = {
         "public-vm/execution",
         "public-vm/nested-calls",
         "public-vm/instruction-set",
-        "public-vm/avm-circuit",
-        "public-vm/control-flow",
-        "public-vm/alu",
-        "public-vm/bytecode-validation-circuit",
+        {
+          label: "AVM Circuit",
+          type: "category",
+          link: { type: "doc", id: "public-vm/circuit-index" },
+          items: [
+            "public-vm/avm-circuit",
+            "public-vm/control-flow",
+            "public-vm/alu",
+            "public-vm/bytecode-validation-circuit",
+          ],
+        },
         "public-vm/type-structs",
       ],
     },
