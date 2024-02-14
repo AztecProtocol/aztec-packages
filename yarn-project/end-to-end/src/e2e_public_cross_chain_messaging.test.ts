@@ -197,8 +197,8 @@ describe('e2e_public_cross_chain_messaging', () => {
     let testContract: TestContract;
 
     // Note(benesjan): This would ideally be "beforeAll" instead of "beforeEach" to not have to deploy the contract
-    // twice, but for whatever reason both of test cases then fail with "Could not enqueue function" so I am leaving
-    // it as it is for now.
+    // twice, but for whatever reason both of test cases then fail with "Could not enqueue function" and I don't know
+    // why is that so I am leaving it as it is for now.
     beforeEach(async () => {
       // Deploy test account contract
       testContract = await TestContract.deploy(user1Wallet).send().deployed();
