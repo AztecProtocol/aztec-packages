@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_context::CallContext, call_request::{CallerContext, CallRequest},
     combined_constant_data::CombinedConstantData,
-    combined_accumulated_data::{CombinedAccumulatedDataBuilder, AccumulatedNonRevertibleDataBuilder},
+    combined_accumulated_data::{CombinedAccumulatedDataBuilder, AccumulatedNonRevertibleDataBuilder, AccumulatedRevertibleDataBuilder},
     kernel_circuit_public_inputs::{
     PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
     PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
@@ -247,8 +247,8 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn to_private_kernel_tail_data(self) -> PrivateKernelTailData {
-        let end_non_revertible = self.end_non_revertible.finish();
-        let end = self.end.to_accumulated_revertible_data(0);
+        let end_non_revertible = self.end_non_revertible.to_private();
+        let end = self.end.to_private_accumulated_revertible_data();
         let public_inputs = PrivateKernelTailCircuitPublicInputs {
             aggregation_object: AggregationObject {},
             end_non_revertible,
@@ -264,8 +264,8 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn to_public_kernel_data(self) -> PublicKernelData {
-        let end_non_revertible = self.end_non_revertible.finish();
-        let end = self.end.finish();
+        let end_non_revertible = self.end_non_revertible.to_public();
+        let end = self.end.to_public_accumulated_revertible_data();
         let public_inputs = PublicKernelCircuitPublicInputs {
             aggregation_object: AggregationObject {},
             end_non_revertible,

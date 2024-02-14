@@ -12,10 +12,11 @@ import {
 import {
   EthAddress,
   Header,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
   PublicKernelCircuitPublicInputs,
@@ -159,8 +160,8 @@ describe('L1Publisher integration', () => {
     prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
 
-  const makeEmptyProcessedTx = async () => {
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
+  const makeEmptyProcessedTx = () => {
+    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
@@ -171,16 +172,16 @@ describe('L1Publisher integration', () => {
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
       seed + 0x500,
     );
 
     const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+    processedTx.data.end.newCommitments = makeTuple(MAX_REVERTIBLE_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(
-      MAX_NEW_NULLIFIERS_PER_TX,
+      MAX_REVERTIBLE_NULLIFIERS_PER_TX,
       makeNewSideEffectLinkedToNoteHash,
       seed + 0x200,
     );
@@ -447,10 +448,10 @@ describe('L1Publisher integration', () => {
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
       const txs = [
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
       ];
 
       const globalVariables = new GlobalVariables(

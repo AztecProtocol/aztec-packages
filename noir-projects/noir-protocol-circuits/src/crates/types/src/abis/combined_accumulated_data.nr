@@ -13,11 +13,15 @@ use crate::constants::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, NUM_FIELDS_PER_SHA256,
     MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
     MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_REVERTIBLE_COMMITMENTS_PER_TX,
-    MAX_REVERTIBLE_NULLIFIERS_PER_TX, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX
+    MAX_REVERTIBLE_NULLIFIERS_PER_TX, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 };
 
 use dep::std::unsafe;
 use crate::traits::is_empty;
+
+use crate::utils::arrays::{array_cp, array_concat};
 
 struct CombinedAccumulatedData {
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
@@ -50,9 +54,40 @@ impl CombinedAccumulatedData {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
         !self.public_call_stack[0].is_empty()
     }
+
+    pub fn recombine(
+        non_revertible: PublicAccumulatedNonRevertibleData,
+        revertible: PublicAccumulatedRevertibleData
+    ) -> CombinedAccumulatedData {
+        CombinedAccumulatedData {
+            read_requests: revertible.read_requests,
+            nullifier_key_validation_requests: revertible.nullifier_key_validation_requests,
+            new_commitments: array_concat(non_revertible.new_commitments, revertible.new_commitments),
+            new_nullifiers: array_concat(non_revertible.new_nullifiers, revertible.new_nullifiers),
+            private_call_stack: revertible.private_call_stack,
+            public_call_stack: array_concat(
+                non_revertible.public_call_stack,
+                revertible.public_call_stack
+            ),
+            new_l2_to_l1_msgs: revertible.new_l2_to_l1_msgs,
+            encrypted_logs_hash: revertible.encrypted_logs_hash,
+            unencrypted_logs_hash: revertible.unencrypted_logs_hash,
+            encrypted_log_preimages_length: revertible.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: revertible.unencrypted_log_preimages_length,
+            new_contracts: revertible.new_contracts,
+            public_data_update_requests: array_concat(
+                non_revertible.public_data_update_requests,
+                revertible.public_data_update_requests
+            ),
+            public_data_reads: array_concat(
+                non_revertible.public_data_reads,
+                revertible.public_data_reads
+            )
+        }
+    }
 }
 
-struct FinalAccumulatedData {
+struct PrivateAccumulatedRevertibleData {
     new_commitments: [SideEffect; MAX_REVERTIBLE_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_REVERTIBLE_NULLIFIERS_PER_TX],
 
@@ -71,14 +106,49 @@ struct FinalAccumulatedData {
     new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
 }
 
-impl FinalAccumulatedData {
+impl PrivateAccumulatedRevertibleData {
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
         !self.public_call_stack[0].is_empty()
     }
 }
 
-struct FinalAccumulatedDataBuilder {
+struct PublicAccumulatedRevertibleData {
+    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
+    nullifier_key_validation_requests: [NullifierKeyValidationRequestContext; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
+
+    new_commitments: [SideEffect; MAX_REVERTIBLE_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_REVERTIBLE_NULLIFIERS_PER_TX],
+
+    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    public_call_stack: [CallRequest; MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+
+    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+
+    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
+    // variable-length data.
+    encrypted_log_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
+
+    new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
+
+    public_data_update_requests: [PublicDataUpdateRequest; MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_reads: [PublicDataRead; MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX],
+}
+
+impl PublicAccumulatedRevertibleData {
+    pub fn needs_app_logic(self) -> bool {
+        // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
+        !self.public_call_stack[0].is_empty()
+    }
+}
+
+struct AccumulatedRevertibleDataBuilder {
+    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_TX>,
+    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+
     new_commitments: BoundedVec<SideEffect, MAX_REVERTIBLE_COMMITMENTS_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
 
@@ -95,11 +165,14 @@ struct FinalAccumulatedDataBuilder {
     unencrypted_log_preimages_length: Field,
 
     new_contracts: BoundedVec<NewContractData, MAX_NEW_CONTRACTS_PER_TX>,
+
+    public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public_data_reads: BoundedVec<PublicDataRead, MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX>,
 }
 
-impl FinalAccumulatedDataBuilder {
-    pub fn finish(self) -> FinalAccumulatedData {
-        FinalAccumulatedData {
+impl AccumulatedRevertibleDataBuilder {
+    pub fn to_private(self) -> PrivateAccumulatedRevertibleData {
+        PrivateAccumulatedRevertibleData {
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack: self.private_call_stack.storage,
@@ -112,15 +185,57 @@ impl FinalAccumulatedDataBuilder {
             new_contracts: self.new_contracts.storage
         }
     }
+
+    pub fn to_public(self) -> PublicAccumulatedRevertibleData {
+        PublicAccumulatedRevertibleData {
+            read_requests: self.read_requests.storage,
+            new_commitments: self.new_commitments.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
+            new_nullifiers: self.new_nullifiers.storage,
+            private_call_stack: self.private_call_stack.storage,
+            public_call_stack: self.public_call_stack.storage,
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            encrypted_logs_hash: self.encrypted_logs_hash,
+            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
+            new_contracts: self.new_contracts.storage,
+            public_data_update_requests: self.public_data_update_requests.storage,
+            public_data_reads: self.public_data_reads.storage
+        }
+    }
 }
 
-struct AccumulatedNonRevertibleData {
+struct PrivateAccumulatedNonRevertibleData {
     new_commitments: [SideEffect; MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX],
     public_call_stack: [CallRequest; MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX],
 }
 
-impl AccumulatedNonRevertibleData {
+impl PrivateAccumulatedNonRevertibleData {
+    pub fn needs_setup(self) -> bool {
+        // By definition, the final non-revertible enqueued call is for teardown.
+        // since this is a stack, the teardown call would be the 0th element.
+        // So if we have more than one element, we need setup.
+        !self.public_call_stack[1].is_empty()
+    }
+
+    pub fn needs_teardown(self) -> bool {
+        // By definition, the final non-revertible enqueued call is for teardown.
+        // since this is a stack, the teardown call would be the 0th element.
+        !self.public_call_stack[0].is_empty()
+    }
+}
+
+struct PublicAccumulatedNonRevertibleData {
+    new_commitments: [SideEffect; MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX],
+    public_call_stack: [CallRequest; MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    public_data_update_requests: [PublicDataUpdateRequest; MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_reads: [PublicDataRead; MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX],
+}
+
+impl PublicAccumulatedNonRevertibleData {
     pub fn needs_setup(self) -> bool {
         // By definition, the final non-revertible enqueued call is for teardown.
         // since this is a stack, the teardown call would be the 0th element.
@@ -139,14 +254,25 @@ struct AccumulatedNonRevertibleDataBuilder {
     new_commitments: BoundedVec<SideEffect, MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public_data_reads: BoundedVec<PublicDataRead, MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX>,
 }
 
 impl AccumulatedNonRevertibleDataBuilder {
-    pub fn finish(self) -> AccumulatedNonRevertibleData {
-        AccumulatedNonRevertibleData {
+    pub fn to_private(self) -> PrivateAccumulatedNonRevertibleData {
+        PrivateAccumulatedNonRevertibleData {
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack: self.public_call_stack.storage
+        }
+    }
+    pub fn to_public(self) -> PublicAccumulatedNonRevertibleData {
+        PublicAccumulatedNonRevertibleData {
+            new_commitments: self.new_commitments.storage,
+            new_nullifiers: self.new_nullifiers.storage,
+            public_call_stack: self.public_call_stack.storage,
+            public_data_update_requests: self.public_data_update_requests.storage,
+            public_data_reads: self.public_data_reads.storage
         }
     }
 }
@@ -197,69 +323,87 @@ impl CombinedAccumulatedDataBuilder {
         }
     }
 
-    pub fn to_accumulated_non_revertible_data(self, max_non_revertible_side_effect_counter: u32) -> AccumulatedNonRevertibleData {
-        // self.check();
-
-        let mut builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
-        for i in 0..MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX {
-            let commitment = self.new_commitments.storage[i];
-            if !is_empty(commitment) & commitment.counter < max_non_revertible_side_effect_counter {
-                builder.new_commitments.push(commitment);
-            }
+    pub fn to_private_accumulated_revertible_data(self) -> PrivateAccumulatedRevertibleData {
+        PrivateAccumulatedRevertibleData {
+            new_commitments: array_cp(self.new_commitments.storage),
+            new_nullifiers: array_cp(self.new_nullifiers.storage),
+            private_call_stack: self.private_call_stack.storage,
+            public_call_stack: array_cp(self.public_call_stack.storage),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            encrypted_logs_hash: self.encrypted_logs_hash,
+            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
+            new_contracts: self.new_contracts.storage
         }
-        for i in 0..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
-            let nullifier = self.new_nullifiers.storage[i];
-            if !is_empty(nullifier) & nullifier.counter < max_non_revertible_side_effect_counter {
-                builder.new_nullifiers.push(nullifier);
-            }
-        }
-        for i in 0..MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX {
-            let call_stack_item = self.public_call_stack.storage[i];
-            if !is_empty(call_stack_item)
-                & call_stack_item.start_side_effect_counter < max_non_revertible_side_effect_counter {
-                builder.public_call_stack.push(call_stack_item);
-            }
-        }
-
-        builder.finish()
     }
 
-    pub fn to_accumulated_revertible_data(self, max_non_revertible_side_effect_counter: u32) -> FinalAccumulatedData {
-        // self.check();
+    pub fn to_public_accumulated_revertible_data(self) -> PublicAccumulatedRevertibleData {
+        PublicAccumulatedRevertibleData {
+            read_requests: self.read_requests.storage,
+            nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
+            new_commitments: array_cp(self.new_commitments.storage),
+            new_nullifiers: array_cp(self.new_nullifiers.storage),
+            private_call_stack: self.private_call_stack.storage,
+            public_call_stack: array_cp(self.public_call_stack.storage),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            encrypted_logs_hash: self.encrypted_logs_hash,
+            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
+            new_contracts: self.new_contracts.storage,
+            public_data_update_requests: array_cp(self.public_data_update_requests.storage),
+            public_data_reads: array_cp(self.public_data_reads.storage)
+        }
+    }
 
-        let mut builder: FinalAccumulatedDataBuilder = unsafe::zeroed();
+    pub fn split(
+        self,
+        max_non_revertible_side_effect_counter: u32
+    ) -> (PrivateAccumulatedNonRevertibleData, PrivateAccumulatedRevertibleData) {
+        let mut non_revertible_builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
+        let mut revertible_builder: AccumulatedRevertibleDataBuilder = unsafe::zeroed();
 
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            let commitment = self.new_commitments.get_unchecked(i);
-            if !is_empty(commitment) & commitment.counter >= max_non_revertible_side_effect_counter {
-                builder.new_commitments.push(commitment);
+            let commitment = self.new_commitments.storage[i];
+            if !is_empty(commitment) {
+                if commitment.counter < max_non_revertible_side_effect_counter {
+                    non_revertible_builder.new_commitments.push(commitment);
+                } else {
+                    revertible_builder.new_commitments.push(commitment);
+                }
             }
         }
-
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
-            let nullifier = self.new_nullifiers.get_unchecked(i);
-            if !is_empty(nullifier) & nullifier.counter >= max_non_revertible_side_effect_counter {
-                builder.new_nullifiers.push(nullifier);
+            let nullifier = self.new_nullifiers.storage[i];
+            if !is_empty(nullifier) {
+                if nullifier.counter < max_non_revertible_side_effect_counter {
+                    non_revertible_builder.new_nullifiers.push(nullifier);
+                } else {
+                    revertible_builder.new_nullifiers.push(nullifier);
+                }
             }
         }
-
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
-            let call_stack_item = self.public_call_stack.get_unchecked(i);
-            if !is_empty(call_stack_item)
-                & call_stack_item.start_side_effect_counter >= max_non_revertible_side_effect_counter {
-                builder.public_call_stack.push(call_stack_item);
+            let call_stack_item = self.public_call_stack.storage[i];
+            if !is_empty(call_stack_item) {
+                if call_stack_item.start_side_effect_counter < max_non_revertible_side_effect_counter {
+                    non_revertible_builder.public_call_stack.push(call_stack_item);
+                } else {
+                    revertible_builder.public_call_stack.push(call_stack_item);
+                }
             }
         }
 
-        builder.private_call_stack = self.private_call_stack;
-        builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
-        builder.encrypted_logs_hash = self.encrypted_logs_hash;
-        builder.unencrypted_logs_hash = self.unencrypted_logs_hash;
-        builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
-        builder.unencrypted_log_preimages_length= self.unencrypted_log_preimages_length;
-        builder.new_contracts = self.new_contracts;
+        revertible_builder.private_call_stack = self.private_call_stack;
+        revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
+        revertible_builder.encrypted_logs_hash = self.encrypted_logs_hash;
+        revertible_builder.unencrypted_logs_hash = self.unencrypted_logs_hash;
+        revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
+        revertible_builder.unencrypted_log_preimages_length= self.unencrypted_log_preimages_length;
+        revertible_builder.new_contracts = self.new_contracts;
 
-        builder.finish()
+        (non_revertible_builder.to_private(), revertible_builder.to_private())
     }
 }
 
@@ -335,8 +479,7 @@ mod tests {
         builder.public_call_stack.extend_from_array(non_revertible_public_stack);
         builder.public_call_stack.extend_from_array(revertible_public_call_stack);
 
-        let non_revertible = builder.to_accumulated_non_revertible_data(7);
-        let revertible = builder.to_accumulated_revertible_data(7);
+        let (non_revertible, revertible) = builder.split(7);
 
         assert(array_eq(non_revertible.new_commitments, non_revertible_commitments));
         assert(array_eq(non_revertible.new_nullifiers, non_revertible_nullifiers));

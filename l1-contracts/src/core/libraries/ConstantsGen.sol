@@ -35,9 +35,13 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 8;
   uint256 internal constant MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX = 3;
   uint256 internal constant MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX = 5;
-  uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 16;
+  uint256 internal constant MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 4;
+  uint256 internal constant MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 12;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 16;
+  uint256 internal constant MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX = 4;
+  uint256 internal constant MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX = 12;
+  uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant MAX_NEW_CONTRACTS_PER_TX = 1;
   uint256 internal constant MAX_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX = 4;

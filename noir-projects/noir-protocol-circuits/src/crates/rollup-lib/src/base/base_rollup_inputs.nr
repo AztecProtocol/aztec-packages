@@ -15,7 +15,8 @@ use dep::types::{
 },
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
     public_data_read::PublicDataRead, kernel_data::RollupKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    combined_accumulated_data::CombinedAccumulatedData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -24,7 +25,11 @@ use dep::types::{
     MAX_NEW_COMMITMENTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT
+    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
+    MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+    MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+    MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX
 },
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
     public_data_tree_leaf::PublicDataTreeLeaf,
@@ -48,7 +53,7 @@ struct BaseRollupInputs {
     public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
 
     archive_root_membership_witness: ArchiveRootMembershipWitness,
-    
+
     constants: ConstantRollupData,
 }
 
@@ -157,8 +162,13 @@ impl BaseRollupInputs {
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
+        // let combined = CombinedAccumulatedData::recombine(
+        //     self.kernel_data.public_inputs.end_non_revertible,
+        //     self.kernel_data.public_inputs.end
+        // );
         crate::indexed_tree::batch_insert(
             self.start.nullifier_tree,
+            // combined.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
             self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
             self.state_diff_hints.sorted_nullifiers,
             self.state_diff_hints.sorted_nullifier_indexes,
@@ -180,7 +190,7 @@ impl BaseRollupInputs {
                 let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
 
                 (!low_leaf.is_empty()) & is_less_than_nullifier & (
-                    is_next_greater_than | 
+                    is_next_greater_than |
                     ((low_leaf.next_index == 0) & (low_leaf.next_nullifier == 0))
                 )
             },
@@ -188,7 +198,7 @@ impl BaseRollupInputs {
                 NullifierLeafPreimage{
                     nullifier : low_leaf.nullifier,
                     next_nullifier : nullifier,
-                    next_index : nullifier_index, 
+                    next_index : nullifier_index,
                 }
             },
             |nullifier: Field, low_leaf: NullifierLeafPreimage| { // Build insertion leaf
@@ -244,7 +254,7 @@ impl BaseRollupInputs {
     // TODO(Alvaro): This is too slow for brillig without the array optimization
     fn components_compute_kernel_calldata_hash(kernel_data: RollupKernelData) -> [Field; NUM_FIELDS_PER_SHA256] {
         // Compute calldata hashes
-        // Consist of 
+        // Consist of
         // MAX_NEW_COMMITMENTS_PER_TX fields for commitments
         // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
         // 16 public data update requests -> 32 fields
@@ -362,7 +372,7 @@ impl BaseRollupInputs {
 fn verify_kernel_proof(_proof: Proof) -> bool {
     // TODO: Just return true as we are mocking out the proof verification
     // and aggregation.
-    // TODO(Kev): It may make sense to move all of these methods into a 
+    // TODO(Kev): It may make sense to move all of these methods into a
     // separate module.
     true
 }
@@ -401,7 +411,7 @@ fn insert_public_data_update_requests(
             let is_less_than_slot = full_field_less_than(low_preimage.slot, write.slot);
             let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
             let is_in_range = is_less_than_slot & (
-                is_next_greater_than | 
+                is_next_greater_than |
                 ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
             (!is_low_empty) & (is_update | is_in_range)
@@ -413,14 +423,14 @@ fn insert_public_data_update_requests(
                     slot : low_preimage.slot,
                     value: write.value,
                     next_slot : low_preimage.next_slot,
-                    next_index : low_preimage.next_index, 
+                    next_index : low_preimage.next_index,
                 }
             } else {
                 PublicDataTreeLeafPreimage{
                     slot : low_preimage.slot,
                     value: low_preimage.value,
                     next_slot : write.slot,
-                    next_index : write_index, 
+                    next_index : write_index,
                 }
             }
         },
@@ -853,7 +863,7 @@ mod tests {
             };
 
             let (
-                nullifier_predecessor_preimages, 
+                nullifier_predecessor_preimages,
                 nullifier_predecessor_membership_witnesses,
                 sorted_nullifiers,
                 sorted_nullifier_indexes

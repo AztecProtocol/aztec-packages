@@ -1,9 +1,10 @@
 import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/circuit-types';
 import {
-  CombinedAccumulatedData,
   Fr,
   Header,
   Proof,
+  PublicAccumulatedNonRevertibleData,
+  PublicAccumulatedRevertibleData,
   PublicKernelCircuitPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -54,8 +55,8 @@ export function makeProcessedTx(tx: Tx, kernelOutput?: PublicKernelCircuitPublic
       kernelOutput ??
       new PublicKernelCircuitPublicInputs(
         tx.data.aggregationObject,
-        tx.data.endNonRevertibleData,
-        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
+        PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
+        PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
         tx.data.constants,
         tx.data.needsSetup,
         tx.data.needsAppLogic,

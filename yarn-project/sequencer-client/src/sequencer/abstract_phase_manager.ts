@@ -2,7 +2,6 @@ import { FunctionL2Logs, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CallRequest,
-  CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -13,12 +12,14 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
+  PublicAccumulatedNonRevertibleData,
+  PublicAccumulatedRevertibleData,
   PublicCallData,
   PublicCallRequest,
   PublicCallStackItem,
@@ -166,8 +167,8 @@ export abstract class AbstractPhaseManager {
     } else {
       const publicKernelPublicInput = new PublicKernelCircuitPublicInputs(
         tx.data.aggregationObject,
-        tx.data.endNonRevertibleData,
-        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
+        PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
+        PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
         tx.data.constants,
         tx.data.needsSetup,
         tx.data.needsAppLogic,
@@ -442,7 +443,7 @@ export abstract class AbstractPhaseManager {
         ...simPublicDataReads,
       ],
       PublicDataRead.empty(),
-      MAX_PUBLIC_DATA_READS_PER_TX,
+      MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
     );
 
     // Override kernel output
@@ -453,7 +454,7 @@ export abstract class AbstractPhaseManager {
         ...simPublicDataUpdateRequests,
       ],
       PublicDataUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
   }
 
@@ -472,7 +473,7 @@ export abstract class AbstractPhaseManager {
       lastWrites,
 
       PublicDataUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
   }
 }

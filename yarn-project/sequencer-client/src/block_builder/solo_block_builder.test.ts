@@ -18,11 +18,12 @@ import {
   Fr,
   GlobalVariables,
   Header,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -297,16 +298,20 @@ describe('sequencer/solo_block_builder', () => {
       const kernelOutput = PublicKernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
         seed + 0x500,
       );
 
       const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+      processedTx.data.end.newCommitments = makeTuple(
+        MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+        makeNewSideEffect,
+        seed + 0x100,
+      );
       processedTx.data.end.newNullifiers = makeTuple(
-        MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_REVERTIBLE_NULLIFIERS_PER_TX,
         makeNewSideEffectLinkedToNoteHash,
         seed + 0x200,
       );

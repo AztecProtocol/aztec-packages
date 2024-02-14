@@ -1,7 +1,7 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
-import { AccumulatedNonRevertibleData, CombinedAccumulatedData } from './combined_accumulated_data.js';
+import { PublicAccumulatedNonRevertibleData, PublicAccumulatedRevertibleData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
@@ -17,11 +17,11 @@ export class PublicKernelCircuitPublicInputs {
     /**
      * Accumulated side effects and enqueued calls that are not revertible.
      */
-    public endNonRevertibleData: AccumulatedNonRevertibleData,
+    public endNonRevertibleData: PublicAccumulatedNonRevertibleData,
     /**
      * Data accumulated from both public and private circuits.
      */
-    public end: CombinedAccumulatedData,
+    public end: PublicAccumulatedRevertibleData,
     /**
      * Data which is not modified by the circuits.
      */
@@ -61,8 +61,8 @@ export class PublicKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicKernelCircuitPublicInputs(
       reader.readObject(AggregationObject),
-      reader.readObject(AccumulatedNonRevertibleData),
-      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(PublicAccumulatedNonRevertibleData),
+      reader.readObject(PublicAccumulatedRevertibleData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
       reader.readBoolean(),
@@ -73,8 +73,8 @@ export class PublicKernelCircuitPublicInputs {
   static empty() {
     return new PublicKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      AccumulatedNonRevertibleData.empty(),
-      CombinedAccumulatedData.empty(),
+      PublicAccumulatedNonRevertibleData.empty(),
+      PublicAccumulatedRevertibleData.empty(),
       CombinedConstantData.empty(),
       true,
       true,

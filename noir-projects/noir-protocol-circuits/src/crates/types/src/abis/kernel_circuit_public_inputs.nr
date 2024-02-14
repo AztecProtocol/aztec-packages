@@ -1,7 +1,8 @@
 use crate::abis::{
     combined_accumulated_data::{
-    CombinedAccumulatedData, FinalAccumulatedData, AccumulatedNonRevertibleData,
-    AccumulatedNonRevertibleDataBuilder, CombinedAccumulatedDataBuilder, FinalAccumulatedDataBuilder
+    CombinedAccumulatedData, PrivateAccumulatedRevertibleData, PrivateAccumulatedNonRevertibleData,
+    CombinedAccumulatedDataBuilder, PublicAccumulatedNonRevertibleData, PublicAccumulatedRevertibleData,
+    AccumulatedNonRevertibleDataBuilder, AccumulatedRevertibleDataBuilder
 },
     combined_constant_data::CombinedConstantData
 };
@@ -20,8 +21,8 @@ struct PrivateKernelInnerCircuitPublicInputs {
 
 struct PrivateKernelTailCircuitPublicInputs {
     aggregation_object: AggregationObject,
-    end_non_revertible: AccumulatedNonRevertibleData,
-    end: FinalAccumulatedData,
+    end_non_revertible: PrivateAccumulatedNonRevertibleData,
+    end: PrivateAccumulatedRevertibleData,
     constants: CombinedConstantData,
     needs_setup: bool,
     needs_app_logic: bool,
@@ -30,8 +31,8 @@ struct PrivateKernelTailCircuitPublicInputs {
 
 struct PublicKernelCircuitPublicInputs {
     aggregation_object: AggregationObject,
-    end_non_revertible: AccumulatedNonRevertibleData,
-    end: CombinedAccumulatedData,
+    end_non_revertible: PublicAccumulatedNonRevertibleData,
+    end: PublicAccumulatedRevertibleData,
     constants: CombinedConstantData,
     needs_setup: bool,
     needs_app_logic: bool,
@@ -76,8 +77,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     }
 
     pub fn to_tail(self) -> PrivateKernelTailCircuitPublicInputs {
-        let end_non_revertible = self.end.to_accumulated_non_revertible_data(self.max_non_revertible_side_effect_counter);
-        let end = self.end.to_accumulated_revertible_data(self.max_non_revertible_side_effect_counter);
+        let (end_non_revertible, end) = self.end.split(self.max_non_revertible_side_effect_counter);
         PrivateKernelTailCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
             end_non_revertible,
@@ -93,14 +93,14 @@ impl PrivateKernelCircuitPublicInputsBuilder {
 struct PublicKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
     end_non_revertible: AccumulatedNonRevertibleDataBuilder,
-    end: CombinedAccumulatedDataBuilder,
+    end: AccumulatedRevertibleDataBuilder,
     constants: CombinedConstantData,
 }
 
 impl PublicKernelCircuitPublicInputsBuilder {
     pub fn to_inner(self) -> PublicKernelCircuitPublicInputs {
-        let end_non_revertible = self.end_non_revertible.finish();
-        let end = self.end.finish();
+        let end_non_revertible = self.end_non_revertible.to_public();
+        let end = self.end.to_public();
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
             end_non_revertible,
