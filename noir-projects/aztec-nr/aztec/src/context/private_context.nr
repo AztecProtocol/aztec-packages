@@ -209,6 +209,7 @@ impl PrivateContext {
         self.message_recipient(recipient, content);
     }
 
+    // Message can be send to arbitrary recipient on L1 and not only to the registered portal address
     pub fn message_recipient(&mut self, recipient: EthAddress, content: Field) {
         let message = L2ToL1Message { recipient, content };
         self.new_l2_to_l1_msgs.push(message);

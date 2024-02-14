@@ -193,83 +193,66 @@ describe('e2e_public_cross_chain_messaging', () => {
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
-  it('can send an L2 -> L1 message to a non-portal address from public', async () => {
-    // Deploy test account contract
-    const testContract = await TestContract.deploy(user1Wallet).send().deployed();
+  // describe('Consuming message from non-portal address', () => {
+  //   let testContract: TestContract;
+  //   beforeAll(async () => {
+  //     // Deploy test account contract
+  //     testContract = await TestContract.deploy(user1Wallet).send().deployed();
+  //   });
 
-    const content = Fr.random();
-    const recipient = crossChainTestHarness.ethAccount;
+    it.each([true, false])(
+    // it.only(
+      'can send an L2 -> L1 message to a non-portal address from private or public',
+      async (isPrivate: boolean) => {
+        const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
-    // We create the L2 -> L1 message using the test contract
-    await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
+        // const isPrivate = true;
+        const content = Fr.random();
+        const recipient = crossChainTestHarness.ethAccount;
 
-    const l2ToL1Message = {
-      sender: { actor: testContract.address.toString() as Hex, version: 1n },
-      recipient: {
-        actor: recipient.toString() as Hex,
-        chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
+        // We create the L2 -> L1 message using the test contract
+        if (isPrivate) {
+          await testContract.methods
+            .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
+            .send()
+            .wait();
+        } else {
+          await testContract.methods
+            .create_l2_to_l1_message_arbitrary_recipient_public(content, recipient)
+            .send()
+            .wait();
+        }
+
+        const l2ToL1Message = {
+          sender: { actor: testContract.address.toString() as Hex, version: 1n },
+          recipient: {
+            actor: recipient.toString() as Hex,
+            chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
+          },
+          content: content.toString() as Hex,
+        };
+
+        const txHash = await outbox.write.consume([l2ToL1Message] as const, {} as any);
+
+        const abiItem = getAbiItem({
+          abi: OutboxAbi,
+          name: 'MessageConsumed',
+        });
+
+        const events = await crossChainTestHarness.publicClient.getLogs<typeof abiItem>({
+          address: getAddress(outbox.address.toString()),
+          event: abiItem,
+          fromBlock: 0n,
+        });
+
+        // We get the event just for the relevant transaction
+        const txEvents = events.filter(event => event.transactionHash === txHash);
+
+        // We check that exactly 1 MessageConsumed event was emitted with the expected recipient
+        expect(txEvents.length).toBe(1);
+        expect(txEvents[0].args.recipient).toBe(recipient.toChecksumString());
       },
-      content: content.toString() as Hex,
-    };
-
-    const txHash = await outbox.write.consume([l2ToL1Message] as const, {} as any);
-
-    const abiItem = getAbiItem({
-      abi: OutboxAbi,
-      name: 'MessageConsumed',
-    });
-
-    const events = await crossChainTestHarness.publicClient.getLogs<typeof abiItem>({
-      address: getAddress(outbox.address.toString()),
-      event: abiItem,
-      fromBlock: 0n,
-    });
-
-    // We get the event just for the relevant transaction
-    const txEvents = events.filter(event => event.transactionHash === txHash);
-
-    // We check that exactly 1 MessageConsumed event was emitted with the expected recipient
-    expect(txEvents.length).toBe(1);
-    expect(txEvents[0].args.recipient).toBe(recipient.toChecksumString());
-  }, 60_000);
-
-  it('can send an L2 -> L1 message to a non-portal address from private', async () => {
-    // Deploy test account contract
-    const testContract = await TestContract.deploy(user1Wallet).send().deployed();
-
-    const content = Fr.random();
-    const recipient = crossChainTestHarness.ethAccount;
-
-    // We create the L2 -> L1 message using the test contract
-    await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait();
-
-    const l2ToL1Message = {
-      sender: { actor: testContract.address.toString() as Hex, version: 1n },
-      recipient: {
-        actor: recipient.toString() as Hex,
-        chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
-      },
-      content: content.toString() as Hex,
-    };
-
-    const txHash = await outbox.write.consume([l2ToL1Message] as const, {} as any);
-
-    const abiItem = getAbiItem({
-      abi: OutboxAbi,
-      name: 'MessageConsumed',
-    });
-
-    const events = await crossChainTestHarness.publicClient.getLogs<typeof abiItem>({
-      address: getAddress(outbox.address.toString()),
-      event: abiItem,
-      fromBlock: 0n,
-    });
-
-    // We get the event just for the relevant transaction
-    const txEvents = events.filter(event => event.transactionHash === txHash);
-
-    // We check that exactly 1 MessageConsumed event was emitted with the expected recipient
-    expect(txEvents.length).toBe(1);
-    expect(txEvents[0].args.recipient).toBe(recipient.toChecksumString());
-  }, 60_000);
+      60_000,
+    );
+  // });
 });
