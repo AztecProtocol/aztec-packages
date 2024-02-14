@@ -132,7 +132,6 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
     computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
-    computePublicDataTreeValue(update.oldValue),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
   );

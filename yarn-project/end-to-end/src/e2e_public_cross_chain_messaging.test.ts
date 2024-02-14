@@ -9,9 +9,9 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { OutboxAbi } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts';
-import { TokenContract } from '@aztec/noir-contracts/Token';
-import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
+import { TestContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { Hex } from 'viem';
 import { getAbiItem, getAddress } from 'viem/utils';
