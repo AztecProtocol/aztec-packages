@@ -199,6 +199,9 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     ..Default::default()
                 });
             },
+            BrilligOpcode::Cast { destination, source, bit_size } => {
+                avm_instrs.push(emit_cast(source.to_usize() as u32, destination.to_usize() as u32, tag_from_bit_size(*bit_size)));
+            }
             BrilligOpcode::ForeignCall { function, destinations, inputs, destination_value_types:_, input_value_types:_ } => {
                 handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
             },
