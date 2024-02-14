@@ -1,5 +1,5 @@
 [package]
-name = "delegate_contract"
+name = "delegator_contract"
 type = "contract"
 authors = [""]
 compiler_version = ">=0.23.0"

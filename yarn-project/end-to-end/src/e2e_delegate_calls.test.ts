@@ -1,12 +1,12 @@
 import { Wallet } from '@aztec/aztec.js';
-import { ChildContract, DelegateContract } from '@aztec/noir-contracts.js';
+import { DelegatedOnContract, DelegatorContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_delegate_calls', () => {
   let wallet: Wallet;
-  let delegateContract: DelegateContract;
-  let childContract: ChildContract;
+  let delegatorContract: DelegatorContract;
+  let delegatedOnContract: DelegatedOnContract;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
@@ -16,33 +16,32 @@ describe('e2e_delegate_calls', () => {
   afterEach(() => teardown());
 
   beforeEach(async () => {
-    delegateContract = await DelegateContract.deploy(wallet).send().deployed();
-    childContract = await ChildContract.deploy(wallet).send().deployed();
+    delegatorContract = await DelegatorContract.deploy(wallet).send().deployed();
+    delegatedOnContract = await DelegatedOnContract.deploy(wallet).send().deployed();
   }, 100_000);
 
   describe('delegates on another contract', () => {
-    it("runs child contract's code on delegate's storage", async () => {
+    it("runs another contract's code on delegator's storage", async () => {
       const sentValue = 42n;
-      await delegateContract.methods
-        .private_delegate_set_value(childContract.address, childContract.methods.privateSetValue.selector, [
-          sentValue,
-          wallet.getCompleteAddress().address,
-        ])
+      await delegatorContract.methods
+        .private_delegate_set_value(
+          delegatedOnContract.address,
+          delegatedOnContract.methods.private_set_value.selector,
+          [sentValue, wallet.getCompleteAddress().address],
+        )
         .send()
         .wait();
 
-      const delegateValue = await delegateContract.methods
-        .private_get_value(sentValue, wallet.getCompleteAddress().address)
-        .send()
-        .wait();
+      const delegatorValue = await delegatorContract.methods
+        .view_value(sentValue, wallet.getCompleteAddress().address)
+        .view();
 
-      const childValue = await childContract.methods
-        .privateGetValue(sentValue, wallet.getCompleteAddress().address)
-        .send()
-        .wait();
+      const delegatedOnValue = await delegatedOnContract.methods
+        .view_private_value(sentValue, wallet.getCompleteAddress().address)
+        .view();
 
-      expect(delegateValue).toEqual(sentValue);
-      expect(childValue).not.toEqual(sentValue);
+      expect(delegatedOnValue).toEqual(0n);
+      expect(delegatorValue).toEqual(sentValue);
     }, 100_000);
   });
 });

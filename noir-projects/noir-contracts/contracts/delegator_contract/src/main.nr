@@ -1,13 +1,13 @@
 // A contract used along with `Parent` contract to test nested calls.
-contract Delegate {
+contract Delegator {
     use dep::std::option::Option;
 
     use dep::aztec::{
         log::emit_unencrypted_log, state_vars::{public_state::PublicState, set::Set},
         protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress},
-        note::{note_getter_options::NoteGetterOptions}
+        note::{note_viewer_options::NoteViewerOptions, utils as note_utils, note_header::NoteHeader}
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
         current_value: PublicState<Field>,
@@ -29,10 +29,9 @@ contract Delegate {
         return_values[0]
     }
 
-    #[aztec(private)]
-    fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
-        let notes = storage.a_private_value.get_notes(options);
+    unconstrained fn view_value(amount: Field, owner: AztecAddress) -> pub Field {
+        let options = NoteViewerOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
+        let notes = storage.a_private_value.view_notes(options);
         notes[0].unwrap_unchecked().value
     }
 
@@ -42,8 +41,9 @@ contract Delegate {
         nonce: Field,
         storage_slot: Field,
         note_type_id: Field,
-        serialized_note: [Field; 0]
+        serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }
