@@ -24,12 +24,17 @@ export class Poseidon2 extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
+    console.log(context.machineState.memory);
+    // Memory pointer will be indirect
+    const hashDataPtr = context.machineState.memory.get(this.hashOffset);
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
+      .getSlice(hashDataPtr., this.hashSize)
       .map(word => word.toBuffer());
+    console.log("hashData: ", hashData);
 
     const hash = poseidonHash(hashData);
     context.machineState.memory.set(this.dstOffset, new Field(hash));
+    console.log("hash: ", hash);
 
     context.machineState.incrementPc();
   }
@@ -55,7 +60,7 @@ export class Keccak extends Instruction {
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
+      .getSlice(this.hashOffset, this.hashSize)
       .map(word => word.toBuffer());
 
     const hash = keccak(Buffer.concat(hashData));
@@ -91,7 +96,7 @@ export class Sha256 extends Instruction {
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
+      .getSlice(this.hashOffset, this.hashSize)
       .map(word => word.toBuffer());
 
     const hash = sha256(Buffer.concat(hashData));
@@ -126,7 +131,7 @@ export class Pedersen extends Instruction {
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
     const hashData = context.machineState.memory
-      .getSlice(this.hashOffset, this.hashOffset + this.hashSize)
+      .getSlice(this.hashOffset, this.hashSize)
       .map(word => word.toBuffer());
 
     // No domain sep for now

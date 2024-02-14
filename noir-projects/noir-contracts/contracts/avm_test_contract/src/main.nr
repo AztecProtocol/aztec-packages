@@ -1,11 +1,16 @@
-//
-
 contract AvmTest {
     // Libs
     use dep::aztec::protocol_types::address::{AztecAddress, EthAddress};
 
     // avm lib
-    use dep::aztec::avm::context::AvmContext;
+    use dep::aztec::avm::{
+        context::AvmContext,
+        hash::{
+            keccak256,
+            poseidon,
+            sha256
+        }
+    };
 
     #[aztec(private)]
     fn constructor() {}
@@ -55,10 +60,19 @@ contract AvmTest {
      * Hashing functions
      ************************************************************************/
     #[aztec(public-vm)]
-    fn oneFieldKeccak(data: [u8; 32]) -> pub Field {
-        // let data_as_bytes = data.to_be_bytes(32);
-        let output = dep::std::hash::keccak256(data, 32);
-        output[0] as Field
+    fn keccak(data: [Field; 3]) -> pub [Field; 2] {
+        keccak256(data)
+    }
+
+    #[aztec(public-vm)]
+    fn poseidon_hash(data: [Field; 3]) -> pub Field {
+        let new_data = data;
+        poseidon(new_data)
+    }
+
+    #[aztec(public-vm)]
+    fn sha256(data: [Field; 3]) -> pub [Field; 2] {
+        sha256(data)
     }
 
     /************************************************************************
