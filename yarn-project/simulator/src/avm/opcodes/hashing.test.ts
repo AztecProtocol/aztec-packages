@@ -64,7 +64,24 @@ describe('Hashing Opcodes', () => {
       const result = context.machineState.memory.get(dstOffset);
       expect(result).toEqual(new Field(expectedHash));
     });
-    // TODO: indirect
+
+    it('Should hash correctly - indirect', async () => {
+      const args = [new Field(1n), new Field(2n), new Field(3n)];
+      const indirect = 1;
+      const hashOffset = 0;
+      const realLocation = 4;
+
+      context.machineState.memory.set(hashOffset, new Uint32(realLocation));
+      context.machineState.memory.setSlice(realLocation, args);
+
+      const dstOffset = 3;
+
+      const expectedHash = poseidonHash(args.map(field => field.toBuffer()));
+      await new Poseidon2(indirect, dstOffset, hashOffset, args.length).execute(context);
+
+      const result = context.machineState.memory.get(dstOffset);
+      expect(result).toEqual(new Field(toBigIntBE(expectedHash)));
+    });
   });
 
   describe('Keccak', () => {
@@ -245,6 +262,25 @@ describe('Hashing Opcodes', () => {
 
       const result = context.machineState.memory.get(dstOffset);
       expect(result).toEqual(new Field(expectedHash));
+    });
+
+    it('Should hash correctly - indirect', async () => {
+      const args = [new Field(1n), new Field(2n), new Field(3n)];
+      const indirect = 1;
+      const hashOffset = 0;
+      const realLocation = 4;
+
+      context.machineState.memory.set(hashOffset, new Uint32(realLocation));
+      context.machineState.memory.setSlice(realLocation, args);
+
+      const dstOffset = 3;
+
+      const inputBuffer = args.map(field => field.toBuffer());
+      const expectedHash = pedersenHash(inputBuffer);
+      await new Pedersen(indirect, dstOffset, hashOffset, args.length).execute(context);
+
+      const result = context.machineState.memory.get(dstOffset);
+      expect(result).toEqual(new Field(toBigIntBE(expectedHash)));
     });
   });
 });

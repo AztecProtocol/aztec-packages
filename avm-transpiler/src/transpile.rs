@@ -1,5 +1,3 @@
-use core::num;
-
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::brillig::Brillig;
 
@@ -606,7 +604,10 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
             _ => 1,
         };
         if num_avm_instrs_for_this_brillig_instr > 1 {
-            println!("num_avm_instrs_for_this_brillig_instr: {:?}", &brillig.bytecode[i]);
+            println!(
+                "num_avm_instrs_for_this_brillig_instr: {:?}",
+                &brillig.bytecode[i]
+            );
         }
         // next Brillig pc will map to an AVM pc offset by the
         // number of AVM instructions generated for this Brillig one
