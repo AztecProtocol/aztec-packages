@@ -15,7 +15,7 @@ This section describes the types of state maintained by the AVM.
 | `daGasLeft`           | `field`         | Tracks the amount of DA gas remaining at any point during execution. Initialized from contract call arguments. |
 | `pc`                  | `field`         | Index into the contract's bytecode indicating which instruction to execute. Initialized to 0 during context initialization. |
 | `internalCallStack`   | `Vector<field>` | A stack of program counters pushed to and popped from by `INTERNALCALL` and `INTERNALRETURN` instructions. Initialized as empty during context initialization. |
-| `memory`              | `[field; 2^32]` | A $2^{32}$ entry memory space accessible by user code (bytecode instructions). All $2^{32}$ entries are assigned default value 0 during context initialization. See ["Memory Model"](./memory-model) for a complete description of AVM memory. |
+| `memory`              | `[field; 2^32]` | A $2^{32}$ entry memory space accessible by user code (AVM instructions). All $2^{32}$ entries are assigned default value 0 during context initialization. See ["Memory Model"](./memory-model) for a complete description of AVM memory. |
 
 ## World State
 
