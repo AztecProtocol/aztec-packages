@@ -12,10 +12,10 @@ WORKDIR /usr/src/noir-projects
 COPY . .
 # Build
 WORKDIR /usr/src/noir-projects/noir-contracts
-RUN ./scripts/compile.sh && ./scripts/transpile.sh && ../../noir/target/release/nargo test
+RUN ./scripts/compile.sh && ./scripts/transpile.sh && ../../noir/target/release/nargo test --silence-warnings
 
 WORKDIR /usr/src/noir-projects/noir-protocol-circuits
-RUN cd src && ../../../noir/target/release/nargo compile --silence-warnings && ../../../noir/target/release/nargo test
+RUN cd src && ../../../noir/target/release/nargo compile --silence-warnings && ../../../noir/target/release/nargo test --silence-warnings
 
 WORKDIR /usr/src/noir-projects/aztec-nr
-RUN ../../noir/target/release/nargo compile --silence-warnings && ../../noir/target/release/nargo test
+RUN ../../noir/target/release/nargo compile --silence-warnings && ../../noir/target/release/nargo test --silence-warnings
