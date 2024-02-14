@@ -214,14 +214,14 @@ The format aligns with the [`PreviousKernel`](./private-kernel-inner.mdx#previou
 
 ### _Hints_ for [Read Request Reset Private Kernel Circuit](#read-request-reset-private-kernel-circuit)
 
-| Field                               | Type                                                                       | Description                                                                          |
-| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `reset_type`                        | `note_hash` \| `nullifier`                                                 | The type of read requests to be reset.                                               |
-| `transient_read_indices`            | `[field; N]`                                                               | Indices of the read requests for transient values.                                   |
-| `pending_value_indices`             | `[field; N]`                                                               | Indices of the values for transient reads.                                           |
-| `persistent_read_indices`           | `[field; M]`                                                               | Indices of the read requests for settled values.                                     |
-| `read_request_membership_witnesses` | [`[MembershipWitness; M]`](./private-kernel-initial.mdx#membershipwitness) | Membership witnesses for the settled values.                                         |
-| `read_request_statuses`             | [`[ReadRequestStatus; C]`](#readrequeststatus)                             | Statuses of the values being read. `C` equals the length of the read requests array. |
+| Field                               | Type                                                                         | Description                                                                                                                                                                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reset_type`                        | `note_hash` \| `nullifier`                                                   | The type of read requests to be reset.                                                                                                                                                                                                                                |
+| `transient_read_indices`            | [`field`; `N`]                                                               | Indices of the read requests for transient values.                                                                                                                                                                                                                    |
+| `pending_value_indices`             | [`field`; `N`]                                                               | Indices of the values for transient reads.                                                                                                                                                                                                                            |
+| `persistent_read_indices`           | [`field`; `M`]                                                               | Indices of the read requests for settled values.                                                                                                                                                                                                                      |
+| `read_request_membership_witnesses` | [[`MembershipWitness`](./private-kernel-initial.mdx#membershipwitness); `M`] | Membership witnesses for the settled values.                                                                                                                                                                                                                          |
+| `read_request_statuses`             | [[`ReadRequestStatus`](#readrequeststatus); `C`]                             | Statuses of the values being read. `C` equals [`MAX_NOTE_HASH_READ_REQUESTS_PER_TX`](../constants.md#circuit-constants) when `reset_type` is `note_hash`; [`MAX_NULLIFIER_READ_REQUESTS_PER_TX`](../constants.md#circuit-constants) when `reset_type` is `nullifier`. |
 
 > There can be multiple versions of the read request reset private kernel circuit, each with a different values of `N` and `M`.
 
@@ -234,18 +234,18 @@ The format aligns with the [`PreviousKernel`](./private-kernel-inner.mdx#previou
 
 ### _Hints_ for [Parent Secret Key Validation Request Reset Private Kernel Circuit](#parent-secret-key-validation-request-reset-private-kernel-circuit)
 
-| Field                | Type         | Description                                                                                            |
-| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------ |
-| `master_secret_keys` | `[field; C]` | Master secret keys for the secret keys. `C` equals the length of the target validation requests array. |
+| Field                | Type                                                                                           | Description                             |
+| -------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `master_secret_keys` | [`field`; [`MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | Master secret keys for the secret keys. |
 
 ### _Hints_ for [Transient Note Reset Private Kernel Circuit](#transient-note-reset-private-kernel-circuit)
 
-| Field                                      | Type         | Description                                                                                                                                             |
-| ------------------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `transient_nullifier_indices`              | `[field; C]` | Indices of the nullifiers for transient notes. `C` equals the length of `note_hash_contexts`.                                                           |
-| `nullifier_index_hints`                    | `[field; C]` | Indices of the `transient_nullifier_indices` for transient nullifiers. `C` equals the length of `nullifier_contexts`.                                   |
-| `encrypted_note_preimage_hash_index_hints` | `[field; C]` | Indices of the `encrypted_note_preimage_hash_contexts` for transient preimage hashes. `C` equals the length of `encrypted_note_preimage_hash_contexts`. |
-| `log_note_hash_hints`                      | `[field; C]` | Indices of the `note_hash_contexts` for transient preimage hashes. `C` equals the length of `note_hash_contexts`.                                       |
+| Field                                      | Type                                                                                        | Description                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `transient_nullifier_indices`              | [`field`; [`MAX_NEW_NOTE_HASHES_PER_TX`](../constants.md#circuit-constants)]                | Indices of the nullifiers for transient notes.                                        |
+| `nullifier_index_hints`                    | [`field`; [`MAX_NEW_NULLIFIERS_PER_TX`](../constants.md#circuit-constants)]                 | Indices of the `transient_nullifier_indices` for transient nullifiers.                |
+| `encrypted_note_preimage_hash_index_hints` | [`field`; [`MAX_ENCRYPTED_NOTE_PREIMAGE_HASHES_PER_TX`](../constants.md#circuit-constants)] | Indices of the `encrypted_note_preimage_hash_contexts` for transient preimage hashes. |
+| `log_note_hash_hints`                      | [`field`; [`MAX_NEW_NOTE_HASHES_PER_TX`](../constants.md#circuit-constants)]                | Indices of the `note_hash_contexts` for transient preimage hashes.                    |
 
 ## `PublicInputs`
 

@@ -397,7 +397,7 @@ Data accumulated during the execution of the transaction.
 
 | Field                     | Type                                                          | Description                                   |
 | ------------------------- | ------------------------------------------------------------- | --------------------------------------------- |
-| `call_stack_item_hash`    | `Field`                                                       | Hash of the call stack item.                  |
-| `counter`                 | `Field`                                                       | Counter at which the request was made.        |
+| `call_stack_item_hash`    | `field`                                                       | Hash of the call stack item.                  |
+| `counter`                 | `field`                                                       | Counter at which the request was made.        |
 | `caller_contract_address` | `AztecAddress`                                                | Address of the contract calling the function. |
 | `caller_context`          | [`CallerContext`](./private-kernel-initial.mdx#callercontext) | Context of the contract calling the function. |

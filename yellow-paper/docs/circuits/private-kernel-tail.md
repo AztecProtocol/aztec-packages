@@ -207,17 +207,17 @@ The format aligns with the [PreviousKernel](./private-kernel-inner.mdx#previousk
 
 Data that aids in the verifications carried out in this circuit:
 
-| Field                                    | Type                             | Description                                                                                                                   |
-| ---------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `note_hash_hints`                        | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `note_hash_contexts`. `C` equals the length of `note_hash_contexts`.                                       |
-| `nullifier_hints`                        | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `nullifier_contexts`. `C` equals the length of `nullifier_contexts`.                                       |
-| `public_call_request_hints`              | `[field; C]`                     | Indices of ordered `public_call_request_contexts`. `C` equals the length of `public_call_request_contexts`.                   |
-| `ordered_unencrypted_log_hashes`         | `[field; C]`                     | Ordered `unencrypted_log_hashes`. `C` equals the length of `unencrypted_log_hash_contexts`.                                   |
-| `unencrypted_log_hash_hints`             | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `unencrypted_log_hash_contexts`. `C` equals the length of `unencrypted_log_hash_contexts`.                 |
-| `ordered_encrypted_log_hashes`           | `[field; C]`                     | Ordered `encrypted_log_hashes`. `C` equals the length of `encrypted_log_hash_contexts`.                                       |
-| `encrypted_log_hash_hints`               | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `encrypted_log_hash_contexts`. `C` equals the length of `encrypted_log_hash_contexts`.                     |
-| `ordered_encrypted_note_preimage_hashes` | `[field; C]`                     | Ordered `encrypted_note_preimage_hashes`. `C` equals the length of `encrypted_note_preimage_hash_contexts`.                   |
-| `encrypted_note_preimage_hints`          | [[`OrderHint`](#orderhint); `C`] | Hints for ordering `encrypted_note_preimage_hash_contexts`. `C` equals the length of `encrypted_note_preimage_hash_contexts`. |
+| Field                                    | Type                                                                                                          | Description                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `note_hash_hints`                        | [[`OrderHint`](#orderhint); [`MAX_NEW_NOTE_HASHES_PER_TX`](../constants.md#circuit-constants)]                | Hints for ordering `note_hash_contexts`.                    |
+| `nullifier_hints`                        | [[`OrderHint`](#orderhint); [`MAX_NEW_NULLIFIERS_PER_TX`](../constants.md#circuit-constants)]                 | Hints for ordering `nullifier_contexts`.                    |
+| `public_call_request_hints`              | [`field`; [`MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX`](../constants.md#circuit-constants)]                         | Indices of ordered `public_call_request_contexts`.          |
+| `ordered_unencrypted_log_hashes`         | [`field`; [`MAX_UNENCRYPTED_LOG_HASHES_PER_TX`](../constants.md#circuit-constants)]                           | Ordered `unencrypted_log_hashes`.                           |
+| `unencrypted_log_hash_hints`             | [[`OrderHint`](#orderhint); [`MAX_UNENCRYPTED_LOG_HASHES_PER_TX`](../constants.md#circuit-constants)]         | Hints for ordering `unencrypted_log_hash_contexts`.         |
+| `ordered_encrypted_log_hashes`           | [`field`; [`MAX_ENCRYPTED_LOG_HASHES_PER_TX`](../constants.md#circuit-constants)]                             | Ordered `encrypted_log_hashes`.                             |
+| `encrypted_log_hash_hints`               | [[`OrderHint`](#orderhint); [`MAX_ENCRYPTED_LOG_HASHES_PER_TX`](../constants.md#circuit-constants)]           | Hints for ordering `encrypted_log_hash_contexts`.           |
+| `ordered_encrypted_note_preimage_hashes` | [`field`; [`MAX_ENCRYPTED_NOTE_PREIMAGE_HASHES_PER_TX`](../constants.md#circuit-constants)]                   | Ordered `encrypted_note_preimage_hashes`.                   |
+| `encrypted_note_preimage_hints`          | [[`OrderHint`](#orderhint); [`MAX_ENCRYPTED_NOTE_PREIMAGE_HASHES_PER_TX`](../constants.md#circuit-constants)] | Hints for ordering `encrypted_note_preimage_hash_contexts`. |
 
 #### `OrderHint`
 

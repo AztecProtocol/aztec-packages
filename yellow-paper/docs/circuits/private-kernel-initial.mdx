@@ -633,7 +633,7 @@ class ContractInstance {
   contract_class_id: field
   contract_args_hash: field
   portal_contract_address: EthereumAddress
-  public_keys_hash: Field
+  public_keys_hash: field
 }
 
 class TransientAccumulatedData {
@@ -694,7 +694,7 @@ Data that represents the caller's intent.
 | --------------- | ------------------------------------------- | -------------------------------------------- |
 | `origin`        | `AztecAddress`                              | The Aztec address of the transaction sender. |
 | `function_data` | [`FunctionData`](#functiondata)             | Data of the function being called.           |
-| `args_hash`     | `Field`                                     | Hash of the function arguments.              |
+| `args_hash`     | `field`                                     | Hash of the function arguments.              |
 | `tx_context`    | [`TransactionContext`](#transactioncontext) | Information about the transaction.           |
 
 ### `PrivateCall`
@@ -706,20 +706,20 @@ Data that holds details about the current private function call.
 | `call_stack_item`                  | [`PrivateCallStackItem`](#privatecallstackitem)                     | Information about the current private function call. |
 | `proof`                            | `Proof`                                                             | Proof of the private function circuit.               |
 | `vk`                               | `VerificationKey`                                                   | Verification key of the private function circuit.    |
-| `bytecode_hash`                    | `Field`                                                             | Hash of the function bytecode.                       |
+| `bytecode_hash`                    | `field`                                                             | Hash of the function bytecode.                       |
 | `contract_instance`                | [`ContractInstance`](../contract-deployment/instances.md#structure) | Data of the contract instance being called.          |
 | `contract_class`                   | [`ContractClass`](#contractclassdata)                               | Data of the contract class.                          |
 | `function_leaf_membership_witness` | [`MembershipWitness`](#membershipwitness)                           | Membership witness for the function being called.    |
 
 ### `Hints`
 
-| Field                         | Type           | Description                                                             |
-| ----------------------------- | -------------- | ----------------------------------------------------------------------- |
-| `note_hash_range_hints`       | [`field`, `N`] | Indices of the next emitted private call requests for note hashes.      |
-| `nullifier_range_hints`       | [`field`, `N`] | Indices of the next emitted private call requests for nullifiers.       |
-| `unencrypted_log_range_hints` | [`field`, `N`] | Indices of the next emitted private call requests for unencrypted logs. |
-| `encrypted_log_range_hints`   | [`field`, `N`] | Indices of the next emitted private call requests for encrypted logs.   |
-| `encrypted_note_range_hints`  | [`field`, `N`] | Indices of the next emitted private call requests for encrypted notes.  |
+| Field                         | Type                                                                                          | Description                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `note_hash_range_hints`       | [`field`, [`MAX_NEW_NOTE_HASHES_PER_CALL`](../constants.md#circuit-constants)]                | Indices of the next emitted private call requests for note hashes.      |
+| `nullifier_range_hints`       | [`field`, [`MAX_NEW_NULLIFIERS_PER_CALL`](../constants.md#circuit-constants)]                 | Indices of the next emitted private call requests for nullifiers.       |
+| `unencrypted_log_range_hints` | [`field`, [`MAX_UNENCRYPTED_LOG_HASHES_PER_CALL`](../constants.md#circuit-constants)]         | Indices of the next emitted private call requests for unencrypted logs. |
+| `encrypted_log_range_hints`   | [`field`, [`MAX_ENCRYPTED_LOG_HASHES_PER_CALL`](../constants.md#circuit-constants)]           | Indices of the next emitted private call requests for encrypted logs.   |
+| `encrypted_note_range_hints`  | [`field`, [`MAX_ENCRYPTED_NOTE_PREIMAGE_HASHES_PER_CALL`](../constants.md#circuit-constants)] | Indices of the next emitted private call requests for encrypted notes.  |
 
 ## `PublicInputs`
 
@@ -743,21 +743,19 @@ Data that remains the same throughout the entire transaction.
 Would it be accurate to describe this as `AccumulatedTransientSideEffects`, perhaps?
 -->
 
-| Field                                       | Type                                                                                       | Description                                                                                                                    |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `note_hash_contexts`                        | [`[NoteHashContext; C]`](#notehashcontext)                                                 | Note hashes with extra data aiding verification.                                                                               |
-| `nullifier_contexts`                        | [`[NullifierContext; C]`](#nullifiercontext)                                               | Nullifiers with extra data aiding verification.                                                                                |
-| `l2_to_l1_message_contexts`                 | [`[L2toL1MessageContext; C]`](#l2tol1messagecontext)                                       | L2-to-l1 messages with extra data aiding verification.                                                                         |
-| `unencrypted_log_hash_contexts`             | [`[UnencryptedLogHashContext; C]`](#unencryptedloghashcontext)                             | Hashes of the unencrypted logs with extra data aiding verification.                                                            |
-| `encrypted_log_hash_contexts`               | [`[EncryptedLogHashContext; C]`](#encryptedloghashcontext)                                 | Hashes of the encrypted logs with extra data aiding verification.                                                              |
-| `encrypted_note_preimage_hash_contexts`     | [`[EncryptedNotePreimageHashContext; C]`](#encryptednotepreimagehash)                      | Hashes of the encrypted note preimages with extra data aiding verification.                                                    |
-| `note_hash_read_requests`                   | [`[ReadRequest; C]`](./private-function#readrequest)                                       | Requests to prove the note hashes being read exist.                                                                            |
-| `nullifier_read_requests`                   | [`[ReadRequest; C]`](./private-function#readrequest)                                       | Requests to prove the nullifiers being read exist.                                                                             |
-| `nullifier_key_validation_request_contexts` | [`[ParentSecretKeyValidationRequestContext; C]`](#parentsecretkeyvalidationrequestcontext) | Requests to validate nullifier keys.                                                                                           |
-| `public_call_request_contexts`              | [`[PublicCallRequestContext; C]`](./public-kernel-tail.md#publiccallrequestcontext)        | Requests to call publics functions.                                                                                            |
-| `private_call_request_stack`                | [`[PrivateCallRequestContext; C]`](#privatecallrequestcontext)                             | Requests to call private functions. Pushed to the stack in reverse order so that they will be executed in chronological order. |
-
-> The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
+| Field                                       | Type                                                                                                                                                                         | Description                                                                                                                    |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `note_hash_contexts`                        | [[`NoteHashContext`](#notehashcontext); [`MAX_NEW_NOTE_HASHES_PER_TX`](../constants.md#circuit-constants)]                                                                   | Note hashes with extra data aiding verification.                                                                               |
+| `nullifier_contexts`                        | [[`NullifierContext`](#nullifiercontext); [`MAX_NEW_NULLIFIERS_PER_TX`](../constants.md#circuit-constants)]                                                                  | Nullifiers with extra data aiding verification.                                                                                |
+| `l2_to_l1_message_contexts`                 | [[`L2toL1MessageContext`](#l2tol1messagecontext); [`MAX_NEW_L2_TO_L1_MSGS_PER_TX`](../constants.md#circuit-constants)]                                                       | L2-to-l1 messages with extra data aiding verification.                                                                         |
+| `unencrypted_log_hash_contexts`             | [[`UnencryptedLogHashContext`](#unencryptedloghashcontext); [`MAX_UNENCRYPTED_LOG_HASHES_PER_TX`](../constants.md#circuit-constants)]                                        | Hashes of the unencrypted logs with extra data aiding verification.                                                            |
+| `encrypted_log_hash_contexts`               | [[`EncryptedLogHashContext`](#encryptedloghashcontext); [`MAX_ENCRYPTED_LOG_HASHES_PER_TX`](../constants.md#circuit-constants)]                                              | Hashes of the encrypted logs with extra data aiding verification.                                                              |
+| `encrypted_note_preimage_hash_contexts`     | [[`EncryptedNotePreimageHashContext`](#encryptednotepreimagehash); [`MAX_ENCRYPTED_NOTE_PREIMAGE_HASHES_PER_TX`](../constants.md#circuit-constants)]                         | Hashes of the encrypted note preimages with extra data aiding verification.                                                    |
+| `note_hash_read_requests`                   | [[`ReadRequest`](./private-function#readrequest); [`MAX_NOTE_HASH_READ_REQUESTS_PER_TX`](../constants.md#circuit-constants)]                                                 | Requests to prove the note hashes being read exist.                                                                            |
+| `nullifier_read_requests`                   | [[`ReadRequest`](./private-function#readrequest); [`MAX_NULLIFIER_READ_REQUESTS_PER_TX`](../constants.md#circuit-constants)]                                                 | Requests to prove the nullifiers being read exist.                                                                             |
+| `nullifier_key_validation_request_contexts` | [[`ParentSecretKeyValidationRequestContext`](#parentsecretkeyvalidationrequestcontext); [`MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | Requests to validate nullifier keys.                                                                                           |
+| `public_call_request_contexts`              | [[`PublicCallRequestContext`](./public-kernel-tail.md#publiccallrequestcontext); [`MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX`](../constants.md#circuit-constants)]                 | Requests to call publics functions.                                                                                            |
+| `private_call_request_stack`                | [[`PrivateCallRequestContext`](#privatecallrequestcontext); [`MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX`](../constants.md#circuit-constants)]                                     | Requests to call private functions. Pushed to the stack in reverse order so that they will be executed in chronological order. |
 
 ## Types
 
@@ -779,19 +777,18 @@ Public functions and unconstrained functions won't be stored in a function tree;
 | ------------------------- | -------------- | ------------------------------------------------------------------ |
 | `version`                 | `u8`           | Version identifier.                                                |
 | `registerer_address`      | `AztecAddress` | Address of the canonical contract used for registering this class. |
-| `artifact_hash`           | `Field`        | Hash of the contract artifact.                                     |
-| `private_functions`       | `Field`        | Merkle root of the private function tree.                          |
-| `public_functions`        | `Field`        | Merkle root of the public function tree.                           |
-| `unconstrained_functions` | `Field`        | Merkle root of the unconstrained function tree.                    |
+| `artifact_hash`           | `field`        | Hash of the contract artifact.                                     |
+| `private_functions`       | `field`        | Merkle root of the private function tree.                          |
+| `public_functions`        | `field`        | Merkle root of the public function tree.                           |
+| `unconstrained_functions` | `field`        | Merkle root of the unconstrained function tree.                    |
 
 ### `TransactionContext`
 
-<!-- prettier-ignore -->
-| Field      | Type                                 | Description                  |
-| ---------- | ------------------------------------ | ---------------------------- |
-| `tx_type`  | `standard | fee_paying | fee_rebate` | Type of the transaction.     |
-| `chain_id` | `Field`                              | Chain ID of the transaction. |
-| `version`  | `Field`                              | Version of the transaction.  |
+| Field      | Type                                       | Description                  |
+| ---------- | ------------------------------------------ | ---------------------------- |
+| `tx_type`  | `standard` \| `fee_paying` \| `fee_rebate` | Type of the transaction.     |
+| `chain_id` | `field`                                    | Chain ID of the transaction. |
+| `version`  | `field`                                    | Version of the transaction.  |
 
 ### `PrivateCallStackItem`
 
@@ -800,8 +797,8 @@ Public functions and unconstrained functions won't be stored in a function tree;
 | `contract_address` | `AztecAddress`                                                       | Address of the contract on which the function is invoked. |
 | `function_data`    | [`FunctionData`](#functiondata)                                      | Data of the function being called.                        |
 | `public_inputs`    | [`PrivateFunctionPublicInputs`](./private-function.md#public-inputs) | Public inputs of the private function circuit.            |
-| `counter_start`    | `Field`                                                              | Counter at which the function call was initiated.         |
-| `counter_end`      | `Field`                                                              | Counter at which the function call ended.                 |
+| `counter_start`    | `field`                                                              | Counter at which the function call was initiated.         |
+| `counter_end`      | `field`                                                              | Counter at which the function call ended.                 |
 
 <!--
 What's the mental model for when a PrivateCallStackItem should be used vs a CallRequest. They look very similar, and seem to contain very similar information.
@@ -814,9 +811,9 @@ Is the PrivateCallStackItem a struct representing function call (request) _that 
 
 | Field                     | Type                              | Description                                   |
 | ------------------------- | --------------------------------- | --------------------------------------------- |
-| `call_stack_item_hash`    | `Field`                           | Hash of the call stack item.                  |
-| `counter_start`           | `Field`                           | Counter at which the call was initiated.      |
-| `counter_end`             | `Field`                           | Counter at which the call ended.              |
+| `call_stack_item_hash`    | `field`                           | Hash of the call stack item.                  |
+| `counter_start`           | `field`                           | Counter at which the call was initiated.      |
+| `counter_end`             | `field`                           | Counter at which the call ended.              |
 | `caller_contract_address` | `AztecAddress`                    | Address of the contract calling the function. |
 | `caller_context`          | [`CallerContext`](#callercontext) | Context of the contract calling the function. |
 
@@ -846,25 +843,25 @@ etc.
 
 | Field               | Type           | Description                                              |
 | ------------------- | -------------- | -------------------------------------------------------- |
-| `value`             | `Field`        | Hash of the note.                                        |
-| `counter`           | `Field`        | Counter at which the note hash was created.              |
-| `nullifier_counter` | `Field`        | Counter at which the nullifier for the note was created. |
+| `value`             | `field`        | Hash of the note.                                        |
+| `counter`           | `field`        | Counter at which the note hash was created.              |
+| `nullifier_counter` | `field`        | Counter at which the nullifier for the note was created. |
 | `contract_address`  | `AztecAddress` | Address of the contract the note was created.            |
 
 ### `NullifierContext`
 
 | Field               | Type           | Description                                                                                                              |
 | ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `value`             | `Field`        | Value of the nullifier.                                                                                                  |
-| `counter`           | `Field`        | Counter at which the nullifier was created.                                                                              |
-| `note_hash_counter` | `Field`        | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
+| `value`             | `field`        | Value of the nullifier.                                                                                                  |
+| `counter`           | `field`        | Counter at which the nullifier was created.                                                                              |
+| `note_hash_counter` | `field`        | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
 | `contract_address`  | `AztecAddress` | Address of the contract the nullifier was created.                                                                       |
 
 ### `L2toL1MessageContext`
 
 | Field                     | Type           | Description                                      |
 | ------------------------- | -------------- | ------------------------------------------------ |
-| `value`                   | `Field`        | L2-to-l2 message.                                |
+| `value`                   | `field`        | L2-to-l2 message.                                |
 | `portal_contract_address` | `AztecAddress` | Address of the portal contract to the contract.  |
 | `contract_address`        | `AztecAddress` | Address of the contract the message was created. |
 
@@ -882,36 +879,34 @@ etc.
 
 | Field              | Type           | Description                                  |
 | ------------------ | -------------- | -------------------------------------------- |
-| `hash`             | `Field`        | Hash of the unencrypted log.                 |
-| `length`           | `Field`        | Number of fields of the log preimage.        |
-| `counter`          | `Field`        | Counter at which the hash was emitted.       |
+| `hash`             | `field`        | Hash of the unencrypted log.                 |
+| `length`           | `field`        | Number of fields of the log preimage.        |
+| `counter`          | `field`        | Counter at which the hash was emitted.       |
 | `contract_address` | `AztecAddress` | Address of the contract the log was emitted. |
 
 ### `EncryptedLogHashContext`
 
 | Field              | Type           | Description                                  |
 | ------------------ | -------------- | -------------------------------------------- |
-| `hash`             | `Field`        | Hash of the encrypted log.                   |
-| `length`           | `Field`        | Number of fields of the log preimage.        |
-| `counter`          | `Field`        | Counter at which the hash was emitted.       |
+| `hash`             | `field`        | Hash of the encrypted log.                   |
+| `length`           | `field`        | Number of fields of the log preimage.        |
+| `counter`          | `field`        | Counter at which the hash was emitted.       |
 | `contract_address` | `AztecAddress` | Address of the contract the log was emitted. |
-| `randomness`       | `Field`        | A random value to hide the contract address. |
+| `randomness`       | `field`        | A random value to hide the contract address. |
 
 ### `EncryptedNotePreimageHashContext`
 
 | Field               | Type           | Description                                  |
 | ------------------- | -------------- | -------------------------------------------- |
-| `hash`              | `Field`        | Hash of the encrypted note preimage.         |
-| `length`            | `Field`        | Number of fields of the note preimage.       |
-| `counter`           | `Field`        | Counter at which the hash was emitted.       |
+| `hash`              | `field`        | Hash of the encrypted note preimage.         |
+| `length`            | `field`        | Number of fields of the note preimage.       |
+| `counter`           | `field`        | Counter at which the hash was emitted.       |
 | `contract_address`  | `AztecAddress` | Address of the contract the log was emitted. |
-| `note_hash_counter` | `Field`        | Counter of the corresponding note hash.      |
+| `note_hash_counter` | `field`        | Counter of the corresponding note hash.      |
 
 ### `MembershipWitness`
 
-| Field          | Type         | Description                           |
-| -------------- | ------------ | ------------------------------------- |
-| `leaf_index`   | `Field`      | Index of the leaf in the tree.        |
-| `sibling_path` | `[Field; H]` | Sibling path to the leaf in the tree. |
-
-> `H` represents the height of the tree.
+| Field          | Type           | Description                                                                  |
+| -------------- | -------------- | ---------------------------------------------------------------------------- |
+| `leaf_index`   | `field`        | Index of the leaf in the tree.                                               |
+| `sibling_path` | [`field`; `H`] | Sibling path to the leaf in the tree. `H` represents the height of the tree. |
