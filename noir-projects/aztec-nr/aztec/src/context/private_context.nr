@@ -274,17 +274,17 @@ impl PrivateContext {
     pub fn call_private_function_no_args_static(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
+        function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
     }
 
-    pub fn call_private_function_with_packed_args(
+    fn call_private_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool,
+        is_static_call: bool
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let item = call_private_function_internal(
             contract_address,
@@ -349,10 +349,10 @@ impl PrivateContext {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
-     pub fn call_public_function_no_args_static(
+    pub fn call_public_function_no_args_static(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
+        function_selector: FunctionSelector
     ) {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
     }
@@ -362,7 +362,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool,
+        is_static_call: bool
     ) {
         let fields = enqueue_public_function_call_internal(
             contract_address,
