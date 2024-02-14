@@ -121,7 +121,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             comm_idx++;
         }
         inst.target_sum = target_sum.get_value();
-        info(inst.target_sum);
 
         size_t challenge_idx = 0;
         inst.gate_challenges = std::vector<NativeFF>(gate_challenges.size());

@@ -182,8 +182,10 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     for (auto& public_input : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
-            public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
-            inst++;
+            if (instance->public_inputs.size() >= next_accumulator->public_inputs.size()) {
+                public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
+                inst++;
+            };
         }
         public_input_idx++;
     }

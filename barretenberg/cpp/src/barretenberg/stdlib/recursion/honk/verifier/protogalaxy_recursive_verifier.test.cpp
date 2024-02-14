@@ -57,7 +57,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
      * amongst test files
      */
-    static void create_inner_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
+    static void create_inner_circuit(InnerBuilder& builder, size_t log_num_gates = 15)
     {
         using fr_ct = typename InnerCurve::ScalarField;
         using fq_ct = typename InnerCurve::BaseField;

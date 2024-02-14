@@ -47,53 +47,39 @@ class IvcBench : public benchmark::Fixture {
     {
         static_cast<void>(state);
         static_cast<void>(ivc);
-        //     // Initialize IVC with function circuit
-        //     Builder function_circuit{ ivc.goblin.op_queue };
-        //     GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-        //     ivc.initialize(function_circuit);
-        //     auto native_acc = ivc.get_verifier_accumulator();
+        // Initialize IVC with function circuit
+        Builder function_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+        ivc.initialize(function_circuit);
+        auto kernel_verifier_accum = ivc.get_verifier_accumulator();
 
-        //     // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
-        //     Builder kernel_circuit{ ivc.goblin.op_queue };
-        //     GoblinMockCircuits::construct_mock_function_circuit(kernel_circuit);
-        //     auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
-        //     auto kernel_inst = ivc.get_verifier_instance();
+        // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
+        Builder kernel_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_function_circuit(kernel_circuit);
+        auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+        auto kernel_verifier_inst = ivc.get_verifier_instance();
 
-        //     function_circuit = Builder{ ivc.goblin.op_queue };
-        //     GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-        //     auto function_fold_proof = ivc.accumulate(function_circuit);
-        //     auto function_inst = ivc.get_verifier_instance();
+        auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
+        // Subtract one to account for the "initialization" round above
+        NUM_CIRCUITS -= 1;
+        for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+            Builder function_circuit{ ivc.goblin.op_queue };
+            GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+            auto function_fold_proof = ivc.accumulate(function_circuit);
+            auto fnct_verifier_inst = ivc.get_verifier_instance();
 
-        //     // Accumulate kernel circuit
-        //     kernel_circuit = Builder{ ivc.goblin.op_queue };
-        //     auto recursive_acc = GoblinMockCircuits::construct_mock_folding_kernel(
-        //         kernel_circuit, kernel_fold_proof, function_fold_proof, kernel_inst, function_inst, native_acc);
+            // Accumulate kernel circuit
+            Builder kernel_circuit{ ivc.goblin.op_queue };
+            kernel_verifier_accum = GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit,
+                                                                                      kernel_fold_proof,
+                                                                                      function_fold_proof,
+                                                                                      kernel_verifier_inst,
+                                                                                      fnct_verifier_inst,
+                                                                                      kernel_verifier_accum);
 
-        //     auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
-        //     // Subtract two to account for the "initialization" round above
-        //     if (NUM_CIRCUITS >= 2) {
-        //         NUM_CIRCUITS -= 2;
-        //     } else {
-        //         NUM_CIRCUITS = 0;
-        //     }
-
-        //     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        //         auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
-        //         auto kernel_inst = ivc.get_verifier_instance();
-
-        //         // Accumulate function circuit
-        //         Builder function_circuit{ ivc.goblin.op_queue };
-        //         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-        //         auto function_fold_proof = ivc.accumulate(function_circuit);
-        //         auto function_inst = ivc.get_verifier_instance();
-
-        //         // Accumulate kernel circuit
-        //         kernel_circuit = Builder{ ivc.goblin.op_queue };
-        //         recursive_acc = GoblinMockCircuits::construct_mock_folding_kernel(
-        //             kernel_circuit, kernel_fold_proof, function_fold_proof, kernel_inst, function_inst,
-        //             recursive_acc);
-        //     }
-        //     ivc.accumulate(kernel_circuit);
+            kernel_fold_proof = ivc.accumulate(kernel_circuit);
+            kernel_verifier_inst = ivc.get_verifier_instance();
+        }
     }
 };
 
