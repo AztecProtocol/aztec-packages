@@ -14,7 +14,7 @@ use dep::types::{
     PublicDataMembershipWitness
 },
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
-    public_data_read::PublicDataRead, kernel_data::PublicKernelData,
+    public_data_read::PublicDataRead, kernel_data::RollupKernelData,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     constants::{
@@ -33,7 +33,7 @@ use dep::types::{
 };
 
 struct BaseRollupInputs {
-    kernel_data: PublicKernelData,
+    kernel_data: RollupKernelData,
     start: PartialStateReference,
 
     state_diff_hints: StateDiffHints,
@@ -242,7 +242,7 @@ impl BaseRollupInputs {
     // Computes the calldata hash for a base rollup
     // TODO(Kev): move this into components module
     // TODO(Alvaro): This is too slow for brillig without the array optimization
-    fn components_compute_kernel_calldata_hash(kernel_data: PublicKernelData) -> [Field; NUM_FIELDS_PER_SHA256] {
+    fn components_compute_kernel_calldata_hash(kernel_data: RollupKernelData) -> [Field; NUM_FIELDS_PER_SHA256] {
         // Compute calldata hashes
         // Consist of 
         // MAX_NEW_COMMITMENTS_PER_TX fields for commitments
@@ -556,7 +556,7 @@ mod tests {
         membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
         new_contract_data::NewContractData, nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        kernel_data::PublicKernelData, side_effect::SideEffect
+        kernel_data::RollupKernelData, side_effect::SideEffect
     },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -605,7 +605,7 @@ mod tests {
 
     fn update_public_data_tree<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
-        kernel_data: &mut PublicKernelData,
+        kernel_data: &mut RollupKernelData,
         snapshot: AppendOnlyTreeSnapshot,
         public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), 2>,
         mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
@@ -729,7 +729,7 @@ mod tests {
         fn update_nullifier_tree_with_new_leaves(
             mut self,
             nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>,
-            kernel_data: &mut PublicKernelData,
+            kernel_data: &mut RollupKernelData,
             start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
         ) -> ([NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX], [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX], [Field; MAX_NEW_NULLIFIERS_PER_TX], [u32; MAX_NEW_NULLIFIERS_PER_TX]) {
             let mut nullifier_predecessor_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
@@ -786,7 +786,7 @@ mod tests {
         }
 
         fn build_inputs(mut self) -> BaseRollupInputs {
-            let mut kernel_data = self.kernel_data.to_public_kernel_data();
+            let mut kernel_data = self.kernel_data.to_rollup_kernel_data();
 
             let start_note_hash_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_notes,

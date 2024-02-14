@@ -38,6 +38,24 @@ struct PublicKernelCircuitPublicInputs {
     needs_teardown: bool,
 }
 
+struct RollupKernelCircuitPublicInputs {
+    aggregation_object: AggregationObject,
+    end: CombinedAccumulatedData,
+    constants: CombinedConstantData,
+}
+
+struct RollupKernelCircuitPublicInputsBuilder {
+    aggregation_object: AggregationObject,
+    end: CombinedAccumulatedDataBuilder,
+    constants: CombinedConstantData,
+}
+
+impl RollupKernelCircuitPublicInputsBuilder {
+    pub fn finish(self) -> RollupKernelCircuitPublicInputs {
+        RollupKernelCircuitPublicInputs { aggregation_object: self.aggregation_object, end: self.end.finish(), constants: self.constants }
+    }
+}
+
 struct PrivateKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
     max_non_revertible_side_effect_counter: u32,
