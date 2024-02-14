@@ -510,17 +510,6 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank-react
 
-  boxes-token:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-token
-
   end-to-end:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -686,6 +675,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_nested_contract.test.ts
+
+  e2e-static-calls:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_static_calls.test.ts
 
   e2e-non-contract-account:
     docker:
@@ -1284,10 +1284,6 @@ workflows:
           requires:
             - boxes
           <<: *defaults
-      - boxes-token:
-          requires:
-            - boxes
-          <<: *defaults
 
       # End to end tests.
       - e2e-join:
@@ -1308,6 +1304,7 @@ workflows:
       - e2e-state-vars: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
+      - e2e-static-calls: *e2e_test
       - e2e-non-contract-account: *e2e_test
       - e2e-multiple-accounts-1-enc-key: *e2e_test
       - e2e-cli: *e2e_test
@@ -1349,6 +1346,7 @@ workflows:
             - e2e-state-vars
             - e2e-block-building
             - e2e-nested-contract
+            - e2e-static-calls
             - e2e-non-contract-account
             - e2e-multiple-accounts-1-enc-key
             - e2e-cli
@@ -1372,7 +1370,6 @@ workflows:
             - pxe
             - boxes-blank
             - boxes-blank-react
-            - boxes-token
             - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing
