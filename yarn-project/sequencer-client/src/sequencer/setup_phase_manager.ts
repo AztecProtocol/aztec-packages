@@ -30,8 +30,8 @@ export class SetupPhaseManager extends AbstractPhaseManager {
   // this is a no-op for now
   async handle(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof?: Proof,
+    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    previousPublicKernelProof: Proof,
   ): Promise<{
     /**
      * the output of the public kernel circuit for this phase

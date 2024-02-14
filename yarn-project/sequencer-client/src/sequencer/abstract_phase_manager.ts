@@ -81,8 +81,8 @@ export abstract class AbstractPhaseManager {
    */
   abstract handle(
     tx: Tx,
-    publicKernelPublicInputs?: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof?: Proof,
+    publicKernelPublicInputs: PublicKernelCircuitPublicInputs,
+    previousPublicKernelProof: Proof,
   ): Promise<{
     /**
      * the output of the public kernel circuit for this phase
@@ -144,7 +144,7 @@ export abstract class AbstractPhaseManager {
     return AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls)[this.phase];
   }
 
-  protected getKernelOutputAndProof(
+  public static getKernelOutputAndProof(
     tx: Tx,
     publicKernelPublicInput?: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof?: Proof,
@@ -183,14 +183,11 @@ export abstract class AbstractPhaseManager {
 
   protected async processEnqueuedPublicCalls(
     tx: Tx,
-    previousPublicKernelOutput?: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof?: Proof,
+    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    previousPublicKernelProof: Proof,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof, FunctionL2Logs[]]> {
-    let { publicKernelPublicInput: kernelOutput, publicKernelProof: kernelProof } = this.getKernelOutputAndProof(
-      tx,
-      previousPublicKernelOutput,
-      previousPublicKernelProof,
-    );
+    let kernelOutput = previousPublicKernelOutput;
+    let kernelProof = previousPublicKernelProof;
 
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 

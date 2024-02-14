@@ -1,6 +1,6 @@
 import { ContractDataSource, L1ToL2MessageSource, Tx } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -98,17 +98,19 @@ export class PublicProcessor {
         this.publicStateDB,
       );
       this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-      let publicKernelOutput: PublicKernelCircuitPublicInputs | undefined = undefined;
-      let publicKernelProof: Proof | undefined = undefined;
+      let { publicKernelPublicInput, publicKernelProof } = AbstractPhaseManager.getKernelOutputAndProof(
+        tx,
+        undefined,
+        undefined,
+      );
       const timer = new Timer();
       try {
-        // PublicProcessor.checkTxCallStackLengths(tx);
         while (phase) {
-          const output = await phase.handle(tx, publicKernelOutput, publicKernelProof);
-          publicKernelOutput = output.publicKernelOutput;
+          const output = await phase.handle(tx, publicKernelPublicInput, publicKernelProof);
+          publicKernelPublicInput = output.publicKernelOutput;
           publicKernelProof = output.publicKernelProof;
           phase = PhaseManagerFactory.phaseFromOutput(
-            publicKernelOutput,
+            publicKernelPublicInput,
             phase,
             this.db,
             this.publicExecutor,
@@ -121,7 +123,7 @@ export class PublicProcessor {
           );
         }
 
-        const processedTransaction = makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+        const processedTransaction = makeProcessedTx(tx, publicKernelPublicInput, publicKernelProof);
         result.push(processedTransaction);
 
         this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0]}`, {
