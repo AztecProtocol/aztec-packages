@@ -8,12 +8,13 @@ import {
   computeAuthWitMessageHash,
   sleep,
 } from '@aztec/aztec.js';
+import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
 import { Hex } from 'viem';
-import { encodeAbiParameters } from 'viem/utils';
+import { getAbiItem, getAddress } from 'viem/utils';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -192,30 +193,43 @@ describe('e2e_public_cross_chain_messaging', () => {
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
-  it.only('can send an L2 -> L1 message to a non-portal address', async () => {
+  it.only('can send an L2 -> L1 message to a non-portal address from public', async () => {
     // Deploy test account contract
     const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
     const content = Fr.random();
     const recipient = crossChainTestHarness.ethAccount;
 
+    // We create the L2 -> L1 message using the test contract
     await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
 
-    const l2Actor = { actor: testContract.address.toString() as Hex, version: 1n };
-    const l1Actor = {
-      actor: recipient.toString() as Hex,
-      chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
-    };
-
     const l2ToL1Message = {
-      sender: l2Actor,
-      recipient: l1Actor,
+      sender: { actor: testContract.address.toString() as Hex, version: 1n },
+      recipient: {
+        actor: recipient.toString() as Hex,
+        chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
+      },
       content: content.toString() as Hex,
     };
 
-    const args = [l2ToL1Message] as const;
+    const txHash = await outbox.write.consume([l2ToL1Message] as const, {} as any);
 
-    const entryKey = await outbox.write.consume(args, {} as any);
-    console.log('entryKey', entryKey);
+    const abiItem = getAbiItem({
+      abi: OutboxAbi,
+      name: 'MessageConsumed',
+    });
+
+    const events = await crossChainTestHarness.publicClient.getLogs<typeof abiItem>({
+      address: getAddress(outbox.address.toString()),
+      event: abiItem,
+      fromBlock: 0n,
+    });
+
+    // We get the event just for the relevant transaction
+    const txEvents = events.filter(event => event.transactionHash === txHash);
+
+    // We check that exactly 1 MessageConsumed event was emitted with the expected recipient
+    expect(txEvents.length).toBe(1);
+    expect(txEvents[0].args.recipient).toBe(recipient.toChecksumString());
   }, 120_000);
 });
