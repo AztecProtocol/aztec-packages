@@ -203,8 +203,8 @@ impl PrivateContext {
     }
 
     // docs:start:context_message_portal
-    pub fn message_portal(&mut self, content: Field)
-    // docs:end:context_message_portal {
+    pub fn message_portal(&mut self, content: Field) {
+        // docs:end:context_message_portal {
         let recipient = self.this_portal_address();
         self.message_recipient(recipient, content);
     }
