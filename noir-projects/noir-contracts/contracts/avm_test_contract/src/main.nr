@@ -56,28 +56,32 @@ contract AvmTest {
         200 as Field
     }
 
-    /************************************************************************
-     * Hashing functions
-     ************************************************************************/
+    // /************************************************************************
+    //  * Hashing functions
+    //  ************************************************************************/
     #[aztec(public-vm)]
-    fn keccak(data: [Field; 3]) -> pub [Field; 2] {
+    fn keccak_hash(data: [Field; 3]) -> pub [Field; 2] {
         keccak256(data)
     }
 
     #[aztec(public-vm)]
     fn poseidon_hash(data: [Field; 3]) -> pub Field {
-        let new_data = data;
-        poseidon(new_data)
+        poseidon(data)
     }
 
     #[aztec(public-vm)]
-    fn sha256(data: [Field; 3]) -> pub [Field; 2] {
+    fn sha256_hash(data: [Field; 3]) -> pub [Field; 2] {
         sha256(data)
     }
 
-    /************************************************************************
-     * AvmContext functions
-     ************************************************************************/
+    #[aztec(public-vm)]
+    fn pedersen_hash(data: [Field; 3]) -> pub Field {
+        dep::std::hash::pedersen_hash(data)
+    }
+
+    // /************************************************************************
+    //  * AvmContext functions
+    //  ************************************************************************/
     #[aztec(public-vm)]
     fn getAddress() -> pub AztecAddress {
         context.address()
