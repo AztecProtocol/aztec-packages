@@ -135,6 +135,11 @@ impl PrivateContext {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
+            // TODO(fees): start this from 0 and test the following:
+            // - in the private circuit init that it gets set correctly
+            // - in the private circuit inner that it remains 0
+            // I've had to initialize the counter here so that it would work for contract deployments
+            // the above checks should be doable after we figure out fee payments for contract deployments
             max_non_revertible_side_effect_counter: self.max_non_revertible_side_effect_counter,
             read_requests: self.read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
