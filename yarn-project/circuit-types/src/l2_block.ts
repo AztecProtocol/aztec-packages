@@ -319,7 +319,7 @@ export class L2Block {
 
     const txEffect = this.body.txEffects[txIndex];
 
-    const newCommitments = txEffect.newNoteHashes.filter(x => !x.isZero());
+    const newNoteHashes = txEffect.newNoteHashes.filter(x => !x.isZero());
     const newNullifiers = txEffect.newNullifiers.filter(x => !x.isZero());
     const newPublicDataWrites = txEffect.newPublicDataWrites.filter(x => !x.isEmpty());
     const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
@@ -327,7 +327,7 @@ export class L2Block {
     const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
 
     return new L2Tx(
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newPublicDataWrites,
       newL2ToL1Msgs,

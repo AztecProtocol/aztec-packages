@@ -43,7 +43,7 @@ export class TxEffect {
       throw new Error('Hashing of a Transaction Effect requires logs to be attached ');
     }
 
-    const commitmentsBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
+    const noteHashesBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
     const nullifiersBuffer = Buffer.concat(this.newNullifiers.map(x => x.toBuffer()));
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
     const newL2ToL1MsgsBuffer = Buffer.concat(this.newL2ToL1Msgs.map(x => x.toBuffer()));
@@ -51,7 +51,7 @@ export class TxEffect {
     const unencryptedLogsHashKernel0 = this.logs!.unencryptedLogs.hash();
 
     const inputValue = Buffer.concat([
-      commitmentsBuffer,
+      noteHashesBuffer,
       nullifiersBuffer,
       publicDataUpdateRequestsBuffer,
       newL2ToL1MsgsBuffer,
