@@ -206,7 +206,7 @@ export const browserTestSuite = (
     }, 60_000);
 
     const deployTokenContract = async () => {
-      const txHash = await page.evaluate(
+      const [txHash, tokenAddress] = await page.evaluate(
         async (rpcUrl, initialBalance, TokenContractArtifact) => {
           const {
             DeployMethod,
@@ -267,7 +267,7 @@ export const browserTestSuite = (
 
           await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
 
-          return txHash.toString();
+          return [txHash.toString(), token.address.toString()];
         },
         pxeURL,
         initialBalance,
@@ -276,7 +276,7 @@ export const browserTestSuite = (
 
       const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
       expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
-      contractAddress = txResult.contractAddress!;
+      contractAddress = AztecJs.AztecAddress.fromString(tokenAddress);
     };
 
     const getTokenAddress = async () => {

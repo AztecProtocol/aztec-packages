@@ -72,7 +72,7 @@ describe('e2e_p2p_network', () => {
         const receipt = await tx.wait({ wallet });
 
         expect(receipt.status).toBe(TxStatus.MINED);
-        const contractAddress = receipt.contractAddress!;
+        const contractAddress = receipt.contract.address;
         expect(await isContractDeployed(context.pxeService, contractAddress)).toBeTruthy();
         expect(await isContractDeployed(context.pxeService, AztecAddress.random())).toBeFalsy();
       }

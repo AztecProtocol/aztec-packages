@@ -30,6 +30,10 @@ export type DeployOptions = {
   contractAddressSalt?: Fr;
   /** Set to true to *not* include the sender in the address computation. */
   universalDeploy?: boolean;
+  /** Skip contract class registration. */
+  skipClassRegistration?: boolean;
+  /** Skip public deployment and only initialize the contract. */
+  skipPublicDeployment?: boolean;
 } & SendMethodOptions;
 
 // TODO(@spalladino): Add unit tests for this class!
@@ -102,12 +106,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // What we should actually be checking if it's been broadcasted by a node, so we need to tell
     // the pxe "gimme the data about this class that's publicly available only", which is closely
     // related to the private data access mechanisms we have yet to design.
-    if (!(await this.pxe.getContractClass(contractClass.id))) {
+    if (!options.skipClassRegistration && !(await this.pxe.getContractClass(contractClass.id))) {
       calls.push(registerContractClass(this.wallet, this.artifact).request());
     }
 
     // Deploy the contract via the instance deployer.
-    calls.push(deployInstance(this.wallet, instance, { universalDeploy: options.universalDeploy }).request());
+    if (!options.skipPublicDeployment) {
+      calls.push(deployInstance(this.wallet, instance, { universalDeploy: options.universalDeploy }).request());
+    }
 
     // Call the constructor.
     calls.push(

@@ -50,9 +50,12 @@ describe('e2e_block_building', () => {
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
       const methods = times(TX_COUNT, () => deployer.deploy());
-
       for (let i = 0; i < TX_COUNT; i++) {
-        await methods[i].create({ contractAddressSalt: new Fr(BigInt(i + 1)) });
+        await methods[i].create({
+          contractAddressSalt: new Fr(BigInt(i + 1)),
+          skipClassRegistration: true,
+          skipPublicDeployment: true,
+        });
         await methods[i].simulate({});
       }
 
@@ -69,7 +72,7 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(pxe, r.contractAddress!)));
+      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(pxe, r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     }, 60_000);
 

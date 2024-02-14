@@ -451,18 +451,7 @@ export class PXEService implements PXE {
 
     const settledTx = await this.node.getTx(txHash);
     if (settledTx) {
-      const deployedContractAddress = settledTx.newContractData.find(
-        c => !c.contractAddress.equals(AztecAddress.ZERO),
-      )?.contractAddress;
-
-      txReceipt = new TxReceipt(
-        txHash,
-        TxStatus.MINED,
-        '',
-        settledTx.blockHash.toBuffer(),
-        settledTx.blockNumber,
-        deployedContractAddress,
-      );
+      txReceipt = new TxReceipt(txHash, TxStatus.MINED, '', settledTx.blockHash.toBuffer(), settledTx.blockNumber);
     }
 
     return txReceipt;
