@@ -514,9 +514,10 @@ template <typename Flavor> inline void compute_first_and_last_lagrange_polynomia
  */
 template <typename Flavor>
 void compute_plonk_generalized_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
-                                                  typename Flavor::ProvingKey* key)
+                                                  typename Flavor::ProvingKey* key,
+                                                  std::vector<CyclicPermutation> copy_cycles = {})
 {
-    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/true>(circuit_constructor, key);
+    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/true>(circuit_constructor, key, copy_cycles);
 
     // Compute Plonk-style sigma and ID polynomials from the corresponding mappings
     compute_plonk_permutation_lagrange_polynomials_from_mapping("sigma", mapping.sigmas, key);

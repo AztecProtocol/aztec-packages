@@ -17,7 +17,8 @@ template <class Arithmetization> struct ExecutionTraceBlock {
     bool is_goblin_op = false;
 };
 
-template <IsUltraFlavor Flavor> class ExecutionTrace_ {
+// WORKTODO: restrict to UltraFlavor? would need to bring Plonk Ultra into that
+template <class Flavor> class ExecutionTrace_ {
     using Builder = typename Flavor::CircuitBuilder;
     using Polynomial = typename Flavor::Polynomial;
     using FF = typename Flavor::FF;
@@ -36,10 +37,10 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
     size_t num_public_inputs = 0;
     size_t num_ecc_op_gates = 0;
 
-    std::array<Polynomial, Flavor::NUM_WIRES> wire_polynomials_;
-    std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> selector_polynomials_;
-    std::vector<CyclicPermutation> copy_cycles_;
-    Polynomial ecc_op_selector_;
+    std::array<Polynomial, Flavor::NUM_WIRES> trace_wires;
+    std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> trace_selectors;
+    std::vector<CyclicPermutation> trace_copy_cycles;
+    Polynomial trace_ecc_op_selector;
 
     /**
      * @brief Temporary helper method to construct execution trace blocks from existing builder structures
@@ -226,21 +227,20 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
         generate_trace_polynomials(builder, dyadic_circuit_size);
 
         info("proving_key->get_wires().size() = ", proving_key->get_wires().size());
-        info("wire_polynomials_.size() = ", wire_polynomials_.size());
+        info("wire_polynomials_.size() = ", trace_wires.size());
         // WORKTODO: this diff size issue goes away once adam fixes the get_wires bug
-        for (auto [pkey_wire, wire] :
-             zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_wires(), wire_polynomials_)) {
+        for (auto [pkey_wire, wire] : zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_wires(), trace_wires)) {
             pkey_wire = wire.share();
         }
-        for (auto [pkey_selector, selector] : zip_view(proving_key->get_selectors(), selector_polynomials_)) {
+        for (auto [pkey_selector, selector] : zip_view(proving_key->get_selectors(), trace_selectors)) {
             pkey_selector = selector.share();
         }
 
         if constexpr (IsGoblinFlavor<Flavor>) {
-            proving_key->lagrange_ecc_op = ecc_op_selector_.share();
+            proving_key->lagrange_ecc_op = trace_ecc_op_selector.share();
         }
 
-        compute_honk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), copy_cycles_);
+        compute_honk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), trace_copy_cycles);
 
         return proving_key;
     }
@@ -252,16 +252,16 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
 
         // WORKTODO: all of this initialization can happen in constructor
         // Initializate the wire polynomials
-        for (auto& wire : wire_polynomials_) {
+        for (auto& wire : trace_wires) {
             wire = Polynomial(dyadic_circuit_size);
         }
         // Initializate the selector polynomials
-        for (auto& selector : selector_polynomials_) {
+        for (auto& selector : trace_selectors) {
             selector = Polynomial(dyadic_circuit_size);
         }
         // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials whose
         // values are copy constrained to be equal. Each variable represents one cycle.
-        copy_cycles_.resize(builder.variables.size());
+        trace_copy_cycles.resize(builder.variables.size());
 
         uint32_t offset = 0;
         size_t block_num = 0; // debug only
@@ -278,18 +278,18 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
                     uint32_t var_idx = block.wires[wire_idx][row_idx]; // an index into the variables array
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    wire_polynomials_[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
+                    trace_wires[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
                     // WORKTODO: can we copy constrain the zeros in wires 3 and 4 together and avoud the special case?
                     if (!(block.is_public_input && wire_idx > 1)) {
-                        copy_cycles_[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                        trace_copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
                     }
                 }
             }
 
             // Insert the selector values for this block into the selector polynomials at the correct offset
             // WORKTODO: comment about coupling of arith and flavor stuff
-            for (auto [selector_poly, selector] : zip_view(selector_polynomials_, block.selectors.get())) {
+            for (auto [selector_poly, selector] : zip_view(trace_selectors, block.selectors.get())) {
                 for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                     selector_poly[row_idx + offset] = selector[row_idx];
                 }
@@ -299,9 +299,9 @@ template <IsUltraFlavor Flavor> class ExecutionTrace_ {
             // would be a good test case for the concept of gate blocks.
             if constexpr (IsGoblinFlavor<Flavor>) {
                 if (block.is_goblin_op) {
-                    ecc_op_selector_ = Polynomial{ dyadic_circuit_size };
+                    trace_ecc_op_selector = Polynomial{ dyadic_circuit_size };
                     for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                        ecc_op_selector_[row_idx + offset] = 1;
+                        trace_ecc_op_selector[row_idx + offset] = 1;
                     }
                 }
             }

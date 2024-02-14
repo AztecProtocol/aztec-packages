@@ -77,31 +77,25 @@ UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
     circuit.finalize_circuit();
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
+    { // Execution trace stuff
+        auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
+        circuit_proving_key =
+            std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, CircuitType::ULTRA);
 
-    // TODO(#392)(Kesha): replace composer types.
-    auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
-    circuit_proving_key =
-        std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, CircuitType::ULTRA);
+        construct_selector_polynomials<Flavor>(circuit, circuit_proving_key.get());
 
-    construct_selector_polynomials<Flavor>(circuit, circuit_proving_key.get());
+        compute_plonk_generalized_sigma_permutations<Flavor>(circuit, circuit_proving_key.get());
 
-    compute_plonk_generalized_sigma_permutations<Flavor>(circuit, circuit_proving_key.get());
+        construct_wire_polynomials(circuit, subgroup_size);
+    }
 
-    construct_wire_polynomials(circuit, subgroup_size);
-
-    computed_witness = true;
-
-    // Other stuff
+    // other stuff
     {
         enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
 
         compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
 
         construct_table_polynomials(circuit, subgroup_size);
-
-        construct_sorted_polynomials(circuit, subgroup_size);
-
-        populate_memory_records(circuit);
 
         // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
         // Note: might be better to add these polys to cache only after they've been computed, as is convention
@@ -115,6 +109,10 @@ UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
             circuit.recursive_proof_public_input_indices.begin(), circuit.recursive_proof_public_input_indices.end());
 
         circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
+
+        construct_sorted_polynomials(circuit, subgroup_size);
+
+        populate_memory_records(circuit);
     }
 
     return construct_prover(circuit);

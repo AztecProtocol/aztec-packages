@@ -32,8 +32,68 @@ template <typename T> class ultra_plonk_composer : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    void prove_and_verify(UltraCircuitBuilder& builder, UltraComposer& composer, bool expected_result)
+    void compare_pkeys(UltraCircuitBuilder& builder, auto& proving_key)
     {
+        UltraComposer composer;
+        auto prover = composer.create_prover(builder);
+        // auto prover = composer.create_prover_new(builder);
+        info("Size original = ", proving_key->circuit_size);
+        info("Size new = ", prover.key->circuit_size);
+
+        // Check wires
+        std::vector<size_t> unequal_wires;
+        for (size_t i = 0; i < 4; ++i) {
+            std::string wire_tag = "w_" + std::to_string(i + 1) + "_lagrange";
+            auto wire = proving_key->polynomial_store.get(wire_tag);
+            auto new_wire = prover.key->polynomial_store.get(wire_tag);
+            if (wire != new_wire) {
+                unequal_wires.emplace_back(i);
+            }
+        }
+        bool wires_equal = unequal_wires.empty();
+        if (wires_equal) {
+            info("Wires equal!");
+        } else {
+            for (auto idx : unequal_wires) {
+                info("Bad wire: ", idx);
+            }
+        }
+
+        // Check precomputed polys
+        PrecomputedPolyList precomputed_poly_list(proving_key->circuit_type);
+        size_t num_precomputed = precomputed_poly_list.size();
+        // info("num_precomputed = ", num_precomputed);
+        std::vector<std::string> unequal_precomputed;
+        for (size_t i = 0; i < num_precomputed; ++i) {
+            std::string poly_id = precomputed_poly_list[i];
+            auto poly = proving_key->polynomial_store.get(poly_id);
+            auto new_poly = prover.key->polynomial_store.get(poly_id);
+            if (poly != new_poly) {
+                unequal_precomputed.emplace_back(poly_id);
+            }
+        }
+
+        bool selectors_equal = unequal_precomputed.empty();
+        if (selectors_equal) {
+            info("Precomputed equal!");
+        } else {
+            for (const auto& id : unequal_precomputed) {
+                info("Bad selector: ", id);
+            }
+        }
+        EXPECT_TRUE(wires_equal);
+        EXPECT_TRUE(selectors_equal);
+
+        // WORKTODO: Cant verify a proof made from a co[ied builder for some reason
+        // auto verifier = composer.create_verifier(builder);
+        // auto proof = prover.construct_proof();
+        // bool verified = verifier.verify_proof(proof);
+        // EXPECT_TRUE(verified);
+    }
+
+    void prove_and_verify(UltraCircuitBuilder& builder, bool expected_result)
+    {
+        auto composer = UltraComposer();
         if constexpr (T::use_keccak) {
             auto prover = composer.create_ultra_with_keccak_prover(builder);
             auto verifier = composer.create_ultra_with_keccak_verifier(builder);
@@ -42,6 +102,7 @@ template <typename T> class ultra_plonk_composer : public ::testing::Test {
             EXPECT_EQ(verified, expected_result);
         } else {
             auto prover = composer.create_prover_new(builder);
+            compare_pkeys(builder, prover.key);
             auto verifier = composer.create_verifier(builder);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -64,7 +125,6 @@ TYPED_TEST_SUITE(ultra_plonk_composer, BooleanTypes);
 TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
 {
     auto circuit_builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
@@ -119,13 +179,12 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
         }
     }
 
-    TestFixture::prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, test_no_lookup_proof)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     for (size_t i = 0; i < 16; ++i) {
         for (size_t j = 0; j < 16; ++j) {
@@ -141,7 +200,7 @@ TYPED_TEST(ultra_plonk_composer, test_no_lookup_proof)
         }
     }
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, test_elliptic_gate)
@@ -149,7 +208,6 @@ TYPED_TEST(ultra_plonk_composer, test_elliptic_gate)
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
 
@@ -176,13 +234,13 @@ TYPED_TEST(ultra_plonk_composer, test_elliptic_gate)
     y3 = builder.add_variable(p3.y);
     builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, non_trivial_tag_permutation)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     fr a = fr::random_element();
     fr b = -a;
 
@@ -207,13 +265,13 @@ TYPED_TEST(ultra_plonk_composer, non_trivial_tag_permutation)
     // fr::zero() }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(),
     // fr::zero(), fr::zero() });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, non_trivial_tag_permutation_and_cycles)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     fr a = fr::random_element();
     fr c = -a;
 
@@ -247,14 +305,14 @@ TYPED_TEST(ultra_plonk_composer, non_trivial_tag_permutation_and_cycles)
     // fr::zero() }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(),
     // fr::zero(), fr::zero() });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, bad_tag_permutation)
 {
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         fr a = fr::random_element();
         fr b = -a;
 
@@ -274,12 +332,12 @@ TYPED_TEST(ultra_plonk_composer, bad_tag_permutation)
         builder.assign_tag(c_idx, 2);
         builder.assign_tag(d_idx, 2);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
     // Same as above but without tag creation to check reason of failure is really tag mismatch
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         fr a = fr::random_element();
         fr b = -a;
 
@@ -291,14 +349,14 @@ TYPED_TEST(ultra_plonk_composer, bad_tag_permutation)
         builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, 1, 1, 0, 0 });
         builder.create_add_gate({ c_idx, d_idx, builder.zero_idx, 1, 1, 0, -1 });
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
 }
 
 TYPED_TEST(ultra_plonk_composer, sort_widget)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -310,7 +368,7 @@ TYPED_TEST(ultra_plonk_composer, sort_widget)
     auto d_idx = builder.add_variable(d);
     builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
@@ -326,7 +384,7 @@ TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
 
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto a_idx = builder.add_variable(a);
         auto b_idx = builder.add_variable(b);
         auto c_idx = builder.add_variable(c);
@@ -337,12 +395,12 @@ TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
         auto h_idx = builder.add_variable(h);
         builder.create_sort_constraint_with_edges({ a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, h);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
 
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto a_idx = builder.add_variable(a);
         auto b_idx = builder.add_variable(b);
         auto c_idx = builder.add_variable(c);
@@ -352,17 +410,12 @@ TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
         auto g_idx = builder.add_variable(g);
         auto h_idx = builder.add_variable(h);
         builder.create_sort_constraint_with_edges({ a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, g);
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
 
-        proof proof = prover.construct_proof();
-
-        bool result = verifier.verify_proof(proof);
-        EXPECT_EQ(result, false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto a_idx = builder.add_variable(a);
         auto b_idx = builder.add_variable(b);
         auto c_idx = builder.add_variable(c);
@@ -373,11 +426,11 @@ TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
         auto h_idx = builder.add_variable(h);
         builder.create_sort_constraint_with_edges({ a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto a_idx = builder.add_variable(a);
         auto c_idx = builder.add_variable(c);
         auto d_idx = builder.add_variable(d);
@@ -388,26 +441,26 @@ TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
         auto b2_idx = builder.add_variable(fr(15));
         builder.create_sort_constraint_with_edges({ a_idx, b2_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto idx = add_variables(builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
                                             26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         builder.create_sort_constraint_with_edges(idx, 1, 45);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto idx = add_variables(builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
                                             26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
 
         builder.create_sort_constraint_with_edges(idx, 1, 29);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
 }
 
@@ -415,24 +468,19 @@ TYPED_TEST(ultra_plonk_composer, range_constraint)
 {
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto indices = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 8);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         builder.create_sort_constraint(indices);
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
 
-        proof proof = prover.construct_proof();
-
-        bool result = verifier.verify_proof(proof);
-        EXPECT_EQ(result, true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto indices = add_variables(builder, { 3 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 3);
@@ -440,22 +488,22 @@ TYPED_TEST(ultra_plonk_composer, range_constraint)
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         builder.create_dummy_constraints(indices);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto indices = add_variables(builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 8);
         }
         builder.create_sort_constraint(indices);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto indices =
             add_variables(builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
         for (size_t i = 0; i < indices.size(); i++) {
@@ -463,28 +511,23 @@ TYPED_TEST(ultra_plonk_composer, range_constraint)
         }
         builder.create_dummy_constraints(indices);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto indices =
             add_variables(builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
         builder.create_dummy_constraints(indices);
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
 
-        proof proof = prover.construct_proof();
-
-        bool result = verifier.verify_proof(proof);
-        EXPECT_EQ(result, false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
     {
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         auto indices =
             add_variables(builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
@@ -492,14 +535,14 @@ TYPED_TEST(ultra_plonk_composer, range_constraint)
         }
         builder.create_dummy_constraints(indices);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
 }
 
 TYPED_TEST(ultra_plonk_composer, range_with_gates)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
         builder.create_new_range_constraint(idx[i], 8);
@@ -510,13 +553,13 @@ TYPED_TEST(ultra_plonk_composer, range_with_gates)
     builder.create_add_gate({ idx[4], idx[5], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -11 });
     builder.create_add_gate({ idx[6], idx[7], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, range_with_gates_where_range_is_not_a_power_of_two)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
         builder.create_new_range_constraint(idx[i], 12);
@@ -527,7 +570,7 @@ TYPED_TEST(ultra_plonk_composer, range_with_gates_where_range_is_not_a_power_of_
     builder.create_add_gate({ idx[4], idx[5], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -11 });
     builder.create_add_gate({ idx[6], idx[7], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, sort_widget_complex)
@@ -535,37 +578,32 @@ TYPED_TEST(ultra_plonk_composer, sort_widget_complex)
     {
 
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
         builder.create_sort_constraint(ind);
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
 
-        proof proof = prover.construct_proof();
-
-        bool result = verifier.verify_proof(proof);
-        EXPECT_EQ(result, true);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/true);
     }
     {
 
         auto builder = UltraCircuitBuilder();
-        auto composer = UltraComposer();
+
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
         builder.create_sort_constraint(ind);
 
-        TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+        TestFixture::prove_and_verify(builder, /*expected_result=*/false);
     }
 }
 TYPED_TEST(ultra_plonk_composer, sort_widget_neg)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -577,13 +615,13 @@ TYPED_TEST(ultra_plonk_composer, sort_widget_neg)
     auto d_idx = builder.add_variable(d);
     builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/false);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
 }
 
 TYPED_TEST(ultra_plonk_composer, composed_range_constraint)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     auto c = fr::random_element();
     auto d = uint256_t(c).slice(0, 133);
     auto e = fr(d);
@@ -591,13 +629,12 @@ TYPED_TEST(ultra_plonk_composer, composed_range_constraint)
     builder.create_add_gate({ a_idx, builder.zero_idx, builder.zero_idx, 1, 0, 0, -fr(e) });
     builder.decompose_into_default_range(a_idx, 134);
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, non_native_field_multiplication)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     fq a = fq::random_element();
     fq b = fq::random_element();
@@ -647,13 +684,12 @@ TYPED_TEST(ultra_plonk_composer, non_native_field_multiplication)
     const auto [lo_1_idx, hi_1_idx] = builder.evaluate_non_native_field_multiplication(inputs);
     builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, rom)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     uint32_t rom_values[8]{
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
@@ -688,13 +724,12 @@ TYPED_TEST(ultra_plonk_composer, rom)
         0,
     });
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, ram)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     uint32_t ram_values[8]{
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
@@ -752,13 +787,12 @@ TYPED_TEST(ultra_plonk_composer, ram)
         },
         false);
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(ultra_plonk_composer, range_checks_on_duplicates)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
 
     uint32_t a = builder.add_variable(100);
     uint32_t b = builder.add_variable(100);
@@ -788,7 +822,7 @@ TYPED_TEST(ultra_plonk_composer, range_checks_on_duplicates)
         },
         false);
 
-    TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
 // Ensure copy constraints added on variables smaller than 2^14, which have been previously
@@ -798,7 +832,7 @@ TYPED_TEST(ultra_plonk_composer, range_checks_on_duplicates)
 TEST(ultra_plonk_composer, range_constraint_small_variable)
 {
     auto builder = UltraCircuitBuilder();
-    auto composer = UltraComposer();
+
     uint16_t mask = (1 << 8) - 1;
     int a = engine.get_random_uint16() & mask;
     uint32_t a_idx = builder.add_variable(fr(a));
@@ -811,6 +845,7 @@ TEST(ultra_plonk_composer, range_constraint_small_variable)
     builder.create_range_constraint(c_idx, 8, "bad range");
     builder.assert_equal(a_idx, c_idx);
 
+    UltraComposer composer;
     auto prover = composer.create_prover(builder);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(builder);

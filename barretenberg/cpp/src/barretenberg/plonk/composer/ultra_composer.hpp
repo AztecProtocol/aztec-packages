@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
@@ -18,6 +19,7 @@ class UltraComposer {
     using Flavor = flavor::Ultra;
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = Flavor::Curve;
+    using Trace = ExecutionTrace_<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "UltraPlonk";
     static constexpr CircuitType type = CircuitType::ULTRA;
