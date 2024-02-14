@@ -18,7 +18,7 @@ export class Poseidon2 extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private destOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
@@ -29,7 +29,7 @@ export class Poseidon2 extends Instruction {
       .map(word => word.toBuffer());
 
     const hash = poseidonHash(hashData);
-    context.machineState.memory.set(this.destOffset, new Field(hash));
+    context.machineState.memory.set(this.dstOffset, new Field(hash));
 
     context.machineState.incrementPc();
   }
@@ -47,7 +47,7 @@ export class Keccak extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private destOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
@@ -64,8 +64,8 @@ export class Keccak extends Instruction {
     const high = new Field(toBigIntBE(hash.subarray(0, 16)));
     const low = new Field(toBigIntBE(hash.subarray(16, 32)));
 
-    context.machineState.memory.set(this.destOffset, high);
-    context.machineState.memory.set(this.destOffset + 1, low);
+    context.machineState.memory.set(this.dstOffset, high);
+    context.machineState.memory.set(this.dstOffset + 1, low);
 
     context.machineState.incrementPc();
   }
@@ -83,7 +83,7 @@ export class Sha256 extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private destOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
@@ -100,8 +100,8 @@ export class Sha256 extends Instruction {
     const high = new Field(toBigIntBE(hash.subarray(0, 16)));
     const low = new Field(toBigIntBE(hash.subarray(16, 32)));
 
-    context.machineState.memory.set(this.destOffset, high);
-    context.machineState.memory.set(this.destOffset + 1, low);
+    context.machineState.memory.set(this.dstOffset, high);
+    context.machineState.memory.set(this.dstOffset + 1, low);
 
     context.machineState.incrementPc();
   }
@@ -119,7 +119,7 @@ export class Pedersen extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private destOffset: number, private hashOffset: number, private hashSize: number) {
+  constructor(private dstOffset: number, private hashOffset: number, private hashSize: number) {
     super();
   }
 
@@ -131,7 +131,7 @@ export class Pedersen extends Instruction {
 
     // No domain sep for now
     const hash = pedersenHash(hashData);
-    context.machineState.memory.set(this.destOffset, new Field(hash));
+    context.machineState.memory.set(this.dstOffset, new Field(hash));
 
     context.machineState.incrementPc();
   }
