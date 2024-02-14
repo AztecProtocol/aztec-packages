@@ -87,60 +87,7 @@ export class L2Block {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
-    const newCommitments = reader.readVector(Fr);
-    const newNullifiers = reader.readVector(Fr);
-    const newPublicDataWrites = reader.readVector(PublicDataWrite);
-    const newL2ToL1Msgs = reader.readVector(Fr);
-    const newContracts = reader.readVector(Fr);
-    const newContractData = reader.readArray(newContracts.length, ContractData);
-    // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
-    // It seems the da/ tx hash would be fine, would only need to edit circuits ?
-    const newL1ToL2Messages = reader.readVector(Fr);
-
-    let newEncryptedLogs: L2BlockL2Logs;
-    let newUnencryptedLogs: L2BlockL2Logs;
-
-    // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
-    const numberOfNonEmptyTxs = calculateNumTxsFromNullifiers(newNullifiers);
-
-    if (withLogs) {
-      newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-      newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
-
-      if (
-        new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
-        new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
-      ) {
-        throw new Error('Logs exist in the padded area');
-      }
-    }
-
-    const txEffects: TxEffect[] = [];
-
-    const numberOfTxsIncludingEmpty = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
-
-    for (let i = 0; i < numberOfTxsIncludingEmpty; i += 1) {
-      const logs: TxEffectLogs[] = withLogs
-        ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])]
-        : [];
-
-      txEffects.push(
-        new TxEffect(
-          newCommitments.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
-          newNullifiers.slice(i * MAX_NEW_NULLIFIERS_PER_TX, (i + 1) * MAX_NEW_NULLIFIERS_PER_TX),
-          newL2ToL1Msgs.slice(i * MAX_NEW_L2_TO_L1_MSGS_PER_TX, (i + 1) * MAX_NEW_L2_TO_L1_MSGS_PER_TX),
-          newPublicDataWrites.slice(
-            i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            (i + 1) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-          ),
-          newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          ...logs,
-        ),
-      );
-    }
-
-    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
+    const body = reader.readObject(L2BlockBody, withLogs);
 
     return L2Block.fromFields({
       archive,
