@@ -29,6 +29,10 @@ using namespace bb;
 
 template <typename Arithmetization>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization::FF> {
+  private:
+    size_t tables_size = 0;
+    size_t lookups_size = 0;
+
   public:
     using Selectors = Arithmetization;
     using FF = typename Arithmetization::FF;
@@ -953,6 +957,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      */
     size_t get_tables_size() const
     {
+        if (circuit_finalized) {
+            return tables_size;
+        }
         size_t tables_size = 0;
         for (const auto& table : lookup_tables) {
             tables_size += table.size;
@@ -966,6 +973,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      */
     size_t get_lookups_size() const
     {
+        if (circuit_finalized) {
+            return lookups_size;
+        }
         size_t lookups_size = 0;
         for (const auto& table : lookup_tables) {
             lookups_size += table.lookup_gates.size();

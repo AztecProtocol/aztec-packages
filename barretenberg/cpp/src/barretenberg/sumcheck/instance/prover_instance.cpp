@@ -14,12 +14,6 @@ namespace bb {
  */
 template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
 {
-    // Compute total length of the tables and the number of lookup gates; their sum is the minimum circuit size
-    for (const auto& table : circuit.lookup_tables) {
-        tables_size += table.size;
-        lookups_size += table.lookup_gates.size();
-    }
-
     // Get num conventional gates, num public inputs and num Goblin style ECC op gates
     const size_t num_gates = circuit.num_gates;
     num_public_inputs = circuit.public_inputs.size();
@@ -29,14 +23,15 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
     }
 
     // minimum circuit size due to the length of lookups plus tables
-    const size_t minimum_circuit_size_due_to_lookups = tables_size + lookups_size + num_zero_rows;
+    const size_t minimum_circuit_size_due_to_lookups =
+        circuit.get_tables_size() + circuit.get_lookups_size() + num_zero_rows;
 
     // number of populated rows in the execution trace
     size_t num_rows_populated_in_execution_trace = num_zero_rows + num_ecc_op_gates + num_public_inputs + num_gates;
 
     // The number of gates is max(lookup gates + tables, rows already populated in trace) + 1, where the +1 is due to
     // addition of a "zero row" at top of the execution trace to ensure wires and other polys are shiftable.
-    total_num_gates = std::max(minimum_circuit_size_due_to_lookups, num_rows_populated_in_execution_trace);
+    size_t total_num_gates = std::max(minimum_circuit_size_due_to_lookups, num_rows_populated_in_execution_trace);
 
     // Next power of 2
     dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
