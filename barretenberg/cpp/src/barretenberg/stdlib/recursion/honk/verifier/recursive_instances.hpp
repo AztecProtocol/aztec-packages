@@ -10,6 +10,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Instance = RecursiveVerifierInstance_<Flavor>;
+    using NativeInstance = bb::VerifierInstance_<typename Flavor::NativeFlavor>;
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
 
   public:
@@ -23,24 +24,21 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     // RecursiveVerifierInstances_() = default;
 
     RecursiveVerifierInstances_(Builder* builder,
-                                std::shared_ptr<Instance> accumulator,
+                                std::shared_ptr<NativeInstance> accumulator,
                                 std::vector<std::shared_ptr<NativeVerificationKey>> vks)
         : builder(builder)
     {
         ASSERT(vks.size() == NUM - 1);
-        _data[0] = std::make_shared<Instance>(builder, accumulator);
+        if (accumulator->is_accumulator) {
+            _data[0] = std::make_shared<Instance>(builder, accumulator);
+        } else {
+            _data[0] = std::make_shared<Instance>(builder, accumulator->verification_key);
+        }
         size_t idx = 1;
         for (auto vk : vks) {
             _data[idx] = std::make_shared<Instance>(builder, vk);
             idx++;
         }
     }
-    RecursiveVerifierInstances_(Builder* builder, std::vector<std::shared_ptr<NativeVerificationKey>> vks)
-    {
-        ASSERT(vks.size() == NUM);
-        for (size_t idx = 0; idx < vks.size(); idx++) {
-            _data[idx] = std::make_shared<Instance>(builder, vks[idx]);
-        }
-    };
 };
 } // namespace bb::stdlib::recursion::honk

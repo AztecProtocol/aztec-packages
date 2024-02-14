@@ -148,7 +148,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
-    auto next_accumulator = std::make_shared<Instance>();
+    auto next_accumulator = std::make_shared<Instance>(builder);
     next_accumulator->instance_size = accumulator->instance_size;
     next_accumulator->log_instance_size = accumulator->log_instance_size;
     next_accumulator->is_accumulator = true;
@@ -163,7 +163,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto& acc_witness_commitments = next_accumulator->witness_commitments;
     auto witness_labels = commitment_labels.get_witness();
     size_t comm_idx = 0;
-    for (auto comm : acc_witness_commitments.get_all()) {
+    for (auto& comm : acc_witness_commitments.get_all()) {
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
         size_t inst = 0;

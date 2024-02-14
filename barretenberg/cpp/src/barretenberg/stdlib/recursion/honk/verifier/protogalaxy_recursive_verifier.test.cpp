@@ -190,8 +190,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder outer_folding_circuit;
         auto verifier = FoldingRecursiveVerifier(
-            &outer_folding_circuit, { verifier_instance_1->verification_key, verifier_instance_2->verification_key });
+            &outer_folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", outer_folding_circuit.num_gates);
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
@@ -213,7 +214,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto inner_decider_proof = inner_decider_prover.construct_proof();
 
         OuterBuilder outer_decider_circuit;
-        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit, recursive_verifier_accumulator };
+        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit, acc };
         auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
         info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit

@@ -11,11 +11,12 @@ namespace bb::stdlib::recursion::honk {
 template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
-
+    using NativeFlavor = typename Flavor::NativeFlavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
     using Instance = typename VerifierInstances::Instance;
+    using NativeInstance = bb::VerifierInstance_<NativeFlavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -35,16 +36,10 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     VerifierInstances instances;
 
     ProtoGalaxyRecursiveVerifier_(Builder* builder,
-                                  std::shared_ptr<Instance> accumulator,
-                                  const std::vector<std::shared_ptr<NativeVerificationKey>> inst_vks)
+                                  std::shared_ptr<NativeInstance> accumulator,
+                                  const std::vector<std::shared_ptr<NativeVerificationKey>> native_inst_vks)
         : builder(builder)
-        , instances(VerifierInstances(builder, accumulator, inst_vks)){};
-
-    ProtoGalaxyRecursiveVerifier_(Builder* builder, const std::vector<std::shared_ptr<NativeVerificationKey>> inst_vks)
-        : builder(builder)
-        , instances(VerifierInstances(builder, inst_vks)){
-
-        };
+        , instances(VerifierInstances(builder, accumulator, native_inst_vks)){};
 
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector

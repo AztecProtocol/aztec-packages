@@ -61,8 +61,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<ClientIVC::VerifierAccumu
 
     // Decider verification
     Composer composer;
-    auto folding_verifier =
-        composer.create_folding_verifier({ std::move(verifier_instances[0]), std::move(verifier_instances[1]) });
+    auto folding_verifier = composer.create_folding_verifier({ verifier_instances[0], verifier_instances[1] });
     auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.fold_proof);
     // NOTE: Use of member accumulator here will go away with removal of vkey from ProverInstance
     auto decider_verifier = composer.create_decider_verifier(verifier_accumulator);

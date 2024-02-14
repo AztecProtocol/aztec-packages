@@ -213,48 +213,42 @@ class GoblinMockCircuits {
      * @param function_fold_proof
      * @param kernel_fold_proof
      */
-    static RecursiveVerifierAccumulator construct_mock_folding_kernel(
-        GoblinUltraBuilder& builder,
-        const std::vector<FF>& fctn_fold_proof,
-        const std::vector<FF>& kernel_fold_proof,
-        std::shared_ptr<VerifierInstance>& fctn_verifier_instance,
-        std::shared_ptr<VerifierInstance>& kernel_verifier_instance,
-        RecursiveVerifierAccumulator& prev_kernel_accum)
-    {
-        using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
-        using RecursiveVerifierInstances =
-            bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
-        using FoldingRecursiveVerifier =
-            bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    // template <typename RecursiveOrNativeAcc>
+    // static RecursiveVerifierAccumulator construct_mock_folding_kernel(
+    //     GoblinUltraBuilder& builder,
+    //     const std::vector<FF>& fold_proof_1,
+    //     const std::vector<FF>& fold_proof_2,
+    //     std::shared_ptr<VerifierInstance>& verifier_inst_1,
+    //     std::shared_ptr<VerifierInstance>& verifier_inst_2,
+    //     RecursiveOrNativeAcc& prev_kernel_accum)
+    // {
+    //     using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
+    //     using RecursiveVerifierInstances =
+    //         bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
+    //     using FoldingRecursiveVerifier =
+    //         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
 
-        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
-        // kernel "full" within the dyadic size 2^17 (130914 gates)
-        const size_t NUM_MERKLE_CHECKS = 20;
-        const size_t NUM_ECDSA_VERIFICATIONS = 1;
-        const size_t NUM_SHA_HASHES = 1;
-        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
-        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
-        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+    //     // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
+    //     the
+    //     // kernel "full" within the dyadic size 2^17 (130914 gates)
+    //     const size_t NUM_MERKLE_CHECKS = 20;
+    //     const size_t NUM_ECDSA_VERIFICATIONS = 1;
+    //     const size_t NUM_SHA_HASHES = 1;
+    //     info(builder.get_num_gates());
+    //     stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+    //     info(builder.get_num_gates());
+    //     stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+    //     info(builder.get_num_gates());
+    //     stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+    //     info(builder.get_num_gates());
 
-        if (kernel_fold_proof.empty()) {
-            FoldingRecursiveVerifier verifier{
-                &builder, { kernel_verifier_instance->verification_key, fctn_verifier_instance->verification_key }
-            };
-            auto kernel_verifier_accum = verifier.verify_folding_proof(fctn_fold_proof);
-            return kernel_verifier_accum;
-        }
+    //     FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { verifier_inst_1->verification_key } };
+    //     auto fctn_verifier_accum = verifier_1.verify_folding_proof(fold_proof_1);
 
-        FoldingRecursiveVerifier verifier_1{ &builder,
-                                             prev_kernel_accum,
-                                             { fctn_verifier_instance->verification_key } };
-        auto fctn_verifier_accum = verifier_1.verify_folding_proof(fctn_fold_proof);
-
-        FoldingRecursiveVerifier verifier_2{ &builder,
-                                             fctn_verifier_accum,
-                                             { kernel_verifier_instance->verification_key } };
-        auto kernel_verifier_accum = verifier_2.verify_folding_proof(kernel_fold_proof);
-        return kernel_verifier_accum;
-    }
+    //     FoldingRecursiveVerifier verifier_2{ &builder, fctn_verifier_accum, { verifier_inst_2->verification_key } };
+    //     auto kernel_verifier_accum = verifier_2.verify_folding_proof(fold_proof_2);
+    //     return kernel_verifier_accum;
+    // }
 
     /**
      * @brief A minimal version of the mock kernel (recursive verifiers only) for faster testing
