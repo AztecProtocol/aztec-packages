@@ -290,7 +290,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
-    pub fn call_private_function_with_packed_args(
+    fn call_private_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
