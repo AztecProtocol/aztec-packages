@@ -17,6 +17,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
+  PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -94,10 +95,13 @@ export abstract class AbstractPhaseManager {
   }>;
   abstract rollback(tx: Tx, err: unknown): Promise<FailedTx>;
 
-  protected extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
-    const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
-    const nonRevertibleCallStack = tx.data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
-    const revertibleCallStack = tx.data.end.publicCallStack.filter(i => !i.isEmpty());
+  public static extractEnqueuedPublicCallsByPhase(
+    publicInputs: PrivateKernelTailCircuitPublicInputs,
+    enqueuedPublicFunctionCalls: PublicCallRequest[],
+  ): Record<PublicKernelPhase, PublicCallRequest[]> {
+    const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
+    const nonRevertibleCallStack = publicInputs.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
+    const revertibleCallStack = publicInputs.end.publicCallStack.filter(i => !i.isEmpty());
 
     const callRequestsStack = publicCallsStack
       .map(call => call.toCallRequest())
@@ -128,7 +132,6 @@ export abstract class AbstractPhaseManager {
         [PublicKernelPhase.TEARDOWN]: [],
       };
     } else {
-      // return publicCallsStack.slice(0, firstNonRevertibleCallIndex);
       return {
         [PublicKernelPhase.SETUP]: publicCallsStack.slice(firstNonRevertibleCallIndex + 1),
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(0, firstNonRevertibleCallIndex),
@@ -138,7 +141,7 @@ export abstract class AbstractPhaseManager {
   }
 
   protected extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    return this.extractEnqueuedPublicCallsByPhase(tx)[this.phase];
+    return AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls)[this.phase];
   }
 
   protected getKernelOutputAndProof(

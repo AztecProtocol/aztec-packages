@@ -647,6 +647,9 @@ export class PXEService implements PXE {
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    this.log(
+      `Needs setup: ${publicInputs.needsSetup}, needs app logic: ${publicInputs.needsAppLogic}, needs teardown: ${publicInputs.needsTeardown}`,
+    );
 
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
@@ -714,11 +717,14 @@ export class PXEService implements PXE {
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
     const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
-    const { publicCallStack } = publicInputs.end;
+    const combinedPublicCallStack = [
+      ...publicInputs.end.publicCallStack,
+      ...publicInputs.endNonRevertibleData.publicCallStack,
+    ];
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const areEqual = enqueuedPublicCallStackItems.reduce(
-      (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
+      (accum, enqueued) => accum && !!combinedPublicCallStack.find(item => item.equals(enqueued)),
       true,
     );
 
@@ -726,7 +732,7 @@ export class PXEService implements PXE {
       throw new Error(
         `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallStackItems
           .map(h => h.hash.toString())
-          .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
+          .join(', ')}\nPublic call stack: ${combinedPublicCallStack.map(i => i.toString()).join(', ')}`,
       );
     }
 

@@ -224,29 +224,28 @@ impl CombinedAccumulatedDataBuilder {
         builder.finish()
     }
 
-    pub fn to_accumulated_revertible_data(self, max_non_revertible_side_effect_counter: u32) -> FinalAccumulatedData {
+    pub fn to_accumulated_revertible_data(self, _max_non_revertible_side_effect_counter: u32) -> FinalAccumulatedData {
         // self.check();
 
         let mut builder: FinalAccumulatedDataBuilder = unsafe::zeroed();
 
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             let commitment = self.new_commitments.get_unchecked(i);
-            if !is_empty(commitment) & commitment.counter >= max_non_revertible_side_effect_counter {
+            if !is_empty(commitment) {
                 builder.new_commitments.push(commitment);
             }
         }
 
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.get_unchecked(i);
-            if !is_empty(nullifier) & nullifier.counter >= max_non_revertible_side_effect_counter {
+            if !is_empty(nullifier) {
                 builder.new_nullifiers.push(nullifier);
             }
         }
 
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
             let call_stack_item = self.public_call_stack.get_unchecked(i);
-            if !is_empty(call_stack_item)
-                & call_stack_item.start_side_effect_counter >= max_non_revertible_side_effect_counter {
+            if !is_empty(call_stack_item) {
                 builder.public_call_stack.push(call_stack_item);
             }
         }

@@ -58,16 +58,17 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     }
 
     pub fn to_tail(self) -> PrivateKernelTailCircuitPublicInputs {
-        let end_non_revertible = self.end.to_accumulated_non_revertible_data(self.max_non_revertible_side_effect_counter);
+        // let end_non_revertible = self.end.to_accumulated_non_revertible_data(self.max_non_revertible_side_effect_counter);
+        let end_non_revertible : AccumulatedNonRevertibleData = unsafe::zeroed();
         let end = self.end.to_accumulated_revertible_data(self.max_non_revertible_side_effect_counter);
         PrivateKernelTailCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
             end_non_revertible,
             end,
             constants: self.constants,
-            needs_setup: end_non_revertible.needs_setup(),
+            needs_setup: false,
             needs_app_logic: end.needs_app_logic(),
-            needs_teardown: end_non_revertible.needs_teardown()
+            needs_teardown: false
         }
     }
 }

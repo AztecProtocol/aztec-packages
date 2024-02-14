@@ -97,6 +97,7 @@ export class PublicProcessor {
         this.publicContractsDB,
         this.publicStateDB,
       );
+      this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
       let publicKernelOutput: PublicKernelCircuitPublicInputs | undefined = undefined;
       let publicKernelProof: Proof | undefined = undefined;
       const timer = new Timer();
