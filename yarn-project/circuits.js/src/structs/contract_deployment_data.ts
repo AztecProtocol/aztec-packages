@@ -1,6 +1,8 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { EthAddress, Fr, Point, PublicKey } from '../index.js';
+import { PublicKey } from '../types/public_key.js';
 
 /**
  * Contract deployment data in a TxContext
@@ -70,18 +72,18 @@ export class ContractDeploymentData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      new EthAddress(reader.readBytes(32)),
+      reader.readObject(EthAddress),
     );
   }
 
   static fromFields(fields: Fr[] | FieldReader): ContractDeploymentData {
     const reader = FieldReader.asReader(fields);
 
-    const publicKey = Point.fromFields(reader);
+    const publicKey = reader.readObject(Point);
     const initializationHash = reader.readField();
     const contractClassId = reader.readField();
     const contractAddressSalt = reader.readField();
-    const portalContractAddress = new EthAddress(reader.readField().toBuffer());
+    const portalContractAddress = reader.readObject(EthAddress);
 
     return new ContractDeploymentData(
       publicKey,

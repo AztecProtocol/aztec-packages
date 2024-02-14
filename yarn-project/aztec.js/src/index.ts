@@ -31,7 +31,7 @@ export {
   DeploySentTx,
 } from './contract/index.js';
 
-export { ContractDeployer } from './contract_deployer/index.js';
+export { ContractDeployer } from './deployment/index.js';
 
 export {
   generatePublicKey,
@@ -141,3 +141,4 @@ export {
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/init.js';
 export * from './api/abi.js';
+export * from './api/fee.js';

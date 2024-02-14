@@ -84,26 +84,28 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr element normalize() const noexcept;
     static element infinity();
-    BBERG_INLINE constexpr element set_infinity() const noexcept;
-    BBERG_INLINE constexpr void self_set_infinity() noexcept;
-    [[nodiscard]] BBERG_INLINE constexpr bool is_point_at_infinity() const noexcept;
-    [[nodiscard]] BBERG_INLINE constexpr bool on_curve() const noexcept;
-    BBERG_INLINE constexpr bool operator==(const element& other) const noexcept;
+    BB_INLINE constexpr element set_infinity() const noexcept;
+    BB_INLINE constexpr void self_set_infinity() noexcept;
+    [[nodiscard]] BB_INLINE constexpr bool is_point_at_infinity() const noexcept;
+    [[nodiscard]] BB_INLINE constexpr bool on_curve() const noexcept;
+    BB_INLINE constexpr bool operator==(const element& other) const noexcept;
 
     static void batch_normalize(element* elements, size_t num_elements) noexcept;
     static void batch_affine_add(const std::span<affine_element<Fq, Fr, Params>>& first_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& second_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& results) noexcept;
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
-        const std::span<affine_element<Fq, Fr, Params>>& points, const Fr& exponent) noexcept;
+        const std::span<affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 
     Fq x;
     Fq y;
     Fq z;
 
   private:
-    element mul_without_endomorphism(const Fr& exponent) const noexcept;
-    element mul_with_endomorphism(const Fr& exponent) const noexcept;
+    // For test access to mul_without_endomorphism
+    friend class TestElementPrivate;
+    element mul_without_endomorphism(const Fr& scalar) const noexcept;
+    element mul_with_endomorphism(const Fr& scalar) const noexcept;
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
     static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
