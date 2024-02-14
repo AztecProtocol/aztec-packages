@@ -155,40 +155,33 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
-        FF linearly_dependent_contribution = FF(0);
         std::vector<FF> full_honk_evaluations(instance_size);
+        std::vector<FF> linearly_dependent_contributions(instance_size);
+        parallel_for(instance_size, [&](size_t row) {
+            auto row_evaluations = instance_polynomials.get_row(row);
+            RelationEvaluations relation_evaluations;
+            Utils::zero_elements(relation_evaluations);
 
-        run_loop_in_parallel_if_effective(
-            instance_size,
-            [&full_honk_evaluations,
-             &instance_polynomials,
-             &relation_parameters,
-             &alpha,
-             &linearly_dependent_contribution](size_t start, size_t end) {
-                for (size_t row = start; row < end; row++) {
-                    auto row_evaluations = instance_polynomials.get_row(row);
-                    RelationEvaluations relation_evaluations;
-                    Utils::zero_elements(relation_evaluations);
+            // Note that the evaluations are accumulated with the gate separation challenge
+            // being 1 at this stage, as this specific randomness is added later through the
+            // power polynomial univariate specific to ProtoGalaxy
+            Utils::template accumulate_relation_evaluations<>(
+                row_evaluations, relation_evaluations, relation_parameters, FF(1));
 
-                    // Note that the evaluations are accumulated with the gate separation challenge
-                    // being 1 at this stage, as this specific randomness is added later through the
-                    // power polynomial univariate specific to ProtoGalaxy
-                    Utils::template accumulate_relation_evaluations<>(
-                        row_evaluations, relation_evaluations, relation_parameters, FF(1));
+            auto output = FF(0);
+            auto running_challenge = FF(1);
 
-                    auto output = FF(0);
-                    auto running_challenge = FF(1);
+            // Sum relation evaluations, batched by their corresponding relation separator challenge, to
+            // get the value of the full honk relation at a specific row
+            linearly_dependent_contributions[row] = 0;
+            Utils::scale_and_batch_elements(
+                relation_evaluations, alpha, running_challenge, output, linearly_dependent_contributions[row]);
+            full_honk_evaluations[row] = output;
+        });
 
-                    // Sum relation evaluations, batched by their corresponding relation separator challenge, to get
-                    // the value
-                    // of the full honk relation at a specific row
-                    Utils::scale_and_batch_elements(
-                        relation_evaluations, alpha, running_challenge, output, linearly_dependent_contribution);
-                    full_honk_evaluations[row] = output;
-                }
-            });
-
-        full_honk_evaluations[0] += linearly_dependent_contribution;
+        for (FF& linearly_dependent_contribution : linearly_dependent_contributions) {
+            full_honk_evaluations[0] += linearly_dependent_contribution;
+        }
         return full_honk_evaluations;
     }
 
