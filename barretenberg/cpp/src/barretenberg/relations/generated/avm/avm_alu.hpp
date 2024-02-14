@@ -364,6 +364,26 @@ template <typename FF_> class avm_aluImpl {
             tmp *= scaling_factor;
             std::get<20>(evals) += tmp;
         }
+        // Contribution 16
+        {
+            Avm_DECLARE_VIEWS(16);
+
+            auto tmp = (avm_alu_alu_op_eq * (avm_alu_alu_ic * (-avm_alu_alu_ic + FF(1))));
+            tmp *= scaling_factor;
+            std::get<16>(evals) += tmp;
+        }
+        // Contribution 17
+        {
+            Avm_DECLARE_VIEWS(17);
+
+            auto tmp = (avm_alu_alu_op_eq *
+                        ((((avm_alu_alu_ia - avm_alu_alu_ib) *
+                           ((avm_alu_alu_ic * (-avm_alu_alu_op_eq_diff_inv + FF(1))) + avm_alu_alu_op_eq_diff_inv)) -
+                          FF(1)) +
+                         avm_alu_alu_ic));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += tmp;
+        }
     }
 };
 

@@ -324,6 +324,14 @@ class AvmCircuitBuilder {
         if (!evaluate_logderivative.template operator()<equiv_tag_err_relation<FF>>("equiv_tag_err")) {
             return false;
         }
+        if (!evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",
+                                                                         Avm_vm::get_relation_label_avm_main)) {
+            return false;
+        }
+
+        if (!evaluate_logderivative.template operator()<equiv_tag_err_relation<FF>>("equiv_tag_err")) {
+            return false;
+        }
 
         return true;
     }

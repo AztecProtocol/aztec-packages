@@ -29,10 +29,8 @@ class AvmFlavor {
 
     using FF = G1::subgroup_field;
     using Polynomial = bb::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
     using GroupElement = G1::element;
     using Commitment = G1::affine_element;
-    using CommitmentHandle = G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
@@ -70,10 +68,10 @@ class AvmFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, avm_main_clk, avm_main_first)
 
-        RefVector<DataType> get_selectors() { return { avm_main_clk, avm_main_first }; };
-        RefVector<DataType> get_sigma_polynomials() { return {}; };
-        RefVector<DataType> get_id_polynomials() { return {}; };
-        RefVector<DataType> get_table_polynomials() { return {}; };
+        auto get_selectors() { return RefArray{ avm_main_clk, avm_main_first }; };
+        auto get_sigma_polynomials() { return RefArray<DataType, 0>{}; };
+        auto get_id_polynomials() { return RefArray<DataType, 0>{}; };
+        auto get_table_polynomials() { return RefArray<DataType, 0>{}; };
     };
 
     template <typename DataType> class WitnessEntities {
@@ -155,7 +153,7 @@ class AvmFlavor {
                               equiv_tag_err,
                               equiv_tag_err_counts)
 
-        RefVector<DataType> get_wires()
+        auto get_wires()
         {
             return { avm_mem_m_clk,
                      avm_mem_m_sub_clk,
@@ -233,7 +231,7 @@ class AvmFlavor {
                      equiv_tag_err,
                      equiv_tag_err_counts };
         };
-        RefVector<DataType> get_sorted_polynomials() { return {}; };
+        auto get_sorted_polynomials() { return RefArray<DataType, 0>{}; };
     };
 
     template <typename DataType> class AllEntities {
@@ -331,7 +329,7 @@ class AvmFlavor {
                               avm_mem_m_tag_shift,
                               avm_mem_m_addr_shift)
 
-        RefVector<DataType> get_wires()
+        auto get_wires()
         {
             return { avm_main_clk,
                      avm_main_first,
@@ -425,7 +423,7 @@ class AvmFlavor {
                      avm_mem_m_tag_shift,
                      avm_mem_m_addr_shift };
         };
-        RefVector<DataType> get_unshifted()
+        auto get_unshifted()
         {
             return { avm_main_clk,
                      avm_main_first,
@@ -505,7 +503,7 @@ class AvmFlavor {
                      equiv_tag_err,
                      equiv_tag_err_counts };
         };
-        RefVector<DataType> get_to_be_shifted()
+        auto get_to_be_shifted()
         {
             return { avm_alu_alu_u16_r2, avm_alu_alu_u16_r1,
                      avm_alu_alu_u16_r6, avm_alu_alu_u16_r5,
@@ -515,7 +513,7 @@ class AvmFlavor {
                      avm_mem_m_val,      avm_mem_m_rw,
                      avm_mem_m_tag,      avm_mem_m_addr };
         };
-        RefVector<DataType> get_shifted()
+        auto get_shifted()
         {
             return { avm_alu_alu_u16_r2_shift, avm_alu_alu_u16_r1_shift,
                      avm_alu_alu_u16_r6_shift, avm_alu_alu_u16_r5_shift,
@@ -534,7 +532,7 @@ class AvmFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
-        RefVector<DataType> get_to_be_shifted()
+        auto get_to_be_shifted()
         {
             return { avm_alu_alu_u16_r2, avm_alu_alu_u16_r1,
                      avm_alu_alu_u16_r6, avm_alu_alu_u16_r5,
@@ -546,7 +544,7 @@ class AvmFlavor {
         };
 
         // The plookup wires that store plookup read data.
-        std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
+        RefArray<Polynomial, 0> get_table_column_wires() { return {}; };
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
