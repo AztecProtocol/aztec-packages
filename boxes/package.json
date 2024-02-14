@@ -1,6 +1,6 @@
 {
   "name": "@aztec/boxes",
-  "packageManager": "yarn@4.0.2",
+  "packageManager": "yarn@4.1.0",
   "private": true,
   "scripts": {
     "compile": "yarn workspaces foreach -A -p -j unlimited -v run compile",
