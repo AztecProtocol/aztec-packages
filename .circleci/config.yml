@@ -1121,15 +1121,18 @@ jobs:
           command: build docs
           aztec_manifest_key: docs
       - run:
-          name: "Deploy docs"
+          name: "Deploy docs and comment on PR"
           command: |
-            if [ "$CIRCLE_BRANCH" == "master" ]; then
-              echo "Deploying docs (on master)."
-              docs/deploy_netlify.sh
-            else
-              echo "Skipping doc deploy (not on master)."
-            fi
+            echo "Deploying docs"
+            UNIQUE_DEPLOY_URL=$(docs/deploy_netlify.sh $CIRCLE_BRANCH)
 
+            if [ -n "$UNIQUE_DEPLOY_URL" ]; then
+              export DOCKER_RUN_OPTS="\
+              -e UNIQUE_DEPLOY_URL=${UNIQUE_DEPLOY_URL} \
+              -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN \
+              -e CIRCLE_PULL_REQUEST"
+              yarn-project/scripts/run_script.sh workspace @aztec/scripts docs-preview
+            fi
   yellow-paper:
     machine:
       image: ubuntu-2204:2023.07.2
