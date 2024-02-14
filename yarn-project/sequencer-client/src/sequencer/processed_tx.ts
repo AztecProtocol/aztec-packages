@@ -47,13 +47,9 @@ export type FailedTx = {
  * @param kernelOutput - Output of the kernel circuit simulation for this tx.
  * @param proof - Proof of the kernel circuit for this tx.
  */
-export async function makeProcessedTx(
-  tx: Tx,
-  kernelOutput?: PublicKernelCircuitPublicInputs,
-  proof?: Proof,
-): Promise<ProcessedTx> {
+export function makeProcessedTx(tx: Tx, kernelOutput?: PublicKernelCircuitPublicInputs, proof?: Proof): ProcessedTx {
   return {
-    hash: await tx.getTxHash(),
+    hash: tx.getTxHash(),
     data:
       kernelOutput ??
       new PublicKernelCircuitPublicInputs(
@@ -77,7 +73,7 @@ export async function makeProcessedTx(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): Promise<ProcessedTx> {
+export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
   const emptyKernelOutput = PublicKernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
@@ -85,7 +81,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const emptyProof = makeEmptyProof();
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
-  return Promise.resolve({
+  return {
     hash,
     encryptedLogs: new TxL2Logs([]),
     unencryptedLogs: new TxL2Logs([]),
@@ -93,5 +89,5 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     proof: emptyProof,
     newContracts: [ExtendedContractData.empty()],
     isEmpty: true,
-  });
+  };
 }

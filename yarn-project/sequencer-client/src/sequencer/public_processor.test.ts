@@ -102,7 +102,7 @@ describe('public_processor', () => {
       tx.data.needsAppLogic = false;
       tx.data.needsTeardown = false;
 
-      const hash = await tx.getTxHash();
+      const hash = tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toEqual([
@@ -159,9 +159,9 @@ describe('public_processor', () => {
       );
     });
 
-    const expectedTxByHash = async (tx: Tx) =>
+    const expectedTxByHash = (tx: Tx) =>
       expect.objectContaining({
-        hash: await tx.getTxHash(),
+        hash: tx.getTxHash(),
         proof,
       });
 
@@ -201,7 +201,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([await expectedTxByHash(tx)]);
+      expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
@@ -249,7 +249,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([await expectedTxByHash(tx)]);
+      expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
@@ -340,7 +340,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toHaveLength(1);
-      expect(processed).toEqual([await expectedTxByHash(tx)]);
+      expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(3);

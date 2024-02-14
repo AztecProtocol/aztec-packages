@@ -213,7 +213,7 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      const emptyTx = await processor.makeEmptyProcessedTx();
+      const emptyTx = processor.makeEmptyProcessedTx();
       const [rollupCircuitsDuration, block] = await elapsed(() =>
         this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
       );

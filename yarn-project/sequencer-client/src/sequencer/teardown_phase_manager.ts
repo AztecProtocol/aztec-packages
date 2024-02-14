@@ -41,8 +41,8 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
      */
     publicKernelProof: Proof;
   }> {
-    this.log(`Processing tx ${await tx.getTxHash()}`);
-    this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
+    this.log(`Processing tx ${tx.getTxHash()}`);
+    this.log(`Executing enqueued public calls for tx ${tx.getTxHash()}`);
     const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
       tx,
       previousPublicKernelOutput,
@@ -57,7 +57,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {
-    this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
+    this.log.warn(`Error processing tx ${tx.getTxHash()}: ${err}`);
     await this.publicStateDB.rollback();
     return {
       tx,

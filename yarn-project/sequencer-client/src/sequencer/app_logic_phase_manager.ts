@@ -42,9 +42,9 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     publicKernelProof: Proof;
   }> {
     // add new contracts to the contracts db so that their functions may be found and called
-    this.log(`Processing tx ${await tx.getTxHash()}`);
+    this.log(`Processing tx ${tx.getTxHash()}`);
     await this.publicContractsDB.addNewContracts(tx);
-    this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
+    this.log(`Executing enqueued public calls for tx ${tx.getTxHash()}`);
     const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
       tx,
       previousPublicKernelOutput,
@@ -59,7 +59,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {
-    this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
+    this.log.warn(`Error processing tx ${tx.getTxHash()}: ${err}`);
     // remove contracts on failure
     await this.publicContractsDB.removeNewContracts(tx);
     // rollback any state updates from this failed transaction

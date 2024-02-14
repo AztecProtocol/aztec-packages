@@ -391,7 +391,7 @@ export class PXEService implements PXE {
 
       const timer = new Timer();
       const tx = await this.#simulateAndProve(txRequest, newContract);
-      this.log(`Processed private part of ${tx.data.end.newNullifiers[0]}`, {
+      this.log(`Processed private part of ${tx.getTxHash()}`, {
         eventName: 'tx-pxe-processing',
         duration: timer.ms(),
         ...tx.getStats(),
@@ -399,14 +399,14 @@ export class PXEService implements PXE {
       if (simulatePublic) {
         await this.#simulatePublicCalls(tx);
       }
-      this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
+      this.log.info(`Executed local simulation for ${tx.getTxHash()}`);
 
       return tx;
     });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     if (await this.node.getTx(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }

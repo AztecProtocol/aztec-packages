@@ -121,7 +121,7 @@ export class PublicProcessor {
           );
         }
 
-        const processedTransaction = await makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
+        const processedTransaction = makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
         result.push(processedTransaction);
 
         this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0]}`, {
@@ -144,7 +144,7 @@ export class PublicProcessor {
    * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
    * @returns A processed tx with empty data.
    */
-  public makeEmptyProcessedTx(): Promise<ProcessedTx> {
+  public makeEmptyProcessedTx(): ProcessedTx {
     const { chainId, version } = this.globalVariables;
     return makeEmptyProcessedTx(this.historicalHeader, chainId, version);
   }
@@ -156,7 +156,7 @@ export class PublicProcessor {
 
     if (enqueuedLength !== nonRevertibleLength + appLogicLength) {
       throw new Error(
-        `Tx ${tx.data.end.newNullifiers[0]} has inconsistent public call stack lengths: enqueued (total)=${enqueuedLength}, nonRevertible=${nonRevertibleLength}, appLogic=${appLogicLength}`,
+        `Tx ${tx.getTxHash()} has inconsistent public call stack lengths: enqueued (total)=${enqueuedLength}, nonRevertible=${nonRevertibleLength}, appLogic=${appLogicLength}`,
       );
     }
   }

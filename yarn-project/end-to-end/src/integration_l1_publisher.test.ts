@@ -164,7 +164,7 @@ describe('L1Publisher integration', () => {
     return tx;
   };
 
-  const makeBloatedProcessedTx = async (seed = 0x1) => {
+  const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
     const kernelOutput = PublicKernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
@@ -176,7 +176,7 @@ describe('L1Publisher integration', () => {
       seed + 0x500,
     );
 
-    const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
+    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
     processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(
@@ -362,10 +362,10 @@ describe('L1Publisher integration', () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)
       const totalNullifiersPerBlock = 4 * MAX_NEW_NULLIFIERS_PER_TX;
       const txs = [
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
 
       const globalVariables = new GlobalVariables(

@@ -190,7 +190,7 @@ describe('sequencer/solo_block_builder', () => {
     const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
     kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
 
-    const tx = await makeProcessedTx(
+    const tx = makeProcessedTx(
       new Tx(
         kernelOutput,
         emptyProof,
@@ -302,7 +302,7 @@ describe('sequencer/solo_block_builder', () => {
         seed + 0x500,
       );
 
-      const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
+      const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
       processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
       processedTx.data.end.newNullifiers = makeTuple(
