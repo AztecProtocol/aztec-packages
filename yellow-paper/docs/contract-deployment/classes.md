@@ -126,7 +126,7 @@ In pseudocode:
 function register(
   artifact_hash: Field,
   private_functions_root: Field,
-  public_bytecode_commitment: Field,
+  public_bytecode_commitment: Point,
   packed_public_bytecode: Field[],
 ) 
   version = 1
