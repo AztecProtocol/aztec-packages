@@ -1,3 +1,4 @@
+import { getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   FunctionSelector,
   decodeFunctionSignature,
@@ -15,6 +16,16 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   if (contractFns.length === 0) {
     log(`No external functions found for contract ${contractArtifact.name}`);
   }
+  const contractClass = getContractClassFromArtifact(contractArtifact);
+  const bytecodeLengthInFields = 1 + Math.ceil(contractClass.packedBytecode.length / 31);
+
+  log(`Contract class details:`);
+  log(`\tidentifier: ${contractClass.id.toString()}`);
+  log(`\tartifact hash: ${contractClass.artifactHash.toString()}`);
+  log(`\tprivate function tree root: ${contractClass.privateFunctionsRoot.toString()}`);
+  log(`\tpublic bytecode commitment: ${contractClass.publicBytecodeCommitment.toString()}`);
+  log(`\tpublic bytecode length: ${contractClass.packedBytecode.length} bytes (${bytecodeLengthInFields} fields)`);
+  log(`\nExternal functions:`);
   for (const fn of contractFns) {
     const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
     const signature = decodeFunctionSignature(fn.name, fn.parameters);
