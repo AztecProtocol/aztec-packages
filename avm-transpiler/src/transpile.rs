@@ -522,12 +522,6 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
             BrilligOpcode::Const { bit_size: 254, .. } => 2,
             _ => 1,
         };
-        if num_avm_instrs_for_this_brillig_instr > 1 {
-            println!(
-                "num_avm_instrs_for_this_brillig_instr: {:?}",
-                &brillig.bytecode[i]
-            );
-        }
         // next Brillig pc will map to an AVM pc offset by the
         // number of AVM instructions generated for this Brillig one
         pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
