@@ -159,6 +159,10 @@ export class PublicDataUpdateRequest {
     return serializeToBuffer(this.leafSlot, this.newValue);
   }
 
+  isEmpty() {
+    return this.leafSlot.isZero() && this.newValue.isZero();
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader));

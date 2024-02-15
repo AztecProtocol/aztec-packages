@@ -15,8 +15,6 @@ members = [
     "crates/public-kernel-app-logic-simulated",
     "crates/public-kernel-teardown",
     "crates/public-kernel-teardown-simulated",
-    "crates/public-kernel-recombine",
-    "crates/public-kernel-recombine-simulated",
     "crates/rollup-lib",
     "crates/rollup-merge",
     "crates/rollup-base",
