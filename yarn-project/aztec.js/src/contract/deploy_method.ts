@@ -44,7 +44,7 @@ export type DeployOptions = {
  */
 export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
   /** The contract instance to be deployed. */
-  public instance?: ContractInstanceWithAddress = undefined;
+  private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
   private constructorArtifact: FunctionArtifact;
@@ -87,16 +87,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * block for constructing batch requests.
    * @param options - Deployment options.
    * @returns An array of function calls.
+   * @remarks This method does not have the same return type as the `request` in the ContractInteraction object,
+   * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<FunctionCall[]> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
-    const portalContract = options.portalContract ?? EthAddress.ZERO;
-    const contractAddressSalt = options.contractAddressSalt ?? Fr.random();
-    const deployParams = [this.artifact, this.args, contractAddressSalt, this.publicKey, portalContract] as const;
-    const instance = getContractInstanceFromDeployParams(...deployParams);
-    this.instance = instance;
+    const instance = this.getInstance(options);
 
     // Register the contract class if it hasn't been published already.
     // TODO(@spalladino): We're unnecessarily calculating the contract class multiple times here.
@@ -137,7 +135,23 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // before any `await` operation, otherwise it'll be undefined by the time we get here. Tests should
     // catch it easily though, but if you start seeing instance.address being undefined in DeploySentTx,
     // this is probably the culprit.
-    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, this.instance!);
+    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, this.getInstance(options));
+  }
+
+  /**
+   * Builds the contract instance to be deployed and returns it.
+   *
+   * @param options - An object containing various deployment options.
+   * @returns An instance object.
+   */
+  public getInstance(options: DeployOptions = {}): ContractInstanceWithAddress {
+    if (!this.instance) {
+      const portalContract = options.portalContract ?? EthAddress.ZERO;
+      const contractAddressSalt = options.contractAddressSalt ?? Fr.random();
+      const deployParams = [this.artifact, this.args, contractAddressSalt, this.publicKey, portalContract] as const;
+      this.instance = getContractInstanceFromDeployParams(...deployParams);
+    }
+    return this.instance;
   }
 
   /**

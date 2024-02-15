@@ -29,7 +29,7 @@ import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
 import { setup } from './fixtures/utils.js';
@@ -150,11 +150,11 @@ describe('e2e_deploy_contract', () => {
         expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
         expect(badTxReceipt.blockNumber).toBeUndefined();
 
-        await expect(pxe.getExtendedContractData(goodDeploy.instance!.address)).resolves.toBeDefined();
-        await expect(pxe.getExtendedContractData(goodDeploy.instance!.address)).resolves.toBeDefined();
+        await expect(pxe.getExtendedContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
+        await expect(pxe.getExtendedContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
 
-        await expect(pxe.getContractData(badDeploy.instance!.address)).resolves.toBeUndefined();
-        await expect(pxe.getExtendedContractData(badDeploy.instance!.address)).resolves.toBeUndefined();
+        await expect(pxe.getContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
+        await expect(pxe.getExtendedContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
       } finally {
         sequencer?.updateSequencerConfig({
           minTxsPerBlock: 1,
@@ -304,7 +304,7 @@ describe('e2e_deploy_contract', () => {
     });
   });
 
-  describe('using the ContractDeployer', () => {
+  describe('using the contract deploy method', () => {
     // We use a beforeEach hook so we get a fresh pxe and node, so class registrations
     // from one test don't influence the others.
     beforeEach(async () => {
@@ -319,6 +319,20 @@ describe('e2e_deploy_contract', () => {
       await contract.methods.increment_public_value(owner, 84).send().wait();
       expect(await contract.methods.get_public_value(owner).view()).toEqual(84n);
     }, 60_000);
+
+    it('publicly deploys and calls a public function from the constructor', async () => {
+      const owner = accounts[0];
+      const token = await TokenContract.deploy(wallet, owner, 'TOKEN', 'TKN', 18).send().deployed();
+      expect(await token.methods.is_minter(owner).view()).toEqual(true);
+    }, 60_000);
+
+    it.skip('publicly deploys and calls a public function in the same batched call', async () => {
+      // TODO(@spalladino)
+    });
+
+    it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
+      // TODO(@spalladino)
+    });
   });
 });
 
