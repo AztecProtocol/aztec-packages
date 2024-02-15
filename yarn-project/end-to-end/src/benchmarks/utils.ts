@@ -69,7 +69,7 @@ export function getFolderSize(path: string): number {
 export function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
   const owner = context.wallet.getAddress();
   return new BatchCall(context.wallet, [
-    contract.methods.create_new_note(owner, index + 1).request(),
+    contract.methods.create_note(owner, index + 1).request(),
     contract.methods.increment_balance(owner, index + 1).request(),
   ]);
 }

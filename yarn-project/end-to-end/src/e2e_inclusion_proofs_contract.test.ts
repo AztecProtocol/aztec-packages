@@ -61,7 +61,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
       it('should return the correct values for creating a note', async () => {
         // Create a note
-        const receipt = await contract.methods.create_new_note(owner, value).send().wait({ debug: true });
+        const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
         ({ newCommitments, visibleNotes } = receipt.debugInfo!);
@@ -156,7 +156,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       {
         // Create a note
         const value = 100n;
-        const receipt = await contract.methods.create_new_note(owner, value).send().wait({ debug: true });
+        const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
         const { newCommitments, visibleNotes } = receipt.debugInfo!;

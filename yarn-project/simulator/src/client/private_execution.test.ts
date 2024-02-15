@@ -336,8 +336,8 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should run the create_new_note function', async () => {
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_new_note');
+    it('should run the create_note function', async () => {
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note');
 
       const result = await runSimulator({ args: [owner, 140], artifact });
 
@@ -1114,7 +1114,7 @@ describe('Private Execution test suite', () => {
   describe('get public key', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract artifact so we can extract return values
-      const artifact = getFunctionArtifact(TestContractArtifact, 'get_pub_key');
+      const artifact = getFunctionArtifact(TestContractArtifact, 'get_public_key');
       artifact.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
       // Generate a partial address, pubkey, and resulting address
