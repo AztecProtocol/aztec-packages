@@ -8,7 +8,7 @@ Together with the [validating light node](../l1-smart-contracts/index.md), the r
 
 To support this, we construct a single proof for the entire block, which is then verified by the validating light node.
 This single proof consist of three main components:
-It has **two** sub-trees for transactions, and **one** tree for incoming messages. 
+It has **two** sub-trees for transactions, and **one** tree for L1 to L2 messages. 
 The two transaction trees are then merged into a single proof and combined with the roots of the message tree to form the final proof and output.
 Each of these trees are built by recursively combining proofs from a lower level of the tree.
 This structure allows us to keep the workload of each individual proof small, while making it very parallelizable.
@@ -22,11 +22,11 @@ For transaction compression we have:
 - The `root` rollup
   - Merges two `merge` rollup proofs
 
-And for the message compression we have:
-- The `compress` circuit
-  - Merges `N` `compress` or `compress_leaf` proofs
-- The `compress_leaf` circuit
-  - Merges `N` messages 
+And for the message parity we have:
+- The `root` circuit
+  - Merges `N` `root` or `leaf` proofs
+- The `leaf` circuit
+  - Merges `N` l1 to l2 messages in a subtree 
 
 In the diagram the sizes of the trees are limited for show.
 In reality larger trees would have more layers between the leafs and the root.
@@ -91,19 +91,19 @@ graph BT
 
     R --> R_c
 
-    R((compress 4))
+    R((RootParity))
 
-    T0[compress_leaf]
-    T1[compress_leaf]
-    T2[compress_leaf]
-    T3[compress_leaf]
+    T0[LeafParity]
+    T1[LeafParity]
+    T2[LeafParity]
+    T3[LeafParity]
 
-    T0_P((compress 0))
-    T1_P((compress 1))
-    T2_P((compress 2))
-    T3_P((compress 3))
+    T0_P((RootParity 0))
+    T1_P((RootParity 1))
+    T2_P((RootParity 2))
+    T3_P((RootParity 3))
 
-    T4[compress]
+    T4[RootParity]
 
     I0 --> T0
     I1 --> T1
@@ -373,29 +373,29 @@ class MergeRollupInputs {
 MergeRollupInputs *-- ChildRollupData: left
 MergeRollupInputs *-- ChildRollupData: right
 
-class CompressBaseInputs {
+class LeafParityInputs {
     msgs: List~Fr[2]~
 }
 
-class CompressPublicInput {
+class ParityPublicInputs {
     aggregation_object: AggregationObject
     sha_root: Fr[2]
     converted_root: Fr
 }
 
-class CompressInput {
-    msgs: List~CompressPublicInput~
+class RootParityInputs {
+    children: List~ParityPublicInputs~
 }
-CompressInput *-- CompressPublicInput: msgs
+RootParityInputs *-- ParityPublicInputs: children
 
-class TreeConversionData {
+class RootParityInput {
     proof: Proof
-    public_inputs: CompressPublicInput
+    public_inputs: ParityPublicInputs
 }
-TreeConversionData *-- CompressPublicInput: public_inputs
+RootParityInput *-- ParityPublicInputs: public_inputs
 
 class RootRollupInputs {
-    l1_to_l2_roots: TreeConversionData
+    l1_to_l2_roots: RootParityInput
     l1_to_l2_msgs_sibling_path: List~Fr~
     parent: Header,
     parent_sibling_path: List~Fr~
@@ -403,7 +403,7 @@ class RootRollupInputs {
     left: ChildRollupData
     right: ChildRollupData
 }
-RootRollupInputs *-- TreeConversionData: l1_to_l2_roots
+RootRollupInputs *-- RootParityInput: l1_to_l2_roots
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
 RootRollupInputs *-- Header : parent

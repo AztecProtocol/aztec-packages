@@ -1,5 +1,5 @@
 ---
-title: Message Compression
+title: L1 to L2 Message Parity
 ---
 
 To support easy consumption of l1 to l2 messages inside the proofs, we need to convert the tree of messages to a snark-friendly format.
@@ -11,22 +11,24 @@ As SHA256 is not snark-friendly, weak devices would not be able to prove inclusi
 This circuit is responsible for converting the tree such that users can easily build the proofs.
 We essentially use this circuit to front-load the work needed to prove the inclusion of messages in the tree.
 As earlier we are using a tree-like structure.
+Instead of having a `base`, `merge` and `root` circuits, we will have only `leaf` and `root` parity circuits.
+We only need these two, since what would have been the `merge` is doing the same as the `root` for this case.
 
 ```mermaid
 graph BT
-    R((compress 4))
+    R((RootParity))
 
-    T0[compress_leaf]
-    T1[compress_leaf]
-    T2[compress_leaf]
-    T3[compress_leaf]
+    T0[LeafParity]
+    T1[LeafParity]
+    T2[LeafParity]
+    T3[LeafParity]
 
-    T0_P((compress 0))
-    T1_P((compress 1))
-    T2_P((compress 2))
-    T3_P((compress 3))
+    T0_P((RootParity 0))
+    T1_P((RootParity 1))
+    T2_P((RootParity 2))
+    T3_P((RootParity 3))
 
-    T4[compress]
+    T4[RootParity]
 
     I0 --> T0
     I1 --> T1
@@ -61,62 +63,62 @@ style I2 fill:#1976D2;
 style I3 fill:#1976D2;
 ```
 
-Practically, this will be using two circuits, similar to how we have the `base` and `merge` circuits for transactions.
 The output of the "combined" circuit will be the `converted_root` which is the root of the snark-friendly message tree.
 And the `sha_root` which must match the root of the sha256 message tree from the L1 Inbox.
 The circuit must simply compute the two trees using the same inputs, and then we ensure that the elements of the trees match the inbox later at the [state transitioner](./../l1-smart-contracts/index.md#overview).
+It proves parity of the leaves in the two trees.
 
 
 ```mermaid
 classDiagram
 direction LR
 
-class CompressPublicInput {
+class ParityPublicInputs {
     aggregation_object: AggregationObject
     sha_root: Fr[2]
     converted_root: Fr
 }
 
-class CompressInput {
-    msgs: List~TreeConversionData~
+class RootParityInputs {
+    children: List~RootParityInput~
 }
-CompressInput *-- TreeConversionData: msgs
 
-class TreeConversionData {
+RootParityInputs *-- RootParityInput: children
+
+class RootParityInput {
     proof: Proof
-    public_inputs: CompressPublicInput
+    public_inputs: ParityPublicInputs
 }
-TreeConversionData *-- CompressPublicInput: public_inputs
+RootParityInput *-- ParityPublicInputs: public_inputs
 
-class CompressLeafInputs {
+class LeafParityInputs {
     msgs: List~Fr[2]~
 }
 ```
-The logic of the the circuits is quite simple.
-They simply progress building of two trees, the SHA tree and the snark-friendly tree. 
+The logic of the the circuits is quite simple - build both a SHA256 and a snark-friendly tree from the same inputs.
 For optimization purposes, it can be useful to have the layers take more than 2 inputs to increase the task of every layer.
 If each just take 2 inputs, the overhead of recursing through the layers might be higher than the actual work done.
 Recall that all the inputs are already chosen by the L1, so we don't need to worry about which to chose.
 
 ```python
-def compress_leaf(msgs: List[Fr[2]]) -> CompressPublicInput:
-    sha_root = MERKLE_TREE(msgs, SHA256);
-    converted_root = MERKLE_TREE(msgs, SNARK_FRIENDLY_HASH_FUNCTION);
-    return CompressPublicInput(sha_root, converted_root)
+def base_parity_circuit(inputs: LeafParityInputs) -> ParityPublicInputs:
+    sha_root = MERKLE_TREE(inputs.msgs, SHA256);
+    converted_root = MERKLE_TREE(inputs.msgs, SNARK_FRIENDLY_HASH_FUNCTION);
+    return ParityPublicInputs(sha_root, converted_root)
 
-def compress(msgs: List[TreeConversionData]) -> CompressPublicInput:
-    for msg in msgs:
+def root_parity_circuit(inputs: RootParityInputs) -> ParityPublicInputs:
+    for msg in inputs.children:
         assert msg.proof.verify(msg.public_inputs);
 
     sha_root = MERKLE_TREE(
-      [msg.public_inputs.sha_root for msg in msgs], 
+      [msg.public_inputs.sha_root for msg in inputs.children], 
       SHA256
     );
     converted_root = MERKLE_TREE(
-      [msg.public_inputs.converted_root for msg in msgs], 
+      [msg.public_inputs.converted_root for msg in inputs.children], 
       SNARK_FRIENDLY_HASH_FUNCTION
     );
-    return CompressPublicInput(sha_root, converted_root)
+    return ParityPublicInputs(sha_root, converted_root)
 ```
 
 

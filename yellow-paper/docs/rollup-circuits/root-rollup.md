@@ -131,29 +131,29 @@ class ChildRollupData {
 }
 ChildRollupData *-- BaseOrMergeRollupPublicInputs: public_inputs
 
-class CompressBaseInputs {
+
+class LeafParityInputs {
     msgs: List~Fr[2]~
 }
 
-class CompressPublicInput {
+class ParityPublicInputs {
     aggregation_object: AggregationObject
     sha_root: Fr[2]
     converted_root: Fr
 }
 
-class CompressInput {
-    msgs: List~CompressPublicInput~
+class RootParityInputs {
+    children: List~ParityPublicInputs~
 }
-CompressInput *-- CompressPublicInput: msgs
+RootParityInputs *-- ParityPublicInputs: children
 
-class TreeConversionData {
+class RootParityInput {
     proof: Proof
-    public_inputs: CompressPublicInput
+    public_inputs: ParityPublicInputs
 }
-TreeConversionData *-- CompressPublicInput: public_inputs
-
+RootParityInput *-- ParityPublicInputs: public_inputs
 class RootRollupInputs {
-    l1_to_l2_roots: TreeConversionData
+    l1_to_l2_roots: RootParityInput
     l1_to_l2_msgs_sibling_path: List~Fr~
     parent: Header,
     parent_sibling_path: List~Fr~
@@ -161,7 +161,7 @@ class RootRollupInputs {
     left: ChildRollupData
     right: ChildRollupData
 }
-RootRollupInputs *-- TreeConversionData: l1_to_l2_roots
+RootRollupInputs *-- RootParityInput: l1_to_l2_roots
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
 RootRollupInputs *-- Header : parent
@@ -178,7 +178,7 @@ RootRollupPublicInputs *--Header : header
 
 ```python
 def RootRollupCircuit(
-    l1_to_l2_roots: TreeConversionData,
+    l1_to_l2_roots: RootParityInput,
     l1_to_l2_msgs_sibling_path: List[Fr],
     parent: Header,
     parent_sibling_path: List[Fr],
@@ -218,7 +218,7 @@ def RootRollupCircuit(
         last_archive = left.public_inputs.constants.last_archive,
         content_commitment: ContentCommitment(
             tx_tree_height = left.public_inputs.height_in_block_tree + 1,
-            tsx_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.txs_hash),
+            txs_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.txs_hash),
             in_hash = l1_to_l2_roots.public_inputs.sha_root,
             out_hash = SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
         ),

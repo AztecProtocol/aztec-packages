@@ -190,7 +190,7 @@ const sidebars = {
       items: [
         "rollup-circuits/base-rollup",
         "rollup-circuits/merge-rollup",
-        "rollup-circuits/message-compression",
+        "rollup-circuits/tree-parity",
         "rollup-circuits/root-rollup",
       ],
     },
