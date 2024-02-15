@@ -288,8 +288,8 @@ function processFiles(baseDir, outputBaseDir) {
 }
 
 
-const baseDir = path.resolve(__dirname, '../../../yarn-project/aztec-nr');
-const outputBaseDir = path.resolve(__dirname, './developers/contracts/references/aztec-nr');
+let baseDir = path.resolve(__dirname, '../../../yarn-project/aztec-nr');
+let outputBaseDir = path.resolve(__dirname, './developers/contracts/references/aztec-nr');
 
 if (process.env.CI === 'true') {
     baseDir = path.resolve(__dirname, '../yarn-project/aztec-nr');
