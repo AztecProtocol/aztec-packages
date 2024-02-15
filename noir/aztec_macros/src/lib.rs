@@ -14,10 +14,8 @@ use noirc_frontend::macros_api::{
     StructType, Type, TypeImpl, UnaryOp, UnresolvedType, UnresolvedTypeData, Visibility,
 };
 use noirc_frontend::macros_api::{CrateId, FileId};
-use noirc_frontend::macros_api::{
-    ModuleDefId, NodeInterner, SortedModule, StructId,
-};
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
+use noirc_frontend::macros_api::{ModuleDefId, NodeInterner, SortedModule, StructId};
 use noirc_frontend::node_interner::{TraitId, TraitImplKind};
 use noirc_frontend::Lambda;
 
@@ -39,7 +37,7 @@ impl MacroProcessor for AztecMacro {
         context: &HirContext,
     ) -> Result<Option<&str>, (MacroError, FileId)> {
         if has_aztec_dependency(crate_id, context) {
-            return Ok(Some("aztec::prelude"))
+            return Ok(Some("aztec::prelude"));
         }
         Ok(None)
     }

@@ -261,16 +261,13 @@ impl DefCollector {
         preludes.push("std::prelude");
 
         for macro_processor in macro_processors.iter() {
-            match macro_processor
-            .process_crate_prelude(
-                &crate_id, 
-                context) {
+            match macro_processor.process_crate_prelude(&crate_id, context) {
                 Ok(Some(prelude)) => {
                     preludes.push(prelude);
                 }
-                Ok(None) => { 
-                    // Do nothing 
-                },
+                Ok(None) => {
+                    // Do nothing
+                }
                 Err((error, file_id)) => {
                     let def_error = DefCollectorErrorKind::MacroError(error);
                     errors.push((def_error.into(), file_id));
@@ -279,9 +276,21 @@ impl DefCollector {
         }
 
         for prelude in preludes {
-            inject_prelude(crate_id, context, crate_root, prelude, &mut def_collector.collected_imports);
+            inject_prelude(
+                crate_id,
+                context,
+                crate_root,
+                prelude,
+                &mut def_collector.collected_imports,
+            );
             for submodule in submodules.iter() {
-                inject_prelude(crate_id, context, *submodule, prelude, &mut def_collector.collected_imports);
+                inject_prelude(
+                    crate_id,
+                    context,
+                    *submodule,
+                    prelude,
+                    &mut def_collector.collected_imports,
+                );
             }
         }
 
@@ -421,7 +430,9 @@ fn inject_prelude(
             ModuleId { krate: crate_id, local_id: crate_root },
             path,
         ) {
-            let module_id = module_def.as_module().unwrap_or_else(|| panic!("{prelude_path} should be a module"));
+            let module_id = module_def
+                .as_module()
+                .unwrap_or_else(|| panic!("{prelude_path} should be a module"));
             let prelude = context.module(module_id).scope().names();
 
             for path in prelude {
