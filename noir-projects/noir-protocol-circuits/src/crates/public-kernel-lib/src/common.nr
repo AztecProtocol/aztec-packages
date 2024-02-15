@@ -13,7 +13,8 @@ use dep::types::{
     constants::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_READS_PER_CALL, NUM_FIELDS_PER_SHA256
+    MAX_PUBLIC_DATA_READS_PER_CALL, NUM_FIELDS_PER_SHA256, MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
+    MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
     hash::{silo_commitment, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
     utils::{arrays::{array_length, array_to_bounded_vec}}, traits::is_empty_array
@@ -168,9 +169,10 @@ fn propagate_valid_public_data_update_requests(
     let contract_address = public_call.call_stack_item.contract_address;
     let update_requests = public_call.call_stack_item.public_inputs.contract_storage_update_requests;
 
-    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
+    // TODO(fees) should we have a MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
 
-    for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+    for i in 0..MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
             let public_data_update_request = PublicDataUpdateRequest {
@@ -188,9 +190,10 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
     let contract_address = public_call.call_stack_item.contract_address;
     let read_requests = public_call.call_stack_item.public_inputs.contract_storage_reads;
 
-    let mut public_data_reads : BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_CALL> = BoundedVec::new(PublicDataRead::empty());
+    // TODO(fees) should we have a MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_CALL
+    let mut public_data_reads : BoundedVec<PublicDataRead, MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX> = BoundedVec::new(PublicDataRead::empty());
 
-    for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
+    for i in 0..MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX {
         let read_request: StorageRead = read_requests[i];
         if !read_request.is_empty() {
             let public_data_read = PublicDataRead {
