@@ -34,7 +34,6 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
                                   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = {},
-                                  .sha256_constraints = {},
                                   .sha256_compression = {},
                                   .schnorr_constraints = {},
                                   .ecdsa_k1_constraints = {},
