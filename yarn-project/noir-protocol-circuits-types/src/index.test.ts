@@ -1,18 +1,12 @@
 import {
-  AztecAddress,
   EthAddress,
-  FunctionData,
-  FunctionSelector,
   Point,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  SideEffect,
   computeContractAddressFromInstance,
   computeContractAddressFromPartial,
-  computePublicKeysHash
+  computePublicKeysHash,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { times } from '@aztec/foundation/collection';
