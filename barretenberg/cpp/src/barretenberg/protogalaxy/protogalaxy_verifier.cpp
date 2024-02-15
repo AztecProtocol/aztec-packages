@@ -191,8 +191,13 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::ve
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
     std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1);
-    for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
-        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+    if (accumulator->is_accumulator) {
+        for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
+            perturbator_coeffs[idx] =
+                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+        }
+    } else {
+        std::fill(perturbator_coeffs.begin(), perturbator_coeffs.end(), 0);
     }
 
     if (perturbator_coeffs[0] != accumulator->target_sum) {
