@@ -1,13 +1,13 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
+import { GeneratorIndex } from '../constants.gen.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
-import { GeneratorIndex } from '../constants.gen.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
 
 /**
  * Call stack item on a public call.
@@ -98,13 +98,14 @@ export class PublicCallStackItem {
       this.publicInputs.callContext = callContext;
       this.publicInputs.argsHash = argsHash;
     }
-  
+
     return Fr.fromBuffer(
       pedersenHash(
         [this.contractAddress, this.functionData.hash(), this.publicInputs.hash()].map(f => f.toBuffer()),
         GeneratorIndex.CALL_STACK_ITEM,
       ),
-    );  }
+    );
+  }
 
   /**
    * Creates a new CallRequest with values of the calling contract.

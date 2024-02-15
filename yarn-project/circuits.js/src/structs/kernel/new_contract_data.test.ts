@@ -1,5 +1,5 @@
-import { makeNewContractData } from "../../tests/factories.js";
-import { NewContractData } from "./new_contract_data.js";
+import { makeNewContractData } from '../../tests/factories.js';
+import { NewContractData } from './new_contract_data.js';
 
 describe('NewContractData', () => {
   let read: NewContractData;

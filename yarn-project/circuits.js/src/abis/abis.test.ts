@@ -1,22 +1,10 @@
 import { times } from '@aztec/foundation/collection';
 
-import {
-  AztecAddress,
-  Fr,
-  FunctionData,
-  FunctionSelector,
-  SideEffect,
-  SideEffectLinkedToNoteHash
-} from '../index.js';
-import {
-  makeAztecAddress,
-  makeTxRequest,
-  makeVerificationKey
-} from '../tests/factories.js';
+import { AztecAddress, Fr, FunctionData, FunctionSelector, SideEffect, SideEffectLinkedToNoteHash } from '../index.js';
+import { makeAztecAddress, makeVerificationKey } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeFunctionSelector,
   computeFunctionTreeRoot,
   computeNullifierHash,
   computePublicDataTreeLeafSlot,
@@ -27,17 +15,10 @@ import {
   hashConstructor,
   hashVK,
   siloCommitment,
-  siloNullifier
+  siloNullifier,
 } from './abis.js';
 
 describe('abis', () => {
-
-  it('computes a function selector', () => {
-    const funcSig = 'transfer(address,uint256)';
-    const res = computeFunctionSelector(funcSig);
-    expect(res).toMatchSnapshot();
-  });
-
   it('hashes VK', () => {
     const vk = makeVerificationKey();
     const res = hashVK(vk.toBuffer());

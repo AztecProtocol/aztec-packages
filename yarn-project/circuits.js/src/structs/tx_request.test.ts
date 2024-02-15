@@ -1,13 +1,14 @@
+import { FunctionSelector } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+
 import { TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { makeTxRequest } from '../tests/factories.js';
 import { ContractDeploymentData } from './contract_deployment_data.js';
-import { TxRequest } from './tx_request.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { FunctionData } from './function_data.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { TxContext } from './tx_context.js';
 import { EthAddress } from './index.js';
+import { TxContext } from './tx_context.js';
+import { TxRequest } from './tx_request.js';
 
 describe('TxRequest', () => {
   let request: TxRequest;

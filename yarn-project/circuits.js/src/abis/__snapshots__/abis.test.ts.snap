@@ -93,18 +93,6 @@ Fr {
 }
 `;
 
-exports[`abis computes a function selector 1`] = `
-{
-  "data": [
-    169,
-    5,
-    156,
-    187,
-  ],
-  "type": "Buffer",
-}
-`;
-
 exports[`abis computes commitment nonce 1`] = `
 Fr {
   "asBigInt": 7653394882992289714855533169019502055399179742531912347686813547951736946253n,

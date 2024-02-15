@@ -25,7 +25,7 @@ describe('TxContext', () => {
   it('computes empty hash', () => {
     const tc = TxContext.empty();
     expect(tc.isEmpty()).toBe(true);
-    
+
     const hash = tc.hash();
     expect(hash).toMatchSnapshot();
 

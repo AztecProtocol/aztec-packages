@@ -80,11 +80,6 @@ export class TxRequest {
   }
 
   isEmpty() {
-    return (
-      this.origin.isZero() &&
-      this.functionData.isEmpty() &&
-      this.argsHash.isZero() &&
-      this.txContext.isEmpty()
-    );
+    return this.origin.isZero() && this.functionData.isEmpty() && this.argsHash.isZero() && this.txContext.isEmpty();
   }
 }

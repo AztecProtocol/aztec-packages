@@ -3,9 +3,9 @@ import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex } from '../../constants.gen.js';
-import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -45,7 +45,12 @@ export class NewContractData {
     if (this.isEmpty()) {
       return new Fr(0);
     }
-    return Fr.fromBuffer(pedersenHash(NewContractData.getFields(this).map(f => f.toBuffer()), GeneratorIndex.CONTRACT_LEAF));
+    return Fr.fromBuffer(
+      pedersenHash(
+        NewContractData.getFields(this).map(f => f.toBuffer()),
+        GeneratorIndex.CONTRACT_LEAF,
+      ),
+    );
   }
 
   /**

@@ -20,7 +20,7 @@ describe('ContractDeploymentData', () => {
   it('computes empty hash', () => {
     const cd = ContractDeploymentData.empty();
     expect(cd.isEmpty()).toBe(true);
-    
+
     const hash = cd.hash();
     expect(hash).toMatchSnapshot();
 
