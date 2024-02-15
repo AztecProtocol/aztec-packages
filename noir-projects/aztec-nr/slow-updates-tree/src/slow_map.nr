@@ -1,6 +1,7 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::oracle::storage::{storage_read, storage_write};
 use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::std::hash::pedersen_hash;
 use dep::std::merkle::compute_merkle_root;
 use dep::std::option::Option;
 
@@ -140,7 +141,7 @@ impl<N,M> SlowMap<N,M> {
 
   // docs:start:read_leaf_at
   pub fn read_leaf_at(self: Self, key: Field) -> Leaf {
-    let derived_storage_slot = dep::std::hash::pedersen_hash([self.storage_slot, key]);
+    let derived_storage_slot = pedersen_hash([self.storage_slot, key]);
     let fields = storage_read(derived_storage_slot);
     Leaf::deserialize(fields)
   }
@@ -246,7 +247,7 @@ impl<N,M> SlowMap<N,M> {
 
   // Updates the value in the in storage with no checks.
   fn update_unsafe(self: Self, index: Field, leaf: Leaf, root: Leaf) {
-    let derived_storage_slot = dep::std::hash::pedersen_hash([self.storage_slot, index]);
+    let derived_storage_slot = pedersen_hash([self.storage_slot, index]);
     let fields = leaf.serialize();
     storage_write(derived_storage_slot, fields);
     
