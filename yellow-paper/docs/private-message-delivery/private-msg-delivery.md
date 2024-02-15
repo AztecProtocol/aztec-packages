@@ -6,7 +6,7 @@ If Alice executes a function that generates a note for Bob:
 
 1. Alice will need to **encrypt** that note such that Bob, and only Bob is able to decrypt it.
 2. Alice will need to **broadcast** the encrypted note ciphertext so as to make it available for Bob to retrieve.
-3. Alice will need to **broadcast a 'tag'** alongside the encrypted note ciphertext. This tag must be identifiable by Bob's chosen [note discovery protocol](./note-discovery.md) but not identifiable by any third party as "intended for Bob".
+3. Alice will need to **broadcast a 'tag'** alongside the encrypted note ciphertext. This tag must be identifiable by Bob's chosen [note discovery protocol](./private-msg-delivery.md#note-discovery-protocol-selection) but not identifiable by any third party as "intended for Bob".
 
 ## Requirements
 
@@ -25,13 +25,13 @@ The protocol will enable account contract developers to constrain the correctnes
 2. The generation of the tag for that note.
 3. The publication of that note and tag to the correct data availability layer.
 
-Each account contract will define whether to constrain each such step. Encryption and tagging will be done through a set of [precompiled contracts](../addresses-and-keys/precompiles.md), each contract offering a different mechanism, and users will advertise their preferred mechanisms in a canonical [registry](./registry.md).
+Each account contract will define whether to constrain each such step. Encryption and tagging will be done through a set of [precompiled contracts](../addresses-and-keys/precompiles.md), each contract offering a different mechanism, and users will advertise their preferred mechanisms in a canonical [registry](../pre-compiled-contracts/registry.md).
 
 The advantages of this approach are:
 
-1. It enables a user to select their preferred [note discovery protocol](./note-discovery.md) and [encryption scheme](./encryption-and-decryption.md).
+1. It enables a user to select their preferred [note discovery protocol](./private-msg-delivery.md#note-discovery-protocol-selection) and [encryption scheme](./private-msg-delivery.md#encryption-and-decryption).
 2. It ensures that notes are correctly encrypted with a user's public encryption key.
-3. It ensures that notes are correctly tagged for a user's chosen [note discovery protocol](./note-discovery.md).
+3. It ensures that notes are correctly tagged for a user's chosen note discovery protocol.
 4. It provides scope for upgrading these functions or introducing new schemes as the field progresses.
 5. It protects applications from malicious unprovable functions.
 
