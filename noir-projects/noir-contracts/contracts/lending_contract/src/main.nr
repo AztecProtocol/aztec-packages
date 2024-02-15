@@ -11,18 +11,9 @@ mod interfaces;
 // - A way to repay all debt at once
 // - Liquidations
 contract Lending {
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::AztecAddress,
-    };
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::std::option::Option;
-    use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        state_vars::{
-            map::Map,
-            public_state::PublicState,
-        }
-    };
+    use dep::aztec::{context::{PrivateContext, PublicContext, Context}, state_vars::{map::Map, public_state::PublicState}};
     use crate::asset::Asset;
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
@@ -67,12 +58,7 @@ contract Lending {
         let last_updated_ts = context.timestamp() as u64;
 
         asset_loc.write(
-            Asset {
-            interest_accumulator: U128::from_integer(1000000000),
-            last_updated_ts,
-            loan_to_value,
-            oracle
-        }
+            Asset { interest_accumulator: U128::from_integer(1000000000), last_updated_ts, loan_to_value, oracle }
         );
 
         storage.collateral_asset.write(collateral_asset);
@@ -191,11 +177,16 @@ contract Lending {
         let debt_covered = covered_by_collateral(
             price,
             asset.loan_to_value,
-            collateral as u120,
-            0,
-            amount as u120
+            U128::from_integer(collateral),
+            U128::from_integer(0),
+            U128::from_integer(amount)
         );
-        let debt_returns = debt_updates(asset.interest_accumulator, static_debt as u120, 0, 0);
+        let debt_returns = debt_updates(
+            asset.interest_accumulator,
+            U128::from_integer(static_debt),
+            U128::from_integer(0),
+            U128::from_integer(0)
+        );
 
         assert(debt_returns.debt_value < debt_covered);
 
@@ -233,15 +224,26 @@ contract Lending {
         let price = PriceFeed::at(asset.oracle).get_price(context);
 
         // Fetch collateral and static_debt, compute health of current position
-        let collateral = storage.collateral.at(owner).read() as u120;
-        let static_debt = storage.static_debt.at(owner).read() as u120;
+        let collateral = U128::from_integer(storage.collateral.at(owner).read());
+        let static_debt = U128::from_integer(storage.static_debt.at(owner).read());
 
-        let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0, 0);
-        let debt_returns = debt_updates(asset.interest_accumulator, static_debt, amount as u120, 0);
+        let debt_covered = covered_by_collateral(
+            price,
+            asset.loan_to_value,
+            collateral,
+            U128::from_integer(0),
+            U128::from_integer(0)
+        );
+        let debt_returns = debt_updates(
+            asset.interest_accumulator,
+            static_debt,
+            U128::from_integer(amount),
+            U128::from_integer(0)
+        );
 
         assert(debt_returns.debt_value < debt_covered);
 
-        storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
+        storage.static_debt.at(owner).write(debt_returns.static_debt.to_integer());
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
@@ -285,10 +287,15 @@ contract Lending {
         // To ensure that private is using the correct token.
         assert(stable_coin.eq(storage.stable_coin.read()));
 
-        let static_debt = storage.static_debt.at(owner).read() as u120;
-        let debt_returns = debt_updates(asset.interest_accumulator, static_debt, 0, amount as u120);
+        let static_debt = U128::from_integer(storage.static_debt.at(owner).read());
+        let debt_returns = debt_updates(
+            asset.interest_accumulator,
+            static_debt,
+            U128::from_integer(0),
+            U128::from_integer(amount)
+        );
 
-        storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
+        storage.static_debt.at(owner).write(debt_returns.static_debt.to_integer());
     }
 
     unconstrained fn get_asset(assetId: Field) -> pub Asset {
@@ -299,7 +306,10 @@ contract Lending {
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset = storage.assets.at(0).read();
-        let debt = debt_value(static_debt as u120, asset.interest_accumulator as u120) as Field;
+        let debt = debt_value(
+            U128::from_integer(static_debt),
+            U128::from_integer(asset.interest_accumulator)
+        ).to_integer();
         Position { collateral, static_debt, debt }
     }
 

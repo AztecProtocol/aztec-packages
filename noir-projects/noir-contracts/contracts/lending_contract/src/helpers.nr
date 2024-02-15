@@ -26,7 +26,7 @@ pub fn covered_by_collateral(
 
     let collateral = (collateral + increase) - decrease;
 
-    let collateral_value = (collateral* price) / price_precision;
+    let collateral_value = (collateral * price) / price_precision;
     let debt_covered = (collateral_value * loan_to_value) / ltv_precision;
 
     debt_covered
@@ -35,6 +35,15 @@ pub fn covered_by_collateral(
 struct DebtReturn {
     debt_value: U128,
     static_debt: U128,
+}
+
+fn div_up(a: U128, b: U128) -> U128 {
+    let div = a / b;
+    if div * b < a {
+        div + U128::from_integer(1)
+    } else {
+        div
+    }
 }
 
 pub fn debt_updates(
@@ -51,20 +60,18 @@ pub fn debt_updates(
 
     // static_debt_increase = amount / accumulator
     // rounding up new debt.
-    let static_debt_increase = increase.mul_div_up(accumulator_precision, interest_accumulator);
+    let static_debt_increase = div_up(increase * accumulator_precision, interest_accumulator);
     // rounding down repayment.
-    let static_debt_decrease = decrease.mul_div(accumulator_precision, interest_accumulator);
+    let static_debt_decrease = (decrease * accumulator_precision) / interest_accumulator;
 
     // We need to allow repaying of the entire debt as well etc. This is very prone to failing
     // if you try to repay exact due to time diff between sim and execution.
     let new_static_debt = static_debt.add(static_debt_increase).sub(static_debt_decrease);
 
-    DebtReturn { debt_value: new_debt_value.value, static_debt: new_static_debt.value }
+    DebtReturn { debt_value: new_debt_value, static_debt: new_static_debt }
 }
 
-pub fn debt_value(static_debt: u120, interest_accumulator: u120) -> u120 {
-    let static_debt = SafeU120 { value: static_debt };
-    let accumulator_precision = SafeU120 { value: 1000000000 };
-    let interest_accumulator = SafeU120 { value: interest_accumulator };
-    static_debt.mul_div_up(interest_accumulator, accumulator_precision).value
+pub fn debt_value(static_debt: U128, interest_accumulator: U128) -> U128 {
+    let accumulator_precision = U128::from_integer(1000000000);
+    div_up(static_debt * interest_accumulator, accumulator_precision)
 }

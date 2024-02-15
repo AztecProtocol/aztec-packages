@@ -2,13 +2,7 @@ mod asset;
 
 contract PriceFeed {
     use dep::std::option::Option;
-    use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        state_vars::{
-            map::Map,
-            public_state::PublicState,
-        },
-    };
+    use dep::aztec::{context::{PrivateContext, PublicContext, Context}, state_vars::{map::Map, public_state::PublicState}};
     use dep::aztec::protocol_types::address::AztecAddress;
     use crate::asset::Asset;
 
@@ -21,7 +15,7 @@ contract PriceFeed {
     fn constructor() {}
 
     #[aztec(public)]
-    fn set_price(asset_id: Field, price: u120) {
+    fn set_price(asset_id: Field, price: Field) {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset { price });
     }
