@@ -1,7 +1,7 @@
 import {
   ContractData,
   L2Block,
-  L2BlockBody,
+  Body,
   MerkleTreeId,
   PublicDataWrite,
   TxEffect,
@@ -123,7 +123,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         ),
     );
 
-    const blockBody = new L2BlockBody(newL1ToL2Messages, txEffects);
+    const blockBody = new Body(newL1ToL2Messages, txEffects);
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,

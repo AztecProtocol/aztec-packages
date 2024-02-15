@@ -1,6 +1,6 @@
 import {
   ContractData,
-  L2BlockBody,
+  Body,
   L2BlockL2Logs,
   L2Tx,
   LogType,
@@ -49,7 +49,7 @@ export class L2Block {
     /** L2 block header. */
     public header: Header,
     /** L2 block body. */
-    public body: L2BlockBody,
+    public body: Body,
     /** Associated L1 block num */
     l1BlockNumber?: bigint,
   ) {
@@ -72,7 +72,7 @@ export class L2Block {
       archive: AppendOnlyTreeSnapshot;
       /** L2 block header. */
       header: Header;
-      body: L2BlockBody;
+      body: Body;
     },
     l1BlockNumber?: bigint,
   ) {
@@ -87,7 +87,7 @@ export class L2Block {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
-    const body = reader.readObject(L2BlockBody, withLogs);
+    const body = reader.readObject(Body, withLogs);
 
     return L2Block.fromFields({
       archive,
@@ -191,7 +191,7 @@ export class L2Block {
 
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
 
-    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
+    const body = new Body(newL1ToL2Messages, txEffects);
 
     return L2Block.fromFields(
       {

@@ -10,7 +10,7 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-export class L2BlockBody {
+export class Body {
   constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
 
   /**
