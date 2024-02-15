@@ -208,7 +208,7 @@ contract Test {
         context.message_recipient(recipient, content);
     }
 
-    #[aztec(public)]
+    #[aztec(private)]
     fn create_l2_to_l1_message_arbitrary_recipient_private(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
         context.message_recipient(recipient, content);
