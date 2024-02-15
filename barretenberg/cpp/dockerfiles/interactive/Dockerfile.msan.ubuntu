@@ -40,6 +40,4 @@ ENV MSAN_LFLAGS="-fsanitize=memory -stdlib=libc++ -L/opt/lib -lc++abi -Wl,-rpath
 
 WORKDIR /usr/src/barretenberg/cpp
 
-#RUN cd aztec-packages/barretenberg/cpp && \
-#  cmake -GNinja -DCMAKE_CXX_FLAGS="$MSAN_CFLAGS" -DCMAKE_EXE_LINKER_FLAGS="$MSAN_LFLAGS" --preset msan
 CMD ["/bin/bash"]
