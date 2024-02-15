@@ -170,6 +170,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
             gate_challenges[i] = gate_challenges[i - 1].sqr();
         }
         inst->gate_challenges = gate_challenges;
+        // inst->gate_challenges.resize(inst->log_instance_size, 0);
     }
     index++;
 

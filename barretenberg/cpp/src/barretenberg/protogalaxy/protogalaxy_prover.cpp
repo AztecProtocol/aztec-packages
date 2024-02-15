@@ -158,13 +158,14 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         // efficient by avoiding the computation of the perturbator
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
-        // std::vector<FF> gate_challenges(instance->log_instance_size);
-        // auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
-        // gate_challenges[0] = beta;
-        // for (size_t i = 1; i < instance->log_instance_size; i++) {
-        //     gate_challenges[i] = gate_challenges[i - 1].sqr();
-        // }
-        instance->gate_challenges.resize(instance->log_instance_size, 0);
+        auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
+        std::vector<FF> gate_challenges(instance->log_instance_size);
+        gate_challenges[0] = beta;
+        for (size_t i = 1; i < instance->log_instance_size; i++) {
+            gate_challenges[i] = gate_challenges[i - 1].sqr();
+        }
+        instance->gate_challenges = gate_challenges;
+        // instance->gate_challenges.resize(instance->log_instance_size, 0);
     }
 
     idx++;
