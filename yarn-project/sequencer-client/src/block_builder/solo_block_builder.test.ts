@@ -1,8 +1,8 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   L2Block,
-  Body,
   MerkleTreeId,
   PublicDataWrite,
   Tx,

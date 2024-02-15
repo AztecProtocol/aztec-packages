@@ -1,6 +1,6 @@
 import {
-  ContractData,
   Body,
+  ContractData,
   L2BlockL2Logs,
   L2Tx,
   LogType,

@@ -1,7 +1,7 @@
 import {
+  Body,
   ContractData,
   L2Block,
-  Body,
   MerkleTreeId,
   PublicDataWrite,
   TxEffect,
