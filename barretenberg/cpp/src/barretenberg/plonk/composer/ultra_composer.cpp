@@ -99,10 +99,7 @@ UltraProver UltraComposer::construct_prover(CircuitBuilder& circuit_constructor)
     prover.transition_widgets.emplace_back(std::move(elliptic_widget));
     prover.transition_widgets.emplace_back(std::move(auxiliary_widget));
 
-    std::unique_ptr<KateCommitmentScheme<ultra_settings>> kate_commitment_scheme =
-        std::make_unique<KateCommitmentScheme<ultra_settings>>();
-
-    prover.commitment_scheme = std::move(kate_commitment_scheme);
+    prover.commitment_scheme = std::make_unique<KateCommitmentScheme<ultra_settings>>();
 
     return prover;
 }
@@ -145,10 +142,7 @@ UltraToStandardProver UltraComposer::create_ultra_to_standard_prover(CircuitBuil
     output_state.transition_widgets.emplace_back(std::move(elliptic_widget));
     output_state.transition_widgets.emplace_back(std::move(auxiliary_widget));
 
-    std::unique_ptr<KateCommitmentScheme<ultra_to_standard_settings>> kate_commitment_scheme =
-        std::make_unique<KateCommitmentScheme<ultra_to_standard_settings>>();
-
-    output_state.commitment_scheme = std::move(kate_commitment_scheme);
+    output_state.commitment_scheme = std::make_unique<KateCommitmentScheme<ultra_to_standard_settings>>();
 
     return output_state;
 }
@@ -190,10 +184,7 @@ UltraWithKeccakProver UltraComposer::create_ultra_with_keccak_prover(CircuitBuil
     output_state.transition_widgets.emplace_back(std::move(elliptic_widget));
     output_state.transition_widgets.emplace_back(std::move(auxiliary_widget));
 
-    std::unique_ptr<KateCommitmentScheme<ultra_with_keccak_settings>> kate_commitment_scheme =
-        std::make_unique<KateCommitmentScheme<ultra_with_keccak_settings>>();
-
-    output_state.commitment_scheme = std::move(kate_commitment_scheme);
+    output_state.commitment_scheme = std::make_unique<KateCommitmentScheme<ultra_with_keccak_settings>>();
 
     return output_state;
 }
@@ -212,9 +203,7 @@ plonk::UltraVerifier UltraComposer::create_verifier(CircuitBuilder& circuit_cons
     plonk::UltraVerifier output_state(circuit_verification_key,
                                       create_manifest(circuit_constructor.public_inputs.size()));
 
-    auto kate_commitment_scheme = std::make_unique<plonk::KateCommitmentScheme<plonk::ultra_settings>>();
-
-    output_state.commitment_scheme = std::move(kate_commitment_scheme);
+    output_state.commitment_scheme = std::make_unique<plonk::KateCommitmentScheme<plonk::ultra_settings>>();
 
     return output_state;
 }
@@ -232,10 +221,7 @@ UltraToStandardVerifier UltraComposer::create_ultra_to_standard_verifier(Circuit
     UltraToStandardVerifier output_state(circuit_verification_key,
                                          create_manifest(circuit_constructor.public_inputs.size()));
 
-    std::unique_ptr<KateCommitmentScheme<ultra_to_standard_settings>> kate_commitment_scheme =
-        std::make_unique<KateCommitmentScheme<ultra_to_standard_settings>>();
-
-    output_state.commitment_scheme = std::move(kate_commitment_scheme);
+    output_state.commitment_scheme = std::make_unique<KateCommitmentScheme<ultra_to_standard_settings>>();
 
     return output_state;
 }
@@ -253,10 +239,7 @@ UltraWithKeccakVerifier UltraComposer::create_ultra_with_keccak_verifier(Circuit
     UltraWithKeccakVerifier output_state(circuit_verification_key,
                                          create_manifest(circuit_constructor.public_inputs.size()));
 
-    std::unique_ptr<KateCommitmentScheme<ultra_with_keccak_settings>> kate_commitment_scheme =
-        std::make_unique<KateCommitmentScheme<ultra_with_keccak_settings>>();
-
-    output_state.commitment_scheme = std::move(kate_commitment_scheme);
+    output_state.commitment_scheme = std::make_unique<KateCommitmentScheme<ultra_with_keccak_settings>>();
 
     return output_state;
 }
