@@ -1,9 +1,10 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`abis Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17"`;
+exports[`hash Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17"`;
 
-exports[`abis Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed"`;
+exports[`hash Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed"`;
 
+<<<<<<< HEAD:yarn-project/circuits.js/src/abis/__snapshots__/abis.test.ts.snap
 <<<<<<< HEAD
 exports[`abis compute public call stack item hash 1`] = `
 Fr {
@@ -51,6 +52,9 @@ Fr {
 =======
 >>>>>>> 883538d56 (NewContractData)
 exports[`abis compute secret message hash 1`] = `
+=======
+exports[`hash compute secret message hash 1`] = `
+>>>>>>> 6b2ea1af0 (renamed abis.ts as hash.ts):yarn-project/circuits.js/src/hash/__snapshots__/hash.test.ts.snap
 Fr {
   "asBigInt": 6220068662483113241527007349428551778669520744131373768997518428761948042030n,
   "asBuffer": {
@@ -93,7 +97,7 @@ Fr {
 }
 `;
 
-exports[`abis computes commitment nonce 1`] = `
+exports[`hash computes commitment nonce 1`] = `
 Fr {
   "asBigInt": 7653394882992289714855533169019502055399179742531912347686813547951736946253n,
   "asBuffer": {
@@ -136,7 +140,7 @@ Fr {
 }
 `;
 
-exports[`abis computes function tree root 1`] = `
+exports[`hash computes function tree root 1`] = `
 Fr {
   "asBigInt": 18902231782334398705464257251364974449663398212058621439366133672872128659209n,
   "asBuffer": {
@@ -179,7 +183,7 @@ Fr {
 }
 `;
 
-exports[`abis computes public data tree leaf slot 1`] = `
+exports[`hash computes public data tree leaf slot 1`] = `
 Fr {
   "asBigInt": 9076808949980998475110411569159266589807853958487763065147292518713994520820n,
   "asBuffer": {
@@ -222,7 +226,7 @@ Fr {
 }
 `;
 
-exports[`abis computes public data tree value 1`] = `
+exports[`hash computes public data tree value 1`] = `
 Fr {
   "asBigInt": 3n,
   "asBuffer": {
@@ -265,7 +269,7 @@ Fr {
 }
 `;
 
-exports[`abis computes siloed commitment 1`] = `
+exports[`hash computes siloed commitment 1`] = `
 Fr {
   "asBigInt": 7262347077404413274044670947879391583109741657896097604752287127491776887739n,
   "asBuffer": {
@@ -308,7 +312,7 @@ Fr {
 }
 `;
 
-exports[`abis computes siloed nullifier 1`] = `
+exports[`hash computes siloed nullifier 1`] = `
 Fr {
   "asBigInt": 10521714890263159342521589827909786073566333899903358017581007142888032736115n,
   "asBuffer": {
@@ -351,7 +355,7 @@ Fr {
 }
 `;
 
-exports[`abis computes unique commitment 1`] = `
+exports[`hash computes unique commitment 1`] = `
 Fr {
   "asBigInt": 13000121189816960667906065043973697710794195579570622293955220571859166513128n,
   "asBuffer": {
@@ -394,7 +398,7 @@ Fr {
 }
 `;
 
-exports[`abis hashes VK 1`] = `
+exports[`hash hashes VK 1`] = `
 {
   "data": [
     4,
@@ -434,7 +438,7 @@ exports[`abis hashes VK 1`] = `
 }
 `;
 
-exports[`abis hashes constructor info 1`] = `
+exports[`hash hashes constructor info 1`] = `
 Fr {
   "asBigInt": 8554563246648466207128694080427818093826588702256491720155365584899927973422n,
   "asBuffer": {
@@ -477,7 +481,7 @@ Fr {
 }
 `;
 
-exports[`abis hashes empty function args 1`] = `
+exports[`hash hashes empty function args 1`] = `
 Fr {
   "asBigInt": 0n,
   "asBuffer": {
@@ -520,7 +524,7 @@ Fr {
 }
 `;
 
-exports[`abis hashes function args 1`] = `
+exports[`hash hashes function args 1`] = `
 Fr {
   "asBigInt": 13773950327711008256617416059663646210697922258755635023101062905870427579114n,
   "asBuffer": {
@@ -563,7 +567,7 @@ Fr {
 }
 `;
 
-exports[`abis hashes many function args 1`] = `
+exports[`hash hashes many function args 1`] = `
 Fr {
   "asBigInt": 5019561503322397537490243039227402098195702132635946562396386724242519444026n,
   "asBuffer": {

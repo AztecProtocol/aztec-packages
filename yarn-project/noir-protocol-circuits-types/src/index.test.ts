@@ -8,7 +8,7 @@ import {
   computeContractAddressFromPartial,
   computePublicKeysHash,
 } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/abis';
+import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';

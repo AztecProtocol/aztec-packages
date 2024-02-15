@@ -1,6 +1,6 @@
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
+import { computeSecretMessageHash } from '@aztec/circuits.js/hash';
 import { sha256 } from '@aztec/foundation/crypto';
 
 /**

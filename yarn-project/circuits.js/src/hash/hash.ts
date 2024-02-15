@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
@@ -10,22 +10,12 @@ import chunk from 'lodash.chunk';
 import {
   ARGS_HASH_CHUNK_COUNT,
   ARGS_HASH_CHUNK_LENGTH,
-  FUNCTION_SELECTOR_NUM_BYTES,
   FUNCTION_TREE_HEIGHT,
   GeneratorIndex,
 } from '../constants.gen.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 import type { FunctionData, SideEffect, SideEffectLinkedToNoteHash } from '../structs/index.js';
 import { VerificationKey } from '../structs/verification_key.js';
-
-/**
- * Computes a function selector from a given function signature.
- * @param funcSig - The function signature.
- * @returns The function selector.
- */
-export function computeFunctionSelector(funcSig: string): Buffer {
-  return keccak(Buffer.from(funcSig)).subarray(0, FUNCTION_SELECTOR_NUM_BYTES);
-}
 
 /**
  * Computes a hash of a given verification key.

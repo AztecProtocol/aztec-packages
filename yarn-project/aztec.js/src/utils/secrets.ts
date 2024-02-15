@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
-import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
+import { computeSecretMessageHash } from '../../../circuits.js/dest/hash/index.js';
 
 /**
  * Given a secret, it computes its pedersen hash - used to send l1 to l2 messages

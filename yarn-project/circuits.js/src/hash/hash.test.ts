@@ -16,9 +16,9 @@ import {
   hashVK,
   siloCommitment,
   siloNullifier,
-} from './abis.js';
+} from './hash.js';
 
-describe('abis', () => {
+describe('hash', () => {
   it('hashes VK', () => {
     const vk = makeVerificationKey();
     const res = hashVK(vk.toBuffer());
