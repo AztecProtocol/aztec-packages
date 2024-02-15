@@ -24,4 +24,4 @@ In this guide we are using a Token contract artifact. This comes from the [token
 
 #include_code deploy_contract yarn-project/end-to-end/src/docs_examples.test.ts typescript
 
-This will print the address of your deployed contract. To learn how to send a transaction from Aztec.js read [this guide](./send_transaction.md). You can also call a `view` function from Aztec.js by reading [this guide](./call_view_function.md).
+To learn how to send a transaction from Aztec.js read [this guide](./send_transaction.md). You can also call a `view` function from Aztec.js by reading [this guide](./call_view_function.md).
