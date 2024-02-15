@@ -287,8 +287,14 @@ function processFiles(baseDir, outputBaseDir) {
     fs.writeFileSync(outputPath, JSON.stringify({ AztecNR: docStructure }, null, 2));
 }
 
+
 const baseDir = path.resolve(__dirname, '../../../yarn-project/aztec-nr');
-const outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
+const outputBaseDir = path.resolve(__dirname, './developers/contracts/references/aztec-nr');
+
+if (process.env.CI === 'true') {
+    baseDir = path.resolve(__dirname, '../yarn-project/aztec-nr');
+    outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
+}
 
 processFiles(baseDir, outputBaseDir);
 
