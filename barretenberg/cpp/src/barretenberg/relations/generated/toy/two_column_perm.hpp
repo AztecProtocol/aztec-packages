@@ -23,7 +23,7 @@ class two_column_perm_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.toy_q_tuple_set == 1);
+        return (in.toy_q_tuple_set == 1 || in.toy_q_tuple_set == 1);
     }
 
     /**
