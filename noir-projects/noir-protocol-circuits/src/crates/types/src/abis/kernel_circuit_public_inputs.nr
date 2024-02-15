@@ -13,7 +13,7 @@ use crate::mocked::AggregationObject;
 
 struct PrivateKernelInnerCircuitPublicInputs {
     aggregation_object: AggregationObject,
-    max_non_revertible_side_effect_counter: u32,
+    min_revertible_side_effect_counter: u32,
     end: CombinedAccumulatedData,
     constants: CombinedConstantData,
     is_private: bool, // TODO can we remove this?
@@ -59,7 +59,7 @@ impl RollupKernelCircuitPublicInputsBuilder {
 
 struct PrivateKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
-    max_non_revertible_side_effect_counter: u32,
+    min_revertible_side_effect_counter: u32,
     end: CombinedAccumulatedDataBuilder,
     constants: CombinedConstantData,
     is_private: bool,
@@ -69,7 +69,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     pub fn to_inner(self) -> PrivateKernelInnerCircuitPublicInputs {
         PrivateKernelInnerCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
-            max_non_revertible_side_effect_counter: self.max_non_revertible_side_effect_counter,
+            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end: self.end.finish(),
             constants: self.constants,
             is_private: self.is_private
@@ -77,7 +77,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     }
 
     pub fn to_tail(self) -> PrivateKernelTailCircuitPublicInputs {
-        let (end_non_revertible, end) = self.end.split(self.max_non_revertible_side_effect_counter);
+        let (end_non_revertible, end) = self.end.split(self.min_revertible_side_effect_counter);
         PrivateKernelTailCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
             end_non_revertible,

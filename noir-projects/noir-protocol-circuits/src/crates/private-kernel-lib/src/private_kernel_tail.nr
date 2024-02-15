@@ -378,7 +378,7 @@ mod tests {
         builder.append_transient_commitments(MAX_NEW_COMMITMENTS_PER_TX);
         // prepare for the split: first MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX are added to end_non_revertible_accumulted_data
         // neeed to take the counter of the side effect at the given index because
-        builder.previous_kernel.max_non_revertible_side_effect_counter = builder.previous_kernel.end.new_commitments.get(MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX).counter;
+        builder.previous_kernel.min_revertible_side_effect_counter = builder.previous_kernel.end.new_commitments.get(MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX).counter;
         // Read the commitment at index 1;
         builder.add_transient_read(1);
         // Read the commitment at index 3;
@@ -580,7 +580,7 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
         builder.previous_kernel.append_new_nullifiers_from_private(2);
-        builder.previous_kernel.capture_max_non_revertible_side_effect_counter();
+        builder.previous_kernel.capture_min_revertible_side_effect_counter();
 
         // expect 2 revertible nullifiers
         builder.previous_kernel.append_new_nullifiers_from_private(2);
@@ -609,7 +609,7 @@ mod tests {
 
         // expect 2 non-revertible commitments
         builder.previous_kernel.append_new_commitments(2);
-        builder.previous_kernel.capture_max_non_revertible_side_effect_counter();
+        builder.previous_kernel.capture_min_revertible_side_effect_counter();
 
         // expect 2 revertible commitments
         builder.previous_kernel.append_new_commitments(2);
@@ -644,7 +644,7 @@ mod tests {
 
         // add one commitment in non-revertible part
         builder.previous_kernel.append_new_commitments(1);
-        builder.previous_kernel.capture_max_non_revertible_side_effect_counter();
+        builder.previous_kernel.capture_min_revertible_side_effect_counter();
 
         // nullify it in revertible part
         builder.previous_kernel.append_new_nullifiers_from_private(1);

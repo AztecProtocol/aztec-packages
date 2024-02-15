@@ -661,9 +661,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
-    max_non_revertible_side_effect_counter: mapFieldToNoir(
-      privateCircuitPublicInputs.maxNonRevertibleSideEffectCounter,
-    ),
+    min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
   };
 }
 
@@ -1125,7 +1123,7 @@ export function mapPrivateKernelInnerCircuitPublicInputsFromNoir(
 ): PrivateKernelInnerCircuitPublicInputs {
   return new PrivateKernelInnerCircuitPublicInputs(
     AggregationObject.makeFake(),
-    mapFieldFromNoir(inputs.max_non_revertible_side_effect_counter),
+    mapFieldFromNoir(inputs.min_revertible_side_effect_counter),
     mapCombinedAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
     inputs.is_private,
@@ -1139,7 +1137,7 @@ export function mapPrivateKernelInnerCircuitPublicInputsToNoir(
     aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
-    max_non_revertible_side_effect_counter: mapFieldToNoir(inputs.maxNonRevertibleSideEffectCounter),
+    min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     is_private: inputs.isPrivate,
   };
 }

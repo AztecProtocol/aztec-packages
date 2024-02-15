@@ -39,7 +39,7 @@ struct PrivateContext {
     inputs: PrivateContextInputs,
     side_effect_counter: u32,
 
-    max_non_revertible_side_effect_counter: u32,
+    min_revertible_side_effect_counter: u32,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
@@ -67,10 +67,12 @@ struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
+        let min_revertible_side_effect_counter = inputs.call_context.start_side_effect_counter;
+        let side_effect_counter = min_revertible_side_effect_counter;
         PrivateContext {
             inputs,
-            side_effect_counter: inputs.call_context.start_side_effect_counter,
-            max_non_revertible_side_effect_counter: inputs.call_context.start_side_effect_counter,
+            side_effect_counter,
+            min_revertible_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(0),
             read_requests: BoundedVec::new(SideEffect::empty()),
@@ -140,7 +142,7 @@ impl PrivateContext {
             // - in the private circuit inner that it remains 0
             // I've had to initialize the counter here so that it would work for contract deployments
             // the above checks should be doable after we figure out fee payments for contract deployments
-            max_non_revertible_side_effect_counter: self.max_non_revertible_side_effect_counter,
+            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             read_requests: self.read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_commitments: self.new_commitments.storage,
@@ -161,11 +163,11 @@ impl PrivateContext {
         priv_circuit_pub_inputs
     }
 
-    pub fn capture_max_non_revertible_side_effect_counter(&mut self) {
+    pub fn capture_min_revertible_side_effect_counter(&mut self) {
         // assert(
-        //     self.max_non_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter"
+        //     self.min_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter"
         // );
-        self.max_non_revertible_side_effect_counter = self.side_effect_counter;
+        self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
     pub fn push_read_request(&mut self, read_request: Field) {

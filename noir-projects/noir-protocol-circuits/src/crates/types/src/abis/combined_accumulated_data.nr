@@ -396,15 +396,17 @@ impl CombinedAccumulatedDataBuilder {
 
     pub fn split(
         self,
-        max_non_revertible_side_effect_counter: u32
+        min_revertible_side_effect_counter: u32
     ) -> (PrivateAccumulatedNonRevertibleData, PrivateAccumulatedRevertibleData) {
         let mut non_revertible_builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
         let mut revertible_builder: AccumulatedRevertibleDataBuilder = unsafe::zeroed();
 
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             let commitment = self.new_commitments.storage[i];
+            // TODO(fees) we shouldn't need to check is_empty here,
+            // but we do because new_commitments is bounded to MAX_REVERTIBLE_COMMITMENTS_PER_TX
             if !is_empty(commitment) {
-                if commitment.counter < max_non_revertible_side_effect_counter {
+                if commitment.counter < min_revertible_side_effect_counter {
                     non_revertible_builder.new_commitments.push(commitment);
                 } else {
                     revertible_builder.new_commitments.push(commitment);
@@ -414,17 +416,18 @@ impl CombinedAccumulatedDataBuilder {
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
             if !is_empty(nullifier) {
-                if nullifier.counter < max_non_revertible_side_effect_counter {
+                if nullifier.counter < min_revertible_side_effect_counter {
                     non_revertible_builder.new_nullifiers.push(nullifier);
                 } else {
                     revertible_builder.new_nullifiers.push(nullifier);
                 }
             }
         }
+
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
             let call_stack_item = self.public_call_stack.storage[i];
             if !is_empty(call_stack_item) {
-                if call_stack_item.start_side_effect_counter < max_non_revertible_side_effect_counter {
+                if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
                     non_revertible_builder.public_call_stack.push(call_stack_item);
                 } else {
                     revertible_builder.public_call_stack.push(call_stack_item);

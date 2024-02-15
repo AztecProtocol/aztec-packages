@@ -34,7 +34,7 @@ struct PreviousKernelDataBuilder {
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     sideffect_counter: u32,
-    max_non_revertible_side_effect_counter: u32
+    min_revertible_side_effect_counter: u32
 }
 
 impl PreviousKernelDataBuilder {
@@ -67,7 +67,7 @@ impl PreviousKernelDataBuilder {
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
             sideffect_counter: 2,
-            max_non_revertible_side_effect_counter: 2
+            min_revertible_side_effect_counter: 2
         }
     }
 
@@ -188,8 +188,8 @@ impl PreviousKernelDataBuilder {
 
     // snapshot the side effects
     // this is useful in the private tail circuit to test side effect splitting
-    pub fn capture_max_non_revertible_side_effect_counter(&mut self) {
-        self.max_non_revertible_side_effect_counter = self.sideffect_counter;
+    pub fn capture_min_revertible_side_effect_counter(&mut self) {
+        self.min_revertible_side_effect_counter = self.sideffect_counter;
     }
 
     pub fn set_encrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
@@ -238,7 +238,7 @@ impl PreviousKernelDataBuilder {
     pub fn to_private_kernel_inner_data(self) -> PrivateKernelInnerData {
         let public_inputs = PrivateKernelInnerCircuitPublicInputs {
             aggregation_object: AggregationObject {},
-            max_non_revertible_side_effect_counter: self.max_non_revertible_side_effect_counter,
+            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end: self.end.finish(),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             is_private: self.is_private
