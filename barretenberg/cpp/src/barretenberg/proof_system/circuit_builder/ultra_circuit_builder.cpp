@@ -45,9 +45,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         process_RAM_arrays();
         process_range_lists();
 
-        tables_size = get_tables_size();
-        lookups_size = get_lookups_size();
-
         circuit_finalized = true;
     }
 }

@@ -26,10 +26,6 @@ using namespace bb;
 
 template <typename Arithmetization>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization::FF> {
-  private:
-    size_t tables_size = 0;
-    size_t lookups_size = 0;
-
   public:
     using Selectors = Arithmetization;
     using FF = typename Arithmetization::FF;
@@ -954,9 +950,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      */
     size_t get_tables_size() const
     {
-        if (circuit_finalized) {
-            return tables_size;
-        }
         size_t tables_size = 0;
         for (const auto& table : lookup_tables) {
             tables_size += table.size;
@@ -970,9 +963,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      */
     size_t get_lookups_size() const
     {
-        if (circuit_finalized) {
-            return lookups_size;
-        }
         size_t lookups_size = 0;
         for (const auto& table : lookup_tables) {
             lookups_size += table.lookup_gates.size();
@@ -988,17 +978,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      * size and the general circuit size
      *
      * @return size_t
+     * WORKTODO: this is only correct for UP. make this usable by both and use it?
      */
     size_t get_total_circuit_size() const
     {
-        size_t tables_size = 0;
-        size_t lookups_size = 0;
-        for (const auto& table : lookup_tables) {
-            tables_size += table.size;
-            lookups_size += table.lookup_gates.size();
-        }
-
-        auto minimum_circuit_size = tables_size + lookups_size;
+        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
         auto num_filled_gates = get_num_gates() + this->public_inputs.size();
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
