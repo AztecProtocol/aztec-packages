@@ -67,6 +67,17 @@ template <typename FF_> class StandardArith {
         }
     }
 
+    // Temporary: probably not ultimately necessary
+    void reserve_and_zero(size_t size_hint)
+    {
+        for (auto& vec : selectors) {
+            vec.reserve(size_hint);
+            for (size_t i = 0; i < size_hint; ++i) {
+                vec.emplace_back(0);
+            }
+        }
+    }
+
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
     inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
 };

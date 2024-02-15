@@ -461,10 +461,11 @@ void compute_monomial_and_coset_fft_polynomials_from_lagrange(std::string label,
  */
 template <typename Flavor>
 void compute_standard_plonk_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
-                                               typename Flavor::ProvingKey* key)
+                                               typename Flavor::ProvingKey* key,
+                                               std::vector<CyclicPermutation> copy_cycles = {})
 {
     // Compute the permutation table specifying which element becomes which
-    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, key);
+    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, key, copy_cycles);
     // Compute Plonk-style sigma polynomials from the mapping
     compute_plonk_permutation_lagrange_polynomials_from_mapping("sigma", mapping.sigmas, key);
     // Compute their monomial and coset versions

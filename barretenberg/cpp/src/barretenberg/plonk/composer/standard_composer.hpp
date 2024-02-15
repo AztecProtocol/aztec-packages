@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
@@ -16,6 +17,7 @@ class StandardComposer {
     using Flavor = plonk::flavor::Standard;
 
     using CircuitBuilder = StandardCircuitBuilder;
+    using Trace = ExecutionTrace_<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "StandardPlonk";
     static constexpr size_t NUM_RESERVED_GATES = 4; // equal to the number of evaluations leaked
@@ -54,13 +56,12 @@ class StandardComposer {
         };
         return result;
     }
-    std::shared_ptr<plonk::proving_key> compute_proving_key(const CircuitBuilder& circuit_constructor);
-    std::shared_ptr<plonk::verification_key> compute_verification_key(const CircuitBuilder& circuit_constructor);
+    std::shared_ptr<plonk::proving_key> compute_proving_key(CircuitBuilder& circuit_constructor);
+    std::shared_ptr<plonk::verification_key> compute_verification_key(CircuitBuilder& circuit_constructor);
 
-    plonk::Verifier create_verifier(const CircuitBuilder& circuit_constructor);
-    plonk::Prover create_prover(const CircuitBuilder& circuit_constructor);
+    plonk::Verifier create_verifier(CircuitBuilder& circuit_constructor);
+    plonk::Prover create_prover(CircuitBuilder& circuit_constructor);
 
-    void compute_witness(const CircuitBuilder& circuit_constructor, const size_t minimum_circuit_size = 0);
     /**
      * Create a manifest, which specifies proof rounds, elements and who supplies them.
      *
