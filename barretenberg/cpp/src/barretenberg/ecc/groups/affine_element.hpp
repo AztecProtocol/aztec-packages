@@ -126,7 +126,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
      */
     static affine_element serialize_from_buffer(uint8_t* buffer)
     {
-        // Does the buffer consist entirely of 255's? If so, we have a point at infinity
+        // Does the buffer consist entirely of set bits? If so, we have a point at infinity
         // Note that if it isn't, this loop should end early.
         bool is_point_at_infinity =
             std::all_of(buffer, buffer + sizeof(Fq) * 2, [](uint8_t val) { return val == 255; });
