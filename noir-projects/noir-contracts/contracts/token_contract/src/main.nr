@@ -13,7 +13,6 @@ contract Token {
     // Libs
     use dep::std::option::Option;
 
-    use dep::safe_math::SafeU120;
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{

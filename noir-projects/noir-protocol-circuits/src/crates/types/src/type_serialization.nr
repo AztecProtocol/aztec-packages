@@ -54,3 +54,16 @@ impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
         fields[0] as bool
     }
 }
+
+impl Serialize<2> for U128 {
+    fn serialize(self) -> [Field; 2] {
+        [self.lo, self.hi]
+    }
+
+}
+
+impl Deserialize<2> for U128 {
+    fn deserialize(fields: [Field; 2]) -> Self {
+        U128 {lo: fields[0], hi: fields[1]}
+    }
+}

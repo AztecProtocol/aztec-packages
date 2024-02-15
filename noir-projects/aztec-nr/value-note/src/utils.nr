@@ -3,10 +3,7 @@ use dep::aztec::context::PrivateContext;
 use dep::aztec::note::note_getter_options::{NoteGetterOptions, SortOrder};
 use dep::aztec::oracle::get_public_key::get_public_key;
 use dep::aztec::state_vars::set::Set;
-use crate::{
-    filter::filter_notes_min_sum,
-    value_note::{ValueNote, VALUE_NOTE_LEN},
-};
+use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 use dep::aztec::protocol_types::address::AztecAddress;
 
 // Sort the note values (0th field) in descending order.
@@ -53,7 +50,7 @@ pub fn decrement_by_at_most(balance: Set<ValueNote>, max_amount: Field, owner: A
 
     // Add the change value back to the owner's balance.
     let mut change_value = 0;
-    if decremented as u120 > max_amount as u120 {
+    if max_amount.lt(decremented) {
         change_value = decremented - max_amount;
         decremented -= change_value;
     }

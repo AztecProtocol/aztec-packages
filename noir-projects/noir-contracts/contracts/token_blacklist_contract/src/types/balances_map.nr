@@ -1,5 +1,4 @@
 use dep::std::option::Option;
-use dep::safe_math::SafeU120;
 use dep::aztec::{
     context::Context, protocol_types::{address::AztecAddress, constants::MAX_READ_REQUESTS_PER_CALL},
     state_vars::{set::Set, map::Map},

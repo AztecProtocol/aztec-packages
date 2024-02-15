@@ -4,7 +4,6 @@ use dep::aztec::{
     context::PrivateContext, state_vars::set::Set, log::emit_encrypted_log, hash::pedersen_hash
 };
 use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
-use dep::safe_math::SafeU120;
 use dep::std::option::Option;
 
 trait OwnedNote {

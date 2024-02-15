@@ -15,7 +15,6 @@ contract Lending {
         abis::function_selector::FunctionSelector,
         address::AztecAddress,
     };
-    use dep::safe_math::SafeU120;
     use dep::std::option::Option;
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
@@ -59,16 +58,17 @@ contract Lending {
         let asset_loc = storage.assets.at(0);
         let asset = asset_loc.read();
 
-        assert(loan_to_value as u120 <= 10000);
-        assert(asset.last_updated_ts == 0);
-        assert(asset.interest_accumulator == 0);
+        let loan_to_value = U128::from_integer(loan_to_value);
 
-        let last_updated_ts = context.timestamp() as u120;
-        let loan_to_value = loan_to_value as u120;
+        assert(loan_to_value <= U128::from_integer(10000));
+        assert(asset.last_updated_ts == 0);
+        assert(asset.interest_accumulator == U128::from_integer(0));
+
+        let last_updated_ts = context.timestamp() as u64;
 
         asset_loc.write(
             Asset {
-            interest_accumulator: 1000000000,
+            interest_accumulator: U128::from_integer(1000000000),
             last_updated_ts,
             loan_to_value,
             oracle
@@ -85,19 +85,19 @@ contract Lending {
         let asset_loc = storage.assets.at(0);
         let mut asset = asset_loc.read();
 
-        let timestamp = context.timestamp() as u120;
-        let dt: SafeU120 = SafeU120 { value: timestamp }.sub(SafeU120 { value: asset.last_updated_ts });
+        let timestamp = context.timestamp() as u64;
+        let dt = timestamp - asset.last_updated_ts;
 
         // Only update if time has passed.
-        if (!dt.is_zero()) {
-            let precision: SafeU120 = SafeU120 { value: 1000000000 };
-            let rate_per_second: u120 = 1268391679; // 4% yearly rate / (60 * 60 * 24 * 365)
+        if !(dt == 0) {
+            let precision = U128::from_integer(1000000000);
+            let rate_per_second = U128::from_integer(1268391679); // 4% yearly rate / (60 * 60 * 24 * 365)
             // if rate_per_second < sqrt(WAD) our approx is eq precision + rate * dt
             let multiplier = compute_multiplier(rate_per_second, dt);
 
             // accumulator *= multiplier, and multiplier >= 1
-            asset.interest_accumulator = SafeU120{value: asset.interest_accumulator}.mul_div(multiplier, precision).value;
-            asset.last_updated_ts = context.timestamp() as u120;
+            asset.interest_accumulator = (asset.interest_accumulator * multiplier) / precision;
+            asset.last_updated_ts = context.timestamp() as u64;
 
             asset_loc.write(asset);
         }
