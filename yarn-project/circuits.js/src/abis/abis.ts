@@ -244,23 +244,6 @@ export function computeVarArgsHash(args: Fr[]) {
 }
 
 /**
- * Computes a contract leaf of the given contract.
- * @param cd - The contract data of the deployed contract.
- * @returns The contract leaf.
- */
-export function computeContractLeaf(cd: NewContractData): Fr {
-  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.contractClassId.isZero()) {
-    return new Fr(0);
-  }
-  return Fr.fromBuffer(
-    pedersenHash(
-      [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.contractClassId.toBuffer()],
-      GeneratorIndex.CONTRACT_LEAF,
-    ),
-  );
-}
-
-/**
  * Computes tx hash of a given transaction request.
  * @param txRequest - The signed transaction request.
  * @returns The transaction hash.

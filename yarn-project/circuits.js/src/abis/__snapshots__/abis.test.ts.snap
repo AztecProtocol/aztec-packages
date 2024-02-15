@@ -4,6 +4,7 @@ exports[`abis Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781ded
 
 exports[`abis Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed"`;
 
+<<<<<<< HEAD
 exports[`abis compute public call stack item hash 1`] = `
 Fr {
   "asBigInt": 3788195771499507733306466132608199294191940083079612913177087023829747913637n,
@@ -47,6 +48,8 @@ Fr {
 }
 `;
 
+=======
+>>>>>>> 883538d56 (NewContractData)
 exports[`abis compute secret message hash 1`] = `
 Fr {
   "asBigInt": 6220068662483113241527007349428551778669520744131373768997518428761948042030n,
@@ -182,49 +185,6 @@ Fr {
       222,
       254,
       77,
-    ],
-    "type": "Buffer",
-  },
-}
-`;
-
-exports[`abis computes contract leaf 1`] = `
-Fr {
-  "asBigInt": 16936439505140127403707082829495438425474294111732402569080458144683824428771n,
-  "asBuffer": {
-    "data": [
-      37,
-      113,
-      175,
-      95,
-      213,
-      5,
-      72,
-      186,
-      142,
-      170,
-      107,
-      231,
-      135,
-      49,
-      45,
-      131,
-      55,
-      162,
-      222,
-      230,
-      65,
-      158,
-      24,
-      95,
-      238,
-      19,
-      196,
-      149,
-      177,
-      246,
-      182,
-      227,
     ],
     "type": "Buffer",
   },
@@ -483,49 +443,6 @@ Fr {
       61,
       71,
       232,
-    ],
-    "type": "Buffer",
-  },
-}
-`;
-
-exports[`abis computes zero contract leaf 1`] = `
-Fr {
-  "asBigInt": 0n,
-  "asBuffer": {
-    "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
     ],
     "type": "Buffer",
   },

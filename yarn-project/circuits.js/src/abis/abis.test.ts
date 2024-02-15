@@ -2,25 +2,20 @@ import { times } from '@aztec/foundation/collection';
 
 import {
   AztecAddress,
-  EthAddress,
   Fr,
   FunctionData,
   FunctionSelector,
-  NewContractData,
   SideEffect,
   SideEffectLinkedToNoteHash
 } from '../index.js';
 import {
   makeAztecAddress,
-  makeEthAddress,
-  makePublicCallStackItem,
   makeTxRequest,
-  makeVerificationKey,
+  makeVerificationKey
 } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeContractLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeNullifierHash,
@@ -124,18 +119,6 @@ describe('abis', () => {
   it('hashes many function args', () => {
     const args = times(200, i => new Fr(i));
     const res = computeVarArgsHash(args);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes contract leaf', () => {
-    const cd = new NewContractData(makeAztecAddress(), makeEthAddress(), new Fr(3n));
-    const res = computeContractLeaf(cd);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes zero contract leaf', () => {
-    const cd = new NewContractData(AztecAddress.ZERO, EthAddress.ZERO, new Fr(0n));
-    const res = computeContractLeaf(cd);
     expect(res).toMatchSnapshot();
   });
 
