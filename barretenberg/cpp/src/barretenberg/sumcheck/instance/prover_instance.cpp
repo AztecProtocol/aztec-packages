@@ -16,7 +16,6 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
 {
     // Get num conventional gates, num public inputs and num Goblin style ECC op gates
     const size_t num_gates = circuit.num_gates;
-    num_public_inputs = circuit.public_inputs.size();
     num_ecc_op_gates = 0;
     if constexpr (IsGoblinFlavor<Flavor>) {
         num_ecc_op_gates = circuit.num_ecc_op_gates;
@@ -27,7 +26,8 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
         circuit.get_tables_size() + circuit.get_lookups_size() + num_zero_rows;
 
     // number of populated rows in the execution trace
-    size_t num_rows_populated_in_execution_trace = num_zero_rows + num_ecc_op_gates + num_public_inputs + num_gates;
+    size_t num_rows_populated_in_execution_trace =
+        num_zero_rows + num_ecc_op_gates + circuit.public_inputs.size() + num_gates;
 
     // The number of gates is max(lookup gates + tables, rows already populated in trace) + 1, where the +1 is due to
     // addition of a "zero row" at top of the execution trace to ensure wires and other polys are shiftable.
@@ -45,7 +45,7 @@ template <class Flavor> void ProverInstance_<Flavor>::add_memory_records_to_prov
     // first 3 wires, using the plookup challenge `eta`. We need to update the records with an offset Because we
     // shift the gates to account for everything that comes before them in the execution trace, e.g. public inputs,
     // a zero row, etc.
-    size_t offset = num_ecc_op_gates + num_public_inputs + num_zero_rows;
+    size_t offset = num_ecc_op_gates + circuit.public_inputs.size() + num_zero_rows;
     auto add_public_inputs_offset = [offset](uint32_t gate_index) { return gate_index + offset; };
     proving_key->memory_read_records = std::vector<uint32_t>();
     proving_key->memory_write_records = std::vector<uint32_t>();
@@ -259,7 +259,7 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
 }
 
 /**
- * @brief Compute the inverse polynomial used in the log derivative lookup argument
+ * @brief Compute the simple id polynomial used in the log derivative lookup argument
  *
  * @tparam Flavor
  * @param beta

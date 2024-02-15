@@ -1,7 +1,6 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
@@ -213,8 +212,8 @@ TEST_F(UltraHonkComposerTests, test_no_lookup_proof)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    for (size_t i = 0; i < 1; ++i) {
-        for (size_t j = 0; j < 1; ++j) {
+    for (size_t i = 0; i < 16; ++i) {
+        for (size_t j = 0; j < 16; ++j) {
             uint64_t left = static_cast<uint64_t>(j);
             uint64_t right = static_cast<uint64_t>(i);
             uint32_t left_idx = circuit_builder.add_variable(fr(left));

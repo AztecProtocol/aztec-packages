@@ -356,7 +356,7 @@ void compute_monomial_and_coset_fft_polynomials_from_lagrange(std::string label,
 template <typename Flavor>
 void compute_standard_plonk_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
                                                typename Flavor::ProvingKey* key,
-                                               std::vector<CyclicPermutation> copy_cycles = {})
+                                               std::vector<CyclicPermutation> copy_cycles)
 {
     // Compute the permutation table specifying which element becomes which
     auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, key, copy_cycles);
@@ -395,7 +395,7 @@ template <typename Flavor> inline void compute_first_and_last_lagrange_polynomia
 template <typename Flavor>
 void compute_plonk_generalized_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
                                                   typename Flavor::ProvingKey* key,
-                                                  std::vector<CyclicPermutation> copy_cycles = {})
+                                                  std::vector<CyclicPermutation> copy_cycles)
 {
     auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/true>(circuit_constructor, key, copy_cycles);
 
@@ -419,7 +419,7 @@ void compute_plonk_generalized_sigma_permutations(const typename Flavor::Circuit
 template <typename Flavor>
 void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
                                                  typename Flavor::ProvingKey* proving_key,
-                                                 std::vector<CyclicPermutation> copy_cycles = {})
+                                                 std::vector<CyclicPermutation> copy_cycles)
 {
     auto mapping = compute_permutation_mapping<Flavor, true>(circuit_constructor, proving_key, copy_cycles);
 

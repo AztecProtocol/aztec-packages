@@ -114,9 +114,7 @@ template <class Flavor> class ProverInstance_ {
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     bool contains_recursive_proof = false;
-    bool computed_witness = false;
     size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
-    size_t num_public_inputs = 0;
     size_t num_ecc_op_gates = 0;
 
     void compute_circuit_size_parameters(Circuit&);
