@@ -13,43 +13,6 @@
 
 namespace bb::plonk {
 
-// /**
-//  * @brief Computes `this.witness`, which is basiclly a set of polynomials mapped-to by strings.
-//  *
-//  * Note: this doesn't actually compute the _entire_ witness. Things missing: randomness for blinding both the wires
-//  and
-//  * sorted `s` poly, lookup rows of the wire witnesses, the values of `z_lookup`, `z`. These are all calculated
-//  * elsewhere.
-//  */
-
-// void UltraComposer::compute_witness(CircuitBuilder& circuit)
-// {
-//     if (computed_witness) {
-//         return;
-//     }
-
-//     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
-
-//     construct_wire_polynomials(circuit, subgroup_size);
-
-//     construct_sorted_polynomials(circuit, subgroup_size);
-
-//     populate_memory_records(circuit);
-
-//     computed_witness = true;
-// }
-
-// void UltraComposer::construct_wire_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
-// {
-//     auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit, subgroup_size);
-
-//     for (size_t j = 0; j < program_width; ++j) {
-//         std::string index = std::to_string(j + 1);
-//         circuit_proving_key->polynomial_store.put("w_" + index + "_lagrange",
-//                                                   std::move(wire_polynomial_evaluations[j]));
-//     }
-// }
-
 void UltraComposer::construct_sorted_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
 {
     // Save space in the sorted list polynomials for randomness (zk) plus one additional spot used to ensure the polys
@@ -62,16 +25,6 @@ void UltraComposer::construct_sorted_polynomials(CircuitBuilder& circuit, size_t
     circuit_proving_key->polynomial_store.put("s_3_lagrange", std::move(sorted_polynomials[2]));
     circuit_proving_key->polynomial_store.put("s_4_lagrange", std::move(sorted_polynomials[3]));
 }
-
-// UltraProver UltraComposer::create_prover_old(CircuitBuilder& circuit_constructor)
-// {
-//     circuit_constructor.finalize_circuit();
-
-//     compute_proving_key(circuit_constructor);
-//     compute_witness(circuit_constructor);
-
-//     return construct_prover(circuit_constructor);
-// }
 
 UltraProver UltraComposer::create_prover(CircuitBuilder& circuit)
 {
@@ -109,29 +62,18 @@ UltraProver UltraComposer::construct_prover(CircuitBuilder& circuit_constructor)
  */
 UltraToStandardProver UltraComposer::create_ultra_to_standard_prover(CircuitBuilder& circuit_constructor)
 {
-    // circuit_constructor.finalize_circuit();
-
     compute_proving_key(circuit_constructor);
-    // compute_witness(circuit_constructor);
 
     UltraToStandardProver output_state(circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()));
 
-    std::unique_ptr<ProverPermutationWidget<4, true>> permutation_widget =
-        std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupWidget<>> plookup_widget =
-        std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupArithmeticWidget<ultra_to_standard_settings>> arithmetic_widget =
+    auto permutation_widget = std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
+    auto plookup_widget = std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
+    auto arithmetic_widget =
         std::make_unique<ProverPlookupArithmeticWidget<ultra_to_standard_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverGenPermSortWidget<ultra_to_standard_settings>> sort_widget =
-        std::make_unique<ProverGenPermSortWidget<ultra_to_standard_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverEllipticWidget<ultra_to_standard_settings>> elliptic_widget =
+    auto sort_widget = std::make_unique<ProverGenPermSortWidget<ultra_to_standard_settings>>(circuit_proving_key.get());
+    auto elliptic_widget =
         std::make_unique<ProverEllipticWidget<ultra_to_standard_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupAuxiliaryWidget<ultra_to_standard_settings>> auxiliary_widget =
+    auto auxiliary_widget =
         std::make_unique<ProverPlookupAuxiliaryWidget<ultra_to_standard_settings>>(circuit_proving_key.get());
 
     output_state.random_widgets.emplace_back(std::move(permutation_widget));
@@ -152,28 +94,18 @@ UltraToStandardProver UltraComposer::create_ultra_to_standard_prover(CircuitBuil
  */
 UltraWithKeccakProver UltraComposer::create_ultra_with_keccak_prover(CircuitBuilder& circuit_constructor)
 {
-    // circuit_constructor.finalize_circuit();
     compute_proving_key(circuit_constructor);
-    // compute_witness(circuit_constructor);
 
     UltraWithKeccakProver output_state(circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()));
 
-    std::unique_ptr<ProverPermutationWidget<4, true>> permutation_widget =
-        std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupWidget<>> plookup_widget =
-        std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupArithmeticWidget<ultra_with_keccak_settings>> arithmetic_widget =
+    auto permutation_widget = std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
+    auto plookup_widget = std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
+    auto arithmetic_widget =
         std::make_unique<ProverPlookupArithmeticWidget<ultra_with_keccak_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverGenPermSortWidget<ultra_with_keccak_settings>> sort_widget =
-        std::make_unique<ProverGenPermSortWidget<ultra_with_keccak_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverEllipticWidget<ultra_with_keccak_settings>> elliptic_widget =
+    auto sort_widget = std::make_unique<ProverGenPermSortWidget<ultra_with_keccak_settings>>(circuit_proving_key.get());
+    auto elliptic_widget =
         std::make_unique<ProverEllipticWidget<ultra_with_keccak_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupAuxiliaryWidget<ultra_with_keccak_settings>> auxiliary_widget =
+    auto auxiliary_widget =
         std::make_unique<ProverPlookupAuxiliaryWidget<ultra_with_keccak_settings>>(circuit_proving_key.get());
 
     output_state.random_widgets.emplace_back(std::move(permutation_widget));

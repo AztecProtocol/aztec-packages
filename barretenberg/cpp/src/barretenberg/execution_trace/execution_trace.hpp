@@ -135,8 +135,7 @@ template <class Flavor> class ExecutionTrace_ {
 
         generate_trace_polynomials(builder, dyadic_circuit_size);
 
-        // WORKTODO: this diff size issue goes away once adam fixes the get_wires bug
-        for (auto [pkey_wire, wire] : zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_wires(), trace_wires)) {
+        for (auto [pkey_wire, wire] : zip_view(proving_key->get_wires(), trace_wires)) {
             pkey_wire = wire.share();
         }
         for (auto [pkey_selector, selector] : zip_view(proving_key->get_selectors(), trace_selectors)) {
@@ -237,7 +236,9 @@ template <class Flavor> class ExecutionTrace_ {
                     // Insert the real witness values from this block into the wire polys at the correct offset
                     trace_wires[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
-                    // WORKTODO: can we copy constrain the zeros in wires 3 and 4 together and avoud the special case?
+                    // WORKTODO: Not adding cycles for wires 3 and 4 here is only needed in order to maintain
+                    // consistency with old version. We can remove this special case and the result is simply that all
+                    // the zeros in wires 3 and 4 over the PI range are copy constrainted together.
                     if (!(block.is_public_input && wire_idx > 1)) {
                         trace_copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
                     }

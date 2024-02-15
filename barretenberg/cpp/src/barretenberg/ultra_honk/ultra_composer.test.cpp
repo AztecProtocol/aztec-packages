@@ -32,41 +32,9 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
     return res;
 }
 
-// void compare_with_execution_trace_instance(const auto& instance, auto circuit_builder)
-// {
-//     using Instance = ProverInstance_<UltraFlavor>;
-//     auto new_instance = std::make_shared<Instance>(circuit_builder, true);
-
-//     auto proving_key = instance->proving_key;
-//     auto proving_key_new = new_instance->proving_key;
-
-//     info("proving_key->circuit_size= ", proving_key->circuit_size);
-//     info("proving_key_new->circuit_size= ", proving_key_new->circuit_size);
-//     ASSERT(proving_key->circuit_size == proving_key_new->circuit_size);
-
-//     std::vector<std::string> unequal;
-//     for (auto [new_poly, poly, label] :
-//          zip_view(proving_key_new->get_all(), proving_key->get_all(), proving_key->get_labels())) {
-//         if (new_poly != poly) {
-//             unequal.emplace_back(label);
-//         }
-//     }
-//     bool all_polys_equal = unequal.empty();
-//     if (all_polys_equal) {
-//         info("\n All polynomials are equal.");
-//     } else {
-//         info("\nThe following polynomials are unequal: ");
-//         for (const std::string& label : unequal) {
-//             info("\t", label);
-//         }
-//     }
-//     ASSERT_TRUE(all_polys_equal);
-// }
-
 void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
 {
     auto instance = composer.create_instance(circuit_builder);
-    // compare_with_execution_trace_instance(instance, circuit_builder);
     auto prover = composer.create_prover(instance);
     auto verifier = composer.create_verifier(instance);
     auto proof = prover.construct_proof();

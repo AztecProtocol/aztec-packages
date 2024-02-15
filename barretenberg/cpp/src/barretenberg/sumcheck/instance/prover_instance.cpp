@@ -37,37 +37,6 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
     dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-// /**
-//  * @brief Compute witness polynomials
-//  *
-//  */
-// template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& circuit)
-// {
-//     if (computed_witness) {
-//         return;
-//     }
-
-//     // Construct the conventional wire polynomials
-//     auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit, dyadic_circuit_size);
-
-//     proving_key->w_l = wire_polynomials[0].share();
-//     proving_key->w_r = wire_polynomials[1].share();
-//     proving_key->w_o = wire_polynomials[2].share();
-//     proving_key->w_4 = wire_polynomials[3].share();
-
-//     // If Goblin, construct the ECC op queue wire and databus polynomials
-//     if constexpr (IsGoblinFlavor<Flavor>) {
-//         construct_ecc_op_wire_polynomials(wire_polynomials);
-//         construct_databus_polynomials(circuit);
-//     }
-
-//     sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
-
-//     add_memory_records_to_proving_key(circuit);
-
-//     computed_witness = true;
-// }
-
 template <class Flavor> void ProverInstance_<Flavor>::add_memory_records_to_proving_key(Circuit& circuit)
 {
     // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
@@ -157,36 +126,6 @@ void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size
     proving_key->table_3 = table_polynomials[2].share();
     proving_key->table_4 = table_polynomials[3].share();
 }
-
-// template <class Flavor>
-// std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_proving_key(Circuit& circuit)
-// {
-//     if (proving_key) {
-//         return proving_key;
-//     }
-
-//     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
-
-//     construct_selector_polynomials<Flavor>(circuit, proving_key.get());
-
-//     compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
-
-//     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
-
-//     construct_table_polynomials(circuit, dyadic_circuit_size);
-
-//     if constexpr (IsGoblinFlavor<Flavor>) {
-//         compute_databus_id();
-//     }
-
-//     proving_key->recursive_proof_public_input_indices =
-//         std::vector<uint32_t>(recursive_proof_public_input_indices.begin(),
-//         recursive_proof_public_input_indices.end());
-
-//     proving_key->contains_recursive_proof = contains_recursive_proof;
-
-//     return proving_key;
-// }
 
 template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomials()
 {

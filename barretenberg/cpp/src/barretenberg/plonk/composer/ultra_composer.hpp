@@ -73,7 +73,6 @@ class UltraComposer {
     std::shared_ptr<plonk::proving_key> compute_proving_key(CircuitBuilder& circuit_constructor);
     std::shared_ptr<plonk::verification_key> compute_verification_key(CircuitBuilder& circuit_constructor);
 
-    // UltraProver create_prover_old(CircuitBuilder& circuit_constructor);
     UltraProver create_prover(CircuitBuilder& circuit_constructor);
     UltraVerifier create_verifier(CircuitBuilder& circuit_constructor);
 
@@ -101,10 +100,6 @@ class UltraComposer {
 
   private:
     UltraProver construct_prover(CircuitBuilder& circuit_constructor);
-
-    // void compute_witness(CircuitBuilder& circuit_constructor);
-
-    // void construct_wire_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
 
     void construct_sorted_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
 
