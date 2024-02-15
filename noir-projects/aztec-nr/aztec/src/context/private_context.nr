@@ -204,7 +204,7 @@ impl PrivateContext {
 
     // docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        // docs:end:context_message_portal {
+        // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
         self.new_l2_to_l1_msgs.push(message);
     }
