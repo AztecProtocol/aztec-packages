@@ -105,6 +105,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
     {
         if (value.is_point_at_infinity()) {
             // if we are infinity, just set all buffer bits to 1
+            // we only need this case because the below gets mangled converting from montgomery for infinity points
             memset(buffer, 255, sizeof(Fq) * 2);
         } else {
             Fq::serialize_to_buffer(value.y, buffer);
@@ -128,6 +129,7 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
     {
         // Does the buffer consist entirely of set bits? If so, we have a point at infinity
         // Note that if it isn't, this loop should end early.
+        // We only need this case because the below gets mangled converting to montgomery for infinity points
         bool is_point_at_infinity =
             std::all_of(buffer, buffer + sizeof(Fq) * 2, [](uint8_t val) { return val == 255; });
         if (is_point_at_infinity) {
