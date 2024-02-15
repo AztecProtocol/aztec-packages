@@ -501,8 +501,8 @@ export function mapCallRequestFromNoir(callRequest: CallRequestNoir): CallReques
     mapFieldFromNoir(callRequest.hash),
     mapAztecAddressFromNoir(callRequest.caller_contract_address),
     mapCallerContextFromNoir(callRequest.caller_context),
-    Fr.ZERO, // todo: actual values of counters
-    Fr.ZERO,
+    mapFieldFromNoir(callRequest.start_side_effect_counter),
+    mapFieldFromNoir(callRequest.end_side_effect_counter),
   );
 }
 
