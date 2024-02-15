@@ -1,5 +1,6 @@
 use crate::{address::EthAddress, constants::L2_TO_L1_MESSAGE_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
+// Note: Not to be confused with L2ToL1Msg in Solidity
 struct L2ToL1Message {
     recipient: EthAddress,
     content: Field,
