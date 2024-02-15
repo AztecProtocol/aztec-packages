@@ -62,14 +62,15 @@ template <class Flavor> class ProverInstance_ {
     size_t instance_size;
     size_t log_instance_size;
 
-    ProverInstance_(Circuit& circuit)
-    {
-        compute_circuit_size_parameters(circuit);
-        compute_proving_key(circuit);
-        compute_witness(circuit);
-    }
+    // ProverInstance_(Circuit& circuit, [[maybe_unused]] bool old_constructor)
+    // {
+    //     compute_circuit_size_parameters(circuit);
+    //     compute_proving_key(circuit);
+    //     compute_witness(circuit);
+    // }
 
-    ProverInstance_(Circuit& circuit, [[maybe_unused]] bool new_constructor)
+    ProverInstance_(Circuit& circuit)
+    // ProverInstance_(Circuit& circuit, [[maybe_unused]] bool new_constructor)
     {
         compute_circuit_size_parameters(circuit);
         Trace trace;
@@ -126,11 +127,11 @@ template <class Flavor> class ProverInstance_ {
     size_t num_public_inputs = 0;
     size_t num_ecc_op_gates = 0;
 
-    std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
+    // std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
 
     void compute_circuit_size_parameters(Circuit&);
 
-    void compute_witness(Circuit&);
+    // void compute_witness(Circuit&);
 
     void construct_ecc_op_wire_polynomials(auto&);
 

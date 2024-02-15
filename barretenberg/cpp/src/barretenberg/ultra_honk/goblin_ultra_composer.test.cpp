@@ -56,30 +56,30 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
         }
     }
 
-    void compare_with_execution_trace_instance(const auto& instance, auto& circuit_builder)
-    {
-        using Instance = ProverInstance_<GoblinUltraFlavor>;
-        auto new_instance = std::make_shared<Instance>(circuit_builder, true);
+    // void compare_with_execution_trace_instance(const auto& instance, auto& circuit_builder)
+    // {
+    //     using Instance = ProverInstance_<GoblinUltraFlavor>;
+    //     auto new_instance = std::make_shared<Instance>(circuit_builder, true);
 
-        auto proving_key = instance->proving_key;
-        auto proving_key_new = new_instance->proving_key;
+    //     auto proving_key = instance->proving_key;
+    //     auto proving_key_new = new_instance->proving_key;
 
-        std::vector<std::string> unequal;
-        for (auto [new_poly, poly, label] :
-             zip_view(proving_key_new->get_all(), proving_key->get_all(), proving_key->get_labels())) {
-            if (new_poly != poly) {
-                unequal.emplace_back(label);
-            }
-        }
-        if (unequal.empty()) {
-            info("\n All polynomials are equal.");
-        } else {
-            info("\nThe following polynomials are unequal: ");
-            for (const std::string& label : unequal) {
-                info("\t", label);
-            }
-        }
-    }
+    //     std::vector<std::string> unequal;
+    //     for (auto [new_poly, poly, label] :
+    //          zip_view(proving_key_new->get_all(), proving_key->get_all(), proving_key->get_labels())) {
+    //         if (new_poly != poly) {
+    //             unequal.emplace_back(label);
+    //         }
+    //     }
+    //     if (unequal.empty()) {
+    //         info("\n All polynomials are equal.");
+    //     } else {
+    //         info("\nThe following polynomials are unequal: ");
+    //         for (const std::string& label : unequal) {
+    //             info("\t", label);
+    //         }
+    //     }
+    // }
 
     /**
      * @brief Construct and a verify a Honk proof
@@ -93,7 +93,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
-        compare_with_execution_trace_instance(instance, builder);
+        // compare_with_execution_trace_instance(instance, builder);
 
         return verified;
     }

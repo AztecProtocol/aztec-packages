@@ -13,41 +13,42 @@
 
 namespace bb::plonk {
 
-/**
- * @brief Computes `this.witness`, which is basiclly a set of polynomials mapped-to by strings.
- *
- * Note: this doesn't actually compute the _entire_ witness. Things missing: randomness for blinding both the wires and
- * sorted `s` poly, lookup rows of the wire witnesses, the values of `z_lookup`, `z`. These are all calculated
- * elsewhere.
- */
+// /**
+//  * @brief Computes `this.witness`, which is basiclly a set of polynomials mapped-to by strings.
+//  *
+//  * Note: this doesn't actually compute the _entire_ witness. Things missing: randomness for blinding both the wires
+//  and
+//  * sorted `s` poly, lookup rows of the wire witnesses, the values of `z_lookup`, `z`. These are all calculated
+//  * elsewhere.
+//  */
 
-void UltraComposer::compute_witness(CircuitBuilder& circuit)
-{
-    if (computed_witness) {
-        return;
-    }
+// void UltraComposer::compute_witness(CircuitBuilder& circuit)
+// {
+//     if (computed_witness) {
+//         return;
+//     }
 
-    const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
+//     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
 
-    construct_wire_polynomials(circuit, subgroup_size);
+//     construct_wire_polynomials(circuit, subgroup_size);
 
-    construct_sorted_polynomials(circuit, subgroup_size);
+//     construct_sorted_polynomials(circuit, subgroup_size);
 
-    populate_memory_records(circuit);
+//     populate_memory_records(circuit);
 
-    computed_witness = true;
-}
+//     computed_witness = true;
+// }
 
-void UltraComposer::construct_wire_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
-{
-    auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit, subgroup_size);
+// void UltraComposer::construct_wire_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
+// {
+//     auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit, subgroup_size);
 
-    for (size_t j = 0; j < program_width; ++j) {
-        std::string index = std::to_string(j + 1);
-        circuit_proving_key->polynomial_store.put("w_" + index + "_lagrange",
-                                                  std::move(wire_polynomial_evaluations[j]));
-    }
-}
+//     for (size_t j = 0; j < program_width; ++j) {
+//         std::string index = std::to_string(j + 1);
+//         circuit_proving_key->polynomial_store.put("w_" + index + "_lagrange",
+//                                                   std::move(wire_polynomial_evaluations[j]));
+//     }
+// }
 
 void UltraComposer::construct_sorted_polynomials(CircuitBuilder& circuit, size_t subgroup_size)
 {
@@ -62,51 +63,19 @@ void UltraComposer::construct_sorted_polynomials(CircuitBuilder& circuit, size_t
     circuit_proving_key->polynomial_store.put("s_4_lagrange", std::move(sorted_polynomials[3]));
 }
 
-UltraProver UltraComposer::create_prover(CircuitBuilder& circuit_constructor)
+// UltraProver UltraComposer::create_prover_old(CircuitBuilder& circuit_constructor)
+// {
+//     circuit_constructor.finalize_circuit();
+
+//     compute_proving_key(circuit_constructor);
+//     compute_witness(circuit_constructor);
+
+//     return construct_prover(circuit_constructor);
+// }
+
+UltraProver UltraComposer::create_prover(CircuitBuilder& circuit)
 {
-    circuit_constructor.finalize_circuit();
-
-    compute_proving_key(circuit_constructor);
-    compute_witness(circuit_constructor);
-
-    return construct_prover(circuit_constructor);
-}
-
-UltraProver UltraComposer::create_prover_new(CircuitBuilder& circuit)
-{
-    circuit.finalize_circuit();
-
-    const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
-    { // Execution trace stuff
-        Trace trace;
-        circuit_proving_key = trace.generate_for_plonk(circuit, subgroup_size);
-    }
-
-    // other stuff
-    {
-        enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
-
-        compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
-
-        construct_table_polynomials(circuit, subgroup_size);
-
-        // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
-        // Note: might be better to add these polys to cache only after they've been computed, as is convention
-        // TODO(luke): Don't put empty polynomials in the store, just add these where they're computed
-        polynomial z_lookup_fft(subgroup_size * 4);
-        polynomial s_fft(subgroup_size * 4);
-        circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
-        circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
-
-        circuit_proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
-            circuit.recursive_proof_public_input_indices.begin(), circuit.recursive_proof_public_input_indices.end());
-
-        circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
-
-        construct_sorted_polynomials(circuit, subgroup_size);
-
-        populate_memory_records(circuit);
-    }
+    compute_proving_key(circuit);
 
     return construct_prover(circuit);
 }
@@ -143,10 +112,10 @@ UltraProver UltraComposer::construct_prover(CircuitBuilder& circuit_constructor)
  */
 UltraToStandardProver UltraComposer::create_ultra_to_standard_prover(CircuitBuilder& circuit_constructor)
 {
-    circuit_constructor.finalize_circuit();
+    // circuit_constructor.finalize_circuit();
 
     compute_proving_key(circuit_constructor);
-    compute_witness(circuit_constructor);
+    // compute_witness(circuit_constructor);
 
     UltraToStandardProver output_state(circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()));
 
@@ -189,9 +158,9 @@ UltraToStandardProver UltraComposer::create_ultra_to_standard_prover(CircuitBuil
  */
 UltraWithKeccakProver UltraComposer::create_ultra_with_keccak_prover(CircuitBuilder& circuit_constructor)
 {
-    circuit_constructor.finalize_circuit();
+    // circuit_constructor.finalize_circuit();
     compute_proving_key(circuit_constructor);
-    compute_witness(circuit_constructor);
+    // compute_witness(circuit_constructor);
 
     UltraWithKeccakProver output_state(circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()));
 
@@ -300,42 +269,43 @@ size_t UltraComposer::compute_dyadic_circuit_size(CircuitBuilder& circuit)
     return circuit.get_circuit_subgroup_size(total_num_gates + NUM_RESERVED_GATES);
 }
 
-std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& circuit_constructor)
+std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& circuit)
 {
     if (circuit_proving_key) {
         return circuit_proving_key;
     }
 
-    circuit_constructor.finalize_circuit();
-    const size_t subgroup_size = compute_dyadic_circuit_size(circuit_constructor);
+    circuit.finalize_circuit();
 
-    auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
-    circuit_proving_key = std::make_shared<plonk::proving_key>(
-        subgroup_size, circuit_constructor.public_inputs.size(), crs, CircuitType::ULTRA);
+    const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
+    Trace trace;
+    circuit_proving_key = trace.generate_for_plonk(circuit, subgroup_size);
 
-    construct_selector_polynomials<Flavor>(circuit_constructor, circuit_proving_key.get());
+    // other stuff
+    {
+        enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
 
-    enforce_nonzero_selector_polynomials(circuit_constructor, circuit_proving_key.get());
+        compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
 
-    compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
+        construct_table_polynomials(circuit, subgroup_size);
 
-    compute_plonk_generalized_sigma_permutations<Flavor>(circuit_constructor, circuit_proving_key.get());
+        // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
+        // Note: might be better to add these polys to cache only after they've been computed, as is convention
+        // TODO(luke): Don't put empty polynomials in the store, just add these where they're computed
+        polynomial z_lookup_fft(subgroup_size * 4);
+        polynomial s_fft(subgroup_size * 4);
+        circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
+        circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
 
-    construct_table_polynomials(circuit_constructor, subgroup_size);
+        circuit_proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
+            circuit.recursive_proof_public_input_indices.begin(), circuit.recursive_proof_public_input_indices.end());
 
-    // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
-    // Note: might be better to add these polys to cache only after they've been computed, as is convention
-    // TODO(luke): Don't put empty polynomials in the store, just add these where they're computed
-    polynomial z_lookup_fft(subgroup_size * 4);
-    polynomial s_fft(subgroup_size * 4);
-    circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
-    circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
+        circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
 
-    circuit_proving_key->recursive_proof_public_input_indices =
-        std::vector<uint32_t>(circuit_constructor.recursive_proof_public_input_indices.begin(),
-                              circuit_constructor.recursive_proof_public_input_indices.end());
+        construct_sorted_polynomials(circuit, subgroup_size);
 
-    circuit_proving_key->contains_recursive_proof = circuit_constructor.contains_recursive_proof;
+        populate_memory_records(circuit);
+    }
 
     return circuit_proving_key;
 }

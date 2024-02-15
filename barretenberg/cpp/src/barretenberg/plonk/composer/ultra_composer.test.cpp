@@ -32,64 +32,64 @@ template <typename T> class ultra_plonk_composer : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    void compare_pkeys(UltraCircuitBuilder& builder, auto& proving_key)
-    {
-        UltraComposer composer;
-        auto prover = composer.create_prover(builder);
-        // auto prover = composer.create_prover_new(builder);
-        info("Size original = ", proving_key->circuit_size);
-        info("Size new = ", prover.key->circuit_size);
+    // void compare_pkeys(UltraCircuitBuilder& builder, auto& proving_key)
+    // {
+    //     UltraComposer composer;
+    //     auto prover = composer.create_prover(builder);
+    //     // auto prover = composer.create_prover_new(builder);
+    //     info("Size original = ", proving_key->circuit_size);
+    //     info("Size new = ", prover.key->circuit_size);
 
-        // Check wires
-        std::vector<size_t> unequal_wires;
-        for (size_t i = 0; i < 4; ++i) {
-            std::string wire_tag = "w_" + std::to_string(i + 1) + "_lagrange";
-            auto wire = proving_key->polynomial_store.get(wire_tag);
-            auto new_wire = prover.key->polynomial_store.get(wire_tag);
-            if (wire != new_wire) {
-                unequal_wires.emplace_back(i);
-            }
-        }
-        bool wires_equal = unequal_wires.empty();
-        if (wires_equal) {
-            info("Wires equal!");
-        } else {
-            for (auto idx : unequal_wires) {
-                info("Bad wire: ", idx);
-            }
-        }
+    //     // Check wires
+    //     std::vector<size_t> unequal_wires;
+    //     for (size_t i = 0; i < 4; ++i) {
+    //         std::string wire_tag = "w_" + std::to_string(i + 1) + "_lagrange";
+    //         auto wire = proving_key->polynomial_store.get(wire_tag);
+    //         auto new_wire = prover.key->polynomial_store.get(wire_tag);
+    //         if (wire != new_wire) {
+    //             unequal_wires.emplace_back(i);
+    //         }
+    //     }
+    //     bool wires_equal = unequal_wires.empty();
+    //     if (wires_equal) {
+    //         info("Wires equal!");
+    //     } else {
+    //         for (auto idx : unequal_wires) {
+    //             info("Bad wire: ", idx);
+    //         }
+    //     }
 
-        // Check precomputed polys
-        PrecomputedPolyList precomputed_poly_list(proving_key->circuit_type);
-        size_t num_precomputed = precomputed_poly_list.size();
-        // info("num_precomputed = ", num_precomputed);
-        std::vector<std::string> unequal_precomputed;
-        for (size_t i = 0; i < num_precomputed; ++i) {
-            std::string poly_id = precomputed_poly_list[i];
-            auto poly = proving_key->polynomial_store.get(poly_id);
-            auto new_poly = prover.key->polynomial_store.get(poly_id);
-            if (poly != new_poly) {
-                unequal_precomputed.emplace_back(poly_id);
-            }
-        }
+    //     // Check precomputed polys
+    //     PrecomputedPolyList precomputed_poly_list(proving_key->circuit_type);
+    //     size_t num_precomputed = precomputed_poly_list.size();
+    //     // info("num_precomputed = ", num_precomputed);
+    //     std::vector<std::string> unequal_precomputed;
+    //     for (size_t i = 0; i < num_precomputed; ++i) {
+    //         std::string poly_id = precomputed_poly_list[i];
+    //         auto poly = proving_key->polynomial_store.get(poly_id);
+    //         auto new_poly = prover.key->polynomial_store.get(poly_id);
+    //         if (poly != new_poly) {
+    //             unequal_precomputed.emplace_back(poly_id);
+    //         }
+    //     }
 
-        bool selectors_equal = unequal_precomputed.empty();
-        if (selectors_equal) {
-            info("Precomputed equal!");
-        } else {
-            for (const auto& id : unequal_precomputed) {
-                info("Bad selector: ", id);
-            }
-        }
-        EXPECT_TRUE(wires_equal);
-        EXPECT_TRUE(selectors_equal);
+    //     bool selectors_equal = unequal_precomputed.empty();
+    //     if (selectors_equal) {
+    //         info("Precomputed equal!");
+    //     } else {
+    //         for (const auto& id : unequal_precomputed) {
+    //             info("Bad selector: ", id);
+    //         }
+    //     }
+    //     EXPECT_TRUE(wires_equal);
+    //     EXPECT_TRUE(selectors_equal);
 
-        // WORKTODO: Cant verify a proof made from a co[ied builder for some reason
-        // auto verifier = composer.create_verifier(builder);
-        // auto proof = prover.construct_proof();
-        // bool verified = verifier.verify_proof(proof);
-        // EXPECT_TRUE(verified);
-    }
+    //     // WORKTODO: Cant verify a proof made from a co[ied builder for some reason
+    //     // auto verifier = composer.create_verifier(builder);
+    //     // auto proof = prover.construct_proof();
+    //     // bool verified = verifier.verify_proof(proof);
+    //     // EXPECT_TRUE(verified);
+    // }
 
     void prove_and_verify(UltraCircuitBuilder& builder, bool expected_result)
     {
@@ -101,8 +101,8 @@ template <typename T> class ultra_plonk_composer : public ::testing::Test {
             bool verified = verifier.verify_proof(proof);
             EXPECT_EQ(verified, expected_result);
         } else {
-            auto prover = composer.create_prover_new(builder);
-            compare_pkeys(builder, prover.key);
+            auto prover = composer.create_prover(builder);
+            // compare_pkeys(builder, prover.key);
             auto verifier = composer.create_verifier(builder);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
