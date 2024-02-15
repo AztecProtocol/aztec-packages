@@ -89,6 +89,10 @@ export class CallRequest {
      * The call context of the contract calling the function.
      */
     public endSideEffectCounter: Fr,
+    /**
+     * Whether this call uses the target contract's storage or the caller's storage.
+     */
+    public isDelegateCall: boolean,
   ) {}
 
   toBuffer() {
@@ -98,6 +102,7 @@ export class CallRequest {
       this.callerContext,
       this.startSideEffectCounter,
       this.endSideEffectCounter,
+      this.isDelegateCall,
     );
   }
 
@@ -114,6 +119,7 @@ export class CallRequest {
       reader.readObject(CallerContext),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readBoolean(),
     );
   }
 
@@ -123,7 +129,8 @@ export class CallRequest {
       this.callerContractAddress.isZero() &&
       this.callerContext.isEmpty() &&
       this.startSideEffectCounter.isZero() &&
-      this.endSideEffectCounter.isZero()
+      this.endSideEffectCounter.isZero() &&
+      this.isDelegateCall === false
     );
   }
 
@@ -132,7 +139,7 @@ export class CallRequest {
    * @returns A new instance of CallRequest with zero hash, caller contract address and caller context.
    */
   public static empty() {
-    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty(), Fr.ZERO, Fr.ZERO);
+    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty(), Fr.ZERO, Fr.ZERO, false);
   }
 
   equals(callRequest: CallRequest) {
@@ -141,7 +148,8 @@ export class CallRequest {
       callRequest.callerContractAddress.equals(this.callerContractAddress) &&
       callRequest.callerContext.equals(this.callerContext) &&
       callRequest.startSideEffectCounter.equals(this.startSideEffectCounter) &&
-      callRequest.endSideEffectCounter.equals(this.endSideEffectCounter)
+      callRequest.endSideEffectCounter.equals(this.endSideEffectCounter) &&
+      callRequest.isDelegateCall === this.isDelegateCall
     );
   }
 }

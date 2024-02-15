@@ -490,6 +490,7 @@ export function mapCallRequestFromNoir(callRequest: CallRequestNoir): CallReques
     mapCallerContextFromNoir(callRequest.caller_context),
     Fr.ZERO, // todo: actual values of counters
     Fr.ZERO,
+    callRequest.is_delegate_call,
   );
 }
 
@@ -505,6 +506,7 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
     caller_context: mapCallerContextToNoir(callRequest.callerContext),
     start_side_effect_counter: mapFieldToNoir(callRequest.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(callRequest.endSideEffectCounter),
+    is_delegate_call: callRequest.isDelegateCall,
   };
 }
 

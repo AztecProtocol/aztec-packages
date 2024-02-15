@@ -168,7 +168,8 @@ impl PreviousKernelDataBuilder {
             caller_contract_address: self.contract_address,
             caller_context,
             start_side_effect_counter: counter,
-            end_side_effect_counter: end_counter
+            end_side_effect_counter: end_counter,
+            is_delegate_call
         }
     }
 

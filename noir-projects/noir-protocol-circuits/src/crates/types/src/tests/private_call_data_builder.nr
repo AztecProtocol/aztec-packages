@@ -147,7 +147,8 @@ impl PrivateCallDataBuilder {
                     caller_context,
                     // TODO: populate these
                     start_side_effect_counter: 0,
-                    end_side_effect_counter: 0
+                    end_side_effect_counter: 0,
+                    is_delegate_call
                 };
                 hashes.push(hash);
                 call_requests.push(request);

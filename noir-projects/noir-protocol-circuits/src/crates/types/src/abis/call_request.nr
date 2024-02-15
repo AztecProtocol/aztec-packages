@@ -35,6 +35,7 @@ struct CallRequest {
     caller_context: CallerContext,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
+    is_delegate_call: bool,
 }
 
 impl Eq for CallRequest {
@@ -44,6 +45,7 @@ impl Eq for CallRequest {
             & (call_request.caller_context.eq(self.caller_context))
             & (call_request.start_side_effect_counter == self.start_side_effect_counter)
             & (call_request.end_side_effect_counter == self.end_side_effect_counter)
+            & (call_request.is_delegate_call == self.is_delegate_call)
     }
 }
 
@@ -55,6 +57,7 @@ impl Empty for CallRequest {
             caller_context: CallerContext::empty(),
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
+            is_delegate_call: false,
         }
     }
 }

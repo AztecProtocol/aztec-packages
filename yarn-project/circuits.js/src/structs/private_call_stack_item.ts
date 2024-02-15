@@ -106,6 +106,13 @@ export class PrivateCallStackItem {
       ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
       : CallerContext.empty();
     // todo: populate side effect counters correctly
-    return new CallRequest(this.hash(), callContext.msgSender, callerContext, Fr.ZERO, Fr.ZERO);
+    return new CallRequest(
+      this.hash(),
+      callContext.msgSender,
+      callerContext,
+      Fr.ZERO,
+      Fr.ZERO,
+      callContext.isDelegateCall,
+    );
   }
 }

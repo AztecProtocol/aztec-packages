@@ -597,7 +597,7 @@ export function makeCallerContext(seed = 1): CallerContext {
  * @returns A call stack item.
  */
 export function makeCallRequest(seed = 1): CallRequest {
-  return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2), fr(0), fr(0));
+  return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2), fr(0), fr(0), false);
 }
 
 /**
@@ -668,6 +668,7 @@ export function makePublicKernelInputsWithTweak(
       makeCallerContext(seed + 0x100),
       Fr.ZERO,
       Fr.ZERO,
+      false,
     );
   return publicKernelInputs;
 }
