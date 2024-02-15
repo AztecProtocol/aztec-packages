@@ -16,5 +16,12 @@ use crate::{
     log::{
         emit_unencrypted_log,
         emit_encrypted_log,
+    },
+    context::PrivateContext,
+    note::{
+        note_header::NoteHeader,
+        note_interface::NoteInterface,
+        note_getter_options::NoteGetterOptions, 
+        note_viewer_options::NoteViewerOptions,
     }
 };
