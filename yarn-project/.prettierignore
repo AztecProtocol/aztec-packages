@@ -6,4 +6,3 @@ boxes/*/src/artifacts/*.json
 boxes/*/src/artifacts/*.ts
 boxes/*/src/contracts/target/*.json
 *.md
-end-to-end/src/docs_examples.test.ts
