@@ -51,10 +51,32 @@ struct permutation_subgroup_element {
     bool is_tag = false;
 };
 
-template <size_t NUM_WIRES> struct PermutationMapping {
+template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
     using Mapping = std::array<std::vector<permutation_subgroup_element>, NUM_WIRES>;
     Mapping sigmas;
     Mapping ids;
+
+    /**
+     * @brief Construct a permutation mapping default initialized so every element is in its own cycle
+     *
+     */
+    PermutationMapping(size_t circuit_size)
+    {
+        for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
+            sigmas[col_idx].reserve(circuit_size);
+            if constexpr (generalized) {
+                ids[col_idx].reserve(circuit_size);
+            }
+            // Initialize every element to point to itself
+            for (uint32_t row_idx = 0; row_idx < circuit_size; ++row_idx) {
+                permutation_subgroup_element self{ row_idx, col_idx, /*is_public_input=*/false, /*is_tag=*/false };
+                sigmas[col_idx].emplace_back(self);
+                if constexpr (generalized) {
+                    ids[col_idx].emplace_back(self);
+                }
+            }
+        }
+    }
 };
 
 using CyclicPermutation = std::vector<cycle_node>;
@@ -170,13 +192,12 @@ std::vector<CyclicPermutation> compute_wire_copy_cycles(const typename Flavor::C
  *
  * @tparam program_width The number of wires
  * @tparam generalized (bool) Triggers use of gen perm tags and computation of id mappings when true
- * @tparam CircuitBuilder The class that holds basic circuitl ogic
  * @param circuit_constructor Circuit-containing object
- * @param key Pointer to the proving key
+ * @param proving_key Pointer to the proving key
  * @return PermutationMapping sigma mapping (and id mapping if generalized == true)
  */
 template <typename Flavor, bool generalized>
-PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
+PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     const typename Flavor::CircuitBuilder& circuit_constructor,
     typename Flavor::ProvingKey* proving_key,
     std::vector<CyclicPermutation> wire_copy_cycles = {})
@@ -184,47 +205,10 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Compute wire copy cycles (cycles of permutations)
     if (wire_copy_cycles.empty()) {
         wire_copy_cycles = compute_wire_copy_cycles<Flavor>(circuit_constructor);
-        // if constexpr (IsHonkFlavor<Flavor>) {
-        //     info("OLD: num copy cycles = ", wire_copy_cycles.size());
-        //     size_t cycle_idx = 0;
-        //     for (auto& cycle : wire_copy_cycles) {
-        //         info("cycle_idx = ", cycle_idx);
-        //         info("cycle length = ", cycle.size());
-        //         if (!cycle.empty()) {
-        //             info("value = ", proving_key->get_wires()[cycle[0].wire_index][cycle[0].gate_index]);
-        //         }
-        //         for (auto& node : cycle) {
-        //             info("node.wire_index = ", node.wire_index);
-        //             info("node.gate_index = ", node.gate_index);
-        //         }
-        //         cycle_idx++;
-        //     }
-        // }
     }
-
-    PermutationMapping<Flavor::NUM_WIRES> mapping;
 
     // Initialize the table of permutations so that every element points to itself
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-    for (size_t i = 0; i < Flavor::NUM_WIRES; ++i) {
-        mapping.sigmas[i].reserve(proving_key->circuit_size);
-        if constexpr (generalized) {
-            mapping.ids[i].reserve(proving_key->circuit_size);
-        }
-
-        for (size_t j = 0; j < proving_key->circuit_size; ++j) {
-            mapping.sigmas[i].emplace_back(permutation_subgroup_element{ .row_index = static_cast<uint32_t>(j),
-                                                                         .column_index = static_cast<uint8_t>(i),
-                                                                         .is_public_input = false,
-                                                                         .is_tag = false });
-            if constexpr (generalized) {
-                mapping.ids[i].emplace_back(permutation_subgroup_element{ .row_index = static_cast<uint32_t>(j),
-                                                                          .column_index = static_cast<uint8_t>(i),
-                                                                          .is_public_input = false,
-                                                                          .is_tag = false });
-            }
-        }
-    }
+    PermutationMapping<Flavor::NUM_WIRES, generalized> mapping{ proving_key->circuit_size };
 
     // Represents the index of a variable in circuit_constructor.variables (needed only for generalized)
     std::span<const uint32_t> real_variable_tags = circuit_constructor.real_variable_tags;
@@ -271,6 +255,7 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Add information about public inputs to the computation
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
 
+    // WORKTODO: this is brittle. depends on when PI are placed. how can we make this more robust
     // The public inputs are placed at the top of the execution trace, potentially offset by a zero row.
     const size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     size_t pub_input_offset = num_zero_rows;

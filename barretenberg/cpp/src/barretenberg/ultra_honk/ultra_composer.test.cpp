@@ -32,29 +32,6 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
     return res;
 }
 
-// void compare_with_execution_trace(const auto& proving_key, auto& circuit_builder)
-// {
-//     using Trace = ExecutionTrace_<UltraFlavor>;
-//     Trace trace;
-//     auto proving_key_new = trace.generate(circuit_builder, proving_key->circuit_size);
-
-//     std::vector<std::string> unequal;
-//     for (auto [new_poly, poly, label] :
-//          zip_view(proving_key_new->get_all(), proving_key->get_all(), proving_key->get_labels())) {
-//         if (new_poly != poly) {
-//             unequal.emplace_back(label);
-//         }
-//     }
-//     if (unequal.empty()) {
-//         info("\n All polynomials are equal.");
-//     } else {
-//         info("\nThe following polynomials are unequal: ");
-//         for (const std::string& label : unequal) {
-//             info("\t", label);
-//         }
-//     }
-// }
-
 void compare_with_execution_trace_instance(const auto& instance, auto circuit_builder)
 {
     using Instance = ProverInstance_<UltraFlavor>;
@@ -74,7 +51,8 @@ void compare_with_execution_trace_instance(const auto& instance, auto circuit_bu
             unequal.emplace_back(label);
         }
     }
-    if (unequal.empty()) {
+    bool all_polys_equal = unequal.empty();
+    if (all_polys_equal) {
         info("\n All polynomials are equal.");
     } else {
         info("\nThe following polynomials are unequal: ");
@@ -82,19 +60,18 @@ void compare_with_execution_trace_instance(const auto& instance, auto circuit_bu
             info("\t", label);
         }
     }
+    ASSERT_TRUE(all_polys_equal);
 }
 
 void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
 {
     auto instance = composer.create_instance(circuit_builder);
+    compare_with_execution_trace_instance(instance, circuit_builder);
     auto prover = composer.create_prover(instance);
     auto verifier = composer.create_verifier(instance);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
-
-    // compare_with_execution_trace(instance->proving_key, circuit_builder);
-    compare_with_execution_trace_instance(instance, circuit_builder);
 };
 
 void ensure_non_zero(auto& polynomial)
