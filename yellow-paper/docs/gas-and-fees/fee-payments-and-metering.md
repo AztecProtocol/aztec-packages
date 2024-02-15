@@ -28,7 +28,7 @@ We can define a number of requirements that serve to provide a transparent and f
 ## High Level Concepts and Design
 
 1. We will use concepts of L1, L2 and DA gas to universally define units of resource for the Ethereum and Aztec networks respectively. L1 gas directly mirrors the actual gas specification as defined by Ethereum, L2 gas covers all resource expended on the L2 network. Finally, DA gas accounts for the data stored on the network's Data Availability solution.
-2. We will deterministically quantify all resource consumption of a transaction into 7 values. We will define these values later but essentially they represent the amortized and transaction-specific quantities of each of L1, L2 and DA gas.
+2. We will deterministically quantify all resource consumption of a transaction into 8 values. We will define these values later but essentially they represent the amortized and transaction-specific quantities of each of L1, L2 and DA gas.
 3. The transaction sender will provide a single fee for the transaction. This will be split into 3 components to cover each of the L1, L2 and DA gas costs. The sender will specify `feePerGas` and `gasLimit` for each component. Doing so provides protection to the sender that the amount of fee applicable to any component is constrained.
 4. We will constrain the sequencer to apply the correct amortized and transaction-specific fees; ensuring the sender can not be charged arbitrarily.
 5. We will define a method by which fees are paid to the sequencer in a single asset, but where the fee payment mechanism enables transaction senders to pay in any asset.
@@ -55,7 +55,7 @@ Transactions will be divided into 3 phases:
 
 All of these phases occur **within the same transaction**, ultimately resulting in 2 sets of public inputs being emitted from the private kernel circuits. Those related to the fee payment and those related to the application logic. State changes requested by the application logic are reverted if any component fails. State changes in the fee preparation and distribution components are only reverted if either of those components fail.
 
-![Transaction Components](../gas-and-fees/images/gas-and-fees/transaction.png)
+![Transaction Components](../gas-and-fees/images/gas-and-fees/Transaction.png)
 
 The fee praparation and fee distribution phases respectively are responsible for ensuring that sufficient quantity of the fee payment asset is made available for the transaction and that it is correctly distributed to the sequencer with any refund being returned to the transaction sender. The sequencer will have have agency over which contract methods they are willing to accept for execution in these phases and will have visibility over the arguments passed to them. This is important as these functions must be successfully executed in order for the sequencer to be paid. It is assumed that the network will settle on a number of universally recognised fee payment contracts implementing fee preparation and distribution.
 
@@ -82,9 +82,22 @@ A comprehensive table of gas consuming operations can be found in the [fee sched
 
 Transactions will need to be provided with sufficient fees to cover their gas consumption. The [private kernel circuits](../circuits/high-level-topology.md) understand a transaction's private execution as having 2 phases. The first phase is for the payment of fees. It is during this phase that the private execution must generate side-effects and enqueued function calls for the fee preparation and fee distribution phases of the transaction. These side-effects are deemed non-revertible. Typically, only contracts designed to be written as transaction entrypoints will need to be concerned with these phases and once the fee payment execution is complete, the transaction is moved to the second phase where all execution is considered the appication logic. The [private kernel circuits](../circuits/high-level-topology.md) maintain a 'high water mark' of side effects below which those side effects are deemed non-revertible.
 
-Transaction senders will need to compute a suffieicnt fee for the transaction considering both the transaction specific and amortized gas consumption. Transaction specific L1, L2, and DA gas can be calculated via simulation whereas amortized gas will need to be calculated by using a transaction sender specified minimum amortization. This minimum amortization is simply the minimum sized rollup that the transaction sender is willing to be included in. From this value, the amortized L1, L2 and DA gas values can be determined. Finally, a fixed amount of gas for the execution of fee distribution will need to be specified.
+Transaction senders will need to compute a sufficient fee for the transaction considering both the transaction specific and amortized gas consumption. Transaction specific L1, L2, and DA gas can be calculated via simulation whereas amortized gas will need to be calculated by using a transaction sender specified minimum amortization. This minimum amortization is simply the minimum sized rollup that the transaction sender is willing to be included in. From this value, the amortized L1, L2 and DA gas values can be determined. Finally, a fixed amount of gas for the execution of fee distribution will need to be specified.
 
-The private kernel circuits will output 8 `Gas` values. The 6 `GasLimit`'s represent maximum quantities of gas that the transaction sender permits to be consumed. Insufficient limits will cause the transaction to revert with an `OutOfGas` condition. The transaction sender is refunded for any unused amounts of gas used in these operations. The `FeeDistributionGas` values are fixed amounts of gas effectively representing fixed fees that the transaction sender is willing to pay for their chosen fee distribution.
+An example of L2 gas amortization could be the transaction sender specifying a minimum amortization of 1024 transactions. The transaction sender would then compute the amount of amortized gas required for a rollup of that size:
+
+```
+TotalGasToBeAmortised = (1024 - 2) * GMerge + GRoot
+L2AmortizedGasLimit = TotalGasToBeAmortised / 1024
+
+Where 
+  GMerge = The gas cost of proving the merge rollup circuit.
+  GRoot = The gas cost of proving the root rollup circuit.
+```
+In this example, were the transaction to be included within a rollup larger than 1024 transactions, the transaction sender would be refunded this amortization difference.
+
+
+The private kernel circuits will output 8 `Gas` values. The 6 `GasLimit`'s represent maximum quantities of gas that the transaction sender permits to be consumed. Insufficient limits will cause the transaction to revert with an `OutOfGas` condition. Fees will be refunded to the transaction sender for unused quantities of gas, The `FeeDistributionGas` values are fixed amounts of gas effectively representing fixed fees that the transaction sender is willing to pay for their chosen fee distribution.
 
 <!-- prettier-ignore -->
 | Value | Description |
