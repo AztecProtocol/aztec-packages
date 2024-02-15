@@ -287,10 +287,7 @@ As mentioned earlier, this is done to ensure that the messages are not used to D
 Since we will be building the tree on L1, we need to use a gas-friendly hash-function such as SHA256. 
 However, as we need to allow users to prove inclusion in this tree, we cannot just insert the SHA256 tree into the rollup state, it requires too many constraints to be used by most small users. 
 Therefore, we need to "convert" the tree into a tree using a more snark-friendly hash.
-This part is done in a to-be-defined circuit.
-:::info TODO
-Write about the `MessageCompression` circuits
-:::
+This part is done in the [message compression circuits](./../rollup-circuits/message-compression.md).
 
 Furthermore, to build the tree on L1, we need to put some storage on L1 such that the insertions don't need to provide a lot of merkle-related data which could be cumbersome to do and prone to race-conditions. 
 For example two insertions based on inclusion paths that are created at the same time will invalidate each other. 

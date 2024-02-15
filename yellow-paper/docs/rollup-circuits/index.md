@@ -4,22 +4,33 @@ title: Rollup Circuits
 
 ## Overview
 
-Together with the [validating light node](../l1-smart-contracts/index.md) the rollup circuits must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
+Together with the [validating light node](../l1-smart-contracts/index.md), the rollup circuits must ensure that incoming blocks are valid, that state is progressed correctly, and that anyone can rebuild the state.
 
-To support this, we construct a single proof for the entire block, which is then verified by the validating light node. 
-This single proof is constructed by recursively merging proofs together in a binary tree structure. 
-This structure allows us to keep the workload of each individual proof small, while making it very parallelizable. 
+To support this, we construct a single proof for the entire block, which is then verified by the validating light node.
+This single proof consist of three main components:
+It has **two** sub-trees for transactions, and **one** tree for incoming messages. 
+The two transaction trees are then merged into a single proof and combined with the roots of the message tree to form the final proof and output.
+Each of these trees are built by recursively combining proofs from a lower level of the tree.
+This structure allows us to keep the workload of each individual proof small, while making it very parallelizable.
 This works very well for the case where we want many actors to be able to participate in the proof generation.
 
-The tree structure is outlined below, but the general idea is that we have a tree where all the leaves are transactions (kernel proofs) and through $\log(n)$ steps we can then "compress" them down to just a single root proof. 
-Note that we have two different types of "merger" circuit, namely:
+Note that we have two different types of "merger" circuits, depending on what they are combining. 
 
-- The merge rollup
-  - Merges two base rollup proofs OR two merge rollup proofs
-- The root rollup
-  - Merges two merge rollup proofs
+For transaction compression we have:
+- The `merge` rollup
+  - Merges two `base` rollup proofs OR two `merge` rollup proofs
+- The `root` rollup
+  - Merges two `merge` rollup proofs
 
-In the diagram the size of the tree is limited for show, but a larger tree will have more layers of merge rollups proofs. 
+And for the message compression we have:
+- The `compress` circuit
+  - Merges `N` `compress` or `compress_leaf` proofs
+- The `compress_leaf` circuit
+  - Merges `N` messages 
+
+In the diagram the sizes of the trees are limited for show.
+In reality larger trees would have more layers between the leafs and the root.
+In the diagram the size of the tree is limited for demonstration purposes, but a larger tree would have more layers of merge rollups proofs. 
 Circles mark the different types of proofs, while squares mark the different circuit types.
 
 ```mermaid
@@ -77,6 +88,54 @@ graph BT
     style K1 fill:#1976D2;
     style K2 fill:#1976D2;
     style K3 fill:#1976D2;
+
+    R --> R_c
+
+    R((compress 4))
+
+    T0[compress_leaf]
+    T1[compress_leaf]
+    T2[compress_leaf]
+    T3[compress_leaf]
+
+    T0_P((compress 0))
+    T1_P((compress 1))
+    T2_P((compress 2))
+    T3_P((compress 3))
+
+    T4[compress]
+
+    I0 --> T0
+    I1 --> T1
+    I2 --> T2
+    I3 --> T3
+
+    T0 --> T0_P
+    T1 --> T1_P
+    T2 --> T2_P
+    T3 --> T3_P
+
+    T0_P --> T4
+    T1_P --> T4
+    T2_P --> T4
+    T3_P --> T4
+
+    T4 --> R
+
+    I0((MSG 0-3))
+    I1((MSG 4-7))
+    I2((MSG 8-11))
+    I3((MSG 12-15))
+
+    style R fill:#1976D2;
+    style T0_P fill:#1976D2;
+    style T1_P fill:#1976D2;
+    style T2_P fill:#1976D2;
+    style T3_P fill:#1976D2;
+    style I0 fill:#1976D2;
+    style I1 fill:#1976D2;
+    style I2 fill:#1976D2;
+    style I3 fill:#1976D2;
 ```
 
 To understand what the circuits are doing and what checks they need to apply it is useful to understand what data is going into the circuits and what data is coming out.
@@ -314,8 +373,29 @@ class MergeRollupInputs {
 MergeRollupInputs *-- ChildRollupData: left
 MergeRollupInputs *-- ChildRollupData: right
 
+class CompressBaseInputs {
+    msgs: List~Fr[2]~
+}
+
+class CompressPublicInput {
+    aggregation_object: AggregationObject
+    sha_root: Fr[2]
+    converted_root: Fr
+}
+
+class CompressInput {
+    msgs: List~CompressPublicInput~
+}
+CompressInput *-- CompressPublicInput: msgs
+
+class TreeConversionData {
+    proof: Proof
+    public_inputs: CompressPublicInput
+}
+TreeConversionData *-- CompressPublicInput: public_inputs
+
 class RootRollupInputs {
-    l1_to_l2_roots: MessageCompressionBaseOrMergePublicInputs
+    l1_to_l2_roots: TreeConversionData
     l1_to_l2_msgs_sibling_path: List~Fr~
     parent: Header,
     parent_sibling_path: List~Fr~
@@ -323,27 +403,10 @@ class RootRollupInputs {
     left: ChildRollupData
     right: ChildRollupData
 }
-RootRollupInputs *-- MessageCompressionBaseOrMergePublicInputs: l1_to_l2_roots
+RootRollupInputs *-- TreeConversionData: l1_to_l2_roots
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
 RootRollupInputs *-- Header : parent
-
-class MessageCompressionBaseInputs {
-    l1_to_l2_msgs: List~Fr~
-}
-
-class MessageCompressionBaseOrMergePublicInputs {
-    sha_root: Fr[2]
-    converted_root: Fr
-}
-
-class MessageCompressionMergeInputs {
-    left: MessageCompressionBaseInputs
-    right: MessageCompressionBaseInputs
-}
-MessageCompressionMergeInputs *-- MessageCompressionBaseOrMergePublicInputs: left
-MessageCompressionMergeInputs *-- MessageCompressionBaseOrMergePublicInputs: right
-
 
 class RootRollupPublicInputs {
     aggregation_object: AggregationObject
