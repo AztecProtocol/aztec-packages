@@ -25,7 +25,7 @@ import {
   computeVarArgsHash,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
-import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
+import { makeContractDeploymentData, makeHeader } from '@aztec/circuits.js/factories';
 import {
   FunctionArtifact,
   FunctionSelector,
@@ -41,7 +41,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FieldsOf } from '@aztec/foundation/types';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
@@ -51,7 +51,7 @@ import {
   StatefulTestContractArtifact,
   TestContractArtifact,
   TokenContractArtifact,
-} from '@aztec/noir-contracts';
+} from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -140,7 +140,7 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown tree ${name}`);
     }
     if (!trees[name]) {
-      const db = await AztecLmdbStore.openTmp();
+      const db = openTmpStore();
       const pedersen = new Pedersen();
       trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
@@ -263,7 +263,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, owner: AztecAddress, storageSlot = Fr.random()) => {
+    const buildNote = (amount: bigint, owner: AztecAddress, storageSlot: Fr, noteTypeId: Fr) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -279,6 +279,7 @@ describe('Private Execution test suite', () => {
       return {
         contractAddress,
         storageSlot,
+        noteTypeId,
         nonce,
         note,
         innerNoteHash,
@@ -316,7 +317,8 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(newNote.noteTypeId).toEqual(new Fr(869710811710178111116101n)); // ValueNote
 
       const newCommitments = sideEffectArrayToValueArray(
         nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments),
@@ -325,7 +327,12 @@ describe('Private Execution test suite', () => {
 
       const [commitment] = newCommitments;
       expect(commitment).toEqual(
-        await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.note),
+        await acirSimulator.computeInnerNoteHash(
+          contractAddress,
+          newNote.storageSlot,
+          newNote.noteTypeId,
+          newNote.note,
+        ),
       );
     });
 
@@ -336,7 +343,8 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(newNote.noteTypeId).toEqual(new Fr(869710811710178111116101n)); // ValueNote
 
       const newCommitments = sideEffectArrayToValueArray(
         nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments),
@@ -345,7 +353,12 @@ describe('Private Execution test suite', () => {
 
       const [commitment] = newCommitments;
       expect(commitment).toEqual(
-        await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.note),
+        await acirSimulator.computeInnerNoteHash(
+          contractAddress,
+          newNote.storageSlot,
+          newNote.noteTypeId,
+          newNote.note,
+        ),
       );
     });
 
@@ -353,14 +366,16 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
-      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField());
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
+      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient);
 
-      const notes = [buildNote(60n, owner, storageSlot), buildNote(80n, owner, storageSlot)];
+      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
+
+      const notes = [buildNote(60n, owner, storageSlot, noteTypeId), buildNote(80n, owner, storageSlot, noteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
@@ -377,6 +392,7 @@ describe('Private Execution test suite', () => {
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
+      expect(recipientNote.noteTypeId).toEqual(noteTypeId);
 
       const newCommitments = sideEffectArrayToValueArray(result.callStackItem.publicInputs.newCommitments).filter(
         field => !field.equals(Fr.ZERO),
@@ -385,10 +401,10 @@ describe('Private Execution test suite', () => {
 
       const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
       expect(recipientNoteCommitment).toEqual(
-        await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, recipientNote.note),
+        await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, noteTypeId, recipientNote.note),
       );
       expect(changeNoteCommitment).toEqual(
-        await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, changeNote.note),
+        await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteTypeId, changeNote.note),
       );
 
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
@@ -407,13 +423,14 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
+      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
 
-      const notes = [buildNote(balance, owner, storageSlot)];
+      const notes = [buildNote(balance, owner, storageSlot, noteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
@@ -905,7 +922,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
+      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -915,8 +932,15 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
-      const innerNoteHash = await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteAndSlot.note);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
+      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
+
+      const innerNoteHash = await acirSimulator.computeInnerNoteHash(
+        contractAddress,
+        storageSlot,
+        noteTypeId,
+        noteAndSlot.note,
+      );
       expect(commitment).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
@@ -984,9 +1008,13 @@ describe('Private Execution test suite', () => {
       const execGetThenNullify = result.nestedExecutions[1];
       const getNotesAfterNullify = result.nestedExecutions[2];
 
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
+      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
+
       expect(execInsert.newNotes).toHaveLength(1);
       const noteAndSlot = execInsert.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
+      expect(noteAndSlot.storageSlot).toEqual(storageSlot);
+      expect(noteAndSlot.noteTypeId).toEqual(noteTypeId);
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -996,8 +1024,12 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
-      const innerNoteHash = await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteAndSlot.note);
+      const innerNoteHash = await acirSimulator.computeInnerNoteHash(
+        contractAddress,
+        noteAndSlot.storageSlot,
+        noteAndSlot.noteTypeId,
+        noteAndSlot.note,
+      );
       expect(commitment).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
@@ -1040,9 +1072,13 @@ describe('Private Execution test suite', () => {
         contractAddress,
       });
 
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
+      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
+
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
+      expect(noteAndSlot.storageSlot).toEqual(storageSlot);
+      expect(noteAndSlot.noteTypeId).toEqual(noteTypeId);
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -1052,9 +1088,13 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
       expect(commitment).toEqual(
-        await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteAndSlot.note),
+        await acirSimulator.computeInnerNoteHash(
+          contractAddress,
+          storageSlot,
+          noteAndSlot.noteTypeId,
+          noteAndSlot.note,
+        ),
       );
 
       // read requests should be empty
@@ -1127,6 +1167,70 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], portalContractAddress });
       expect(result.returnValues).toEqual(portalContractAddress.toField().value);
+    });
+  });
+
+  describe('Private global variables', () => {
+    let chainId: Fr;
+    let version: Fr;
+    let args: any[];
+    let artifact: FunctionArtifact;
+
+    beforeAll(() => {
+      chainId = Fr.random();
+      version = Fr.random();
+      args = [chainId, version];
+
+      artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
+    });
+
+    it('Private global vars are correctly set', () => {
+      // Chain id and version set in tx context is the same as the ones we pass via args so this should not throw
+      expect(() => runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version } })).not.toThrow();
+    });
+
+    it('Throws when chainId is incorrectly set', async () => {
+      // We set the chainId in the tx context to a different value than the one we pass via args so the simulator should throw
+      const unexpectedChainId = Fr.random();
+      await expect(
+        runSimulator({ artifact, msgSender: owner, args, txContext: { chainId: unexpectedChainId, version } }),
+      ).rejects.toThrowError('Invalid chain id');
+    });
+
+    it('Throws when version is incorrectly set', async () => {
+      // We set the version in the tx context to a different value than the one we pass via args so the simulator should throw
+      const unexpectedVersion = Fr.random();
+      await expect(
+        runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version: unexpectedVersion } }),
+      ).rejects.toThrowError('Invalid version');
+    });
+  });
+
+  describe('Historical header in private context', () => {
+    let artifact: FunctionArtifact;
+
+    beforeAll(() => {
+      artifact = getFunctionArtifact(TestContractArtifact, 'assert_header_private');
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
+
+      header = makeHeader();
+
+      oracle.getHeader.mockClear();
+      oracle.getHeader.mockResolvedValue(header);
+    });
+
+    it('Header is correctly set', () => {
+      const args = [header.hash()];
+
+      expect(() => runSimulator({ artifact, msgSender: owner, args })).not.toThrow();
+    });
+
+    it('Throws when header is not as expected', async () => {
+      const unexpectedHeaderHash = Fr.random();
+      const args = [unexpectedHeaderHash];
+
+      await expect(runSimulator({ artifact, msgSender: owner, args })).rejects.toThrowError('Invalid header hash');
     });
   });
 });

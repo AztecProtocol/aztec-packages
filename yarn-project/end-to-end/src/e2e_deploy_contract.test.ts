@@ -8,6 +8,7 @@ import {
   ContractBase,
   ContractClassWithId,
   ContractDeployer,
+  ContractInstanceWithAddress,
   DebugLogger,
   EthAddress,
   Fr,
@@ -21,23 +22,17 @@ import {
   isContractDeployed,
 } from '@aztec/aztec.js';
 import {
-  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-  computeArtifactFunctionTree,
-  computeArtifactFunctionTreeRoot,
-  computeArtifactMetadataHash,
-  computeFunctionArtifactHash,
-  computePrivateFunctionsRoot,
-  computePrivateFunctionsTree,
-  computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+  broadcastPrivateFunction,
+  broadcastUnconstrainedFunction,
+  deployInstance,
+  registerContractClass,
+} from '@aztec/aztec.js/deployment';
+import { ContractClassIdPreimage, Point, PublicKey } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
-import { FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { ContractClassRegistererContract, ReaderContractArtifact, StatefulTestContract } from '@aztec/noir-contracts';
-import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { ContractInstanceDeployerContract, StatefulTestContract } from '@aztec/noir-contracts.js';
+import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
 
 import { setup } from './fixtures/utils.js';
@@ -261,121 +256,107 @@ describe('e2e_deploy_contract', () => {
     expect(await contracts[1].methods.summed_values(owner).view()).toEqual(52n);
   });
 
-  // Tests registering a new contract class on a node
-  // All this dance will be hidden behind a nicer API in the near future!
-  describe('registering a new contract class', () => {
-    let registerer: ContractClassRegistererContract;
+  // Tests registering a new contract class on a node and then deploying an instance.
+  // These tests look scary, but don't fret: all this hodgepodge of calls will be hidden
+  // behind a much nicer API in the near future as part of #4080.
+  describe('registering a contract class', () => {
     let artifact: ContractArtifact;
-    let contractClass: ContractClassWithId;
-    let registerTxHash: TxHash;
-    let privateFunctionsRoot: Fr;
-    let publicBytecodeCommitment: Fr;
+    let contractClass: ContractClassWithId & ContractClassIdPreimage;
 
     beforeAll(async () => {
-      artifact = ReaderContractArtifact;
+      artifact = StatefulTestContract.artifact;
+      await registerContractClass(wallet, artifact).send().wait();
       contractClass = getContractClassFromArtifact(artifact);
-      privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
-      publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
-      registerer = await registerContract(wallet, ContractClassRegistererContract, [], new Fr(1));
-
-      logger(`contractClass.id: ${contractClass.id}`);
-      logger(`contractClass.artifactHash: ${contractClass.artifactHash}`);
-      logger(`contractClass.privateFunctionsRoot: ${privateFunctionsRoot}`);
-      logger(`contractClass.publicBytecodeCommitment: ${publicBytecodeCommitment}`);
-      logger(`contractClass.packedBytecode.length: ${contractClass.packedBytecode.length}`);
-
-      // Broadcast the class public bytecode via the registerer contract
-      const tx = await registerer.methods
-        .register(
-          contractClass.artifactHash,
-          privateFunctionsRoot,
-          publicBytecodeCommitment,
-          bufferAsFields(contractClass.packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS),
-        )
-        .send()
-        .wait();
-      registerTxHash = tx.txHash;
-    });
-
-    it('emits registered logs', async () => {
-      const logs = await pxe.getUnencryptedLogs({ txHash: registerTxHash });
-      const registeredLog = logs.logs[0].log; // We need a nicer API!
-      expect(registeredLog.contractAddress).toEqual(registerer.address);
-    });
+    }, 60_000);
 
     it('registers the contract class on the node', async () => {
       const registeredClass = await aztecNode.getContractClass(contractClass.id);
       expect(registeredClass).toBeDefined();
       expect(registeredClass!.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());
-      expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(privateFunctionsRoot.toString());
+      expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(contractClass.privateFunctionsRoot.toString());
       expect(registeredClass!.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
       expect(registeredClass!.publicFunctions).toEqual(contractClass.publicFunctions);
       expect(registeredClass!.privateFunctions).toEqual([]);
     });
 
-    it('broadcasts a private function and registers it on the node', async () => {
-      const privateFunction = contractClass.privateFunctions[0];
-      const privateFunctionArtifact = artifact.functions.find(fn =>
-        FunctionSelector.fromNameAndParameters(fn).equals(privateFunction.selector),
-      )!;
-
-      // TODO(@spalladino): The following is computing the unconstrained root hash twice.
-      // Feels like we need a nicer API for returning a hash along with all its preimages,
-      // since it's common to provide all hash preimages to a function that verifies them.
-      const artifactMetadataHash = computeArtifactMetadataHash(artifact);
-      const unconstrainedArtifactFunctionTreeRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.OPEN);
-      const privateFunctionTreePath = computePrivateFunctionsTree(contractClass.privateFunctions).getSiblingPath(0);
-      const artifactFunctionTreePath = computeArtifactFunctionTree(artifact, FunctionType.SECRET)!.getSiblingPath(0);
-
-      const selector = privateFunction.selector;
-      const metadataHash = computeFunctionArtifactHash(privateFunctionArtifact);
-      const bytecode = bufferAsFields(
-        Buffer.from(privateFunctionArtifact.bytecode, 'hex'),
-        MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-      );
-      const vkHash = privateFunction.vkHash;
-
-      await registerer.methods
-        .broadcast_private_function(
-          contractClass.id,
-          Fr.fromBufferReduce(artifactMetadataHash),
-          Fr.fromBufferReduce(unconstrainedArtifactFunctionTreeRoot),
-          privateFunctionTreePath.map(Fr.fromBufferReduce),
-          padArrayEnd(artifactFunctionTreePath.map(Fr.fromBufferReduce), Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
-          // eslint-disable-next-line camelcase
-          { selector, metadata_hash: Fr.fromBufferReduce(metadataHash), bytecode, vk_hash: vkHash },
-        )
-        .send()
-        .wait();
+    it('broadcasts a private function', async () => {
+      const selector = contractClass.privateFunctions[0].selector;
+      await broadcastPrivateFunction(wallet, artifact, selector).send().wait();
+      // TODO(#4428): Test that these functions are captured by the node and made available when
+      // requesting the corresponding contract class.
     }, 60_000);
 
     it('broadcasts an unconstrained function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
-
-      // TODO(@spalladino): Same comment as above on computing duplicated hashes.
-      const artifactMetadataHash = computeArtifactMetadataHash(artifact);
-      const privateArtifactFunctionTreeRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.SECRET);
-      const functionTreePath = computeArtifactFunctionTree(artifact, FunctionType.UNCONSTRAINED)!.getSiblingPath(0);
-
       const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
-      const metadataHash = computeFunctionArtifactHash(functionArtifact);
-      const bytecode = bufferAsFields(
-        Buffer.from(functionArtifact.bytecode, 'hex'),
-        MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-      );
-
-      await registerer.methods
-        .broadcast_unconstrained_function(
-          contractClass.id,
-          Fr.fromBufferReduce(artifactMetadataHash),
-          Fr.fromBufferReduce(privateArtifactFunctionTreeRoot),
-          padArrayEnd(functionTreePath.map(Fr.fromBufferReduce), Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
-          // eslint-disable-next-line camelcase
-          { selector, metadata_hash: Fr.fromBufferReduce(metadataHash), bytecode },
-        )
-        .send()
-        .wait();
+      await broadcastUnconstrainedFunction(wallet, artifact, selector).send().wait();
+      // TODO(#4428): Test that these functions are captured by the node and made available when
+      // requesting the corresponding contract class.
     }, 60_000);
+
+    describe('deploying a contract instance', () => {
+      let instance: ContractInstanceWithAddress;
+      let deployer: ContractInstanceDeployerContract;
+      let deployTxHash: TxHash;
+      let initArgs: StatefulContractCtorArgs;
+      let publicKey: PublicKey;
+
+      beforeAll(async () => {
+        initArgs = [accounts[0].address, 42];
+        deployer = await registerContract(wallet, ContractInstanceDeployerContract, [], { salt: new Fr(1) });
+
+        const salt = Fr.random();
+        const portalAddress = EthAddress.random();
+        publicKey = Point.random();
+
+        instance = getContractInstanceFromDeployParams(artifact, initArgs, salt, publicKey, portalAddress);
+        const { address, contractClassId } = instance;
+        logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
+
+        const tx = await deployInstance(wallet, instance).send().wait();
+        deployTxHash = tx.txHash;
+      });
+
+      it('emits deployment log', async () => {
+        const logs = await pxe.getUnencryptedLogs({ txHash: deployTxHash });
+        const deployedLog = logs.logs[0].log;
+        expect(deployedLog.contractAddress).toEqual(deployer.address);
+      });
+
+      it('stores contract instance in the aztec node', async () => {
+        const deployed = await aztecNode.getContract(instance.address);
+        expect(deployed).toBeDefined();
+        expect(deployed!.address).toEqual(instance.address);
+        expect(deployed!.contractClassId).toEqual(contractClass.id);
+        expect(deployed!.initializationHash).toEqual(instance.initializationHash);
+        expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
+        expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
+        expect(deployed!.salt).toEqual(instance.salt);
+      });
+
+      it('calls a public function on the deployed instance', async () => {
+        // TODO(@spalladino) We should **not** need the whole instance, including initArgs and salt,
+        // in order to interact with a public function for the contract. We may even not need
+        // all of it for running a private function. Consider removing `instance` as a required
+        // field in the aztec.js `Contract` class, maybe we can replace it with just the partialAddress.
+        // Not just that, but this instance has been broadcasted, so the pxe should be able to get
+        // its information from the node directly, excluding private functions, but it's ok because
+        // we are not going to run those - but this may require registering "partial" contracts in the pxe.
+        // Anyway, when we implement that, we should be able to replace this `registerContract` with
+        // a simpler `Contract.at(instance.address, wallet)`.
+        const registered = await registerContract(wallet, StatefulTestContract, initArgs, {
+          salt: instance.salt,
+          portalAddress: instance.portalContractAddress,
+          publicKey,
+        });
+        expect(registered.address).toEqual(instance.address);
+        const contract = await StatefulTestContract.at(instance.address, wallet);
+        const whom = AztecAddress.random();
+        await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+        const stored = await contract.methods.get_public_value(whom).view();
+        expect(stored).toEqual(10n);
+      });
+    });
   });
 });
 
@@ -396,9 +377,10 @@ async function registerContract<T extends ContractBase>(
   wallet: Wallet,
   contractArtifact: ContractArtifactClass<T>,
   args: any[] = [],
-  salt?: Fr,
+  opts: { salt?: Fr; publicKey?: Point; portalAddress?: EthAddress } = {},
 ): Promise<T> {
-  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt);
+  const { salt, publicKey, portalAddress } = opts;
+  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt, publicKey, portalAddress);
   await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
   return contractArtifact.at(instance.address, wallet);
 }

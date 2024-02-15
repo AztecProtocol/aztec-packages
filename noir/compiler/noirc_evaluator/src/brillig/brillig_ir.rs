@@ -23,6 +23,7 @@ use acvm::{
         BinaryFieldOp, BinaryIntOp, BlackBoxOp, MemoryAddress, Opcode as BrilligOpcode, Value,
         ValueOrArray,
     },
+    brillig_vm::brillig::HeapValueType,
     FieldElement,
 };
 use debug_show::DebugShow;
@@ -467,6 +468,9 @@ impl BrilligContext {
             sources.push(*return_register);
             destinations.push(destination_register);
         }
+        destinations
+            .iter()
+            .for_each(|destination| self.registers.ensure_register_is_allocated(*destination));
         self.mov_registers_to_registers_instruction(sources, destinations);
         self.stop_instruction();
     }
@@ -498,6 +502,17 @@ impl BrilligContext {
     pub(crate) fn mov_instruction(&mut self, destination: MemoryAddress, source: MemoryAddress) {
         self.debug_show.mov_instruction(destination, source);
         self.push_opcode(BrilligOpcode::Mov { destination, source });
+    }
+
+    /// Cast truncates the value to the given bit size and converts the type of the value in memory to that bit size.
+    pub(crate) fn cast_instruction(
+        &mut self,
+        destination: MemoryAddress,
+        source: MemoryAddress,
+        bit_size: u32,
+    ) {
+        self.debug_show.cast_instruction(destination, source, bit_size);
+        self.push_opcode(BrilligOpcode::Cast { destination, source, bit_size });
     }
 
     /// Processes a binary instruction according `operation`.
@@ -577,13 +592,19 @@ impl BrilligContext {
         &mut self,
         func_name: String,
         inputs: &[ValueOrArray],
+        input_value_types: &[HeapValueType],
         outputs: &[ValueOrArray],
+        output_value_types: &[HeapValueType],
     ) {
+        assert!(inputs.len() == input_value_types.len());
+        assert!(outputs.len() == output_value_types.len());
         self.debug_show.foreign_call_instruction(func_name.clone(), inputs, outputs);
         let opcode = BrilligOpcode::ForeignCall {
             function: func_name,
             destinations: outputs.to_vec(),
+            destination_value_types: output_value_types.to_vec(),
             inputs: inputs.to_vec(),
+            input_value_types: input_value_types.to_vec(),
         };
         self.push_opcode(opcode);
     }
@@ -909,8 +930,11 @@ impl BrilligContext {
         //
         // This means that the arguments will be in the first `n` registers after
         // the number of reserved registers.
-        let (sources, destinations) =
+        let (sources, destinations): (Vec<_>, Vec<_>) =
             arguments.iter().enumerate().map(|(i, argument)| (*argument, self.register(i))).unzip();
+        destinations
+            .iter()
+            .for_each(|destination| self.registers.ensure_register_is_allocated(*destination));
         self.mov_registers_to_registers_instruction(sources, destinations);
         saved_registers
     }
@@ -925,11 +949,12 @@ impl BrilligContext {
     ) {
         // Allocate our result registers and write into them
         // We assume the return values of our call are held in 0..num results register indices
-        let (sources, destinations) = result_registers
+        let (sources, destinations): (Vec<_>, Vec<_>) = result_registers
             .iter()
             .enumerate()
             .map(|(i, result_register)| (self.register(i), *result_register))
             .unzip();
+        sources.iter().for_each(|source| self.registers.ensure_register_is_allocated(*source));
         self.mov_registers_to_registers_instruction(sources, destinations);
 
         // Restore all the same registers we have, in exact reverse order.
@@ -948,7 +973,7 @@ impl BrilligContext {
 
     /// Issues a blackbox operation.
     pub(crate) fn black_box_op_instruction(&mut self, op: BlackBoxOp) {
-        self.debug_show.black_box_op_instruction(op);
+        self.debug_show.black_box_op_instruction(&op);
         self.push_opcode(BrilligOpcode::BlackBox(op));
     }
 
@@ -1063,6 +1088,7 @@ pub(crate) mod tests {
         BinaryIntOp, ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value,
         ValueOrArray,
     };
+    use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};
     use acvm::{BlackBoxFunctionSolver, BlackBoxResolutionError, FieldElement};
 
@@ -1175,7 +1201,9 @@ pub(crate) mod tests {
         context.foreign_call_instruction(
             "make_number_sequence".into(),
             &[ValueOrArray::MemoryAddress(r_input_size)],
+            &[HeapValueType::Simple],
             &[ValueOrArray::HeapVector(HeapVector { pointer: r_stack, size: r_output_size })],
+            &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple] }],
         );
         // push stack frame by r_returned_size
         context.memory_op(r_stack, r_output_size, r_stack, BinaryIntOp::Add);

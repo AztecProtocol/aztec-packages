@@ -2,17 +2,18 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/crypto/merkle_tree/membership.hpp"
+#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "barretenberg/stdlib/merkle_tree/membership.hpp"
-#include "barretenberg/stdlib/merkle_tree/memory_store.hpp"
-#include "barretenberg/stdlib/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 
 namespace bb {
@@ -164,7 +165,7 @@ class GoblinMockCircuits {
     }
 
     /**
-     * @brief Construct a mock kernel circuit
+     * @brief Construct a size 2^17 mock kernel circuit based on vanilla recursion for benchmarking
      * @details This circuit contains (1) some arbitrary operations representing general kernel logic, (2) recursive
      * verification of a function circuit proof, and optionally (3) recursive verification of a previous kernel circuit
      * proof. The arbitrary kernel logic is structured to bring the final dyadic circuit size of the kernel to 2^17.
@@ -174,9 +175,9 @@ class GoblinMockCircuits {
      * @param function_accum {proof, vkey} for function circuit to be recursively verified
      * @param prev_kernel_accum {proof, vkey} for previous kernel circuit to be recursively verified
      */
-    static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder,
-                                              const KernelInput& function_accum,
-                                              const KernelInput& prev_kernel_accum)
+    static void construct_mock_recursion_kernel_circuit(GoblinUltraBuilder& builder,
+                                                        const KernelInput& function_accum,
+                                                        const KernelInput& prev_kernel_accum)
     {
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
         // kernel "full" within the dyadic size 2^17 (130914 gates)
@@ -187,6 +188,61 @@ class GoblinMockCircuits {
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
+        // Execute recursive aggregation of function proof
+        RecursiveVerifier verifier1{ &builder, function_accum.verification_key };
+        verifier1.verify_proof(function_accum.proof);
+
+        // Execute recursive aggregation of previous kernel proof if one exists
+        if (!prev_kernel_accum.proof.empty()) {
+            RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
+            verifier2.verify_proof(prev_kernel_accum.proof);
+        }
+    }
+
+    /**
+     * @brief Construct a mock kernel circuit based on folding
+     * @details This circuit contains (1) some arbitrary operations representing general kernel logic, (2) recursive
+     * folding verification of a function circuit folding proof, and (3) recursive folding verification of a previous
+     * kernel circuit folding proof. The arbitrary kernel logic is structured to bring the final dyadic circuit size of
+     * the kernel to 2^17.
+     *
+     * @param builder
+     * @param function_fold_proof
+     * @param kernel_fold_proof
+     */
+    static void construct_mock_folding_kernel(GoblinUltraBuilder& builder,
+                                              const std::vector<FF>& function_fold_proof,
+                                              const std::vector<FF>& kernel_fold_proof)
+    {
+        using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
+        using RecursiveVerifierInstances = ::bb::VerifierInstances_<GURecursiveFlavor, 2>;
+        using FoldingRecursiveVerifier =
+            bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
+        // kernel "full" within the dyadic size 2^17 (130914 gates)
+        const size_t NUM_MERKLE_CHECKS = 20;
+        const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        const size_t NUM_SHA_HASHES = 1;
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+
+        FoldingRecursiveVerifier verifier_1{ &builder };
+        verifier_1.verify_folding_proof(function_fold_proof);
+
+        FoldingRecursiveVerifier verifier_2{ &builder };
+        verifier_2.verify_folding_proof(kernel_fold_proof);
+    }
+
+    /**
+     * @brief A minimal version of the mock kernel (recursive verifiers only) for faster testing
+     *
+     */
+    static void construct_mock_kernel_small(GoblinUltraBuilder& builder,
+                                            const KernelInput& function_accum,
+                                            const KernelInput& prev_kernel_accum)
+    {
         // Execute recursive aggregation of function proof
         RecursiveVerifier verifier1{ &builder, function_accum.verification_key };
         verifier1.verify_proof(function_accum.proof);

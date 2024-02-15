@@ -16,7 +16,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { AcirSimulator } from '@aztec/simulator';
 
 import { jest } from '@jest/globals';
@@ -118,8 +118,8 @@ describe('Note Processor', () => {
     owner = ConstantKeyPair.random(grumpkin);
   });
 
-  beforeEach(async () => {
-    database = new KVPxeDatabase(await AztecLmdbStore.openTmp());
+  beforeEach(() => {
+    database = new KVPxeDatabase(openTmpStore());
     addNotesSpy = jest.spyOn(database, 'addNotes');
 
     aztecNode = mock<AztecNode>();
@@ -139,7 +139,7 @@ describe('Note Processor', () => {
       Promise.resolve({
         innerNoteHash: Fr.random(),
         siloedNoteHash: Fr.random(),
-        uniqueSiloedNoteHash: computeMockNoteHash(args[3]),
+        uniqueSiloedNoteHash: computeMockNoteHash(args[4]), // args[4] is note
         innerNullifier: Fr.random(),
       }),
     );

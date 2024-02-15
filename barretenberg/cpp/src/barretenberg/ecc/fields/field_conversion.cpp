@@ -1,22 +1,11 @@
 
 #include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/plonk/proof_system/constants.hpp"
 
 namespace bb::field_conversion {
 
-static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 68; // set to be 68 because bigfield has 68 bit limbs
+static constexpr uint64_t NUM_LIMB_BITS = plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 static constexpr uint64_t TOTAL_BITS = 254;
-
-bb::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bb::fr* /*unused*/)
-{
-    ASSERT(fr_vec.size() == 1);
-    return fr_vec[0];
-}
-
-bool convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bool* /*unused*/)
-{
-    ASSERT(fr_vec.size() == 1);
-    return fr_vec[0] != 0;
-}
 
 /**
  * @brief Converts 2 bb::fr elements to grumpkin::fr
@@ -31,34 +20,14 @@ bool convert_from_bn254_frs(std::span<const bb::fr> fr_vec, bool* /*unused*/)
  * @param high_bits_in
  * @return grumpkin::fr
  */
-grumpkin::fr convert_from_bn254_frs(std::span<const bb::fr> fr_vec, grumpkin::fr* /*unused*/)
+grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     // Combines the two elements into one uint256_t, and then convert that to a grumpkin::fr
-    ASSERT(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_CONVERSION_LIMB_BITS * 2))); // lower 136 bits
-    ASSERT(uint256_t(fr_vec[1]) <
-           (uint256_t(1) << (TOTAL_BITS - NUM_CONVERSION_LIMB_BITS * 2))); // upper 254-136=118 bits
-    uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_CONVERSION_LIMB_BITS * 2));
+    ASSERT(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));              // lower 136 bits
+    ASSERT(uint256_t(fr_vec[1]) < (uint256_t(1) << (TOTAL_BITS - NUM_LIMB_BITS * 2))); // upper 254-136=118 bits
+    uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
     grumpkin::fr result(value);
     return result;
-}
-
-curve::BN254::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
-                                                   curve::BN254::AffineElement* /*unused*/)
-{
-    curve::BN254::AffineElement val;
-    val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(0, 2));
-    val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec.subspan(2, 2));
-    return val;
-}
-
-curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr_vec,
-                                                      curve::Grumpkin::AffineElement* /*unused*/)
-{
-    ASSERT(fr_vec.size() == 2);
-    curve::Grumpkin::AffineElement val;
-    val.x = fr_vec[0];
-    val.y = fr_vec[1];
-    return val;
 }
 
 /**
@@ -74,11 +43,11 @@ curve::Grumpkin::AffineElement convert_from_bn254_frs(std::span<const bb::fr> fr
  * @param input
  * @return std::array<bb::fr, 2>
  */
-std::vector<bb::fr> convert_to_bn254_frs(const grumpkin::fr& val)
+std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val)
 {
     // Goal is to slice up the 64 bit limbs of grumpkin::fr/uint256_t to mirror the 68 bit limbs of bigfield
     // We accomplish this by dividing the grumpkin::fr's value into two 68*2=136 bit pieces.
-    constexpr uint64_t LOWER_BITS = 2 * NUM_CONVERSION_LIMB_BITS;
+    constexpr uint64_t LOWER_BITS = 2 * NUM_LIMB_BITS;
     constexpr uint256_t LOWER_MASK = (uint256_t(1) << LOWER_BITS) - 1;
     auto value = uint256_t(val);
     ASSERT(value < (uint256_t(1) << TOTAL_BITS));
@@ -89,28 +58,19 @@ std::vector<bb::fr> convert_to_bn254_frs(const grumpkin::fr& val)
     return result;
 }
 
-std::vector<bb::fr> convert_to_bn254_frs(const bb::fr& val)
+grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f)
 {
-    std::vector<bb::fr> fr_vec{ val };
-    return fr_vec;
-}
+    const uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS; // the number of bits in 2 bigfield limbs which is 136
 
-std::vector<bb::fr> convert_to_bn254_frs(const curve::BN254::AffineElement& val)
-{
-    auto fr_vec_x = convert_to_bn254_frs(val.x);
-    auto fr_vec_y = convert_to_bn254_frs(val.y);
-    std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
-    fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
-    return fr_vec;
-}
+    constexpr uint256_t LIMB_MASK =
+        (uint256_t(1) << NUM_BITS_IN_TWO_LIMBS) - 1; // split bn254_fr into two 136 bit pieces
+    const uint256_t value = f;
+    const uint256_t low = static_cast<uint256_t>(value & LIMB_MASK);
+    const uint256_t hi = static_cast<uint256_t>(value >> NUM_BITS_IN_TWO_LIMBS);
+    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_BITS_IN_TWO_LIMBS) == value);
 
-std::vector<bb::fr> convert_to_bn254_frs(const curve::Grumpkin::AffineElement& val)
-{
-    auto fr_vec_x = convert_to_bn254_frs(val.x);
-    auto fr_vec_y = convert_to_bn254_frs(val.y);
-    std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
-    fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
-    return fr_vec;
+    std::vector<bb::fr> fr_vec{ low, hi };
+    return convert_from_bn254_frs<grumpkin::fr>(fr_vec);
 }
 
 } // namespace bb::field_conversion

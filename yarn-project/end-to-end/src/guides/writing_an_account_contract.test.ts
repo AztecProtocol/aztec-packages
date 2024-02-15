@@ -12,8 +12,8 @@ import {
   Schnorr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts/SchnorrHardcodedAccount';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { setup } from '../fixtures/utils.js';
 
@@ -74,8 +74,10 @@ describe('guides/writing_an_account_contract', () => {
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
     const storageSlot = new Fr(5);
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
     const note = new Note([new Fr(mintAmount), secretHash]);
-    const extendedNote = new ExtendedNote(note, address, token.address, storageSlot, receipt.txHash);
+    const extendedNote = new ExtendedNote(note, address, token.address, storageSlot, noteTypeId, receipt.txHash);
     await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield({ address }, mintAmount, secret).send().wait();

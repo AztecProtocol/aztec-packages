@@ -131,8 +131,30 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
     computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
-    computePublicDataTreeValue(update.oldValue),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
   );
+}
+
+/**
+ * Checks whether the child execution result is valid for a static call (no state modifications).
+ * @param executionResult - The execution result of a public function
+ */
+
+export function checkValidStaticCall(
+  newCommitments: SideEffect[],
+  newNullifiers: SideEffectLinkedToNoteHash[],
+  contractStorageUpdateRequests: ContractStorageUpdateRequest[],
+  newL2ToL1Messages: Fr[],
+  unencryptedLogs: FunctionL2Logs,
+) {
+  if (
+    contractStorageUpdateRequests.length > 0 ||
+    newCommitments.length > 0 ||
+    newNullifiers.length > 0 ||
+    newL2ToL1Messages.length > 0 ||
+    unencryptedLogs.logs.length > 0
+  ) {
+    throw new Error('Static call cannot update the state, emit L2->L1 messages or generate logs');
+  }
 }

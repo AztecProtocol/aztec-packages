@@ -10,14 +10,15 @@ import {
   to2Fields,
 } from '@aztec/aztec.js';
 import {
+  EthAddress,
   Header,
-  KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
+  PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import {
@@ -29,7 +30,7 @@ import {
 } from '@aztec/circuits.js/factories';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
@@ -98,6 +99,9 @@ describe('L1Publisher integration', () => {
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
+  let coinbase: EthAddress;
+  let feeRecipient: AztecAddress;
+
   // To overwrite the test data, set this to true and run the tests.
   const OVERWRITE_TEST_DATA = false;
 
@@ -132,7 +136,7 @@ describe('L1Publisher integration', () => {
       publicClient,
     });
 
-    builderDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
+    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const vks = getVerificationKeys();
     const simulator = new RealRollupCircuitSimulator();
     const prover = new EmptyRollupProver();
@@ -149,6 +153,9 @@ describe('L1Publisher integration', () => {
       l1BlockPublishRetryIntervalMS: 100,
     });
 
+    coinbase = config.coinbase || EthAddress.random();
+    feeRecipient = config.feeRecipient || AztecAddress.random();
+
     prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
 
@@ -159,13 +166,13 @@ describe('L1Publisher integration', () => {
 
   const makeBloatedProcessedTx = async (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = KernelCircuitPublicInputs.empty();
+    const kernelOutput = PublicKernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+      i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
       seed + 0x500,
     );
 
@@ -267,6 +274,8 @@ describe('L1Publisher integration', () => {
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
+            coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
+            feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
           },
           lastArchive: {
             nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
@@ -358,11 +367,14 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
         await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
+
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
+        coinbase,
+        feeRecipient,
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
@@ -440,11 +452,14 @@ describe('L1Publisher integration', () => {
         await makeEmptyProcessedTx(),
         await makeEmptyProcessedTx(),
       ];
+
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
+        coinbase,
+        feeRecipient,
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;

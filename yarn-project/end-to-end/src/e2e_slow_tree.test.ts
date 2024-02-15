@@ -1,8 +1,8 @@
 /* eslint-disable camelcase */
 import { CheatCodes, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
-import { SlowTreeContract } from '@aztec/noir-contracts/SlowTree';
+import { SlowTreeContract } from '@aztec/noir-contracts.js/SlowTree';
 
 import { setup } from './fixtures/utils.js';
 
@@ -23,13 +23,7 @@ describe('e2e_slow_tree', () => {
 
   it('Messing around with noir slow tree', async () => {
     const depth = 254;
-    const slowUpdateTreeSimulator = await newTree(
-      SparseTree,
-      await AztecLmdbStore.openTmp(),
-      new Pedersen(),
-      'test',
-      depth,
-    );
+    const slowUpdateTreeSimulator = await newTree(SparseTree, openTmpStore(), new Pedersen(), 'test', depth);
     const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
       return {
         index,
