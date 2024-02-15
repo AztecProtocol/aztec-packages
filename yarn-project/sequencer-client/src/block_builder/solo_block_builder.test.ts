@@ -20,7 +20,9 @@ import {
   Header,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
   MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_COMMITMENTS_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
@@ -319,11 +321,21 @@ describe('sequencer/solo_block_builder', () => {
         i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
         seed + 0x500,
       );
+      kernelOutput.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
+        MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+        seed + 0x600,
+      );
 
       const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
       processedTx.data.end.newCommitments = makeTuple(
         MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+        makeNewSideEffect,
+        seed + 0x100,
+      );
+      processedTx.data.endNonRevertibleData.newCommitments = makeTuple(
+        MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
         makeNewSideEffect,
         seed + 0x100,
       );
