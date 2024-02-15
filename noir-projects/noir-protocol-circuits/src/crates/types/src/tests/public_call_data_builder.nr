@@ -103,8 +103,7 @@ impl PublicCallDataBuilder {
                     caller_context,
                     // todo: real values?
                     start_side_effect_counter: i as u32,
-                    end_side_effect_counter: (i + 1) as u32,
-                    is_delegate_call
+                    end_side_effect_counter: (i + 1) as u32
                 };
                 self.public_inputs.public_call_stack_hashes.push(hash);
                 self.public_call_stack.push(call_request);

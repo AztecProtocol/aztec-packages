@@ -436,6 +436,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false, false, false),
     makeCallContext(seed + 0x2, makeAztecAddress(seed)),
+    makeCallContext(seed + 0x2, makeAztecAddress(seed)),
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -598,7 +599,7 @@ export function makeCallerContext(seed = 1): CallerContext {
  * @returns A call stack item.
  */
 export function makeCallRequest(seed = 1): CallRequest {
-  return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2), fr(0), fr(0), false);
+  return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2), fr(0), fr(0));
 }
 
 /**
@@ -669,7 +670,6 @@ export function makePublicKernelInputsWithTweak(
       makeCallerContext(seed + 0x100),
       Fr.ZERO,
       Fr.ZERO,
-      false,
     );
   return publicKernelInputs;
 }

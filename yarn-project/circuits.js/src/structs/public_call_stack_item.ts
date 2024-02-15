@@ -4,6 +4,7 @@ import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from 
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { computePublicCallStackItemHash } from '../abis/abis.js';
+import { CallContext } from './call_context.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
@@ -98,23 +99,16 @@ export class PublicCallStackItem {
    * Creates a new CallRequest with values of the calling contract.
    * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
    */
-  public toCallRequest() {
+  public toCallRequest(parentCallContext: CallContext) {
     if (this.isEmpty()) {
       return CallRequest.empty();
     }
 
-    const callContext = this.publicInputs.callContext;
-    const callerContext = callContext.isDelegateCall
-      ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
+    const currentCallContext = this.publicInputs.callContext;
+    const callerContext = currentCallContext.isDelegateCall
+      ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
       : CallerContext.empty();
     // todo: populate side effect counters correctly
-    return new CallRequest(
-      this.hash(),
-      callContext.msgSender,
-      callerContext,
-      Fr.ZERO,
-      Fr.ZERO,
-      callContext.isDelegateCall,
-    );
+    return new CallRequest(this.hash(), parentCallContext.storageContractAddress, callerContext, Fr.ZERO, Fr.ZERO);
   }
 }

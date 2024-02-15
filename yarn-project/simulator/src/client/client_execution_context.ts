@@ -408,19 +408,21 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
+    isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
       sideEffectCounter,
-      false,
+      isDelegateCall,
       isStaticCall,
     );
     const args = this.packedArgsCache.unpack(argsHash);
     const enqueuedRequest = PublicCallRequest.from({
       args,
       callContext: derivedCallContext,
+      parentCallContext: this.callContext,
       functionData: FunctionData.fromAbi(targetArtifact),
       contractAddress: targetContractAddress,
     });
@@ -456,7 +458,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   ) {
     const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
     return new CallContext(
-      this.contractAddress,
+      isDelegateCall ? this.callContext.msgSender : this.contractAddress,
       isDelegateCall ? this.contractAddress : targetContractAddress,
       portalContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
