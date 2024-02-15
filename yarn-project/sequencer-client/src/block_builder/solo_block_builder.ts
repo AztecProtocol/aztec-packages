@@ -513,11 +513,13 @@ export class SoloBlockBuilder implements BlockBuilder {
       ...tx.data.endNonRevertibleData.publicDataUpdateRequests,
       ...tx.data.end.publicDataUpdateRequests,
     ]
-      // todo, remove empty update requests and right pad with empty requests
-      // .filter(updateRequest => !updateRequest.isEmpty())
+      .filter(updateRequest => !updateRequest.isEmpty())
       .map(updateRequest => {
         return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
       });
+    while (combinedPublicDataUpdateRequests.length < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+      combinedPublicDataUpdateRequests.push(PublicDataTreeLeaf.empty().toBuffer());
+    }
     const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } =
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
