@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__TX_CONTEXT;
-use crate::contrakt::deployment_data::ContractDeploymentData;
+use crate::contrakt::contract_deployment_data::ContractDeploymentData;
 use crate::traits::Hash;
 
 struct TxContext {

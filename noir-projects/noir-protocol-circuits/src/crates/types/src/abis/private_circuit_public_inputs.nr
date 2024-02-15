@@ -10,7 +10,7 @@ use crate::{
     RETURN_VALUES_LENGTH, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS
 },
-    contrakt::deployment_data::ContractDeploymentData, header::Header, hash::pedersen_hash,
+    contrakt::contract_deployment_data::ContractDeploymentData, header::Header, hash::pedersen_hash,
     messaging::l2_to_l1_message::L2ToL1Message, traits::{Deserialize, Hash, Serialize},
     utils::reader::Reader
 };

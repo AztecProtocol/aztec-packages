@@ -4,7 +4,7 @@ use crate::address::{AztecAddress, EthAddress, PartialAddress, PublicKeysHash};
 use crate::transaction::context::TxContext;
 use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
-use crate::contrakt::deployment_data::ContractDeploymentData;
+use crate::contrakt::contract_deployment_data::ContractDeploymentData;
 use crate::abis::function_selector::FunctionSelector;
 use crate::hash::{compute_l2_to_l1_hash, sha256_to_field, hash_args};
 use crate::abis::public_call_stack_item::PublicCallStackItem;

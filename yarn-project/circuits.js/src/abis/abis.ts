@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -16,17 +16,12 @@ import {
 } from '../constants.gen.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 import type {
-  ContractDeploymentData,
   FunctionData,
-  FunctionLeafPreimage,
-  NewContractData,
-  PublicCallStackItem,
   SideEffect,
   SideEffectLinkedToNoteHash,
   TxContext,
-  TxRequest,
+  TxRequest
 } from '../structs/index.js';
-import { PublicCircuitPublicInputs } from '../structs/public_circuit_public_inputs.js';
 import { VerificationKey } from '../structs/verification_key.js';
 
 /**
@@ -269,7 +264,7 @@ function computeTxContextHash(txContext: TxContext): Fr {
         new Fr(txContext.isFeePaymentTx).toBuffer(),
         new Fr(txContext.isRebatePaymentTx).toBuffer(),
         new Fr(txContext.isContractDeploymentTx).toBuffer(),
-        computeContractDeploymentDataHash(txContext.contractDeploymentData).toBuffer(),
+        txContext.contractDeploymentData.hash().toBuffer(),
         txContext.chainId.toBuffer(),
         txContext.version.toBuffer(),
       ],
@@ -278,21 +273,7 @@ function computeTxContextHash(txContext: TxContext): Fr {
   );
 }
 
-function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        data.publicKey.x.toBuffer(),
-        data.publicKey.y.toBuffer(),
-        data.initializationHash.toBuffer(),
-        data.contractClassId.toBuffer(),
-        data.contractAddressSalt.toBuffer(),
-        data.portalContractAddress.toBuffer(),
-      ],
-      GeneratorIndex.CONTRACT_DEPLOYMENT_DATA,
-    ),
-  );
-}
+
 
 export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
