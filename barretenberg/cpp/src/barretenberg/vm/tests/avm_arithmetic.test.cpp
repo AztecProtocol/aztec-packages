@@ -251,11 +251,7 @@ class AvmArithmeticTests : public ::testing::Test {
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        trace_builder = AvmTraceBuilder(); // Clean instance for every run.
-    };
+    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
 };
 
 class AvmArithmeticTestsFF : public AvmArithmeticTests {};
@@ -303,7 +299,6 @@ class AvmArithmeticNegativeTestsU128 : public AvmArithmeticTests {};
 // Test on basic addition over finite field type.
 TEST_F(AvmArithmeticTestsFF, addition)
 {
-    // trace_builder
     trace_builder.calldata_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
 
     //                             Memory layout:    [37,4,11,0,0,0,....]
