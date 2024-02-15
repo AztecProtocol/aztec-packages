@@ -12,11 +12,12 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  AztecAddress,
   BaseOrMergeRollupPublicInputs,
+  EthAddress,
   Fr,
   GlobalVariables,
   Header,
-  KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -29,6 +30,7 @@ import {
   Proof,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
+  PublicKernelCircuitPublicInputs,
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -41,7 +43,7 @@ import {
   makeNewContractData,
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
-  makePrivateKernelPublicInputsFinal,
+  makePrivateKernelTailCircuitPublicInputs,
   makeProof,
   makePublicCallRequest,
   makeRootRollupPublicInputs,
@@ -50,7 +52,7 @@ import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { times } from '@aztec/foundation/collection';
 import { to2Fields } from '@aztec/foundation/serialize';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -91,13 +93,15 @@ describe('sequencer/solo_block_builder', () => {
 
   const chainId = Fr.ZERO;
   const version = Fr.ZERO;
+  const coinbase = EthAddress.ZERO;
+  const feeRecipient = AztecAddress.ZERO;
 
   beforeEach(async () => {
     blockNumber = 3;
-    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
+    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
 
-    builderDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
-    expectsDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
+    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     vks = getVerificationKeys();
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
@@ -183,7 +187,7 @@ describe('sequencer/solo_block_builder', () => {
   };
 
   const buildMockSimulatorInputs = async () => {
-    const kernelOutput = makePrivateKernelPublicInputsFinal();
+    const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
     kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
 
     const tx = await makeProcessedTx(
@@ -290,11 +294,11 @@ describe('sequencer/solo_block_builder', () => {
 
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
-      const kernelOutput = KernelCircuitPublicInputs.empty();
+      const kernelOutput = PublicKernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+        i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
         seed + 0x500,
       );
 

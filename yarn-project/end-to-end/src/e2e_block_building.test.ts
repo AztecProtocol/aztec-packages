@@ -14,8 +14,8 @@ import {
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { TestContract, TestContractArtifact } from '@aztec/noir-contracts/Test';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { setup } from './fixtures/utils.js';
 
@@ -147,7 +147,7 @@ describe('e2e_block_building', () => {
 
     it('drops tx with private nullifier already emitted from public on the same block', async () => {
       const secret = Fr.random();
-      // See yarn-project/acir-simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
+      // See yarn-project/simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
       const emittedPublicNullifier = pedersenHash([new Fr(140), secret].map(a => a.toBuffer()));
 
       const calls = [

@@ -17,8 +17,10 @@ import {
   NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
+import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
+import { Header } from '../structs/header.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
-import { ContractDeploymentData, Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
 
 /**
@@ -40,9 +42,9 @@ export class PrivateCircuitPublicInputs {
      */
     public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
     /**
-     * The side-effect high watermark of the irrevertible part of the function call.
+     * The side-effect counter under which all side effects are non-revertible.
      */
-    public metaHwm: Fr,
+    public maxNonRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -224,7 +226,7 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
-      this.metaHwm.isZero() &&
+      this.maxNonRevertibleSideEffectCounter.isZero() &&
       isEmptyArray(this.readRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newCommitments) &&
@@ -253,7 +255,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.metaHwm,
+      fields.maxNonRevertibleSideEffectCounter,
       fields.readRequests,
       fields.nullifierKeyValidationRequests,
       fields.newCommitments,

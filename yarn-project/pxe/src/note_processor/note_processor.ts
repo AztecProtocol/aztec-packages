@@ -1,4 +1,3 @@
-import { ContractNotFoundError } from '@aztec/acir-simulator';
 import {
   AztecNode,
   INITIAL_L2_BLOCK_NUM,
@@ -13,6 +12,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ContractNotFoundError } from '@aztec/simulator';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
@@ -160,6 +160,7 @@ export class NoteProcessor {
                     payload.note,
                     payload.contractAddress,
                     payload.storageSlot,
+                    payload.noteTypeId,
                     txHash,
                     newCommitments,
                     dataStartIndexForTx,
@@ -254,8 +255,9 @@ export class NoteProcessor {
     const excludedIndices: Set<number> = new Set();
     const noteDaos: NoteDao[] = [];
     for (const deferredNote of deferredNoteDaos) {
-      const { note, contractAddress, storageSlot, txHash, newCommitments, dataStartIndexForTx } = deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot);
+      const { note, contractAddress, storageSlot, noteTypeId, txHash, newCommitments, dataStartIndexForTx } =
+        deferredNote;
+      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
       try {
         const noteDao = await produceNoteDao(

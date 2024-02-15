@@ -1,4 +1,3 @@
-import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
 import {
   ExtendedContractData,
   FunctionCall,
@@ -25,17 +24,18 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
-  PublicKernelPublicInputs,
+  PublicKernelCircuitPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import {
   makeAztecAddress,
-  makePrivateKernelPublicInputsFinal,
+  makePrivateKernelTailCircuitPublicInputs,
   makePublicCallRequest,
   makeSelector,
 } from '@aztec/circuits.js/factories';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -100,11 +100,12 @@ describe('public_processor', () => {
         {
           isEmpty: false,
           hash,
-          data: new PublicKernelPublicInputs(
+          data: new PublicKernelCircuitPublicInputs(
             tx.data.aggregationObject,
-            tx.data.metaHwm,
+            tx.data.endNonRevertibleData,
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
+            tx.data.isPrivate,
           ),
           proof: tx.proof,
           encryptedLogs: tx.encryptedLogs,
@@ -157,7 +158,7 @@ describe('public_processor', () => {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
       const callStackItems = callRequests.map(call => call.toCallRequest());
 
-      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         callStackItems,
         CallRequest.empty(),
@@ -192,7 +193,7 @@ describe('public_processor', () => {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
       const callStackItem = callRequest.toCallRequest();
 
-      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),
@@ -233,7 +234,7 @@ describe('public_processor', () => {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
       const callStackItem = callRequest.toCallRequest();
 
-      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),

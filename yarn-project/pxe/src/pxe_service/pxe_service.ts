@@ -1,12 +1,4 @@
 import {
-  AcirSimulator,
-  ExecutionResult,
-  collectEncryptedLogs,
-  collectEnqueuedPublicFunctionCalls,
-  collectUnencryptedLogs,
-  resolveOpcodeLocations,
-} from '@aztec/acir-simulator';
-import {
   AuthWitness,
   AztecNode,
   ContractDao,
@@ -40,13 +32,13 @@ import {
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
-  KernelCircuitPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
+  PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
+  computeArtifactHash,
   computeContractClassId,
   computeSaltedInitializationHash,
-  getArtifactHash,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
@@ -56,6 +48,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import {
+  AcirSimulator,
+  ExecutionResult,
+  collectEncryptedLogs,
+  collectEnqueuedPublicFunctionCalls,
+  collectUnencryptedLogs,
+  resolveOpcodeLocations,
+} from '@aztec/simulator';
 import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
@@ -232,7 +232,7 @@ export class PXEService implements PXE {
   private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
     for (const contract of contracts) {
       const artifact = contract.artifact;
-      const artifactHash = getArtifactHash(artifact);
+      const artifactHash = computeArtifactHash(artifact);
       const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
       await this.db.addContractArtifact(contractClassId, artifact);
       await this.db.addContractInstance(contract.instance);
@@ -266,7 +266,7 @@ export class PXEService implements PXE {
         }
         owner = completeAddresses.address;
       }
-      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.txHash);
+      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.noteTypeId, dao.txHash);
     });
     return Promise.all(extendedNotes);
   }
@@ -284,7 +284,13 @@ export class PXEService implements PXE {
 
     for (const nonce of nonces) {
       const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(note.contractAddress, nonce, note.storageSlot, note.note);
+        await this.simulator.computeNoteHashAndNullifier(
+          note.contractAddress,
+          nonce,
+          note.storageSlot,
+          note.noteTypeId,
+          note.note,
+        );
 
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
@@ -305,6 +311,7 @@ export class PXEService implements PXE {
           note.note,
           note.contractAddress,
           note.storageSlot,
+          note.noteTypeId,
           note.txHash,
           nonce,
           innerNoteHash,
@@ -342,6 +349,7 @@ export class PXEService implements PXE {
         note.contractAddress,
         nonce,
         note.storageSlot,
+        note.noteTypeId,
         note.note,
       );
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
@@ -702,7 +710,7 @@ export class PXEService implements PXE {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1615
   // TODO(#757): Enforce proper ordering of enqueued public calls
   private async patchPublicCallStackOrdering(
-    publicInputs: KernelCircuitPublicInputsFinal,
+    publicInputs: PrivateKernelTailCircuitPublicInputs,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
     const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
