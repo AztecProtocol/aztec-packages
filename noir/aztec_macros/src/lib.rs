@@ -4,20 +4,21 @@ use std::vec;
 use convert_case::{Case, Casing};
 use iter_extended::vecmap;
 use noirc_frontend::macros_api::parse_program;
-use noirc_frontend::macros_api::HirImportDirective;
 use noirc_frontend::macros_api::FieldElement;
+use noirc_frontend::macros_api::HirImportDirective;
 use noirc_frontend::macros_api::{
     BlockExpression, CallExpression, CastExpression, Distinctness, Expression, ExpressionKind,
     ForLoopStatement, ForRange, FunctionDefinition, FunctionReturnType, FunctionVisibility,
-    HirContext, HirExpression, HirLiteral, HirStatement, Ident, IndexExpression,
-    LetStatement, Literal, MemberAccessExpression, MethodCallExpression, NoirFunction, NoirStruct,
-    Param, Path, Pattern, PrefixExpression, SecondaryAttribute, Signedness, Span,
-    Statement, StatementKind, StructType, Type, TypeImpl, UnaryOp, UnresolvedType,
-    UnresolvedTypeData, Visibility,
+    HirContext, HirExpression, HirLiteral, HirStatement, Ident, IndexExpression, LetStatement,
+    Literal, MemberAccessExpression, MethodCallExpression, NoirFunction, NoirStruct, Param, Path,
+    Pattern, PrefixExpression, SecondaryAttribute, Signedness, Span, Statement, StatementKind,
+    StructType, Type, TypeImpl, UnaryOp, UnresolvedType, UnresolvedTypeData, Visibility,
 };
 use noirc_frontend::macros_api::{CrateId, FileId};
+use noirc_frontend::macros_api::{
+    LocalModuleId, ModuleDefId, NodeInterner, SortedModule, StructId,
+};
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
-use noirc_frontend::macros_api::{LocalModuleId, ModuleDefId, NodeInterner, SortedModule, StructId};
 use noirc_frontend::node_interner::{TraitId, TraitImplKind};
 use noirc_frontend::Lambda;
 
@@ -48,13 +49,9 @@ impl MacroProcessor for AztecMacro {
         let crate_root = def_map.root();
         inject_aztec_prelude(*crate_id, crate_root, collected_imports);
         for submodule in submodules.iter() {
-            inject_aztec_prelude(
-                *crate_id,
-                *submodule,
-                collected_imports,
-            );
+            inject_aztec_prelude(*crate_id, *submodule, collected_imports);
         }
-        
+
         Ok(())
     }
 
@@ -343,10 +340,7 @@ fn check_for_aztec_dependency(
     }
 }
 
-fn has_aztec_dependency(
-    crate_id: &CrateId,
-    context: &HirContext,
-) -> bool {
+fn has_aztec_dependency(crate_id: &CrateId, context: &HirContext) -> bool {
     let crate_graph = &context.crate_graph[crate_id];
     let has_aztec_dependency = crate_graph.dependencies.iter().any(|dep| dep.as_name() == "aztec");
     if has_aztec_dependency {

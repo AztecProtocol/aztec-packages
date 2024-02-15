@@ -84,7 +84,7 @@ impl CrateDefMap {
         if context.def_map(&crate_id).is_some() {
             return errors;
         }
-        
+
         // First parse the root file.
         let root_file_id = context.crate_graph[crate_id].root_file_id;
         let (ast, parsing_errors) = context.parsed_file_results(root_file_id);

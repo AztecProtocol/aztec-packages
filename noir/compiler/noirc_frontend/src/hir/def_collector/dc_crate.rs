@@ -252,26 +252,27 @@ impl DefCollector {
             context,
         ));
 
-        let submodules = vecmap(def_collector.def_map.modules().iter(), |(index, _)| LocalModuleId(index));
+        let submodules =
+            vecmap(def_collector.def_map.modules().iter(), |(index, _)| LocalModuleId(index));
         // Add the current crate to the collection of DefMaps
         context.def_maps.insert(crate_id, def_collector.def_map);
 
         inject_prelude(crate_id, context, crate_root, &mut def_collector.collected_imports);
         for submodule in submodules.iter() {
-            inject_prelude(
-                crate_id,
-                context,
-                *submodule,
-                &mut def_collector.collected_imports,
-            );
+            inject_prelude(crate_id, context, *submodule, &mut def_collector.collected_imports);
         }
 
         for macro_processor in macro_processors.iter() {
-            macro_processor.process_crate_prelude(&crate_id, context, &mut def_collector.collected_imports, &submodules).unwrap_or_else(
-                |(macro_err, file_id)| {
+            macro_processor
+                .process_crate_prelude(
+                    &crate_id,
+                    context,
+                    &mut def_collector.collected_imports,
+                    &submodules,
+                )
+                .unwrap_or_else(|(macro_err, file_id)| {
                     errors.push((macro_err.into(), file_id));
-                },
-            );
+                });
         }
 
         // Resolve unresolved imports collected from the crate, one by one.

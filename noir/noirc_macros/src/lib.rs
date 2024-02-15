@@ -1,10 +1,10 @@
 use noirc_frontend::macros_api::parse_program;
 use noirc_frontend::macros_api::HirContext;
+use noirc_frontend::macros_api::HirImportDirective;
+use noirc_frontend::macros_api::LocalModuleId;
 use noirc_frontend::macros_api::SortedModule;
 use noirc_frontend::macros_api::{CrateId, FileId};
-use noirc_frontend::macros_api::LocalModuleId;
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
-use noirc_frontend::macros_api::HirImportDirective;
 
 pub struct AssertMessageMacro;
 

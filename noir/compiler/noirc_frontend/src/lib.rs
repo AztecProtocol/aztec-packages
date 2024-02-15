@@ -53,9 +53,9 @@ pub mod macros_api {
     pub use crate::token::SecondaryAttribute;
 
     pub use crate::hir::def_collector::dc_crate::DefCollector as HirDefCollector;
+    pub use crate::hir::def_map::{LocalModuleId, ModuleDefId, ModuleId};
     pub use crate::hir::resolution::import::ImportDirective as HirImportDirective;
     pub use crate::hir::resolution::path_resolver;
-    pub use crate::hir::def_map::{LocalModuleId, ModuleId, ModuleDefId};
     pub use crate::{
         hir::Context as HirContext, BlockExpression, CallExpression, CastExpression, Distinctness,
         Expression, ExpressionKind, FunctionReturnType, Ident, IndexExpression, LetStatement,
