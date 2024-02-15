@@ -193,8 +193,10 @@ describe('e2e_public_cross_chain_messaging', () => {
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
+  // Note: We register one portal address when deploying contract but that address is no-longer the only address
+  // allowed to receive messages from the given contract. In the following test we'll test that it's really the case.
   it.each([true, false])(
-    'can send an L2 -> L1 message to a non-portal address from private or public',
+    'can send an L2 -> L1 message to a non-registered portal address from private or public',
     async (isPrivate: boolean) => {
       const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
