@@ -19,7 +19,6 @@ const pxe = createPXEClient(PXE_URL);
 
 // docs:start:create_wallet
 const wallet = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey).waitDeploy();
-console.log(`New account deployed at ${wallet.getAddress()}`);
 // docs:end:create_wallet
 
 // docs:start:deploy_contract
@@ -32,7 +31,6 @@ const deployedContract = await TokenContract.deploy(
 ) // constructor arg3
   .send()
   .deployed();
-console.log(`New contract deployed at ${deployedContract.address}`);
 // docs:end:deploy_contract
 
 // docs:start:get_contract
@@ -41,10 +39,8 @@ const contract = await Contract.at(deployedContract.address, TokenContractArtifa
 
 // docs:start:send_transaction
 const tx = await contract.methods.transfer(1, wallet).send().wait();
-console.log(`Transferred 1 to ${wallet.getAddress()} on block ${tx.blockNumber}`);
 // docs:end:send_transaction
 
 // docs:start:call_view_function
 const balance = await contract.methods.getBalance(wallet.getAddress()).view();
-console.log(`Account balance is ${balance}`);
 // docs:end:call_view_function
