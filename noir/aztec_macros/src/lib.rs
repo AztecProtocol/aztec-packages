@@ -342,12 +342,7 @@ fn check_for_aztec_dependency(
 
 fn has_aztec_dependency(crate_id: &CrateId, context: &HirContext) -> bool {
     let crate_graph = &context.crate_graph[crate_id];
-    let has_aztec_dependency = crate_graph.dependencies.iter().any(|dep| dep.as_name() == "aztec");
-    if has_aztec_dependency {
-        true
-    } else {
-        false
-    }
+    crate_graph.dependencies.iter().any(|dep| dep.as_name() == "aztec")
 }
 
 // Check to see if the user has defined a storage struct
