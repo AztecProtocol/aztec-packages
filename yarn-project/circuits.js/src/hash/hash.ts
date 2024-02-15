@@ -181,12 +181,12 @@ export function computeVarArgsHash(args: Fr[]) {
   if (args.length === 0) {
     return Fr.ZERO;
   }
-  if (args.length > ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT) {
+  const maxLen = ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT;
+  if (args.length > maxLen) {
     // TODO(@spalladino): This should throw instead of warning. And we should implement
     // the same check on the Noir side, which is currently missing.
-    createDebugLogger('aztec:circuits:abis').warn(
-      `Hashing ${args.length} args exceeds max of ${ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT}`,
-    );
+    args = args.slice(0, maxLen);
+    createDebugLogger('aztec:circuits:abis').warn(`Hashing ${args.length} args exceeds max of ${maxLen}`);
   }
 
   let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map(c => {
