@@ -343,7 +343,7 @@ Data accumulated during the execution of the transaction.
 | `contract_address` | `AztecAddress` | Address of the contract.            |
 | `storage_slot`     | `field`        | Storage slot.                       |
 | `value`            | `field`        | Value read from the storage slot.   |
-| `counter`          | `field`        | Counter at which the read happened. |
+| `counter`          | `u32`          | Counter at which the read happened. |
 
 ### `StorageWrite`
 
@@ -352,7 +352,7 @@ Data accumulated during the execution of the transaction.
 | `contract_address` | `AztecAddress` | Address of the contract.               |
 | `storage_slot`     | `field`        | Storage slot.                          |
 | `value`            | `field`        | New value written to the storage slot. |
-| `counter`          | `field`        | Counter at which the write happened.   |
+| `counter`          | `u32`          | Counter at which the write happened.   |
 
 ### `StorageReadContext`
 
@@ -361,7 +361,7 @@ Data accumulated during the execution of the transaction.
 | `contract_address` | `AztecAddress` | Address of the contract.            |
 | `storage_slot`     | `field`        | Storage slot.                       |
 | `value`            | `field`        | Value read from the storage slot.   |
-| `counter`          | `field`        | Counter at which the read happened. |
+| `counter`          | `u32`          | Counter at which the read happened. |
 
 ### `StorageWriteContext`
 
@@ -370,7 +370,7 @@ Data accumulated during the execution of the transaction.
 | `contract_address` | `AztecAddress` | Address of the contract.                                               |
 | `storage_slot`     | `field`        | Storage slot.                                                          |
 | `value`            | `field`        | New value written to the storage slot.                                 |
-| `counter`          | `field`        | Counter at which the write happened.                                   |
+| `counter`          | `u32`          | Counter at which the write happened.                                   |
 | `prev_counter`     | `field`        | Counter of the previous write to the storage slot.                     |
 | `next_counter`     | `field`        | Counter of the next write to the storage slot.                         |
 | `exists`           | `bool`         | A flag indicating whether the storage slot is in the public data tree. |
@@ -398,6 +398,6 @@ Data accumulated during the execution of the transaction.
 | Field                     | Type                                                          | Description                                   |
 | ------------------------- | ------------------------------------------------------------- | --------------------------------------------- |
 | `call_stack_item_hash`    | `field`                                                       | Hash of the call stack item.                  |
-| `counter`                 | `field`                                                       | Counter at which the request was made.        |
+| `counter`                 | `u32`                                                         | Counter at which the request was made.        |
 | `caller_contract_address` | `AztecAddress`                                                | Address of the contract calling the function. |
 | `caller_context`          | [`CallerContext`](./private-kernel-initial.mdx#callercontext) | Context of the contract calling the function. |

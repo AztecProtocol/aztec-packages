@@ -797,8 +797,8 @@ Public functions and unconstrained functions won't be stored in a function tree;
 | `contract_address` | `AztecAddress`                                                       | Address of the contract on which the function is invoked. |
 | `function_data`    | [`FunctionData`](#functiondata)                                      | Data of the function being called.                        |
 | `public_inputs`    | [`PrivateFunctionPublicInputs`](./private-function.md#public-inputs) | Public inputs of the private function circuit.            |
-| `counter_start`    | `field`                                                              | Counter at which the function call was initiated.         |
-| `counter_end`      | `field`                                                              | Counter at which the function call ended.                 |
+| `counter_start`    | `u32`                                                                | Counter at which the function call was initiated.         |
+| `counter_end`      | `u32`                                                                | Counter at which the function call ended.                 |
 
 <!--
 What's the mental model for when a PrivateCallStackItem should be used vs a CallRequest. They look very similar, and seem to contain very similar information.
@@ -812,8 +812,8 @@ Is the PrivateCallStackItem a struct representing function call (request) _that 
 | Field                     | Type                              | Description                                   |
 | ------------------------- | --------------------------------- | --------------------------------------------- |
 | `call_stack_item_hash`    | `field`                           | Hash of the call stack item.                  |
-| `counter_start`           | `field`                           | Counter at which the call was initiated.      |
-| `counter_end`             | `field`                           | Counter at which the call ended.              |
+| `counter_start`           | `u32`                             | Counter at which the call was initiated.      |
+| `counter_end`             | `u32`                             | Counter at which the call ended.              |
 | `caller_contract_address` | `AztecAddress`                    | Address of the contract calling the function. |
 | `caller_context`          | [`CallerContext`](#callercontext) | Context of the contract calling the function. |
 
@@ -844,7 +844,7 @@ etc.
 | Field               | Type           | Description                                              |
 | ------------------- | -------------- | -------------------------------------------------------- |
 | `value`             | `field`        | Hash of the note.                                        |
-| `counter`           | `field`        | Counter at which the note hash was created.              |
+| `counter`           | `u32`          | Counter at which the note hash was created.              |
 | `nullifier_counter` | `field`        | Counter at which the nullifier for the note was created. |
 | `contract_address`  | `AztecAddress` | Address of the contract the note was created.            |
 
@@ -853,8 +853,8 @@ etc.
 | Field               | Type           | Description                                                                                                              |
 | ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `value`             | `field`        | Value of the nullifier.                                                                                                  |
-| `counter`           | `field`        | Counter at which the nullifier was created.                                                                              |
-| `note_hash_counter` | `field`        | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
+| `counter`           | `u32`          | Counter at which the nullifier was created.                                                                              |
+| `note_hash_counter` | `u32`          | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
 | `contract_address`  | `AztecAddress` | Address of the contract the nullifier was created.                                                                       |
 
 ### `L2toL1MessageContext`
@@ -881,7 +881,7 @@ etc.
 | ------------------ | -------------- | -------------------------------------------- |
 | `hash`             | `field`        | Hash of the unencrypted log.                 |
 | `length`           | `field`        | Number of fields of the log preimage.        |
-| `counter`          | `field`        | Counter at which the hash was emitted.       |
+| `counter`          | `u32`          | Counter at which the hash was emitted.       |
 | `contract_address` | `AztecAddress` | Address of the contract the log was emitted. |
 
 ### `EncryptedLogHashContext`
@@ -890,7 +890,7 @@ etc.
 | ------------------ | -------------- | -------------------------------------------- |
 | `hash`             | `field`        | Hash of the encrypted log.                   |
 | `length`           | `field`        | Number of fields of the log preimage.        |
-| `counter`          | `field`        | Counter at which the hash was emitted.       |
+| `counter`          | `u32`          | Counter at which the hash was emitted.       |
 | `contract_address` | `AztecAddress` | Address of the contract the log was emitted. |
 | `randomness`       | `field`        | A random value to hide the contract address. |
 
@@ -900,7 +900,7 @@ etc.
 | ------------------- | -------------- | -------------------------------------------- |
 | `hash`              | `field`        | Hash of the encrypted note preimage.         |
 | `length`            | `field`        | Number of fields of the note preimage.       |
-| `counter`           | `field`        | Counter at which the hash was emitted.       |
+| `counter`           | `u32`          | Counter at which the hash was emitted.       |
 | `contract_address`  | `AztecAddress` | Address of the contract the log was emitted. |
 | `note_hash_counter` | `field`        | Counter of the corresponding note hash.      |
 

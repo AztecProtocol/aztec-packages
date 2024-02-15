@@ -224,7 +224,7 @@ Data that aids in the verifications carried out in this circuit:
 | Field     | Type    | Description                                           |
 | --------- | ------- | ----------------------------------------------------- |
 | `index`   | `field` | Index of the mapped element in the ordered array.     |
-| `counter` | `field` | Counter of the mapped element in the unordered array. |
+| `counter` | `u32`   | Counter of the mapped element in the unordered array. |
 
 ## `PublicInputs`
 

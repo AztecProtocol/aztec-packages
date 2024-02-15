@@ -77,15 +77,15 @@ After generating a proof for a private function circuit, that proof (and associa
 | Field     | Type    | Description                                 |
 | --------- | ------- | ------------------------------------------- |
 | `value`   | `field` | Hash of the note.                           |
-| `counter` | `field` | Counter at which the note hash was created. |
+| `counter` | `u32`   | Counter at which the note hash was created. |
 
 ### `Nullifier`
 
 | Field               | Type    | Description                                                                                                              |
 | ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `value`             | `field` | Value of the nullifier.                                                                                                  |
-| `counter`           | `field` | Counter at which the nullifier was created.                                                                              |
-| `note_hash_counter` | `field` | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
+| `counter`           | `u32`   | Counter at which the nullifier was created.                                                                              |
+| `note_hash_counter` | `u32`   | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
 
 ### `UnencryptedLogHash`
 
@@ -95,7 +95,7 @@ After generating a proof for a private function circuit, that proof (and associa
 | --------- | ------- | -------------------------------------- |
 | `hash`    | `field` | Hash of the unencrypted log.           |
 | `length`  | `field` | Number of fields of the log preimage.  |
-| `counter` | `field` | Counter at which the hash was emitted. |
+| `counter` | `u32`   | Counter at which the hash was emitted. |
 
 ### `EncryptedLogHash`
 
@@ -103,7 +103,7 @@ After generating a proof for a private function circuit, that proof (and associa
 | ------------ | ------- | -------------------------------------------- |
 | `hash`       | `field` | Hash of the encrypted log.                   |
 | `length`     | `field` | Number of fields of the log preimage.        |
-| `counter`    | `field` | Counter at which the hash was emitted.       |
+| `counter`    | `u32`   | Counter at which the hash was emitted.       |
 | `randomness` | `field` | A random value to hide the contract address. |
 
 ### `EncryptedNotePreimageHash`
@@ -112,8 +112,8 @@ After generating a proof for a private function circuit, that proof (and associa
 | ------------------- | ------- | --------------------------------------- |
 | `hash`              | `field` | Hash of the encrypted note preimage.    |
 | `length`            | `field` | Number of fields of the note preimage.  |
-| `counter`           | `field` | Counter at which the hash was emitted.  |
-| `note_hash_counter` | `field` | Counter of the corresponding note hash. |
+| `counter`           | `u32`   | Counter at which the hash was emitted.  |
+| `note_hash_counter` | `u32`   | Counter of the corresponding note hash. |
 
 ### `ReadRequest`
 
@@ -121,7 +121,7 @@ After generating a proof for a private function circuit, that proof (and associa
 | ------------------ | -------------- | ---------------------------------------------- |
 | `value`            | `field`        | Value being read.                              |
 | `contract_address` | `AztecAddress` | Address of the contract the value was created. |
-| `counter`          | `field`        | Counter at which the request was made.         |
+| `counter`          | `u32`          | Counter at which the request was made.         |
 
 ### `ParentSecretKeyValidationRequest`
 
@@ -135,7 +135,7 @@ After generating a proof for a private function circuit, that proof (and associa
 | Field                  | Type    | Description                            |
 | ---------------------- | ------- | -------------------------------------- |
 | `call_stack_item_hash` | `field` | Hash of the call stack item.           |
-| `counter`              | `field` | Counter at which the request was made. |
+| `counter`              | `u32`   | Counter at which the request was made. |
 
 <!-- TODO: change call_stack_item_hash to actual data for the public call request -->
 
@@ -144,8 +144,8 @@ After generating a proof for a private function circuit, that proof (and associa
 | Field                  | Type    | Description                              |
 | ---------------------- | ------- | ---------------------------------------- |
 | `call_stack_item_hash` | `field` | Hash of the call stack item.             |
-| `counter_start`        | `field` | Counter at which the call was initiated. |
-| `counter_end`          | `field` | Counter at which the call ended.         |
+| `counter_start`        | `u32`   | Counter at which the call was initiated. |
+| `counter_end`          | `u32`   | Counter at which the call ended.         |
 
 ### `BlockHeader`
 
