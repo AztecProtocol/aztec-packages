@@ -69,7 +69,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
             }
             // Initialize every element to point to itself
             for (uint32_t row_idx = 0; row_idx < circuit_size; ++row_idx) {
-                permutation_subgroup_element self{ row_idx, col_idx, /*is_public_input=*/false, /*is_tag=*/false };
+                permutation_subgroup_element self{ row_idx, col_idx };
                 sigmas[col_idx].emplace_back(self);
                 if constexpr (generalized) {
                     ids[col_idx].emplace_back(self);
@@ -82,108 +82,6 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
 using CyclicPermutation = std::vector<cycle_node>;
 
 namespace {
-
-/**
- * @brief Compute all CyclicPermutations of the circuit. Each CyclicPermutation represents the indices of the values in
- * the witness wires that must have the same value.    using Curve = curve::BN254;
-    using FF = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<FF>;
- *
- * @tparam program_width Program width
- *
- * */
-template <typename Flavor>
-std::vector<CyclicPermutation> compute_wire_copy_cycles(const typename Flavor::CircuitBuilder& circuit_constructor)
-{
-    // Reference circuit constructor members
-    const size_t num_gates = circuit_constructor.num_gates;
-    std::span<const uint32_t> public_inputs = circuit_constructor.public_inputs;
-    const size_t num_public_inputs = public_inputs.size();
-
-    // Each variable represents one cycle
-    const size_t number_of_cycles = circuit_constructor.variables.size();
-    std::vector<CyclicPermutation> copy_cycles(number_of_cycles);
-    copy_cycles.reserve(num_gates * 3);
-
-    // Represents the index of a variable in circuit_constructor.variables
-    std::span<const uint32_t> real_variable_index = circuit_constructor.real_variable_index;
-
-    // For some flavors, we need to ensure the value in the 0th index of each wire is 0 to allow for left-shift by 1. To
-    // do this, we add the wires of the first gate in the execution trace to the "zero index" copy cycle.
-    if constexpr (Flavor::has_zero_row) {
-        for (size_t wire_idx = 0; wire_idx < Flavor::NUM_WIRES; ++wire_idx) {
-            const auto wire_index = static_cast<uint32_t>(wire_idx);
-            const uint32_t gate_index = 0;                          // place zeros at 0th index
-            const uint32_t zero_idx = circuit_constructor.zero_idx; // index of constant zero in variables
-            copy_cycles[zero_idx].emplace_back(cycle_node{ wire_index, gate_index });
-        }
-    }
-
-    // Define offsets for placement of public inputs and gates in execution trace
-    const size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
-    size_t pub_inputs_offset = num_zero_rows;
-    size_t gates_offset = num_public_inputs + num_zero_rows;
-
-    // If Goblin, adjust offsets to account for ecc op gates and update copy cycles to include these gates
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // Set ecc op gate offset and update offsets for PI and conventional gates
-        const size_t op_gates_offset = num_zero_rows;
-        const size_t num_ecc_op_gates = circuit_constructor.num_ecc_op_gates;
-        pub_inputs_offset += num_ecc_op_gates;
-        gates_offset += num_ecc_op_gates;
-
-        const auto& op_wires = circuit_constructor.ecc_op_wires;
-        // Iterate over all variables of the ecc op gates, and add a corresponding node to the cycle for that variable
-        for (size_t i = 0; i < num_ecc_op_gates; ++i) {
-            for (size_t op_wire_idx = 0; op_wire_idx < Flavor::NUM_WIRES; ++op_wire_idx) {
-                const uint32_t var_index = circuit_constructor.real_variable_index[op_wires[op_wire_idx][i]];
-                const auto wire_index = static_cast<uint32_t>(op_wire_idx);
-                const auto gate_idx = static_cast<uint32_t>(i + op_gates_offset);
-                copy_cycles[var_index].emplace_back(cycle_node{ wire_index, gate_idx });
-            }
-        }
-    }
-
-    // We use the permutation argument to enforce the public input variables to be equal to values provided by the
-    // verifier. The convension we use is to place the public input values as the first rows of witness vectors.
-    // More specifically, we set the LEFT and RIGHT wires to be the public inputs and set the other elements of the row
-    // to 0. All selectors are zero at these rows, so they are fully unconstrained. The "real" gates that follow can use
-    // references to these variables.
-    //
-    // The copy cycle for the i-th public variable looks like
-    //   (i) -> (n+i) -> (i') -> ... -> (i'')
-    // (Using the convention that W^L_i = W_i and W^R_i = W_{n+i}, W^O_i = W_{2n+i})
-    //
-    // This loop initializes the i-th cycle with (i) -> (n+i), meaning that we always expect W^L_i = W^R_i,
-    // for all i s.t. row i defines a public input.
-    // WORKTODO: we don't copy constrain wires 3 and 4 over the PI range to be zero. Is that a security issue?
-    for (size_t i = 0; i < num_public_inputs; ++i) {
-        const uint32_t public_input_index = real_variable_index[public_inputs[i]];
-        const auto gate_index = static_cast<uint32_t>(i + pub_inputs_offset);
-        // These two nodes must be in adjacent locations in the cycle for correct handling of public inputs
-        copy_cycles[public_input_index].emplace_back(cycle_node{ 0, gate_index });
-        copy_cycles[public_input_index].emplace_back(cycle_node{ 1, gate_index });
-    }
-
-    // Iterate over all variables of the "real" gates, and add a corresponding node to the cycle for that variable
-    for (size_t i = 0; i < num_gates; ++i) {
-        size_t wire_idx = 0;
-        for (auto& wire : circuit_constructor.wires) {
-            // We are looking at the j-th wire in the i-th row.
-            // The value in this position should be equal to the value of the element at index `var_index`
-            // of the `constructor.variables` vector.
-            // Therefore, we add (i,j) to the cycle at index `var_index` to indicate that w^j_i should have the values
-            // constructor.variables[var_index].
-            const uint32_t var_index = circuit_constructor.real_variable_index[wire[i]];
-            const auto wire_index = static_cast<uint32_t>(wire_idx);
-            const auto gate_idx = static_cast<uint32_t>(i + gates_offset);
-            copy_cycles[var_index].emplace_back(cycle_node{ wire_index, gate_idx });
-            ++wire_idx;
-        }
-    }
-    return copy_cycles;
-}
-
 /**
  * @brief Compute the traditional or generalized permutation mapping
  *
@@ -200,12 +98,8 @@ template <typename Flavor, bool generalized>
 PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     const typename Flavor::CircuitBuilder& circuit_constructor,
     typename Flavor::ProvingKey* proving_key,
-    std::vector<CyclicPermutation> wire_copy_cycles = {})
+    std::vector<CyclicPermutation> wire_copy_cycles)
 {
-    // Compute wire copy cycles (cycles of permutations)
-    if (wire_copy_cycles.empty()) {
-        wire_copy_cycles = compute_wire_copy_cycles<Flavor>(circuit_constructor);
-    }
 
     // Initialize the table of permutations so that every element points to itself
     PermutationMapping<Flavor::NUM_WIRES, generalized> mapping{ proving_key->circuit_size };
