@@ -1,5 +1,12 @@
 contract Counter {
     // docs:start:imports
+    use dep::aztec::{
+        context::{PrivateContext, Context},
+        note::{
+            note_header::NoteHeader,
+            utils as note_utils,
+        },
+    };
     use dep::value_note::{
             balance_utils,
             value_note::{

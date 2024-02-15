@@ -266,7 +266,7 @@ impl DefCollector {
             );
         }
 
-        for macro_processor in macro_processors.clone() {
+        for macro_processor in macro_processors.iter() {
             macro_processor.process_crate_prelude(&crate_id, context, &mut def_collector.collected_imports, &submodules).unwrap_or_else(
                 |(macro_err, file_id)| {
                     errors.push((macro_err.into(), file_id));

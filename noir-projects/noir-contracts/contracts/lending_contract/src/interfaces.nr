@@ -1,4 +1,12 @@
+use dep::aztec::context::{
+    PrivateContext,
+    PublicContext
+};
 use crate::asset::Asset;
+use dep::aztec::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    constants::RETURN_VALUES_LENGTH,
+};
 
 struct PriceFeed {
   address: AztecAddress,

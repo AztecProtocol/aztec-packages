@@ -1,12 +1,11 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
-    use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector};
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector};
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set}
     };
 
     struct Storage {
@@ -16,12 +15,12 @@ contract StatefulTest {
 
     #[aztec(private)]
     fn constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("create_new_note((Field),Field)");
+        let selector = FunctionSelector::from_signature("create_note((Field),Field)");
         let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
     }
 
     #[aztec(private)]
-    fn create_new_note(owner: AztecAddress, value: Field) {
+    fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);

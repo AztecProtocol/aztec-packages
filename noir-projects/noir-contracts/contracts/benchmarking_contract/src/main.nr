@@ -8,10 +8,9 @@ contract Benchmarking {
     use dep::value_note::{utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
 
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        protocol_types::{abis::function_selector::FunctionSelector},
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{map::Map, public_state::PublicState, set::Set}
     };
 
     struct Storage {
@@ -24,7 +23,7 @@ contract Benchmarking {
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[aztec(private)]
-    fn create_new_note(owner: AztecAddress, value: Field) {
+    fn create_note(owner: AztecAddress, value: Field) {
         increment(storage.notes.at(owner), value, owner);
     }
 

@@ -47,7 +47,7 @@ pub fn decrement_by_at_most(balance: Set<ValueNote>, max_amount: Field, owner: A
     let mut decremented = 0;
     for i in 0..opt_notes.len() {
         if opt_notes[i].is_some() {
-            decremented += destroy_value_note(balance, owner, opt_notes[i].unwrap_unchecked());
+            decremented += destroy_note(balance, owner, opt_notes[i].unwrap_unchecked());
         }
     }
 
@@ -64,7 +64,7 @@ pub fn decrement_by_at_most(balance: Set<ValueNote>, max_amount: Field, owner: A
 
 // Removes the note from the owner's set of notes.
 // Returns the value of the destroyed note.
-fn destroy_value_note(balance: Set<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
+pub fn destroy_note(balance: Set<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
     assert(note.owner.eq(owner));

@@ -1642,57 +1642,10 @@ fn aztec_prelude_source() -> &'static str {
 
     use dep::aztec::{
         protocol_types::{
-            abis::{
-                function_selector::FunctionSelector, 
-                call_context::CallContext,
-                private_circuit_public_inputs::PrivateCircuitPublicInputs,
-            },
             address::{
                 AztecAddress, 
                 EthAddress,
-                PartialAddress,
-                PublicKeysHash,
             },
-            contract_class::ContractClassId,
-            constants::{
-                MAX_NOTES_PER_PAGE,
-                MAX_READ_REQUESTS_PER_CALL,
-                ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, 
-                FUNCTION_TREE_HEIGHT, 
-                MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 
-                REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
-                RETURN_VALUES_LENGTH,
-            },
-            grumpkin_point::GrumpkinPoint,
-            hash::{sha256_to_field, hash_args},
-            traits::{Serialize, Deserialize},
-        },
-        context::{PrivateContext, PublicContext, Context, inputs::private_context_inputs::PrivateContextInputs},
-        note::{
-            utils as note_utils, 
-            lifecycle::{create_note, destroy_note},
-            utils::compute_note_hash_for_consumption,
-            note_getter_options::NoteGetterOptions, 
-            note_getter_options::NoteStatus,
-            note_viewer_options::NoteViewerOptions,
-            note_getter::{get_notes, view_notes},
-            note_header::NoteHeader,
-            note_interface::NoteInterface,
-        },
-        oracle::{
-            nullifier_key::get_nullifier_secret_key,
-            get_public_key::get_public_key,
-            context::get_portal_address,
-            rand::rand,
-        },
-        log::{
-            emit_unencrypted_log,
-            emit_unencrypted_log_from_private,
-            emit_encrypted_log,
-        },
-        hash::{
-            pedersen_hash,
-            compute_secret_hash,
         },
         state_vars::{
             map::Map, 
@@ -1702,32 +1655,10 @@ fn aztec_prelude_source() -> &'static str {
             set::Set,
             stable_public_state::StablePublicState,
         },
-        history::{
-            contract_inclusion::{
-                prove_contract_inclusion,
-                prove_contract_inclusion_at,
-            },  
-            note_inclusion::{
-                prove_note_inclusion,
-                prove_note_inclusion_at,
-            },
-            note_validity::{
-                prove_note_validity,
-                prove_note_validity_at,
-            },
-            nullifier_inclusion::{
-                prove_nullifier_inclusion,
-                prove_nullifier_inclusion_at,
-            },
-            nullifier_non_inclusion::{
-                prove_note_not_nullified,
-                prove_note_not_nullified_at,
-            },
-            public_value_inclusion::{
-                prove_public_value_inclusion,
-                prove_public_value_inclusion_at,
-            },
-        },
+        log::{
+            emit_unencrypted_log,
+            emit_encrypted_log,
+        }
     };
     ";
     aztec_imports

@@ -1,4 +1,7 @@
 // docs:start:mint_public_content_hash_nr
+use dep::aztec::protocol_types::{
+    hash::sha256_to_field,
+};
 
 // Computes a content hash of a deposit/mint_public message.
 // Refer TokenPortal.sol for reference on L1.

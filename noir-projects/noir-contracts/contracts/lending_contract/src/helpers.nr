@@ -1,5 +1,6 @@
 use crate::interest_math::compute_multiplier;
 use dep::safe_math::SafeU120;
+use dep::aztec::hash::pedersen_hash;
 
 // Utility used to easily get a "id" for a private user that sits in the same
 // "space" as the public users.

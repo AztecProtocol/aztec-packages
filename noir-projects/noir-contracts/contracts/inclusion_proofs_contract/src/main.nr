@@ -1,11 +1,11 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress},
+        abis::function_selector::FunctionSelector,
         grumpkin_point::GrumpkinPoint, contract_class::ContractClassId
     };
     use dep::aztec::{
-        state_vars::{map::Map, set::Set, public_state::PublicState}, context::Context,
+        context::Context,
         note::{
         note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
         note_header::NoteHeader, utils as note_utils
@@ -50,7 +50,7 @@ contract InclusionProofs {
     // docs:start:create_note
     // Creates a value note owned by `owner`.
     #[aztec(private)]
-    fn create_new_note(owner: AztecAddress, value: Field) {
+    fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
         let mut note = ValueNote::new(value, owner);
         owner_private_values.insert(&mut note, true);

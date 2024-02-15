@@ -16,6 +16,18 @@ contract Token {
     use dep::safe_math::SafeU120;
     use dep::compressed_string::FieldCompressedString;
 
+    use dep::aztec::{
+        note::{
+            note_getter_options::NoteGetterOptions,
+            note_header::NoteHeader,
+            utils as note_utils,
+        },
+        hash::{compute_secret_hash},
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+        }
+    };
+
     // docs:start:import_authwit
     use dep::authwit::{
         auth::{
