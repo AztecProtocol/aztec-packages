@@ -14,7 +14,7 @@ export class TxL2Logs {
     /**
      * An array containing logs emitted in individual function invocations in this tx.
      */
-    public readonly allFunctionLogs: FunctionL2Logs[],
+    public readonly functionLogs: FunctionL2Logs[],
   ) {}
 
   /**
@@ -22,7 +22,7 @@ export class TxL2Logs {
    * @returns A buffer containing the serialized logs.
    */
   public toBuffer(): Buffer {
-    const serializedFunctionLogs = this.allFunctionLogs.map(logs => logs.toBuffer());
+    const serializedFunctionLogs = this.functionLogs.map(logs => logs.toBuffer());
     // Concatenate all serialized function logs into a single buffer and prefix it with 4 bytes for its total length.
     return prefixBufferWithLength(Buffer.concat(serializedFunctionLogs));
   }
@@ -32,12 +32,12 @@ export class TxL2Logs {
    * @returns Total length of serialized data.
    */
   public getSerializedLength(): number {
-    return this.allFunctionLogs.reduce((acc, logs) => acc + logs.getSerializedLength(), 0) + 4;
+    return this.functionLogs.reduce((acc, logs) => acc + logs.getSerializedLength(), 0) + 4;
   }
 
   /** Gets the total number of logs. */
   public getTotalLogCount() {
-    return this.allFunctionLogs.reduce((acc, logs) => acc + logs.logs.length, 0);
+    return this.functionLogs.reduce((acc, logs) => acc + logs.logs.length, 0);
   }
 
   /**
@@ -46,7 +46,7 @@ export class TxL2Logs {
    * @remarks Used by sequencer to append unencrypted logs emitted in public function calls.
    */
   public addFunctionLogs(functionLogs: FunctionL2Logs[]) {
-    this.allFunctionLogs.push(...functionLogs);
+    this.functionLogs.push(...functionLogs);
   }
 
   /**
@@ -87,7 +87,7 @@ export class TxL2Logs {
    */
   public toJSON() {
     return {
-      functionLogs: this.allFunctionLogs.map(log => log.toJSON()),
+      functionLogs: this.functionLogs.map(log => log.toJSON()),
     };
   }
 
@@ -96,7 +96,7 @@ export class TxL2Logs {
    * @returns Unrolled logs.
    */
   public unrollLogs(): Buffer[] {
-    return this.allFunctionLogs.flatMap(functionLog => functionLog.logs);
+    return this.functionLogs.flatMap(functionLog => functionLog.logs);
   }
 
   /**
@@ -129,9 +129,9 @@ export class TxL2Logs {
     const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
     let kernelPublicInputsLogsHash = Buffer.alloc(32);
 
-    for (const functionLogs of this.allFunctionLogs) {
+    for (const logsFromSingleFunctionCall of this.functionLogs) {
       logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = functionLogs.hash(); // privateCircuitPublicInputsLogsHash
+      logsHashes[1] = logsFromSingleFunctionCall.hash(); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
       kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
