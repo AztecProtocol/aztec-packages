@@ -4,7 +4,8 @@ use crate::{
     oracle::{
     arguments, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
-    header::get_header_at, nullifier_key::{get_nullifier_key_pair, NullifierKeyPair}
+    header::get_header_at, nullifier_key::{get_nullifier_key_pair, NullifierKeyPair},
+    debug_log::debug_log
 }
 };
 use dep::protocol_types::{
@@ -67,8 +68,11 @@ struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let min_revertible_side_effect_counter = inputs.call_context.start_side_effect_counter;
-        let side_effect_counter = min_revertible_side_effect_counter;
+        let side_effect_counter = inputs.call_context.start_side_effect_counter;
+        let mut min_revertible_side_effect_counter = 0;
+        if (inputs.call_context.is_contract_deployment == true) {
+            min_revertible_side_effect_counter = side_effect_counter;
+        }
         PrivateContext {
             inputs,
             side_effect_counter,
@@ -164,9 +168,6 @@ impl PrivateContext {
     }
 
     pub fn capture_min_revertible_side_effect_counter(&mut self) {
-        // assert(
-        //     self.min_revertible_side_effect_counter == 0, "Already captured the non-revertible side effect counter"
-        // );
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
