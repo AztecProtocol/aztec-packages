@@ -22,10 +22,11 @@ const CALL_INSTRUCTION_ARGS = [
     {"name": "successOffset", "description": "destination memory offset specifying where to store the call's success (0: failure, 1: success)", "type": "u8"},
 ];
 const CALL_INSTRUCTION_DETAILS = `
-    The expression's syntax above is shorthand. This instruction is
-    explained further in the ["Nested contract calls"](./nested-calls)
-    section, which details nested context derivation, gas cost and refunds, handling
-    a call's results, and world state access tracing.`;
+    ["Nested contract calls"](./nested-calls) provides a full explanation of this
+    instruction along with the shorthand used in the expression above.
+    The explanation includes details on charging gas for nested calls,
+    nested context derivation, world state tracing, and updating the parent context
+    after the nested call halts.`;
 
 const INSTRUCTION_SET_RAW = [
     {
@@ -1118,11 +1119,15 @@ context.accruedSubstate.sentL2ToL1Messages.append(
         ],
         "Args": CALL_INSTRUCTION_ARGS,
         "Expression":`
-M[successOffset] = call(
-    M[gasOffset], M[gasOffset+1], M[gasOffset+2],
-    M[addrOffset],
-    M[argsOffset], M[argsSize],
-    M[retOffset], M[retSize])
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=false)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
         "Summary": "Call into another contract",
         "Details": `Creates a new (nested) execution context and triggers execution within that context.
@@ -1145,11 +1150,15 @@ T[retOffset:retOffset+retSize] = field
         ],
         "Args": CALL_INSTRUCTION_ARGS,
         "Expression": `
-M[successOffset] = staticcall(
-    M[gasOffset], M[gasOffset+1], M[gasOffset+2],
-    M[addrOffset],
-    M[argsOffset], M[argsSize],
-    M[retOffset], M[retSize])
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall=true, isDelegateCall=false)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
         "Summary": "Call into another contract, disallowing World State and Accrued Substate modifications",
         "Details": `Same as \`CALL\`, but disallows World State and Accrued Substate modifications. `
@@ -1169,11 +1178,15 @@ T[retOffset:retOffset+retSize] = field
         ],
         "Args": CALL_INSTRUCTION_ARGS,
         "Expression": `
-M[successOffset] = delegatecall(
-    M[gasOffset], M[gasOffset+1], M[gasOffset+2],
-    M[addrOffset],
-    M[argsOffset], M[argsSize],
-    M[retOffset], M[retSize])
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=true)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
         "Summary": "Call into another contract, but keep the caller's `sender` and `storageAddress`",
         "Details": `Same as \`CALL\`, but \`sender\` and \`storageAddress\` remains

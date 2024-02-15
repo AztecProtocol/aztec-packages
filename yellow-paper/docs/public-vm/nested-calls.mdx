@@ -1,19 +1,39 @@
 # Nested Contract Calls
 
-A **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-staticcall), or [`DELEGATECALL`](./instruction-set#isa-section-delegatecall)). It initializes a new execution context (**nested context**) from the current one (**calling context**) and triggers execution within it. When nested call's execution completes, execution proceeds in the calling context.
+A **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction**. The AVM [instruction set](./instruction-set) includes three contract call instructions: [`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-staticcall), and [`DELEGATECALL`](./instruction-set#isa-section-delegatecall).
 
-## Nested Call Instructions
+A nested contract call performs the following operations:
+1. [Charge gas](#gas-cost-of-call-instruction) for the nested call
+1. [Trace the nested contract call](#tracing-nested-contract-calls)
+1. [Derive the **nested context**](#context-initialization-for-nested-calls) from the calling context and the call instruction
+1. Initiate [AVM execution](./execution) within the nested context until a halt is reached
+1. [Update the **calling context**](#updating-the-calling-context-after-nested-call-halts) after the nested call halts
 
-The AVM supports three types of contract calls: [`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-staticcall), and [`DELEGATECALL`](./instruction-set#isa-section-delegatecall).
+Or, in pseudocode:
+```jsx
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
 
-These call instructions share the same argument definitions: `gasOffset`, `addrOffset`, `argsOffset`, `argsSize`, `retOffset`, `retSize`, and `successOffset`. These arguments will be referred to via those keywords below, and will often be used in conjunction with the `M[offset]` syntax which is shorthand for `context.machineState.memory[offset]`.
+isStaticCall = instr.opcode == STATICCALL
+isDelegateCall = instr.opcode == DELEGATECALL
 
-The terms `isStaticCall` and `isDelegateCall` used below simply refer to the call instruction's type (`instr.opcode == STATICCALL`, `instr.opcode == DELEGATECALL`).
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall, isDelegateCall)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
+```
+
+These call instructions share the same argument definitions: `gasOffset`, `addrOffset`, `argsOffset`, `argsSize`, `retOffset`, `retSize`, and `successOffset` (defined in the [instruction set](./instruction-set)). These arguments will be referred to via those keywords below, and will often be used in conjunction with the `M[offset]` syntax which is shorthand for `context.machineState.memory[offset]`.
 
 ## Tracing nested contract calls
 
 Before nested execution begins, the contract call is traced.
 ```jsx
+traceNestedCall(context, addrOffset)
+// which is shorthand for
 context.worldStateAccessTrace.contractCalls.append(
     TracedContractCall {
         callPointer: context.worldStateAccessTrace.contractCalls.length + 1,
@@ -36,11 +56,15 @@ import NestedContext from "./_nested-context.md";
 
 A call instruction's gas cost is derived from its `gasOffset` argument. In other words, the caller "allocates" gas for a nested call via its `gasOffset` argument.
 
-| Cost Term   | Value            |
-| ---         | ---              |
-| `l1GasCost` | `M[gasOffset]`   |
-| `l2GasCost` | `M[gasOffset+1]` |
-| `daGasCost` | `M[gasOffset+2]` |
+As with all instructions, gas is checked and cost is deducted _prior_ to the instruction's execution.
+```jsx
+chargeGas(context,
+          l1GasCost=M[gasOffset],
+          l2GasCost=M[gasOffset+1],
+          daGasCost=M[gasOffset+2])
+```
+
+> The shorthand `chargeGas` is defined in ["Gas checks and tracking"](./execution#gas-checks-and-tracking).
 
 As with all instructions, gas is checked and cost is deducted _prior_ to the instruction's execution.
 ```jsx
@@ -61,9 +85,15 @@ Once the nested call's context is initialized, execution within that context beg
 execute(nestedContext)
 ```
 
-Execution is detailed in ["Execution, Gas, Halting"](./execution). Note that execution mutates the nested context.
+Execution (and the `execution` shorthand above) is detailed in ["Execution, Gas, Halting"](./execution). Note that execution mutates the nested context.
 
 ## Updating the calling context after nested call halts
+
+After the nested call halts, the calling context is updated. The call's success is extracted, unused gas is refunded, output data can be copied to the caller's memory, world state and accrued substate are conditionally accepted, and the world state trace is updated. The following shorthand is used to refer to this process in the ["Instruction Set"](./instruction-set):
+
+```jsx
+updateContextAfterNestedCall(context, instr.args, nestedContext)
+```
 
 The caller checks whether the nested call succeeded, and places the answer in memory.
 ```jsx
@@ -90,7 +120,7 @@ if !nestedContext.results.reverted:
     context.accruedSubstate.append(nestedContext.accruedSubstate)
 ```
 
-## Accepting nested call's World State access trace
+### Accepting nested call's World State access trace
 
 If the nested call reverted, the caller initializes the "end-lifetime" of all world state accesses made within the nested call.
 ```jsx

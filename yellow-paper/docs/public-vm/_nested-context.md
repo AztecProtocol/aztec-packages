@@ -1,15 +1,24 @@
-A nested contract call's execution environment and machine state are derived from the caller's context and the call instruction's arguments.
+The nested call's execution context is derived from the caller's context and the call instruction's arguments.
+
+The following shorthand syntax is used to refer to nested context derivation in the ["Instruction Set"](./instruction-set) and other sections:
 
 ```jsx
-// contract being called into
-contract = callingContext.worldState.contracts[M[addrOffset]]
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
 
+isStaticCall = instr.opcode == STATICCALL
+isDelegateCall = instr.opcode == DELEGATECALL
+
+nestedContext = deriveContext(context, instr.args, isStaticCall, isDelegateCall)
+```
+
+Nested context derivation is defined as follows:
+```jsx
 nestedExecutionEnvironment = ExecutionEnvironment {
     origin: context.origin,
     sender: isDelegateCall ? context.sender : context.address,
     address: M[addrOffset],
     storageAddress: isDelegateCall ? context.storageAddress : M[addrOffset],
-    portal: contract.portal,
+    portal: callingContext.worldState.contracts[M[addrOffset]].portal,
     feePerL1Gas: context.environment.feePerL1Gas,
     feePerL2Gas: context.environment.feePerL2Gas,
     feePerDaGas: context.environment.feePerDaGas,
@@ -19,7 +28,6 @@ nestedExecutionEnvironment = ExecutionEnvironment {
     isStaticCall: isStaticCall,
     isDelegateCall: isDelegateCall,
     calldata: context.memory[M[argsOffset]:M[argsOffset]+argsSize],
-    bytecode: contract.bytecode,
 }
 
 nestedMachineState = MachineState {
@@ -32,7 +40,7 @@ nestedMachineState = MachineState {
 }
 ```
 
-The nested call's execution context is then initialized.
+
 ```jsx
 nestedContext = AvmContext {
     environment: nestedExecutionEnvironment,
@@ -43,3 +51,5 @@ nestedContext = AvmContext {
     results: {reverted: false, output: []},
 }
 ```
+
+> `M[offset]` notation is shorthand for `context.machineState.memory[offset]`

@@ -68,10 +68,18 @@ The `INTERNALCALL` instruction pushes `machineState.pc+1` to `machineState.inter
 
 > An instruction will never assign program counter a value from memory (`machineState.memory`). A `JUMP`, `JUMPI`, or `INTERNALCALL` instruction's destination is a constant from the program bytecode. This property allows for easier static program analysis.
 
-## Gas limits and tracking
+## Gas checks and tracking
 > See ["Gas and Fees"](../gas-and-fees) for a deeper dive into Aztec's gas model and for definitions of each type of gas.
 
-Each instruction has an associated `l1GasCost`, `l2GasCost`, and `daGasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
+Each instruction has an associated `l1GasCost`, `l2GasCost`, and `daGasCost`. The AVM uses these values to enforce that sufficient gas is available before executing an instruction, and to deduct the cost from the context's remaining gas. The process of checking and charging gas is referred to in other sections using the following shorthand:
+
+```jsx
+chargeGas(context, l1GasCost, l2GasCost, daGasCost)
+```
+
+### Checking gas
+
+Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
 ```
 assert machineState.l1GasLeft - instr.l1GasCost > 0
 assert machineState.l2GasLeft - instr.l2GasCost > 0
@@ -79,6 +87,8 @@ assert machineState.daGasLeft - instr.daGasCost > 0
 ```
 
 > Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the [world state](./state#avm-world-state) or [accrued substate](./state#accrued-substate).
+
+### Charging gas
 
 If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
 
