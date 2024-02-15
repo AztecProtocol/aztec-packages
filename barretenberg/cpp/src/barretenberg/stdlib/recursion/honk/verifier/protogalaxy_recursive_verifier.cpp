@@ -201,8 +201,13 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
     std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1);
-    for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
-        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+    if (accumulator->is_accumulator) {
+        for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
+            perturbator_coeffs[idx] =
+                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+        }
+    } else {
+        std::fill(perturbator_coeffs.begin(), perturbator_coeffs.end(), 0);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/833): As currently the stdlib transcript is not
