@@ -150,13 +150,7 @@ impl PublicContext {
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    pub fn message_portal(&mut self, content: Field) {
-        let recipient = self.this_portal_address();
-        self.message_recipient(recipient, content);
-    }
-
-    // Message can be send to arbitrary recipient on L1 and not only to the registered portal address
-    pub fn message_recipient(&mut self, recipient: EthAddress, content: Field) {
+    pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         let message = L2ToL1Message { recipient, content };
         self.new_l2_to_l1_msgs.push(message);
     }
@@ -200,28 +194,18 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            false
-        )
+        call_public_function_internal(contract_address, function_selector, args_hash, false)
     }
 
     pub fn call_public_function_static<ARGS_COUNT>(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            true
-        )
+        call_public_function_internal(contract_address, function_selector, args_hash, true)
     }
 
     pub fn call_public_function_no_args(
@@ -229,24 +213,14 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            0,
-            false,
-        )
+        call_public_function_internal(contract_address, function_selector, 0, false)
     }
 
     pub fn call_public_function_no_args_static(
         _self: Self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
+        function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            0,
-            true,
-        )
+        call_public_function_internal(contract_address, function_selector, 0, true)
     }
 }
