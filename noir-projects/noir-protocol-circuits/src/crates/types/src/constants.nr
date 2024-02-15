@@ -136,6 +136,8 @@ global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 global TX_CONTEXT_DATA_LENGTH: Field = 11;
 global TX_REQUEST_LENGTH: Field = 17;
+global FUNCTION_LEAF_PREIMAGE_LENGTH: Field = 5;
+global NEW_CONTRACT_DATA_LENGTH: Field = 3;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH

@@ -2,6 +2,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 import { FunctionLeafPreimage } from './function_leaf_preimage.js';
+import { FUNCTION_DATA_LENGTH } from '../constants.gen.js';
 
 describe('FunctionLeafPreimage', () => {
   let leaf: FunctionLeafPreimage;
@@ -14,6 +15,11 @@ describe('FunctionLeafPreimage', () => {
     const buffer = leaf.toBuffer();
     const res = FunctionLeafPreimage.fromBuffer(buffer);
     expect(res).toEqual(leaf);
+  });
+
+  it('number of fields matches constant', () => {
+    const fields = leaf.toFields();
+    expect(fields.length).toBe(FUNCTION_DATA_LENGTH);
   });
 
   it('computes a function leaf', () => {

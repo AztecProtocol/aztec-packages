@@ -86,10 +86,15 @@ export const PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 194;
 export const TX_CONTEXT_DATA_LENGTH = 11;
 export const TX_REQUEST_LENGTH = 17;
 <<<<<<< HEAD
+<<<<<<< HEAD
 export const PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 207;
 export const PRIVATE_CALL_STACK_ITEM_LENGTH = 212;
 >>>>>>> a113af130 (TxContext)
 =======
+=======
+export const FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
+export const NEW_CONTRACT_DATA_LENGTH = 3;
+>>>>>>> 8f337de51 (WIP)
 export const PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 209;
 export const PRIVATE_CALL_STACK_ITEM_LENGTH = 214;
 >>>>>>> e55f84678 (Fixes after rebase)

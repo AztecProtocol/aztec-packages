@@ -99,6 +99,12 @@ library Constants {
 =======
   uint256 internal constant TX_CONTEXT_DATA_LENGTH = 11;
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+  uint256 internal constant TX_REQUEST_LENGTH = 17;
+  uint256 internal constant FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
+  uint256 internal constant NEW_CONTRACT_DATA_LENGTH = 3;
+>>>>>>> 8f337de51 (WIP)
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 209;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 214;
 >>>>>>> a113af130 (TxContext)
