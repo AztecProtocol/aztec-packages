@@ -5,7 +5,8 @@ use root_rollup_public_inputs::RootRollupPublicInputs;
 use dep::types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT},
-    header::Header, content_commitment::ContentCommitment, state_reference::StateReference, utils::uint256::U256
+    header::Header, content_commitment::ContentCommitment, state_reference::StateReference,
+    utils::uint256::U256
 };
 use crate::components;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
@@ -39,6 +40,7 @@ impl RootRollupInputs {
 
         let state = StateReference { l1_to_l2_message_tree: new_l1_to_l2_message_tree_snapshot, partial: right.end };
 
+        // TODO: in_hash: #4633 and out_hash: #4561
         let content_commitment = ContentCommitment {
             tx_tree_height: right.height_in_block_tree + 1,
             txs_hash: components::compute_calldata_hash(self.previous_rollup_data),
@@ -48,7 +50,7 @@ impl RootRollupInputs {
 
         let header = Header {
             last_archive: left.constants.last_archive,
-            content_commitment, 
+            content_commitment,
             state,
             global_variables: left.constants.global_variables
         };
