@@ -115,9 +115,10 @@ template <class Flavor> class ExecutionTrace_ {
 
     std::shared_ptr<ProvingKey> generate_for_plonk(Builder& builder, size_t dyadic_circuit_size)
     {
+        auto circuit_type = IsUltraPlonkFlavor<Flavor> ? CircuitType::ULTRA : CircuitType::STANDARD;
         auto crs = srs::get_crs_factory()->get_prover_crs(dyadic_circuit_size + 1);
         auto proving_key =
-            std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size(), crs, CircuitType::ULTRA);
+            std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size(), crs, circuit_type);
 
         generate_trace_polynomials(builder, dyadic_circuit_size);
 
@@ -132,33 +133,7 @@ template <class Flavor> class ExecutionTrace_ {
             proving_key->polynomial_store.put(builder.selector_names[idx] + "_lagrange",
                                               std::move(trace_selectors[idx]));
         }
-
-        compute_plonk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), trace_copy_cycles);
-
-        return proving_key;
-    }
-
-    std::shared_ptr<ProvingKey> generate_for_standard_plonk(Builder& builder, size_t dyadic_circuit_size)
-    {
-        auto crs = srs::get_crs_factory()->get_prover_crs(dyadic_circuit_size + 1);
-        auto proving_key =
-            std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size(), crs, CircuitType::STANDARD);
-
-        generate_trace_polynomials(builder, dyadic_circuit_size);
-
-        // Move wire polynomials to proving key
-        for (size_t idx = 0; idx < trace_wires.size(); ++idx) {
-            std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-            proving_key->polynomial_store.put(wire_tag, std::move(trace_wires[idx]));
-        }
-        // Move selector polynomials to proving key
-        for (size_t idx = 0; idx < trace_selectors.size(); ++idx) {
-            // TODO(Cody): Loose coupling here of selector_names and selector_properties.
-            proving_key->polynomial_store.put(builder.selector_names[idx] + "_lagrange",
-                                              std::move(trace_selectors[idx]));
-        }
-
-        compute_standard_plonk_sigma_permutations<Flavor>(builder, proving_key.get(), trace_copy_cycles);
+        compute_plonk_sigma_permutations<Flavor>(builder, proving_key.get(), trace_copy_cycles);
 
         return proving_key;
     }

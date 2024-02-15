@@ -286,6 +286,9 @@ namespace bb {
 template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
+template <typename T>
+concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
+
 template <typename T> 
 concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
 

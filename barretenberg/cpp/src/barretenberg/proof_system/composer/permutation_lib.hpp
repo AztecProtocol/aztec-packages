@@ -346,27 +346,6 @@ void compute_monomial_and_coset_fft_polynomials_from_lagrange(std::string label,
 }
 
 /**
- * @brief Compute sigma permutation polynomials for standard plonk and put them in the polynomial cache
- *
- * @tparam program_width Number of wires
- * @tparam CircuitBuilder Class holding the circuit
- * @param circuit_constructor An object holdingt he circuit
- * @param key Pointer to a proving key
- */
-template <typename Flavor>
-void compute_standard_plonk_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
-                                               typename Flavor::ProvingKey* key,
-                                               std::vector<CyclicPermutation> copy_cycles)
-{
-    // Compute the permutation table specifying which element becomes which
-    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, key, copy_cycles);
-    // Compute Plonk-style sigma polynomials from the mapping
-    compute_plonk_permutation_lagrange_polynomials_from_mapping("sigma", mapping.sigmas, key);
-    // Compute their monomial and coset versions
-    compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("sigma", key);
-}
-
-/**
  * @brief Compute Lagrange Polynomials L_0 and L_{n-1} and put them in the polynomial cache
  *
  * @param key Proving key where we will save the polynomials
@@ -384,7 +363,7 @@ template <typename Flavor> inline void compute_first_and_last_lagrange_polynomia
 }
 
 /**
- * @brief Compute generalized permutation sigmas and ids for ultra plonk
+ * @brief Compute Plonk-style conventional or generalized permutation sigmas and ids
  *
  * @tparam program_width
  * @tparam CircuitBuilder
@@ -393,22 +372,24 @@ template <typename Flavor> inline void compute_first_and_last_lagrange_polynomia
  * @return std::array<std::vector<permutation_subgroup_element>, program_width>
  */
 template <typename Flavor>
-void compute_plonk_generalized_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
-                                                  typename Flavor::ProvingKey* key,
-                                                  std::vector<CyclicPermutation> copy_cycles)
+void compute_plonk_sigma_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
+                                      typename Flavor::ProvingKey* key,
+                                      std::vector<CyclicPermutation> copy_cycles)
 {
-    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/true>(circuit_constructor, key, copy_cycles);
+    constexpr bool generalized = IsUltraPlonkFlavor<Flavor>;
+    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit_constructor, key, copy_cycles);
 
-    // Compute Plonk-style sigma and ID polynomials from the corresponding mappings
+    // Compute Plonk-style sigma and ID polynomials in lagrange, monomial, and coset-fft forms
     compute_plonk_permutation_lagrange_polynomials_from_mapping("sigma", mapping.sigmas, key);
-    compute_plonk_permutation_lagrange_polynomials_from_mapping("id", mapping.ids, key);
-    // Compute the monomial and coset-ffts for sigmas and IDs
     compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("sigma", key);
-    compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("id", key);
+    if constexpr (generalized) {
+        compute_plonk_permutation_lagrange_polynomials_from_mapping("id", mapping.ids, key);
+        compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("id", key);
+    }
 }
 
 /**
- * @brief Compute generalized permutation sigmas and ids for ultra plonk
+ * @brief Compute Honk-style generalized permutation sigmas and ids
  *
  * @tparam program_width
  * @tparam CircuitBuilder
@@ -421,7 +402,8 @@ void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitB
                                                  typename Flavor::ProvingKey* proving_key,
                                                  std::vector<CyclicPermutation> copy_cycles)
 {
-    auto mapping = compute_permutation_mapping<Flavor, true>(circuit_constructor, proving_key, copy_cycles);
+    auto mapping =
+        compute_permutation_mapping<Flavor, /*generalized=*/true>(circuit_constructor, proving_key, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
     compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
