@@ -356,6 +356,17 @@ jobs:
           name: "Build and test"
           command: build l1-contracts
 
+  noir-projects:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-projects
+
   boxes-files:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -543,6 +554,28 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_note_getter.test.ts
 
+  e2e-counter:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_counter_contract.test.ts
+
+  e2e-private-voting:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_private_voting_contract.test.ts
+
   e2e-multiple-accounts-1-enc-key:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -653,6 +686,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_nested_contract.test.ts
+
+  e2e-static-calls:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_static_calls.test.ts
 
   e2e-non-contract-account:
     docker:
@@ -830,6 +874,16 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_card_game.test.ts
 
+  e2e-avm-simulator:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
   pxe:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -851,6 +905,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=cli_docs_sandbox.test.ts
+   
+  e2e-docs-examples:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts   
 
   guides-writing-an-account-contract:
     docker:
@@ -1196,14 +1261,20 @@ workflows:
 
       - boxes-files: *defaults
 
+      - noir-projects:
+          requires:
+            - avm-transpiler
+            - noir-ecr-manifest
+          <<: *defaults
+
       # Yarn Project
       - yarn-project-base:
           requires:
             - avm-transpiler
             - l1-contracts
             - bb-js
-            - noir-ecr-manifest
             - noir-packages
+            - noir-projects
             - boxes-files
           <<: *defaults
       - yarn-project:
@@ -1258,6 +1329,7 @@ workflows:
       - e2e-state-vars: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
+      - e2e-static-calls: *e2e_test
       - e2e-non-contract-account: *e2e_test
       - e2e-multiple-accounts-1-enc-key: *e2e_test
       - e2e-cli: *e2e_test
@@ -1269,14 +1341,18 @@ workflows:
       - e2e-inclusion-proofs-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
       - e2e-ordering: *e2e_test
+      - e2e-counter: *e2e_test
+      - e2e-private-voting: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-persistence: *e2e_test
       - e2e-browser: *e2e_test
       - e2e-card-game: *e2e_test
+      - e2e-avm-simulator: *e2e_test
       - pxe: *e2e_test
       - cli-docs-sandbox: *e2e_test
+      - e2e-docs-examples: *e2e_test
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
@@ -1296,6 +1372,7 @@ workflows:
             - e2e-state-vars
             - e2e-block-building
             - e2e-nested-contract
+            - e2e-static-calls
             - e2e-non-contract-account
             - e2e-multiple-accounts-1-enc-key
             - e2e-cli
@@ -1307,17 +1384,21 @@ workflows:
             - e2e-inclusion-proofs-contract
             - e2e-pending-commitments-contract
             - e2e-ordering
+            - e2e-counter
+            - e2e-private-voting
             - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-persistence
             - e2e-browser
             - e2e-card-game
+            - e2e-avm-simulator
             - pxe
             - boxes-blank
             - boxes-blank-react
             - boxes-token
             - cli-docs-sandbox
+            - e2e-docs-examples
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp

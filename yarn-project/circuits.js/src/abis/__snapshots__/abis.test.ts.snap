@@ -1,8 +1,8 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`abis Computes a callstack item hash 1`] = `"0x17095bbb9e3e104dc520b6eec9338e9b6ce1fdc0f3a66b06d5ca90b15909ad0e"`;
+exports[`abis Computes a callstack item hash 1`] = `"0x2ba20f300313892a4349ee58faa9ede9154d45a162ad4da51490aea278a83fe4"`;
 
-exports[`abis Computes a callstack item request hash 1`] = `"0x28cb4c264eb11e13c77a5e60b251a6b3edfb4cfed786c4f1ec5e1749fede9b78"`;
+exports[`abis Computes a callstack item request hash 1`] = `"0x02550e7f875c3b6b7383292518af5aa7d04bfb40d21523780c73715456cc6d69"`;
 
 exports[`abis Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17"`;
 
@@ -10,41 +10,41 @@ exports[`abis Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8
 
 exports[`abis compute public call stack item hash 1`] = `
 Fr {
-  "asBigInt": 6902726350534637945034037933577508446422215007904358955522461123516426791152n,
+  "asBigInt": 8486641456244149034851224013359410121716182626131589728528559942118781049902n,
   "asBuffer": {
     "data": [
-      15,
-      66,
-      205,
-      254,
-      91,
-      241,
-      101,
-      117,
-      214,
-      154,
-      136,
-      128,
-      223,
+      18,
+      195,
+      68,
+      210,
+      225,
+      189,
+      106,
+      189,
+      94,
+      231,
+      84,
+      78,
+      49,
+      111,
+      208,
       11,
-      120,
-      249,
-      245,
-      174,
-      102,
-      132,
-      69,
-      153,
-      88,
-      179,
-      36,
-      144,
-      98,
-      110,
+      150,
+      47,
+      86,
       24,
-      250,
-      168,
-      240,
+      128,
+      110,
+      6,
+      170,
+      137,
+      161,
+      54,
+      176,
+      230,
+      249,
+      92,
+      46,
     ],
     "type": "Buffer",
   },

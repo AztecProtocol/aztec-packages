@@ -21,6 +21,7 @@ import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
 import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
+import { L2ToL1Message } from './l2_to_l1_message.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
 
 /**
@@ -42,9 +43,9 @@ export class PrivateCircuitPublicInputs {
      */
     public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
     /**
-     * The side-effect high watermark of the irrevertible part of the function call.
+     * The side-effect counter under which all side effects are non-revertible.
      */
-    public metaHwm: Fr,
+    public maxNonRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -75,7 +76,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * The end side effect counter for this call.
      */
@@ -149,7 +150,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
@@ -175,7 +176,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
       reader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
-      reader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readFieldArray(NUM_FIELDS_PER_SHA256),
       reader.readFieldArray(NUM_FIELDS_PER_SHA256),
@@ -204,7 +205,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
@@ -226,14 +227,14 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
-      this.metaHwm.isZero() &&
+      this.maxNonRevertibleSideEffectCounter.isZero() &&
       isEmptyArray(this.readRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newCommitments) &&
       isEmptyArray(this.newNullifiers) &&
       isZeroArray(this.privateCallStackHashes) &&
       isZeroArray(this.publicCallStackHashes) &&
-      isZeroArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.newL2ToL1Msgs) &&
       isZeroArray(this.encryptedLogsHash) &&
       isZeroArray(this.unencryptedLogsHash) &&
       this.encryptedLogPreimagesLength.isZero() &&
@@ -255,7 +256,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.metaHwm,
+      fields.maxNonRevertibleSideEffectCounter,
       fields.readRequests,
       fields.nullifierKeyValidationRequests,
       fields.newCommitments,

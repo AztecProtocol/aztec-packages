@@ -177,7 +177,7 @@ fn pattern(name: &str) -> Pattern {
 }
 
 fn mutable(name: &str) -> Pattern {
-    Pattern::Mutable(Box::new(pattern(name)), Span::default())
+    Pattern::Mutable(Box::new(pattern(name)), Span::default(), true)
 }
 
 fn mutable_assignment(name: &str, assigned_to: Expression) -> Statement {
@@ -211,7 +211,7 @@ fn member_access(lhs: &str, rhs: &str) -> Expression {
 }
 
 fn return_type(path: Path) -> FunctionReturnType {
-    let ty = make_type(UnresolvedTypeData::Named(path, vec![]));
+    let ty = make_type(UnresolvedTypeData::Named(path, vec![], true));
     FunctionReturnType::Ty(ty)
 }
 
@@ -364,33 +364,34 @@ fn check_for_storage_definition(module: &SortedModule) -> bool {
 // Check to see if the user has defined a storage struct
 fn check_for_storage_implementation(module: &SortedModule) -> bool {
     module.impls.iter().any(|r#impl| match &r#impl.object_type.typ {
-        UnresolvedTypeData::Named(path, _) => {
+        UnresolvedTypeData::Named(path, _, _) => {
             path.segments.last().is_some_and(|segment| segment.0.contents == "Storage")
         }
         _ => false,
     })
 }
 
-// Check if "compute_note_hash_and_nullifier(AztecAddress,Field,Field,[Field; N]) -> [Field; 4]" is defined
+// Check if "compute_note_hash_and_nullifier(AztecAddress,Field,Field,Field,[Field; N]) -> [Field; 4]" is defined
 fn check_for_compute_note_hash_and_nullifier_definition(module: &SortedModule) -> bool {
     module.functions.iter().any(|func| {
         func.def.name.0.contents == "compute_note_hash_and_nullifier"
-                && func.def.parameters.len() == 4
+                && func.def.parameters.len() == 5
                 && match &func.def.parameters[0].typ.typ {
-                    UnresolvedTypeData::Named(path, _) => path.segments.last().unwrap().0.contents == "AztecAddress",
+                    UnresolvedTypeData::Named(path, _, _) => path.segments.last().unwrap().0.contents == "AztecAddress",
                     _ => false,
                 }
                 && func.def.parameters[1].typ.typ == UnresolvedTypeData::FieldElement
                 && func.def.parameters[2].typ.typ == UnresolvedTypeData::FieldElement
-                // checks if the 4th parameter is an array and the Box<UnresolvedType> in
+                && func.def.parameters[3].typ.typ == UnresolvedTypeData::FieldElement
+                // checks if the 5th parameter is an array and the Box<UnresolvedType> in
                 // Array(Option<UnresolvedTypeExpression>, Box<UnresolvedType>) contains only fields
-                && match &func.def.parameters[3].typ.typ {
+                && match &func.def.parameters[4].typ.typ {
                     UnresolvedTypeData::Array(_, inner_type) => {
                         matches!(inner_type.typ, UnresolvedTypeData::FieldElement)
                     },
                     _ => false,
                 }
-                // We check the return type the same way as we did the 4th parameter
+                // We check the return type the same way as we did the 5th parameter
                 && match &func.def.return_type {
                     FunctionReturnType::Default(_) => false,
                     FunctionReturnType::Ty(unresolved_type) => {
@@ -504,7 +505,7 @@ fn generate_storage_field_constructor(
 ) -> Result<Expression, AztecMacroError> {
     let typ = &unresolved_type.typ;
     match typ {
-        UnresolvedTypeData::Named(path, generics) => {
+        UnresolvedTypeData::Named(path, generics, _) => {
             let mut new_path = path.clone().to_owned();
             new_path.segments.push(ident("new"));
             match path.segments.last().unwrap().0.contents.as_str() {
@@ -520,6 +521,7 @@ fn generate_storage_field_constructor(
                                     make_type(UnresolvedTypeData::Named(
                                         chained_path!("aztec", "context", "Context"),
                                         vec![],
+                                        true,
                                     )),
                                 ),
                                 (
@@ -603,6 +605,7 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
             make_type(UnresolvedTypeData::Named(
                 chained_path!("aztec", "context", "Context"),
                 vec![],
+                true,
             )),
         )],
         &BlockExpression(vec![storage_constructor_statement]),
@@ -612,12 +615,12 @@ fn generate_storage_implementation(module: &mut SortedModule) -> Result<(), Azte
 
     let storage_impl = TypeImpl {
         object_type: UnresolvedType {
-            typ: UnresolvedTypeData::Named(chained_path!("Storage"), vec![]),
+            typ: UnresolvedTypeData::Named(chained_path!("Storage"), vec![], true),
             span: Some(Span::default()),
         },
         type_span: Span::default(),
         generics: vec![],
-        methods: vec![init],
+        methods: vec![(init, Span::default())],
     };
     module.impls.push(storage_impl);
 
@@ -1028,7 +1031,8 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 /// The signature cannot be known at this point since types are not resolved yet, so we use a signature placeholder.
 /// It'll get resolved after by transforming the HIR.
 fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
-    let struct_type = make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![]));
+    let struct_type =
+        make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![], true));
 
     let selector_path =
         chained_path!("aztec", "protocol_types", "abis", "function_selector", "FunctionSelector");
@@ -1042,7 +1046,7 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
 
     // Define `FunctionSelector` return type
     let return_type =
-        FunctionReturnType::Ty(make_type(UnresolvedTypeData::Named(selector_path, vec![])));
+        FunctionReturnType::Ty(make_type(UnresolvedTypeData::Named(selector_path, vec![], true)));
 
     let mut selector_fn_def = FunctionDefinition::normal(
         &ident("selector"),
@@ -1062,7 +1066,7 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
         object_type: struct_type,
         type_span: structure.span,
         generics: vec![],
-        methods: vec![NoirFunction::normal(selector_fn_def)],
+        methods: vec![(NoirFunction::normal(selector_fn_def), Span::default())],
     }
 }
 
@@ -1088,7 +1092,7 @@ fn create_inputs(ty: &str) -> Param {
     let path_snippet = ty.to_case(Case::Snake); // e.g. private_context_inputs
     let type_path = chained_path!("aztec", "context", "inputs", &path_snippet, ty);
 
-    let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![]));
+    let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![], true));
     let visibility = Visibility::Private;
 
     Param { pattern: context_pattern, typ: context_type, visibility, span: Span::default() }

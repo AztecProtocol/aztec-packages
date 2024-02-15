@@ -74,9 +74,8 @@ impl DebugToString for BinaryIntOp {
             BinaryIntOp::And => "&&".into(),
             BinaryIntOp::Or => "||".into(),
             BinaryIntOp::Xor => "^".into(),
-            BinaryIntOp::Shl | BinaryIntOp::Shr => {
-                unreachable!("bit shift should have been replaced")
-            }
+            BinaryIntOp::Shl => "<<".into(),
+            BinaryIntOp::Shr => ">>".into(),
         }
     }
 }
@@ -170,6 +169,22 @@ impl DebugShow {
     /// Emits a `mov` instruction.
     pub(crate) fn mov_instruction(&self, destination: MemoryAddress, source: MemoryAddress) {
         debug_println!(self.enable_debug_trace, "  MOV {}, {}", destination, source);
+    }
+
+    /// Emits a `cast` instruction.
+    pub(crate) fn cast_instruction(
+        &self,
+        destination: MemoryAddress,
+        source: MemoryAddress,
+        bit_size: u32,
+    ) {
+        debug_println!(
+            self.enable_debug_trace,
+            "  CAST {}, {} as u{}",
+            destination,
+            source,
+            bit_size
+        );
     }
 
     /// Processes a binary instruction according `operation`.
