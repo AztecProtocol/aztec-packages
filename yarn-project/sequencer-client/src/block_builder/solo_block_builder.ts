@@ -509,15 +509,20 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async processPublicDataUpdateRequests(tx: ProcessedTx) {
+    const combinedPublicDataUpdateRequests = [
+      ...tx.data.endNonRevertibleData.publicDataUpdateRequests,
+      ...tx.data.end.publicDataUpdateRequests,
+    ]
+      // todo, remove empty update requests and right pad with empty requests
+      // .filter(updateRequest => !updateRequest.isEmpty())
+      .map(updateRequest => {
+        return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
+      });
     const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } =
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
+        combinedPublicDataUpdateRequests,
         // TODO(#3675) remove oldValue from update requests
-        [...tx.data.endNonRevertibleData.publicDataUpdateRequests, ...tx.data.end.publicDataUpdateRequests].map(
-          updateRequest => {
-            return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
-          },
-        ),
         PUBLIC_DATA_SUBTREE_HEIGHT,
       );
 
@@ -646,7 +651,12 @@ export class SoloBlockBuilder implements BlockBuilder {
     const txPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(tx);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
-    const newNullifiers = [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers];
+    const newNullifiers = [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers].filter(
+      n => !n.isEmpty(),
+    );
+    while (newNullifiers.length < MAX_NEW_NULLIFIERS_PER_TX) {
+      newNullifiers.push(SideEffectLinkedToNoteHash.empty());
+    }
 
     const {
       lowLeavesWitnessData: nullifierWitnessLeaves,
