@@ -1,7 +1,7 @@
 use crate::grumpkin_point::GrumpkinPoint;
 use crate::transaction::request::TxRequest;
 use crate::address::{AztecAddress, EthAddress, PartialAddress, PublicKeysHash};
-use crate::transaction::context::TxContext;
+use crate::transaction::tx_context::TxContext;
 use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::contract_deployment_data::ContractDeploymentData;

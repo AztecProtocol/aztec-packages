@@ -14,4 +14,15 @@ describe('TxContext', () => {
     const target = TxContext.empty();
     expect(target.isEmpty()).toBe(true);
   });
+
+  it('computes empty hash', () => {
+    const tc = TxContext.empty();
+    expect(tc.isEmpty()).toBe(true);
+    
+    const hash = tc.hash();
+    expect(hash).toMatchSnapshot();
+
+    // Value used in empty_hash test in contract_deployment_data.nr
+    console.log("hash", hash.toString());
+  });
 });

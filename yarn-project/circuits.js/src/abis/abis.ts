@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
+import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -15,13 +15,7 @@ import {
   GeneratorIndex,
 } from '../constants.gen.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
-import type {
-  FunctionData,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-  TxContext,
-  TxRequest
-} from '../structs/index.js';
+import type { FunctionData, SideEffect, SideEffectLinkedToNoteHash, TxContext, TxRequest } from '../structs/index.js';
 import { VerificationKey } from '../structs/verification_key.js';
 
 /**
@@ -250,30 +244,12 @@ export function computeTxHash(txRequest: TxRequest): Fr {
         txRequest.origin.toBuffer(),
         txRequest.functionData.hash().toBuffer(),
         txRequest.argsHash.toBuffer(),
-        computeTxContextHash(txRequest.txContext).toBuffer(),
+        txRequest.txContext.hash().toBuffer(),
       ],
       GeneratorIndex.TX_REQUEST,
     ),
   );
 }
-
-function computeTxContextHash(txContext: TxContext): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        new Fr(txContext.isFeePaymentTx).toBuffer(),
-        new Fr(txContext.isRebatePaymentTx).toBuffer(),
-        new Fr(txContext.isContractDeploymentTx).toBuffer(),
-        txContext.contractDeploymentData.hash().toBuffer(),
-        txContext.chainId.toBuffer(),
-        txContext.version.toBuffer(),
-      ],
-      GeneratorIndex.TX_CONTEXT,
-    ),
-  );
-}
-
-
 
 export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);

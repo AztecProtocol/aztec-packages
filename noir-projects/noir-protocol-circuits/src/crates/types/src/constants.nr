@@ -134,6 +134,7 @@ global CONTENT_COMMITMENT_LENGTH: Field = 7;
 global HEADER_LENGTH: Field = 25; // 2 for last_archive, 7 for content commitment, 10 for state reference, 6 for global vars
 global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
+global TX_CONTEXT_DATA_LENGTH: Field = 11;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH

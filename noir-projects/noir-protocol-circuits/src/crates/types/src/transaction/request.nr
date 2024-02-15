@@ -1,6 +1,6 @@
 use crate::constants::GENERATOR_INDEX__TX_REQUEST;
 use crate::address::AztecAddress;
-use crate::transaction::context::TxContext;
+use crate::transaction::tx_context::TxContext;
 use crate::abis::function_data::FunctionData;
 use crate::traits::Hash;
 
