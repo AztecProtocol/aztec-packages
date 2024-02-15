@@ -218,7 +218,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
         for (auto [acc_poly, inst_poly] :
              zip_view(acc_prover_polynomials.get_all(), instances[inst_idx]->prover_polynomials.get_all())) {
-            for (auto [acc_el, inst_el] : zip_view(ZipAllowDifferentSizes::FLAG, acc_poly, inst_poly)) {
+            for (auto [acc_el, inst_el] : zip_view(acc_poly, inst_poly)) {
                 acc_el += inst_el * lagranges[inst_idx];
             }
         }
