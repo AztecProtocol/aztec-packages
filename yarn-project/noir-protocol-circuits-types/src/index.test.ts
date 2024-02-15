@@ -123,26 +123,6 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     expect(address.toString()).toMatchSnapshot();
   });
 
-  it('Public call stack item matches noir', () => {
-    const contractAddress = AztecAddress.fromBigInt(1n);
-    const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
-    const appPublicInputs = PublicCircuitPublicInputs.empty();
-    appPublicInputs.newCommitments[0] = new SideEffect(new Fr(1), Fr.ZERO);
-
-    const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, false);
-    expect(publicCallStackItem.hash().toString()).toMatchSnapshot();
-  });
-
-  it('Public call stack item request matches noir', () => {
-    const contractAddress = AztecAddress.fromBigInt(1n);
-    const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
-    const appPublicInputs = PublicCircuitPublicInputs.empty();
-    appPublicInputs.newCommitments[0] = new SideEffect(new Fr(1), Fr.ZERO);
-
-    const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, true);
-    expect(publicCallStackItem.hash().toString()).toMatchSnapshot();
-  });
-
   it('Var args hash matches noir', () => {
     const args = times(800, i => new Fr(i));
     const res = computeVarArgsHash(args);

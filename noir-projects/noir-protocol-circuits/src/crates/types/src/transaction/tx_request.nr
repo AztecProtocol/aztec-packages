@@ -76,7 +76,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_tx_request_hash() {
+    fn compute_hash() {
         let tx_request = TxRequest {
             origin: AztecAddress::from_field(1),
             args_hash: 3,
@@ -96,6 +96,7 @@ mod tests {
             },
             function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: true, is_constructor: true }
         };
-        assert(tx_request.hash() == 0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75);
+        // Value from tx_request.test.ts "compute hash" test
+        assert(tx_request.hash() == 0x05e3f67a5e787faf63c85c28169a9d616b594c9799d9785b4f167d9cd7a71e9e);
     }
 }

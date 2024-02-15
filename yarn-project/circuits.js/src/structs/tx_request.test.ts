@@ -29,7 +29,7 @@ describe('TxRequest', () => {
     expect(fields.length).toBe(TX_REQUEST_LENGTH);
   });
 
-  it('hash matches Noir', () => {
+  it('compute hash', () => {
     const deploymentData = new ContractDeploymentData(
       new Point(new Fr(1), new Fr(2)),
       new Fr(1),
@@ -48,7 +48,7 @@ describe('TxRequest', () => {
 
     expect(hash).toMatchSnapshot();
 
-    // Value used in hash test in contract_deployment_data.nr
-    console.log("hash", hash);
+    // Value used in hash test in tx_request.nr
+    // console.log("hash", hash);
   });
 });

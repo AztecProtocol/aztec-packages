@@ -1,7 +1,6 @@
 use crate::{
     abis::function_selector::FunctionSelector,
-    constants::{GENERATOR_INDEX__FUNCTION_DATA, FUNCTION_DATA_LENGTH},
-    hash::pedersen_hash,
+    constants::{GENERATOR_INDEX__FUNCTION_DATA, FUNCTION_DATA_LENGTH}, hash::pedersen_hash,
     traits::{Serialize, Hash, Deserialize}
 };
 
@@ -62,6 +61,7 @@ fn serialization_of_empty() {
     assert(data.eq(deserialized));
 }
 
+// TODO(#4619): Hash non-empty
 #[test]
 fn empty_hash() {
     let data: FunctionData = dep::std::unsafe::zeroed();

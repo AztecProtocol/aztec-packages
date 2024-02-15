@@ -1,8 +1,6 @@
 use crate::{
-    abis::function_selector::FunctionSelector,
-    constants::GENERATOR_INDEX__FUNCTION_LEAF,
-    hash::pedersen_hash,
-    traits::{Serialize, Hash, Deserialize},
+    abis::function_selector::FunctionSelector, constants::GENERATOR_INDEX__FUNCTION_LEAF,
+    hash::pedersen_hash, traits::{Serialize, Hash, Deserialize}
 };
 
 global FUNCTION_LEAF_PREIMAGE_LENGTH: Field = 5;
@@ -63,6 +61,7 @@ fn serialization_of_empty() {
     assert(data.eq(deserialized));
 }
 
+// TODO(#4619): Hash non-empty
 #[test]
 fn empty_hash() {
     let data: FunctionLeafPreimage = dep::std::unsafe::zeroed();

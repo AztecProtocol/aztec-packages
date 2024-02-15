@@ -104,9 +104,14 @@ library Constants {
 >>>>>>> a113af130 (TxContext)
 =======
   uint256 internal constant TX_REQUEST_LENGTH = 17;
+<<<<<<< HEAD
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 207;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 212;
 >>>>>>> 004c5dca1 (TxRequest)
+=======
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 209;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 214;
+>>>>>>> e55f84678 (Fixes after rebase)
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 2;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;

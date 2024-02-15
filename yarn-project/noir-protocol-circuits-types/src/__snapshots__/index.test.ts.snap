@@ -5,6 +5,7 @@ exports[`Noir compatibility tests (interop_testing.nr) Address from partial matc
 exports[`Noir compatibility tests (interop_testing.nr) Address matches Noir 1`] = `"0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123"`;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 exports[`Noir compatibility tests (interop_testing.nr) ComputeContractAddressFromPartial matches Noir 1`] = `"0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) Public call stack item matches noir 1`] = `"0x1f71c0d6bd03e409df694549b6aa83d706cfe55427152e6ec443ec64fa62d3a0"`;
@@ -14,6 +15,8 @@ exports[`Noir compatibility tests (interop_testing.nr) Public call stack item ma
 
 exports[`Noir compatibility tests (interop_testing.nr) Public call stack item request matches noir 1`] = `"0x2812dfeffdb7553fbbdd27c03fbdf61e3aa9bab3209db39f78838508ad892803"`;
 
+=======
+>>>>>>> e55f84678 (Fixes after rebase)
 exports[`Noir compatibility tests (interop_testing.nr) Public key hash matches Noir 1`] = `"0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) Var args hash matches noir 1`] = `

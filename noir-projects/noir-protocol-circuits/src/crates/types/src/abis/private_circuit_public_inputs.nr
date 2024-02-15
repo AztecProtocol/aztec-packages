@@ -165,6 +165,7 @@ fn serialization_of_empty() {
     assert(pcpi.eq(deserialized));
 }
 
+// TODO(#4619): Hash non-empty
 #[test]
 fn empty_hash() {
     let inputs: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
