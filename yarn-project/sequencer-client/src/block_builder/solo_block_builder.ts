@@ -102,14 +102,22 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
+    const newNullifiers = txs.flatMap(tx => [
+      ...tx.data.endNonRevertibleData.newNullifiers,
+      ...tx.data.end.newNullifiers,
+    ]);
+    const newCommitments = txs.flatMap(tx => [
+      ...tx.data.endNonRevertibleData.newCommitments,
+      ...tx.data.end.newCommitments,
+    ]);
     const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
     const newContractData = txs
       .flatMap(tx => tx.data.end.newContracts)
       .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
     const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      [...tx.data.endNonRevertibleData.publicDataUpdateRequests, ...tx.data.end.publicDataUpdateRequests].map(
+        t => new PublicDataWrite(t.leafSlot, t.newValue),
+      ),
     );
     const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
 
@@ -505,9 +513,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
         // TODO(#3675) remove oldValue from update requests
-        tx.data.end.publicDataUpdateRequests.map(updateRequest => {
-          return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
-        }),
+        [...tx.data.endNonRevertibleData.publicDataUpdateRequests, ...tx.data.end.publicDataUpdateRequests].map(
+          updateRequest => {
+            return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
+          },
+        ),
         PUBLIC_DATA_SUBTREE_HEIGHT,
       );
 
@@ -563,8 +573,10 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
-    for (const i in tx.data.end.publicDataReads) {
-      const leafSlot = tx.data.end.publicDataReads[i].leafSlot.value;
+    const combinedReads = [...tx.data.endNonRevertibleData.publicDataReads, ...tx.data.end.publicDataReads];
+
+    for (const i in combinedReads) {
+      const leafSlot = combinedReads[i].leafSlot.value;
       const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
       if (!lowLeafResult) {
         throw new Error(`Public data tree should have one initial leaf`);
@@ -617,7 +629,10 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Update the contract and note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
     const newContracts = tx.data.end.newContracts.map(cd => computeContractLeaf(cd));
-    const newCommitments = tx.data.end.newCommitments.map(x => x.value.toBuffer());
+    const newCommitments = [...tx.data.endNonRevertibleData.newCommitments, ...tx.data.end.newCommitments].map(x =>
+      x.value.toBuffer(),
+    );
+
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,
       newContracts.map(x => x.toBuffer()),
@@ -631,7 +646,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const txPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(tx);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
-    const newNullifiers = tx.data.end.newNullifiers;
+    const newNullifiers = [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers];
 
     const {
       lowLeavesWitnessData: nullifierWitnessLeaves,
