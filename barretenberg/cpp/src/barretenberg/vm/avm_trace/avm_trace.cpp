@@ -404,6 +404,8 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
 
         // Reading and loading to Ia
         auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, mem_idx_a, AvmMemoryTag::FF);
+        bool tag_match = read_a.tag_match;
+
         FF ia = read_a.val;
         returnMem.push_back(ia);
 
@@ -414,6 +416,7 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             // Reading and loading to Ib
             auto read_b =
                 mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, mem_idx_b, AvmMemoryTag::FF);
+            tag_match = tag_match && read_b.tag_match;
             FF ib = read_b.val;
             returnMem.push_back(ib);
         }
@@ -425,6 +428,7 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             // Reading and loading to Ic
             auto read_c =
                 mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IC, mem_idx_c, AvmMemoryTag::FF);
+            tag_match = tag_match && read_c.tag_match;
             FF ic = read_c.val;
             returnMem.push_back(ic);
         }
@@ -435,9 +439,10 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             .avm_main_internal_return_ptr = FF(internal_return_ptr),
             .avm_main_sel_halt = FF(1),
             .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-            .avm_main_ia = ia,
-            .avm_main_ib = ib,
-            .avm_main_ic = ic,
+            .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+            .avm_main_ia = tag_match ? ia : FF(0),
+            .avm_main_ib = tag_match ? ib : FF(0),
+            .avm_main_ic = tag_match ? ic : FF(0),
             .avm_main_mem_op_a = FF(mem_op_a),
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
@@ -565,7 +570,8 @@ void AvmTraceBuilder::internal_return()
         .avm_main_pc = pc,
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_sel_internal_return = FF(1),
-        .avm_main_ia = read_a.val,
+        .avm_main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
+        .avm_main_ia = read_a.tag_match ? read_a.val : FF(0),
         .avm_main_mem_op_a = FF(1),
         .avm_main_rwa = FF(0),
         .avm_main_mem_idx_a = FF(internal_return_ptr - 1),
@@ -718,6 +724,10 @@ void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTa
 
     // ~a = c
     FF a = read_a.tag_match ? read_a.val : FF(0);
+    // TODO(4613): If tag_match == false, then the value of c
+    // will not be zero which would not satisfy the constraint that
+    // ic == 0 whenever tag_err == 1. This constraint might be removed
+    // as part of #4613.
     FF c = alu_trace_builder.op_not(a, in_tag, clk);
 
     // Write into memory value c from intermediate register ic.
@@ -760,6 +770,11 @@ void AvmTraceBuilder::op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_o
     // c = a == b ? 1 : 0
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
+
+    // TODO(4613): If tag_match == false, then the value of c
+    // will not be zero which would not satisfy the constraint that
+    // ic == 0 whenever tag_err == 1. This constraint might be removed
+    // as part of #4613.
     FF c = alu_trace_builder.op_eq(a, b, in_tag, clk);
 
     // Write into memory value c from intermediate register ic.

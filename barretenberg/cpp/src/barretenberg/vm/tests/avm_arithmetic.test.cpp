@@ -41,6 +41,10 @@ void common_validate_arithmetic_op(Row const& main_row,
     EXPECT_EQ(alu_row.avm_alu_alu_ia, a);
     EXPECT_EQ(alu_row.avm_alu_alu_ib, b);
     EXPECT_EQ(alu_row.avm_alu_alu_ic, c);
+
+    // Check that no error is raised
+    EXPECT_EQ(main_row.avm_main_tag_err, FF(0));
+    EXPECT_EQ(main_row.avm_main_op_err, FF(0));
 }
 
 Row common_validate_add(std::vector<Row> const& trace,
