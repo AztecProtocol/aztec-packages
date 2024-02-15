@@ -136,22 +136,31 @@ describe('sequencer/solo_block_builder', () => {
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
     const newContracts = txs.flatMap(tx => tx.data.end.newContracts.map(n => computeContractLeaf(n)));
     for (const [tree, leaves] of [
-      [MerkleTreeId.NOTE_HASH_TREE, txs.flatMap(tx => tx.data.end.newCommitments.map(l => l.value.toBuffer()))],
+      [
+        MerkleTreeId.NOTE_HASH_TREE,
+        txs.flatMap(tx =>
+          [...tx.data.endNonRevertibleData.newCommitments, ...tx.data.end.newCommitments].map(l => l.value.toBuffer()),
+        ),
+      ],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
-      txs.flatMap(tx => tx.data.end.newNullifiers.map(x => x.value.toBuffer())),
+      txs.flatMap(tx =>
+        [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers].map(x => x.value.toBuffer()),
+      ),
       NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const tx of txs) {
       await expectsDb.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        tx.data.end.publicDataUpdateRequests.map(write => {
-          return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
-        }),
+        [...tx.data.endNonRevertibleData.publicDataUpdateRequests, ...tx.data.end.publicDataUpdateRequests].map(
+          write => {
+            return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
+          },
+        ),
         PUBLIC_DATA_SUBTREE_HEIGHT,
       );
     }
@@ -216,15 +225,22 @@ describe('sequencer/solo_block_builder', () => {
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
 
-    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
+    const newNullifiers = txs.flatMap(tx => [
+      ...tx.data.endNonRevertibleData.newNullifiers,
+      ...tx.data.end.newNullifiers,
+    ]);
+    const newCommitments = txs.flatMap(tx => [
+      ...tx.data.endNonRevertibleData.newCommitments,
+      ...tx.data.end.newCommitments,
+    ]);
     const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
     const newContractData = txs
       .flatMap(tx => tx.data.end.newContracts)
       .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
-    const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-    );
+    const newPublicDataWrites = txs.flatMap(tx => [
+      ...tx.data.endNonRevertibleData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      ...tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+    ]);
     const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
     const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
