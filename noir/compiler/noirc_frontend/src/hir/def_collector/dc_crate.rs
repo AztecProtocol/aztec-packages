@@ -261,7 +261,9 @@ impl DefCollector {
         preludes.push("std::prelude");
 
         for macro_processor in macro_processors.iter() {
-            match macro_processor.process_crate_prelude(&crate_id, context) {
+            // Aside from the stdlib prelude, check whether the crate we are processing has dependencies 
+            // which supply their own prelude and add it to the list of preludes to be injected.
+            match macro_processor.fetch_crate_prelude(&crate_id, context) {
                 Ok(Some(prelude)) => {
                     preludes.push(prelude);
                 }

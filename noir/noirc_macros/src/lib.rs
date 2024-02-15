@@ -16,7 +16,7 @@ impl MacroProcessor for AssertMessageMacro {
         transform(ast, crate_id)
     }
 
-    fn process_crate_prelude(
+    fn fetch_crate_prelude(
         &self,
         _crate_id: &CrateId,
         _context: &HirContext,

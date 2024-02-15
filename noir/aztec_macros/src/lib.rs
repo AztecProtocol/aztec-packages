@@ -31,7 +31,7 @@ impl MacroProcessor for AztecMacro {
         transform(ast, crate_id, context)
     }
 
-    fn process_crate_prelude(
+    fn fetch_crate_prelude(
         &self,
         crate_id: &CrateId,
         context: &HirContext,

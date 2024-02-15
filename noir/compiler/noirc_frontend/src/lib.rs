@@ -78,7 +78,7 @@ pub mod macros_api {
         ) -> Result<SortedModule, (MacroError, FileId)>;
         /// Function to manipulate the crate definition before type checking has been completed.
         /// This is needed to process module declarations as the original AST will not yet have them.
-        fn process_crate_prelude(
+        fn fetch_crate_prelude(
             &self,
             crate_id: &CrateId,
             context: &HirContext,
