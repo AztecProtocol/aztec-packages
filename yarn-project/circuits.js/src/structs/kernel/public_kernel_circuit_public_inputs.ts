@@ -1,7 +1,11 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
-import { PublicAccumulatedNonRevertibleData, PublicAccumulatedRevertibleData } from './combined_accumulated_data.js';
+import {
+  CombinedAccumulatedData,
+  PublicAccumulatedNonRevertibleData,
+  PublicAccumulatedRevertibleData,
+} from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
@@ -9,6 +13,8 @@ import { CombinedConstantData } from './combined_constant_data.js';
  * All Public kernels use this shape for outputs.
  */
 export class PublicKernelCircuitPublicInputs {
+  private combined: CombinedAccumulatedData | undefined = undefined;
+
   constructor(
     /**
      * Aggregated proof of all the previous kernel iterations.
@@ -50,6 +56,13 @@ export class PublicKernelCircuitPublicInputs {
       this.needsAppLogic,
       this.needsTeardown,
     );
+  }
+
+  get combinedData() {
+    if (!this.combined) {
+      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end);
+    }
+    return this.combined;
   }
 
   /**

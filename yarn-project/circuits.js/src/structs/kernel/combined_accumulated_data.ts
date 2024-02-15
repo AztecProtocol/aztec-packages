@@ -109,6 +109,10 @@ export class PublicDataRead {
     return serializeToBuffer(this.leafSlot, this.value);
   }
 
+  isEmpty() {
+    return this.leafSlot.isZero() && this.value.isZero();
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicDataRead(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
@@ -318,6 +322,64 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
+    );
+  }
+
+  /**
+   *
+   * @param nonRevertible the non-revertible accumulated data
+   * @param revertible the revertible accumulated data
+   * @returns a new CombinedAccumulatedData object, squashing the two inputs, and condensing arrays
+   */
+  public static recombine(
+    nonRevertible: PublicAccumulatedNonRevertibleData,
+    revertible: PublicAccumulatedRevertibleData,
+  ): CombinedAccumulatedData {
+    const newCommitments = padArrayEnd(
+      [...nonRevertible.newCommitments, ...revertible.newCommitments].filter(x => !x.isEmpty()),
+      SideEffect.empty(),
+      MAX_NEW_COMMITMENTS_PER_TX,
+    );
+
+    const newNullifiers = padArrayEnd(
+      [...nonRevertible.newNullifiers, ...revertible.newNullifiers].filter(x => !x.isEmpty()),
+      SideEffectLinkedToNoteHash.empty(),
+      MAX_NEW_NULLIFIERS_PER_TX,
+    );
+
+    const publicCallStack = padArrayEnd(
+      [...nonRevertible.publicCallStack, ...revertible.publicCallStack].filter(x => !x.isEmpty()),
+      CallRequest.empty(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    );
+
+    const publicDataUpdateRequests = padArrayEnd(
+      [...nonRevertible.publicDataUpdateRequests, ...revertible.publicDataUpdateRequests].filter(x => !x.isEmpty()),
+      PublicDataUpdateRequest.empty(),
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
+    const publicDataReads = padArrayEnd(
+      [...nonRevertible.publicDataReads, ...revertible.publicDataReads].filter(x => !x.isEmpty()),
+      PublicDataRead.empty(),
+      MAX_PUBLIC_DATA_READS_PER_TX,
+    );
+
+    return new CombinedAccumulatedData(
+      revertible.readRequests,
+      revertible.nullifierKeyValidationRequests,
+      newCommitments,
+      newNullifiers,
+      revertible.privateCallStack,
+      publicCallStack,
+      revertible.newL2ToL1Msgs,
+      revertible.encryptedLogsHash,
+      revertible.unencryptedLogsHash,
+      revertible.encryptedLogPreimagesLength,
+      revertible.unencryptedLogPreimagesLength,
+      revertible.newContracts,
+      publicDataUpdateRequests,
+      publicDataReads,
     );
   }
 }
