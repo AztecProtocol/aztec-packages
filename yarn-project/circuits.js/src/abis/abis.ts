@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { numToUInt16BE, numToUInt32BE, numToUInt8 } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -15,17 +15,8 @@ import {
   GeneratorIndex,
 } from '../constants.gen.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
-import type { FunctionData, SideEffect, SideEffectLinkedToNoteHash, TxContext, TxRequest } from '../structs/index.js';
+import type { FunctionData, SideEffect, SideEffectLinkedToNoteHash } from '../structs/index.js';
 import { VerificationKey } from '../structs/verification_key.js';
-
-/**
- * Computes a hash of a transaction request.
- * @param txRequest - The transaction request.
- * @returns The hash of the transaction request.
- */
-export function hashTxRequest(txRequest: TxRequest): Buffer {
-  return computeTxHash(txRequest).toBuffer();
-}
 
 /**
  * Computes a function selector from a given function signature.
@@ -228,25 +219,6 @@ export function computeVarArgsHash(args: Fr[]) {
     pedersenHash(
       chunksHashes.map(a => a.toBuffer()),
       GeneratorIndex.FUNCTION_ARGS,
-    ),
-  );
-}
-
-/**
- * Computes tx hash of a given transaction request.
- * @param txRequest - The signed transaction request.
- * @returns The transaction hash.
- */
-export function computeTxHash(txRequest: TxRequest): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        txRequest.origin.toBuffer(),
-        txRequest.functionData.hash().toBuffer(),
-        txRequest.argsHash.toBuffer(),
-        txRequest.txContext.hash().toBuffer(),
-      ],
-      GeneratorIndex.TX_REQUEST,
     ),
   );
 }

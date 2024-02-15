@@ -22,22 +22,15 @@ import {
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretMessageHash,
-  computeTxHash,
   computeUniqueCommitment,
   computeVarArgsHash,
   hashConstructor,
-  hashTxRequest,
   hashVK,
   siloCommitment,
   siloNullifier
 } from './abis.js';
 
 describe('abis', () => {
-  it('hashes a tx request', () => {
-    const txRequest = makeTxRequest();
-    const hash = hashTxRequest(txRequest);
-    expect(hash).toMatchSnapshot();
-  });
 
   it('computes a function selector', () => {
     const funcSig = 'transfer(address,uint256)';
@@ -120,12 +113,6 @@ describe('abis', () => {
     const args = times(200, i => new Fr(i));
     const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
-  });
-
-  it('compute tx hash', () => {
-    const txRequest = makeTxRequest();
-    const hash = computeTxHash(txRequest);
-    expect(hash).toMatchSnapshot();
   });
 
   it('compute secret message hash', () => {

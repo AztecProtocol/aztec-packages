@@ -1,5 +1,5 @@
 use crate::grumpkin_point::GrumpkinPoint;
-use crate::transaction::request::TxRequest;
+use crate::transaction::tx_request::TxRequest;
 use crate::address::{AztecAddress, EthAddress, PartialAddress, PublicKeysHash};
 use crate::transaction::tx_context::TxContext;
 use crate::abis::function_data::FunctionData;
@@ -56,30 +56,6 @@ fn compute_var_args_hash() {
     }
     let hash = hash_args(input);
     assert(hash == 1557627899280963684159398665725097926236612957540256425197580046184563077271);
-}
-
-#[test]
-fn compute_tx_request_hash() {
-    let tx_request = TxRequest {
-        origin: AztecAddress::from_field(1),
-        args_hash: 3,
-        tx_context: TxContext {
-            is_fee_payment_tx: false,
-            is_rebate_payment_tx: false,
-            is_contract_deployment_tx: true,
-            contract_deployment_data: ContractDeploymentData {
-                public_key: GrumpkinPoint { x: 1, y: 2 },
-                initialization_hash: 1,
-                contract_class_id: ContractClassId::from_field(2),
-                contract_address_salt: 3,
-                portal_contract_address: EthAddress::from_field(1)
-            },
-            chain_id: 0,
-            version: 0
-        },
-        function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_internal: false, is_private: true, is_constructor: true }
-    };
-    assert(tx_request.hash() == 0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75);
 }
 
 #[test]
