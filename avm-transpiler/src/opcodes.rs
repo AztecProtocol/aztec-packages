@@ -76,12 +76,15 @@ pub enum AvmOpcode {
     // Control Flow - Contract Calls
     CALL,
     STATICCALL,
+    DELEGATECALL,
     RETURN,
     REVERT,
 
     // Gadgets
     KECCAK,
     POSEIDON,
+    SHA256,
+    PEDERSEN,
 }
 
 impl AvmOpcode {
@@ -161,12 +164,15 @@ impl AvmOpcode {
             // Control Flow - Contract Calls
             AvmOpcode::CALL => "CALL",
             AvmOpcode::STATICCALL => "STATICCALL",
+            AvmOpcode::DELEGATECALL => "DELEGATECALL",
             AvmOpcode::RETURN => "RETURN",
             AvmOpcode::REVERT => "REVERT",
 
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
             AvmOpcode::POSEIDON => "POSEIDON",
+            AvmOpcode::SHA256 => "SHA256 ",
+            AvmOpcode::PEDERSEN => "PEDERSEN",
         }
     }
 }

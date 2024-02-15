@@ -47,6 +47,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},
+                                  .poseidon2_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
                                   .recursion_constraints = {},

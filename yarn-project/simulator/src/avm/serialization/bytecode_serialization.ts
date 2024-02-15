@@ -1,3 +1,4 @@
+import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import {
   Add,
   Address,
@@ -124,12 +125,15 @@ const INSTRUCTION_SET = () =>
     // Control Flow - Contract Calls
     [Call.opcode, Call],
     [StaticCall.opcode, StaticCall],
+    //[DelegateCall.opcode, DelegateCall],
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
-    // Gadgets
-    //[Keccak.opcode, Keccak],
-    //[Poseidon.opcode, Poseidon],
+    // //// Gadgets
+    [Keccak.opcode, Keccak],
+    [Poseidon2.opcode, Poseidon2],
+    [Sha256.opcode, Sha256],
+    [Pedersen.opcode, Pedersen],
   ]);
 
 interface Serializable {
