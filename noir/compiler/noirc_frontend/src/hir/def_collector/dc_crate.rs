@@ -257,22 +257,32 @@ impl DefCollector {
         // Add the current crate to the collection of DefMaps
         context.def_maps.insert(crate_id, def_collector.def_map);
 
-        inject_prelude(crate_id, context, crate_root, &mut def_collector.collected_imports);
-        for submodule in submodules.iter() {
-            inject_prelude(crate_id, context, *submodule, &mut def_collector.collected_imports);
-        }
+        let mut preludes = Vec::new();
+        preludes.push("std::prelude");
 
         for macro_processor in macro_processors.iter() {
-            macro_processor
-                .process_crate_prelude(
-                    &crate_id,
-                    context,
-                    &mut def_collector.collected_imports,
-                    &submodules,
-                )
-                .unwrap_or_else(|(macro_err, file_id)| {
-                    errors.push((macro_err.into(), file_id));
-                });
+            match macro_processor
+            .process_crate_prelude(
+                &crate_id, 
+                context) {
+                Ok(Some(prelude)) => {
+                    preludes.push(prelude);
+                }
+                Ok(None) => { 
+                    // Do nothing 
+                },
+                Err((error, file_id)) => {
+                    let def_error = DefCollectorErrorKind::MacroError(error);
+                    errors.push((def_error.into(), file_id));
+                }
+            }
+        }
+
+        for prelude in preludes {
+            inject_prelude(crate_id, context, crate_root, prelude, &mut def_collector.collected_imports);
+            for submodule in submodules.iter() {
+                inject_prelude(crate_id, context, *submodule, prelude, &mut def_collector.collected_imports);
+            }
         }
 
         // Resolve unresolved imports collected from the crate, one by one.
@@ -394,9 +404,10 @@ fn inject_prelude(
     crate_id: CrateId,
     context: &Context,
     crate_root: LocalModuleId,
+    prelude_path: &str,
     collected_imports: &mut Vec<ImportDirective>,
 ) {
-    let segments: Vec<_> = "std::prelude"
+    let segments: Vec<_> = prelude_path
         .split("::")
         .map(|segment| crate::Ident::new(segment.into(), Span::default()))
         .collect();
@@ -410,7 +421,7 @@ fn inject_prelude(
             ModuleId { krate: crate_id, local_id: crate_root },
             path,
         ) {
-            let module_id = module_def.as_module().expect("std::prelude should be a module");
+            let module_id = module_def.as_module().unwrap_or_else(|| panic!("{prelude_path} should be a module"));
             let prelude = context.module(module_id).scope().names();
 
             for path in prelude {

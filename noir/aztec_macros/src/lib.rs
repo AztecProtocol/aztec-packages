@@ -5,7 +5,6 @@ use convert_case::{Case, Casing};
 use iter_extended::vecmap;
 use noirc_frontend::macros_api::parse_program;
 use noirc_frontend::macros_api::FieldElement;
-use noirc_frontend::macros_api::HirImportDirective;
 use noirc_frontend::macros_api::{
     BlockExpression, CallExpression, CastExpression, Distinctness, Expression, ExpressionKind,
     ForLoopStatement, ForRange, FunctionDefinition, FunctionReturnType, FunctionVisibility,
@@ -16,7 +15,7 @@ use noirc_frontend::macros_api::{
 };
 use noirc_frontend::macros_api::{CrateId, FileId};
 use noirc_frontend::macros_api::{
-    LocalModuleId, ModuleDefId, NodeInterner, SortedModule, StructId,
+    ModuleDefId, NodeInterner, SortedModule, StructId,
 };
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
 use noirc_frontend::node_interner::{TraitId, TraitImplKind};
@@ -38,21 +37,11 @@ impl MacroProcessor for AztecMacro {
         &self,
         crate_id: &CrateId,
         context: &HirContext,
-        collected_imports: &mut Vec<HirImportDirective>,
-        submodules: &[LocalModuleId],
-    ) -> Result<(), (MacroError, FileId)> {
-        if !has_aztec_dependency(crate_id, context) {
-            return Ok(());
+    ) -> Result<Option<&str>, (MacroError, FileId)> {
+        if has_aztec_dependency(crate_id, context) {
+            return Ok(Some("aztec::prelude"))
         }
-        let def_map = context.def_map(crate_id).expect("Should have a def map");
-
-        let crate_root = def_map.root();
-        inject_aztec_prelude(*crate_id, crate_root, collected_imports);
-        for submodule in submodules.iter() {
-            inject_aztec_prelude(*crate_id, *submodule, collected_imports);
-        }
-
-        Ok(())
+        Ok(None)
     }
 
     fn process_typed_ast(
@@ -281,6 +270,7 @@ fn transform(
             .map_err(|(err, file_id)| (err.into(), file_id))?
         {
             check_for_aztec_dependency(crate_id, context)?;
+            include_relevant_imports(&mut submodule.contents);
         }
     }
     Ok(ast)
@@ -299,12 +289,9 @@ fn transform_hir(
     assign_storage_slots(crate_id, context)
 }
 
-fn inject_aztec_prelude(
-    crate_id: CrateId,
-    crate_root: LocalModuleId,
-    collected_imports: &mut Vec<HirImportDirective>,
-) {
-    let (imports_ast, errors) = parse_program(aztec_prelude_source());
+/// Includes an import to the aztec library if it has not been included yet
+fn include_relevant_imports(ast: &mut SortedModule) {
+    let (imports_ast, errors) = parse_program(aztec_import_path_source());
     if !errors.is_empty() {
         dbg!(errors.clone());
     }
@@ -312,17 +299,14 @@ fn inject_aztec_prelude(
 
     let imports_ast = imports_ast.into_sorted();
 
-    if !crate_id.is_stdlib() {
-        for import in imports_ast.imports {
-            collected_imports.insert(
-                0,
-                HirImportDirective {
-                    module_id: crate_root,
-                    path: import.path,
-                    alias: import.alias,
-                    is_prelude: true,
-                },
-            );
+    for aztec_import in imports_ast.imports {
+        // Check if the aztec import already exists
+        let is_aztec_imported =
+            ast.imports.iter().any(|existing_import| existing_import.path == aztec_import.path);
+
+        // If aztec is not imported, add the import at the beginning
+        if !is_aztec_imported {
+            ast.imports.insert(0, aztec_import);
         }
     }
 }
@@ -1625,30 +1609,6 @@ fn event_signature(event: &StructType) -> String {
     format!("{}({})", event.name.0.contents, fields.join(","))
 }
 
-fn aztec_prelude_source() -> &'static str {
-    let aztec_imports = "
-    use dep::aztec;
-
-    use dep::aztec::{
-        protocol_types::{
-            address::{
-                AztecAddress, 
-                EthAddress,
-            },
-        },
-        state_vars::{
-            map::Map, 
-            public_state::PublicState, 
-            singleton::Singleton,
-            immutable_singleton::ImmutableSingleton,
-            set::Set,
-            stable_public_state::StablePublicState,
-        },
-        log::{
-            emit_unencrypted_log,
-            emit_encrypted_log,
-        }
-    };
-    ";
-    aztec_imports
+fn aztec_import_path_source() -> &'static str {
+    "use dep::aztec;"
 }

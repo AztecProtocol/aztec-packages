@@ -53,8 +53,7 @@ pub mod macros_api {
     pub use crate::token::SecondaryAttribute;
 
     pub use crate::hir::def_collector::dc_crate::DefCollector as HirDefCollector;
-    pub use crate::hir::def_map::{LocalModuleId, ModuleDefId, ModuleId};
-    pub use crate::hir::resolution::import::ImportDirective as HirImportDirective;
+    pub use crate::hir::def_map::{ModuleDefId, ModuleId};
     pub use crate::hir::resolution::path_resolver;
     pub use crate::{
         hir::Context as HirContext, BlockExpression, CallExpression, CastExpression, Distinctness,
@@ -83,9 +82,7 @@ pub mod macros_api {
             &self,
             crate_id: &CrateId,
             context: &HirContext,
-            def_collector: &mut Vec<HirImportDirective>,
-            submodules: &[LocalModuleId],
-        ) -> Result<(), (MacroError, FileId)>;
+        ) -> Result<Option<&str>, (MacroError, FileId)>;
         /// Function to manipulate the AST after type checking has been completed.
         /// The AST after type checking has been done is called the HIR.
         fn process_typed_ast(

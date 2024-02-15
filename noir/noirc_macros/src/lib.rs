@@ -1,7 +1,5 @@
 use noirc_frontend::macros_api::parse_program;
 use noirc_frontend::macros_api::HirContext;
-use noirc_frontend::macros_api::HirImportDirective;
-use noirc_frontend::macros_api::LocalModuleId;
 use noirc_frontend::macros_api::SortedModule;
 use noirc_frontend::macros_api::{CrateId, FileId};
 use noirc_frontend::macros_api::{MacroError, MacroProcessor};
@@ -22,10 +20,8 @@ impl MacroProcessor for AssertMessageMacro {
         &self,
         _crate_id: &CrateId,
         _context: &HirContext,
-        _collected_imports: &mut Vec<HirImportDirective>,
-        _submodules: &[LocalModuleId],
-    ) -> Result<(), (MacroError, FileId)> {
-        Ok(())
+    ) -> Result<Option<&str>, (MacroError, FileId)> {
+        Ok(None)
     }
 
     // This macro does not need to process any information after name resolution

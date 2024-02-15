@@ -8,5 +8,6 @@ mod log;
 mod messaging;
 mod note;
 mod oracle;
+mod prelude;
 mod state_vars;
 use dep::protocol_types;
