@@ -118,3 +118,33 @@ TEST_F(ClientIVCTests, Full)
     // Verify all four proofs
     EXPECT_TRUE(ivc.verify(proof));
 }
+
+TEST_F(ClientIVCTests, FUllWithMockCircuits)
+{
+    ClientIVC ivc;
+    Builder function_circuit{ ivc.goblin.op_queue };
+    GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+    ivc.initialize(function_circuit);
+
+    // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
+    Builder kernel_circuit{ ivc.goblin.op_queue };
+    GoblinMockCircuits::construct_mock_function_circuit(kernel_circuit);
+    auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+
+    size_t NUM_CIRCUITS = 2;
+    // Subtract one to account for the "initialization" round above
+    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+
+        // Accumulate function circuit
+        Builder function_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+        auto function_fold_proof = ivc.accumulate(function_circuit);
+
+        // Accumulate kernel circuit
+        Builder kernel_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit, function_fold_proof, kernel_fold_proof);
+        auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+    }
+    auto proof = ivc.prove();
+    EXPECT_TRUE(ivc.verify(proof));
+}
