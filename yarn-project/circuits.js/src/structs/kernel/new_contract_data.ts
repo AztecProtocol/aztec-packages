@@ -2,10 +2,10 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../../constants.gen.js';
+import { GeneratorIndex, NEW_CONTRACT_DATA_LENGTH } from '../../constants.gen.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -34,6 +34,14 @@ export class NewContractData {
 
   toBuffer() {
     return serializeToBuffer(...NewContractData.getFields(this));
+  }
+
+  toFields() {
+    const fields = serializeToFields(...NewContractData.getFields(this));
+    if (fields.length !== NEW_CONTRACT_DATA_LENGTH) {
+      throw new Error(`Invalid number of fields for NewContractData. Expected ${NEW_CONTRACT_DATA_LENGTH}, got ${fields.length}`);
+    }
+    return fields;
   }
 
   /**
