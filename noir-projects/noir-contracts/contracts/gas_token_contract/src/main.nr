@@ -1,19 +1,8 @@
 mod fee;
 
 contract GasToken {
-    use dep::aztec::{
-        hash::{compute_secret_hash},
-        state_vars::{
-            map::Map,
-            public_state::PublicState,
-            stable_public_state::StablePublicState,
-        },
-
-        protocol_types::{
-            abis::function_selector::FunctionSelector,
-            address::AztecAddress
-        }
-    };
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+    use dep::aztec::{hash::{compute_secret_hash}, state_vars::{public_state::PublicState, map::Map}};
 
     use dep::safe_math::SafeU120;
 
@@ -61,11 +50,13 @@ contract GasToken {
         storage.balances.at(owner).read().value as Field
     }
 
+    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
     unconstrained fn compute_note_hash_and_nullifier(
-        _contract_address: AztecAddress,
-        _nonce: Field,
-        _storage_slot: Field,
-        _serialized_note: [Field; 4]
+        contract_address: AztecAddress,
+        nonce: Field,
+        storage_slot: Field,
+        note_type_id: Field,
+        serialized_note: [Field; 0]
     ) -> pub [Field; 4] {
         [0, 0, 0, 0]
     }
