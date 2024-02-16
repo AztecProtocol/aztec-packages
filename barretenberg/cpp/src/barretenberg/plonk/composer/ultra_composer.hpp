@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
@@ -8,6 +7,7 @@
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 #include <cstddef>

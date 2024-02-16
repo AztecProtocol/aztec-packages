@@ -2,6 +2,7 @@
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 namespace bb {
 
 template <class Flavor>
