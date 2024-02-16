@@ -76,6 +76,7 @@ pub mod macros_api {
             context: &HirContext,
         ) -> Result<SortedModule, (MacroError, FileId)>;
 
+        // TODO(#4653): generalize this function
         fn process_unresolved_traits_impls(
             &self,
             _crate_id: &CrateId,
