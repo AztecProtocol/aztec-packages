@@ -35,8 +35,7 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(Circui
         circuit_constructor.num_gates + circuit_constructor.public_inputs.size() + NUM_RESERVED_GATES;
     const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates); // next power of 2
 
-    Trace trace;
-    circuit_proving_key = trace.generate_for_plonk(circuit_constructor, subgroup_size);
+    circuit_proving_key = Trace::generate(circuit_constructor, subgroup_size);
 
     // other stuff
     {

@@ -193,8 +193,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     circuit.finalize_circuit();
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
-    Trace trace;
-    circuit_proving_key = trace.generate_for_plonk(circuit, subgroup_size);
+    circuit_proving_key = Trace::generate(circuit, subgroup_size);
 
     // other stuff
     {

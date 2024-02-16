@@ -30,10 +30,26 @@ template <class Flavor> class ExecutionTrace_ {
   public:
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
-    std::array<Polynomial, NUM_WIRES> trace_wires;
-    std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> trace_selectors;
-    std::vector<CyclicPermutation> trace_copy_cycles;
-    Polynomial trace_ecc_op_selector;
+    struct TraceData {
+        std::array<Polynomial, NUM_WIRES> wires;
+        std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> selectors;
+        std::vector<CyclicPermutation> copy_cycles;
+        Polynomial ecc_op_selector;
+
+        TraceData(size_t dyadic_circuit_size, Builder& builder)
+        {
+            // Initializate the wire and selector polynomials
+            for (auto& wire : wires) {
+                wire = Polynomial(dyadic_circuit_size);
+            }
+            for (auto& selector : selectors) {
+                selector = Polynomial(dyadic_circuit_size);
+            }
+            // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials
+            // whose values are copy constrained to be equal. Each variable represents one cycle.
+            copy_cycles.resize(builder.variables.size());
+        }
+    };
 
     /**
      * @brief Temporary helper method to construct execution trace blocks from existing builder structures
@@ -42,7 +58,7 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @return std::vector<TraceBlock>
      */
-    std::vector<TraceBlock> create_execution_trace_blocks(Builder& builder)
+    static std::vector<TraceBlock> create_execution_trace_blocks(Builder& builder)
     {
         std::vector<TraceBlock> trace_blocks;
 
@@ -91,72 +107,70 @@ template <class Flavor> class ExecutionTrace_ {
         return trace_blocks;
     }
 
-    std::shared_ptr<ProvingKey> generate_for_honk(Builder& builder, size_t dyadic_circuit_size)
+    static std::shared_ptr<ProvingKey> generate(Builder& builder, size_t dyadic_circuit_size)
     {
+        auto trace_data = generate_trace_polynomials(builder, dyadic_circuit_size);
+
+        if constexpr (IsHonkFlavor<Flavor>) {
+            return generate_honk_proving_key(trace_data, builder, dyadic_circuit_size);
+        } else if constexpr (IsPlonkFlavor<Flavor>) {
+            return generate_plonk_proving_key(trace_data, builder, dyadic_circuit_size);
+        }
+    }
+
+    static std::shared_ptr<ProvingKey> generate_honk_proving_key(TraceData& trace_data,
+                                                                 Builder& builder,
+                                                                 size_t dyadic_circuit_size)
+    {
+
         auto proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size());
 
-        generate_trace_polynomials(builder, dyadic_circuit_size);
-
-        for (auto [pkey_wire, wire] : zip_view(proving_key->get_wires(), trace_wires)) {
-            pkey_wire = wire.share();
+        for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
+            pkey_wire = std::move(trace_wire);
         }
-        for (auto [pkey_selector, selector] : zip_view(proving_key->get_selectors(), trace_selectors)) {
-            pkey_selector = selector.share();
+        for (auto [pkey_selector, trace_selector] : zip_view(proving_key->get_selectors(), trace_data.selectors)) {
+            pkey_selector = std::move(trace_selector);
         }
-
         if constexpr (IsGoblinFlavor<Flavor>) {
-            proving_key->lagrange_ecc_op = trace_ecc_op_selector.share();
+            proving_key->lagrange_ecc_op = std::move(trace_data.ecc_op_selector);
         }
-
-        compute_honk_generalized_sigma_permutations<Flavor>(builder, proving_key.get(), trace_copy_cycles);
+        compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
 
         return proving_key;
     }
 
-    std::shared_ptr<ProvingKey> generate_for_plonk(Builder& builder, size_t dyadic_circuit_size)
+    static std::shared_ptr<ProvingKey> generate_plonk_proving_key(TraceData& trace_data,
+                                                                  Builder& builder,
+                                                                  size_t dyadic_circuit_size)
     {
         auto circuit_type = IsUltraPlonkFlavor<Flavor> ? CircuitType::ULTRA : CircuitType::STANDARD;
         auto crs = srs::get_crs_factory()->get_prover_crs(dyadic_circuit_size + 1);
         auto proving_key =
             std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size(), crs, circuit_type);
 
-        generate_trace_polynomials(builder, dyadic_circuit_size);
-
         // Move wire polynomials to proving key
-        for (size_t idx = 0; idx < trace_wires.size(); ++idx) {
+        for (size_t idx = 0; idx < trace_data.wires.size(); ++idx) {
             std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-            proving_key->polynomial_store.put(wire_tag, std::move(trace_wires[idx]));
+            proving_key->polynomial_store.put(wire_tag, std::move(trace_data.wires[idx]));
         }
         // Move selector polynomials to proving key
-        for (size_t idx = 0; idx < trace_selectors.size(); ++idx) {
+        for (size_t idx = 0; idx < trace_data.selectors.size(); ++idx) {
             // TODO(Cody): Loose coupling here of selector_names and selector_properties.
             proving_key->polynomial_store.put(builder.selector_names[idx] + "_lagrange",
-                                              std::move(trace_selectors[idx]));
+                                              std::move(trace_data.selectors[idx]));
         }
-        compute_plonk_sigma_permutations<Flavor>(builder, proving_key.get(), trace_copy_cycles);
+        compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
 
         return proving_key;
     }
 
-    void generate_trace_polynomials(Builder& builder, size_t dyadic_circuit_size)
+    static TraceData generate_trace_polynomials(Builder& builder, size_t dyadic_circuit_size)
     {
+        TraceData trace_data{ dyadic_circuit_size, builder };
+
         auto trace_blocks = create_execution_trace_blocks(builder);
-        info("Num trace blocks = ", trace_blocks.size());
 
-        // WORKTODO: all of this initialization can happen in constructor
-        // Initializate the wire polynomials
-        for (auto& wire : trace_wires) {
-            wire = Polynomial(dyadic_circuit_size);
-        }
-        // Initializate the selector polynomials
-        for (auto& selector : trace_selectors) {
-            selector = Polynomial(dyadic_circuit_size);
-        }
-        // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials whose
-        // values are copy constrained to be equal. Each variable represents one cycle.
-        trace_copy_cycles.resize(builder.variables.size());
-
-        uint32_t offset = 0;
+        uint32_t offset = 0; // Track offset at which to place each block in the trace polynomials
         // For each block in the trace, populate wire polys, copy cycles and selector polys
         for (auto& block : trace_blocks) {
             auto block_size = static_cast<uint32_t>(block.wires[0].size());
@@ -169,20 +183,20 @@ template <class Flavor> class ExecutionTrace_ {
                     uint32_t var_idx = block.wires[wire_idx][row_idx]; // an index into the variables array
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    trace_wires[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
+                    trace_data.wires[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
                     // WORKTODO: Not adding cycles for wires 3 and 4 here is only needed in order to maintain
                     // consistency with old version. We can remove this special case and the result is simply that all
-                    // the zeros in wires 3 and 4 over the PI range are copy constrainted together.
+                    // the zeros in wires 3 and 4 over the PI range are copy constrained together.
                     if (!(block.is_public_input && wire_idx > 1)) {
-                        trace_copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                        trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
                     }
                 }
             }
 
             // Insert the selector values for this block into the selector polynomials at the correct offset
             // WORKTODO: comment about coupling of arith and flavor stuff
-            for (auto [selector_poly, selector] : zip_view(trace_selectors, block.selectors.get())) {
+            for (auto [selector_poly, selector] : zip_view(trace_data.selectors, block.selectors.get())) {
                 for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                     selector_poly[row_idx + offset] = selector[row_idx];
                 }
@@ -192,15 +206,16 @@ template <class Flavor> class ExecutionTrace_ {
             // would be a good test case for the concept of gate blocks.
             if constexpr (IsGoblinFlavor<Flavor>) {
                 if (block.is_goblin_op) {
-                    trace_ecc_op_selector = Polynomial{ dyadic_circuit_size };
+                    trace_data.ecc_op_selector = Polynomial{ dyadic_circuit_size };
                     for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                        trace_ecc_op_selector[row_idx + offset] = 1;
+                        trace_data.ecc_op_selector[row_idx + offset] = 1;
                     }
                 }
             }
 
             offset += block_size;
         }
+        return trace_data;
     }
 };
 

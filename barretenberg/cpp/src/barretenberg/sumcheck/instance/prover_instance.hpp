@@ -65,8 +65,7 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);
-        Trace trace;
-        proving_key = trace.generate_for_honk(circuit, dyadic_circuit_size);
+        proving_key = Trace::generate(circuit, dyadic_circuit_size);
 
         // If Goblin, construct the ECC op queue wire and databus polynomials
         // WORKTODO: this probably belongs in exec trace generate
