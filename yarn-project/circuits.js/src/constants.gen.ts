@@ -80,26 +80,13 @@ export const CONTENT_COMMITMENT_LENGTH = 7;
 export const HEADER_LENGTH = 25;
 export const FUNCTION_DATA_LENGTH = 4;
 export const CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
-<<<<<<< HEAD
+export const TX_CONTEXT_DATA_LENGTH = 11;
+export const TX_REQUEST_LENGTH = 17;
+export const FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
+export const NEW_CONTRACT_DATA_LENGTH = 3;
 export const PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 214;
 export const PRIVATE_CALL_STACK_ITEM_LENGTH = 219;
 export const PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 194;
-=======
-export const TX_CONTEXT_DATA_LENGTH = 11;
-export const TX_REQUEST_LENGTH = 17;
-<<<<<<< HEAD
-<<<<<<< HEAD
-export const PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 207;
-export const PRIVATE_CALL_STACK_ITEM_LENGTH = 212;
->>>>>>> a113af130 (TxContext)
-=======
-=======
-export const FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
-export const NEW_CONTRACT_DATA_LENGTH = 3;
->>>>>>> 8f337de51 (WIP)
-export const PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 209;
-export const PRIVATE_CALL_STACK_ITEM_LENGTH = 214;
->>>>>>> e55f84678 (Fixes after rebase)
 export const CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 2;
 export const CONTRACT_STORAGE_READ_LENGTH = 2;
 export const GET_NOTES_ORACLE_RETURN_LENGTH = 674;
