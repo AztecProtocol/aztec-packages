@@ -1,4 +1,4 @@
-#include "barretenberg/ultra_honk/shared_prover_setup.hpp"
+#include "barretenberg/protogalaxy/shared_prover_setup.hpp"
 
 namespace bb {
 template <IsUltraFlavor Flavor>
@@ -102,9 +102,15 @@ void prover_setup(const std::shared_ptr<ProverInstance_<Flavor>>& instance,
     }
 }
 
-// template void prover_setup<UltraFlavor>(std::shared_ptr<ProverInstance_<UltraFlavor>> instance,
-//                                         std::shared_ptr<typename UltraFlavor::CommitmentKey> commitment_key,
-//                                         std::shared_ptr<typename UltraFlavor::Transcript> transcript,
-//                                         const std::string& domain_separator);
+template void prover_setup<UltraFlavor>(const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
+                                        const std::shared_ptr<typename UltraFlavor::CommitmentKey>& commitment_key,
+                                        const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
+                                        const std::string& domain_separator);
+
+template void prover_setup<GoblinUltraFlavor>(
+    const std::shared_ptr<ProverInstance_<GoblinUltraFlavor>>& instance,
+    const std::shared_ptr<typename GoblinUltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename GoblinUltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
 
 } // namespace bb

@@ -1,6 +1,6 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/ultra_honk/shared_prover_setup.hpp"
+#include "barretenberg/protogalaxy/shared_prover_setup.hpp"
 namespace bb {
 template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
