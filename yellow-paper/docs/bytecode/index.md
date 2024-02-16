@@ -66,7 +66,9 @@ This implies that a block of ACIR bytecode can represent more than one program, 
 
 ### Compiling a contract
 
-When a contract is compiled, an artifact will be generated. The exact form of the artifact is not specified by the protocol, but it needs at least the following information:
+When a contract is compiled, an artifact will be generated. This artifact needs to be hashed in a specific manner [detailed in the deployment section](../contract-deployment/classes#artifact-hash) for publishing.
+
+The exact form of the artifact is not specified by the protocol, but it needs at least the following information:
 
 #### Contract artifact
 
@@ -132,11 +134,10 @@ If the function is public, the entry will be its ABI. If the function is private
 |----------|----------|----------|
 | `kind` | `string` | `field`, `boolean`, `integer`, `array`, `string` or `struct` |
 | `sign?` | `string` | The sign of the integer. Applies to integers only. |
-| `width` | `number` | The width of the integer in bits. Applies to integers only. |
-| `length?` | `number` | The length of the array. Applies to arrays only. |
-| `type` | [ABIType](#abi-type) | The types of the array elements. Applies to arrays only. |
-| `length` | `number` | The length of the string. Applies to strings only. |
-| `fields` | [ABIVariable[]](#abi-variable) | The The fields of the struct. Applies to structs only. |
+| `width?` | `number` | The width of the integer in bits. Applies to integers only. |
+| `length?` | `number` | The length of the array or string. Applies to arrays and strings only. |
+| `type?` | [ABIType](#abi-type) | The types of the array elements. Applies to arrays only. |
+| `fields?` | [ABIVariable[]](#abi-variable) | The The fields of the struct. Applies to structs only. |
 
 #### Bytecode in the artifact
 
