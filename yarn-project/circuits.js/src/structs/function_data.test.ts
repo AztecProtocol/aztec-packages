@@ -1,6 +1,6 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 
-import { FUNCTION_LEAF_PREIMAGE_LENGTH } from '../constants.gen.js';
+import { FUNCTION_DATA_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
 
 describe('FunctionData', () => {
@@ -19,7 +19,7 @@ describe('FunctionData', () => {
 
   it('number of fields matches constant', () => {
     const fields = functionData.toFields();
-    expect(fields.length).toBe(FUNCTION_LEAF_PREIMAGE_LENGTH);
+    expect(fields.length).toBe(FUNCTION_DATA_LENGTH);
   });
 
   it('computes empty inputs hash', () => {
