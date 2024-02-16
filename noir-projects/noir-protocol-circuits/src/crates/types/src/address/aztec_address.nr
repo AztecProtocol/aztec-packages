@@ -1,5 +1,5 @@
 use crate::{
-    crate::address::{EthAddress, PartialAddress, PublicKeysHash},
+    crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS},
     contract_class::ContractClassId, hash::pedersen_hash, grumpkin_point::GrumpkinPoint,
     traits::{Empty, ToField, Serialize, Deserialize}, utils

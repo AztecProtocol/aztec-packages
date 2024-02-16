@@ -1,4 +1,7 @@
-use crate::{address::EthAddress, constants::GENERATOR_INDEX__PARTIAL_ADDRESS, hash::pedersen_hash, traits::ToField};
+use crate::{
+    address::eth_address::EthAddress, constants::GENERATOR_INDEX__PARTIAL_ADDRESS, hash::pedersen_hash,
+    traits::ToField
+};
 
 // Salted initialization hash. Used in the computation of a partial address.
 struct SaltedInitializationHash {

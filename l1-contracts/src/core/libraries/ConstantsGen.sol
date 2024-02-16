@@ -84,6 +84,8 @@ library Constants {
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;
   uint256 internal constant MAX_NOTES_PER_PAGE = 10;
   uint256 internal constant VIEW_NOTE_ORACLE_RETURN_LENGTH = 212;
+  uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
+  uint256 internal constant ETH_ADDRESS_LENGTH = 1;
   uint256 internal constant CALL_CONTEXT_LENGTH = 8;
   uint256 internal constant GLOBAL_VARIABLES_LENGTH = 6;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 8;

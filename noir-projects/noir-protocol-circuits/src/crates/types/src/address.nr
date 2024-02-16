@@ -4,12 +4,6 @@ mod partial_address;
 mod public_keys_hash;
 mod salted_initialization_hash;
 
-// use aztec_address::AztecAddress;
-// use eth_address::EthAddress;
-// use partial_address::PartialAddress;
-// use public_keys_hash::PublicKeysHash;
-// use salted_initialization_hash::SaltedInitializationHash;
-
 use crate::address::aztec_address::AztecAddress;
 use crate::address::eth_address::EthAddress;
 use crate::address::partial_address::PartialAddress;
