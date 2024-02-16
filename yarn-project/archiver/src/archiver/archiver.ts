@@ -446,9 +446,7 @@ export class Archiver implements ArchiveSource {
 
     const contractClass = await this.store.getContractClass(instance.contractClassId);
     if (!contractClass) {
-      this.log.warn(
-        `Contract class ${instance.contractClassId.toString()} for address ${address.toString()} not found`,
-      );
+      this.log.warn(`Class ${instance.contractClassId.toString()} for address ${address.toString()} not found`);
       return undefined;
     }
 
