@@ -222,7 +222,7 @@ describe('e2e_deploy_contract', () => {
 
     beforeAll(async () => {
       artifact = StatefulTestContract.artifact;
-      await registerContractClass(wallet, artifact).send().wait();
+      await registerContractClass(wallet, artifact).then(c => c.send().wait());
       contractClass = getContractClassFromArtifact(artifact);
     }, 60_000);
 

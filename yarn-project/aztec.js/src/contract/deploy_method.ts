@@ -105,7 +105,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // the pxe "gimme the data about this class that's publicly available only", which is closely
     // related to the private data access mechanisms we have yet to design.
     if (!options.skipClassRegistration && !(await this.pxe.isContractClassPubliclyRegistered(contractClass.id))) {
-      calls.push(registerContractClass(this.wallet, this.artifact).request());
+      calls.push((await registerContractClass(this.wallet, this.artifact)).request());
     }
 
     // Deploy the contract via the instance deployer.
