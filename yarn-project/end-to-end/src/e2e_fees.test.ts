@@ -1,5 +1,5 @@
 import { AztecAddress, ContractDeployer, NativeFeePaymentMethod } from '@aztec/aztec.js';
-import { GasTokenContract, TokenContract } from '@aztec/noir-contracts';
+import { GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
 import { setup } from './fixtures/utils.js';
