@@ -41,7 +41,11 @@ impl MacroProcessor for AztecMacro {
         unresolved_traits_impls: &Vec<UnresolvedTraitImpl>,
         collected_functions: &mut Vec<UnresolvedFunctions>,
     ) -> Result<(), (MacroError, FileId)> {
-        inject_compute_note_hash_and_nullifier(crate_id, context, unresolved_traits_impls, collected_functions)
+        if has_aztec_dependency(crate_id, context) {
+            inject_compute_note_hash_and_nullifier(crate_id, context, unresolved_traits_impls, collected_functions)
+        } else {
+            Ok(())
+        }
     }
 
     fn process_typed_ast(
@@ -320,13 +324,15 @@ fn check_for_aztec_dependency(
     crate_id: &CrateId,
     context: &HirContext,
 ) -> Result<(), (MacroError, FileId)> {
-    let crate_graph = &context.crate_graph[crate_id];
-    let has_aztec_dependency = crate_graph.dependencies.iter().any(|dep| dep.as_name() == "aztec");
-    if has_aztec_dependency {
+    if has_aztec_dependency(crate_id, context) {
         Ok(())
     } else {
-        Err((AztecMacroError::AztecDepNotFound.into(), crate_graph.root_file_id))
+        Err((AztecMacroError::AztecDepNotFound.into(), context.crate_graph[crate_id].root_file_id))
     }
+}
+
+fn has_aztec_dependency(crate_id: &CrateId, context: &HirContext) -> bool {
+    context.crate_graph[crate_id].dependencies.iter().any(|dep| dep.as_name() == "aztec")
 }
 
 // Check to see if the user has defined a storage struct
