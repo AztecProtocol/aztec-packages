@@ -49,6 +49,8 @@ class ClientIVC {
     // keep the instance or instances around if we're folding more of them so we can compute the verification key
     std::shared_ptr<ProverInstance> prover_instance;
 
+    std::array<std::shared_ptr<VerificationKey>, 4> vks;
+
     ClientIVC();
 
     void initialize(ClientCircuit& circuit);
@@ -66,6 +68,6 @@ class ClientIVC {
     VerifierAccumulator get_verifier_accumulator();
     std::shared_ptr<VerifierInstance> get_verifier_instance() const;
 
-    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys();
+    void precompute_folding_verification_keys();
 };
 } // namespace bb

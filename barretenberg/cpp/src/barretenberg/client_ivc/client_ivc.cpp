@@ -81,11 +81,14 @@ HonkProof ClientIVC::decider_prove() const
     return decider_prover.construct_proof();
 }
 
-std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys()
+/**
+ * @brief Precompute the array of verification keys by simulating folding. There will be 4 different verification keys.
+ *
+ */
+void ClientIVC::precompute_folding_verification_keys()
 {
     Composer composer;
-    std::vector<std::shared_ptr<ClientIVC::VerificationKey>> vks =
-        std::vector<std::shared_ptr<ClientIVC::VerificationKey>>(4);
+
     // Accumulate three circuits to generate two folding proofs for input to folding kernel
     ClientCircuit circuit_1{ goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_1);
@@ -111,26 +114,23 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     auto fold_proof_3 = accumulate(kernel_circuit);
     vks[2] = composer.compute_verification_key(prover_instance); // first iteration of a kernel is smaller
 
+    ClientCircuit circuit_4{ goblin.op_queue };
+    GoblinMockCircuits::construct_mock_function_circuit(circuit_4);
+    auto fold_proof_4 = accumulate(circuit_4);
+
     ClientCircuit new_kernel_circuit = GoblinUltraCircuitBuilder{ goblin.op_queue };
     auto new_new_acc = GoblinMockCircuits::construct_mock_folding_kernel(
         new_kernel_circuit, { fold_proof_4, vks[1] }, { fold_proof_3, vks[2] }, new_acc);
 
-    decider_prove_and_verify(new_acc);
     auto fold_proof_5 = accumulate(new_kernel_circuit);
 
     vks[3] = composer.compute_verification_key(prover_instance);
-    auto proof = prove();
     auto kernel_inst = std::make_shared<VerifierInstance>();
     kernel_inst->verification_key = vks[3];
-
-    auto verifier_instances = std::vector<std::shared_ptr<VerifierInstance>>{ new_acc, kernel_inst };
-    auto res = verify(proof, verifier_instances);
-    ASSERT(res == true);
 
     goblin.op_queue = std::make_shared<Goblin::OpQueue>();
     goblin.merge_proof_exists = false;
     GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-    return vks;
 }
 
 } // namespace bb

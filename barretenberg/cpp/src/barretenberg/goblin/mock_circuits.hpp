@@ -102,7 +102,6 @@ class GoblinMockCircuits {
      */
     static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
     {
-        static_cast<void>(large);
         // Determine number of times to execute the below operations that constitute the mock circuit logic. Note
         // that the circuit size does not scale linearly with number of iterations due to e.g. amortization of
         // lookup costs
@@ -117,7 +116,6 @@ class GoblinMockCircuits {
         // Note: its not clear whether goblin ops will be supported for function circuits initially but currently
         // UGH can only be used if some op gates are included so for now we'll assume each function circuit has
         // some.
-        // construct_arithmetic_circuit(builder, 1 << 15);
         construct_goblin_ecc_op_circuit(builder);
     }
 
@@ -247,8 +245,7 @@ class GoblinMockCircuits {
         if (kernel.fold_proof.empty()) {
             FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { func.inst_vk } };
             auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
-            auto native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
-            return native_acc;
+            return std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
         }
 
         FoldingRecursiveVerifier verifier_2{ &builder, prev_kernel_accum, { kernel.inst_vk } };
@@ -256,9 +253,7 @@ class GoblinMockCircuits {
         auto native_acc = std::make_shared<VerifierInstance>(kernel_verifier_accum->get_value());
         FoldingRecursiveVerifier verifier_1{ &builder, native_acc, { func.inst_vk } };
         auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
-        native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
-
-        return native_acc;
+        return std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
     }
 
     /**
