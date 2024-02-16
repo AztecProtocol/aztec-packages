@@ -162,14 +162,30 @@ export class Body {
     return false;
   }
 
+  get encryptedLogs(): L2BlockL2Logs {
+    const logs = this.txEffects.map(txEffect => txEffect.logs!.encryptedLogs);
+
+    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
+      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
+    }
+
+    return new L2BlockL2Logs(logs);
+  }
+
+  get unencryptedLogs(): L2BlockL2Logs {
+    const logs = this.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs);
+
+    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
+      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
+    }
+
+    return new L2BlockL2Logs(logs);
+  }
+
   public attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
     this.txEffects.forEach((txEffect, i) => {
       txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencryptedLogs.txLogs[i]);
     });
-  }
-
-  public detachLogs() {
-    this.txEffects.forEach(txEffect => delete txEffect.logs);
   }
 }
 

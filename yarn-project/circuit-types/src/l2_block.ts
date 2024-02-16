@@ -402,58 +402,6 @@ export class L2Block {
       });
     }
   }
-  // /**
-  //  * Inspect for debugging purposes..
-  //  * @param maxBufferSize - The number of bytes to be extracted from buffer.
-  //  * @returns A human-friendly string representation of the l2Block.
-  //  */
-  // inspect(maxBufferSize = 4): string {
-  //   const inspectHex = (fr: {
-  //     /**
-  //      * A function used to serialize the field element to a buffer.
-  //      */
-  //     toBuffer: () => Buffer;
-  //   }): string => `0x${fr.toBuffer().subarray(0, maxBufferSize).toString('hex')}`;
-  //   const inspectArray = <T>(arr: T[], inspector: (t: T) => string) => '[' + arr.map(inspector).join(', ') + ']';
-
-  //   const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>
-  //     `(${s.nextAvailableLeafIndex}, ${inspectHex(s.root)})`;
-  //   const inspectGlobalVariables = (gv: GlobalVariables): string => {
-  //     return `(${gv.chainId}, ${gv.version}, ${gv.blockNumber}, ${gv.timestamp}))`;
-  //   };
-  //   const inspectFrArray = (arr: Fr[]): string => inspectArray(arr, inspectHex);
-  //   const inspectContractDataArray = (arr: ContractData[]): string =>
-  //     inspectArray(arr, cd => `(${inspectHex(cd.contractAddress)}, ${inspectHex(cd.portalContractAddress)})`);
-  //   const inspectPublicDataWriteArray = (arr: PublicDataWrite[]): string =>
-  //     inspectArray(arr, pdw => `(${inspectHex(pdw.leafIndex)}, ${inspectHex(pdw.newValue)})`);
-
-  //   return [
-  //     `L2Block`,
-  //     `number: ${this.header.globalVariables.blockNumber}`,
-  //     `globalVariables: ${inspectGlobalVariables(this.globalVariables)}`,
-  //     `startNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.startNoteHashTreeSnapshot)}`,
-  //     `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
-  //     `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
-  //     `startPublicDataTreeSnapshot: ${this.startPublicDataTreeSnapshot.toString()}`,
-  //     `startL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.startL1ToL2MessageTreeSnapshot)}`,
-  //     `startArchiveSnapshot: ${inspectTreeSnapshot(this.startArchiveSnapshot)}`,
-  //     `endNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.endNoteHashTreeSnapshot)}`,
-  //     `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
-  //     `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
-  //     `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
-  //     `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
-  //     `endL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.endL1ToL2MessageTreeSnapshot)}`,
-  //     `endArchiveSnapshot: ${inspectTreeSnapshot(this.endArchiveSnapshot)}`,
-  //     `newCommitments: ${inspectFrArray(this.newCommitments)}`,
-  //     `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
-  //     `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-  //     `newL2ToL1Msgs: ${inspectFrArray(this.newL2ToL1Msgs)}`,
-  //     `newContracts: ${inspectFrArray(this.newContracts)}`,
-  //     `newContractData: ${inspectContractDataArray(this.newContractData)}`,
-  //     `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-  //     `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
-  //   ].join('\n');
-  // }
 }
 
 function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {

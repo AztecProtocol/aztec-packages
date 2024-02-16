@@ -177,7 +177,7 @@ export async function getContractDeploymentLogs(
 
 /**
  * Processes newly received ContractDeployment logs.
- * @param blockNumberToBodyHash - A mapping from block number to relevant block hash.
+ * @param blockNumberToBodyHash - A mapping from block number to relevant body hash.
  * @param logs - ContractDeployment logs.
  * @returns The set of retrieved extended contract data items.
  */

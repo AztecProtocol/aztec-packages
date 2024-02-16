@@ -129,8 +129,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('adds encrypted & unencrypted logs', async () => {
         await expect(
           store.addLogs(
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
+            blocks[0].body.encryptedLogs,
+            blocks[0].body.unencryptedLogs,
             blocks[0].number,
           ),
         ).resolves.toEqual(true);
@@ -145,8 +145,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await Promise.all(
           blocks.map(block =>
             store.addLogs(
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
+              block.body.encryptedLogs,
+              block.body.unencryptedLogs,
               block.number,
             ),
           ),
@@ -169,8 +169,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await Promise.all(
           blocks.map(block =>
             store.addLogs(
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
+              block.body.encryptedLogs,
+              block.body.unencryptedLogs,
               block.number,
             ),
           ),
@@ -503,8 +503,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await Promise.all(
           blocks.map(block =>
             store.addLogs(
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
+              block.body.encryptedLogs,
+              block.body.unencryptedLogs,
               block.number,
             ),
           ),

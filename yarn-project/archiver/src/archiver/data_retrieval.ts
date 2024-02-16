@@ -77,7 +77,7 @@ export async function retrieveBlocks(
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @param blockNumberToBodyHash - A mapping from block number to relevant block hash.
+ * @param blockNumberToBodyHash - A mapping from block number to relevant body hash.
  * @returns An array of ExtendedContractData and their equivalent L2 Block number along with the next eth block to search from..
  */
 export async function retrieveNewContractData(
