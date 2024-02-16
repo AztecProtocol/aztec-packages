@@ -170,4 +170,4 @@ When executing an unconstrained function, its Brillig bytecode will be executed 
 
 When executing a public function, its AVM bytecode will be executed by the sequencer with the specified selector and arguments. The sequencer will generate a public VM proof of the correct execution of the AVM bytecode.
 
-The fact that the correct bytecode was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes#class-identifier) contains the [commitment](http://localhost:3001/docs/public-vm/bytecode-validation-circuit#committed-representation) to the bytecode used.
+The fact that the correct bytecode was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes#class-identifier) contains the [commitment](../public-vm/bytecode-validation-circuit#committed-representation) to the bytecode used.
