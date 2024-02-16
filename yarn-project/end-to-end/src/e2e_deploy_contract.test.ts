@@ -123,7 +123,7 @@ describe('e2e_deploy_contract', () => {
       );
     }, 60_000);
 
-    it('it should not deploy a contract which failed the public part of the execution', async () => {
+    it('should not deploy a contract which failed the public part of the execution', async () => {
       sequencer?.updateSequencerConfig({
         minTxsPerBlock: 2,
       });
@@ -136,10 +136,11 @@ describe('e2e_deploy_contract', () => {
         const goodDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.random(), ...initArgs);
         const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
-        const deployOpts = { skipPublicSimulation: true, skipClassRegistration: true, skipPublicDeployment: true };
+        const firstOpts = { skipPublicSimulation: true };
+        const secondOpts = { skipPublicSimulation: true, skipClassRegistration: true };
 
-        await Promise.all([goodDeploy.simulate(deployOpts), badDeploy.simulate(deployOpts)]);
-        const [goodTx, badTx] = [goodDeploy.send(deployOpts), badDeploy.send(deployOpts)];
+        await Promise.all([goodDeploy.simulate(firstOpts), badDeploy.simulate(secondOpts)]);
+        const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
         const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
 
         expect(goodTxPromiseResult.status).toBe('fulfilled');
