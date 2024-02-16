@@ -116,7 +116,7 @@ class GlobalVariables {
     fee_recipient: Address
 }
 
-class ContentCommitment {
+class BlockContentCommitments {
     tx_tree_height: Fr
     txs_hash: Fr[2]
     in_hash: Fr[2]
@@ -125,12 +125,12 @@ class ContentCommitment {
 
 class Header {
     last_archive: Snapshot
-    content_commitment: ContentCommitment
+    block_content_commitments: BlockContentCommitments
     state: StateReference
     global_variables: GlobalVariables
 }
 Header *.. Body : txs_hash
-Header *-- ContentCommitment: content_commitment
+Header *-- BlockContentCommitments: block_content_commitments
 Header *-- StateReference : state
 Header *-- GlobalVariables : global_variables
 

@@ -44,7 +44,7 @@ contract DecoderBase is Test {
   }
 
   struct DecodedHeader {
-    ContentCommitment contentCommitment;
+    BlockContentCommitments blockContentCommitments;
     GlobalVariables globalVariables;
     AppendOnlyTreeSnapshot lastArchive;
     StateReference stateReference;
@@ -64,7 +64,7 @@ contract DecoderBase is Test {
     PartialStateReference partialStateReference;
   }
 
-  struct ContentCommitment {
+  struct BlockContentCommitments {
     bytes32 inHash;
     bytes32 outHash;
     uint256 txTreeHeight;

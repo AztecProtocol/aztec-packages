@@ -88,7 +88,7 @@ library Constants {
   uint256 internal constant GLOBAL_VARIABLES_LENGTH = 6;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant STATE_REFERENCE_LENGTH = 10;
-  uint256 internal constant CONTENT_COMMITMENT_LENGTH = 7;
+  uint256 internal constant BLOCK_CONTENT_COMMITMENTS_LENGTH = 7;
   uint256 internal constant HEADER_LENGTH = 25;
   uint256 internal constant FUNCTION_DATA_LENGTH = 4;
   uint256 internal constant CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;

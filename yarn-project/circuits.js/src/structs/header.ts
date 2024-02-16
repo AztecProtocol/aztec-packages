@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
-import { ContentCommitment } from './content_commitment.js';
+import { BlockContentCommitments } from './block_content_commitments.js';
 import { GlobalVariables } from './global_variables.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 import { StateReference } from './state_reference.js';
@@ -14,7 +14,7 @@ export class Header {
     /** Snapshot of archive before the block is applied. */
     public lastArchive: AppendOnlyTreeSnapshot,
     /** Hash of the body of an L2 block. */
-    public contentCommitment: ContentCommitment,
+    public blockContentCommitments: BlockContentCommitments,
     /** State reference. */
     public state: StateReference,
     /** Global variables of an L2 block. */
@@ -23,14 +23,14 @@ export class Header {
 
   toBuffer() {
     // Note: The order here must match the order in the HeaderLib solidity library.
-    return serializeToBuffer(this.lastArchive, this.contentCommitment, this.state, this.globalVariables);
+    return serializeToBuffer(this.lastArchive, this.blockContentCommitments, this.state, this.globalVariables);
   }
 
   toFields(): Fr[] {
     // Note: The order here must match the order in header.nr
     const serialized = [
       ...this.lastArchive.toFields(),
-      ...this.contentCommitment.toFields(),
+      ...this.blockContentCommitments.toFields(),
       ...this.state.toFields(),
       ...this.globalVariables.toFields(),
     ];
@@ -45,7 +45,7 @@ export class Header {
 
     return new Header(
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(ContentCommitment),
+      reader.readObject(BlockContentCommitments),
       reader.readObject(StateReference),
       reader.readObject(GlobalVariables),
     );
@@ -55,17 +55,17 @@ export class Header {
     const reader = FieldReader.asReader(fields);
 
     const lastArchive = new AppendOnlyTreeSnapshot(reader.readField(), Number(reader.readField().toBigInt()));
-    const contentCommitment = ContentCommitment.fromFields(reader);
+    const blockContentCommitments = BlockContentCommitments.fromFields(reader);
     const state = StateReference.fromFields(reader);
     const globalVariables = GlobalVariables.fromFields(reader);
 
-    return new Header(lastArchive, contentCommitment, state, globalVariables);
+    return new Header(lastArchive, blockContentCommitments, state, globalVariables);
   }
 
   static empty(): Header {
     return new Header(
       AppendOnlyTreeSnapshot.zero(),
-      ContentCommitment.empty(),
+      BlockContentCommitments.empty(),
       StateReference.empty(),
       GlobalVariables.empty(),
     );
@@ -74,7 +74,7 @@ export class Header {
   isEmpty(): boolean {
     return (
       this.lastArchive.isZero() &&
-      this.contentCommitment.isEmpty() &&
+      this.blockContentCommitments.isEmpty() &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty()
     );

@@ -111,7 +111,7 @@ import {
   computePublicBytecodeCommitment,
   packBytecode,
 } from '../index.js';
-import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
+import { BlockContentCommitments, NUM_BYTES_PER_SHA256 } from '../structs/block_content_commitments.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import { PrivateKernelInitCircuitPrivateInputs } from '../structs/kernel/private_kernel_init_circuit_private_inputs.js';
@@ -958,8 +958,8 @@ export function makeRootRollupPublicInputs(
 /**
  * Makes content commitment
  */
-export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(
+export function makeContentCommitment(seed = 0): BlockContentCommitments {
+  return new BlockContentCommitments(
     new Fr(seed),
     toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),

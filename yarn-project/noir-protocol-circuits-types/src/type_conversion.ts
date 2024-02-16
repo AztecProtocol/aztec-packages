@@ -6,13 +6,13 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockContentCommitments,
   CallContext,
   CallRequest,
   CallerContext,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
-  ContentCommitment,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -151,7 +151,7 @@ import {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
-  ContentCommitment as ContentCommitmentNoir,
+  BlockContentCommitments as ContentCommitmentNoir,
   Field,
   FixedLengthArray,
   GlobalVariables as GlobalVariablesNoir,
@@ -1469,7 +1469,7 @@ export function mapRootRollupPublicInputsFromNoir(
 export function mapHeaderToNoir(header: Header): HeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
-    content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
+    block_content_commitments: mapContentCommitmentToNoir(header.blockContentCommitments),
     state: mapStateReferenceToNoir(header.state),
     global_variables: mapGlobalVariablesToNoir(header.globalVariables),
   };
@@ -1483,7 +1483,7 @@ export function mapHeaderToNoir(header: Header): HeaderNoir {
 export function mapHeaderFromNoir(header: HeaderNoir): Header {
   return new Header(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
-    mapContentCommitmentFromNoir(header.content_commitment),
+    mapContentCommitmentFromNoir(header.block_content_commitments),
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
   );
@@ -1493,12 +1493,12 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
  * Maps a content commitment to Noir
  *
  */
-export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
+export function mapContentCommitmentToNoir(blockContentCommitments: BlockContentCommitments): ContentCommitmentNoir {
   return {
-    tx_tree_height: mapFieldToNoir(contentCommitment.txTreeHeight),
-    txs_hash: mapSha256HashToNoir(contentCommitment.txsHash),
-    in_hash: mapSha256HashToNoir(contentCommitment.inHash),
-    out_hash: mapSha256HashToNoir(contentCommitment.outHash),
+    tx_tree_height: mapFieldToNoir(blockContentCommitments.txTreeHeight),
+    txs_hash: mapSha256HashToNoir(blockContentCommitments.txsHash),
+    in_hash: mapSha256HashToNoir(blockContentCommitments.inHash),
+    out_hash: mapSha256HashToNoir(blockContentCommitments.outHash),
   };
 }
 
@@ -1506,12 +1506,12 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  * Maps a content commitment to Noir
  *
  */
-export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
-  return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.tx_tree_height),
-    mapSha256HashFromNoir(contentCommitment.txs_hash),
-    mapSha256HashFromNoir(contentCommitment.in_hash),
-    mapSha256HashFromNoir(contentCommitment.out_hash),
+export function mapContentCommitmentFromNoir(blockContentCommitments: ContentCommitmentNoir): BlockContentCommitments {
+  return new BlockContentCommitments(
+    mapFieldFromNoir(blockContentCommitments.tx_tree_height),
+    mapSha256HashFromNoir(blockContentCommitments.txs_hash),
+    mapSha256HashFromNoir(blockContentCommitments.in_hash),
+    mapSha256HashFromNoir(blockContentCommitments.out_hash),
   );
 }
 

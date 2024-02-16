@@ -42,7 +42,7 @@ class GlobalVariables {
     coinbase: EthAddress
     fee_recipient: Address}
 
-class ContentCommitment {
+class BlockContentCommitments {
     tx_tree_height: Fr
     txs_hash: Fr[2]
     in_hash: Fr[2]
@@ -51,12 +51,12 @@ class ContentCommitment {
 
 class Header {
     last_archive: Snapshot
-    content_commitment: ContentCommitment
+    block_content_commitments: BlockContentCommitments
     state: StateReference
     global_variables: GlobalVariables
 }
 Header *.. Body : txs_hash
-Header *-- ContentCommitment: content_commitment
+Header *-- BlockContentCommitments: block_content_commitments
 Header *-- StateReference : state
 Header *-- GlobalVariables : global_variables
 
@@ -198,7 +198,7 @@ def RootRollupCircuit(
 
     header = Header(
         last_archive = left.public_inputs.constants.last_archive,
-        content_commitment: ContentCommitment(
+        block_content_commitments: BlockContentCommitments(
             tx_tree_height = left.public_inputs.height_in_block_tree + 1,
             txs_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.txs_hash),
             in_hash = l1_to_l2_roots.sha_root,

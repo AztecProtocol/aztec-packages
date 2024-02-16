@@ -77,18 +77,25 @@ contract DecoderTest is DecoderBase {
         );
       }
 
-      // ContentCommitment
+      // BlockContentCommitments
       {
-        DecoderBase.ContentCommitment memory contentCommitment = referenceHeader.contentCommitment;
+        DecoderBase.BlockContentCommitments memory blockContentCommitments =
+          referenceHeader.blockContentCommitments;
 
         assertEq(
-          header.contentCommitment.txTreeHeight,
-          contentCommitment.txTreeHeight,
+          header.blockContentCommitments.txTreeHeight,
+          blockContentCommitments.txTreeHeight,
           "Invalid txTreeSize"
         );
-        assertEq(header.contentCommitment.txsHash, contentCommitment.txsHash, "Invalid txsHash");
-        assertEq(header.contentCommitment.inHash, contentCommitment.inHash, "Invalid inHash");
-        assertEq(header.contentCommitment.outHash, contentCommitment.outHash, "Invalid outHash");
+        assertEq(
+          header.blockContentCommitments.txsHash, blockContentCommitments.txsHash, "Invalid txsHash"
+        );
+        assertEq(
+          header.blockContentCommitments.inHash, blockContentCommitments.inHash, "Invalid inHash"
+        );
+        assertEq(
+          header.blockContentCommitments.outHash, blockContentCommitments.outHash, "Invalid outHash"
+        );
       }
 
       // StateReference

@@ -247,7 +247,7 @@ PrivateKernelInnerCircuitPublicInputs {
   },
   "constants": CombinedConstantData {
     "historicalHeader": Header {
-      "contentCommitment": ContentCommitment {
+      "blockContentCommitments": BlockContentCommitments {
         "inHash": {
           "data": [
             0,
@@ -32450,7 +32450,7 @@ PrivateKernelTailCircuitPublicInputs {
   },
   "constants": CombinedConstantData {
     "historicalHeader": Header {
-      "contentCommitment": ContentCommitment {
+      "blockContentCommitments": BlockContentCommitments {
         "inHash": {
           "data": [
             0,

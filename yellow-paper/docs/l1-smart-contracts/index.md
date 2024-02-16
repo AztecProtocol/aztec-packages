@@ -25,15 +25,15 @@ def process(block: ProvenBlock, proof: Proof):
     block_number = header.global_variables.block_number
 
     # Ensure that the body is available
-    assert block.body.compute_commitment() == header.content_commitment
+    assert block.body.compute_commitment() == header.block_content_commitments
 
     assert self.archive == header.last_archive
     assert proof.verify(header, block.archive)
     assert self.inbox.consume() == header.in_hash
     assert self.outbox.insert(
         block_number, 
-        header.content_commitment.out_hash, 
-        header.content_commitment.tx_tree_height
+        header.block_content_commitments.out_hash, 
+        header.block_content_commitments.tx_tree_height
     )
     self.archive = block.archive
 
@@ -119,8 +119,8 @@ class StateTransitioner:
         assert self.INBOX.consume() == header.in_hash
         assert self.OUTBOX.insert(
             block_number, 
-            header.content_commitment.out_hash, 
-            header.content_commitment.tx_tree_height
+            header.block_content_commitments.out_hash, 
+            header.block_content_commitments.tx_tree_height
         )
         self.archive = block.archive
         emit BlockProcessed(block_number)

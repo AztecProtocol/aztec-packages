@@ -7,12 +7,8 @@ mod read_requests;
 use crate::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
     address::{AztecAddress, EthAddress}, constants::NUM_FIELDS_PER_SHA256,
-    grumpkin_point::GrumpkinPoint, 
-    content_commitment::ContentCommitment, 
-    header::Header, 
-    partial_state_reference::PartialStateReference,
-    state_reference::StateReference, 
-    tests::fixtures
+    grumpkin_point::GrumpkinPoint, block_content_commitments::BlockContentCommitments, header::Header,
+    partial_state_reference::PartialStateReference, state_reference::StateReference, tests::fixtures
 };
 
 global MSG_SENDER = AztecAddress { inner: 27 };
@@ -35,13 +31,13 @@ fn empty_aztec_address() -> AztecAddress {
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
-fn empty_content_commitment() -> ContentCommitment {
-    ContentCommitment::empty()
+fn empty_content_commitment() -> BlockContentCommitments {
+    BlockContentCommitments::empty()
 }
 
 global HEADER = Header {
     last_archive: empty_append_only_tree(),
-    content_commitment: empty_content_commitment(),
+    block_content_commitments: empty_content_commitment(),
     state: StateReference {
         l1_to_l2_message_tree: empty_append_only_tree(),
         partial: PartialStateReference {

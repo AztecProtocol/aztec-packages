@@ -74,20 +74,13 @@ src/core/messagebridge/Inbox.sol#L45-L91
 
 
  - [ ] ID-7
-Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L110-L112):
-	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L111)
-
-src/core/libraries/decoders/MessagesDecoder.sol#L110-L112
-
-
- - [ ] ID-8
 Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L145-L189):
 	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
 	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
-	bytes => bytes32 casting occurs in [header.contentCommitment.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L158)
-	bytes => bytes32 casting occurs in [header.contentCommitment.txsHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L159)
-	bytes => bytes32 casting occurs in [header.contentCommitment.inHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L160)
-	bytes => bytes32 casting occurs in [header.contentCommitment.outHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L161)
+	bytes => bytes32 casting occurs in [header.blockContentCommitments.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L158)
+	bytes => bytes32 casting occurs in [header.blockContentCommitments.txsHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L159)
+	bytes => bytes32 casting occurs in [header.blockContentCommitments.inHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L160)
+	bytes => bytes32 casting occurs in [header.blockContentCommitments.outHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L161)
 	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L164-L166)
 	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L164-L166)
 	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L167-L169)
@@ -106,6 +99,13 @@ Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L
 	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L186)
 
 src/core/libraries/HeaderLib.sol#L145-L189
+
+
+ - [ ] ID-8
+Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L110-L112):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L111)
+
+src/core/libraries/decoders/MessagesDecoder.sol#L110-L112
 
 
  - [ ] ID-9

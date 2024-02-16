@@ -268,11 +268,11 @@ describe('L1Publisher integration', () => {
         body: `0x${block.bodyToBuffer().toString('hex')}`,
         calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
-          contentCommitment: {
-            inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
-            outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
-            txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
-            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+          blockContentCommitments: {
+            inHash: `0x${block.header.blockContentCommitments.inHash.toString('hex').padStart(64, '0')}`,
+            outHash: `0x${block.header.blockContentCommitments.outHash.toString('hex').padStart(64, '0')}`,
+            txTreeHeight: Number(block.header.blockContentCommitments.txTreeHeight.toBigInt()),
+            txsHash: `0x${block.header.blockContentCommitments.txsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,

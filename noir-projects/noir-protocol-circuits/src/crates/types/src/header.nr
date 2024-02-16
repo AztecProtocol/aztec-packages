@@ -1,18 +1,20 @@
 use crate::{
     abis::{
-        append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
-        global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
-    },
-    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, NUM_FIELDS_PER_SHA256, STATE_REFERENCE_LENGTH, CONTENT_COMMITMENT_LENGTH},
+    append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
+    global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
+},
+    constants::{
+    GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, NUM_FIELDS_PER_SHA256, STATE_REFERENCE_LENGTH,
+    BLOCK_CONTENT_COMMITMENTS_LENGTH
+},
     hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
-    utils::{arr_copy_slice},
-    content_commitment::ContentCommitment
+    utils::{arr_copy_slice}, block_content_commitments::BlockContentCommitments
 };
 
 // docs:start:header
 struct Header {
     last_archive: AppendOnlyTreeSnapshot,
-    content_commitment: ContentCommitment,
+    block_content_commitments: BlockContentCommitments,
     state: StateReference,
     global_variables: GlobalVariables,
 }
@@ -21,7 +23,7 @@ struct Header {
 impl Eq for Header {
     fn eq(self, other: Self) -> bool {
         self.last_archive.eq(other.last_archive) &
-        self.content_commitment.eq(other.content_commitment) &
+        self.block_content_commitments.eq(other.block_content_commitments) &
         self.state.eq(other.state) &
         self.global_variables.eq(other.global_variables)
     }
@@ -32,7 +34,7 @@ impl Serialize<HEADER_LENGTH> for Header {
         let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new(0);
 
         fields.extend_from_array(self.last_archive.serialize());
-        fields.extend_from_array(self.content_commitment.serialize());
+        fields.extend_from_array(self.block_content_commitments.serialize());
         fields.extend_from_array(self.state.serialize());
         fields.extend_from_array(self.global_variables.serialize());
 
@@ -47,8 +49,8 @@ impl Deserialize<HEADER_LENGTH> for Header {
         let last_archive_fields = arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
         offset = offset + APPEND_ONLY_TREE_SNAPSHOT_LENGTH;
 
-        let content_commitment_fields = arr_copy_slice(serialized, [0; CONTENT_COMMITMENT_LENGTH], offset);
-        offset = offset + CONTENT_COMMITMENT_LENGTH;
+        let content_commitment_fields = arr_copy_slice(serialized, [0; BLOCK_CONTENT_COMMITMENTS_LENGTH], offset);
+        offset = offset + BLOCK_CONTENT_COMMITMENTS_LENGTH;
 
         let state_fields = arr_copy_slice(serialized, [0; STATE_REFERENCE_LENGTH], offset);
         offset = offset + STATE_REFERENCE_LENGTH;
@@ -57,7 +59,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
 
         Header {
             last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
-            content_commitment: ContentCommitment::deserialize(content_commitment_fields),
+            block_content_commitments: BlockContentCommitments::deserialize(content_commitment_fields),
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
         }
@@ -68,7 +70,7 @@ impl Empty for Header {
     fn empty() -> Self {
         Self {
             last_archive: AppendOnlyTreeSnapshot::zero(),
-            content_commitment: ContentCommitment::empty(),
+            block_content_commitments: BlockContentCommitments::empty(),
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
         }

@@ -17,7 +17,7 @@ mod hash;
 mod traits;
 mod type_serialization;
 
-mod content_commitment;
+mod block_content_commitments;
 mod header;
 
 mod interop_testing;

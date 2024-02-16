@@ -24,7 +24,7 @@ import {Hash} from "./Hash.sol";
  *  |                                                                                  |              | Header {
  *  | 0x0000                                                                           | 0x20         |   lastArchive.root
  *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
- *  |                                                                                  |              |   ContentCommitment {
+ *  |                                                                                  |              |   BlockContentCommitments {
  *  | 0x0024                                                                           | 0x20         |     txTreeHeight
  *  | 0x0044                                                                           | 0x20         |     txsHash
  *  | 0x0064                                                                           | 0x20         |     inHash
@@ -82,7 +82,7 @@ library HeaderLib {
     bytes32 feeRecipient;
   }
 
-  struct ContentCommitment {
+  struct BlockContentCommitments {
     uint256 txTreeHeight;
     bytes32 txsHash;
     bytes32 inHash;
@@ -91,7 +91,7 @@ library HeaderLib {
 
   struct Header {
     AppendOnlyTreeSnapshot lastArchive;
-    ContentCommitment contentCommitment;
+    BlockContentCommitments blockContentCommitments;
     StateReference stateReference;
     GlobalVariables globalVariables;
   }
@@ -154,11 +154,11 @@ library HeaderLib {
       bytes32(_header[0x0000:0x0020]), uint32(bytes4(_header[0x0020:0x0024]))
     );
 
-    // Reading ContentCommitment
-    header.contentCommitment.txTreeHeight = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.txsHash = bytes32(_header[0x0044:0x0064]);
-    header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
-    header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
+    // Reading BlockContentCommitments
+    header.blockContentCommitments.txTreeHeight = uint256(bytes32(_header[0x0024:0x0044]));
+    header.blockContentCommitments.txsHash = bytes32(_header[0x0044:0x0064]);
+    header.blockContentCommitments.inHash = bytes32(_header[0x0064:0x0084]);
+    header.blockContentCommitments.outHash = bytes32(_header[0x0084:0x00a4]);
 
     // Reading StateReference
     header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(

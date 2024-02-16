@@ -1,11 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, from2Fields, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
 
-import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
+import { BLOCK_CONTENT_COMMITMENTS_LENGTH } from '../constants.gen.js';
 
 export const NUM_BYTES_PER_SHA256 = 32;
 
-export class ContentCommitment {
+export class BlockContentCommitments {
   constructor(public txTreeHeight: Fr, public txsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
     if (txsHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`txsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
@@ -29,16 +29,16 @@ export class ContentCommitment {
       ...to2Fields(this.inHash),
       ...to2Fields(this.outHash),
     ];
-    if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
+    if (serialized.length !== BLOCK_CONTENT_COMMITMENTS_LENGTH) {
       throw new Error(`Expected content commitment to have 4 fields, but it has ${serialized.length} fields`);
     }
     return serialized;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): ContentCommitment {
+  static fromBuffer(buffer: Buffer | BufferReader): BlockContentCommitments {
     const reader = BufferReader.asReader(buffer);
 
-    return new ContentCommitment(
+    return new BlockContentCommitments(
       reader.readObject(Fr),
       reader.readBytes(NUM_BYTES_PER_SHA256),
       reader.readBytes(NUM_BYTES_PER_SHA256),
@@ -46,9 +46,9 @@ export class ContentCommitment {
     );
   }
 
-  static fromFields(fields: Fr[] | FieldReader): ContentCommitment {
+  static fromFields(fields: Fr[] | FieldReader): BlockContentCommitments {
     const reader = FieldReader.asReader(fields);
-    return new ContentCommitment(
+    return new BlockContentCommitments(
       reader.readField(),
       from2Fields(reader.readField(), reader.readField()),
       from2Fields(reader.readField(), reader.readField()),
@@ -56,8 +56,8 @@ export class ContentCommitment {
     );
   }
 
-  static empty(): ContentCommitment {
-    return new ContentCommitment(
+  static empty(): BlockContentCommitments {
+    return new BlockContentCommitments(
       Fr.zero(),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
@@ -78,8 +78,8 @@ export class ContentCommitment {
     return this.toBuffer().toString('hex');
   }
 
-  static fromString(str: string): ContentCommitment {
+  static fromString(str: string): BlockContentCommitments {
     const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
-    return ContentCommitment.fromBuffer(buffer);
+    return BlockContentCommitments.fromBuffer(buffer);
   }
 }

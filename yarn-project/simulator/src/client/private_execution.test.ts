@@ -154,7 +154,7 @@ describe('Private Execution test suite', () => {
     if (name === 'noteHash') {
       header = new Header(
         header.lastArchive,
-        header.contentCommitment,
+        header.blockContentCommitments,
         new StateReference(
           header.state.l1ToL2MessageTree,
           new PartialStateReference(
@@ -169,7 +169,7 @@ describe('Private Execution test suite', () => {
     } else {
       header = new Header(
         header.lastArchive,
-        header.contentCommitment,
+        header.blockContentCommitments,
         new StateReference(newSnap, header.state.partial),
         header.globalVariables,
       );
