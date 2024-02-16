@@ -2,7 +2,7 @@ use crate::mocked::{Proof, VerificationKey};
 use crate::constants::VK_TREE_HEIGHT;
 use crate::abis::kernel_circuit_public_inputs::{
     PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
-    PublicKernelCircuitPublicInputs
+    PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
 };
 
 struct PrivateKernelInnerData {
@@ -37,6 +37,14 @@ struct PrivateKernelTailData {
 
 struct PublicKernelData {
     public_inputs : PublicKernelCircuitPublicInputs,
+    proof : Proof,
+    vk : VerificationKey,
+    vk_index : u32,
+    vk_path : [Field; VK_TREE_HEIGHT],
+}
+
+struct RollupKernelData {
+    public_inputs : RollupKernelCircuitPublicInputs,
     proof : Proof,
     vk : VerificationKey,
     vk_index : u32,
