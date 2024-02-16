@@ -66,8 +66,8 @@ std::shared_ptr<typename Flavor::ProvingKey> ExecutionTrace_<Flavor>::generate_p
 }
 
 template <class Flavor>
-ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::generate_trace_polynomials(Builder& builder,
-                                                                                       size_t dyadic_circuit_size)
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::generate_trace_polynomials(
+    Builder& builder, size_t dyadic_circuit_size)
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
 
