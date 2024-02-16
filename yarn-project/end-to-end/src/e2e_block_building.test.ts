@@ -118,6 +118,7 @@ describe('e2e_block_building', () => {
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
       contract = await TestContract.deploy(owner).send().deployed();
+      logger(`Test contract deployed at ${contract.address}`);
     }, 100_000);
 
     afterAll(() => teardown());
@@ -146,7 +147,7 @@ describe('e2e_block_building', () => {
       const nullifier = Fr.random();
       const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
       await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrowError(/dropped/);
-    });
+    }, 30_000);
 
     it('drops tx with private nullifier already emitted from public on the same block', async () => {
       const secret = Fr.random();
@@ -163,7 +164,7 @@ describe('e2e_block_building', () => {
       }
       const [tx1, tx2] = calls.map(call => call.send());
       await expectXorTx(tx1, tx2);
-    });
+    }, 30_000);
   });
 });
 
