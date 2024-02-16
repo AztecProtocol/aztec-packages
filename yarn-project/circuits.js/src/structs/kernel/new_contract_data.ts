@@ -39,7 +39,9 @@ export class NewContractData {
   toFields() {
     const fields = serializeToFields(...NewContractData.getFields(this));
     if (fields.length !== NEW_CONTRACT_DATA_LENGTH) {
-      throw new Error(`Invalid number of fields for NewContractData. Expected ${NEW_CONTRACT_DATA_LENGTH}, got ${fields.length}`);
+      throw new Error(
+        `Invalid number of fields for NewContractData. Expected ${NEW_CONTRACT_DATA_LENGTH}, got ${fields.length}`,
+      );
     }
     return fields;
   }
