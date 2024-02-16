@@ -14,16 +14,10 @@ describe('L2Block', () => {
     expect(recovered).toEqual(block);
   });
 
-  it('can serialize an L2 block without logs to a buffer and back', () => {
+  it('cannot serialize an L2 block without logs', () => {
     const block = L2Block.random(42, 4, 2, 3, 2, 1, false);
 
-    const serialized = block.toString();
-    const recovered = L2Block.fromString(serialized);
-
-    // TODO(#3868): encoding and decoding is currently hacked and bodyHash is not recovered yet
-    recovered.header.bodyHash = block.header.bodyHash;
-
-    expect(recovered).toEqual(block);
+    expect(() => block.toString()).toThrow('newEncryptedLogs and newUnencryptedLogs must be defined');
   });
 
   // TS equivalent of `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`

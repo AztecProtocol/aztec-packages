@@ -140,7 +140,7 @@ export class Body {
 
   public assertLogsAttached() {
     if (!this.areLogsAttached()) {
-      throw new Error(`newEncryptedLogs and newUnencryptedLogs must be defined`);
+      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined');
     }
   }
 
