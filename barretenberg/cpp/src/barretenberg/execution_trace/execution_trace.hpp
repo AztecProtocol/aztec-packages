@@ -51,7 +51,7 @@ template <class Flavor> class ExecutionTrace_ {
             Wires zero_row_wires;
             Selectors zero_row_selectors;
             for (auto& wire : zero_row_wires) {
-                wire.emplace_back(0);
+                wire.emplace_back(builder.zero_idx);
             }
             zero_row_selectors.reserve_and_zero(1);
             TraceBlock zero_block{ zero_row_wires, zero_row_selectors };
