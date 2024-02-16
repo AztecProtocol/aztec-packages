@@ -165,7 +165,7 @@ Here, we are asserting that the `msg_sender()` is equal to the admin stored in p
 
 ## compute_note_hash_and_nullifier
 
-Every Aztec contract that has storage must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error. This is explained in more detail [here](../contracts/resources/common_patterns/main.md#working-with-compute_note_hash_and_nullifier).
+Every Aztec contract that has storage must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error. This is explained in more detail [here](../contracts/writing_contracts/functions/compute_note_hash_and_nullifier.md).
 
 At the end of the contract, paste this:
 

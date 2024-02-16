@@ -193,7 +193,7 @@ Aztec transactions can pass data to Ethereum contracts through the rollup via th
 
 Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage.
 
-The `compute_note_hash_and_nullifier` function allows contract devs to specify how to compute notes and nullifiers. This must be included in every contract because it depends on the storage slots, which are defined when we set up storage.
+The `compute_note_hash_and_nullifier` function allows contract devs to specify how to compute notes and nullifiers. This must be included in every contract because it depends on the note type ID and storage slots, which are defined when we set up storage. You can learn more about storage slot and note type IDs [here](../contracts/writing_contracts/storage/storage_slots.md).
 
 ## Contract dependencies
 
@@ -439,7 +439,7 @@ A getter function for checking the public balance of the provided Aztec account.
 
 A getter function to compute the note hash and nullifier for notes in the contract's storage.
 
-This must be included in every contract because it depends on the storage slots, which are defined when we set up storage.
+This must be included in every contract because it depends on the note type IDs and storage slots, which are defined when we set up storage.
 
 #include_code compute_note_hash_and_nullifier /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 

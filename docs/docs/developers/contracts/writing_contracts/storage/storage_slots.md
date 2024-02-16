@@ -58,3 +58,10 @@ Beware that this hash computation is what the aztec.nr library is doing, and not
 With this note structure, the contract can require that only notes sitting at specific storage slots can be used by specific operations, e.g., if transferring funds from `from` to `to`, the notes to destroy should be linked to `H(map_slot, from)` and the new notes (except the change-note) should be linked to `H(map_slot, to)`.
 
 That way, we can have logical storage slots, without them really existing. This means that knowing the storage slot for a note is not enough to actually figure out what is in there (whereas it would be for looking up public state).
+
+## Note type IDs
+
+The notion of `storage slots` has helped enable a structured approach to data discovery and validation, but it does not allow a smart contract to hold multiple types of notes within one `map`. This is because notes within a `map` would get their own storage slot that is dynamically computed for each key.
+
+This has been solved with the concept of note type IDs. Each note type now has its own ID unique to its smart contract which tells the PXE how to handle it. The note type ID must be specified in the `compute_note_hash_and_nullifier()` function which you can read more about [here](../functions/compute_note_hash_and_nullifier.md).
+
