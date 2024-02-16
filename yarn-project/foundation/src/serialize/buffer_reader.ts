@@ -207,14 +207,12 @@ export class BufferReader {
    * @param deserializer - An object with a 'fromBuffer' method that takes a BufferReader instance and returns an instance of the deserialized object.
    * @returns The deserialized object of type T.
    */
-  public readObject<T>(
-    deserializer: {
-      /**
-       * A method that takes a BufferReader instance and returns an instance of the deserialized data type.
-       */
-      fromBuffer: (reader: BufferReader) => T;
-    },
-  ): T {
+  public readObject<T>(deserializer: {
+    /**
+     * A method that takes a BufferReader instance and returns an instance of the deserialized data type.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): T {
     return deserializer.fromBuffer(this);
   }
 
