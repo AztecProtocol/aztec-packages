@@ -17,7 +17,7 @@ contract PriceFeed {
     #[aztec(public)]
     fn set_price(asset_id: Field, price: Field) {
         let asset = storage.assets.at(asset_id);
-        asset.write(Asset { price });
+        asset.write(Asset { price: U128::from_integer(price) });
     }
 
     #[aztec(public)]

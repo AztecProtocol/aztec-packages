@@ -14,7 +14,7 @@ impl Serialize<ASSET_SERIALIZED_LEN> for Asset {
 
 impl Deserialize<ASSET_SERIALIZED_LEN> for Asset {
     fn deserialize(fields: [Field; ASSET_SERIALIZED_LEN]) -> Asset {
-        let price = fields[0] as w;
+        let price = U128::from_integer(fields[0]);
         Asset { price }
     }
 }

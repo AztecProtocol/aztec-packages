@@ -55,15 +55,15 @@ impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
     }
 }
 
-impl Serialize<2> for U128 {
-    fn serialize(self) -> [Field; 2] {
-        [self.lo, self.hi]
+impl Serialize<1> for U128 {
+    fn serialize(self) -> [Field; 1] {
+        [self.to_integer()]
     }
 
 }
 
-impl Deserialize<2> for U128 {
-    fn deserialize(fields: [Field; 2]) -> Self {
-        U128 {lo: fields[0], hi: fields[1]}
+impl Deserialize<1> for U128 {
+    fn deserialize(fields: [Field; 1]) -> Self {
+        U128::from_integer(fields[0])
     }
 }
