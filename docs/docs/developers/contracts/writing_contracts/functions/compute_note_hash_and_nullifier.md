@@ -31,7 +31,7 @@ If you are using custom notes or note types that come with Aztec.nr, you can cal
 
 This function takes:
 
-#include_code compute_note_hash_and_nullifier_args /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code compute_note_hash_and_nullifier_args /noir-projects/aztec-nr/aztec/src/note/utils.nr rust
 
 Here is an example from the [token contract](../../../tutorials/writing_token_contract.md):
 

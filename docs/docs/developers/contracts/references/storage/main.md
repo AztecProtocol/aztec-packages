@@ -26,7 +26,7 @@ On this and the following pages in this section, you’ll learn:
 
 Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data or note viewing key with).
 
-Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](../../../../concepts/foundation/state_model/main.md) and [private/public execution](../../../../concepts/foundation/communication/public_private_calls/main.md)) for more background.
+Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](../../../../learn/concepts/hybrid_state/main.md) and [private/public execution](../../../../learn/concepts/communication/public_private_calls/main.md)) for more background.
 
 ## Storage struct
 
@@ -45,11 +45,11 @@ struct Storage {
 No storage values should be initialized at slot `0` - storage slots begin at `1`. This is a known issue that will be fixed in the future.
 :::
 
-If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [how to implement compute_note_hash_and_nullifier()](../functions/compute_note_hash_and_nullifier.md) for more.
+If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [how to implement compute_note_hash_and_nullifier()](../../writing_contracts/functions/compute_note_hash_and_nullifier.md) for more.
 
 If you don't yet have any private state variables defined you can use this placeholder function:
 
-#include_code compute_note_hash_and_nullifier_placeholder /yarn-project/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code compute_note_hash_and_nullifier_placeholder /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 ## Map
 
@@ -59,15 +59,15 @@ A `map` is a state variable that "maps" a key to a value. It can be used with pr
 In Aztec.nr, keys are always `Field`s, or types that can be serialized as Fields, and values can be any type - even other maps. `Field`s are finite field elements, but you can think of them as integers.
 :::
 
-It includes a [`Context`](../context.mdx) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
+It includes a [`Context`](../../writing_contracts/functions/context.md) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
 
-You can view the implementation in the Aztec.nr library [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/map.nr).
+You can view the implementation in the Aztec.nr library [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr).
 
 A `map` can hold multiple different types of note types, due to note type IDs. These are identifiers for each note type that are unique within a contract.
 
 ### `new`
 
-When declaring the storage for a map, we use the `Map::new()` constructor. As seen below, this takes the `storage_slot` and the `start_var_constructor` along with the [`Context`](../context.mdx).
+When declaring the storage for a map, we use the `Map::new()` constructor. As seen below, this takes the `storage_slot` and the `start_var_constructor` along with the [`Context`](../../writing_contracts/functions/context.md).
 
 We will see examples of map constructors for public and private variables in later sections.
 
@@ -77,23 +77,17 @@ When declaring a mapping in private storage, we have to specify which type of No
 
 In the Storage struct:
 
-#include_code storage-map-singleton-declaration /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-map-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 In the `Storage::init` function:
 
-#include_code state_vars-MapSingleton /yarn-project/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code state_vars-MapSingleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 #### Public Example
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
 
-In the Storage struct:
-
-#include_code storage_minters /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
-
-In the `Storage::init` function:
-
-#include_code storage_minters_init /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code storage_minters /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### `at`
 
@@ -101,7 +95,7 @@ When dealing with a Map, we can access the value at a given key using the `::at`
 
 This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
 
-#include_code read_minter /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code read_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 Above, we are specifying that we want to get the storage in the Map `at` the `msg_sender()`, read the value stored and check that `msg_sender()` is indeed a minter. Doing a similar operation in Solidity code would look like:
 
@@ -116,6 +110,6 @@ require(minters[msg.sender], "caller is not minter");
 
 ## Concepts mentioned
 
-- [State Model](../../../../concepts/foundation/state_model/main.md)
-- [Public-private execution](../../../../concepts/foundation/communication/public_private_calls/main.md)
-- [Function Contexts](../context.mdx)
+- [State Model](../../../../learn/concepts/hybrid_state/main.md)
+- [Public-private execution](../../../../learn/concepts/communication/public_private_calls/main.md)
+- [Function Contexts](../../writing_contracts/functions/context.md)
