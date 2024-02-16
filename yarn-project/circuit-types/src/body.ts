@@ -182,10 +182,9 @@ export class Body {
     return new L2BlockL2Logs(logs);
   }
 
-  public attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
-    this.txEffects.forEach((txEffect, i) => {
-      txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencryptedLogs.txLogs[i]);
-    });
+  get numberOfTxs() {
+    // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
+    return this.txEffects.reduce((acc, txEffect) => !txEffect.newNullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc, 0);
   }
 }
 

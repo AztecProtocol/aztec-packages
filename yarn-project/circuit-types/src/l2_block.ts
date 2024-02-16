@@ -36,11 +36,6 @@ export class L2Block {
   /* Having logger static to avoid issues with comparing 2 blocks */
   private static logger = createDebugLogger('aztec:l2_block');
 
-  /**
-   * The number of L2Tx in this L2Block not including padded txs
-   */
-  public numberOfTxs: number;
-
   #l1BlockNumber?: bigint;
 
   constructor(
@@ -53,9 +48,6 @@ export class L2Block {
     /** Associated L1 block num */
     l1BlockNumber?: bigint,
   ) {
-    const newNullifiers = body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
-
-    this.numberOfTxs = calculateNumTxsFromNullifiers(newNullifiers);
     this.#l1BlockNumber = l1BlockNumber;
   }
 
@@ -123,33 +115,6 @@ export class L2Block {
    */
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);
-  }
-
-  /**
-   * Helper function to attach logs related to a block.
-   * @param logs - The logs to be attached to a block.
-   * @param logType - The type of logs to be attached.
-   * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
-   */
-  attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
-    if (
-      new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
-      new L2BlockL2Logs(unencryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
-    ) {
-      throw new Error('Logs exist in the padded area');
-    }
-
-    if (this.body.areLogsAttached()) {
-      if (this.body.areLogsEqual(encryptedLogs, unencryptedLogs)) {
-        L2Block.logger(`Logs already attached`);
-
-        return;
-      }
-
-      throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
-    }
-
-    this.body.attachLogs(encryptedLogs, unencryptedLogs);
   }
 
   /**
@@ -357,7 +322,7 @@ export class L2Block {
    * @returns The tx.
    */
   getTxs() {
-    return Array(this.numberOfTxs)
+    return Array(this.body.numberOfTxs)
       .fill(0)
       .map((_, i) => this.getTx(i));
   }
@@ -387,32 +352,21 @@ export class L2Block {
     };
 
     return {
-      txCount: this.numberOfTxs,
+      txCount: this.body.numberOfTxs,
       blockNumber: this.number,
       ...logsStats,
     };
   }
 
   assertIndexInRange(txIndex: number) {
-    if (txIndex < 0 || txIndex >= this.numberOfTxs) {
+    if (txIndex < 0 || txIndex >= this.body.numberOfTxs) {
       throw new IndexOutOfRangeError({
         txIndex,
-        numberOfTxs: this.numberOfTxs,
+        numberOfTxs: this.body.numberOfTxs,
         blockNumber: this.number,
       });
     }
   }
-}
-
-function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {
-  let numberOfNonEmptyTxs = 0;
-  for (let i = 0; i < nullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
-    if (!nullifiers[i].equals(Fr.ZERO)) {
-      numberOfNonEmptyTxs++;
-    }
-  }
-
-  return numberOfNonEmptyTxs;
 }
 
 /**
