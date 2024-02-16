@@ -470,8 +470,21 @@ export class Archiver implements ArchiveSource {
    * @param contractAddress - The contract data address.
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
-  public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return this.store.getContractData(contractAddress);
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return (await this.store.getContractData(contractAddress)) ?? this.makeContractDataFor(contractAddress);
+  }
+
+  /**
+   * Temporary method for creating a fake contract data out of classes and instances registered in the node.
+   * Used as a fallback if the extended contract data is not found.
+   */
+  private async makeContractDataFor(address: AztecAddress): Promise<ContractData | undefined> {
+    const instance = await this.store.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+
+    return new ContractData(address, instance.portalContractAddress);
   }
 
   /**
