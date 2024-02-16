@@ -147,6 +147,112 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
 }
 
 /**
+ * @brief Compute witness polynomials
+ *
+ */
+template <class Flavor> void ProverInstance_<Flavor>::mock_witness(size_t log2_circuit_size)
+{
+    const size_t dyadic_circuit_size = 1 << log2_circuit_size;
+    // If Goblin, construct the ECC op queue wire and databus polynomials
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        std::array<polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
+        for (auto& poly : op_wire_polynomials) {
+            poly = static_cast<polynomial>(dyadic_circuit_size);
+        }
+        proving_key->ecc_op_wire_1 = op_wire_polynomials[0].share();
+        proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
+        proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
+        proving_key->ecc_op_wire_4 = op_wire_polynomials[3].share();
+
+        polynomial public_calldata(dyadic_circuit_size);
+        polynomial calldata_read_counts(dyadic_circuit_size);
+        proving_key->calldata = public_calldata.share();
+        proving_key->calldata_read_counts = calldata_read_counts.share();
+    }
+
+    // Initialise the sorted concatenated list polynomials for the lookup argument
+    for (auto& s_i : sorted_polynomials) {
+        s_i = Polynomial(dyadic_circuit_size);
+    }
+
+    //     // The sorted list polynomials have (tables_size + lookups_size) populated entries. We define the index below
+    //     so
+    //     // that these entries are written into the last indices of the polynomials. The values on the first
+    //     // dyadic_circuit_size - (tables_size + lookups_size) indices are automatically initialized to zero via the
+    //     // polynomial constructor.
+    //     size_t s_index = dyadic_circuit_size - tables_size - lookups_size;
+    //     ASSERT(s_index > 0); // We need at least 1 row of zeroes for the permutation argument
+
+    //     for (auto& table : circuit.lookup_tables) {
+    //         const fr table_index(table.table_index);
+    //         auto& lookup_gates = table.lookup_gates;
+    //         for (size_t i = 0; i < table.size; ++i) {
+    //             if (table.use_twin_keys) {
+    //                 lookup_gates.push_back({
+    //                     {
+    //                         table.column_1[i].from_montgomery_form().data[0],
+    //                         table.column_2[i].from_montgomery_form().data[0],
+    //                     },
+    //                     {
+    //                         table.column_3[i],
+    //                         0,
+    //                     },
+    //                 });
+    //             } else {
+    //                 lookup_gates.push_back({
+    //                     {
+    //                         table.column_1[i].from_montgomery_form().data[0],
+    //                         0,
+    //                     },
+    //                     {
+    //                         table.column_2[i],
+    //                         table.column_3[i],
+    //                     },
+    //                 });
+    //             }
+    //         }
+
+    // #ifdef NO_TBB
+    //         std::sort(lookup_gates.begin(), lookup_gates.end());
+    // #else
+    //         std::sort(std::execution::par_unseq, lookup_gates.begin(), lookup_gates.end());
+    // #endif
+
+    //         for (const auto& entry : lookup_gates) {
+    //             const auto components = entry.to_sorted_list_components(table.use_twin_keys);
+    //             sorted_polynomials[0][s_index] = components[0];
+    //             sorted_polynomials[1][s_index] = components[1];
+    //             sorted_polynomials[2][s_index] = components[2];
+    //             sorted_polynomials[3][s_index] = table_index;
+    //             ++s_index;
+    //         }
+    //     }
+
+    //     // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
+    //     // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire
+    //     // polynomials have been committed to. The 4th wire on these gates will be a random linear combination of the
+    //     // first 3 wires, using the plookup challenge `eta`. We need to update the records with an offset Because we
+    //     // shift the gates to account for everything that comes before them in the execution trace, e.g. public
+    //     inputs,
+    //     // a zero row, etc.
+    //     size_t offset = num_ecc_op_gates + num_public_inputs + num_zero_rows;
+    //     auto add_public_inputs_offset = [offset](uint32_t gate_index) { return gate_index + offset; };
+    //     proving_key->memory_read_records = std::vector<uint32_t>();
+    //     proving_key->memory_write_records = std::vector<uint32_t>();
+
+    //     std::transform(circuit.memory_read_records.begin(),
+    //                    circuit.memory_read_records.end(),
+    //                    std::back_inserter(proving_key->memory_read_records),
+    //                    add_public_inputs_offset);
+    //     std::transform(circuit.memory_write_records.begin(),
+    //                    circuit.memory_write_records.end(),
+    //                    std::back_inserter(proving_key->memory_write_records),
+    //                    add_public_inputs_offset);
+
+    //     computed_witness = true;
+}
+
+/**
  * @brief Construct Goblin style ECC op wire polynomials
  * @details The Ecc op wire values are assumed to have already been stored in the corresponding block of the
  * conventional wire polynomials. The values for the ecc op wire polynomials are set based on those values.
@@ -266,6 +372,80 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
         std::vector<uint32_t>(recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
 
     proving_key->contains_recursive_proof = contains_recursive_proof;
+
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        proving_key->num_ecc_op_gates = num_ecc_op_gates;
+        // Construct simple ID polynomial for databus indexing
+        typename Flavor::Polynomial databus_id(proving_key->circuit_size);
+        for (size_t i = 0; i < databus_id.size(); ++i) {
+            databus_id[i] = i;
+        }
+        proving_key->databus_id = databus_id.share();
+    }
+
+    return proving_key;
+}
+
+template <class Flavor>
+std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::mock_proving_key(size_t log2_circuit_size,
+                                                                                       size_t num_public_inputs)
+{
+    const size_t dyadic_circuit_size = 1 << log2_circuit_size;
+    proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
+
+    // construct_selector_polynomials<Flavor>(circuit, proving_key.get());
+
+    // compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
+
+    // compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
+
+    // polynomial poly_q_table_column_1(dyadic_circuit_size);
+    // polynomial poly_q_table_column_2(dyadic_circuit_size);
+    // polynomial poly_q_table_column_3(dyadic_circuit_size);
+    // polynomial poly_q_table_column_4(dyadic_circuit_size);
+
+    // size_t offset = dyadic_circuit_size - tables_size;
+
+    // // Create lookup selector polynomials which interpolate each table column.
+    // // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
+    // // put the table column's values at the end. (The first gates are for non-lookup constraints).
+    // // [0, ..., 0, ...table, 0, 0, 0, x]
+    // //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
+    // //  |          table     randomness
+    // //  ignored, as used for regular constraints and padding to the next power of 2.
+
+    // for (size_t i = 0; i < offset; ++i) {
+    //     poly_q_table_column_1[i] = 0;
+    //     poly_q_table_column_2[i] = 0;
+    //     poly_q_table_column_3[i] = 0;
+    //     poly_q_table_column_4[i] = 0;
+    // }
+
+    // for (const auto& table : circuit.lookup_tables) {
+    //     const fr table_index(table.table_index);
+
+    //     for (size_t i = 0; i < table.size; ++i) {
+    //         poly_q_table_column_1[offset] = table.column_1[i];
+    //         poly_q_table_column_2[offset] = table.column_2[i];
+    //         poly_q_table_column_3[offset] = table.column_3[i];
+    //         poly_q_table_column_4[offset] = table_index;
+    //         ++offset;
+    //     }
+    // }
+
+    // // Polynomial memory is zeroed out when constructed with size hint, so we don't have to initialize trailing
+    // // space
+
+    // proving_key->table_1 = poly_q_table_column_1.share();
+    // proving_key->table_2 = poly_q_table_column_2.share();
+    // proving_key->table_3 = poly_q_table_column_3.share();
+    // proving_key->table_4 = poly_q_table_column_4.share();
+
+    // proving_key->recursive_proof_public_input_indices =
+    //     std::vector<uint32_t>(recursive_proof_public_input_indices.begin(),
+    //     recursive_proof_public_input_indices.end());
+
+    // proving_key->contains_recursive_proof = contains_recursive_proof;
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         proving_key->num_ecc_op_gates = num_ecc_op_gates;

@@ -147,7 +147,7 @@ void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Insta
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
 {
     auto idx = 0;
-    auto instance = instances[0];
+    std::shared_ptr<Instance> instance = instances[0];
     auto domain_separator = std::to_string(idx);
     transcript->send_to_verifier(domain_separator + "is_accumulator", instance->is_accumulator);
     if (instance->is_accumulator) {

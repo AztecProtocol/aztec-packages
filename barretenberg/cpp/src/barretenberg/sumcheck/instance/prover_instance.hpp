@@ -60,9 +60,14 @@ template <class Flavor> class ProverInstance_ {
 
     ProverInstance_(Circuit& circuit)
     {
-        compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
+    }
+
+    ProverInstance_(size_t log2_circuit_size, size_t num_pub_inputs)
+    {
+        mock_proving_key(log2_circuit_size, num_pub_inputs);
+        mock_witness(log2_circuit_size);
     }
 
     ProverInstance_() = default;
@@ -92,10 +97,13 @@ template <class Flavor> class ProverInstance_ {
     size_t num_ecc_op_gates = 0;
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
+    std::shared_ptr<ProvingKey> mock_proving_key(size_t, size_t);
 
     void compute_circuit_size_parameters(Circuit&);
 
     void compute_witness(Circuit&);
+
+    void mock_witness(size_t);
 
     void construct_ecc_op_wire_polynomials(auto&);
 
