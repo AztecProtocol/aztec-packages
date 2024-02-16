@@ -149,7 +149,24 @@ Any lookup into calldata from a request's initial contract call must retrieve a 
 **TODO**
 
 ## Chiplets
-**TODO**
+
+A chiplet is a component dedicating to perform specialized sub-operations sharing some commonalities. Each chiplet consists of a specific table being part of the AVM circuit, i.e., specific columns with relations solely acting on them form the chiplet. The main rationale is to offload specialized computations outside of the **operations trace** (instruction controller) which might require more than a single row and/or additional dedicated columns. In addition, this approach offers modularity as chiplets are very independent components.
+
+The interaction between a chiplet and the instruction controller follows the following pattern:
+
+1. The **inputs** of a chiplet sub-operation are loaded to the respective intermediate registers (usually $I_a$, $I_b$).
+2. The dedicated chiplet fetches/copies the content of the intermediate registers from the **operations trace** in its own table and executes the operation.
+3. The output of the operation is copied back to the **operations trace** in a specific register (usually $I_c$). This register is usually involved in a write memory sub-operation.
+
+In addition to the mentioned inputs and output, some other relevant information such as the instruction tag might be copied as well to the chiplet.
+
+In the circuit, the transmission of the input/output between the **chiplet trace** and the **operations trace** are performed through lookup or permutation constraints, i.e., they ensure that all relevant intermediate registers have the same values between both traces. The unique key of this mapping is `CLK` which is basically used as a "DB foreign key" from the **chiplet trace** pointing to corresponding entry in the **operations trace**.
+
+The planned chiplets for the AVM are:
+
+- **ALU**: Arithmetic and bitwise operations such as addition, multiplication, XOR, etc...
+- **Type Converter**: Dedicated to casting words between different types and/or type constraints.
+- **Complex Operations:** Cryptographic relevant operations or other computationally intensive gadgets. Potentially comprised of several chiplets (TBD).
 
 ## Circuit I/O
 ### How do "Public Inputs" work in the AVM circuit?
