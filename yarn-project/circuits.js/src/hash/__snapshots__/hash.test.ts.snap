@@ -4,47 +4,6 @@ exports[`hash Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781ded
 
 exports[`hash Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed"`;
 
-<<<<<<< HEAD
-<<<<<<< HEAD:yarn-project/circuits.js/src/abis/__snapshots__/abis.test.ts.snap
-<<<<<<< HEAD
-exports[`abis compute public call stack item hash 1`] = `
-Fr {
-  "asBigInt": 3788195771499507733306466132608199294191940083079612913177087023829747913637n,
-  "asBuffer": {
-    "data": [
-      8,
-      96,
-      10,
-      246,
-      142,
-      121,
-      113,
-      30,
-      158,
-      45,
-      35,
-      114,
-      228,
-      214,
-      105,
-      72,
-      47,
-      39,
-      76,
-      24,
-      152,
-      148,
-      96,
-      11,
-      252,
-      50,
-      99,
-      23,
-      59,
-      226,
-      83,
-      165,
-=======
 exports[`hash Var args hash matches noir 1`] = `
 Fr {
   "asBigInt": 1557627899280963684159398665725097926236612957540256425197580046184563077271n,
@@ -82,22 +41,13 @@ Fr {
       199,
       240,
       151,
->>>>>>> 99a100c26 (coupling tests)
     ],
     "type": "Buffer",
   },
 }
 `;
 
-<<<<<<< HEAD
-=======
->>>>>>> 883538d56 (NewContractData)
-exports[`abis compute secret message hash 1`] = `
-=======
-=======
->>>>>>> 99a100c26 (coupling tests)
 exports[`hash compute secret message hash 1`] = `
->>>>>>> 6b2ea1af0 (renamed abis.ts as hash.ts):yarn-project/circuits.js/src/hash/__snapshots__/hash.test.ts.snap
 Fr {
   "asBigInt": 6220068662483113241527007349428551778669520744131373768997518428761948042030n,
   "asBuffer": {
