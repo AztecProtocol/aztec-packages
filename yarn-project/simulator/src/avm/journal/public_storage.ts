@@ -63,8 +63,12 @@ export class PublicStorage {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public write(storageAddress: Fr, key: Fr, value: Fr) {
-    this.cache.write(storageAddress, key, value);
+  public write(storageAddress: Fr, key: Fr, values: Fr[]) {
+    for (const [index, value] of Object.entries(values)) {
+      // TODO: yuck
+      const adjustedIndex = key.add(new Fr(BigInt(index)));
+      this.cache.write(storageAddress, adjustedIndex, value);
+    }
   }
 
   /**

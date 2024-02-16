@@ -1,6 +1,7 @@
 contract AvmTest {
     // Libs
     use dep::aztec::protocol_types::address::{AztecAddress, EthAddress};
+    use dep::aztec::state_vars::public_state::PublicState;
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
@@ -8,7 +9,21 @@ contract AvmTest {
     #[aztec(private)]
     fn constructor() {}
 
-    // Public-vm macro will prefix avm to the function name for transpilation
+    struct Storage {
+        owner: PublicState<AztecAddress>
+    }
+
+    #[aztec(public-vm)]
+    fn setAdmin() {
+        storage.owner.write(context.sender());
+    }
+
+    #[aztec(public-vm)]
+    fn setAndRead() -> pub AztecAddress {
+        storage.owner.write(context.sender());
+        storage.owner.read()
+    }
+
     #[aztec(public-vm)]
     fn addArgsReturn(argA: Field, argB: Field) -> pub Field {
         argA + argB

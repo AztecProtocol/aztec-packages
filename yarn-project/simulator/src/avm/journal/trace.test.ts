@@ -35,14 +35,14 @@ describe('world state access trace', () => {
     const commitment = new Fr(10);
     const commitmentT1 = new Fr(20);
 
-    trace.tracePublicStorageWrite(contractAddress, slot, value);
+    trace.tracePublicStorageWrite(contractAddress, slot, [value]);
     trace.tracePublicStorageRead(contractAddress, slot, value);
     trace.traceNewNoteHash(contractAddress, commitment);
     trace.traceNewNullifier(contractAddress, commitment);
     expect(trace.getAccessCounter()).toEqual(4);
 
     const childTrace = new WorldStateAccessTrace(trace);
-    childTrace.tracePublicStorageWrite(contractAddress, slot, valueT1);
+    childTrace.tracePublicStorageWrite(contractAddress, slot, [valueT1]);
     childTrace.tracePublicStorageRead(contractAddress, slot, valueT1);
     childTrace.traceNewNoteHash(contractAddress, commitmentT1);
     childTrace.traceNewNullifier(contractAddress, commitmentT1);

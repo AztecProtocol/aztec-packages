@@ -43,7 +43,7 @@ export class WorldStateAccessTrace {
     this.incrementAccessCounter();
   }
 
-  public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, values: Fr[]) {
     // TODO: check if some threshold is reached for max storage writes
     // (need access to parent length, or trace needs to be initialized with parent's contents)
     //const traced: TracedPublicStorageWrite = {
@@ -55,8 +55,14 @@ export class WorldStateAccessTrace {
     //  endLifetime: Fr.ZERO,
     //};
     //this.publicStorageWrites.push(traced);
-    this.journalWrite(storageAddress, slot, value);
-    this.incrementAccessCounter();
+
+    for (const [index, value] of Object.entries(values)) {
+      // TODO: yuck
+      const adjustedSlot = slot.add(new Fr(BigInt(index)));
+
+      this.journalWrite(storageAddress, adjustedSlot, value);
+      this.incrementAccessCounter();
+    }
   }
 
   public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {

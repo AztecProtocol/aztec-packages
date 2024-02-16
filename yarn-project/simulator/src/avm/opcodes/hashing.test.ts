@@ -80,7 +80,7 @@ describe('Hashing Opcodes', () => {
       await new Poseidon2(indirect, dstOffset, hashOffset, args.length).execute(context);
 
       const result = context.machineState.memory.get(dstOffset);
-      expect(result).toEqual(new Field(toBigIntBE(expectedHash)));
+      expect(result).toEqual(new Field(expectedHash));
     });
   });
 
@@ -280,7 +280,7 @@ describe('Hashing Opcodes', () => {
       await new Pedersen(indirect, dstOffset, hashOffset, args.length).execute(context);
 
       const result = context.machineState.memory.get(dstOffset);
-      expect(result).toEqual(new Field(toBigIntBE(expectedHash)));
+      expect(result).toEqual(new Field(expectedHash));
     });
   });
 });
