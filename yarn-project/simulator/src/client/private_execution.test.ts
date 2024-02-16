@@ -876,7 +876,7 @@ describe('Private Execution test suite', () => {
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: parentAddress,
-          portalContractAddress: EthAddress.random(),
+          portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isContractDeployment: false,
           isDelegateCall: false,
