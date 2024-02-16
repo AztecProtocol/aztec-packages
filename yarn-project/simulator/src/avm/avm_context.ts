@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import { AvmWorldStateJournal } from './journal/journal.js';
+import { AvmPersistableState } from './journal/journal.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM
@@ -18,7 +18,7 @@ export class AvmContext {
    * @returns new AvmContext instance
    */
   constructor(
-    public worldState: AvmWorldStateJournal,
+    public worldState: AvmPersistableState,
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
   ) {}

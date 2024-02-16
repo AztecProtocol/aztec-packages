@@ -6,16 +6,16 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { AvmPersistableState } from '../journal/journal.js';
 import { SLoad, SStore, StaticCallStorageAlterError } from './storage.js';
 
 describe('Storage Instructions', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmWorldStateJournal>;
+  let journal: MockProxy<AvmPersistableState>;
   const address = AztecAddress.random();
 
   beforeEach(async () => {
-    journal = mock<AvmWorldStateJournal>();
+    journal = mock<AvmPersistableState>();
     context = initContext({ worldState: journal, env: initExecutionEnvironment({ address, storageAddress: address }) });
   });
 
@@ -42,7 +42,7 @@ describe('Storage Instructions', () => {
 
       await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
 
-      expect(journal.writeStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
+      expect(journal.writePublicStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
     });
 
     it('Should not be able to write to storage in a static call', async () => {
@@ -79,7 +79,7 @@ describe('Storage Instructions', () => {
     it('Sload should Read into storage', async () => {
       // Mock response
       const expectedResult = new Fr(1n);
-      journal.readStorage.mockReturnValueOnce(Promise.resolve(expectedResult));
+      journal.readPublicStorage.mockReturnValueOnce(Promise.resolve(expectedResult));
 
       const a = new Field(1n);
       const b = new Field(2n);
@@ -89,7 +89,7 @@ describe('Storage Instructions', () => {
 
       await new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
 
-      expect(journal.readStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()));
+      expect(journal.readPublicStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()));
 
       const actual = context.machineState.memory.get(1);
       expect(actual).toEqual(new Field(expectedResult));

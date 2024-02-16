@@ -9,7 +9,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
+import { ContractsDataSourcePublicDB, NullifiersDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
 import { FeePreparationPhaseManager } from './fee_preparation_phase_manager.js';
@@ -41,7 +41,8 @@ export class PublicProcessorFactory {
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
-    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, historicalHeader);
+    const nullifierDB = new NullifiersDB(this.merkleTree);
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, nullifierDB, historicalHeader);
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,

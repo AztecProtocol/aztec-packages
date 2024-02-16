@@ -36,7 +36,8 @@ export class SStore extends BaseStorageInstruction {
     const slot = context.machineState.memory.get(this.aOffset);
     const data = context.machineState.memory.get(this.bOffset);
 
-    context.worldState.writeStorage(
+    context.worldState.writePublicStorage(
+      /*callPointer=*/Fr.ZERO,
       context.environment.storageAddress,
       new Fr(slot.toBigInt()),
       new Fr(data.toBigInt()),
@@ -57,7 +58,10 @@ export class SLoad extends BaseStorageInstruction {
   async execute(context: AvmContext): Promise<void> {
     const slot = context.machineState.memory.get(this.aOffset);
 
-    const data: Fr = await context.worldState.readStorage(context.environment.storageAddress, new Fr(slot.toBigInt()));
+    const data: Fr = await context.worldState.readPublicStorage(
+      /*callPointer=*/Fr.ZERO,
+      context.environment.storageAddress,
+      new Fr(slot.toBigInt()));
 
     context.machineState.memory.set(this.bOffset, new Field(data));
 
