@@ -156,6 +156,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         // This is the first round of folding and we need to generate some gate challenges.
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
+        instance->gate_challenges.resize(instance->log_instance_size);
+        std::fill(instance->gate_challenges.begin(), instance->gate_challenges.end(), 0);
     }
 
     idx++;
