@@ -6,9 +6,11 @@ This section lists type definitions relevant to AVM State and Circuit I/O.
 
 | Field             | Type     | Description                  |
 | ---               | ---      | ---                          |
+| `callPointer`     | `field`  | The call pointer assigned to this call. |
 | `address`         | `field`  | The called contract address. |
 | `storageAddress`  | `field`  | The storage contract address (different from `address` for delegate calls). |
-| `endLifetime`     | `field`  | End lifetime of a call. Final `clk` for reverted calls, `endLifetime` of parent for successful calls. Successful initial/top-level calls have infinite (max-value) `endLifetime`. |
+| `counter`         | `field`  | When did this occur relative to other world state accesses. |
+| `endLifetime`     | `field`  | End lifetime of a call. Final `accessCounter` for reverted calls, `endLifetime` of parent for successful calls. Successful initial/top-level calls have infinite (max-value) `endLifetime`. |
 
 #### _TracedL1ToL2MessageRead_
 
@@ -43,6 +45,17 @@ This section lists type definitions relevant to AVM State and Circuit I/O.
 | `counter`            | `field`        |             |
 | `endLifetime`        | `field`        | Equivalent to `endLifetime` of the containing contract call. The last `counter` at which this read/write should be considered to "exist" if this call or a parent reverted. |
 
+#### _TracedNoteHashCheck_
+
+| Field                | Type           | Description |
+| ---                  | ---            | ---         |
+| `callPointer`        | `field`        | Associates this item with a `TracedContractCall` entry in `worldStateAccessTrace.contractCalls` |
+| `leafIndex`          | `field`        |             |
+| `noteHash`           | `field`        | unsiloed    |
+| `exists`             | `field`        |             |
+| `counter`            | `field`        |             |
+| `endLifetime`        | `field`        | Equivalent to `endLifetime` of the containing contract call. |
+
 #### _TracedNoteHash_
 
 | Field                | Type           | Description |
@@ -54,6 +67,16 @@ This section lists type definitions relevant to AVM State and Circuit I/O.
 
 > Note: `value` here is not siloed by contract address nor is it made unique with a nonce. Note hashes are siloed and made unique by the public kernel.
 
+#### _TracedNullifierCheck_
+
+| Field                | Type           | Description |
+| ---                  | ---            | ---         |
+| `callPointer`        | `field`        | Associates this item with a `TracedContractCall` entry in `worldStateAccessTrace.contractCalls` |
+| `nullifier`          | `field`        | unsiloed    |
+| `exists`             | `field`        |             |
+| `counter`            | `field`        |             |
+| `endLifetime`        | `field`        | Equivalent to `endLifetime` of the containing contract call. |
+
 #### _TracedNullifier_
 
 | Field                | Type           | Description |
@@ -62,27 +85,6 @@ This section lists type definitions relevant to AVM State and Circuit I/O.
 | `value`              | `field`        |             |
 | `counter`            | `field`        |             |
 | `endLifetime`        | `field`        | Equivalent to `endLifetime` of the containing contract call. The last `counter` at which this object should be considered to "exist" if this call or a parent reverted. |
-
-#### _TracedIndexedLeafCheck_
-
-| Field                | Type           | Description |
-| ---                  | ---            | ---         |
-| `callPointer`        | `field`        | Associates this item with a `TracedContractCall` entry in `worldStateAccessTrace.contractCalls` |
-| `leaf`               | `field`        |             |
-| `exists`             | `field`        |             |
-| `counter`            | `field`        |             |
-| `endLifetime`        | `field`        | Equivalent to `endLifetime` of the containing contract call. |
-
-#### _TracedLeafCheck_
-
-| Field                | Type           | Description |
-| ---                  | ---            | ---         |
-| `callPointer`        | `field`        | Associates this item with a `TracedContractCall` entry in `worldStateAccessTrace.contractCalls` |
-| `leafIndex`          | `field`        |             |
-| `leaf`               | `field`        |             |
-| `exists`             | `field`        |             |
-| `counter`            | `field`        |             |
-| `endLifetime`        | `field`        | Equivalent to `endLifetime` of the containing contract call. |
 
 #### _TracedArchiveLeafCheck_
 
