@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { GeneratorIndex, TX_CONTEXT_DATA_LENGTH } from '../constants.gen.js';
 import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
 
 /**
@@ -53,7 +53,13 @@ export class TxContext {
   }
 
   toFields(): Fr[] {
-    return serializeToFields(...TxContext.getFields(this));
+    const fields = serializeToFields(...TxContext.getFields(this));
+    if (fields.length !== TX_CONTEXT_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for TxContext. Expected ${TX_CONTEXT_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**

@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { GeneratorIndex, TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
 import { TxContext } from './tx_context.js';
 
@@ -48,7 +48,11 @@ export class TxRequest {
   }
 
   toFields(): Fr[] {
-    return serializeToFields(...TxRequest.getFields(this));
+    const fields = serializeToFields(...TxRequest.getFields(this));
+    if (fields.length !== TX_REQUEST_LENGTH) {
+      throw new Error(`Invalid number of fields for TxRequest. Expected ${TX_REQUEST_LENGTH}, got ${fields.length}`);
+    }
+    return fields;
   }
 
   /**

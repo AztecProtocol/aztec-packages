@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { FUNCTION_LEAF_PREIMAGE_LENGTH, GeneratorIndex } from '../constants.gen.js';
 
 /**
  * A class representing the "preimage" of a function tree leaf.
@@ -46,7 +46,13 @@ export class FunctionLeafPreimage {
   }
 
   toFields(): Fr[] {
-    return serializeToFields(...FunctionLeafPreimage.getFields(this));
+    const fields = serializeToFields(...FunctionLeafPreimage.getFields(this));
+    if (fields.length !== FUNCTION_LEAF_PREIMAGE_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for FunctionLeafPreimage. Expected ${FUNCTION_LEAF_PREIMAGE_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**

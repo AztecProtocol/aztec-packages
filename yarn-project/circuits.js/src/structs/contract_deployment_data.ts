@@ -4,7 +4,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { CONTRACT_DEPLOYMENT_DATA_LENGTH, GeneratorIndex } from '../constants.gen.js';
 import { PublicKey } from '../types/public_key.js';
 
 /**
@@ -40,7 +40,13 @@ export class ContractDeploymentData {
   }
 
   toFields(): Fr[] {
-    return serializeToFields(...ContractDeploymentData.getFields(this));
+    const fields = serializeToFields(...ContractDeploymentData.getFields(this));
+    if (fields.length !== CONTRACT_DEPLOYMENT_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for ContractDeploymentData. Expected ${CONTRACT_DEPLOYMENT_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**
