@@ -341,24 +341,4 @@ contract Test {
         a_note: DummyNote,
         many_notes: [DummyNote; 3],
     }
-
-    // Computes note hash and nullifier.
-    // Note 1: Needs to be defined by every contract producing logs.
-    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; VALUE_NOTE_LEN] // must fit either a FieldNote or a ValueNote
-    ) -> pub [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-
-        if (note_type_id == FieldNote::get_note_type_id()) {
-            note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize_content, note_header, serialized_note)
-        } else {
-            let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-            note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
-        }
-    }
 }
