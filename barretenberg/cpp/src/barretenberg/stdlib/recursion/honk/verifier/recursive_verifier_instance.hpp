@@ -56,6 +56,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         public_inputs = std::vector<FF>(public_input_size);
         for (auto public_input : instance->public_inputs) {
             public_inputs[public_input_idx] = FF::from_witness(builder, public_input);
+            public_input_idx++;
         }
         verification_key = std::make_shared<VerificationKey>(instance_size, public_input_size);
         auto other_vks = instance->verification_key->get_all();
@@ -104,6 +105,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         inst.public_inputs = std::vector<NativeFF>(public_input_size);
         for (auto public_input : public_inputs) {
             inst.public_inputs[public_input_idx] = public_input.get_value();
+            public_input_idx++;
         }
         inst.verification_key = std::make_shared<NativeVerificationKey>(instance_size, public_input_size);
         size_t vk_idx = 0;
