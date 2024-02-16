@@ -21,11 +21,7 @@ contract TokenBlacklist {
         abis::function_selector::FunctionSelector,
     };
     use dep::aztec::{
-        note::{
-            note_getter_options::NoteGetterOptions,
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
+        note::utils as note_utils,
         context::{PrivateContext, PublicContext, Context},
         hash::{compute_secret_hash},
     };

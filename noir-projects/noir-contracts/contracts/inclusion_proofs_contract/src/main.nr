@@ -7,8 +7,8 @@ contract InclusionProofs {
     use dep::aztec::{
         context::Context,
         note::{
-        note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
-        note_header::NoteHeader, utils as note_utils
+            note_getter_options::NoteStatus,
+            utils as note_utils,
     }
     };
     // docs:start:imports

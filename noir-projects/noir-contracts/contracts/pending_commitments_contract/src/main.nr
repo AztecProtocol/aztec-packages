@@ -7,11 +7,10 @@ contract PendingCommitments {
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context}, log::emit_encrypted_log,
-        note::{note_getter::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, set::Set}
+        context::{PrivateContext, PublicContext, Context},
+        note::utils as note_utils,
     };
-    use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector};
+    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
 
     struct Storage {
         balances: Map<AztecAddress, Set<ValueNote>>,

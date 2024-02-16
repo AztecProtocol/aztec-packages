@@ -2,12 +2,10 @@ use dep::std::option::Option;
 use dep::safe_math::SafeU120;
 use dep::aztec::{
     context::{PrivateContext, PublicContext, Context}, hash::pedersen_hash,
-    protocol_types::{address::AztecAddress, constants::MAX_READ_REQUESTS_PER_CALL},
-    state_vars::{set::Set, map::Map},
+    protocol_types::constants::MAX_READ_REQUESTS_PER_CALL,
     note::{
-    note_getter::view_notes, note_getter_options::{NoteGetterOptions, SortOrder},
-    note_viewer_options::NoteViewerOptions, note_header::NoteHeader, note_interface::NoteInterface
-}
+        note_getter::view_notes, note_getter_options::SortOrder,
+    }
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 

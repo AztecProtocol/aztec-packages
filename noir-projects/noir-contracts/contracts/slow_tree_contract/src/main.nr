@@ -6,13 +6,12 @@ mod types;
 // https://github.com/AztecProtocol/aztec-packages/issues/1291
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
 contract SlowTree {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set},
+        note::utils as note_utils,
         protocol_types::type_serialization::FIELD_SERIALIZED_LEN
     };
     use dep::slow_updates_tree::slow_map::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};

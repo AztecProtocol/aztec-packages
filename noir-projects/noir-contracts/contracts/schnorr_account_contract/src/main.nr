@@ -6,11 +6,9 @@ contract SchnorrAccount {
     use dep::std;
     use dep::std::option::Option;
 
-    use dep::aztec::protocol_types::address::AztecAddress;
-
     use dep::aztec::{
-        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        oracle::get_public_key::get_public_key, state_vars::immutable_singleton::ImmutableSingleton
+        context::{PrivateContext, Context}, note::utils as note_utils,
+        oracle::get_public_key::get_public_key, 
     };
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,

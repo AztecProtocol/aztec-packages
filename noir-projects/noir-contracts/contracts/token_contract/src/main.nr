@@ -18,8 +18,6 @@ contract Token {
 
     use dep::aztec::{
         note::{
-            note_getter_options::NoteGetterOptions,
-            note_header::NoteHeader,
             utils as note_utils,
         },
         hash::{compute_secret_hash},

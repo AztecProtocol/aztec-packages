@@ -8,9 +8,9 @@ contract Benchmarking {
     use dep::value_note::{utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
 
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector},
-        context::{Context},
-        note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        protocol_types::abis::function_selector::FunctionSelector,
+        context::Context,
+        note::utils as note_utils,
     };
 
     struct Storage {

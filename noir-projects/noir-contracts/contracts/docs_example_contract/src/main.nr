@@ -18,9 +18,7 @@ contract DocsExample {
     };
     use dep::aztec::{
         note::{
-            note_header::NoteHeader,
-            note_getter_options::{NoteGetterOptions, Comparator},
-            note_viewer_options::{NoteViewerOptions},
+            note_getter_options::Comparator,
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},

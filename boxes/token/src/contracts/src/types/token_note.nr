@@ -1,16 +1,7 @@
 use dep::aztec::{
-    protocol_types::{
-        address::AztecAddress,
-        constants::MAX_READ_REQUESTS_PER_CALL
-    },
-    note::{
-        note_header::NoteHeader,
-        note_interface::NoteInterface,
-        utils::compute_note_hash_for_consumption,
-    },
+    protocol_types::constants::MAX_READ_REQUESTS_PER_CALL,
+    note::utils::compute_note_hash_for_consumption,
     context::PrivateContext,
-    state_vars::set::Set,
-    log::emit_encrypted_log,
     hash::pedersen_hash,
 };
 use dep::aztec::oracle::{

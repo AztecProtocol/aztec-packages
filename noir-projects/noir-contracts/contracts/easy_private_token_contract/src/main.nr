@@ -2,10 +2,7 @@
 contract EasyPrivateToken {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        note::{
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
+        note::utils as note_utils,
     };
     use dep::std::option::Option;
     use dep::value_note::{

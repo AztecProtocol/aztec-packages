@@ -1,8 +1,8 @@
 use dep::aztec::{
-    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    note::utils::compute_note_hash_for_consumption,
     hash::pedersen_hash,
     oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    log::emit_encrypted_log, context::PrivateContext, protocol_types::{address::AztecAddress}
+    context::PrivateContext, 
 };
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;
