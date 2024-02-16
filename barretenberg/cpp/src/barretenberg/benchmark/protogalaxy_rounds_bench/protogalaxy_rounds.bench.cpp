@@ -65,14 +65,6 @@ BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, preparation_ultra, UltraComposer)(be
 };
 BENCHMARK_REGISTER_F(PreparedProver, preparation_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
 
-BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, preparation_goblin_ultra, GoblinUltraComposer)(benchmark::State& state)
-{
-    for (auto _ : state) {
-        folding_prover.preparation_round();
-    }
-};
-BENCHMARK_REGISTER_F(PreparedProver, preparation_goblin_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
-
 BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, perturbator_ultra, UltraComposer)(benchmark::State& state)
 {
     for (auto _ : state) {
@@ -80,14 +72,6 @@ BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, perturbator_ultra, UltraComposer)(be
     }
 };
 BENCHMARK_REGISTER_F(PreparedProver, perturbator_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
-
-BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, perturbator_goblin_ultra, GoblinUltraComposer)(benchmark::State& state)
-{
-    for (auto _ : state) {
-        folding_prover.perturbator_round();
-    }
-};
-BENCHMARK_REGISTER_F(PreparedProver, perturbator_goblin_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
 
 BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, combiner_ultra, UltraComposer)(benchmark::State& state)
 {
@@ -97,14 +81,6 @@ BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, combiner_ultra, UltraComposer)(bench
 };
 BENCHMARK_REGISTER_F(PreparedProver, combiner_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
 
-BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, combiner_goblin_ultra, GoblinUltraComposer)(benchmark::State& state)
-{
-    for (auto _ : state) {
-        folding_prover.combiner_quotient_round();
-    }
-};
-BENCHMARK_REGISTER_F(PreparedProver, combiner_goblin_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
-
 BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, accumulator_update_ultra, UltraComposer)(benchmark::State& state)
 {
     for (auto _ : state) {
@@ -112,6 +88,30 @@ BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, accumulator_update_ultra, UltraCompo
     }
 };
 BENCHMARK_REGISTER_F(PreparedProver, accumulator_update_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
+
+BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, preparation_goblin_ultra, GoblinUltraComposer)(benchmark::State& state)
+{
+    for (auto _ : state) {
+        folding_prover.preparation_round();
+    }
+};
+BENCHMARK_REGISTER_F(PreparedProver, preparation_goblin_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
+
+BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, perturbator_goblin_ultra, GoblinUltraComposer)(benchmark::State& state)
+{
+    for (auto _ : state) {
+        folding_prover.perturbator_round();
+    }
+};
+BENCHMARK_REGISTER_F(PreparedProver, perturbator_goblin_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
+
+BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, combiner_goblin_ultra, GoblinUltraComposer)(benchmark::State& state)
+{
+    for (auto _ : state) {
+        folding_prover.combiner_quotient_round();
+    }
+};
+BENCHMARK_REGISTER_F(PreparedProver, combiner_goblin_ultra)->DenseRange(14, 19)->Unit(benchmark::kMillisecond);
 
 BENCHMARK_TEMPLATE_DEFINE_F(PreparedProver, accumulator_update_goblin_ultra, GoblinUltraComposer)
 (benchmark::State& state)
