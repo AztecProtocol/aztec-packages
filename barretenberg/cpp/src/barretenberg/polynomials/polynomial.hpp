@@ -9,6 +9,8 @@
 namespace bb {
 enum class DontZeroMemory { FLAG };
 
+static size_t TMP_COUNTER;
+
 template <typename Fr> class Polynomial {
   public:
     /**
@@ -234,7 +236,12 @@ template <typename Fr> class Polynomial {
     static Polynomial random(const size_t num_coeffs)
     {
         Polynomial p(num_coeffs);
-        std::generate_n(p.begin(), num_coeffs, []() { return Fr::random_element(); });
+        run_loop_in_parallel(num_coeffs, [&](size_t start, size_t end) {
+            for (size_t idx = start; idx < end; idx++) {
+                p[idx] = Fr::random_element();
+            }
+        });
+
         return p;
     }
 

@@ -154,25 +154,20 @@ template <class Flavor> void ProverInstance_<Flavor>::mock_witness(size_t log2_c
 {
     const size_t dyadic_circuit_size = 1 << log2_circuit_size;
     // If Goblin, construct the ECC op queue wire and databus polynomials
+    polynomial random_polynomial = Polynomial::random(dyadic_circuit_size);
     if constexpr (IsGoblinFlavor<Flavor>) {
-        std::array<polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
-        for (auto& poly : op_wire_polynomials) {
-            poly = static_cast<polynomial>(dyadic_circuit_size);
-        }
-        proving_key->ecc_op_wire_1 = op_wire_polynomials[0].share();
-        proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
-        proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
-        proving_key->ecc_op_wire_4 = op_wire_polynomials[3].share();
+        proving_key->ecc_op_wire_1 = random_polynomial;
+        proving_key->ecc_op_wire_2 = random_polynomial;
+        proving_key->ecc_op_wire_3 = random_polynomial;
+        proving_key->ecc_op_wire_4 = random_polynomial;
 
-        polynomial public_calldata(dyadic_circuit_size);
-        polynomial calldata_read_counts(dyadic_circuit_size);
-        proving_key->calldata = public_calldata.share();
-        proving_key->calldata_read_counts = calldata_read_counts.share();
+        proving_key->calldata = random_polynomial;
+        proving_key->calldata_read_counts = random_polynomial;
     }
 
     // Initialise the sorted concatenated list polynomials for the lookup argument
     for (auto& s_i : sorted_polynomials) {
-        s_i = Polynomial(dyadic_circuit_size);
+        s_i = random_polynomial;
     }
 
     //     // The sorted list polynomials have (tables_size + lookups_size) populated entries. We define the index below
@@ -392,6 +387,10 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::mock_provi
 {
     const size_t dyadic_circuit_size = 1 << log2_circuit_size;
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
+    Polynomial random_polynomial = Polynomial::random(dyadic_circuit_size);
+    for (auto& poly : proving_key->get_all()) {
+        poly = random_polynomial;
+    }
 
     // construct_selector_polynomials<Flavor>(circuit, proving_key.get());
 
