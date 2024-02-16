@@ -13,6 +13,7 @@ import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
+import { createDebugLogger } from '../index.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 import { type Contract } from './contract.js';
 import { ContractBase } from './contract_base.js';
@@ -48,6 +49,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
   /** Constructor function to call. */
   private constructorArtifact: FunctionArtifact;
+
+  private log = createDebugLogger('aztec:js:deploy_method');
 
   constructor(
     private publicKey: PublicKey,
@@ -106,8 +109,17 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     }
 
     // Register the contract class if it hasn't been published already.
-    if (!options.skipClassRegistration && !(await this.pxe.isContractClassPubliclyRegistered(contractClass.id))) {
-      calls.push((await registerContractClass(this.wallet, this.artifact)).request());
+    if (!options.skipClassRegistration) {
+      if (await this.pxe.isContractClassPubliclyRegistered(contractClass.id)) {
+        this.log(
+          `Skipping registration of already registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
+        );
+      } else {
+        this.log(
+          `Creating request for registering contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
+        );
+        calls.push((await registerContractClass(this.wallet, this.artifact)).request());
+      }
     }
 
     // Deploy the contract via the instance deployer.
