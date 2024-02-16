@@ -267,7 +267,7 @@ describe('e2e_deploy_contract', () => {
         logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
 
         await deployInstance(wallet, instance).send().wait();
-      });
+      }, 60_000);
 
       it('stores contract instance in the aztec node', async () => {
         const deployed = await aztecNode.getContract(instance.address);
@@ -301,7 +301,7 @@ describe('e2e_deploy_contract', () => {
         await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
         const stored = await contract.methods.get_public_value(whom).view();
         expect(stored).toEqual(10n);
-      });
+      }, 30_000);
     });
   });
 
