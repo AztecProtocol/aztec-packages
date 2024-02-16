@@ -33,7 +33,13 @@ class GoblinMockCircuits {
     using VerifierInstance = bb::VerifierInstance_<Flavor>;
     using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
+    using VerificationKey = Flavor::VerificationKey;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
+
+    struct FoldOutput {
+        std::vector<FF> fold_proof;
+        std::shared_ptr<VerificationKey> inst_vk;
+    };
 
     /**
      * @brief Populate a builder with a specified number of arithmetic gates; includes a PI
@@ -96,18 +102,22 @@ class GoblinMockCircuits {
      */
     static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
     {
-        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
-        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
-        const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates)
-        const size_t NUM_ITERATIONS_MEDIUM = 3; // results in circuit size 2^17 (124843 gates)
+        static_cast<void>(large);
+        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note
+        // that the circuit size does not scale linearly with number of iterations due to e.g. amortization of
+        // lookup costs
+        const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates) const
+        size_t NUM_ITERATIONS_MEDIUM = 2;       // results in circuit size 2^17 (124843 gates)
         const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
         stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS);  // min gates: ~29k
 
-        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently UGH
-        // can only be used if some op gates are included so for now we'll assume each function circuit has some.
+        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently
+        // UGH can only be used if some op gates are included so for now we'll assume each function circuit has
+        // some.
+        // construct_arithmetic_circuit(builder, 1 << 15);
         construct_goblin_ecc_op_circuit(builder);
     }
 
@@ -200,7 +210,6 @@ class GoblinMockCircuits {
             RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
             verifier2.verify_proof(prev_kernel_accum.proof);
         }
-        info(builder.get_num_gates());
     }
 
     /**
@@ -216,10 +225,8 @@ class GoblinMockCircuits {
      */
     static std::shared_ptr<VerifierInstance> construct_mock_folding_kernel(
         GoblinUltraBuilder& builder,
-        const std::vector<FF>& fold_proof_1,
-        const std::vector<FF>& fold_proof_2,
-        std::shared_ptr<VerifierInstance>& verifier_inst_1,
-        std::shared_ptr<VerifierInstance>& verifier_inst_2,
+        const FoldOutput& func,
+        const FoldOutput& kernel,
         std::shared_ptr<VerifierInstance>& prev_kernel_accum)
     {
         using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
@@ -230,19 +237,28 @@ class GoblinMockCircuits {
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17 (130914 gates)
-        const size_t NUM_MERKLE_CHECKS = 35;
+        const size_t NUM_MERKLE_CHECKS = 25;
         const size_t NUM_ECDSA_VERIFICATIONS = 1;
         const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
-        FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { verifier_inst_1->verification_key } };
-        auto fctn_verifier_accum = verifier_1.verify_folding_proof(fold_proof_1);
-        auto native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
-        FoldingRecursiveVerifier verifier_2{ &builder, native_acc, { verifier_inst_2->verification_key } };
-        auto kernel_verifier_accum = verifier_2.verify_folding_proof(fold_proof_2);
-        return std::make_shared<VerifierInstance>(kernel_verifier_accum->get_value());
+        if (kernel.fold_proof.empty()) {
+            FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { func.inst_vk } };
+            auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
+            auto native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
+            return native_acc;
+        }
+
+        FoldingRecursiveVerifier verifier_2{ &builder, prev_kernel_accum, { kernel.inst_vk } };
+        auto kernel_verifier_accum = verifier_2.verify_folding_proof(kernel.fold_proof);
+        auto native_acc = std::make_shared<VerifierInstance>(kernel_verifier_accum->get_value());
+        FoldingRecursiveVerifier verifier_1{ &builder, native_acc, { func.inst_vk } };
+        auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
+        native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
+
+        return native_acc;
     }
 
     /**

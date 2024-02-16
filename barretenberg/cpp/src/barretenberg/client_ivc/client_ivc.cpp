@@ -81,21 +81,56 @@ HonkProof ClientIVC::decider_prove() const
     return decider_prover.construct_proof();
 }
 
-std::shared_ptr<ClientIVC::VerifierInstance> ClientIVC::get_verifier_instance()
+std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys()
 {
     Composer composer;
-    composer.compute_commitment_key(prover_instance->instance_size);
-    auto verifier_instance = composer.create_verifier_instance(prover_instance);
-    return verifier_instance;
-}
+    std::vector<std::shared_ptr<ClientIVC::VerificationKey>> vks =
+        std::vector<std::shared_ptr<ClientIVC::VerificationKey>>(4);
+    // Accumulate three circuits to generate two folding proofs for input to folding kernel
+    ClientCircuit circuit_1{ goblin.op_queue };
+    GoblinMockCircuits::construct_mock_function_circuit(circuit_1);
 
-ClientIVC::VerifierAccumulator ClientIVC::get_verifier_accumulator()
-{
-    Composer composer;
-    auto prover_accumulator = prover_fold_output.accumulator;
-    composer.compute_commitment_key(prover_accumulator->instance_size);
-    auto verifier_accumulator = composer.create_verifier_instance(prover_accumulator);
-    return verifier_accumulator;
+    initialize(circuit_1);
+
+    composer.compute_commitment_key(prover_fold_output.accumulator->instance_size);
+
+    vks[0] = composer.compute_verification_key(prover_fold_output.accumulator);
+    auto verifier_acc = std::make_shared<VerifierInstance>();
+    verifier_acc->verification_key = vks[0];
+
+    ClientCircuit circuit_2{ goblin.op_queue };
+    GoblinMockCircuits::construct_mock_function_circuit(circuit_2);
+    auto fold_proof_1 = accumulate(circuit_2);
+    vks[1] = composer.compute_verification_key(prover_instance);
+
+    FoldOutput kernel_accum;
+    // Construct kernel circuit
+    ClientCircuit kernel_circuit{ goblin.op_queue };
+    auto new_acc =
+        GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit, { fold_proof_1, vks[1] }, {}, verifier_acc);
+    auto fold_proof_3 = accumulate(kernel_circuit);
+    vks[2] = composer.compute_verification_key(prover_instance); // first iteration of a kernel is smaller
+
+    ClientCircuit new_kernel_circuit = GoblinUltraCircuitBuilder{ goblin.op_queue };
+    auto new_new_acc = GoblinMockCircuits::construct_mock_folding_kernel(
+        new_kernel_circuit, { fold_proof_4, vks[1] }, { fold_proof_3, vks[2] }, new_acc);
+
+    decider_prove_and_verify(new_acc);
+    auto fold_proof_5 = accumulate(new_kernel_circuit);
+
+    vks[3] = composer.compute_verification_key(prover_instance);
+    auto proof = prove();
+    auto kernel_inst = std::make_shared<VerifierInstance>();
+    kernel_inst->verification_key = vks[3];
+
+    auto verifier_instances = std::vector<std::shared_ptr<VerifierInstance>>{ new_acc, kernel_inst };
+    auto res = verify(proof, verifier_instances);
+    ASSERT(res == true);
+
+    goblin.op_queue = std::make_shared<Goblin::OpQueue>();
+    goblin.merge_proof_exists = false;
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+    return vks;
 }
 
 } // namespace bb

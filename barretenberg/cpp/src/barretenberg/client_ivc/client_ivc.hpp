@@ -16,6 +16,7 @@ class ClientIVC {
 
   public:
     using Flavor = GoblinUltraFlavor;
+    using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
     using ProverAccumulator = std::shared_ptr<ProverInstance_<Flavor>>;
@@ -29,6 +30,11 @@ class ClientIVC {
         FoldProof fold_proof; // final fold proof
         HonkProof decider_proof;
         Goblin::Proof goblin_proof;
+    };
+
+    struct FoldOutput {
+        FoldProof fold_proof;
+        std::shared_ptr<VerificationKey> inst_vk;
     };
 
   private:
@@ -55,7 +61,11 @@ class ClientIVC {
 
     HonkProof decider_prove() const;
 
+    void decider_prove_and_verify(const VerifierAccumulator&) const;
+
     VerifierAccumulator get_verifier_accumulator();
-    std::shared_ptr<VerifierInstance> get_verifier_instance();
+    std::shared_ptr<VerifierInstance> get_verifier_instance() const;
+
+    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys();
 };
 } // namespace bb
