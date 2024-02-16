@@ -104,7 +104,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // What we should actually be checking if it's been broadcasted by a node, so we need to tell
     // the pxe "gimme the data about this class that's publicly available only", which is closely
     // related to the private data access mechanisms we have yet to design.
-    if (!options.skipClassRegistration && !(await this.pxe.getContractClass(contractClass.id))) {
+    if (!options.skipClassRegistration && !(await this.pxe.isContractClassPubliclyRegistered(contractClass.id))) {
       calls.push(registerContractClass(this.wallet, this.artifact).request());
     }
 

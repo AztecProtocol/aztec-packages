@@ -273,9 +273,19 @@ export interface PXE {
 
   /**
    * Returns a Contact Class given its identifier.
-   * TODO(@spalladino): The PXE actually holds artifacts and not classes. What should we return?
+   * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
+   * should the pxe query the node for contract public info, and merge it with its own definitions?
    * @param id - Identifier of the class.
    */
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined>;
+
+  /**
+   * Queries the node to check whether the contract class with the given id has been publicly registered.
+   * TODO(@spalladino): This method is strictly needed to decide whether to publicly register a class or not
+   * during a public deployment. We probably want a nicer and more general API for this, but it'll have to
+   * do for the time being.
+   * @param id - Identifier of the class.
+   */
+  isContractClassPubliclyRegistered(id: Fr): Promise<boolean>;
 }
 // docs:end:pxe-interface

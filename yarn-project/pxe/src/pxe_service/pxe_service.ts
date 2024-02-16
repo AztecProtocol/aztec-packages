@@ -778,4 +778,8 @@ export class PXEService implements PXE {
   public getKeyStore() {
     return this.keyStore;
   }
+
+  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+    return !!(await this.node.getContractClass(id));
+  }
 }

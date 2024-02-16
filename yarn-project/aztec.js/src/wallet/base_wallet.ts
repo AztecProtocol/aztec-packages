@@ -123,4 +123,7 @@ export abstract class BaseWallet implements Wallet {
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
   }
+  isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+    return this.pxe.isContractClassPubliclyRegistered(id);
+  }
 }
