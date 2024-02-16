@@ -1,0 +1,93 @@
+use crate::{
+    crate::address::{EthAddress, PartialAddress, PublicKeysHash},
+    constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS},
+    contract_class::ContractClassId, hash::pedersen_hash, grumpkin_point::GrumpkinPoint,
+    traits::{Empty, ToField, Serialize, Deserialize}, utils
+};
+
+// Aztec address
+struct AztecAddress {
+    inner : Field
+}
+
+impl Eq for AztecAddress {
+    fn eq(self, other : Self) -> bool {
+        self.to_field() == other.to_field()
+    }
+}
+
+impl Empty for AztecAddress {
+    fn empty() -> Self {
+        Self {
+            inner : 0
+        }
+    }
+}
+
+impl ToField for AztecAddress {
+    fn to_field(self) -> Field {
+        self.inner
+    }
+}
+
+impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
+    fn serialize(self: Self) -> [Field; AZTEC_ADDRESS_LENGTH] {
+        [self.to_field()]
+    }
+}
+
+impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
+    fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
+        AztecAddress::from_field(fields[0])
+    }
+}
+
+impl AztecAddress {
+    pub fn zero() -> Self {
+        Self { inner: 0 }
+    }
+
+    pub fn from_field(field: Field) -> Self {
+        Self { inner: field }
+    }
+
+    pub fn compute_from_public_key(
+        pub_key: GrumpkinPoint,
+        contract_class_id: ContractClassId,
+        salt: Field,
+        initialization_hash: Field,
+        portal_contract_address: EthAddress
+    ) -> AztecAddress {
+        AztecAddress::compute(
+            PublicKeysHash::compute(pub_key),
+            PartialAddress::compute(
+                contract_class_id,
+                salt,
+                initialization_hash,
+                portal_contract_address
+            )
+        )
+    }
+
+    pub fn compute(pub_keys_hash: PublicKeysHash, partial_address: PartialAddress) -> AztecAddress {
+        AztecAddress::from_field(
+            pedersen_hash(
+                [pub_keys_hash.to_field(), partial_address.to_field()],
+                GENERATOR_INDEX__CONTRACT_ADDRESS
+            )
+        )
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.inner == 0
+    }
+
+    pub fn assert_is_zero(self) {
+        assert(self.to_field() == 0);
+    }
+
+    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
+        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
+        Self { inner: result }
+    }
+}
