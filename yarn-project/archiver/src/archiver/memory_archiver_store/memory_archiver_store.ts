@@ -6,7 +6,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
-  L2BlockBody,
+  Body,
   L2BlockContext,
   L2BlockL2Logs,
   L2Tx,
@@ -36,7 +36,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 /**
  * A mapping of contract address to extended contract data.
  */
-  private l2BlockBodies: Map<string, L2BlockBody> = new Map();
+  private l2BlockBodies: Map<string, Body> = new Map();
 
   /**
    * An array containing all the L2 Txs in the L2 blocks that have been fetched so far.
@@ -126,7 +126,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean> {
+  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
     for (const body of blockBodies) {
       body.l1ToL2Messages = padArrayEnd(
         body.l1ToL2Messages,
@@ -145,14 +145,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
  * @param blockNumber - The number of the block to return.
  * @returns The requested L2 block, without logs attached
  */
-  getBlockBodies(txsHashes: Buffer[]): Promise<L2BlockBody[]> {
+  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));
 
     if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
       throw new Error('Weird')
     }
 
-    return Promise.resolve(blockBodies as L2BlockBody[]);
+    return Promise.resolve(blockBodies as Body[]);
   }
 
   /**

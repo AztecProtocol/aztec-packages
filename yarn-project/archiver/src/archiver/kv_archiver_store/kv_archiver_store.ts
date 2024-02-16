@@ -4,7 +4,7 @@ import {
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
-  L2BlockBody,
+  Body,
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
@@ -71,7 +71,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean> {
+  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
     return this.#blockBodyStore.addBlockBodies(blockBodies);
   }
 
@@ -80,7 +80,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  getBlockBodies(txsHashes: Buffer[]): Promise<L2BlockBody[]> {
+  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     return this.#blockBodyStore.getBlockBodies(txsHashes);
   }
 

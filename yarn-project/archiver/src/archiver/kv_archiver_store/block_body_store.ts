@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, L2BlockBody, L2Tx, TxHash } from '@aztec/circuit-types';
+import { INITIAL_L2_BLOCK_NUM, L2Block, Body, L2Tx, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -33,7 +33,7 @@ export class BlockBodyStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlockBodies(blockBodies: L2BlockBody[]): Promise<boolean> {
+  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
     return this.db.transaction(() => {
       for (const body of blockBodies) {
         // body.l1ToL2Messages = padArrayEnd(
@@ -42,7 +42,7 @@ export class BlockBodyStore {
         //   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         // );
 
-        void this.#blockBodies.set(body.getCalldataHash().toString('hex'), body.toBuffer(true));
+        void this.#blockBodies.set(body.getCalldataHash().toString('hex'), body.toBuffer());
       }
 
       return true;
@@ -54,14 +54,14 @@ export class BlockBodyStore {
  * @param blockNumber - The number of the block to return.
  * @returns The requested L2 block, without logs attached
  */
-  async getBlockBodies(txsHashes: Buffer[]): Promise<L2BlockBody[]> {
+  async getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodiesBuffer = await this.db.transaction(() => txsHashes.map(txsHash => this.#blockBodies.get(txsHash.toString('hex'))));
 
     if (blockBodiesBuffer.some(bodyBuffer => bodyBuffer === undefined)) {
       throw new Error('Weird')
     }
 
-    return blockBodiesBuffer.map(blockBodyBuffer => L2BlockBody.fromBuffer(blockBodyBuffer!, true));
+    return blockBodiesBuffer.map(blockBodyBuffer => Body.fromBuffer(blockBodyBuffer!));
   }
 
   // /**
@@ -81,9 +81,9 @@ export class BlockBodyStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block, without logs attached
    */
-  getBlockBody(txsHash: Buffer): L2BlockBody | undefined {
+  getBlockBody(txsHash: Buffer): Body | undefined {
     const blockBody = this.#blockBodies.get(txsHash.toString('hex'));
 
-    return blockBody && L2BlockBody.fromBuffer(blockBody);
+    return blockBody && Body.fromBuffer(blockBody);
   }
 }

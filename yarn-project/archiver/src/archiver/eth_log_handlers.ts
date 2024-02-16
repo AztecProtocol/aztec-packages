@@ -6,7 +6,7 @@ import {
   L1ToL2Message,
   L2Actor,
   L2Block,
-  L2BlockBody,
+  Body,
 } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -91,8 +91,8 @@ export async function processBlockBodyLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
-): Promise<[L2BlockBody, Buffer][]> {
-  const retrievedBlockBodies: [L2BlockBody, Buffer][] = [];
+): Promise<[Body, Buffer][]> {
+  const retrievedBlockBodies: [Body, Buffer][] = [];
   for (const log of logs) {
     console.log('INSIDE PROCESS BLOCK BODY LOGS', log.args.txsHash);
     // // TODO: Fetch blocks from calldata in parallel
@@ -119,7 +119,7 @@ export async function processBlockBodyLogs(
 async function getBlockBodiesFromCallData(
   publicClient: PublicClient,
   txHash: `0x${string}`,
-): Promise<L2BlockBody> {
+): Promise<Body> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
@@ -133,7 +133,7 @@ async function getBlockBodiesFromCallData(
 
   const [bodyHex] = args! as [Hex];
 
-  const blockBody = L2BlockBody.fromBuffer(Buffer.from(hexToBytes(bodyHex)), true);
+  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
   return blockBody;
 }

@@ -7,7 +7,7 @@ import {
   L1ToL2Message,
   L1ToL2MessageSource,
   L2Block,
-  L2BlockBody,
+  Body,
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
@@ -64,7 +64,7 @@ export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & 
  * concern themselves with it.
  */
 
-const l2BlockBodies = new Map<string, L2BlockBody>();
+const l2BlockBodies = new Map<string, Body>();
 export class Archiver implements ArchiveSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
@@ -286,6 +286,10 @@ export class Archiver implements ArchiveSource {
 
     const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
+    if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
+      throw new Error('Block headers length does not equal block bodies length')
+    }
+
     const retrievedBlocks = {
       retrievedData: retrievedBlockMetadata.retrievedData.map((blockMetadata, i) => new L2Block(
         blockMetadata[1], 
@@ -371,8 +375,6 @@ export class Archiver implements ArchiveSource {
           Fr.ZERO,
           NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         );
-
-        block.body.detachLogs();
 
         return block;
       }),
