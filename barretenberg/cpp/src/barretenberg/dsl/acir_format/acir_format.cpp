@@ -148,8 +148,15 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
             if (constraint.proof.size() > proof_size_no_pub_inputs) {
                 // The public inputs attached to a proof should match the aggregation object in size
-                ASSERT(constraint.proof.size() - proof_size_no_pub_inputs ==
-                       RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                if (constraint.proof.size() - proof_size_no_pub_inputs !=
+                    RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
+                    auto error_string = std::format(
+                        "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
+                        "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
+                        "which is {}\n",
+                        RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                    throw_or_abort(error_string);
+                }
                 for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                     // Set the nested aggregation object indices to the current size of the public inputs
                     // This way we know that the nested aggregation object indices will always be the last
