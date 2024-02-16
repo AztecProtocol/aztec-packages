@@ -26,7 +26,8 @@ use dep::protocol_types::{
     RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header, utils::reader::Reader
+    grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
 };
 use dep::std::option::Option;
 
@@ -52,7 +53,7 @@ struct PrivateContext {
 
     private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    new_l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
@@ -80,7 +81,7 @@ impl PrivateContext {
             historical_header: inputs.historical_header,
             private_call_stack_hashes: BoundedVec::new(0),
             public_call_stack_hashes: BoundedVec::new(0),
-            new_l2_to_l1_msgs: BoundedVec::new(0),
+            new_l2_to_l1_msgs: BoundedVec::new(L2ToL1Message::empty()),
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
@@ -202,9 +203,10 @@ impl PrivateContext {
     }
 
     // docs:start:context_message_portal
-    pub fn message_portal(&mut self, content: Field) {
+    pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
-        self.new_l2_to_l1_msgs.push(content);
+        let message = L2ToL1Message { recipient, content };
+        self.new_l2_to_l1_msgs.push(message);
     }
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
@@ -249,7 +251,18 @@ impl PrivateContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash)
+        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false)
+    }
+
+    pub fn call_private_function_static<ARGS_COUNT>(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true)
     }
 
     pub fn call_private_function_no_args(
@@ -257,20 +270,30 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0)
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
-    pub fn call_private_function_with_packed_args(
+    pub fn call_private_function_no_args_static(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
+    }
+
+    fn call_private_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args_hash: Field
+        args_hash: Field,
+        is_static_call: bool
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let item = call_private_function_internal(
             contract_address,
             function_selector,
             args_hash,
-            self.side_effect_counter
+            self.side_effect_counter,
+            is_static_call
         );
 
         assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
@@ -286,7 +309,7 @@ impl PrivateContext {
         // the msg_sender in the nested call to be equal to our address, and the execution context address
         // for the nested call to be equal to the address we actually called.
         assert(item.public_inputs.call_context.is_delegate_call == false);
-        assert(item.public_inputs.call_context.is_static_call == false);
+        assert(item.public_inputs.call_context.is_static_call == is_static_call);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
         assert(
             item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address)
@@ -306,7 +329,18 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash)
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false)
+    }
+
+    pub fn call_public_function_static<ARGS_COUNT>(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true)
     }
 
     pub fn call_public_function_no_args(
@@ -314,20 +348,30 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
+    }
+
+    pub fn call_public_function_no_args_static(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) {
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
     }
 
     pub fn call_public_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args_hash: Field
+        args_hash: Field,
+        is_static_call: bool
     ) {
         let fields = enqueue_public_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
-            self.side_effect_counter
+            self.side_effect_counter,
+            is_static_call
         );
 
         let mut reader = Reader::new(fields);
@@ -346,7 +390,7 @@ impl PrivateContext {
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
                 new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
-                new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
@@ -370,7 +414,7 @@ impl PrivateContext {
         // the msg_sender in the nested call to be equal to our address, and the execution context address
         // for the nested call to be equal to the address we actually called.
         assert(item.public_inputs.call_context.is_delegate_call == false);
-        assert(item.public_inputs.call_context.is_static_call == false);
+        assert(item.public_inputs.call_context.is_static_call == is_static_call);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
         assert(
             item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address)

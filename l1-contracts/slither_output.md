@@ -10,7 +10,7 @@ Summary
  - [dead-code](#dead-code) (13 results) (Informational)
  - [solc-version](#solc-version) (1 results) (Informational)
  - [low-level-calls](#low-level-calls) (1 results) (Informational)
- - [similar-names](#similar-names) (1 results) (Informational)
+ - [similar-names](#similar-names) (2 results) (Informational)
  - [unused-state](#unused-state) (2 results) (Informational)
  - [constable-states](#constable-states) (1 results) (Optimization)
  - [pess-multiple-storage-read](#pess-multiple-storage-read) (2 results) (Optimization)
@@ -18,27 +18,27 @@ Summary
 Impact: High
 Confidence: Medium
  - [ ] ID-0
-Function [Rollup.process(bytes,bytes32,bytes32,bytes,bytes)](src/core/Rollup.sol#L54-L94) is a non-protected setter archive is written
+Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91) is a non-protected setter archive is written
 
-src/core/Rollup.sol#L54-L94
+src/core/Rollup.sol#L53-L91
 
 
 ## uninitialized-local
 Impact: Medium
 Confidence: Medium
  - [ ] ID-1
-[HeaderLib.decode(bytes).header](src/core/libraries/HeaderLib.sol#L139) is a local variable never initialized
+[HeaderLib.decode(bytes).header](src/core/libraries/HeaderLib.sol#L150) is a local variable never initialized
 
-src/core/libraries/HeaderLib.sol#L139
+src/core/libraries/HeaderLib.sol#L150
 
 
 ## unused-return
 Impact: Medium
 Confidence: Medium
  - [ ] ID-2
-[Rollup.process(bytes,bytes32,bytes32,bytes,bytes)](src/core/Rollup.sol#L54-L94) ignores return value by [(inHash,l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L71-L72)
+[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91) ignores return value by [(l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L69)
 
-src/core/Rollup.sol#L54-L94
+src/core/Rollup.sol#L53-L91
 
 
 ## pess-dubious-typecast
@@ -59,38 +59,13 @@ src/core/libraries/decoders/Decoder.sol#L415-L417
 
 
  - [ ] ID-5
-Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L134-L175):
-	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L142-L144)
-	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L142-L144)
-	bytes => bytes32 casting occurs in [header.bodyHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L147)
-	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L150-L152)
-	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L150-L152)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L156-L158)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L156-L158)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L159-L161)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L159-L161)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L162-L164)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L162-L164)
-	bytes => bytes32 casting occurs in [header.globalVariables.chainId = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L167)
-	bytes => bytes32 casting occurs in [header.globalVariables.version = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L168)
-	bytes => bytes32 casting occurs in [header.globalVariables.blockNumber = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L169)
-	bytes => bytes32 casting occurs in [header.globalVariables.timestamp = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L170)
-	bytes => bytes20 casting occurs in [header.globalVariables.coinbase = address(bytes20(_header))](src/core/libraries/HeaderLib.sol#L171)
-	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L172)
-
-src/core/libraries/HeaderLib.sol#L134-L175
-
-
- - [ ] ID-6
 Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
 	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
 
 src/core/messagebridge/Outbox.sol#L38-L46
 
 
- - [ ] ID-7
+ - [ ] ID-6
 Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91):
 	uint256 => uint64 casting occurs in [fee = uint64(msg.value)](src/core/messagebridge/Inbox.sol#L64)
 	uint256 => uint32 casting occurs in [entries.insert(key,fee,uint32(_recipient.version),_deadline,_errIncompatibleEntryArguments)](src/core/messagebridge/Inbox.sol#L76)
@@ -98,11 +73,39 @@ Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,b
 src/core/messagebridge/Inbox.sol#L45-L91
 
 
- - [ ] ID-8
+ - [ ] ID-7
 Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L110-L112):
 	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L111)
 
 src/core/libraries/decoders/MessagesDecoder.sol#L110-L112
+
+
+ - [ ] ID-8
+Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L145-L189):
+	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
+	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
+	bytes => bytes32 casting occurs in [header.contentCommitment.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L158)
+	bytes => bytes32 casting occurs in [header.contentCommitment.txsHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L159)
+	bytes => bytes32 casting occurs in [header.contentCommitment.inHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L160)
+	bytes => bytes32 casting occurs in [header.contentCommitment.outHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L161)
+	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L164-L166)
+	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L164-L166)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L167-L169)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L167-L169)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L170-L172)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L170-L172)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L173-L175)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L173-L175)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L176-L178)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L176-L178)
+	bytes => bytes32 casting occurs in [header.globalVariables.chainId = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L181)
+	bytes => bytes32 casting occurs in [header.globalVariables.version = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L182)
+	bytes => bytes32 casting occurs in [header.globalVariables.blockNumber = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L183)
+	bytes => bytes32 casting occurs in [header.globalVariables.timestamp = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L184)
+	bytes => bytes20 casting occurs in [header.globalVariables.coinbase = address(bytes20(_header))](src/core/libraries/HeaderLib.sol#L185)
+	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L186)
+
+src/core/libraries/HeaderLib.sol#L145-L189
 
 
  - [ ] ID-9
@@ -123,14 +126,14 @@ src/core/libraries/decoders/Decoder.sol#L132-L134
 Impact: Low
 Confidence: Medium
  - [ ] ID-11
-Reentrancy in [Rollup.process(bytes,bytes32,bytes32,bytes,bytes)](src/core/Rollup.sol#L54-L94):
+Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91):
 	External calls:
-	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L88)
-	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L91)
+	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L85)
+	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L88)
 	Event emitted after the call(s):
-	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L93)
+	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L90)
 
-src/core/Rollup.sol#L54-L94
+src/core/Rollup.sol#L53-L91
 
 
 ## timestamp
@@ -145,19 +148,19 @@ src/core/messagebridge/Inbox.sol#L122-L143
 
 
  - [ ] ID-13
+[HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L108-L138) uses timestamp for comparisons
+	Dangerous comparisons:
+	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L122)
+
+src/core/libraries/HeaderLib.sol#L108-L138
+
+
+ - [ ] ID-14
 [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [_deadline <= block.timestamp](src/core/messagebridge/Inbox.sol#L54)
 
 src/core/messagebridge/Inbox.sol#L45-L91
-
-
- - [ ] ID-14
-[HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L97-L127) uses timestamp for comparisons
-	Dangerous comparisons:
-	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L111)
-
-src/core/libraries/HeaderLib.sol#L97-L127
 
 
  - [ ] ID-15
@@ -186,19 +189,19 @@ src/core/messagebridge/Registry.sol#L22-L129
 
 
  - [ ] ID-18
-The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L27-L103) contract:
+The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L27-L100) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L39-L44)
 
-src/core/Rollup.sol#L27-L103
+src/core/Rollup.sol#L27-L100
 
 
  - [ ] ID-19
-The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L149) contract:
+The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L148) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L29-L31)
-	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L78-L85)
-	[Outbox.contains(bytes32)](src/core/messagebridge/Outbox.sol#L92-L94)
+	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L77-L84)
+	[Outbox.contains(bytes32)](src/core/messagebridge/Outbox.sol#L91-L93)
 
-src/core/messagebridge/Outbox.sol#L21-L149
+src/core/messagebridge/Outbox.sol#L21-L148
 
 
  - [ ] ID-20
@@ -271,9 +274,9 @@ src/core/libraries/decoders/Decoder.sol#L401-L407
 
 
  - [ ] ID-29
-[Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L115-L117) is never used and should be removed
+[Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L114-L116) is never used and should be removed
 
-src/core/messagebridge/Outbox.sol#L115-L117
+src/core/messagebridge/Outbox.sol#L114-L116
 
 
  - [ ] ID-30
@@ -325,9 +328,9 @@ src/core/libraries/decoders/Decoder.sol#L132-L134
 
 
  - [ ] ID-38
-[Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L130-L148) is never used and should be removed
+[Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L129-L147) is never used and should be removed
 
-src/core/messagebridge/Outbox.sol#L130-L148
+src/core/messagebridge/Outbox.sol#L129-L147
 
 
 ## solc-version
@@ -350,6 +353,12 @@ src/core/messagebridge/Inbox.sol#L148-L153
 Impact: Informational
 Confidence: Medium
  - [ ] ID-41
+Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L96) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L97)
+
+src/core/libraries/ConstantsGen.sol#L96
+
+
+ - [ ] ID-42
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L30) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L39)
 
 src/core/Rollup.sol#L30
@@ -358,13 +367,13 @@ src/core/Rollup.sol#L30
 ## unused-state
 Impact: Informational
 Confidence: High
- - [ ] ID-42
+ - [ ] ID-43
 [Decoder.END_TREES_BLOCK_HEADER_OFFSET](src/core/libraries/decoders/Decoder.sol#L103-L104) is never used in [Decoder](src/core/libraries/decoders/Decoder.sol#L72-L418)
 
 src/core/libraries/decoders/Decoder.sol#L103-L104
 
 
- - [ ] ID-43
+ - [ ] ID-44
 [Decoder.BLOCK_HEADER_OFFSET](src/core/libraries/decoders/Decoder.sol#L107-L108) is never used in [Decoder](src/core/libraries/decoders/Decoder.sol#L72-L418)
 
 src/core/libraries/decoders/Decoder.sol#L107-L108
@@ -373,7 +382,7 @@ src/core/libraries/decoders/Decoder.sol#L107-L108
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-44
+ - [ ] ID-45
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L37) should be constant 
 
 src/core/Rollup.sol#L37
@@ -382,13 +391,13 @@ src/core/Rollup.sol#L37
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-45
+ - [ ] ID-46
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L39-L72) variable [FrontierMerkle.DEPTH](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L39-L72
 
 
- - [ ] ID-46
+ - [ ] ID-47
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L39-L72) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L39-L72
