@@ -13,8 +13,6 @@
  * @brief IPA (inner-product argument) commitment scheme class. Conforms to the specification
  * https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view.
  *
- * @details The version of IPA implemented here doesn't contain zero knowle
- *
  *
  */
 namespace bb {
@@ -144,18 +142,15 @@ template <typename Curve> class IPA {
             const Fr round_challenge = transcript->get_challenge<Fr>("IPA:round_challenge_" + index);
             const Fr round_challenge_inv = round_challenge.invert();
 
-            // auto G_lo = GroupElement::batch_mul_with_endomorphism(
-            //     std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
-            //     round_challenge_inv);
             auto G_hi = GroupElement::batch_mul_with_endomorphism(
                 std::span{ G_vec_local.begin() + static_cast<long>(round_size),
                            G_vec_local.begin() + static_cast<long>(round_size * 2) },
                 round_challenge_inv);
 
             // Update the vectors a_vec, b_vec and G_vec.
-            // a_vec_next = a_vec_lo * round_challenge + a_vec_hi * round_challenge_inv
-            // b_vec_next = b_vec_lo * round_challenge_inv + b_vec_hi * round_challenge
-            // G_vec_next = G_vec_lo * round_challenge_inv + G_vec_hi * round_challenge
+            // a_vec_next = a_vec_lo + a_vec_hi * round_challenge
+            // b_vec_next = b_vec_lo + b_vec_hi * round_challenge_inv
+            // G_vec_next = G_vec_lo + G_vec_hi * round_challenge_inv
             run_loop_in_parallel_if_effective(
                 round_size,
                 [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
@@ -200,7 +195,7 @@ template <typename Curve> class IPA {
         // Compute C_prime
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
-        // Compute C_zero = C_prime + ∑_{j ∈ [k]} u_j^2L_j + ∑_{j ∈ [k]} u_j^{-2}R_j
+        // Compute C_zero = C_prime + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
         std::vector<Fr> round_challenges_inv(log_poly_degree);
@@ -226,9 +221,9 @@ template <typename Curve> class IPA {
         /**
          * Compute b_zero where b_zero can be computed using the polynomial:
          *
-         * g(X) = ∏_{i ∈ [k]} (u_{k-i}^{-1} + u_{k-i}.X^{2^{i-1}}).
+         * g(X) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}.X^{2^{i-1}}).
          *
-         * b_zero = g(evaluation) = ∏_{i ∈ [k]} (u_{k-i}^{-1} + u_{k-i}. (evaluation)^{2^{i-1}})
+         * b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}. (evaluation)^{2^{i-1}})
          */
         Fr b_zero = Fr::one();
         for (size_t i = 0; i < log_poly_degree; i++) {
