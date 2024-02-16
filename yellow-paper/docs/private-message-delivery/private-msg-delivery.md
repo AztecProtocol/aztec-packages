@@ -19,13 +19,13 @@ If Alice executes a function that generates a note for Bob:
 
 ## Constraining Message Delivery
 
-The protocol will enable account contract developers to constrain the correctness of the following:
+The protocol will enable app developers to constrain the correctness of the following:
 
 1. The encryption of a user's note.
 2. The generation of the tag for that note.
 3. The publication of that note and tag to the correct data availability layer.
 
-Each account contract will define whether to constrain each such step. Encryption and tagging will be done through a set of [precompiled contracts](../addresses-and-keys/precompiles.md), each contract offering a different mechanism, and users will advertise their preferred mechanisms in a canonical [registry](../pre-compiled-contracts/registry.md).
+Each app will define whether to constrain each such step. Encryption and tagging will be done through a set of [precompiled contracts](../addresses-and-keys/precompiles.md), each contract offering a different mechanism, and users will advertise their preferred mechanisms in a canonical [registry](../pre-compiled-contracts/registry.md).
 
 The advantages of this approach are:
 
