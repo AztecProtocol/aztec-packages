@@ -51,7 +51,6 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
 } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -131,11 +130,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       body: blockBody,
     });
 
-    if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.bodyHash)) {
+    if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.contentCommitment.txsHash)) {
       throw new Error(
         `Calldata hash mismatch, ${l2Block.body
           .getCalldataHash()
-          .toString('hex')} == ${circuitsOutput.header.bodyHash.toString('hex')} `,
+          .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsHash.toString('hex')} `,
       );
     }
 
@@ -608,7 +607,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Update the contract and note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = tx.data.end.newContracts.map(cd => computeContractLeaf(cd));
+    const newContracts = tx.data.end.newContracts.map(cd => cd.computeLeaf());
     const newCommitments = tx.data.end.newCommitments.map(x => x.value.toBuffer());
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,

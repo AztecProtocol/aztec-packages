@@ -8,9 +8,6 @@ describe('L2Block', () => {
     const buffer = block.toBuffer();
     const recovered = L2Block.fromBuffer(buffer);
 
-    // TODO(#3868): encoding and decoding is currently hacked and bodyHash is not recovered yet
-    recovered.header.bodyHash = block.header.bodyHash;
-
     expect(recovered).toEqual(block);
   });
 
