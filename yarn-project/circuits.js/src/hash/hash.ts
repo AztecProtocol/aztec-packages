@@ -225,10 +225,10 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
 }
 
 /**
- * Computes a secret message hash for sending secret l1 to l2 messages.
- * @param secretMessage - The secret message.
- * @returns
+ * Given a secret, it computes its pedersen hash - used to send l1 to l2 messages
+ * @param secret - the secret to hash - secret could be generated however you want e.g. `Fr.random()`
+ * @returns the hash
  */
-export function computeSecretMessageHash(secretMessage: Fr) {
+export function computeMessageSecretHash(secretMessage: Fr) {
   return Fr.fromBuffer(pedersenHash([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET));
 }

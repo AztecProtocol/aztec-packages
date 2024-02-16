@@ -6,10 +6,10 @@ import {
   computeCommitmentNonce,
   computeCommitmentsHash,
   computeFunctionTreeRoot,
+  computeMessageSecretHash,
   computeNullifierHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computeSecretMessageHash,
   computeUniqueCommitment,
   computeVarArgsHash,
   hashConstructor,
@@ -98,7 +98,7 @@ describe('hash', () => {
 
   it('compute secret message hash', () => {
     const value = new Fr(8n);
-    const hash = computeSecretMessageHash(value);
+    const hash = computeMessageSecretHash(value);
     expect(hash).toMatchSnapshot();
   });
 

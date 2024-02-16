@@ -1,5 +1,5 @@
 import { Fr, Vector } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '../../circuits.js/dest/hash/index.js';
+import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
