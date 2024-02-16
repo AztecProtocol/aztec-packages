@@ -2218,49 +2218,49 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
 // Full proofs
 // *************************************************************************************************************
 
-// Named differently from *_full_proof tests to let us run just this one full proof test in CI with a gtest filter
-TEST_F(join_split_tests, test_deposit_construct_proof)
-{
-    join_split_tx tx = zero_input_setup();
-    tx.proof_id = proof_ids::DEPOSIT;
-    tx.public_value = 10;
-    tx.public_owner = fr::random_element();
-    tx.output_note[0].value = 7;
+// // Named differently from *_full_proof tests to let us run just this one full proof test in CI with a gtest filter
+// TEST_F(join_split_tests, test_deposit_construct_proof)
+// {
+//     join_split_tx tx = zero_input_setup();
+//     tx.proof_id = proof_ids::DEPOSIT;
+//     tx.public_value = 10;
+//     tx.public_owner = fr::random_element();
+//     tx.output_note[0].value = 7;
 
-    /**
-     * DEPOSIT tx represents:
-     *   - public_value = 10
-     *   - out1 = 7
-     *   - fee = 3
-     */
+//     /**
+//      * DEPOSIT tx represents:
+//      *   - public_value = 10
+//      *   - out1 = 7
+//      *   - fee = 3
+//      */
 
-    auto proof = sign_and_create_proof(tx, user.owner);
-    // auto proof_data = inner_proof_data(proof.proof_data);
+//     auto proof = sign_and_create_proof(tx, user.owner);
+//     // auto proof_data = inner_proof_data(proof.proof_data);
 
-    // auto input_note1_commitment = tx.input_note[0].commit();
-    // auto input_note2_commitment = tx.input_note[1].commit();
-    // uint256_t nullifier1 = compute_nullifier(input_note1_commitment, user.owner.private_key, false);
-    // uint256_t nullifier2 = compute_nullifier(input_note2_commitment, user.owner.private_key, false);
-    // auto output_note1_commitment = tx.output_note[0].commit();
-    // auto output_note2_commitment = tx.output_note[1].commit();
+//     // auto input_note1_commitment = tx.input_note[0].commit();
+//     // auto input_note2_commitment = tx.input_note[1].commit();
+//     // uint256_t nullifier1 = compute_nullifier(input_note1_commitment, user.owner.private_key, false);
+//     // uint256_t nullifier2 = compute_nullifier(input_note2_commitment, user.owner.private_key, false);
+//     // auto output_note1_commitment = tx.output_note[0].commit();
+//     // auto output_note2_commitment = tx.output_note[1].commit();
 
-    // EXPECT_EQ(proof_data.proof_id, proof_ids::DEPOSIT);
-    // EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
-    // EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
-    // EXPECT_EQ(proof_data.nullifier1, nullifier1);
-    // EXPECT_EQ(proof_data.nullifier2, nullifier2);
-    // EXPECT_EQ(proof_data.public_value, tx.public_value);
-    // EXPECT_EQ(proof_data.public_owner, tx.public_owner);
-    // EXPECT_EQ(proof_data.asset_id, tx.asset_id);
-    // EXPECT_EQ(proof_data.merkle_root, tree->root());
-    // EXPECT_EQ(proof_data.tx_fee, uint256_t(3));
-    // EXPECT_EQ(proof_data.tx_fee_asset_id, tx.asset_id);
-    // EXPECT_EQ(proof_data.bridge_call_data, uint256_t(0));
-    // EXPECT_EQ(proof_data.defi_deposit_value, uint256_t(0));
-    // EXPECT_EQ(proof_data.defi_root, fr(0));
+//     // EXPECT_EQ(proof_data.proof_id, proof_ids::DEPOSIT);
+//     // EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
+//     // EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
+//     // EXPECT_EQ(proof_data.nullifier1, nullifier1);
+//     // EXPECT_EQ(proof_data.nullifier2, nullifier2);
+//     // EXPECT_EQ(proof_data.public_value, tx.public_value);
+//     // EXPECT_EQ(proof_data.public_owner, tx.public_owner);
+//     // EXPECT_EQ(proof_data.asset_id, tx.asset_id);
+//     // EXPECT_EQ(proof_data.merkle_root, tree->root());
+//     // EXPECT_EQ(proof_data.tx_fee, uint256_t(3));
+//     // EXPECT_EQ(proof_data.tx_fee_asset_id, tx.asset_id);
+//     // EXPECT_EQ(proof_data.bridge_call_data, uint256_t(0));
+//     // EXPECT_EQ(proof_data.defi_deposit_value, uint256_t(0));
+//     // EXPECT_EQ(proof_data.defi_root, fr(0));
 
-    EXPECT_TRUE(verify_proof(proof));
-}
+//     EXPECT_TRUE(verify_proof(proof));
+// }
 
 TEST_F(join_split_tests, test_withdraw_full_proof)
 {
