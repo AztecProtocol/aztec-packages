@@ -1702,7 +1702,12 @@ fn generate_compute_note_hash_and_nullifier(note_types: &Vec<String>) -> NoirFun
 }
 
 fn generate_compute_note_hash_and_nullifier_source(note_types: &Vec<String>) -> String {
+    // TODO(#4649): The serialized_note parameter is a fixed-size array, but we don't know what length it should have. 
+    // For now we hardcode it to 20, which is the same as MAX_NOTE_FIELDS_LENGTH.
+
     if note_types.len() == 0 {
+        // TODO(#4520): Even if the contract does not include any notes, other parts of the stack expect for this 
+        // function to exist, so we include a dummy version. We likely should error out here instead.
         "
         unconstrained fn compute_note_hash_and_nullifier(
             contract_address: AztecAddress,
@@ -1714,6 +1719,9 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &Vec<String>) -> 
             [0, 0, 0, 0]
         }".to_string()
     } else {
+        // For contracts that include notes we do a simple if-else chain comparing note_type_id with the different
+        // get_note_type_id of each of the note types.
+
         let if_statements: Vec<String> = note_types.iter().map(|note_type| format!(
             "if (note_type_id == {0}::get_note_type_id()) {{
                 note_utils::compute_note_hash_and_nullifier({0}::deserialize_content, note_header, serialized_note)
