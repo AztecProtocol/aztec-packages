@@ -4,23 +4,9 @@ contract Child {
 
     use dep::aztec::{
         context::{PublicContext, Context},
-        log::emit_unencrypted_log,
-        state_vars::{
-            public_state::PublicState,
-            set::Set
-        },
-        protocol_types::{
-            abis::{
-                function_selector::FunctionSelector,
-                call_context::CallContext
-            },
-            address::AztecAddress,
-        },
-        note::{
-            note_getter_options::NoteGetterOptions,
-        }
+        protocol_types::abis::{function_selector::FunctionSelector, call_context::CallContext},
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
         current_value: PublicState<Field>,
