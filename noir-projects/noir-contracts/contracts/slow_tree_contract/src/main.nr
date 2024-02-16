@@ -10,7 +10,7 @@ contract SlowTree {
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         note::utils as note_utils,
         protocol_types::type_serialization::FIELD_SERIALIZED_LEN
     };

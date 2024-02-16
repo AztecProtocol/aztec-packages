@@ -7,7 +7,7 @@ contract SchnorrAccount {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        context::{PrivateContext, Context}, note::utils as note_utils,
+        context::Context, note::utils as note_utils,
         oracle::get_public_key::get_public_key, 
     };
     use dep::authwit::{

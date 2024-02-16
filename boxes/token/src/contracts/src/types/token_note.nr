@@ -1,7 +1,6 @@
 use dep::aztec::{
     protocol_types::constants::MAX_READ_REQUESTS_PER_CALL,
     note::utils::compute_note_hash_for_consumption,
-    context::PrivateContext,
     hash::pedersen_hash,
 };
 use dep::aztec::oracle::{

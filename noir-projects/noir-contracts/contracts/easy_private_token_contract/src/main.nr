@@ -1,7 +1,7 @@
 // docs:start:easy_private_token_contract
 contract EasyPrivateToken {
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         note::utils as note_utils,
     };
     use dep::std::option::Option;

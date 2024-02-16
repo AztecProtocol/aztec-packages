@@ -8,7 +8,6 @@ contract Test {
 
     use dep::aztec::{
         context::{Context, inputs::private_context_inputs::PrivateContextInputs}, hash::pedersen_hash,
-        context::PrivateContext,
         note::{
         utils as note_utils, lifecycle::{create_note, destroy_note},
         note_getter::{get_notes, view_notes}, note_getter_options::NoteStatus,

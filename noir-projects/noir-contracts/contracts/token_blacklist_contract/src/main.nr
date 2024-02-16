@@ -22,7 +22,7 @@ contract TokenBlacklist {
     };
     use dep::aztec::{
         note::utils as note_utils,
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         hash::{compute_secret_hash},
     };
 

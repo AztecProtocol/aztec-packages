@@ -1,5 +1,4 @@
 use dep::aztec::context::{
-    PrivateContext,
     PublicContext
 };
 use crate::asset::Asset;

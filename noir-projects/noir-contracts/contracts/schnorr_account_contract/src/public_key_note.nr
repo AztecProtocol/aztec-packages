@@ -2,7 +2,6 @@ use dep::aztec::{
     note::utils::compute_note_hash_for_consumption,
     hash::pedersen_hash,
     oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    context::PrivateContext, 
 };
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;

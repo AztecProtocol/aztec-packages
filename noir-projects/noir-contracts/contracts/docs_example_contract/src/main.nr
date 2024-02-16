@@ -21,7 +21,7 @@ contract DocsExample {
             note_getter_options::Comparator,
             utils as note_utils,
         },
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;

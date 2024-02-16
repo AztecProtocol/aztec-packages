@@ -1,7 +1,7 @@
 use dep::aztec::{
     protocol_types::constants::MAX_READ_REQUESTS_PER_CALL,
     note::utils::compute_note_hash_for_consumption,
-    context::PrivateContext, hash::pedersen_hash
+    hash::pedersen_hash
 };
 use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
 use dep::safe_math::SafeU120;

@@ -1,6 +1,6 @@
-use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
 
-use dep::aztec::context::{PrivateContext, PublicContext, Context};
+use dep::aztec::context::{PublicContext, Context};
 
 struct SlowMap {
   address: AztecAddress,

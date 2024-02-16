@@ -4,7 +4,7 @@ contract StatefulTest {
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         note::utils as note_utils,
     };
 

@@ -3,7 +3,7 @@ contract Child {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         log::emit_unencrypted_log,
         state_vars::{
             public_state::PublicState,

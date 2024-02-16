@@ -6,7 +6,7 @@ use dep::aztec::{
             MAX_READ_REQUESTS_PER_CALL,
         },
     },
-    context::{PrivateContext, PublicContext, Context},
+    context::{PublicContext, Context},
     note::{
         note_getter_options::NoteGetterOptions,
         note_viewer_options::NoteViewerOptions,

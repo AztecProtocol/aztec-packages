@@ -3,7 +3,7 @@ mod auth_oracle;
 
 contract SchnorrSingleKeyAccount {
     use dep::std::{option::Option};
-    use dep::aztec::context::{PrivateContext, PublicContext, Context};
+    use dep::aztec::context::{PublicContext, Context};
 
     use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 

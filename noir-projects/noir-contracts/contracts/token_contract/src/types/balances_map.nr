@@ -1,7 +1,7 @@
 use dep::std::option::Option;
 use dep::safe_math::SafeU120;
 use dep::aztec::{
-    context::{PrivateContext, PublicContext, Context}, hash::pedersen_hash,
+    context::{PublicContext, Context}, hash::pedersen_hash,
     protocol_types::constants::MAX_READ_REQUESTS_PER_CALL,
     note::{
         note_getter::view_notes, note_getter_options::SortOrder,

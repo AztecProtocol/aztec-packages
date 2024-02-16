@@ -1,7 +1,7 @@
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption,
     oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    hash::pedersen_hash, context::PrivateContext
+    hash::pedersen_hash,
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;

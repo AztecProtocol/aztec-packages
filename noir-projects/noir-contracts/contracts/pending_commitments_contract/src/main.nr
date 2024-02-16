@@ -7,7 +7,7 @@ contract PendingCommitments {
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         note::utils as note_utils,
     };
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;

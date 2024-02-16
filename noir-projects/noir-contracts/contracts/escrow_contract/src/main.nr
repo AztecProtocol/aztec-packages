@@ -5,7 +5,7 @@ contract Escrow {
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         note::utils as note_utils,
         oracle::get_public_key::get_public_key,
     };

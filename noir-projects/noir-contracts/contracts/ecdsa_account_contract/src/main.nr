@@ -7,7 +7,7 @@ contract EcdsaAccount {
     use dep::std;
     use dep::std::option::Option;
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
+        context::{PublicContext, Context},
         note::utils as note_utils, oracle::get_public_key::get_public_key,
     };
     use dep::authwit::{
