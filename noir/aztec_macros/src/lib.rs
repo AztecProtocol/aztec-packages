@@ -1624,7 +1624,7 @@ fn inject_compute_note_hash_and_nullifier(
 
     let (module_id, file_id) = contract_module_file_ids[0];
 
-    // If compute_note_hash_and_nullifier is already defined by the user, we skip autogeneration in order to provide an
+    // If compute_note_hash_and_nullifier is already defined by the user, we skip auto-generation in order to provide an
     // escape hatch for this mechanism.
     // TODO(#4647): improve this diagnosis and error messaging.
     if collected_functions.iter().any(|coll_funcs_data| check_for_compute_note_hash_and_nullifier_definition(&coll_funcs_data.functions, module_id)) {
@@ -1634,32 +1634,7 @@ fn inject_compute_note_hash_and_nullifier(
     // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
     // contract might use. These are the types that implement the NoteInterface trait, which provides the
     // get_note_type_id function.
-
-    let mut note_types: Vec<String> = Vec::new();
-
-    // These note types can be declared in either external crates, or the contract's own crate. External crates have
-    // already been processed and resolved, but are available here via the NodeInterner. This is because the contract's
-    // crate is the last crate to be processed, after all of its dependencies.
-    for trait_impl_id in 0..(&context.def_interner.next_trait_impl_id()).0 {
-        let trait_impl = &context.def_interner.get_trait_implementation(TraitImplId(trait_impl_id));
-
-        if trait_impl.borrow().ident.0.contents == "NoteInterface" {
-            if let Type::Struct(s, _) = &trait_impl.borrow().typ {
-                note_types.push(s.borrow().name.0.contents.clone());
-            } else {
-                panic!("Found impl for NoteInterface on non-Struct");
-            }
-        }
-    }
-
-    // This crate's traits and impls have not yet been resolved, so we look for impls in unresolved_trait_impls.
-    note_types.extend(unresolved_traits_impls.iter()
-        .filter(|trait_impl| 
-            trait_impl.trait_path.segments.last().expect("ICE: empty trait_impl path").0.contents == "NoteInterface")
-        .filter_map(|trait_impl| match &trait_impl.object_type.typ {
-            UnresolvedTypeData::Named(path, _, _) => Some(path.segments.last().unwrap().0.contents.clone()),
-            _ => None,
-        }));
+    let note_types = fetch_struct_trait_impls(context, unresolved_traits_impls, "NoteInterface");
 
     // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
     let func = generate_compute_note_hash_and_nullifier(&note_types);
@@ -1690,6 +1665,41 @@ fn inject_compute_note_hash_and_nullifier(
         .push_fn(module_id, func_id, func.clone());
 
     Ok(())
+}
+
+// Fetches the name of all structs that implement trait_name, both in the current crate and all of its dependencies.
+fn fetch_struct_trait_impls(
+    context: &mut HirContext,
+    unresolved_traits_impls: &Vec<UnresolvedTraitImpl>,
+    trait_name: &str
+) -> Vec<String> {
+    let mut struct_typenames: Vec<String> = Vec::new();
+
+    // These structs can be declared in either external crates or the current one. External crates that contain 
+    // dependencies have already been processed and resolved, but are available here via the NodeInterner. Note that
+    // crates on which the current crate does not depend on may not have been processed, and will be ignored.
+    for trait_impl_id in 0..(&context.def_interner.next_trait_impl_id()).0 {
+        let trait_impl = &context.def_interner.get_trait_implementation(TraitImplId(trait_impl_id));
+
+        if trait_impl.borrow().ident.0.contents == *trait_name {
+            if let Type::Struct(s, _) = &trait_impl.borrow().typ {
+                struct_typenames.push(s.borrow().name.0.contents.clone());
+            } else {
+                panic!("Found impl for {} on non-Struct", trait_name);
+            }
+        }
+    }
+
+    // This crate's traits and impls have not yet been resolved, so we look for impls in unresolved_trait_impls.
+    struct_typenames.extend(unresolved_traits_impls.iter()
+        .filter(|trait_impl| 
+            trait_impl.trait_path.segments.last().expect("ICE: empty trait_impl path").0.contents == *trait_name)
+        .filter_map(|trait_impl| match &trait_impl.object_type.typ {
+            UnresolvedTypeData::Named(path, _, _) => Some(path.segments.last().unwrap().0.contents.clone()),
+            _ => None,
+        }));
+
+    struct_typenames
 }
 
 fn generate_compute_note_hash_and_nullifier(note_types: &Vec<String>) -> NoirFunction {
