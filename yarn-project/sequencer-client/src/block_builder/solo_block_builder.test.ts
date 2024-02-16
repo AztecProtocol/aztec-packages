@@ -1,8 +1,8 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   L2Block,
-  L2BlockBody,
   MerkleTreeId,
   PublicDataWrite,
   Tx,
@@ -228,7 +228,7 @@ describe('sequencer/solo_block_builder', () => {
         ),
     );
 
-    const body = new L2BlockBody(mockL1ToL2Messages, txEffects);
+    const body = new Body(mockL1ToL2Messages, txEffects);
     // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
     const l2Block = L2Block.fromFields({
       archive: AppendOnlyTreeSnapshot.zero(),

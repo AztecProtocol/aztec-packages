@@ -1,6 +1,6 @@
 import {
+  Body,
   ContractData,
-  L2BlockBody,
   L2BlockL2Logs,
   L2Tx,
   LogType,
@@ -49,7 +49,7 @@ export class L2Block {
     /** L2 block header. */
     public header: Header,
     /** L2 block body. */
-    public body: L2BlockBody,
+    public body: Body,
     /** Associated L1 block num */
     l1BlockNumber?: bigint,
   ) {
@@ -72,7 +72,7 @@ export class L2Block {
       archive: AppendOnlyTreeSnapshot;
       /** L2 block header. */
       header: Header;
-      body: L2BlockBody;
+      body: Body;
     },
     l1BlockNumber?: bigint,
   ) {
@@ -83,11 +83,11 @@ export class L2Block {
    * Deserializes a block from a buffer
    * @returns A deserialized L2 block.
    */
-  static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
+  static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
-    const body = reader.readObject(L2BlockBody, withLogs);
+    const body = reader.readObject(Body);
 
     return L2Block.fromFields({
       archive,
@@ -102,8 +102,8 @@ export class L2Block {
    * separately.
    * @returns A serialized L2 block logs.
    */
-  toBuffer(includeLogs: boolean = false) {
-    return serializeToBuffer(this.header, this.archive, this.body.toBuffer(includeLogs));
+  toBuffer() {
+    return serializeToBuffer(this.header, this.archive, this.body.toBuffer());
   }
 
   /**
@@ -191,7 +191,7 @@ export class L2Block {
 
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
 
-    const body = new L2BlockBody(newL1ToL2Messages, txEffects);
+    const body = new Body(newL1ToL2Messages, txEffects);
 
     return L2Block.fromFields(
       {
@@ -319,7 +319,7 @@ export class L2Block {
 
     const txEffect = this.body.txEffects[txIndex];
 
-    const newCommitments = txEffect.newNoteHashes.filter(x => !x.isZero());
+    const newNoteHashes = txEffect.newNoteHashes.filter(x => !x.isZero());
     const newNullifiers = txEffect.newNullifiers.filter(x => !x.isZero());
     const newPublicDataWrites = txEffect.newPublicDataWrites.filter(x => !x.isEmpty());
     const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
@@ -327,7 +327,7 @@ export class L2Block {
     const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
 
     return new L2Tx(
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newPublicDataWrites,
       newL2ToL1Msgs,

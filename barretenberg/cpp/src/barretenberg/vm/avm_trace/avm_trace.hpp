@@ -43,6 +43,9 @@ class AvmTraceBuilder {
     // Bitwise not with direct memory access.
     void op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
+    // Equality with direct memory access.
+    void op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
     // Set a constant from bytecode with direct memory access.
     void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 
@@ -74,6 +77,8 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
+
+    void finalise_mem_trace_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts);
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;

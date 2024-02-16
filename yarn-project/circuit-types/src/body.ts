@@ -1,41 +1,38 @@
 import { ContractData, L2BlockL2Logs, PublicDataWrite, TxEffect, TxEffectLogs } from '@aztec/circuit-types';
-import { MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_CONTRACTS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
+import {
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-export class L2BlockBody {
-  private static logger = createDebugLogger('aztec:l2_block');
-
+export class Body {
   constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
 
   /**
    * Serializes a block body
    * @returns A serialized L2 block body.
    */
-  toBuffer(includeLogs: boolean = false) {
-    let logs: [L2BlockL2Logs, L2BlockL2Logs] | [] = [];
+  toBuffer() {
+    this.assertLogsAttached();
 
-    if (includeLogs) {
-      this.assertLogsAttached();
-
-      const newEncryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
-      const newUnencryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
-      logs = [new L2BlockL2Logs(newEncryptedLogs), new L2BlockL2Logs(newUnencryptedLogs)];
-    }
-
-    const newCommitments = this.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
+    const newNoteHashes = this.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
     const newNullifiers = this.txEffects.flatMap(txEffect => txEffect.newNullifiers);
     const newPublicDataWrites = this.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
     const newL2ToL1Msgs = this.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
     const newContracts = this.txEffects.flatMap(txEffect => txEffect.contractLeaves);
     const newContractData = this.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.l1ToL2Messages;
+    const newEncryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
+    const newUnencryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
 
     return serializeToBuffer(
-      newCommitments.length,
-      newCommitments,
+      newNoteHashes.length,
+      newNoteHashes,
       newNullifiers.length,
       newNullifiers,
       newPublicDataWrites.length,
@@ -47,17 +44,18 @@ export class L2BlockBody {
       newContractData,
       newL1ToL2Messages.length,
       newL1ToL2Messages,
-      ...logs,
+      new L2BlockL2Logs(newEncryptedLogs),
+      new L2BlockL2Logs(newUnencryptedLogs),
     );
   }
 
   /**
- * Deserializes a block from a buffer
- * @returns A deserialized L2 block.
- */
-  static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
+   * Deserializes a block from a buffer
+   * @returns A deserialized L2 block.
+   */
+  static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const newCommitments = reader.readVector(Fr);
+    const newNoteHashes = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
     const newL2ToL1Msgs = reader.readVector(Fr);
@@ -67,22 +65,17 @@ export class L2BlockBody {
     // It seems the da/ tx hash would be fine, would only need to edit circuits ?
     const newL1ToL2Messages = reader.readVector(Fr);
 
-    let newEncryptedLogs: L2BlockL2Logs;
-    let newUnencryptedLogs: L2BlockL2Logs;
-
     // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
     const numberOfNonEmptyTxs = calculateNumTxsFromNullifiers(newNullifiers);
 
-    if (withLogs) {
-      newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-      newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
+    const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
+    const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
 
-      if (
-        new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
-        new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
-      ) {
-        throw new Error('Logs exist in the padded area');
-      }
+    if (
+      new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
+      new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
+    ) {
+      throw new Error('Logs exist in the padded area');
     }
 
     const txEffects: TxEffect[] = [];
@@ -90,13 +83,9 @@ export class L2BlockBody {
     const numberOfTxsIncludingEmpty = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
 
     for (let i = 0; i < numberOfTxsIncludingEmpty; i += 1) {
-      const logs: TxEffectLogs[] = withLogs
-        ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])]
-        : [];
-
       txEffects.push(
         new TxEffect(
-          newCommitments.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
+          newNoteHashes.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
           newNullifiers.slice(i * MAX_NEW_NULLIFIERS_PER_TX, (i + 1) * MAX_NEW_NULLIFIERS_PER_TX),
           newL2ToL1Msgs.slice(i * MAX_NEW_L2_TO_L1_MSGS_PER_TX, (i + 1) * MAX_NEW_L2_TO_L1_MSGS_PER_TX),
           newPublicDataWrites.slice(
@@ -105,7 +94,7 @@ export class L2BlockBody {
           ),
           newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
           newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          ...logs,
+          new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i]),
         ),
       );
     }
@@ -151,7 +140,7 @@ export class L2BlockBody {
 
   public assertLogsAttached() {
     if (!this.areLogsAttached()) {
-      throw new Error(`newEncryptedLogs and newUnencryptedLogs must be defined`);
+      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined');
     }
   }
 
@@ -183,7 +172,6 @@ export class L2BlockBody {
     this.txEffects.forEach(txEffect => delete txEffect.logs);
   }
 }
-
 
 function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {
   let numberOfNonEmptyTxs = 0;

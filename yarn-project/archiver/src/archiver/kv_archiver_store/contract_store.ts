@@ -77,7 +77,11 @@ export class ContractStore {
     }
 
     const block = this.#blockStore.getBlock(blockNumber);
-    // Assuming each txEffect only has one contract
+
+    if (block?.body.txEffects[index].contractData.length !== 1) {
+      throw new Error(`Contract data at block: ${blockNumber}, tx: ${index} does not have length of 1`);
+    }
+
     return block?.body.txEffects[index].contractData[0];
   }
 

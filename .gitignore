@@ -14,5 +14,4 @@ cmake-build-debug
 .netlify
 
 .graphite*
-
-noir-protocol-circuits/src/target/*.json
+.DS_Store
