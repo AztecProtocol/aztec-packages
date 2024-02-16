@@ -30,7 +30,7 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
-    std::shared_ptr<VerificationKey> verification_key;
+    // std::shared_ptr<VerificationKey> verification_key;
 
     ProverPolynomials prover_polynomials;
     WitnessCommitments witness_commitments;

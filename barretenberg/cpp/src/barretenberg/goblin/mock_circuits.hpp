@@ -30,6 +30,9 @@ class GoblinMockCircuits {
     using RecursiveFlavor = bb::GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using KernelInput = Goblin::AccumulationOutput;
+    using VerifierInstance = bb::VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
     /**
@@ -38,9 +41,8 @@ class GoblinMockCircuits {
      * @param builder
      * @param num_gates
      */
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log2_num_gates = 0)
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t num_gates = 1)
     {
-        size_t num_gates = 1 << log2_num_gates;
         // For good measure, include a gate with some public inputs
         {
             FF a = FF::random_element();
@@ -54,18 +56,17 @@ class GoblinMockCircuits {
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
-
         // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates
-        FF a = FF::random_element();
-        FF b = FF::random_element();
-        FF c = FF::random_element();
-        FF d = a + b + c;
-        uint32_t a_idx = builder.add_variable(a);
-        uint32_t b_idx = builder.add_variable(b);
-        uint32_t c_idx = builder.add_variable(c);
-        uint32_t d_idx = builder.add_variable(d);
-
         for (size_t i = 0; i < num_gates - 1; ++i) {
+            FF a = FF::random_element();
+            FF b = FF::random_element();
+            FF c = FF::random_element();
+            FF d = a + b + c;
+            uint32_t a_idx = builder.add_variable(a);
+            uint32_t b_idx = builder.add_variable(b);
+            uint32_t c_idx = builder.add_variable(c);
+            uint32_t d_idx = builder.add_variable(d);
+
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
     }
@@ -199,6 +200,7 @@ class GoblinMockCircuits {
             RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
             verifier2.verify_proof(prev_kernel_accum.proof);
         }
+        info(builder.get_num_gates());
     }
 
     /**
@@ -212,29 +214,35 @@ class GoblinMockCircuits {
      * @param function_fold_proof
      * @param kernel_fold_proof
      */
-    static void construct_mock_folding_kernel(GoblinUltraBuilder& builder,
-                                              const std::vector<FF>& function_fold_proof,
-                                              const std::vector<FF>& kernel_fold_proof)
+    static std::shared_ptr<VerifierInstance> construct_mock_folding_kernel(
+        GoblinUltraBuilder& builder,
+        const std::vector<FF>& fold_proof_1,
+        const std::vector<FF>& fold_proof_2,
+        std::shared_ptr<VerifierInstance>& verifier_inst_1,
+        std::shared_ptr<VerifierInstance>& verifier_inst_2,
+        std::shared_ptr<VerifierInstance>& prev_kernel_accum)
     {
         using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
-        using RecursiveVerifierInstances = ::bb::VerifierInstances_<GURecursiveFlavor, 2>;
+        using RecursiveVerifierInstances =
+            bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
         using FoldingRecursiveVerifier =
             bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
 
-        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
-        // kernel "full" within the dyadic size 2^17 (130914 gates)
-        const size_t NUM_MERKLE_CHECKS = 20;
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
+        // the kernel "full" within the dyadic size 2^17 (130914 gates)
+        const size_t NUM_MERKLE_CHECKS = 35;
         const size_t NUM_ECDSA_VERIFICATIONS = 1;
         const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
-        FoldingRecursiveVerifier verifier_1{ &builder };
-        verifier_1.verify_folding_proof(function_fold_proof);
-
-        FoldingRecursiveVerifier verifier_2{ &builder };
-        verifier_2.verify_folding_proof(kernel_fold_proof);
+        FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { verifier_inst_1->verification_key } };
+        auto fctn_verifier_accum = verifier_1.verify_folding_proof(fold_proof_1);
+        auto native_acc = std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
+        FoldingRecursiveVerifier verifier_2{ &builder, native_acc, { verifier_inst_2->verification_key } };
+        auto kernel_verifier_accum = verifier_2.verify_folding_proof(fold_proof_2);
+        return std::make_shared<VerifierInstance>(kernel_verifier_accum->get_value());
     }
 
     /**

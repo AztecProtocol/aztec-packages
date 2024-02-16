@@ -33,44 +33,57 @@ class IvcBench : public benchmark::Fixture {
 
     /**
      * @brief Perform a specified number of function circuit accumulation rounds
-     * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists of
+     * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists
+     of
      * the generation of two circuits, two folding proofs and two Merge proofs. To match the sizes called out in the
      * spec
      * (https://github.com/AztecProtocol/aztec-packages/blob/master/yellow-paper/docs/cryptography/performance-targets.md)
-     * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently support
+     * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently
+     support
      * folding circuits of unequal size.
      *
      */
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
+        static_cast<void>(state);
+        static_cast<void>(ivc);
         // Initialize IVC with function circuit
         Builder function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
         ivc.initialize(function_circuit);
+        auto kernel_verifier_accum = ivc.get_verifier_accumulator();
 
         // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
         Builder kernel_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(kernel_circuit);
         auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+        auto kernel_verifier_inst = ivc.get_verifier_instance();
 
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
-        NUM_CIRCUITS -= 1; // Subtract one to account for the "initialization" round above
+        // Subtract one to account for the "initialization" round above
+        NUM_CIRCUITS -= 1;
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-
-            // Accumulate function circuit
             Builder function_circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
             auto function_fold_proof = ivc.accumulate(function_circuit);
+            auto fnct_verifier_inst = ivc.get_verifier_instance();
 
             // Accumulate kernel circuit
             Builder kernel_circuit{ ivc.goblin.op_queue };
-            GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit, function_fold_proof, kernel_fold_proof);
-            auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+            kernel_verifier_accum = GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit,
+                                                                                      kernel_fold_proof,
+                                                                                      function_fold_proof,
+                                                                                      kernel_verifier_inst,
+                                                                                      fnct_verifier_inst,
+                                                                                      kernel_verifier_accum);
+
+            kernel_fold_proof = ivc.accumulate(kernel_circuit);
+            kernel_verifier_inst = ivc.get_verifier_instance();
         }
     }
 };
 
-/**
+/**ch
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  *
  */

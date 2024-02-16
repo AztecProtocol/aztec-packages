@@ -82,9 +82,10 @@ class RecursiveMergeVerifierTest : public testing::Test {
         // Check 3: Construct and verify a (goblin) ultra honk proof of the Merge recursive verifier circuit
         {
             GoblinUltraComposer composer;
-            auto instance = composer.create_instance(outer_circuit);
+            auto instance = composer.create_prover_instance(outer_circuit);
+            auto verification_key = composer.compute_verification_key(instance);
             auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance);
+            auto verifier = composer.create_verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

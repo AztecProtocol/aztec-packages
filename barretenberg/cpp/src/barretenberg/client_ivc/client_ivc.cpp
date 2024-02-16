@@ -18,7 +18,7 @@ void ClientIVC::initialize(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Construct new merge proof
     Composer composer;
-    fold_output.accumulator = composer.create_instance(circuit);
+    prover_fold_output.accumulator = composer.create_prover_instance(circuit);
 }
 
 /**
@@ -32,11 +32,10 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Add recursive merge verifier and construct new merge proof
     Composer composer;
-    auto instance = composer.create_instance(circuit);
-    std::vector<std::shared_ptr<Instance>> instances{ fold_output.accumulator, instance };
-    auto folding_prover = composer.create_folding_prover(instances);
-    fold_output = folding_prover.fold_instances();
-    return fold_output.folding_data;
+    prover_instance = composer.create_prover_instance(circuit);
+    auto folding_prover = composer.create_folding_prover({ prover_fold_output.accumulator, prover_instance });
+    prover_fold_output = folding_prover.fold_instances();
+    return prover_fold_output.folding_data;
 }
 
 /**
@@ -46,7 +45,7 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    return { fold_output.folding_data, decider_prove(), goblin.prove() };
+    return { prover_fold_output.folding_data, decider_prove(), goblin.prove() };
 }
 
 /**
@@ -55,19 +54,19 @@ ClientIVC::Proof ClientIVC::prove()
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(Proof& proof)
+bool ClientIVC::verify(Proof& proof, const std::vector<ClientIVC::VerifierAccumulator>& verifier_instances)
 {
     // Goblin verification (merge, eccvm, translator)
     bool goblin_verified = goblin.verify(proof.goblin_proof);
 
     // Decider verification
     Composer composer;
-    auto folding_verifier = composer.create_folding_verifier();
-    bool folding_verified = folding_verifier.verify_folding_proof(proof.fold_proof);
+    auto folding_verifier = composer.create_folding_verifier({ verifier_instances[0], verifier_instances[1] });
+    auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.fold_proof);
     // NOTE: Use of member accumulator here will go away with removal of vkey from ProverInstance
-    auto decider_verifier = composer.create_decider_verifier(fold_output.accumulator);
+    auto decider_verifier = composer.create_decider_verifier(verifier_accumulator);
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
-    return goblin_verified && folding_verified && decision;
+    return goblin_verified && decision;
 }
 
 /**
@@ -78,8 +77,25 @@ bool ClientIVC::verify(Proof& proof)
 HonkProof ClientIVC::decider_prove() const
 {
     Composer composer;
-    auto decider_prover = composer.create_decider_prover(fold_output.accumulator);
+    auto decider_prover = composer.create_decider_prover(prover_fold_output.accumulator);
     return decider_prover.construct_proof();
+}
+
+std::shared_ptr<ClientIVC::VerifierInstance> ClientIVC::get_verifier_instance()
+{
+    Composer composer;
+    composer.compute_commitment_key(prover_instance->instance_size);
+    auto verifier_instance = composer.create_verifier_instance(prover_instance);
+    return verifier_instance;
+}
+
+ClientIVC::VerifierAccumulator ClientIVC::get_verifier_accumulator()
+{
+    Composer composer;
+    auto prover_accumulator = prover_fold_output.accumulator;
+    composer.compute_commitment_key(prover_accumulator->instance_size);
+    auto verifier_accumulator = composer.create_verifier_instance(prover_accumulator);
+    return verifier_accumulator;
 }
 
 } // namespace bb

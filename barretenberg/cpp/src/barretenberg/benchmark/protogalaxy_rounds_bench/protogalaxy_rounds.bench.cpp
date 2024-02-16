@@ -28,7 +28,7 @@ void _bench_round(::benchmark::State& state,
             static_assert(std::same_as<Flavor, UltraFlavor>);
             bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
         }
-        return composer.create_instance(builder);
+        return composer.create_prover_instance(builder);
     };
 
     std::shared_ptr<Instance> instance_1 = construct_instance();

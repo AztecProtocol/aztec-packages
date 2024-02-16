@@ -12,18 +12,6 @@
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 namespace bb {
-template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
-    using FF = typename ProverInstances_::FF;
-    using Instance = typename ProverInstances_::Instance;
-
-    std::shared_ptr<Instance> accumulator;
-    Polynomial<FF> perturbator;
-    std::vector<FF> deltas;
-    Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
-    FF compressed_perturbator;
-    FoldingResult<typename ProverInstances_::Flavor> result;
-};
-
 template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
     using ProverInstances = ProverInstances_;
@@ -40,6 +28,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Commitment = typename Flavor::Commitment;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
@@ -61,8 +50,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     ProverInstances instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
+
     std::shared_ptr<CommitmentKey> commitment_key;
-    ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
@@ -85,7 +74,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *  @param domain_separator separates the same type of data coming from difference instances by instance
      * index
      */
-    void send_accumulator(std::shared_ptr<Instance>, const std::string& domain_separator);
+    // void send_accumulator(std::shared_ptr<Instance>, const std::string& domain_separator);
 
     /**
      * @brief For each instance produced by a circuit, prior to folding, we need to complete the computation of its
@@ -155,33 +144,29 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
+        FF linearly_dependent_contribution = FF(0);
         std::vector<FF> full_honk_evaluations(instance_size);
-        std::vector<FF> linearly_dependent_contributions(instance_size);
-        parallel_for(instance_size, [&](size_t row) {
+        for (size_t row = 0; row < instance_size; row++) {
             auto row_evaluations = instance_polynomials.get_row(row);
             RelationEvaluations relation_evaluations;
             Utils::zero_elements(relation_evaluations);
 
-            // Note that the evaluations are accumulated with the gate separation challenge
-            // being 1 at this stage, as this specific randomness is added later through the
-            // power polynomial univariate specific to ProtoGalaxy
+            // Note that the evaluations are accumulated with the gate separation challenge being 1 at this stage, as
+            // this specific randomness is added later through the power polynomial univariate specific to ProtoGalaxy
             Utils::template accumulate_relation_evaluations<>(
                 row_evaluations, relation_evaluations, relation_parameters, FF(1));
 
             auto output = FF(0);
             auto running_challenge = FF(1);
 
-            // Sum relation evaluations, batched by their corresponding relation separator challenge, to
-            // get the value of the full honk relation at a specific row
-            linearly_dependent_contributions[row] = 0;
+            // Sum relation evaluations, batched by their corresponding relation separator challenge, to get the value
+            // of the full honk relation at a specific row
             Utils::scale_and_batch_elements(
-                relation_evaluations, alpha, running_challenge, output, linearly_dependent_contributions[row]);
-            full_honk_evaluations[row] = output;
-        });
+                relation_evaluations, alpha, running_challenge, output, linearly_dependent_contribution);
 
-        for (FF& linearly_dependent_contribution : linearly_dependent_contributions) {
-            full_honk_evaluations[0] += linearly_dependent_contribution;
+            full_honk_evaluations[row] = output;
         }
+        full_honk_evaluations[0] += linearly_dependent_contribution;
         return full_honk_evaluations;
     }
 
@@ -463,10 +448,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
         FF& challenge,
         const FF& compressed_perturbator);
-
-    void preparation_round();
-    void perturbator_round();
-    void combiner_quotient_round();
-    void accumulator_update_round();
 };
+
 } // namespace bb

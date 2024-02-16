@@ -18,7 +18,10 @@ class ClientIVC {
     using Flavor = GoblinUltraFlavor;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
-    using Accumulator = std::shared_ptr<ProverInstance_<Flavor>>;
+    using ProverAccumulator = std::shared_ptr<ProverInstance_<Flavor>>;
+    using VerifierAccumulator = std::shared_ptr<VerifierInstance_<Flavor>>;
+    using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
+    using ProverInstance = ProverInstance_<GoblinUltraFlavor>;
     using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
 
     // A full proof for the IVC scheme
@@ -29,13 +32,16 @@ class ClientIVC {
     };
 
   private:
-    using FoldingOutput = FoldingResult<Flavor>;
-    using Instance = ProverInstance_<GoblinUltraFlavor>;
+    using ProverFoldOutput = FoldingResult<GoblinUltraFlavor>;
     using Composer = GoblinUltraComposer;
 
   public:
     Goblin goblin;
-    FoldingOutput fold_output;
+    ProverFoldOutput prover_fold_output;
+    ProverAccumulator prover_accumulator;
+
+    // keep the instance or instances around if we're folding more of them so we can compute the verification key
+    std::shared_ptr<ProverInstance> prover_instance;
 
     ClientIVC();
 
@@ -45,8 +51,11 @@ class ClientIVC {
 
     Proof prove();
 
-    bool verify(Proof& proof);
+    bool verify(Proof& proof, const std::vector<VerifierAccumulator>& verifier_instances);
 
     HonkProof decider_prove() const;
+
+    VerifierAccumulator get_verifier_accumulator();
+    std::shared_ptr<VerifierInstance> get_verifier_instance();
 };
 } // namespace bb
