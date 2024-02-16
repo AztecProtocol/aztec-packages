@@ -17,16 +17,8 @@ export class Body {
    * Serializes a block body
    * @returns A serialized L2 block body.
    */
-  toBuffer(includeLogs: boolean = false) {
-    let logs: [L2BlockL2Logs, L2BlockL2Logs] | [] = [];
-
-    if (includeLogs) {
-      this.assertLogsAttached();
-
-      const newEncryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
-      const newUnencryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
-      logs = [new L2BlockL2Logs(newEncryptedLogs), new L2BlockL2Logs(newUnencryptedLogs)];
-    }
+  toBuffer() {
+    this.assertLogsAttached();
 
     const newNoteHashes = this.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
     const newNullifiers = this.txEffects.flatMap(txEffect => txEffect.newNullifiers);
@@ -35,6 +27,8 @@ export class Body {
     const newContracts = this.txEffects.flatMap(txEffect => txEffect.contractLeaves);
     const newContractData = this.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.l1ToL2Messages;
+    const newEncryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
+    const newUnencryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
 
     return serializeToBuffer(
       newNoteHashes.length,
@@ -50,7 +44,8 @@ export class Body {
       newContractData,
       newL1ToL2Messages.length,
       newL1ToL2Messages,
-      ...logs,
+      new L2BlockL2Logs(newEncryptedLogs),
+      new L2BlockL2Logs(newUnencryptedLogs),
     );
   }
 
@@ -58,7 +53,7 @@ export class Body {
    * Deserializes a block from a buffer
    * @returns A deserialized L2 block.
    */
-  static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
+  static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const newNoteHashes = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
@@ -70,22 +65,17 @@ export class Body {
     // It seems the da/ tx hash would be fine, would only need to edit circuits ?
     const newL1ToL2Messages = reader.readVector(Fr);
 
-    let newEncryptedLogs: L2BlockL2Logs;
-    let newUnencryptedLogs: L2BlockL2Logs;
-
     // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
     const numberOfNonEmptyTxs = calculateNumTxsFromNullifiers(newNullifiers);
 
-    if (withLogs) {
-      newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-      newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
+    const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
+    const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
 
-      if (
-        new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
-        new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
-      ) {
-        throw new Error('Logs exist in the padded area');
-      }
+    if (
+      new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
+      new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
+    ) {
+      throw new Error('Logs exist in the padded area');
     }
 
     const txEffects: TxEffect[] = [];
@@ -93,10 +83,6 @@ export class Body {
     const numberOfTxsIncludingEmpty = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
 
     for (let i = 0; i < numberOfTxsIncludingEmpty; i += 1) {
-      const logs: TxEffectLogs[] = withLogs
-        ? [new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i])]
-        : [];
-
       txEffects.push(
         new TxEffect(
           newNoteHashes.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX),
@@ -108,7 +94,7 @@ export class Body {
           ),
           newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
           newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          ...logs,
+          new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i]),
         ),
       );
     }

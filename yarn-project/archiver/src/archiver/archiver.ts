@@ -332,8 +332,6 @@ export class Archiver implements ArchiveSource {
           NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         );
 
-        block.body.detachLogs();
-
         return block;
       }),
     );

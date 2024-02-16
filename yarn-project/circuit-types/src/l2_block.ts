@@ -83,11 +83,11 @@ export class L2Block {
    * Deserializes a block from a buffer
    * @returns A deserialized L2 block.
    */
-  static fromBuffer(buf: Buffer | BufferReader, withLogs: boolean = false) {
+  static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const header = reader.readObject(Header);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
-    const body = reader.readObject(Body, withLogs);
+    const body = reader.readObject(Body);
 
     return L2Block.fromFields({
       archive,
@@ -102,8 +102,8 @@ export class L2Block {
    * separately.
    * @returns A serialized L2 block logs.
    */
-  toBuffer(includeLogs: boolean = false) {
-    return serializeToBuffer(this.header, this.archive, this.body.toBuffer(includeLogs));
+  toBuffer() {
+    return serializeToBuffer(this.header, this.archive, this.body.toBuffer());
   }
 
   /**

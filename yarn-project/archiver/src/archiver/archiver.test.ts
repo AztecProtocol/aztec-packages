@@ -352,7 +352,7 @@ function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const archive = toHex(l2Block.archive.root.toBuffer());
   const txsHash = toHex(l2Block.body.getCalldataHash());
-  const body = toHex(l2Block.body.toBuffer(true));
+  const body = toHex(l2Block.body.toBuffer());
   const proof = `0x`;
   const input = encodeFunctionData({
     abi: RollupAbi,

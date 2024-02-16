@@ -212,11 +212,10 @@ export class BufferReader {
       /**
        * A method that takes a BufferReader instance and returns an instance of the deserialized data type.
        */
-      fromBuffer: (reader: BufferReader, passthrough: any) => T;
+      fromBuffer: (reader: BufferReader) => T;
     },
-    passthrough?: any,
   ): T {
-    return deserializer.fromBuffer(this, passthrough);
+    return deserializer.fromBuffer(this);
   }
 
   /**

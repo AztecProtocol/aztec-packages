@@ -114,7 +114,7 @@ async function getBlockFromCallData(
     numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
     Buffer.from(hexToBytes(bodyHex)),
   ]);
-  const block = L2Block.fromBuffer(blockBuffer, true);
+  const block = L2Block.fromBuffer(blockBuffer);
   if (BigInt(block.number) !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
   }

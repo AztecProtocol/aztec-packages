@@ -27,7 +27,7 @@ describe('L1Publisher', () => {
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
     txsHash = l2Block.body.getCalldataHash();
-    body = l2Block.body.toBuffer(true);
+    body = l2Block.body.toBuffer();
     proof = Buffer.alloc(0);
 
     txSender = mock<L1PublisherTxSender>();
