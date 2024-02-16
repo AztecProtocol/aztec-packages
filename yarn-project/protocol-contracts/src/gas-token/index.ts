@@ -9,5 +9,5 @@ export function getCanonicalGasToken(): ProtocolContract {
 }
 
 export const GasTokenAddress = AztecAddress.fromString(
-  '0x28d41e4feb2187a2083318713f96355e2f4c0d14d498965be9d98f199c80c2d5',
+  '0x02704522409ff3c5bc18844e8152bb9f55c06ffde58fbba48ab985e7abf866d8',
 );
