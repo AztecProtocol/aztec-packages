@@ -9,10 +9,17 @@ title: Bytecode
 
 - We mention compressing bytecode. We should specify how compression is encoded (because all nodes will need to follow a compression and decompression standard). Is there a prefix to convey the type & version of compression that's been used? How is the length of a blob of bytecode conveyed?
 
-(Alvaro) Palla will add how the length and other properties of the bytecode are broadcasted through the registrar contract but basically it's putting the length as the first field before the serialized bytecode starts. The serialized bytecode is the one outputted by acvm_repo.
+(Alvaro) Palla will add how the length and other properties of the bytecode are broadcasted through the registrar contract but basically it's putting the length as the first field before the serialized bytecode starts. The serialized bytecode is the one outputted by Circuit::serialize in the acvm_repo.
 
 
-- This section needs to align with some descriptions in the `contract-deployment/*` section. It might be worth liaising with Palla, to see which section should describe the following: broadcasting bytecode (how is it encoded), hashing of bytecode (how is it hashed), committing to bytecode (how is it committed-to (although perhaps this belongs in the avm section)), the desired contents of an artifact, how is an artifact hashed? And for the artifact, for a particular function, what information is included?
+- This section needs to align with some descriptions in the `contract-deployment/*` section. It might be worth liaising with Palla, to see which section should describe the following: hashing of bytecode (how is it hashed), committing to bytecode (how is it committed-to (although perhaps this belongs in the avm section)), the desired contents of an artifact, how is an artifact hashed? And for the artifact, for a particular function, what information is included?
+
+(Alvaro)
+ - Hashing of bytecode => It's done in the deployment section, I have linked to it in the relevant section.
+ - Commiting to bytecode => Will follow up on this, I see a KZG commitment in the AVM section but I'm not sure that will be verified in the registrar contract.
+ - Desired contents of an artifact => I have added a section with the desired contents of an artifact.
+ - How is an artifact hashed? => I have added a link to the deployment section that specifies it.
+ - For the artifact, for a particular function, what information is included? => I have added a section with the desired contents of an artifact that includes this information.
 
 
 -->
@@ -64,13 +71,13 @@ This implies that a block of ACIR bytecode can represent more than one program, 
 
 # Usage of the bytecode
 
-### Compiling a contract
+## Compiling a contract
 
 When a contract is compiled, an artifact will be generated. This artifact needs to be hashed in a specific manner [detailed in the deployment section](../contract-deployment/classes#artifact-hash) for publishing.
 
 The exact form of the artifact is not specified by the protocol, but it needs at least the following information:
 
-#### Contract artifact
+### Contract artifact
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
@@ -81,7 +88,7 @@ The exact form of the artifact is not specified by the protocol, but it needs at
 | `publicBytecode` | `string` | The AVM bytecode of the public functions, converted to base64. |
 | `events` | [EventAbi[]](#event-abi) | The events of the contract. |
 
-#### Event ABI
+### Event ABI
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
@@ -89,18 +96,18 @@ The exact form of the artifact is not specified by the protocol, but it needs at
 | `name` | `string` | The event name. |
 | `fields` | [ABIVariable](#abi-variable) | The fields of the event. |
 
-#### Function entry
+### Function entry
 
 If the function is public, the entry will be its ABI. If the function is private or unconstrained, the entry will be the ABI + the artifact.
 
-#### Function artifact
+### Function artifact
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
 |----------|----------|----------|
 | `bytecode` | `string` | The ACIR bytecode of the function, converted to base64. |
 
-#### Function ABI
+### Function ABI
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
@@ -110,7 +117,7 @@ If the function is public, the entry will be its ABI. If the function is private
 | `parameters` | [ABIParameter[]](#abi-parameter) | Function parameters. |
 | `returnTypes` | `ABIType[]` | The types of the return values. |
 
-#### ABI Variable
+### ABI Variable
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
@@ -118,7 +125,7 @@ If the function is public, the entry will be its ABI. If the function is private
 | `name` | `string` | The name of the variable. |
 | `type` | [ABIType](#abi-type) | The type of the variable. |
 
-#### ABI Parameter
+### ABI Parameter
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
@@ -127,7 +134,7 @@ If the function is public, the entry will be its ABI. If the function is private
 | `type` | [ABIType](#abi-type) | The type of the variable. |
 | `visibility` | `string` | `public` or `secret`. |
 
-#### ABI Type
+### ABI Type
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
@@ -139,7 +146,7 @@ If the function is public, the entry will be its ABI. If the function is private
 | `type?` | [ABIType](#abi-type) | The types of the array elements. Applies to arrays only. |
 | `fields?` | [ABIVariable[]](#abi-variable) | The The fields of the struct. Applies to structs only. |
 
-#### Bytecode in the artifact
+### Bytecode in the artifact
 
 The protocol mandates that public bytecode needs to be published to a data availability solution, since the sequencers need to have the data available to run the public functions. Also, it needs to use an encoding that is friendly to the public VM, such as the one specified in the [AVM section](../public-vm/bytecode-validation-circuit).
 
@@ -149,14 +156,18 @@ The encoding of private and unconstrained functions is not specified by the prot
 
 This implies that the encoding of private and unconstrained functions does not need to be friendly to circuits, since when publishing it the protocol only sees a [generic array of field elements](../contract-deployment/classes#broadcast).
 
-### Executing a private function
+## Executing a private function
 
 When executing a private function, its ACIR bytecode will be executed by the PXE using the ACVM. The ACVM will generate the witness of the execution. The proving system can be used to generate a proof of the correctness of the witness.
 
-### Executing an unconstrained function
+The fact that the correct function was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes#class-identifier) contains one leaf in the function tree with this selector and the verification key of the function.
+
+## Executing an unconstrained function
 
 When executing an unconstrained function, its Brillig bytecode will be executed by the PXE using the ACVM, similarly to private functions, but the PXE will not prove the execution. Instead, the PXE will return the result of the execution of the function to the user.
 
-### Executing a public function
+## Executing a public function
 
 When executing a public function, its AVM bytecode will be executed by the sequencer with the specified selector and arguments. The sequencer will generate a public VM proof of the correct execution of the AVM bytecode.
+
+The fact that the correct bytecode was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes#class-identifier) contains the [commitment](http://localhost:3001/docs/public-vm/bytecode-validation-circuit#committed-representation) to the bytecode used.
