@@ -146,13 +146,17 @@ const sidebars = {
       label: "Gas & Fees",
       type: "category",
       link: { type: "doc", id: "gas-and-fees/index" },
-      items: [],
+      items: [
+        "gas-and-fees/fee-payments-and-metering",
+        "gas-and-fees/fee-schedule",
+      ],
     },
     {
       label: "Decentralization",
       type: "category",
       link: { type: "doc", id: "decentralization/governance" },
       items: [
+        "decentralization/actors",
         "decentralization/governance",
         "decentralization/block-production",
         "decentralization/p2p-network",

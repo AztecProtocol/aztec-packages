@@ -208,9 +208,4 @@ BENCHMARK(sqr);
 
 // NOLINTNEXTLINE macro invocation triggers style guideline errors from googletest code
 BENCHMARK_MAIN();
-#else
-int main()
-{
-    // no-op
-}
 #endif
