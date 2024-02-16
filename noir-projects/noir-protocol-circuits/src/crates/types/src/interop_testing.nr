@@ -49,16 +49,6 @@ fn compute_address_from_partial_and_pubkey() {
 }
 
 #[test]
-fn compute_var_args_hash() {
-    let mut input = [0; 800];
-    for i in 0..800 {
-        input[i] = i as Field;
-    }
-    let hash = hash_args(input);
-    assert(hash == 1557627899280963684159398665725097926236612957540256425197580046184563077271);
-}
-
-#[test]
 fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());

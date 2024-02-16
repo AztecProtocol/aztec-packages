@@ -114,4 +114,13 @@ describe('hash', () => {
     const emptyHash = Fr.fromBuffer(computeCommitmentsHash(emptySideEffect)).toString();
     expect(emptyHash).toMatchSnapshot();
   });
+
+  it('Var args hash matches noir', () => {
+    const args = times(800, i => new Fr(i));
+    const res = computeVarArgsHash(args);
+    expect(res).toMatchSnapshot();
+
+    // Value used in "compute_var_args_hash" test in hash.nr
+    // console.log("hash", hash);
+  });
 });

@@ -1,16 +1,8 @@
 import {
-  EthAddress,
-  Point,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
-  computeContractAddressFromInstance,
-  computeContractAddressFromPartial,
-  computePublicKeysHash,
 } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -77,49 +69,5 @@ describe('Private kernel', () => {
     const kernelOutputs = await executeTail(kernelInputs);
 
     expect(kernelOutputs).toMatchSnapshot();
-  });
-});
-
-// TODO(benesjan): move the following to relevant class tests
-describe('Noir compatibility tests (interop_testing.nr)', () => {
-  // Tests in this file are to check that what we are computing in Noir
-  // is equivalent to what we were computing in circuits.js/the typescript implementation
-  // This is to ensure that we have not introduced any bugs in the transition from circuits.js to Noir
-
-  it('Address matches Noir', () => {
-    const publicKey = new Point(new Fr(1n), new Fr(2n));
-    const salt = new Fr(3n);
-    const contractClassId = new Fr(4n);
-    const initializationHash = new Fr(5n);
-    const portalContractAddress = EthAddress.fromField(new Fr(6n));
-
-    const address = computeContractAddressFromInstance({
-      publicKeysHash: computePublicKeysHash(publicKey),
-      salt,
-      contractClassId,
-      initializationHash,
-      portalContractAddress,
-      version: 1,
-    });
-
-    expect(address.toString()).toMatchSnapshot();
-  });
-
-  it('Public key hash matches Noir', () => {
-    const publicKey = new Point(new Fr(1n), new Fr(2n));
-    expect(computePublicKeysHash(publicKey).toString()).toMatchSnapshot();
-  });
-
-  it('Address from partial matches Noir', () => {
-    const publicKey = new Point(new Fr(1n), new Fr(2n));
-    const partialAddress = new Fr(3n);
-    const address = computeContractAddressFromPartial({ publicKey, partialAddress });
-    expect(address.toString()).toMatchSnapshot();
-  });
-
-  it('Var args hash matches noir', () => {
-    const args = times(800, i => new Fr(i));
-    const res = computeVarArgsHash(args);
-    expect(res).toMatchSnapshot();
   });
 });
