@@ -8,7 +8,7 @@ mod types;
 contract SlowTree {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::std::option::Option;
-    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
+    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},

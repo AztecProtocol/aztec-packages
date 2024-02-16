@@ -5,7 +5,7 @@
 // arise from code changes.
 
 contract Benchmarking {
-    use dep::value_note::{utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
+    use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
     use dep::aztec::{
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},

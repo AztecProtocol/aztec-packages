@@ -28,7 +28,7 @@ contract InclusionProofs {
     };
     // docs:end:imports
     // docs:start:value_note_imports
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
     struct Storage {
         private_values: Map<AztecAddress, Set<ValueNote>>,

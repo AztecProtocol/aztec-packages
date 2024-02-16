@@ -23,7 +23,7 @@ contract Test {
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::ValueNote;
 
     #[event]
     struct ExampleEvent {

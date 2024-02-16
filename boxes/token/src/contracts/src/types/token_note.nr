@@ -113,7 +113,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     fn get_note_type_id() -> Field {
         // TODO(#4519): autogenerate
         // python -c "print(int(''.join(str(ord(c)) for c in 'TokenNote')))"
-        8411110710111078111116101
+        F
     }
 }
 

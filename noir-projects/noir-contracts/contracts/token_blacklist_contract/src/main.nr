@@ -32,7 +32,7 @@ contract TokenBlacklist {
         state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton},
     };
 
-    use dep::field_note::field_note::{FieldNote, FIELD_NOTE_LEN};
+    use dep::field_note::field_note::FieldNote;
 
     use dep::authwit::{
         auth::{
@@ -43,7 +43,7 @@ contract TokenBlacklist {
 
     use crate::types::{
         transparent_note::TransparentNote,
-        token_note::{TokenNote, TOKEN_NOTE_LEN},
+        token_note::TokenNote,
         balances_map::{BalancesMap},
         roles::UserFlags,
     };

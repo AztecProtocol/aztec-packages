@@ -12,10 +12,7 @@ contract EasyPrivateToken {
     };
     use dep::value_note::{
             balance_utils,
-            value_note::{
-                ValueNote,
-                VALUE_NOTE_LEN,
-            },
+            value_note::ValueNote,
     };
     use dep::easy_private_state::easy_private_state::EasyPrivateUint;
 

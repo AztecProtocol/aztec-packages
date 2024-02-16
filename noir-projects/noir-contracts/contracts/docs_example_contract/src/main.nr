@@ -30,7 +30,7 @@ contract DocsExample {
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{
-        card_note::{CardNote, CARD_NOTE_LEN},
+        card_note::CardNote,
         leader::Leader,
     };
 

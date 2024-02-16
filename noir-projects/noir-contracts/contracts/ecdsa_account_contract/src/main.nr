@@ -16,7 +16,7 @@ contract EcdsaAccount {
         auth_witness::get_auth_witness
     };
 
-    use crate::ecdsa_public_key_note::{EcdsaPublicKeyNote, ECDSA_PUBLIC_KEY_NOTE_LEN};
+    use crate::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     struct Storage {
         public_key: ImmutableSingleton<EcdsaPublicKeyNote>,

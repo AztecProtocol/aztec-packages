@@ -41,7 +41,7 @@ contract Token {
 
     use crate::types::{
         transparent_note::TransparentNote,
-        token_note::{TokenNote, TOKEN_NOTE_LEN},
+        token_note::TokenNote,
         balances_map::BalancesMap
     };
     // docs:end::imports
