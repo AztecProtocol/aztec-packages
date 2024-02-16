@@ -9,5 +9,5 @@ export function getCanonicalInstanceDeployer(): ProtocolContract {
 }
 
 export const InstanceDeployerAddress = AztecAddress.fromString(
-  '0x1799c61aa10430bf6fec46679c4cb76c3ed12cd8b6e73ed7389d5ae296ad1b97',
+  '0x0d849757db16aa7d18d61ac4ea61488678dcfd55bf09b7126c5ceebfe751cc1f',
 );
