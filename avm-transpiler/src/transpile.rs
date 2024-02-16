@@ -239,8 +239,61 @@ fn handle_foreign_call(
             handle_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
         }
         "poseidon" => handle_field_hash_instruction(avm_instrs, function, destinations, inputs),
+        //"notehashexists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
+        "emitnotehash" => handle_emit_note_hash(avm_instrs, destinations, inputs),
+        "emitnullifier" => handle_emit_nullifier(avm_instrs, destinations, inputs),
         _ => handle_getter_instruction(avm_instrs, function, destinations, inputs),
     }
+}
+fn handle_emit_note_hash(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if destinations.len() != 0 || inputs.len() != 1 {
+        panic!("Transpiler expects ForeignCall::EMITNOTEHASH to have 0 destinations and 1 input, got {} and {}", destinations.len(), inputs.len());
+    }
+    let note_hash_offset_operand = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::EMITNOTEHASH,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: note_hash_offset_operand,
+            },
+        ],
+        ..Default::default()
+    });
+}
+fn handle_emit_nullifier(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if destinations.len() != 0 || inputs.len() != 1 {
+        panic!("Transpiler expects ForeignCall::EMITNULLIFIER to have 0 destinations and 1 input, got {} and {}", destinations.len(), inputs.len());
+    }
+    let nullifier_offset_operand = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+    };
+    //let already_exists_offset_operand = match &inputs[1] {
+    //    ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+    //    _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+    //};
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::EMITNULLIFIER,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: nullifier_offset_operand,
+            },
+        ],
+        ..Default::default()
+    });
 }
 
 fn handle_2_field_hash_instruction(

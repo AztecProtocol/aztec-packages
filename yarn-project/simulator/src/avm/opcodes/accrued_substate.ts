@@ -1,7 +1,40 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import type { AvmContext } from '../avm_context.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
+
+//export class NoteHashExists extends Instruction {
+//  static type: string = 'NOTEHASHEXISTS';
+//  static readonly opcode: Opcode = Opcode.NOTEHASHEXISTS;
+//  // Informs (de)serialization. See Instruction.deserialize.
+//  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32, OperandType.UINT32];
+//
+//  constructor(
+//    private indirect: number,
+//    private noteHashOffset: number,
+//    private leafIndexOffset: number,
+//    private existsOffset: number
+//  ) {
+//    super();
+//  }
+//
+//  async execute(context: AvmContext): Promise<void> {
+//    if (context.environment.isStaticCall) {
+//      throw new StaticCallStorageAlterError();
+//    }
+//
+//    const noteHash = context.machineState.memory.get(this.noteHashOffset).toFr();
+//    const leafIndex = context.machineState.memory.get(this.leafIndexOffset).toFr();
+//
+//    const siloed = hash(context.environment.storageAddress, noteHash);
+//
+//    context.worldState.checkNoteHashExists(noteHash, leafIndex)
+//
+//    context.machineState.incrementPc();
+//  }
+//}
 
 export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
@@ -13,15 +46,16 @@ export class EmitNoteHash extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    if (context.environment.isStaticCall) {
-      throw new StaticCallStorageAlterError();
-    }
+  async execute(_context: AvmContext): Promise<void> {
+    throw new Error('Method not implemented.');
+    //if (context.environment.isStaticCall) {
+    //  throw new StaticCallStorageAlterError();
+    //}
 
-    const noteHash = context.machineState.memory.get(this.noteHashOffset).toFr();
-    context.worldState.writeNoteHash(noteHash);
+    //const noteHash = context.machineState.memory.get(this.noteHashOffset).toFr();
+    //context.worldState.newNoteHash(noteHash);
 
-    context.machineState.incrementPc();
+    //context.machineState.incrementPc();
   }
 }
 
@@ -41,7 +75,7 @@ export class EmitNullifier extends Instruction {
     }
 
     const nullifier = context.machineState.memory.get(this.nullifierOffset).toFr();
-    context.worldState.writeNullifier(nullifier);
+    context.worldState.newNullifier(Fr.ZERO, context.environment.storageAddress, nullifier);
 
     context.machineState.incrementPc();
   }
@@ -57,15 +91,16 @@ export class EmitUnencryptedLog extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    if (context.environment.isStaticCall) {
-      throw new StaticCallStorageAlterError();
-    }
+  async execute(_context: AvmContext): Promise<void> {
+    throw new Error('Method not implemented.');
+    //if (context.environment.isStaticCall) {
+    //  throw new StaticCallStorageAlterError();
+    //}
 
-    const log = context.machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
-    context.worldState.writeLog(log);
+    //const log = context.machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
+    //context.worldState.writeLog(log);
 
-    context.machineState.incrementPc();
+    //context.machineState.incrementPc();
   }
 }
 

@@ -13,7 +13,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { PublicExecution, PublicExecutionResult } from '../public/execution.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
-import { JournalData } from './journal/journal.js';
+import { WorldStateAccessTrace } from './journal/journal.js';
 
 /** Temporary Method
  *
@@ -57,7 +57,7 @@ export function temporaryCreateAvmExecutionEnvironment(
  */
 export function temporaryConvertAvmResults(
   execution: PublicExecution,
-  newWorldState: JournalData,
+  newWorldState: WorldStateAccessTrace,
   result: AvmContractCallResults,
 ): PublicExecutionResult {
   const newCommitments = newWorldState.newNoteHashes.map(noteHash => new SideEffect(noteHash, Fr.zero()));
