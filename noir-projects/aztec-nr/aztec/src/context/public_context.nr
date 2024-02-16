@@ -197,7 +197,7 @@ impl PublicContext {
         call_public_function_internal(contract_address, function_selector, args_hash, false, false)
     }
 
-    pub fn call_public_function_static<ARGS_COUNT>(
+    pub fn static_call_public_function<ARGS_COUNT>(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -227,7 +227,7 @@ impl PublicContext {
         call_public_function_internal(contract_address, function_selector, 0, false, false)
     }
 
-    pub fn call_public_function_no_args_static(
+    pub fn static_call_public_function_no_args(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector

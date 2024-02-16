@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { GeneratorIndex, PRIVATE_CALL_STACK_ITEM_LENGTH } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
@@ -38,7 +38,13 @@ export class PrivateCallStackItem {
   }
 
   toFields(): Fr[] {
-    return serializeToFields(...PrivateCallStackItem.getFields(this));
+    const fields = serializeToFields(...PrivateCallStackItem.getFields(this));
+    if (fields.length !== PRIVATE_CALL_STACK_ITEM_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateCallStackItem. Expected ${PRIVATE_CALL_STACK_ITEM_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**
