@@ -62,8 +62,7 @@ describe('ContractAddress', () => {
 
     expect(address).toMatchSnapshot();
 
-    // TODO(benesjan)
-    // Value used in "" test in ....nr
+    // Value used in "compute_address" test in aztec_address.nr
     // console.log("address", address);
   });
 
@@ -72,19 +71,17 @@ describe('ContractAddress', () => {
     const hash = computePublicKeysHash(publicKey).toString();
     expect(hash).toMatchSnapshot();
 
-    // TODO(benesjan)
-    // Value used in "" test in ....nr
+    // Value used in "compute_public_keys_hash" test in public_keys_hash.nr
     // console.log("hash", hash);
   });
 
   it('Address from partial matches Noir', () => {
     const publicKey = new Point(new Fr(1n), new Fr(2n));
     const partialAddress = new Fr(3n);
-    const address = computeContractAddressFromPartial({ publicKey, partialAddress });
-    expect(address.toString()).toMatchSnapshot();
+    const address = computeContractAddressFromPartial({ publicKey, partialAddress }).toString();
+    expect(address).toMatchSnapshot();
 
-    // TODO(benesjan)
-    // Value used in "" test in ....nr
-    // console.log("hash", hash);
+    // Value used in "compute_address_from_partial_and_pubkey" test in aztec_address.nr
+    // console.log("address", address);
   });
 });

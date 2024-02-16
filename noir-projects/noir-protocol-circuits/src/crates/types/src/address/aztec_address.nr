@@ -91,3 +91,31 @@ impl AztecAddress {
         Self { inner: result }
     }
 }
+
+#[test]
+fn compute_address() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let contract_address_salt = 3;
+    let contract_class_id = ContractClassId::from_field(4);
+    let initialization_hash = 5;
+    let portal_contract_address = EthAddress::from_field(6);
+
+    let address = AztecAddress::compute_from_public_key(
+        point,
+        contract_class_id,
+        contract_address_salt,
+        initialization_hash,
+        portal_contract_address
+    );
+
+    assert(address.to_field() == 0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123);
+}
+
+#[test]
+fn compute_address_from_partial_and_pubkey() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let partial_address = PartialAddress::from_field(3);
+
+    let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
+    assert(address.to_field() == 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197);
+}

@@ -14,41 +14,6 @@ use crate::contract_class::ContractClassId;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 
 #[test]
-fn compute_address() {
-    let point = GrumpkinPoint { x: 1, y: 2 };
-    let contract_address_salt = 3;
-    let contract_class_id = ContractClassId::from_field(4);
-    let initialization_hash = 5;
-    let portal_contract_address = EthAddress::from_field(6);
-
-    let address = AztecAddress::compute_from_public_key(
-        point,
-        contract_class_id,
-        contract_address_salt,
-        initialization_hash,
-        portal_contract_address
-    );
-
-    assert(address.to_field() == 0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123);
-}
-
-#[test]
-fn compute_public_keys_hash() {
-    let point = GrumpkinPoint { x: 1, y: 2 };
-    let actual = PublicKeysHash::compute(point);
-    assert(actual.to_field() == 0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8);
-}
-
-#[test]
-fn compute_address_from_partial_and_pubkey() {
-    let point = GrumpkinPoint { x: 1, y: 2 };
-    let partial_address = PartialAddress::from_field(3);
-
-    let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
-    assert(address.to_field() == 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197);
-}
-
-#[test]
 fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());

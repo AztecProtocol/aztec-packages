@@ -51,3 +51,10 @@ impl PublicKeysHash {
         assert(self.to_field() == 0);
     }
 }
+
+#[test]
+fn compute_public_keys_hash() {
+    let point = GrumpkinPoint { x: 1, y: 2 };
+    let actual = PublicKeysHash::compute(point);
+    assert(actual.to_field() == 0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8);
+}
