@@ -27,15 +27,16 @@ template <typename Composer> class PreparedProver : public benchmark::Fixture {
         size_t num_public_inputs = 0;
         Composer composer;
 
-        const auto prepare_instance = [&](std::shared_ptr<Instance>& instance) {
-            instance = std::make_shared<Instance>(log_circuit_size, 0);
-            instance->verification_key = std::make_shared<VerificationKey>(circuit_size, num_public_inputs);
-            for (auto& elt : instance->verification_key->get_all()) {
-                elt = Flavor::Commitment::random_element();
-            }
-            instance->instance_size = circuit_size;
-            instance->log_instance_size = log_circuit_size;
-        };
+        const auto prepare_instance =
+            [num_public_inputs, circuit_size, log_circuit_size](std::shared_ptr<Instance>& instance) {
+                instance = std::make_shared<Instance>(log_circuit_size, 0);
+                instance->verification_key = std::make_shared<VerificationKey>(circuit_size, num_public_inputs);
+                for (auto& elt : instance->verification_key->get_all()) {
+                    elt = Flavor::Commitment::random_element();
+                }
+                instance->instance_size = circuit_size;
+                instance->log_instance_size = log_circuit_size;
+            };
 
         prepare_instance(instance_1);
         prepare_instance(instance_2);
@@ -43,7 +44,7 @@ template <typename Composer> class PreparedProver : public benchmark::Fixture {
         composer.compute_commitment_key(circuit_size);
         folding_prover = composer.create_folding_prover({ instance_1, instance_2 });
 
-        const auto prepare_prover = [&](FoldingProver& prover) {
+        const auto prepare_prover = [this /* to capture instance_1 */, log_circuit_size](FoldingProver& prover) {
             prover.state.accumulator = instance_1;
             prover.state.deltas.resize(log_circuit_size);
             std::fill_n(prover.state.deltas.begin(), log_circuit_size, 0);
