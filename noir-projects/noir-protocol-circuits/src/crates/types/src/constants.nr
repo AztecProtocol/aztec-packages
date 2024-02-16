@@ -100,9 +100,7 @@ global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 32;
 
 // CONTRACT CLASS CONSTANTS
-// This should be around 8192 (assuming 2**15 instructions packed at 8 bytes each),
-// but it's reduced to speed up build times, otherwise the ClassRegisterer takes over 5 mins to compile.
-global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: Field = 5000;
+global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: Field = 8000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: Field = 500;
