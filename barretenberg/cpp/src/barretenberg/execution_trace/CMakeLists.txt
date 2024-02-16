@@ -1,1 +1,1 @@
-barretenberg_module(execution_trace ultra_honk)
+barretenberg_module(execution_trace plonk)
