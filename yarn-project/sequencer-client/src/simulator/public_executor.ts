@@ -1,5 +1,21 @@
-import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, Tx, UnencryptedL2Log } from '@aztec/circuit-types';
-import { AztecAddress, ContractClassRegisteredEvent, ContractInstanceDeployedEvent, EthAddress, Fr, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import {
+  ContractDataSource,
+  ExtendedContractData,
+  L1ToL2MessageSource,
+  MerkleTreeId,
+  Tx,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  ContractClassRegisteredEvent,
+  ContractInstanceDeployedEvent,
+  EthAddress,
+  Fr,
+  FunctionSelector,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
@@ -7,7 +23,6 @@ import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-depl
 import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeOperations } from '@aztec/world-state';
-
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
