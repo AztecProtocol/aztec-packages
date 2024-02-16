@@ -51,7 +51,6 @@ impl MacroProcessor for AztecMacro {
     ) -> Result<(), (MacroError, FileId)> {
         transform_hir(crate_id, context).map_err(|(err, file_id)| (err.into(), file_id))
     }
-
 }
 
 const FUNCTION_TREE_HEIGHT: u32 = 5;
@@ -1710,7 +1709,7 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &Vec<String>) -> 
             nonce: Field,
             storage_slot: Field,
             note_type_id: Field,
-            serialized_note: [Field; 12]
+            serialized_note: [Field; 20]
         ) -> pub [Field; 4] {
             [0, 0, 0, 0]
         }".to_string()
@@ -1733,7 +1732,7 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &Vec<String>) -> 
                 nonce: Field,
                 storage_slot: Field,
                 note_type_id: Field,
-                serialized_note: [Field; 12]
+                serialized_note: [Field; 20]
             ) -> pub [Field; 4] {{
                 let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
 
