@@ -218,7 +218,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
 
         construct_sorted_polynomials(circuit, subgroup_size);
 
-        populate_memory_records(circuit);
+        populate_memory_read_write_records<Flavor>(circuit, circuit_proving_key);
     }
 
     return circuit_proving_key;
@@ -305,29 +305,4 @@ void UltraComposer::construct_table_polynomials(CircuitBuilder& circuit, size_t 
     add_table_column_selector_poly_to_proving_key(table_polynomials[2], "table_value_3");
     add_table_column_selector_poly_to_proving_key(table_polynomials[3], "table_value_4");
 }
-
-void UltraComposer::populate_memory_records(CircuitBuilder& circuit)
-{
-    // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
-    // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire polynomials
-    // have been committed to. The 4th wire on these gates will be a random linear combination of the first 3 wires,
-    // using the plookup challenge `eta`. Because we shift the gates by the number of public inputs, we need to update
-    // the records with the public_inputs offset
-    const auto public_inputs_count = static_cast<uint32_t>(circuit.public_inputs.size());
-    auto add_public_inputs_offset = [public_inputs_count](uint32_t gate_index) {
-        return gate_index + public_inputs_count;
-    };
-    circuit_proving_key->memory_read_records = std::vector<uint32_t>();
-    circuit_proving_key->memory_write_records = std::vector<uint32_t>();
-
-    std::transform(circuit.memory_read_records.begin(),
-                   circuit.memory_read_records.end(),
-                   std::back_inserter(circuit_proving_key->memory_read_records),
-                   add_public_inputs_offset);
-    std::transform(circuit.memory_write_records.begin(),
-                   circuit.memory_write_records.end(),
-                   std::back_inserter(circuit_proving_key->memory_write_records),
-                   add_public_inputs_offset);
-}
-
 } // namespace bb::plonk

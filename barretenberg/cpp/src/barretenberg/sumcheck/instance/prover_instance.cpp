@@ -15,7 +15,7 @@ namespace bb {
 template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
 {
     // Get num conventional gates, num public inputs and num Goblin style ECC op gates
-    const size_t num_gates = circuit.num_gates;
+    // const size_t num_gates = circuit.num_gates;
     num_ecc_op_gates = 0;
     if constexpr (IsGoblinFlavor<Flavor>) {
         num_ecc_op_gates = circuit.num_ecc_op_gates;
@@ -27,7 +27,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
 
     // number of populated rows in the execution trace
     size_t num_rows_populated_in_execution_trace =
-        num_zero_rows + num_ecc_op_gates + circuit.public_inputs.size() + num_gates;
+        num_zero_rows + num_ecc_op_gates + circuit.public_inputs.size() + circuit.num_gates;
 
     // The number of gates is max(lookup gates + tables, rows already populated in trace) + 1, where the +1 is due to
     // addition of a "zero row" at top of the execution trace to ensure wires and other polys are shiftable.
@@ -35,29 +35,6 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
 
     // Next power of 2
     dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
-}
-
-template <class Flavor> void ProverInstance_<Flavor>::add_memory_records_to_proving_key(Circuit& circuit)
-{
-    // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
-    // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire
-    // polynomials have been committed to. The 4th wire on these gates will be a random linear combination of the
-    // first 3 wires, using the plookup challenge `eta`. We need to update the records with an offset Because we
-    // shift the gates to account for everything that comes before them in the execution trace, e.g. public inputs,
-    // a zero row, etc.
-    size_t offset = num_ecc_op_gates + circuit.public_inputs.size() + num_zero_rows;
-    auto add_public_inputs_offset = [offset](uint32_t gate_index) { return gate_index + offset; };
-    proving_key->memory_read_records = std::vector<uint32_t>();
-    proving_key->memory_write_records = std::vector<uint32_t>();
-
-    std::transform(circuit.memory_read_records.begin(),
-                   circuit.memory_read_records.end(),
-                   std::back_inserter(proving_key->memory_read_records),
-                   add_public_inputs_offset);
-    std::transform(circuit.memory_write_records.begin(),
-                   circuit.memory_write_records.end(),
-                   std::back_inserter(proving_key->memory_write_records),
-                   add_public_inputs_offset);
 }
 
 /**
@@ -269,8 +246,6 @@ template <class Flavor>
 void ProverInstance_<Flavor>::compute_databus_id()
     requires IsGoblinFlavor<Flavor>
 {
-    proving_key->num_ecc_op_gates = num_ecc_op_gates;
-    // Construct simple ID polynomial for databus indexing
     typename Flavor::Polynomial databus_id(proving_key->circuit_size);
     for (size_t i = 0; i < databus_id.size(); ++i) {
         databus_id[i] = i;

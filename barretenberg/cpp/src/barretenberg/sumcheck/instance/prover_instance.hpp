@@ -71,6 +71,7 @@ template <class Flavor> class ProverInstance_ {
         // WORKTODO: this probably belongs in exec trace generate
         if constexpr (IsGoblinFlavor<Flavor>) {
             auto wire_polynomials = proving_key->get_wires();
+            proving_key->num_ecc_op_gates = num_ecc_op_gates;
             construct_ecc_op_wire_polynomials(wire_polynomials);
             construct_databus_polynomials(circuit);
         }
@@ -89,7 +90,7 @@ template <class Flavor> class ProverInstance_ {
 
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
-        add_memory_records_to_proving_key(circuit);
+        populate_memory_read_write_records<Flavor>(circuit, proving_key);
     }
 
     ProverInstance_() = default;
