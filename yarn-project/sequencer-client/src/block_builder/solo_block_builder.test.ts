@@ -221,7 +221,7 @@ describe('sequencer/solo_block_builder', () => {
           tx.data.end.newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
           tx.data.end.newL2ToL1Msgs,
           tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-          tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
+          tx.data.end.newContracts.map(cd => cd.computeLeaf()),
           tx.data.end.newContracts.map(n => new ContractData(n.contractAddress, n.portalContractAddress)),
           new TxEffectLogs(tx.encryptedLogs, tx.unencryptedLogs),
         ),

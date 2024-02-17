@@ -116,7 +116,7 @@ export class SoloBlockBuilder implements BlockBuilder {
           tx.data.end.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
           tx.data.end.newL2ToL1Msgs,
           tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-          tx.data.end.newContracts.map(cd => computeContractLeaf(cd)),
+          tx.data.end.newContracts.map(cd => cd.computeLeaf()),
           tx.data.end.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
           new TxEffectLogs(tx.encryptedLogs || new TxL2Logs([]), tx.unencryptedLogs || new TxL2Logs([])),
         ),

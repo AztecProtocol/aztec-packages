@@ -426,7 +426,7 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${block.body.toBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
@@ -499,7 +499,6 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x${block.body.toBuffer().toString('hex')}`,
-          `0x${block.bodyToBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
