@@ -1,4 +1,4 @@
-import { ExtendedContractData, L1ToL2Message, L2Block, Body } from '@aztec/circuit-types';
+import { ExtendedContractData, L1ToL2Message, Body } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Fr, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 

@@ -1,9 +1,8 @@
 import { INITIAL_L2_BLOCK_NUM, L2Block, L2Tx, TxHash } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, AztecAddress, Fr, Header, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, AztecAddress, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
 import { BlockBodyStore } from './block_body_store.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 

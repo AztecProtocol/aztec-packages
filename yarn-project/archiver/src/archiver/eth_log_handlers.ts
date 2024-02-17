@@ -5,7 +5,6 @@ import {
   L1Actor,
   L1ToL2Message,
   L2Actor,
-  L2Block,
   Body,
 } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
@@ -94,10 +93,8 @@ export async function processBlockBodyLogs(
 ): Promise<[Body, Buffer][]> {
   const retrievedBlockBodies: [Body, Buffer][] = [];
   for (const log of logs) {
-    console.log('INSIDE PROCESS BLOCK BODY LOGS', log.args.txsHash);
     // // TODO: Fetch blocks from calldata in parallel
     const newBlockBody = await getBlockBodiesFromCallData(publicClient, log.transactionHash!);
-    console.log('NEW BLOCK BODY FROM PROCESS BODY BLOCK LOGS', newBlockBody);
     // newBlock.setL1BlockNumber(log.blockNumber!);
     // retrievedBlocks.push(newBlock);
     // expectedL2BlockNumber++;

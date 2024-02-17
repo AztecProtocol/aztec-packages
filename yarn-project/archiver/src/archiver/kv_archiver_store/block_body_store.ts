@@ -1,5 +1,4 @@
 import { Body } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
 /**

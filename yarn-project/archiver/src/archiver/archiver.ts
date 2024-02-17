@@ -7,7 +7,6 @@ import {
   L1ToL2Message,
   L1ToL2MessageSource,
   L2Block,
-  Body,
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
@@ -20,14 +19,12 @@ import {
 import {
   ContractClassRegisteredEvent,
   FunctionSelector,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
 } from '@aztec/circuits.js';
 import { ContractInstanceDeployedEvent, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -64,7 +61,6 @@ export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & 
  * concern themselves with it.
  */
 
-const l2BlockBodies = new Map<string, Body>();
 export class Archiver implements ArchiveSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
@@ -266,8 +262,6 @@ export class Archiver implements ArchiveSource {
 
     await this.store.addBlockBodies(blockBodies);
 
-    console.log('RETRIEVEDBLOCKBODIES', retrievedBlockBodies);
-
     const retrievedBlockMetadata = await retrieveBlockHashesFromRollup(
       this.publicClient,
       this.rollupAddress,
@@ -276,8 +270,6 @@ export class Archiver implements ArchiveSource {
       currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
-
-    console.log('RETRIEVEDBLOCKMETADATA', retrievedBlockMetadata);
 
     const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(([header]) => header.contentCommitment.txsHash);
 
