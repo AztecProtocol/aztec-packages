@@ -12,7 +12,9 @@ describe('e2e_fees', () => {
   let testContract: TokenContract;
 
   beforeAll(async () => {
+    process.env.PXE_URL = '';
     const { accounts, sequencer, wallet } = await setup(3);
+
     if (!sequencer) {
       expect(sequencer).toBeDefined();
       return;

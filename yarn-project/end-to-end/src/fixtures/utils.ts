@@ -193,10 +193,9 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  const sequencer = (aztecNode as AztecNodeService).getSequencer()!;
   return {
     aztecNode,
-    sequencer,
+    sequencer: undefined,
     pxe: pxeClient,
     deployL1ContractsValues,
     accounts: await pxeClient!.getRegisteredAccounts(),
