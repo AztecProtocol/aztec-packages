@@ -114,18 +114,20 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   async #getContract(address: AztecAddress): Promise<ExtendedContractData | undefined> {
     return (
       this.cache.get(address.toString()) ??
-      this.#makeExtendedContractDataFor(address) ??
+      (await this.#makeExtendedContractDataFor(address)) ??
       (await this.db.getExtendedContractData(address))
     );
   }
 
-  #makeExtendedContractDataFor(address: AztecAddress): ExtendedContractData | undefined {
+  async #makeExtendedContractDataFor(address: AztecAddress): Promise<ExtendedContractData | undefined> {
     const instance = this.instanceCache.get(address.toString());
     if (!instance) {
       return undefined;
     }
 
-    const contractClass = this.classCache.get(instance.contractClassId.toString());
+    const contractClass =
+      this.classCache.get(instance.contractClassId.toString()) ??
+      (await this.db.getContractClass(instance.contractClassId));
     if (!contractClass) {
       this.log.warn(
         `Contract class ${instance.contractClassId.toString()} for address ${address.toString()} not found`,
