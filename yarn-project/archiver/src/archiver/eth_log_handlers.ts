@@ -162,7 +162,7 @@ async function getBlockHashFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex] = args! as [Hex, Hex, Hex, Hex, Hex];
+  const [headerHex, archiveRootHex] = args! as readonly [Hex, Hex, Hex, Hex];
 
   const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
 

@@ -282,7 +282,7 @@ export class Archiver implements ArchiveSource {
 
     console.log('RETRIEVEDBLOCKMETADATA', retrievedBlockMetadata);
 
-    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(([header]) => header.bodyHash);
+    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(([header]) => header.contentCommitment.txsHash);
 
     const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
@@ -312,7 +312,7 @@ export class Archiver implements ArchiveSource {
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
     const blockHashMapping: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockHashMapping[block.number] = block.header.bodyHash;
+      blockHashMapping[block.number] = block.header.contentCommitment.txsHash;
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
