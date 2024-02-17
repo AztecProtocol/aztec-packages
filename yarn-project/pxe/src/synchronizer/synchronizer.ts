@@ -4,7 +4,6 @@ import {
   KeyStore,
   L2BlockContext,
   L2BlockL2Logs,
-  LogType,
   MerkleTreeId,
   TxHash,
 } from '@aztec/circuit-types';
