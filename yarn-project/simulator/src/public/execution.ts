@@ -6,12 +6,13 @@ import {
   ContractStorageUpdateRequest,
   Fr,
   FunctionData,
+  L2ToL1Message,
   PublicDataRead,
   PublicDataUpdateRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
 
 /**
  * The public function execution result.
@@ -24,7 +25,7 @@ export interface PublicExecutionResult {
   /** The new commitments to be inserted into the commitments tree. */
   newCommitments: SideEffect[];
   /** The new l2 to l1 messages generated in this call. */
-  newL2ToL1Messages: Fr[];
+  newL2ToL1Messages: L2ToL1Message[];
   /** The new nullifiers to be inserted into the nullifier tree. */
   newNullifiers: SideEffectLinkedToNoteHash[];
   /** The contract storage reads performed by the function. */
@@ -73,7 +74,7 @@ export function isPublicExecutionResult(
  */
 export function collectPublicDataReads(execResult: PublicExecutionResult): PublicDataRead[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.contractAddress;
+  const contractAddress = execResult.execution.callContext.storageContractAddress;
 
   const thisExecPublicDataReads = execResult.contractStorageReads.map(read =>
     contractStorageReadToPublicDataRead(read, contractAddress),
@@ -93,7 +94,7 @@ export function collectPublicDataReads(execResult: PublicExecutionResult): Publi
  */
 export function collectPublicDataUpdateRequests(execResult: PublicExecutionResult): PublicDataUpdateRequest[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.contractAddress;
+  const contractAddress = execResult.execution.callContext.storageContractAddress;
 
   const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update =>
     contractStorageUpdateRequestToPublicDataUpdateRequest(update, contractAddress),
@@ -145,7 +146,7 @@ export function checkValidStaticCall(
   newCommitments: SideEffect[],
   newNullifiers: SideEffectLinkedToNoteHash[],
   contractStorageUpdateRequests: ContractStorageUpdateRequest[],
-  newL2ToL1Messages: Fr[],
+  newL2ToL1Messages: L2ToL1Message[],
   unencryptedLogs: FunctionL2Logs,
 ) {
   if (

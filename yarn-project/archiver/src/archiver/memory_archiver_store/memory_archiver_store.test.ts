@@ -1,4 +1,4 @@
-import { L2Block, L2BlockL2Logs } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuit-types';
 
 import { ArchiverDataStore } from '../archiver_store.js';
 import { describeArchiverDataStore } from '../archiver_store_test_suite.js';
@@ -23,13 +23,7 @@ describe('MemoryArchiverStore', () => {
 
       await archiverStore.addBlocks(blocks);
       await Promise.all(
-        blocks.map(block =>
-          archiverStore.addLogs(
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
-            block.number,
-          ),
-        ),
+        blocks.map(block => archiverStore.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
       );
 
       const response = await archiverStore.getUnencryptedLogs({});

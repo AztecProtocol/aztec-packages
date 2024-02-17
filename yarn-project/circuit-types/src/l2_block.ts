@@ -1,7 +1,6 @@
 import {
   Body,
   ContractData,
-  L2BlockL2Logs,
   L2Tx,
   LogType,
   PublicDataWrite,
@@ -36,11 +35,6 @@ export class L2Block {
   /* Having logger static to avoid issues with comparing 2 blocks */
   private static logger = createDebugLogger('aztec:l2_block');
 
-  /**
-   * The number of L2Tx in this L2Block not including padded txs
-   */
-  public numberOfTxs: number;
-
   #l1BlockNumber?: bigint;
 
   constructor(
@@ -53,9 +47,6 @@ export class L2Block {
     /** Associated L1 block num */
     l1BlockNumber?: bigint,
   ) {
-    const newNullifiers = body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
-
-    this.numberOfTxs = calculateNumTxsFromNullifiers(newNullifiers);
     this.#l1BlockNumber = l1BlockNumber;
   }
 
@@ -123,33 +114,6 @@ export class L2Block {
    */
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);
-  }
-
-  /**
-   * Helper function to attach logs related to a block.
-   * @param logs - The logs to be attached to a block.
-   * @param logType - The type of logs to be attached.
-   * @remarks Here, because we can have L2 blocks without logs and those logs can be attached later.
-   */
-  attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
-    if (
-      new L2BlockL2Logs(encryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0 ||
-      new L2BlockL2Logs(unencryptedLogs.txLogs.slice(this.numberOfTxs)).getTotalLogCount() !== 0
-    ) {
-      throw new Error('Logs exist in the padded area');
-    }
-
-    if (this.body.areLogsAttached()) {
-      if (this.body.areLogsEqual(encryptedLogs, unencryptedLogs)) {
-        L2Block.logger(`Logs already attached`);
-
-        return;
-      }
-
-      throw new Error(`Trying to attach different logs to block ${this.header.globalVariables.blockNumber}.`);
-    }
-
-    this.body.attachLogs(encryptedLogs, unencryptedLogs);
   }
 
   /**
@@ -357,7 +321,7 @@ export class L2Block {
    * @returns The tx.
    */
   getTxs() {
-    return Array(this.numberOfTxs)
+    return Array(this.body.numberOfTxs)
       .fill(0)
       .map((_, i) => this.getTx(i));
   }
@@ -387,84 +351,21 @@ export class L2Block {
     };
 
     return {
-      txCount: this.numberOfTxs,
+      txCount: this.body.numberOfTxs,
       blockNumber: this.number,
       ...logsStats,
     };
   }
 
   assertIndexInRange(txIndex: number) {
-    if (txIndex < 0 || txIndex >= this.numberOfTxs) {
+    if (txIndex < 0 || txIndex >= this.body.numberOfTxs) {
       throw new IndexOutOfRangeError({
         txIndex,
-        numberOfTxs: this.numberOfTxs,
+        numberOfTxs: this.body.numberOfTxs,
         blockNumber: this.number,
       });
     }
   }
-  // /**
-  //  * Inspect for debugging purposes..
-  //  * @param maxBufferSize - The number of bytes to be extracted from buffer.
-  //  * @returns A human-friendly string representation of the l2Block.
-  //  */
-  // inspect(maxBufferSize = 4): string {
-  //   const inspectHex = (fr: {
-  //     /**
-  //      * A function used to serialize the field element to a buffer.
-  //      */
-  //     toBuffer: () => Buffer;
-  //   }): string => `0x${fr.toBuffer().subarray(0, maxBufferSize).toString('hex')}`;
-  //   const inspectArray = <T>(arr: T[], inspector: (t: T) => string) => '[' + arr.map(inspector).join(', ') + ']';
-
-  //   const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>
-  //     `(${s.nextAvailableLeafIndex}, ${inspectHex(s.root)})`;
-  //   const inspectGlobalVariables = (gv: GlobalVariables): string => {
-  //     return `(${gv.chainId}, ${gv.version}, ${gv.blockNumber}, ${gv.timestamp}))`;
-  //   };
-  //   const inspectFrArray = (arr: Fr[]): string => inspectArray(arr, inspectHex);
-  //   const inspectContractDataArray = (arr: ContractData[]): string =>
-  //     inspectArray(arr, cd => `(${inspectHex(cd.contractAddress)}, ${inspectHex(cd.portalContractAddress)})`);
-  //   const inspectPublicDataWriteArray = (arr: PublicDataWrite[]): string =>
-  //     inspectArray(arr, pdw => `(${inspectHex(pdw.leafIndex)}, ${inspectHex(pdw.newValue)})`);
-
-  //   return [
-  //     `L2Block`,
-  //     `number: ${this.header.globalVariables.blockNumber}`,
-  //     `globalVariables: ${inspectGlobalVariables(this.globalVariables)}`,
-  //     `startNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.startNoteHashTreeSnapshot)}`,
-  //     `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
-  //     `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
-  //     `startPublicDataTreeSnapshot: ${this.startPublicDataTreeSnapshot.toString()}`,
-  //     `startL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.startL1ToL2MessageTreeSnapshot)}`,
-  //     `startArchiveSnapshot: ${inspectTreeSnapshot(this.startArchiveSnapshot)}`,
-  //     `endNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.endNoteHashTreeSnapshot)}`,
-  //     `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
-  //     `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
-  //     `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
-  //     `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
-  //     `endL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.endL1ToL2MessageTreeSnapshot)}`,
-  //     `endArchiveSnapshot: ${inspectTreeSnapshot(this.endArchiveSnapshot)}`,
-  //     `newCommitments: ${inspectFrArray(this.newCommitments)}`,
-  //     `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
-  //     `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-  //     `newL2ToL1Msgs: ${inspectFrArray(this.newL2ToL1Msgs)}`,
-  //     `newContracts: ${inspectFrArray(this.newContracts)}`,
-  //     `newContractData: ${inspectContractDataArray(this.newContractData)}`,
-  //     `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-  //     `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
-  //   ].join('\n');
-  // }
-}
-
-function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {
-  let numberOfNonEmptyTxs = 0;
-  for (let i = 0; i < nullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
-    if (!nullifiers[i].equals(Fr.ZERO)) {
-      numberOfNonEmptyTxs++;
-    }
-  }
-
-  return numberOfNonEmptyTxs;
 }
 
 /**

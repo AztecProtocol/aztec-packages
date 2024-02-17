@@ -327,8 +327,8 @@ export class Archiver implements ArchiveSource {
 
     await Promise.all(
       retrievedBlocks.retrievedData.map(block => {
-        const encryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs));
-        const unencryptedLogs = new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs));
+        const encryptedLogs = block.body.encryptedLogs;
+        const unencryptedLogs = block.body.unencryptedLogs;
 
         return this.store.addLogs(encryptedLogs, unencryptedLogs, block.number);
       }),

@@ -102,37 +102,12 @@ export class Synchronizer {
   protected async work(limit = 1): Promise<boolean> {
     const from = this.getSynchedBlockNumber() + 1;
     try {
-      // Possibly improve after https://github.com/AztecProtocol/aztec-packages/issues/3870
-      let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
-      if (!encryptedLogs.length) {
+      const blocks = await this.node.getBlocks(from, limit);
+      if (blocks.length === 0) {
         return false;
       }
 
-      let unencryptedLogs = await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
-      if (!unencryptedLogs.length) {
-        return false;
-      }
-
-      // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
-      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
-      if (!blocks.length) {
-        return false;
-      }
-
-      if (blocks.length !== encryptedLogs.length) {
-        // "Trim" the encrypted logs to match the number of blocks.
-        encryptedLogs = encryptedLogs.slice(0, blocks.length);
-      }
-
-      if (blocks.length !== unencryptedLogs.length) {
-        // "Trim" the unencrypted logs to match the number of blocks.
-        unencryptedLogs = unencryptedLogs.slice(0, blocks.length);
-      }
-
-      // attach logs to blocks
-      blocks.forEach((block, i) => {
-        block.attachLogs(encryptedLogs[i], unencryptedLogs[i]);
-      });
+      const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
       // Wrap blocks in block contexts & only keep those that match our query
       const blockContexts = blocks.filter(block => block.number >= from).map(block => new L2BlockContext(block));

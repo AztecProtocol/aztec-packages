@@ -128,11 +128,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('addLogs', () => {
       it('adds encrypted & unencrypted logs', async () => {
         await expect(
-          store.addLogs(
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-            new L2BlockL2Logs(blocks[0].body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
-            blocks[0].number,
-          ),
+          store.addLogs(blocks[0].body.encryptedLogs, blocks[0].body.unencryptedLogs, blocks[0].number),
         ).resolves.toEqual(true);
       });
     });
@@ -143,13 +139,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     ])('getLogs (%s)', (_, logType) => {
       beforeEach(async () => {
         await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
-              block.number,
-            ),
-          ),
+          blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
       });
 
@@ -167,13 +157,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('getL2Tx', () => {
       beforeEach(async () => {
         await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
-              block.number,
-            ),
-          ),
+          blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
         await store.addBlocks(blocks);
       });
@@ -501,13 +485,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         await store.addBlocks(blocks);
         await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.encryptedLogs)),
-              new L2BlockL2Logs(block.body.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs)),
-              block.number,
-            ),
-          ),
+          blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
       });
 

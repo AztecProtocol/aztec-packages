@@ -162,14 +162,29 @@ export class Body {
     return false;
   }
 
-  public attachLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
-    this.txEffects.forEach((txEffect, i) => {
-      txEffect.logs = new TxEffectLogs(encryptedLogs.txLogs[i], unencryptedLogs.txLogs[i]);
-    });
+  get encryptedLogs(): L2BlockL2Logs {
+    const logs = this.txEffects.map(txEffect => txEffect.logs!.encryptedLogs);
+
+    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
+      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
+    }
+
+    return new L2BlockL2Logs(logs);
   }
 
-  public detachLogs() {
-    this.txEffects.forEach(txEffect => delete txEffect.logs);
+  get unencryptedLogs(): L2BlockL2Logs {
+    const logs = this.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs);
+
+    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
+      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
+    }
+
+    return new L2BlockL2Logs(logs);
+  }
+
+  get numberOfTxs() {
+    // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
+    return this.txEffects.reduce((acc, txEffect) => (!txEffect.newNullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
   }
 }
 
