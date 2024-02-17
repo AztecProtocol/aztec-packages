@@ -1,4 +1,5 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
@@ -6,7 +7,6 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
-  Body,
   L2BlockContext,
   L2BlockL2Logs,
   L2Tx,
@@ -18,11 +18,11 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore } from '../archiver_store.js';
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -33,9 +33,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private l2BlockContexts: L2BlockContext[] = [];
 
-/**
- * A mapping of contract address to extended contract data.
- */
+  /**
+   * A mapping of contract address to extended contract data.
+   */
   private l2BlockBodies: Map<string, Body> = new Map();
 
   /**
@@ -128,11 +128,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean> {
     for (const body of blockBodies) {
-      body.l1ToL2Messages = padArrayEnd(
-        body.l1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
+      body.l1ToL2Messages = padArrayEnd(body.l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
       void this.l2BlockBodies.set(body.getCalldataHash().toString('hex'), body);
     }
@@ -141,15 +137,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
- * Gets an L2 block.
- * @param blockNumber - The number of the block to return.
- * @returns The requested L2 block, without logs attached
- */
+   * Gets an L2 block.
+   * @param blockNumber - The number of the block to return.
+   * @returns The requested L2 block, without logs attached
+   */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));
 
     if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Weird')
+      throw new Error('Weird');
     }
 
     return Promise.resolve(blockBodies as Body[]);

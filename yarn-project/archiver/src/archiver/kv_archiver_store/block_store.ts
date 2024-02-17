@@ -2,6 +2,7 @@ import { INITIAL_L2_BLOCK_NUM, L2Block, L2Tx, TxHash } from '@aztec/circuit-type
 import { AppendOnlyTreeSnapshot, AztecAddress, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
+
 import { BlockBodyStore } from './block_body_store.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];
@@ -111,11 +112,11 @@ export class BlockStore {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsHash);
-  
+
     if (body === undefined) {
-      throw new Error('Body is not able to be retrieved from BodyStore')
+      throw new Error('Body is not able to be retrieved from BodyStore');
     }
-  
+
     return L2Block.fromFields({
       header,
       archive,
@@ -192,4 +193,3 @@ export class BlockStore {
     return { start, end };
   }
 }
-

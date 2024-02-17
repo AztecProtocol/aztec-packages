@@ -1,10 +1,10 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
-  Body,
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
@@ -18,13 +18,13 @@ import { AztecKVStore } from '@aztec/kv-store';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { ContractStore } from './contract_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
-import { BlockBodyStore } from './block_body_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

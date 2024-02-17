@@ -271,22 +271,22 @@ export class Archiver implements ArchiveSource {
       nextExpectedL2BlockNum,
     );
 
-    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(([header]) => header.contentCommitment.txsHash);
+    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(
+      ([header]) => header.contentCommitment.txsHash,
+    );
 
     const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
     if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
-      throw new Error('Block headers length does not equal block bodies length')
+      throw new Error('Block headers length does not equal block bodies length');
     }
 
     const retrievedBlocks = {
-      retrievedData: retrievedBlockMetadata.retrievedData.map((blockMetadata, i) => new L2Block(
-        blockMetadata[1], 
-        blockMetadata[0], 
-        blockBodiesFromStore[i],
-        blockMetadata[2],
-        )),
-    }
+      retrievedData: retrievedBlockMetadata.retrievedData.map(
+        (blockMetadata, i) =>
+          new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i], blockMetadata[2]),
+      ),
+    };
 
     if (retrievedBlocks.retrievedData.length === 0) {
       return;

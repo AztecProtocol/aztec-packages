@@ -34,15 +34,17 @@ export class BlockBodyStore {
   }
 
   /**
- * Gets an L2 block.
- * @param blockNumber - The number of the block to return.
- * @returns The requested L2 block, without logs attached
- */
+   * Gets an L2 block.
+   * @param blockNumber - The number of the block to return.
+   * @returns The requested L2 block, without logs attached
+   */
   async getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
-    const blockBodiesBuffer = await this.db.transaction(() => txsHashes.map(txsHash => this.#blockBodies.get(txsHash.toString('hex'))));
+    const blockBodiesBuffer = await this.db.transaction(() =>
+      txsHashes.map(txsHash => this.#blockBodies.get(txsHash.toString('hex'))),
+    );
 
     if (blockBodiesBuffer.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Weird')
+      throw new Error('Weird');
     }
 
     return blockBodiesBuffer.map(blockBodyBuffer => Body.fromBuffer(blockBodyBuffer!));

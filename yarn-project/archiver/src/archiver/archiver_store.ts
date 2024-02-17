@@ -1,10 +1,10 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
-  Body,
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
@@ -39,18 +39,18 @@ export interface ArchiverDataStore {
    */
   addBlocks(blocks: L2Block[]): Promise<boolean>;
 
-    /**
+  /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean>;
 
-/**
- * Append new blocks to the store's list.
- * @param blocks - The L2 blocks to be added to the store.
- * @returns True if the operation is successful.
- */
+  /**
+   * Append new blocks to the store's list.
+   * @param blocks - The L2 blocks to be added to the store.
+   * @returns True if the operation is successful.
+   */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]>;
 
   /**

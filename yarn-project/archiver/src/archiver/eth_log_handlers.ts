@@ -1,18 +1,18 @@
 import {
+  Body,
   ContractData,
   EncodedContractFunction,
   ExtendedContractData,
   L1Actor,
   L1ToL2Message,
   L2Actor,
-  Body,
 } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
-import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi, AvailabilityOracleAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 
@@ -113,10 +113,7 @@ export async function processBlockBodyLogs(
  * @param l2BlockNum - L2 block number.
  * @returns An L2 block deserialized from the calldata.
  */
-async function getBlockBodiesFromCallData(
-  publicClient: PublicClient,
-  txHash: `0x${string}`,
-): Promise<Body> {
+async function getBlockBodiesFromCallData(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
@@ -165,14 +162,16 @@ async function getBlockHashFromCallData(
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
-  if (blockNumberFromHeader!== l2BlockNum) {
+  if (blockNumberFromHeader !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
   }
 
-  const archive = AppendOnlyTreeSnapshot.fromBuffer(Buffer.concat([
-    Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
-    numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
-  ]));
+  const archive = AppendOnlyTreeSnapshot.fromBuffer(
+    Buffer.concat([
+      Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+      numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
+    ]),
+  );
 
   return [header, archive];
 }
