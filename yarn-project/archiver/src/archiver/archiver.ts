@@ -562,6 +562,10 @@ export class Archiver implements ArchiveSource {
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
     return this.store.getConfirmedL1ToL2Message(messageKey);
   }
+
+  getContractClassIds(): Promise<Fr[]> {
+    return this.store.getContractClassIds();
+  }
 }
 
 /**

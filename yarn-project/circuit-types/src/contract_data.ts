@@ -68,6 +68,9 @@ export interface ContractDataSource {
    * @param address - Address of the deployed contract.
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+
+  /** Returns the list of all class ids known. */
+  getContractClassIds(): Promise<Fr[]>;
 }
 
 /**
