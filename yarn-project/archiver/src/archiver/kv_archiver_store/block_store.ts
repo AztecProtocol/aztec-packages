@@ -1,8 +1,9 @@
 import { INITIAL_L2_BLOCK_NUM, L2Block, L2Tx, TxHash } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, AztecAddress, Header } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, AztecAddress, Fr, Header, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
 import { BlockBodyStore } from './block_body_store.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -46,6 +47,14 @@ export class BlockStore {
   addBlocks(blocks: L2Block[]): Promise<boolean> {
     return this.db.transaction(() => {
       for (const block of blocks) {
+        // block.body.l1ToL2Messages = padArrayEnd(
+        //   block.body.l1ToL2Messages,
+        //   Fr.ZERO,
+        //   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        // );
+
+        // this.#blockBodyStore.addBlockBodies([block.body]);
+
         void this.#blocks.set(block.number, {
           blockNumber: block.number,
           header: block.header.toBuffer(),
@@ -81,7 +90,7 @@ export class BlockStore {
    */
   *getBlocks(start: number, limit: number): IterableIterator<L2Block> {
     for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
-      yield this.getFullBlockFromBlockStorage(blockStorage)
+      yield this.getFullBlockFromBlockStorage(blockStorage);
     }
   }
 
@@ -96,7 +105,7 @@ export class BlockStore {
       return undefined;
     }
 
-    const block = this.getFullBlockFromBlockStorage(blockStorage);
+    return this.getFullBlockFromBlockStorage(blockStorage);
   }
 
   private getFullBlockFromBlockStorage(blockStorage: BlockStorage) {

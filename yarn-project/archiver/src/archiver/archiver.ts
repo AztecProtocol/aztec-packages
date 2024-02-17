@@ -310,9 +310,9 @@ export class Archiver implements ArchiveSource {
     }
 
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
-    const blockHashMapping: { [key: number]: Buffer | undefined } = {};
+    const blockNumberToBodyHash: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockHashMapping[block.number] = block.header.contentCommitment.txsHash;
+      blockNumberToBodyHash[block.number] = block.header.contentCommitment.txsHash;
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
@@ -320,7 +320,7 @@ export class Archiver implements ArchiveSource {
       blockUntilSynced,
       lastL1Blocks.addedBlock + 1n,
       currentL1BlockNumber,
-      blockHashMapping,
+      blockNumberToBodyHash,
     );
 
     this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);

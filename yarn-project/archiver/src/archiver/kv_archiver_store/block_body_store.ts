@@ -1,10 +1,6 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, Body, L2Tx, TxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { Body } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
-
-type BlockIndexValue = [blockNumber: number, index: number];
+import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -13,19 +9,8 @@ export class BlockBodyStore {
   /** Map block number to block data */
   #blockBodies: AztecMap<string, Buffer>;
 
-  /** Index mapping transaction hash (as a string) to its location in a block */
-  #txIndex: AztecMap<string, BlockIndexValue>;
-
-  /** Index mapping a contract's address (as a string) to its location in a block */
-  #contractIndex: AztecMap<string, BlockIndexValue>;
-
-  #log = createDebugLogger('aztec:archiver:block_body_store');
-
   constructor(private db: AztecKVStore) {
     this.#blockBodies = db.openMap('archiver_block_bodies');
-
-    this.#txIndex = db.openMap('archiver_tx_index_block_bodies');
-    this.#contractIndex = db.openMap('archiver_contract_index_block_bodies');
   }
 
   /**
