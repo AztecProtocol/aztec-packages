@@ -13,7 +13,10 @@ describe('e2e_fees', () => {
 
   beforeAll(async () => {
     const { accounts, sequencer, wallet } = await setup(3);
-    sequencer?.updateSequencerConfig({
+    if (!sequencer) {
+      fail('Sequencer not found');
+    }
+    sequencer.updateSequencerConfig({
       feeRecipient: accounts.at(-1)!.address,
     });
     const canonicalGasToken = getCanonicalGasToken();
@@ -28,7 +31,7 @@ describe('e2e_fees', () => {
     gasTokenContract = contract as GasTokenContract;
     aliceAddress = accounts.at(0)!.address;
     _bobAddress = accounts.at(1)!.address;
-    sequencerAddress = sequencer!.feeRecipient;
+    sequencerAddress = sequencer.feeRecipient;
 
     testContract = await TokenContract.deploy(wallet, aliceAddress, 'Test', 'TEST', 1).send().deployed();
 
