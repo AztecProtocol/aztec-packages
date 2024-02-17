@@ -123,6 +123,8 @@ describe('e2e_deploy_contract', () => {
       );
     }, 60_000);
 
+    // TODO(@spalladino): Review this test, it's showing an unexpected 'Bytecode not found' error in logs.
+    // It's possible it is failing for the wrong reason, and the getContractData checks are returning wrong data.
     it('should not deploy a contract which failed the public part of the execution', async () => {
       sequencer?.updateSequencerConfig({
         minTxsPerBlock: 2,
