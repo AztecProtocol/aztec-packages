@@ -128,11 +128,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('addLogs', () => {
       it('adds encrypted & unencrypted logs', async () => {
         await expect(
-          store.addLogs(
-            blocks[0].body.encryptedLogs,
-            blocks[0].body.unencryptedLogs,
-            blocks[0].number,
-          ),
+          store.addLogs(blocks[0].body.encryptedLogs, blocks[0].body.unencryptedLogs, blocks[0].number),
         ).resolves.toEqual(true);
       });
     });
@@ -143,13 +139,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     ])('getLogs (%s)', (_, logType) => {
       beforeEach(async () => {
         await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              block.body.encryptedLogs,
-              block.body.unencryptedLogs,
-              block.number,
-            ),
-          ),
+          blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
       });
 
@@ -167,13 +157,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('getL2Tx', () => {
       beforeEach(async () => {
         await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              block.body.encryptedLogs,
-              block.body.unencryptedLogs,
-              block.number,
-            ),
-          ),
+          blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
         await store.addBlocks(blocks);
       });
@@ -501,13 +485,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         await store.addBlocks(blocks);
         await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              block.body.encryptedLogs,
-              block.body.unencryptedLogs,
-              block.number,
-            ),
-          ),
+          blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
       });
 
