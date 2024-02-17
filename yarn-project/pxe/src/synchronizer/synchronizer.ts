@@ -174,25 +174,14 @@ export class Synchronizer {
     }
 
     try {
-      let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
-      if (!encryptedLogs.length) {
-        // This should never happen because this function should only be called when the note processor is lagging
-        // behind main sync.
-        throw new Error('No encrypted logs in processor catch up mode');
-      }
-
-      // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
-      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
+      const blocks = await this.node.getBlocks(from, limit);
       if (!blocks.length) {
         // This should never happen because this function should only be called when the note processor is lagging
         // behind main sync.
         throw new Error('No blocks in processor catch up mode');
       }
 
-      if (blocks.length !== encryptedLogs.length) {
-        // "Trim" the encrypted logs to match the number of blocks.
-        encryptedLogs = encryptedLogs.slice(0, blocks.length);
-      }
+      const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
       const blockContexts = blocks.map(block => new L2BlockContext(block));
 

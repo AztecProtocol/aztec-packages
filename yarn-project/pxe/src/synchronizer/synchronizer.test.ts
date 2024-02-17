@@ -41,7 +41,6 @@ describe('Synchronizer', () => {
   it('sets header from latest block', async () => {
     const block = L2Block.random(1, 4);
     aztecNode.getLogs.mockResolvedValueOnce([block.body.encryptedLogs]).mockResolvedValue([block.body.unencryptedLogs]);
-    block.body.txEffects.forEach(txEffect => delete txEffect.logs);
     aztecNode.getBlocks.mockResolvedValue([block]);
 
     await synchronizer.work();
@@ -65,7 +64,7 @@ describe('Synchronizer', () => {
     aztecNode.getLogs
       .mockResolvedValueOnce([block1.body.encryptedLogs])
       .mockResolvedValue([block1.body.unencryptedLogs]);
-    block1.body.txEffects.forEach(txEffect => delete txEffect.logs);
+
     aztecNode.getBlocks.mockResolvedValue([block1]);
 
     await synchronizer.work();
@@ -76,7 +75,6 @@ describe('Synchronizer', () => {
     // But they should change when we process block with height 5
     const block5 = L2Block.random(5, 4);
 
-    block5.body.txEffects.forEach(txEffect => delete txEffect.logs);
     aztecNode.getBlocks.mockResolvedValue([block5]);
 
     await synchronizer.work();
@@ -97,9 +95,6 @@ describe('Synchronizer', () => {
       // called by synchronizer.workNoteProcessorCatchUp
       .mockResolvedValueOnce([blocks[0].body.encryptedLogs])
       .mockResolvedValueOnce([blocks[1].body.encryptedLogs]);
-
-    blocks[0].body.txEffects.forEach(txEffect => delete txEffect.logs);
-    blocks[1].body.txEffects.forEach(txEffect => delete txEffect.logs);
 
     aztecNode.getBlocks
       // called by synchronizer.work, we are testing fromFields in this first call
