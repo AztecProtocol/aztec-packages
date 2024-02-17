@@ -14,7 +14,8 @@ describe('e2e_fees', () => {
   beforeAll(async () => {
     const { accounts, sequencer, wallet } = await setup(3);
     if (!sequencer) {
-      fail('Sequencer not found');
+      expect(sequencer).toBeDefined();
+      return;
     }
     sequencer.updateSequencerConfig({
       feeRecipient: accounts.at(-1)!.address,
