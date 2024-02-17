@@ -6,6 +6,7 @@ import {
   Fr,
   AccountWalletWithPrivateKey,
 } from '@aztec/aztec.js';
+import { BlankContractArtifact } from './artifacts/Blank.js';
 
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import { VanillaContract } from '../artifacts/Vanilla';
