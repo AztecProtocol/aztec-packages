@@ -6,5 +6,5 @@ type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
-easy-private-state = { path = "../../../../noir-projects/aztec-nr/aztec-nr/easy-private-state" }
-value_note = { path = "../../../../noir-projects/aztec-nr/aztec-nr/value_note" }
+easy-private-state = { path = "../../../../noir-projects/aztec-nr/easy-private-state" }
+value_note = { path = "../../../../noir-projects/aztec-nr/value_note" }
