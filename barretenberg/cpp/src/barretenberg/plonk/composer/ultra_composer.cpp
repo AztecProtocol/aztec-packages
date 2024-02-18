@@ -186,10 +186,6 @@ size_t UltraComposer::compute_dyadic_circuit_size(CircuitBuilder& circuit)
 
 std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& circuit)
 {
-    if (circuit_proving_key) {
-        return circuit_proving_key;
-    }
-
     circuit.finalize_circuit();
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
