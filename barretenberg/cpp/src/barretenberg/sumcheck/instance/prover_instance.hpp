@@ -64,15 +64,13 @@ template <class Flavor> class ProverInstance_ {
 
     ProverInstance_(Circuit& circuit)
     {
-        compute_circuit_size_parameters(circuit);
+        dyadic_circuit_size = compute_dyadic_size(circuit);
 
         proving_key = Trace::generate(circuit, dyadic_circuit_size);
 
         // If Goblin, construct the ECC op queue wire and databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
-            auto wire_polynomials = proving_key->get_wires();
-            proving_key->num_ecc_op_gates = num_ecc_op_gates;
-            construct_ecc_op_wire_polynomials(wire_polynomials);
+            construct_ecc_op_wire_polynomials(circuit);
             construct_databus_polynomials(circuit);
         }
 
@@ -111,11 +109,11 @@ template <class Flavor> class ProverInstance_ {
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     bool contains_recursive_proof = false;
     size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
-    size_t num_ecc_op_gates = 0;
 
-    void compute_circuit_size_parameters(Circuit&);
+    size_t compute_dyadic_size(Circuit&);
 
-    void construct_ecc_op_wire_polynomials(auto&);
+    void construct_ecc_op_wire_polynomials(Circuit&)
+        requires IsGoblinFlavor<Flavor>;
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;

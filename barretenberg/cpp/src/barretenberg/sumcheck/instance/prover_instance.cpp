@@ -12,29 +12,24 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
+template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
-    // Get num conventional gates, num public inputs and num Goblin style ECC op gates
-    // const size_t num_gates = circuit.num_gates;
-    num_ecc_op_gates = 0;
+    // minimum circuit size due to lookup argument
+    const size_t min_size_due_to_lookups = circuit.get_tables_size() + circuit.get_lookups_size();
+
+    // minumum size of execution trace due to everything else
+    size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
     if constexpr (IsGoblinFlavor<Flavor>) {
-        num_ecc_op_gates = circuit.num_ecc_op_gates;
+        min_size_of_execution_trace += circuit.num_ecc_op_gates;
     }
 
-    // minimum circuit size due to the length of lookups plus tables
-    const size_t minimum_circuit_size_due_to_lookups =
-        circuit.get_tables_size() + circuit.get_lookups_size() + num_zero_rows;
+    // The number of gates is the maxmimum required by the lookup argument or everything else, plus an optional zero row
+    // to allow for shifts.
+    size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
+    size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
-    // number of populated rows in the execution trace
-    size_t num_rows_populated_in_execution_trace =
-        num_zero_rows + num_ecc_op_gates + circuit.public_inputs.size() + circuit.num_gates;
-
-    // The number of gates is max(lookup gates + tables, rows already populated in trace) + 1, where the +1 is due to
-    // addition of a "zero row" at top of the execution trace to ensure wires and other polys are shiftable.
-    size_t total_num_gates = std::max(minimum_circuit_size_due_to_lookups, num_rows_populated_in_execution_trace);
-
-    // Next power of 2
-    dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
+    // Next power of 2 (dyadic circuit size)
+    return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
 /**
@@ -45,7 +40,9 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
  * @tparam Flavor
  * @param wire_polynomials
  */
-template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_polynomials(auto& wire_polynomials)
+template <class Flavor>
+void ProverInstance_<Flavor>::construct_ecc_op_wire_polynomials(Circuit& circuit)
+    requires IsGoblinFlavor<Flavor>
 {
     std::array<Polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
     for (auto& poly : op_wire_polynomials) {
@@ -57,14 +54,15 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
     // The op data is assumed to have already been stored at the correct location in the convetional wires so the data
     // can simply be copied over directly.
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
-    for (size_t poly_idx = 0; poly_idx < Flavor::NUM_WIRES; ++poly_idx) {
-        for (size_t i = 0; i < num_ecc_op_gates; ++i) {
+    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, proving_key->get_wires())) {
+        for (size_t i = 0; i < circuit.num_ecc_op_gates; ++i) {
             size_t idx = i + op_wire_offset;
-            op_wire_polynomials[poly_idx][idx] = wire_polynomials[poly_idx][idx];
+            ecc_op_wire[idx] = wire[idx];
             ecc_op_selector[idx] = 1;
         }
     }
 
+    proving_key->num_ecc_op_gates = circuit.num_ecc_op_gates;
     proving_key->ecc_op_wire_1 = op_wire_polynomials[0].share();
     proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
     proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
@@ -83,9 +81,9 @@ template <class Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires IsGoblinFlavor<Flavor>
 {
-    polynomial public_calldata(dyadic_circuit_size);
-    polynomial calldata_read_counts(dyadic_circuit_size);
-    polynomial databus_id(dyadic_circuit_size);
+    Polynomial public_calldata{ dyadic_circuit_size };
+    Polynomial calldata_read_counts{ dyadic_circuit_size };
+    Polynomial databus_id{ dyadic_circuit_size };
 
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
