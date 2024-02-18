@@ -65,10 +65,10 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);
+
         proving_key = Trace::generate(circuit, dyadic_circuit_size);
 
         // If Goblin, construct the ECC op queue wire and databus polynomials
-        // WORKTODO: this probably belongs in exec trace generate
         if constexpr (IsGoblinFlavor<Flavor>) {
             auto wire_polynomials = proving_key->get_wires();
             proving_key->num_ecc_op_gates = num_ecc_op_gates;
@@ -76,17 +76,13 @@ template <class Flavor> class ProverInstance_ {
             construct_databus_polynomials(circuit);
         }
 
-        // Generic precomputable stuff
-        {
-            compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
-            construct_table_polynomials(circuit, dyadic_circuit_size);
-            if constexpr (IsGoblinFlavor<Flavor>) {
-                compute_databus_id();
-            }
-            proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
-                recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
-            proving_key->contains_recursive_proof = contains_recursive_proof;
-        }
+        compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
+
+        construct_table_polynomials(circuit, dyadic_circuit_size);
+
+        proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
+            recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
+        proving_key->contains_recursive_proof = contains_recursive_proof;
 
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 

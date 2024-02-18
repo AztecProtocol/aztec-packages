@@ -85,6 +85,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 {
     polynomial public_calldata(dyadic_circuit_size);
     polynomial calldata_read_counts(dyadic_circuit_size);
+    polynomial databus_id(dyadic_circuit_size);
 
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
@@ -93,8 +94,14 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
         calldata_read_counts[idx] = circuit.calldata_read_counts[idx];
     }
 
+    // Compute a simple identity polynomial for use in the databus lookup argument
+    for (size_t i = 0; i < databus_id.size(); ++i) {
+        databus_id[i] = i;
+    }
+
     proving_key->calldata = public_calldata.share();
     proving_key->calldata_read_counts = calldata_read_counts.share();
+    proving_key->databus_id = databus_id.share();
 }
 
 template <class Flavor>
@@ -236,24 +243,6 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
     // Compute permutation and lookup grand product polynomials
     bb::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
-}
-
-/**
- * @brief Compute the simple id polynomial used in the log derivative lookup argument
- *
- * @tparam Flavor
- * @param beta
- * @param gamma
- */
-template <class Flavor>
-void ProverInstance_<Flavor>::compute_databus_id()
-    requires IsGoblinFlavor<Flavor>
-{
-    typename Flavor::Polynomial databus_id(proving_key->circuit_size);
-    for (size_t i = 0; i < databus_id.size(); ++i) {
-        databus_id[i] = i;
-    }
-    proving_key->databus_id = databus_id.share();
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
