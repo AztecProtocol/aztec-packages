@@ -14,8 +14,6 @@ template <class Arithmetization> struct ExecutionTraceBlock {
     using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, Arithmetization::NUM_WIRES>;
     Wires wires;
     Arithmetization selectors;
-    bool is_public_input = false;
-    bool is_goblin_op = false;
 };
 
 template <class Flavor> class ExecutionTrace_ {
@@ -34,7 +32,6 @@ template <class Flavor> class ExecutionTrace_ {
         std::array<Polynomial, NUM_WIRES> wires;
         std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> selectors;
         std::vector<CyclicPermutation> copy_cycles;
-        Polynomial ecc_op_selector;
 
         TraceData(size_t dyadic_circuit_size, Builder& builder)
         {
@@ -47,7 +44,7 @@ template <class Flavor> class ExecutionTrace_ {
             }
             // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials
             // whose values are copy constrained to be equal. Each variable represents one cycle.
-            copy_cycles.resize(builder.variables.size());
+            copy_cycles.resize(builder.variables.size()); // WORKTODO: real_variables.size()?
         }
     };
 
@@ -64,7 +61,7 @@ template <class Flavor> class ExecutionTrace_ {
                                                                   size_t dyadic_circuit_size)
         requires IsPlonkFlavor<Flavor>;
 
-    static TraceData generate_trace_polynomials(Builder& builder, size_t dyadic_circuit_size);
+    static TraceData construct_trace_polynomials(Builder& builder, size_t dyadic_circuit_size);
 
     /**
      * @brief Temporary helper method to construct execution trace blocks from existing builder structures

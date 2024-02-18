@@ -47,10 +47,11 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_circuit_size_param
  */
 template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_polynomials(auto& wire_polynomials)
 {
-    std::array<polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
+    std::array<Polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
     for (auto& poly : op_wire_polynomials) {
-        poly = static_cast<polynomial>(dyadic_circuit_size);
+        poly = Polynomial{ dyadic_circuit_size };
     }
+    Polynomial ecc_op_selector{ dyadic_circuit_size };
 
     // The ECC op wires are constructed to contain the op data on the appropriate range and to vanish everywhere else.
     // The op data is assumed to have already been stored at the correct location in the convetional wires so the data
@@ -60,6 +61,7 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
         for (size_t i = 0; i < num_ecc_op_gates; ++i) {
             size_t idx = i + op_wire_offset;
             op_wire_polynomials[poly_idx][idx] = wire_polynomials[poly_idx][idx];
+            ecc_op_selector[idx] = 1;
         }
     }
 
@@ -67,6 +69,7 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
     proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
     proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
     proving_key->ecc_op_wire_4 = op_wire_polynomials[3].share();
+    proving_key->lagrange_ecc_op = ecc_op_selector.share();
 }
 
 /**
