@@ -33,15 +33,20 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         info("block size = ", block_size);
 
         // Update wire polynomials and copy cycles
-        for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
+        // WORKTODO: order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
+        for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
+            for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                 uint32_t var_idx = block.wires[wire_idx][row_idx]; // an index into the variables array
                 uint32_t real_var_idx = builder.real_variable_index[var_idx];
-                uint32_t trace_row_idx = row_idx + offset;
                 // Insert the real witness values from this block into the wire polys at the correct offset
-                trace_data.wires[wire_idx][trace_row_idx] = builder.get_variable(var_idx);
+                trace_data.wires[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
                 // Add the address of the witness value to its corresponding copy cycle
-                trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+                // WORKTODO: Not adding cycles for wires 3 and 4 here is only needed in order to maintain
+                // consistency with old version. We can remove this special case and the result is simply that all
+                // the zeros in wires 3 and 4 over the PI range are copy constrained together.
+                if (!(block.is_public_input && wire_idx > 1)) {
+                    trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                }
             }
         }
 
@@ -144,7 +149,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
             }
         }
     }
-    TraceBlock public_input_block{ public_input_wires, public_input_selectors };
+    TraceBlock public_input_block{ public_input_wires, public_input_selectors, /*is_public_input=*/true };
     trace_blocks.emplace_back(public_input_block);
 
     // Make a block for the basic wires and selectors

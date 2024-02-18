@@ -14,6 +14,7 @@ template <class Arithmetization> struct ExecutionTraceBlock {
     using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, Arithmetization::NUM_WIRES>;
     Wires wires;
     Arithmetization selectors;
+    bool is_public_input = false;
 };
 
 template <class Flavor> class ExecutionTrace_ {
