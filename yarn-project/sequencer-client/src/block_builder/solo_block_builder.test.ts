@@ -226,7 +226,7 @@ describe('sequencer/solo_block_builder', () => {
 
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
-    
+
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = txs.map(
       tx =>
