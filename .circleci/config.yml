@@ -698,6 +698,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_static_calls.test.ts
 
+  e2e-delegate-calls:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_delegate_calls.test.ts
+
   e2e-non-contract-account:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -884,6 +895,18 @@ jobs:
       - run:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
+
+  e2e-fees:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_fees.test.ts
+
   pxe:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -905,7 +928,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=cli_docs_sandbox.test.ts
-   
+
   e2e-docs-examples:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -915,7 +938,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts   
+          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
 
   guides-writing-an-account-contract:
     docker:
@@ -1330,6 +1353,7 @@ workflows:
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-static-calls: *e2e_test
+      - e2e-delegate-calls: *e2e_test
       - e2e-non-contract-account: *e2e_test
       - e2e-multiple-accounts-1-enc-key: *e2e_test
       - e2e-cli: *e2e_test
@@ -1350,6 +1374,7 @@ workflows:
       - e2e-browser: *e2e_test
       - e2e-card-game: *e2e_test
       - e2e-avm-simulator: *e2e_test
+      - e2e-fees: *e2e_test
       - pxe: *e2e_test
       - cli-docs-sandbox: *e2e_test
       - e2e-docs-examples: *e2e_test
@@ -1373,6 +1398,7 @@ workflows:
             - e2e-block-building
             - e2e-nested-contract
             - e2e-static-calls
+            - e2e-delegate-calls
             - e2e-non-contract-account
             - e2e-multiple-accounts-1-enc-key
             - e2e-cli
@@ -1393,6 +1419,7 @@ workflows:
             - e2e-browser
             - e2e-card-game
             - e2e-avm-simulator
+            - e2e-fees
             - pxe
             - boxes-blank
             - boxes-blank-react

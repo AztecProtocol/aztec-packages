@@ -15,6 +15,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
@@ -45,7 +46,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The side-effect counter under which all side effects are non-revertible.
      */
-    public maxNonRevertibleSideEffectCounter: Fr,
+    public minRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -227,7 +228,7 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
-      this.maxNonRevertibleSideEffectCounter.isZero() &&
+      this.minRevertibleSideEffectCounter.isZero() &&
       isEmptyArray(this.readRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newCommitments) &&
@@ -256,7 +257,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.maxNonRevertibleSideEffectCounter,
+      fields.minRevertibleSideEffectCounter,
       fields.readRequests,
       fields.nullifierKeyValidationRequests,
       fields.newCommitments,
@@ -288,7 +289,13 @@ export class PrivateCircuitPublicInputs {
    * Serialize this as a field array.
    */
   toFields(): Fr[] {
-    return serializeToFields(...PrivateCircuitPublicInputs.getFields(this));
+    const fields = serializeToFields(...PrivateCircuitPublicInputs.getFields(this));
+    if (fields.length !== PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateCircuitPublicInputs. Expected ${PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   hash(): Fr {

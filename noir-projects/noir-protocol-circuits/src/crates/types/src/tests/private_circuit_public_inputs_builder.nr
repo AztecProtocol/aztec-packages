@@ -5,8 +5,9 @@ use crate::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, compute_initialization_hash},
-    contrakt::deployment_data::ContractDeploymentData, hash::{compute_constructor_hash, hash_args},
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message,
+    contrakt::contract_deployment_data::ContractDeploymentData,
+    hash::{compute_constructor_hash, hash_args}, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
     tests::{fixtures, testing_harness::build_contract_deployment_data}
 };
 use crate::constants::{
@@ -22,7 +23,7 @@ struct PrivateCircuitPublicInputsBuilder {
     args_hash: Field,
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    max_non_revertible_side_effect_counter: u32,
+    min_revertible_side_effect_counter: u32,
 
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
@@ -105,7 +106,7 @@ impl PrivateCircuitPublicInputsBuilder {
             call_context: self.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
-            max_non_revertible_side_effect_counter: self.max_non_revertible_side_effect_counter,
+            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             read_requests: self.read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_commitments: self.new_commitments.storage,

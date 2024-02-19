@@ -20,8 +20,6 @@ mod type_serialization;
 mod content_commitment;
 mod header;
 
-mod interop_testing;
-
 mod tests;
 
 mod state_reference;
@@ -31,5 +29,5 @@ mod public_data_tree_leaf_preimage;
 
 use abis::kernel_circuit_public_inputs::{
     PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
-    PublicKernelCircuitPublicInputs
+    PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
 };

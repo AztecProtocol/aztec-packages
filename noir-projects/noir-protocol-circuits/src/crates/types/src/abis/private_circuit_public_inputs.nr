@@ -10,7 +10,7 @@ use crate::{
     RETURN_VALUES_LENGTH, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS
 },
-    contrakt::deployment_data::ContractDeploymentData, header::Header, hash::pedersen_hash,
+    contrakt::contract_deployment_data::ContractDeploymentData, header::Header, hash::pedersen_hash,
     messaging::l2_to_l1_message::L2ToL1Message, traits::{Deserialize, Hash, Serialize},
     utils::reader::Reader
 };
@@ -21,7 +21,7 @@ struct PrivateCircuitPublicInputs {
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
 
-    max_non_revertible_side_effect_counter: u32,
+    min_revertible_side_effect_counter: u32,
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
@@ -84,7 +84,7 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
 
-        fields.push(self.max_non_revertible_side_effect_counter as Field);
+        fields.push(self.min_revertible_side_effect_counter as Field);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.read_requests[i].serialize());
@@ -127,7 +127,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
-            max_non_revertible_side_effect_counter: reader.read() as u32,
+            min_revertible_side_effect_counter: reader.read() as u32,
             read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
             new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
@@ -165,11 +165,12 @@ fn serialization_of_empty() {
     assert(pcpi.eq(deserialized));
 }
 
+// TODO(#4619): Hash non-empty
 #[test]
 fn empty_hash() {
     let inputs: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
     let hash = inputs.hash();
 
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x2745ec62624afeb19b86af3d440db1f8c3432e1d17a074c75cb8f44999fd3fae);
+    assert_eq(hash, 0x1d45bdd12fe635c85eedd27300524378c35be3aafb3501632a408bbe9db2e1d9);
 }
