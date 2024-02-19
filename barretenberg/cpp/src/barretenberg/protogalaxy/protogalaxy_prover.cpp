@@ -308,13 +308,13 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
     state.deltas = compute_round_challenge_pows(state.accumulator->log_instance_size, delta);
+    state.perturbator = Polynomial<FF>(state.accumulator->log_instance_size + 1); // initialize to all zeros
+    // compute perturbator only if this is not the first round and has an accumulator
     if (state.accumulator->is_accumulator) {
         state.perturbator = compute_perturbator(state.accumulator, state.deltas);
         for (size_t idx = 0; idx <= state.accumulator->log_instance_size; idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
         }
-    } else {
-        state.perturbator = Polynomial<FF>(state.accumulator->log_instance_size + 1);
     }
 };
 
