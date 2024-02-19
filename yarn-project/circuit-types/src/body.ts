@@ -27,8 +27,8 @@ export class Body {
     const newContracts = this.txEffects.flatMap(txEffect => txEffect.contractLeaves);
     const newContractData = this.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.l1ToL2Messages;
-    const newEncryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
-    const newUnencryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
+    const newEncryptedLogs = this.encryptedLogs;
+    const newUnencryptedLogs = this.unencryptedLogs;
 
     return serializeToBuffer(
       newNoteHashes.length,
@@ -44,8 +44,8 @@ export class Body {
       newContractData,
       newL1ToL2Messages.length,
       newL1ToL2Messages,
-      new L2BlockL2Logs(newEncryptedLogs),
-      new L2BlockL2Logs(newUnencryptedLogs),
+      newEncryptedLogs,
+      newUnencryptedLogs,
     );
   }
 
@@ -163,21 +163,13 @@ export class Body {
   }
 
   get encryptedLogs(): L2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.logs!.encryptedLogs);
-
-    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
-      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
-    }
+    const logs = this.txEffects.map(txEffect => txEffect.logs.encryptedLogs);
 
     return new L2BlockL2Logs(logs);
   }
 
   get unencryptedLogs(): L2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs);
-
-    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
-      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
-    }
+    const logs = this.txEffects.map(txEffect => txEffect.logs.unencryptedLogs);
 
     return new L2BlockL2Logs(logs);
   }

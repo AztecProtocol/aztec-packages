@@ -4,7 +4,6 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockContext,
-  L2BlockL2Logs,
   LogId,
   LogType,
   TxHash,
@@ -145,9 +144,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it.each(blockTests)('retrieves previously stored logs', async (from, limit, getExpectedBlocks) => {
         const expectedLogs = getExpectedBlocks().map(block =>
-          logType === LogType.ENCRYPTED
-            ? new L2BlockL2Logs(block.body.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs))
-            : new L2BlockL2Logs(block.body.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs)),
+          logType === LogType.ENCRYPTED ? block.body.encryptedLogs : block.body.unencryptedLogs,
         );
         const actualLogs = await store.getLogs(from, limit, logType);
         expect(actualLogs).toEqual(expectedLogs);
@@ -369,10 +366,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns previously stored contract data', async () => {
-        // Assuming the first (and only) contract data in the first TX
         await expect(store.getContractData(block.body.txEffects[0].contractData[0].contractAddress)).resolves.toEqual(
           block.body.txEffects[0].contractData[0],
         );
+
+        const contractData = await store.getContractData(block.body.txEffects[0].contractData[1].contractAddress);
+        expect(contractData).toEqual(undefined);
       });
 
       it('returns undefined if contract data is not found', async () => {

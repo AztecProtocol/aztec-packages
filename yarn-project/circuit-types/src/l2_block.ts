@@ -94,7 +94,7 @@ export class L2Block {
    * @returns A serialized L2 block logs.
    */
   toBuffer() {
-    return serializeToBuffer(this.header, this.archive, this.body.toBuffer());
+    return serializeToBuffer(this.header, this.archive, this.body);
   }
 
   /**
@@ -133,7 +133,6 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-    withLogs = true,
   ): L2Block {
     const txEffects = [...new Array(txsPerBlock)].map(
       _ =>
@@ -144,12 +143,10 @@ export class L2Block {
           times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
           times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
           times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
-          withLogs
-            ? new TxEffectLogs(
-                TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
-                TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
-              )
-            : undefined,
+          new TxEffectLogs(
+            TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
+            TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
+          ),
         ),
     );
 

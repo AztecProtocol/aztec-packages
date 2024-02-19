@@ -31,7 +31,7 @@ export class TxEffect {
     /**
      * The logs attached to the l2 block, both encrypted and unencrypted.
      */
-    public logs?: TxEffectLogs,
+    public logs: TxEffectLogs,
   ) {
     if (newNoteHashes.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
@@ -39,10 +39,6 @@ export class TxEffect {
   }
 
   hash() {
-    if (this.logs === undefined) {
-      throw new Error('Hashing of a Transaction Effect requires logs to be attached ');
-    }
-
     const noteHashesBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
     const nullifiersBuffer = Buffer.concat(this.newNullifiers.map(x => x.toBuffer()));
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
@@ -50,12 +46,15 @@ export class TxEffect {
     const encryptedLogsHashKernel0 = this.logs!.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.logs!.unencryptedLogs.hash();
 
+    if (!this.contractLeaves[1].isZero() || !this.contractData[1].isEmpty()) {
+      throw new Error('We only support max one new contract per tx');
+    }
+
     const inputValue = Buffer.concat([
       noteHashesBuffer,
       nullifiersBuffer,
       publicDataUpdateRequestsBuffer,
       newL2ToL1MsgsBuffer,
-      // We get the first one because we only support 1 new contract per tx
       this.contractLeaves[0].toBuffer(),
       this.contractData[0].contractAddress.toBuffer(),
       // TODO(#3938): make portal address 20 bytes here when updating the hashing
