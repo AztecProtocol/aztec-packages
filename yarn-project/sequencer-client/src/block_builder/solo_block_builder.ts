@@ -1,13 +1,4 @@
-import {
-  Body,
-  ContractData,
-  L2Block,
-  MerkleTreeId,
-  PublicDataWrite,
-  TxEffect,
-  TxEffectLogs,
-  TxL2Logs,
-} from '@aztec/circuit-types';
+import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -118,7 +109,8 @@ export class SoloBlockBuilder implements BlockBuilder {
           tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
           tx.data.end.newContracts.map(cd => cd.computeLeaf()),
           tx.data.end.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
-          new TxEffectLogs(tx.encryptedLogs || new TxL2Logs([]), tx.unencryptedLogs || new TxL2Logs([])),
+          tx.encryptedLogs || new TxL2Logs([]),
+          tx.unencryptedLogs || new TxL2Logs([]),
         ),
     );
 

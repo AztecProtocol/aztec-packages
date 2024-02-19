@@ -7,7 +7,6 @@ import {
   PublicDataWrite,
   Tx,
   TxEffect,
-  TxEffectLogs,
   makeEmptyLogs,
   mockTx,
 } from '@aztec/circuit-types';
@@ -223,7 +222,8 @@ describe('sequencer/solo_block_builder', () => {
           tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
           tx.data.end.newContracts.map(cd => cd.computeLeaf()),
           tx.data.end.newContracts.map(n => new ContractData(n.contractAddress, n.portalContractAddress)),
-          new TxEffectLogs(tx.encryptedLogs, tx.unencryptedLogs),
+          tx.encryptedLogs,
+          tx.unencryptedLogs,
         ),
     );
 

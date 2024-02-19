@@ -294,7 +294,7 @@ export class Archiver implements ArchiveSource {
     await Promise.all(
       retrievedBlocks.retrievedData.map(async block => {
         const blockLogs = block.body.txEffects
-          .flatMap(txEffect => (txEffect.logs ? [txEffect.logs?.unencryptedLogs] : []))
+          .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
           .flatMap(txLog => txLog.unrollLogs())
           .map(log => UnencryptedL2Log.fromBuffer(log));
         await this.storeRegisteredContractClasses(blockLogs, block.number);

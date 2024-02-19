@@ -536,9 +536,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetFunctionLogIndex = Math.floor(Math.random() * numPublicFunctionCalls);
         const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
         const targetContractAddress = UnencryptedL2Log.fromBuffer(
-          blocks[targetBlockIndex].body.txEffects[targetTxIndex].logs.unencryptedLogs.functionLogs[
-            targetFunctionLogIndex
-          ].logs[targetLogIndex],
+          blocks[targetBlockIndex].body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[targetFunctionLogIndex]
+            .logs[targetLogIndex],
         ).contractAddress;
 
         const response = await store.getUnencryptedLogs({ contractAddress: targetContractAddress });
@@ -557,9 +556,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetFunctionLogIndex = Math.floor(Math.random() * numPublicFunctionCalls);
         const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
         const targetSelector = UnencryptedL2Log.fromBuffer(
-          blocks[targetBlockIndex].body.txEffects[targetTxIndex].logs.unencryptedLogs.functionLogs[
-            targetFunctionLogIndex
-          ].logs[targetLogIndex],
+          blocks[targetBlockIndex].body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[targetFunctionLogIndex]
+            .logs[targetLogIndex],
         ).selector;
 
         const response = await store.getUnencryptedLogs({ selector: targetSelector });

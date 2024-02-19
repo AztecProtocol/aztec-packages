@@ -1,4 +1,4 @@
-import { ContractData, L2BlockL2Logs, PublicDataWrite, TxEffect, TxEffectLogs } from '@aztec/circuit-types';
+import { ContractData, L2BlockL2Logs, PublicDataWrite, TxEffect } from '@aztec/circuit-types';
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
@@ -92,7 +92,8 @@ export class Body {
           ),
           newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
           newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i]),
+          newEncryptedLogs!.txLogs[i],
+          newUnencryptedLogs!.txLogs[i],
         ),
       );
     }
@@ -138,8 +139,8 @@ export class Body {
     if (
       this.txEffects.every(
         (txEffect, i) =>
-          txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
-          txEffect.logs?.unencryptedLogs.equals(unencryptedLogs.txLogs[i]),
+          txEffect.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
+          txEffect.unencryptedLogs.equals(unencryptedLogs.txLogs[i]),
       )
     ) {
       return true;
@@ -149,13 +150,13 @@ export class Body {
   }
 
   get encryptedLogs(): L2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.logs.encryptedLogs);
+    const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
 
     return new L2BlockL2Logs(logs);
   }
 
   get unencryptedLogs(): L2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.logs.unencryptedLogs);
+    const logs = this.txEffects.map(txEffect => txEffect.unencryptedLogs);
 
     return new L2BlockL2Logs(logs);
   }
