@@ -121,21 +121,6 @@ enum MultiTableId {
     NUM_MULTI_TABLES = KECCAK_NORMALIZE_AND_ROTATE + 25,
 };
 
-struct MultiTable;
-struct MultiTableIdOrPtr {
-    // Used if we are using a lookup table from our predefined list, otherwise set to NUM_MULTI_TABLES and unused.
-    MultiTableId id;
-    MultiTable* ptr;
-    MultiTableIdOrPtr(MultiTable* ptr)
-        : id(NUM_MULTI_TABLES)
-        , ptr(ptr)
-    {}
-    MultiTableIdOrPtr(MultiTableId id)
-        : id(id)
-        , ptr(nullptr)
-    {}
-};
-
 struct MultiTable {
     // Coefficients are accumulated products of corresponding step sizes until that point
     std::vector<bb::fr> column_1_coefficients;
@@ -199,12 +184,29 @@ struct MultiTable {
         init_step_sizes();
     }
 
-    MultiTable(){};
+    MultiTable() = default;
     MultiTable(const MultiTable& other) = default;
     MultiTable(MultiTable&& other) = default;
 
     MultiTable& operator=(const MultiTable& other) = default;
     MultiTable& operator=(MultiTable&& other) = default;
+};
+
+// Represents either a predefined table from our enum list of supported lookup tables, or a dynamic lookup table defined
+// by ACIR
+struct MultiTableIdOrPtr {
+    // Used if we are using a lookup table from our predefined list, otherwise set to NUM_MULTI_TABLES and unused.
+    MultiTableId id;
+    // Used if we are using a lookup table from a lookup table defined by e.g. ACIR, otherwise set to nullptr.
+    MultiTable* ptr;
+    MultiTableIdOrPtr(MultiTable* ptr)
+        : id(NUM_MULTI_TABLES)
+        , ptr(ptr)
+    {}
+    MultiTableIdOrPtr(MultiTableId id)
+        : id(id)
+        , ptr(nullptr)
+    {}
 };
 
 /**
