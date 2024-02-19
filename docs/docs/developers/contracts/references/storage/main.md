@@ -79,10 +79,6 @@ In the Storage struct:
 
 #include_code storage-map-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-In the `Storage::init` function:
-
-#include_code state_vars-MapSingleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
 #### Public Example
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
