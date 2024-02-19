@@ -342,7 +342,8 @@ std::vector<bb::fr> export_dummy_transcript_in_recursion_format(const transcript
                     // runtime error that we are attempting to invert 0.
                     if (contains_recursive_proof) {
                         // When setting up the ACIR we emplace back the nested aggregation object
-                        // fetched from the proof onto the public inputs
+                        // fetched from the proof onto the public inputs. Thus, we can expect the
+                        // nested aggregation object to always be at the end of the public inputs.
                         for (size_t k = 0; k < num_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++k) {
                             fields.emplace_back(0);
                         }
