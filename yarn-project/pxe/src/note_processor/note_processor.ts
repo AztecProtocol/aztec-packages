@@ -5,6 +5,7 @@ import {
   L1NotePayload,
   L2BlockContext,
   L2BlockL2Logs,
+  TaggedNote,
 } from '@aztec/circuit-types';
 import { NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { MAX_NEW_COMMITMENTS_PER_TX, PublicKey } from '@aztec/circuits.js';
@@ -135,8 +136,11 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
             this.stats.seen++;
-            const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
-            if (payload) {
+            // const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
+            const taggedNote = TaggedNote.fromEncryptedBuffer(logs, privateKey, curve);
+            if (taggedNote?.notePayload) {
+              const { notePayload: payload, tag } = taggedNote;
+              console.log('note tag: ', tag.toString());
               // We have successfully decrypted the data.
               const txHash = blockContext.getTxHash(indexOfTxInABlock);
               try {
