@@ -35,11 +35,12 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(const 
         circuit_constructor.num_gates + circuit_constructor.public_inputs.size() + NUM_RESERVED_GATES;
     const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates); // next power of 2
 
-    auto circuit_type = CircuitType::STANDARD;
     auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/392): Composer type
     circuit_proving_key = std::make_shared<plonk::proving_key>(
-        subgroup_size, circuit_constructor.public_inputs.size(), crs, circuit_type);
+        subgroup_size, circuit_constructor.public_inputs.size(), crs, CircuitType::STANDARD);
 
+    // Construct and add to proving key the wire, selector and copy constraint polynomials
     Trace::generate(circuit_constructor, subgroup_size, circuit_proving_key);
 
     // Make all selectors nonzero

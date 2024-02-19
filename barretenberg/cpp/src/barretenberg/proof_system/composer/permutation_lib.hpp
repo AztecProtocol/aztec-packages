@@ -57,7 +57,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
     Mapping ids;
 
     /**
-     * @brief Construct a permutation mapping default initialized so every element is in its own cycle
+     * @brief Construct a permutation mapping default initialized so every element is in a cycle by itself
      *
      */
     PermutationMapping(size_t circuit_size)

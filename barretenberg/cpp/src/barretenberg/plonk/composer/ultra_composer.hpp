@@ -99,6 +99,9 @@ class UltraComposer {
     }
 
   private:
+    /**
+     * @brief Construct a prover given a proving key and populate it with the appropriate widgets
+     */
     template <typename settings> ProverBase<settings> construct_prover(CircuitBuilder& circuit_constructor);
 
     /**

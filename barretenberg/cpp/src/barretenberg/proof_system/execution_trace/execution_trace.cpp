@@ -15,7 +15,7 @@ void ExecutionTrace_<Flavor>::generate(const Builder& builder,
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
-    // Compute the copy constraint polynomials (sigma/id) and add them to proving key
+    // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
 }
 
@@ -58,18 +58,19 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
         // Update wire polynomials and copy cycles
         // WORKTODO: order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
-        for (uint32_t row_idx = 0; row_idx < block_size; ++row_idx) {
+        for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
             for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                uint32_t var_idx = block.wires[wire_idx][row_idx]; // an index into the variables array
+                uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
                 uint32_t real_var_idx = builder.real_variable_index[var_idx];
+                uint32_t trace_row_idx = block_row_idx + offset;
                 // Insert the real witness values from this block into the wire polys at the correct offset
-                trace_data.wires[wire_idx][row_idx + offset] = builder.get_variable(var_idx);
+                trace_data.wires[wire_idx][trace_row_idx] = builder.get_variable(var_idx);
                 // Add the address of the witness value to its corresponding copy cycle
                 // WORKTODO: Not adding cycles for wires 3 and 4 here is only needed in order to maintain
                 // consistency with old version. We can remove this special case and the result is simply that all
                 // the zeros in wires 3 and 4 over the PI range are copy constrained together.
                 if (!(block.is_public_input && wire_idx > 1)) {
-                    trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, row_idx + offset });
+                    trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
             }
         }
@@ -78,7 +79,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
         for (auto [selector_poly, selector] : zip_view(trace_data.selectors, block.selectors.get())) {
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                selector_poly[row_idx + offset] = selector[row_idx];
+                size_t trace_row_idx = row_idx + offset;
+                selector_poly[trace_row_idx] = selector[row_idx];
             }
         }
 

@@ -44,7 +44,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
-
         circuit_finalized = true;
     }
 }

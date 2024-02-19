@@ -160,11 +160,12 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
 
-    auto circuit_type = CircuitType::ULTRA;
     auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/392): Composer type
     circuit_proving_key =
-        std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, circuit_type);
+        std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, CircuitType::ULTRA);
 
+    // Construct and add to proving key the wire, selector and copy constraint polynomials
     Trace::generate(circuit, subgroup_size, circuit_proving_key);
 
     enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());

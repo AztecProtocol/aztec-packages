@@ -74,8 +74,7 @@ template <typename FF_> class StandardArith {
         }
     }
 
-    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above
-    // struct.
+    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
     inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
 };
 
@@ -130,8 +129,7 @@ template <typename FF_> class UltraArith {
         }
     }
 
-    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above
-    // struct.
+    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
     inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",       "q_2",
                                                                     "q_3",        "q_4",   "q_arith",   "q_sort",
                                                                     "q_elliptic", "q_aux", "table_type" };
