@@ -293,16 +293,27 @@ describe('e2e_public_cross_chain_messaging', () => {
     expect(txEvents.length).toBe(1);
     expect(txEvents[0].args.recipient).toBe(recipient);
 
-    // // We create the L2 -> L1 message using the test contract
+    const sender = crossChainTestHarness.ethAccount;
+
+    // Why is called msgKey in one place and entryKey in another?
+    const msgKey = Fr.fromString(txEvents[0].args.entryKey!);
+
+    console.log('msgKey', msgKey);
+
+    // msg_key: FieldLike,
+    // content: FieldLike,
+    // secret: FieldLike,
+    // sender: EthAddressLike,
+
+    // We consume the L1 -> L2 message using the test contract
     // if (isPrivate) {
-    //   await testContract.methods
-    //     .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
-    //     .send()
-    //     .wait();
+    // if (true) {
+      await testContract.methods
+        .consume_message_from_arbitrary_sender_private(msgKey, content, secret, sender)
+        .send()
+        .wait();
     // } else {
     //   await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
     // }
-
-    // const txHash = await outbox.write.consume([l2ToL1Message] as const, {} as any);
   }, 60_000);
 });
