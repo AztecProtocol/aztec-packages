@@ -4,7 +4,6 @@ import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 
 import { join } from 'path';
@@ -46,7 +45,7 @@ export async function createPXEService(
   const db = new KVPxeDatabase(await initStoreForRollup(AztecLmdbStore.open(pxeDbPath), l1Contracts.rollupAddress));
 
   const server = new PXEService(keyStore, aztecNode, db, config, logSuffix);
-  await server.addContracts([getCanonicalClassRegisterer(), getCanonicalInstanceDeployer(), getCanonicalGasToken()]);
+  await server.addContracts([getCanonicalClassRegisterer(), getCanonicalInstanceDeployer()]);
 
   await server.start();
   return server;

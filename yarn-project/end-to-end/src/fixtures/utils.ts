@@ -192,7 +192,6 @@ async function setupWithRemoteEnvironment(
   };
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
-
   return {
     aztecNode,
     sequencer: undefined,

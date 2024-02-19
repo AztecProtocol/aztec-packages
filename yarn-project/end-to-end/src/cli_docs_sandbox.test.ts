@@ -109,7 +109,6 @@ EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
-GasTokenContractArtifact
 ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact

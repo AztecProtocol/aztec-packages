@@ -1,6 +1,5 @@
 import { PXE, Tx, TxExecutionRequest } from '@aztec/circuit-types';
 
-import { FeeOptions } from '../account/interface.js';
 import { SentTx } from './sent_tx.js';
 
 /**
@@ -12,11 +11,6 @@ export type SendMethodOptions = {
    * Wether to skip the simulation of the public part of the transaction.
    */
   skipPublicSimulation?: boolean;
-
-  /**
-   * The fee options for the transaction.
-   */
-  fee?: FeeOptions;
 };
 
 /**
