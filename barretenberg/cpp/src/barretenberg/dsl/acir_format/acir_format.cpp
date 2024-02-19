@@ -113,7 +113,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
     if constexpr (IsGoblinBuilder<Builder>) {
-        if (constraint_system.recursion_constraints.size() > 0) {
+        if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
     } else {
@@ -172,7 +172,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                                        constraint.proof.begin() +
                                            static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
             }
-
             current_output_aggregation_object = create_recursion_constraints(builder,
                                                                              constraint,
                                                                              current_input_aggregation_object,
