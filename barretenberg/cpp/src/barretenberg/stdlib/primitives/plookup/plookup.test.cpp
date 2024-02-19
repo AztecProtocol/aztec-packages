@@ -468,6 +468,7 @@ TEST(stdlib_plookup, blake2s_xor)
     EXPECT_EQ(result, true);
 }
 
+// Tests the dynamic multitable interface used by ACIR (the Noir interface to bb)
 TEST(stdlib_plookup, dynamic_uint32_and)
 {
     Builder builder = Builder();
@@ -480,7 +481,9 @@ TEST(stdlib_plookup, dynamic_uint32_and)
     field_ct left = witness_ct(&builder, bb::fr(left_value));
     field_ct right = witness_ct(&builder, bb::fr(right_value));
 
-    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_AND, left, right, true);
+    MultiTable and_table = bb::plookup::uint_tables::get_uint32_and_table();
+
+    const auto lookup = plookup_read::get_lookup_accumulators(&and_table, left, right, true);
     const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
     const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
     std::vector<uint256_t> out_expected(num_lookups);
