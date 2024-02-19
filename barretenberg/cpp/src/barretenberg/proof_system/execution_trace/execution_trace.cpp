@@ -121,7 +121,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
         for (auto& wire : zero_row_wires) {
             wire.emplace_back(builder.zero_idx);
         }
-        zero_row_selectors.reserve_and_zero(1);
+        zero_row_selectors.resize_and_zero(1);
         TraceBlock zero_block{ zero_row_wires, zero_row_selectors };
         trace_blocks.emplace_back(zero_block);
     }
@@ -131,7 +131,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
         Wires ecc_op_wires = builder.ecc_op_wires;
         Selectors ecc_op_selectors;
         // Note: there is no selector for ecc ops
-        ecc_op_selectors.reserve_and_zero(builder.num_ecc_op_gates);
+        ecc_op_selectors.resize_and_zero(builder.num_ecc_op_gates);
         TraceBlock ecc_op_block{ ecc_op_wires, ecc_op_selectors };
         trace_blocks.emplace_back(ecc_op_block);
     }
@@ -139,7 +139,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
     // Make a block for the public inputs
     Wires public_input_wires;
     Selectors public_input_selectors;
-    public_input_selectors.reserve_and_zero(builder.public_inputs.size());
+    public_input_selectors.resize_and_zero(builder.public_inputs.size());
     for (auto& idx : builder.public_inputs) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             if (wire_idx < 2) { // first two wires get a copy of the public inputs

@@ -67,18 +67,15 @@ template <typename FF_> class StandardArith {
         }
     }
 
-    // Temporary: probably not ultimately necessary
-    void reserve_and_zero(size_t size_hint)
+    void resize_and_zero(size_t size_hint)
     {
         for (auto& vec : selectors) {
-            vec.reserve(size_hint);
-            for (size_t i = 0; i < size_hint; ++i) {
-                vec.emplace_back(0);
-            }
+            vec.resize(size_hint, 0);
         }
     }
 
-    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
+    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above
+    // struct.
     inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
 };
 
@@ -126,18 +123,15 @@ template <typename FF_> class UltraArith {
         }
     }
 
-    // Temporary: probably not ultimately necessary
-    void reserve_and_zero(size_t size_hint)
+    void resize_and_zero(size_t size_hint)
     {
         for (auto& vec : selectors) {
-            vec.reserve(size_hint);
-            for (size_t i = 0; i < size_hint; ++i) {
-                vec.emplace_back(0);
-            }
+            vec.resize(size_hint, 0);
         }
     }
 
-    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
+    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above
+    // struct.
     inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",       "q_2",
                                                                     "q_3",        "q_4",   "q_arith",   "q_sort",
                                                                     "q_elliptic", "q_aux", "table_type" };
@@ -199,21 +193,17 @@ template <typename FF_> class UltraHonkArith {
         }
     }
 
-    // Temporary: probably not ultimately necessary
-    void reserve_and_zero(size_t size_hint)
+    void resize_and_zero(size_t size_hint)
     {
         for (auto& vec : selectors) {
-            vec.reserve(size_hint);
-            for (size_t i = 0; i < size_hint; ++i) {
-                vec.emplace_back(0);
-            }
+            vec.resize(size_hint, 0);
         }
     }
 
     /**
      * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
-     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the conventional
-     * Ultra arithmetization
+     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
+     * conventional Ultra arithmetization
      *
      */
     void pad_additional()
@@ -225,8 +215,8 @@ template <typename FF_> class UltraHonkArith {
 
     /**
      * @brief Resizes all selectors which are not part of the conventional Ultra arithmetization
-     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the conventional
-     * Ultra arithmetization
+     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
+     * conventional Ultra arithmetization
      * @param new_size
      */
     void resize_additional(size_t new_size)

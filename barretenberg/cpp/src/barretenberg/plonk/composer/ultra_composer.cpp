@@ -159,33 +159,30 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     circuit.finalize_circuit();
 
     const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
+
     circuit_proving_key = Trace::generate(circuit, subgroup_size);
 
-    // other stuff
-    {
-        enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
+    enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
 
-        compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
+    compute_monomial_and_coset_selector_forms(circuit_proving_key.get(), ultra_selector_properties());
 
-        construct_table_polynomials(circuit, subgroup_size);
+    construct_table_polynomials(circuit, subgroup_size);
 
-        // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
-        // Note: might be better to add these polys to cache only after they've been computed, as is convention
-        // TODO(luke): Don't put empty polynomials in the store, just add these where they're computed
-        polynomial z_lookup_fft(subgroup_size * 4);
-        polynomial s_fft(subgroup_size * 4);
-        circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
-        circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
+    // Instantiate z_lookup and s polynomials in the proving key (no values assigned yet).
+    // Note: might be better to add these polys to cache only after they've been computed, as is convention
+    polynomial z_lookup_fft(subgroup_size * 4);
+    polynomial s_fft(subgroup_size * 4);
+    circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
+    circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
 
-        circuit_proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
-            circuit.recursive_proof_public_input_indices.begin(), circuit.recursive_proof_public_input_indices.end());
+    circuit_proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
+        circuit.recursive_proof_public_input_indices.begin(), circuit.recursive_proof_public_input_indices.end());
 
-        circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
+    circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
 
-        construct_sorted_polynomials(circuit, subgroup_size);
+    construct_sorted_polynomials(circuit, subgroup_size);
 
-        populate_memory_read_write_records<Flavor>(circuit, circuit_proving_key);
-    }
+    populate_memory_read_write_records<Flavor>(circuit, circuit_proving_key);
 
     return circuit_proving_key;
 }

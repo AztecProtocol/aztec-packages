@@ -101,10 +101,19 @@ class UltraComposer {
   private:
     template <typename settings> ProverBase<settings> construct_prover(CircuitBuilder& circuit_constructor);
 
+    /**
+     * @brief Construct sorted concatenated table-lookup polynomials for lookup argument
+     */
     void construct_sorted_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
 
+    /**
+     * @brief Populate proving key with memory read/write records
+     */
     void populate_memory_records(CircuitBuilder& circuit_constructor);
 
+    /**
+     * @brief Construct polynomials containing concatenation of the lookup tables
+     */
     void construct_table_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
 };
 } // namespace bb::plonk
