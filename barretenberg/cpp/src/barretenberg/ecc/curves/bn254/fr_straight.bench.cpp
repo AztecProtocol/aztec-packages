@@ -5,15 +5,16 @@
 using namespace bb;
 using namespace benchmark;
 
-// namespace {
-// void asm_add_with_coarse_reduction(State& state) noexcept
-// {
-//     fr x, y;
-//     for (auto _ : state) {
-//         DoNotOptimize(fr::asm_add_with_coarse_reduction(x, y));
-//     }
-// }
-// BENCHMARK(asm_add_with_coarse_reduction);
+#ifndef DISABLE_ASM
+namespace {
+void asm_add_with_coarse_reduction(State& state) noexcept
+{
+    fr x, y;
+    for (auto _ : state) {
+        DoNotOptimize(fr::asm_add_with_coarse_reduction(x, y));
+    }
+}
+BENCHMARK(asm_add_with_coarse_reduction);
 
 // void asm_conditional_negate(State& state) noexcept
 // {
@@ -195,15 +196,16 @@ using namespace benchmark;
 // }
 // BENCHMARK(self_sqr);
 
-// void sqr(State& state) noexcept
-// {
-//     fr x;
-//     for (auto _ : state) {
-//         DoNotOptimize(x.sqr());
-//     }
-// }
-// BENCHMARK(sqr);
-// } // namespace
+void sqr(State& state) noexcept
+{
+    fr x;
+    for (auto _ : state) {
+        DoNotOptimize(x.sqr());
+    }
+}
+BENCHMARK(sqr);
+} // namespace
+#endif
 
-// NOLINTNEXTLINE macro invokation triggers style guideline errors from googletest code
+// NOLINTNEXTLINE macro invocation triggers style guideline errors from googletest code
 BENCHMARK_MAIN();
