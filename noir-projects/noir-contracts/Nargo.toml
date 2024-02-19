@@ -17,6 +17,7 @@ members = [
     "contracts/import_test_contract",
     "contracts/inclusion_proofs_contract",
     "contracts/lending_contract",
+    "contracts/multisig_contract",
     "contracts/parent_contract",
     "contracts/pending_commitments_contract",
     "contracts/price_feed_contract",

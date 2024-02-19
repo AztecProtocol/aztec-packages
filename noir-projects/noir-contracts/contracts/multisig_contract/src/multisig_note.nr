@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 
 global MAX_MULTISIG_OWNERS: Field = 5;
-global MULTISIG_NOTE_LEN: Field = 7;
+global MULTISIG_NOTE_LEN: Field = 8;
 
 struct MultiSigNote {
     owners: [AztecAddress; MAX_MULTISIG_OWNERS],
@@ -77,15 +77,17 @@ impl NoteInterface<MULTISIG_NOTE_LEN> for MultiSigNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         for owner in self.owners {
-            let encryption_pub_key = get_public_key(owner);
-            emit_encrypted_log(
-                context,
-                (*context).this_address(),
-                slot,
-                Self::get_note_type_id(),
-                encryption_pub_key,
-                self.serialize_content(),
-            );
+            if !owner.is_zero() {
+                let encryption_pub_key = get_public_key(owner);
+                emit_encrypted_log(
+                    context,
+                    (*context).this_address(),
+                    slot,
+                    Self::get_note_type_id(),
+                    encryption_pub_key,
+                    self.serialize_content(),
+                );
+            }
         }
     }
 
