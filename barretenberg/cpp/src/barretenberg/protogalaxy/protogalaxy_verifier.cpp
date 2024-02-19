@@ -161,8 +161,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
         // This is the first round of folding and we need to generate some gate challenges.
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        inst->gate_challenges.resize(inst->log_instance_size);
-        std::fill(inst->gate_challenges.begin(), inst->gate_challenges.end(), 0);
+        inst->gate_challenges = std::vector<FF>(inst->log_instance_size, 0);
     }
     index++;
 
