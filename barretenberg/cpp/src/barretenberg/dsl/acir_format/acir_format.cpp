@@ -150,7 +150,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                 // The public inputs attached to a proof should match the aggregation object in size
                 if (constraint.proof.size() - proof_size_no_pub_inputs !=
                     RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
-                    auto error_string = std::format(
+                    auto error_string = format(
                         "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
                         "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
                         "which is {}\n",
