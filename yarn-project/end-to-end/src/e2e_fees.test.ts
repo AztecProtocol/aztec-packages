@@ -13,13 +13,9 @@ describe('e2e_fees', () => {
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
-    const { accounts, sequencer, wallet } = await setup(3);
+    const { accounts, aztecNode, wallet } = await setup(3);
 
-    if (!sequencer) {
-      expect(sequencer).toBeDefined();
-      return;
-    }
-    sequencer.updateSequencerConfig({
+    await aztecNode.setConfig({
       feeRecipient: accounts.at(-1)!.address,
     });
     const canonicalGasToken = getCanonicalGasToken();
@@ -34,7 +30,7 @@ describe('e2e_fees', () => {
     gasTokenContract = contract as GasTokenContract;
     aliceAddress = accounts.at(0)!.address;
     _bobAddress = accounts.at(1)!.address;
-    sequencerAddress = sequencer.feeRecipient;
+    sequencerAddress = accounts.at(-1)!.address;
 
     testContract = await TokenContract.deploy(wallet, aliceAddress, 'Test', 'TEST', 1).send().deployed();
 
