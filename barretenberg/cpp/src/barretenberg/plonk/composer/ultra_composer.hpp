@@ -99,7 +99,7 @@ class UltraComposer {
     }
 
   private:
-    UltraProver construct_prover(CircuitBuilder& circuit_constructor);
+    template <typename settings> ProverBase<settings> construct_prover(CircuitBuilder& circuit_constructor);
 
     void construct_sorted_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
 
