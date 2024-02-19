@@ -46,7 +46,7 @@ export class TxEffect {
     const encryptedLogsHashKernel0 = this.logs!.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.logs!.unencryptedLogs.hash();
 
-    if (!this.contractLeaves[1].isZero() || !this.contractData[1].isEmpty()) {
+    if ((this.contractLeaves.length > 1 && !this.contractLeaves[1].isZero()) || (this.contractData.length > 1 && !this.contractData[1].isEmpty())) {
       throw new Error('We only support max one new contract per tx');
     }
 
