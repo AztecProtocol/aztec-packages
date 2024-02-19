@@ -288,6 +288,28 @@ contract Test {
         );
     }
 
+    #[aztec(public)]
+    fn consume_message_from_arbitrary_sender_public(
+        msg_key: Field,
+        content: Field,
+        secret: Field,
+        sender: EthAddress
+    ) {
+        // Consume message and emit nullifier
+        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+    }
+
+    #[aztec(private)]
+    fn consume_message_from_arbitrary_sender_private(
+        msg_key: Field,
+        content: Field,
+        secret: Field,
+        sender: EthAddress
+    ) {
+        // Consume message and emit nullifier
+        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+    }
+
     #[aztec(private)]
     fn set_constant(value: Field) {
         let mut note = FieldNote::new(value);

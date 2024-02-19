@@ -6,9 +6,10 @@ import {
   Fr,
   TxStatus,
   computeAuthWitMessageHash,
+  computeMessageSecretHash,
   sleep,
 } from '@aztec/aztec.js';
-import { OutboxAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -31,6 +32,7 @@ describe('e2e_public_cross_chain_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
   let l2Token: TokenContract;
   let l2Bridge: TokenBridgeContract;
+  let inbox: any;
   let outbox: any;
 
   beforeEach(async () => {
@@ -46,6 +48,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     l2Bridge = crossChainTestHarness.l2Bridge;
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
+    inbox = crossChainTestHarness.inbox;
     outbox = crossChainTestHarness.outbox;
     teardown = teardown_;
     user1Wallet = wallets[0];
@@ -244,4 +247,62 @@ describe('e2e_public_cross_chain_messaging', () => {
     },
     60_000,
   );
+
+  // Note: We register one portal address when deploying contract but that address is no-longer the only address
+  // allowed to send messages to the given contract. In the following test we'll test that it's really the case.
+  // it.each([true, false])(
+  //   'can send an L1 -> L2 message from a non-registered portal address consumed from private or public',
+  //   async (isPrivate: boolean) => {
+  it.only('can send an L1 -> L2 message from a non-registered portal address consumed from private or public', async () => {
+    const testContract = await TestContract.deploy(user1Wallet).send().deployed();
+
+    const recipient = testContract.address.toString();
+
+    const secret = Fr.random();
+    const secretHash = computeMessageSecretHash(secret);
+
+    const content = Fr.random();
+    const fee = 100_0000n;
+    const deadline = 4294967295n;
+
+    const txHash = await inbox.write.sendL2Message(
+      [
+        { actor: recipient as Hex, version: 1n },
+        deadline,
+        content.toString() as Hex,
+        secretHash.toString() as Hex,
+      ] as const,
+      { value: fee } as any,
+    );
+
+    const abiItem = getAbiItem({
+      abi: InboxAbi,
+      name: 'MessageAdded',
+    });
+
+    const events = await crossChainTestHarness.publicClient.getLogs<typeof abiItem>({
+      address: getAddress(inbox.address.toString()),
+      event: abiItem,
+      fromBlock: 0n,
+    });
+
+    // We get the event just for the relevant transaction
+    const txEvents = events.filter(event => event.transactionHash === txHash);
+
+    // We check that exactly 1 MessageAdded event was emitted with the expected recipient
+    expect(txEvents.length).toBe(1);
+    expect(txEvents[0].args.recipient).toBe(recipient);
+
+    // // We create the L2 -> L1 message using the test contract
+    // if (isPrivate) {
+    //   await testContract.methods
+    //     .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
+    //     .send()
+    //     .wait();
+    // } else {
+    //   await testContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
+    // }
+
+    // const txHash = await outbox.write.consume([l2ToL1Message] as const, {} as any);
+  }, 60_000);
 });
