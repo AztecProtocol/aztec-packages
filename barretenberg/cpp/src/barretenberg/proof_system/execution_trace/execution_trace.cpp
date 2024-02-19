@@ -6,9 +6,9 @@
 namespace bb {
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::generate(Builder& builder,
+void ExecutionTrace_<Flavor>::generate(const Builder& builder,
                                        size_t dyadic_circuit_size,
-                                       std::shared_ptr<typename Flavor::ProvingKey> proving_key)
+                                       const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
 {
     // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data
     auto trace_data = construct_trace_data(builder, dyadic_circuit_size);
@@ -21,7 +21,7 @@ void ExecutionTrace_<Flavor>::generate(Builder& builder,
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
-    TraceData& trace_data, Builder& builder, std::shared_ptr<typename Flavor::ProvingKey> proving_key)
+    TraceData& trace_data, const Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
 {
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
@@ -43,7 +43,7 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(Builder& builder,
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(const Builder& builder,
                                                                                           size_t dyadic_circuit_size)
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
@@ -89,7 +89,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
 template <class Flavor>
 std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor>::create_execution_trace_blocks(
-    Builder& builder)
+    const Builder& builder)
 {
     std::vector<TraceBlock> trace_blocks;
 
