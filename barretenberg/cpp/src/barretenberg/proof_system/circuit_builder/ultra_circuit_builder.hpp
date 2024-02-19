@@ -978,7 +978,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      * size and the general circuit size
      *
      * @return size_t
-     * WORKTODO: this is only correct for UP. make this usable by both and use it?
      */
     size_t get_total_circuit_size() const
     {

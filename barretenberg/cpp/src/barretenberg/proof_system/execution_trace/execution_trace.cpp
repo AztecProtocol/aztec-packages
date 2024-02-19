@@ -23,7 +23,6 @@ template <class Flavor>
 void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
     TraceData& trace_data, Builder& builder, std::shared_ptr<typename Flavor::ProvingKey> proving_key)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
             pkey_wire = std::move(trace_wire);
@@ -76,7 +75,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         }
 
         // Insert the selector values for this block into the selector polynomials at the correct offset
-        // WORKTODO: comment about coupling of arith and flavor stuff
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
         for (auto [selector_poly, selector] : zip_view(trace_data.selectors, block.selectors.get())) {
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 selector_poly[row_idx + offset] = selector[row_idx];

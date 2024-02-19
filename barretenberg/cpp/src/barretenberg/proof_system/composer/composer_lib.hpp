@@ -106,8 +106,6 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
 
     for (auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
-        // WORKTODO: this used to be an auto& but that causes the builder.lookup gates to be updated and was leading to
-        // size errors and double free issues when trying to generate multiple instances from the same circuit.
         auto& lookup_gates = table.lookup_gates;
         for (size_t i = 0; i < table.size; ++i) {
             if (table.use_twin_keys) {

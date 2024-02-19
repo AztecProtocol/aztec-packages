@@ -45,10 +45,16 @@ template <class Flavor> class ExecutionTrace_ {
             }
             // Initialize the vector of copy cycles; these are simply collections of indices into the wire polynomials
             // whose values are copy constrained to be equal. Each variable represents one cycle.
-            copy_cycles.resize(builder.variables.size()); // WORKTODO: real_variables.size()?
+            copy_cycles.resize(builder.variables.size());
         }
     };
 
+    /**
+     * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
+     *
+     * @param builder
+     * @param dyadic_circuit_size
+     */
     static void generate(Builder& builder, size_t dyadic_circuit_size, std::shared_ptr<ProvingKey>);
 
   private:
