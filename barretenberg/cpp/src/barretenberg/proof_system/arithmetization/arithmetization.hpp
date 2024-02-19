@@ -182,7 +182,7 @@ template <typename FF_> class UltraHonkArith {
     const SelectorType& q_poseidon2_external() const { return this->selectors[12]; };
     const SelectorType& q_poseidon2_internal() const { return this->selectors[13]; };
 
-    const auto& get() const { return selectors; };
+    std::array<SelectorType, NUM_SELECTORS>& get() { return selectors; };
 
     void reserve(size_t size_hint)
     {

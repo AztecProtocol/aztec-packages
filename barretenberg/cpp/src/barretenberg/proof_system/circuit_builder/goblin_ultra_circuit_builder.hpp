@@ -9,6 +9,8 @@ using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
+    using Arithmetization = UltraHonkArith<FF>;
+
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
@@ -29,7 +31,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
     // Wires storing ecc op queue data; values are indices into the variables array
-    std::array<WireVector, UltraHonkArith<FF>::NUM_WIRES> ecc_op_wires;
+    std::array<WireVector, Arithmetization::NUM_WIRES> ecc_op_wires;
+    Arithmetization ecc_op_selectors; // selectors for the ecc op block
 
     WireVector& ecc_op_wire_1() { return std::get<0>(ecc_op_wires); };
     WireVector& ecc_op_wire_2() { return std::get<1>(ecc_op_wires); };

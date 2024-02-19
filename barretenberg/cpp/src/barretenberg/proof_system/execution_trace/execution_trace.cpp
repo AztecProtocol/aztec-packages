@@ -97,40 +97,32 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
 
     // Make a block for the zero row
     if constexpr (Flavor::has_zero_row) {
-        Wires zero_row_wires;
-        Selectors zero_row_selectors;
-        for (auto& wire : zero_row_wires) {
+        TraceBlock zero_block;
+        for (auto& wire : zero_block.wires) {
             wire.emplace_back(builder.zero_idx);
         }
-        zero_row_selectors.resize_and_zero(1);
-        TraceBlock zero_block{ zero_row_wires, zero_row_selectors };
+        zero_block.selectors.resize_and_zero(1);
         trace_blocks.emplace_back(zero_block);
     }
 
     // Make a block for the ecc op wires
     if constexpr (IsGoblinFlavor<Flavor>) {
-        Wires ecc_op_wires = builder.ecc_op_wires;
-        Selectors ecc_op_selectors;
-        // Note: there is no selector for ecc ops
-        ecc_op_selectors.resize_and_zero(builder.num_ecc_op_gates);
-        TraceBlock ecc_op_block{ ecc_op_wires, ecc_op_selectors };
+        TraceBlock ecc_op_block{ builder.ecc_op_wires, builder.ecc_op_selectors };
         trace_blocks.emplace_back(ecc_op_block);
     }
 
     // Make a block for the public inputs
-    Wires public_input_wires;
-    Selectors public_input_selectors;
-    public_input_selectors.resize_and_zero(builder.public_inputs.size());
+    TraceBlock public_input_block;
     for (auto& idx : builder.public_inputs) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                public_input_wires[wire_idx].emplace_back(idx);
+                public_input_block.wires[wire_idx].emplace_back(idx);
             } else { // the remaining wires get zeros
-                public_input_wires[wire_idx].emplace_back(builder.zero_idx);
+                public_input_block.wires[wire_idx].emplace_back(builder.zero_idx);
             }
         }
     }
-    TraceBlock public_input_block{ public_input_wires, public_input_selectors, /*is_public_input=*/true };
+    public_input_block.selectors.resize_and_zero(builder.public_inputs.size());
     trace_blocks.emplace_back(public_input_block);
 
     // Make a block for the basic wires and selectors
