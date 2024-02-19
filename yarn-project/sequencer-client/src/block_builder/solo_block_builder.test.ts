@@ -7,6 +7,7 @@ import {
   PublicDataWrite,
   Tx,
   TxEffect,
+  TxL2Logs,
   makeEmptyLogs,
   mockTx,
 } from '@aztec/circuit-types';
@@ -225,26 +226,21 @@ describe('sequencer/solo_block_builder', () => {
 
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
-
-    const newNullifiers = txs.flatMap(tx => [
-      ...tx.data.endNonRevertibleData.newNullifiers,
-      ...tx.data.end.newNullifiers,
-    ]);
-    const newCommitments = txs.flatMap(tx => [
-      ...tx.data.endNonRevertibleData.newCommitments,
-      ...tx.data.end.newCommitments,
-    ]);
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => cd.computeLeaf());
-    const newContractData = txs
-      .flatMap(tx => tx.data.end.newContracts)
-      .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
-    const newPublicDataWrites = txs.flatMap(tx => [
-      ...tx.data.endNonRevertibleData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-      ...tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-    ]);
-    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
-    const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
-    const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
+    
+    // Collect all new nullifiers, commitments, and contracts from all txs in this block
+    const txEffects: TxEffect[] = txs.map(
+      tx =>
+        new TxEffect(
+          tx.data.combinedData.newCommitments.map((c: SideEffect) => c.value),
+          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
+          tx.data.combinedData.newL2ToL1Msgs,
+          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+          tx.data.combinedData.newContracts.map(cd => cd.computeLeaf()),
+          tx.data.combinedData.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
+          tx.encryptedLogs || new TxL2Logs([]),
+          tx.unencryptedLogs || new TxL2Logs([]),
+        ),
+    );
 
     const body = new Body(mockL1ToL2Messages, txEffects);
     // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
