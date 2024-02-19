@@ -40,7 +40,7 @@ template <typename FF_> class StandardArith {
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
-    std::vector<SelectorType> selectors;
+    std::array<SelectorType, NUM_SELECTORS> selectors;
 
     SelectorType& q_m() { return selectors[0]; };
     SelectorType& q_1() { return selectors[1]; };
@@ -54,23 +54,12 @@ template <typename FF_> class StandardArith {
     const SelectorType& q_3() const { return selectors[3]; };
     const SelectorType& q_c() const { return selectors[4]; };
 
-    StandardArith()
-        : selectors(NUM_SELECTORS)
-    {}
-
-    const auto& get() const { return selectors; };
+    auto& get() { return selectors; };
 
     void reserve(size_t size_hint)
     {
         for (auto& p : selectors) {
             p.reserve(size_hint);
-        }
-    }
-
-    void resize_and_zero(size_t size_hint)
-    {
-        for (auto& vec : selectors) {
-            vec.resize(size_hint, 0);
         }
     }
 
@@ -113,19 +102,12 @@ template <typename FF_> class UltraArith {
     const SelectorType& q_aux() const { return selectors[9]; };
     const SelectorType& q_lookup_type() const { return selectors[10]; };
 
-    const auto& get() const { return selectors; };
+    auto& get() { return selectors; };
 
     void reserve(size_t size_hint)
     {
         for (auto& vec : selectors) {
             vec.reserve(size_hint);
-        }
-    }
-
-    void resize_and_zero(size_t size_hint)
-    {
-        for (auto& vec : selectors) {
-            vec.resize(size_hint, 0);
         }
     }
 
@@ -182,7 +164,7 @@ template <typename FF_> class UltraHonkArith {
     const SelectorType& q_poseidon2_external() const { return this->selectors[12]; };
     const SelectorType& q_poseidon2_internal() const { return this->selectors[13]; };
 
-    std::array<SelectorType, NUM_SELECTORS>& get() { return selectors; };
+    auto& get() { return selectors; };
 
     void reserve(size_t size_hint)
     {
@@ -191,17 +173,10 @@ template <typename FF_> class UltraHonkArith {
         }
     }
 
-    void resize_and_zero(size_t size_hint)
-    {
-        for (auto& vec : selectors) {
-            vec.resize(size_hint, 0);
-        }
-    }
-
     /**
      * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
-     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
-     * conventional Ultra arithmetization
+     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the conventional
+     * Ultra arithmetization
      *
      */
     void pad_additional()
@@ -213,8 +188,8 @@ template <typename FF_> class UltraHonkArith {
 
     /**
      * @brief Resizes all selectors which are not part of the conventional Ultra arithmetization
-     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
-     * conventional Ultra arithmetization
+     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the conventional
+     * Ultra arithmetization
      * @param new_size
      */
     void resize_additional(size_t new_size)

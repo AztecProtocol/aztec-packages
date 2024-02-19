@@ -101,7 +101,9 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
         for (auto& wire : zero_block.wires) {
             wire.emplace_back(builder.zero_idx);
         }
-        zero_block.selectors.resize_and_zero(1);
+        for (auto& selector : zero_block.selectors.get()) {
+            selector.emplace_back(0);
+        }
         trace_blocks.emplace_back(zero_block);
     }
 
@@ -121,8 +123,11 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
                 public_block.wires[wire_idx].emplace_back(builder.zero_idx);
             }
         }
+        for (auto& selector : public_block.selectors.get()) {
+            selector.emplace_back(0);
+        }
     }
-    public_block.selectors.resize_and_zero(builder.public_inputs.size());
+
     public_block.is_public_input = true;
     trace_blocks.emplace_back(public_block);
 

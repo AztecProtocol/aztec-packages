@@ -771,6 +771,7 @@ TYPED_TEST(ultra_plonk_composer, range_checks_on_duplicates)
 // before range constraints are applied to it.
 TEST(ultra_plonk_composer, range_constraint_small_variable)
 {
+    bb::srs::init_crs_factory("../srs_db/ignition");
     auto builder = UltraCircuitBuilder();
 
     uint16_t mask = (1 << 8) - 1;
