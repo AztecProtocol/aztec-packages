@@ -6,21 +6,45 @@
 namespace bb {
 
 template <class Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> ExecutionTrace_<Flavor>::generate(Builder& builder,
-                                                                               size_t dyadic_circuit_size)
+void ExecutionTrace_<Flavor>::generate(Builder& builder,
+                                       size_t dyadic_circuit_size,
+                                       std::shared_ptr<typename Flavor::ProvingKey> proving_key)
 {
-    auto trace_data = construct_trace_polynomials(builder, dyadic_circuit_size);
+    // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data
+    auto trace_data = construct_trace_data(builder, dyadic_circuit_size);
 
+    add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
+
+    // Compute the copy constraint polynomials (sigma/id) and add them to proving key
+    compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
+}
+
+template <class Flavor>
+void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
+    TraceData& trace_data, Builder& builder, std::shared_ptr<typename Flavor::ProvingKey> proving_key)
+{
     if constexpr (IsHonkFlavor<Flavor>) {
-        return generate_honk_proving_key(trace_data, builder, dyadic_circuit_size);
+        for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
+            pkey_wire = std::move(trace_wire);
+        }
+        for (auto [pkey_selector, trace_selector] : zip_view(proving_key->get_selectors(), trace_data.selectors)) {
+            pkey_selector = std::move(trace_selector);
+        }
     } else if constexpr (IsPlonkFlavor<Flavor>) {
-        return generate_plonk_proving_key(trace_data, builder, dyadic_circuit_size);
+        for (size_t idx = 0; idx < trace_data.wires.size(); ++idx) {
+            std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
+            proving_key->polynomial_store.put(wire_tag, std::move(trace_data.wires[idx]));
+        }
+        for (size_t idx = 0; idx < trace_data.selectors.size(); ++idx) {
+            proving_key->polynomial_store.put(builder.selector_names[idx] + "_lagrange",
+                                              std::move(trace_data.selectors[idx]));
+        }
     }
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_polynomials(
-    Builder& builder, size_t dyadic_circuit_size)
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(Builder& builder,
+                                                                                          size_t dyadic_circuit_size)
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
 
@@ -61,51 +85,6 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         offset += block_size;
     }
     return trace_data;
-}
-
-template <class Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> ExecutionTrace_<Flavor>::generate_honk_proving_key(
-    TraceData& trace_data, Builder& builder, size_t dyadic_circuit_size)
-    requires IsUltraFlavor<Flavor>
-{
-    auto proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size());
-
-    for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
-        pkey_wire = std::move(trace_wire);
-    }
-    for (auto [pkey_selector, trace_selector] : zip_view(proving_key->get_selectors(), trace_data.selectors)) {
-        pkey_selector = std::move(trace_selector);
-    }
-
-    compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
-
-    return proving_key;
-}
-
-template <class Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> ExecutionTrace_<Flavor>::generate_plonk_proving_key(
-    TraceData& trace_data, Builder& builder, size_t dyadic_circuit_size)
-    requires IsPlonkFlavor<Flavor>
-{
-    auto circuit_type = IsUltraPlonkFlavor<Flavor> ? CircuitType::ULTRA : CircuitType::STANDARD;
-    auto crs = srs::get_crs_factory()->get_prover_crs(dyadic_circuit_size + 1);
-    auto proving_key =
-        std::make_shared<ProvingKey>(dyadic_circuit_size, builder.public_inputs.size(), crs, circuit_type);
-
-    // Move wire polynomials to proving key
-    for (size_t idx = 0; idx < trace_data.wires.size(); ++idx) {
-        std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-        proving_key->polynomial_store.put(wire_tag, std::move(trace_data.wires[idx]));
-    }
-    // Move selector polynomials to proving key
-    for (size_t idx = 0; idx < trace_data.selectors.size(); ++idx) {
-        // TODO(Cody): Loose coupling here of selector_names and selector_properties.
-        proving_key->polynomial_store.put(builder.selector_names[idx] + "_lagrange",
-                                          std::move(trace_data.selectors[idx]));
-    }
-    compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
-
-    return proving_key;
 }
 
 template <class Flavor>

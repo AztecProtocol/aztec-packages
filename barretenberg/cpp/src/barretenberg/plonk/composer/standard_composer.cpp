@@ -35,7 +35,12 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(Circui
         circuit_constructor.num_gates + circuit_constructor.public_inputs.size() + NUM_RESERVED_GATES;
     const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates); // next power of 2
 
-    circuit_proving_key = Trace::generate(circuit_constructor, subgroup_size);
+    auto circuit_type = CircuitType::STANDARD;
+    auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
+    circuit_proving_key = std::make_shared<plonk::proving_key>(
+        subgroup_size, circuit_constructor.public_inputs.size(), crs, circuit_type);
+
+    Trace::generate(circuit_constructor, subgroup_size, circuit_proving_key);
 
     // Make all selectors nonzero
     enforce_nonzero_selector_polynomials(circuit_constructor, circuit_proving_key.get());

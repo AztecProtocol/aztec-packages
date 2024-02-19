@@ -49,20 +49,28 @@ template <class Flavor> class ExecutionTrace_ {
         }
     };
 
-    static std::shared_ptr<ProvingKey> generate(Builder& builder, size_t dyadic_circuit_size);
+    static void generate(Builder& builder, size_t dyadic_circuit_size, std::shared_ptr<ProvingKey>);
 
   private:
-    static std::shared_ptr<ProvingKey> generate_honk_proving_key(TraceData& trace_data,
-                                                                 Builder& builder,
-                                                                 size_t dyadic_circuit_size)
-        requires IsUltraFlavor<Flavor>;
+    /**
+     * @brief Add the wire and selector polynomials from the trace data to a honk or plonk proving key
+     *
+     * @param trace_data
+     * @param builder
+     * @param proving_key
+     */
+    static void add_wires_and_selectors_to_proving_key(TraceData& trace_data,
+                                                       Builder& builder,
+                                                       std::shared_ptr<typename Flavor::ProvingKey> proving_key);
 
-    static std::shared_ptr<ProvingKey> generate_plonk_proving_key(TraceData& trace_data,
-                                                                  Builder& builder,
-                                                                  size_t dyadic_circuit_size)
-        requires IsPlonkFlavor<Flavor>;
-
-    static TraceData construct_trace_polynomials(Builder& builder, size_t dyadic_circuit_size);
+    /**
+     * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
+     *
+     * @param builder
+     * @param dyadic_circuit_size
+     * @return TraceData
+     */
+    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size);
 
     /**
      * @brief Temporary helper method to construct execution trace blocks from existing builder structures

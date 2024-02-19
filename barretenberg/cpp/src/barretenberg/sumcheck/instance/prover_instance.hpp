@@ -66,7 +66,9 @@ template <class Flavor> class ProverInstance_ {
     {
         dyadic_circuit_size = compute_dyadic_size(circuit);
 
-        proving_key = Trace::generate(circuit, dyadic_circuit_size);
+        proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, circuit.public_inputs.size());
+
+        Trace::generate(circuit, dyadic_circuit_size, proving_key);
 
         // If Goblin, construct the ECC op queue wire and databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
