@@ -7,7 +7,7 @@ contract CrowdFunding {
         state_vars::{map::Map, immutable_singleton::ImmutableSingleton}
     };
     use dep::field_note::field_note::FieldNote;
-    use interfaces::Token;
+    use interfaces::{Token, PrivateToken};
 
     struct Storage {
         donation_token: ImmutableSingleton<FieldNote>,
@@ -33,8 +33,13 @@ contract CrowdFunding {
 
     #[aztec(private)]
     fn donate(amount: u64) {
+        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Start donate", [1]);
         let escrow_address = AztecAddress::from_field(storage.escrow_contract.get_note().value);
-        let donation_token = Token::at(AztecAddress::from_field(storage.donation_token.get_note().value));
+        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Got escrow address", [escrow_address]);
+        let donation_token_address = AztecAddress::from_field(storage.donation_token.get_note().value);
+        let donation_token = Token::at(donation_token_address);
+        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Got donation token", [donation_token_address]);
+
         donation_token.transfer(
             &mut context,
             context.msg_sender(),
@@ -42,14 +47,12 @@ contract CrowdFunding {
             amount as Field,
             0
         );
+        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Transfer done", [1]);
 
-        let reward_token = Token::at(AztecAddress::from_field(storage.reward_token.get_note().value));
-        reward_token.transfer(
-            &mut context,
-            escrow_address,
-            context.msg_sender(),
-            amount as Field,
-            0
-        );
+        let reward_token_address = AztecAddress::from_field(storage.reward_token.get_note().value);
+        let reward_token = PrivateToken::at(reward_token_address);
+        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Got reward token address", [reward_token_address]);
+
+        reward_token.mint(&mut context, amount, context.msg_sender());
     }
 }
