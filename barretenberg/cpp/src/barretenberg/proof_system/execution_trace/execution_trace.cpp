@@ -112,18 +112,19 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
     }
 
     // Make a block for the public inputs
-    TraceBlock public_input_block;
+    TraceBlock public_block;
     for (auto& idx : builder.public_inputs) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                public_input_block.wires[wire_idx].emplace_back(idx);
+                public_block.wires[wire_idx].emplace_back(idx);
             } else { // the remaining wires get zeros
-                public_input_block.wires[wire_idx].emplace_back(builder.zero_idx);
+                public_block.wires[wire_idx].emplace_back(builder.zero_idx);
             }
         }
     }
-    public_input_block.selectors.resize_and_zero(builder.public_inputs.size());
-    trace_blocks.emplace_back(public_input_block);
+    public_block.selectors.resize_and_zero(builder.public_inputs.size());
+    public_block.is_public_input = true;
+    trace_blocks.emplace_back(public_block);
 
     // Make a block for the basic wires and selectors
     TraceBlock conventional_block{ builder.wires, builder.selectors };
