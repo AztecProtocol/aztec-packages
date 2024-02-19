@@ -9,6 +9,7 @@ import {
   Note,
   TxHash,
   TxReceipt,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { decodeFunctionSignature } from '@aztec/foundation/abi';
@@ -179,6 +180,11 @@ describe('e2e_token_contract', () => {
         escrowWallet.getAddress().toField(),
         deploymentReceipt.txHash,
       );
+
+      const action = EthToken[1].methods.transfer(accounts[1].address, accounts[4].address, 1000n, 0);
+      const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+      const witness = await wallets[1].createAuthWitness(messageHash);
+      await wallets[1].addAuthWitness(witness);
 
       await CrowdFunding.withWallet(wallets[1]).methods.donate(1000n).send().wait();
 
