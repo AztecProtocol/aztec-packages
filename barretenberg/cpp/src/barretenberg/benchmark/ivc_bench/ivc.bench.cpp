@@ -34,26 +34,24 @@ class IvcBench : public benchmark::Fixture {
 
     /**
      * @brief Perform a specified number of function circuit accumulation rounds
-     * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists
-     of
+     * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists of
      * the generation of two circuits, two folding proofs and two Merge proofs. To match the sizes called out in the
      * spec
      * (https://github.com/AztecProtocol/aztec-packages/blob/master/yellow-paper/docs/cryptography/performance-targets.md)
-     * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently
-     support
+     * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently support
      * folding circuits of unequal size.
      *
      */
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
         // Initialize IVC with function circuit
-        GoblinUltraCircuitBuilder initial_function_circuit{ ivc.goblin.op_queue };
+        Builder initial_function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
         ivc.initialize(initial_function_circuit);
         auto kernel_acc = std::make_shared<ClientIVC::VerifierInstance>();
         kernel_acc->verification_key = ivc.vks[0];
 
-        GoblinUltraCircuitBuilder function_circuit{ ivc.goblin.op_queue };
+        Builder function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
         auto function_fold_proof = ivc.accumulate(function_circuit);
         FoldOutput function_fold_output = { function_fold_proof, ivc.vks[1] };

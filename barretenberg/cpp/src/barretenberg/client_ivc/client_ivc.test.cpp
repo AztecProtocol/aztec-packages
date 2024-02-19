@@ -73,41 +73,43 @@ class ClientIVCTests : public ::testing::Test {
  * @brief A full Goblin test using PG that mimicks the basic aztec client architecture
  *
  */
-TEST_F(ClientIVCTests, Full){
-    // ClientIVC ivc;
-    // Composer composer;
-    // // Initialize IVC with function circuit
-    // Builder function_circuit = create_mock_circuit(ivc);
-    // ivc.initialize(function_circuit);
+TEST_F(ClientIVCTests, Full)
+{
+    ClientIVC ivc;
+    Composer composer;
+    // Initialize IVC with function circuit
+    Builder function_circuit = create_mock_circuit(ivc);
+    ivc.initialize(function_circuit);
+    composer.compute_commitment_key(ivc.prover_fold_output.accumulator->instance_size);
 
-    // composer.compute_commitment_key(ivc.prover_fold_output.accumulator->instance_size);
-    // auto function_vk = composer.compute_verification_key(ivc.prover_fold_output.accumulator);
-    // auto kernel_acc = std::make_shared<VerifierInstance>();
-    // kernel_acc->verification_key = function_vk;
-    // // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
-    // Builder kernel_circuit = create_mock_circuit(ivc);
-    // FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-    // auto kernel_vk = function_vk;
-    // FoldOutput kernel_fold_output = { kernel_fold_proof, function_vk };
-    // size_t NUM_CIRCUITS = 1;
-    // for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-    //     // Accumulate function circuit
-    //     Builder function_circuit = create_mock_circuit(ivc);
-    //     FoldProof function_fold_proof = ivc.accumulate(function_circuit);
-    //     FoldOutput function_fold_output = { function_fold_proof, function_vk };
-    //     // Accumulate kernel circuit
-    //     Builder kernel_circuit{ ivc.goblin.op_queue };
-    //     kernel_acc =
-    //         construct_mock_folding_kernel(kernel_circuit, kernel_fold_output, function_fold_output, kernel_acc);
-    //     FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-    //     kernel_vk = composer.compute_verification_key(ivc.prover_instance);
-    //     FoldOutput kernel_fold_output = { kernel_fold_proof, kernel_vk };
-    // }
+    auto function_vk = composer.compute_verification_key(ivc.prover_fold_output.accumulator);
+    auto kernel_acc = std::make_shared<VerifierInstance>();
+    kernel_acc->verification_key = function_vk;
+    // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
+    Builder kernel_circuit = create_mock_circuit(ivc);
+    FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
+    auto function_vk_2 = composer.compute_verification_key(ivc.prover_instance);
+    auto kernel_vk = function_vk_2;
+    FoldOutput kernel_fold_output = { kernel_fold_proof, function_vk_2 };
+    size_t NUM_CIRCUITS = 1;
+    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+        // Accumulate function circuit
+        Builder function_circuit = create_mock_circuit(ivc);
+        FoldProof function_fold_proof = ivc.accumulate(function_circuit);
+        FoldOutput function_fold_output = { function_fold_proof, function_vk_2 };
+        // Accumulate kernel circuit
+        Builder kernel_circuit{ ivc.goblin.op_queue };
+        kernel_acc =
+            construct_mock_folding_kernel(kernel_circuit, kernel_fold_output, function_fold_output, kernel_acc);
+        FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
+        kernel_vk = composer.compute_verification_key(ivc.prover_instance);
+        FoldOutput kernel_fold_output = { kernel_fold_proof, kernel_vk };
+    }
 
-    // // Constuct four proofs: merge, eccvm, translator, decider
-    // auto proof = ivc.prove();
-    // auto inst = std::make_shared<VerifierInstance>();
-    // inst->verification_key = kernel_vk;
-    // // Verify all four proofs
-    // EXPECT_TRUE(ivc.verify(proof, { kernel_acc, inst }));
+    // Constuct four proofs: merge, eccvm, translator, decider
+    auto proof = ivc.prove();
+    auto inst = std::make_shared<VerifierInstance>();
+    inst->verification_key = kernel_vk;
+    // Verify all four proofs
+    EXPECT_TRUE(ivc.verify(proof, { kernel_acc, inst }));
 };
