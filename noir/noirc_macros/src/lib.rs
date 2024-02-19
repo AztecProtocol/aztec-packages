@@ -25,7 +25,7 @@ impl MacroProcessor for AssertMessageMacro {
     ) -> Result<Option<&str>, (MacroError, FileId)> {
         Ok(None)
     }
-    
+
     fn process_unresolved_traits_impls(
         &self,
         _crate_id: &CrateId,
