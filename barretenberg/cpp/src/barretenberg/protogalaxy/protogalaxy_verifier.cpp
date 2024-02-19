@@ -87,10 +87,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
-    // auto is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
     if (!inst->is_accumulator) {
-        // receive_accumulator(inst, domain_separator);
-        // } else {
         // This is the first round of folding and we need to generate some gate challenges.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): implement option 2 to make this more
         // efficient by avoiding the computation of the perturbator

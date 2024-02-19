@@ -108,8 +108,7 @@ TEST_F(ClientIVCTests, Full)
 
     // Constuct four proofs: merge, eccvm, translator, decider
     auto proof = ivc.prove();
-    auto inst = std::make_shared<VerifierInstance>();
-    inst->verification_key = kernel_vk;
+    auto inst = std::make_shared<VerifierInstance>(kernel_vk);
     // Verify all four proofs
     EXPECT_TRUE(ivc.verify(proof, { kernel_acc, inst }));
 };

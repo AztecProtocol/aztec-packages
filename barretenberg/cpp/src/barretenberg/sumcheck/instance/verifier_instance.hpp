@@ -3,6 +3,11 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {
+/**
+ * @brief
+ *
+ * @tparam Flavor
+ */
 template <class Flavor> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;

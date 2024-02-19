@@ -32,11 +32,6 @@ class ClientIVC {
         Goblin::Proof goblin_proof;
     };
 
-    struct FoldOutput {
-        FoldProof fold_proof;
-        std::shared_ptr<VerificationKey> inst_vk;
-    };
-
   private:
     using ProverFoldOutput = FoldingResult<GoblinUltraFlavor>;
     using Composer = GoblinUltraComposer;
@@ -46,7 +41,8 @@ class ClientIVC {
     ProverFoldOutput prover_fold_output;
     ProverAccumulator prover_accumulator;
 
-    // keep the instance or instances around if we're folding more of them so we can compute the verification key
+    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
+    // be needed in the real IVC as they are provided as inputs
     std::shared_ptr<ProverInstance> prover_instance;
 
     std::array<std::shared_ptr<VerificationKey>, 4> vks;
@@ -64,9 +60,6 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     void decider_prove_and_verify(const VerifierAccumulator&) const;
-
-    VerifierAccumulator get_verifier_accumulator();
-    std::shared_ptr<VerifierInstance> get_verifier_instance() const;
 
     void precompute_folding_verification_keys();
 };

@@ -242,6 +242,7 @@ class GoblinMockCircuits {
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
+        // Init
         if (kernel.fold_proof.empty()) {
             FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { func.inst_vk } };
             auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);

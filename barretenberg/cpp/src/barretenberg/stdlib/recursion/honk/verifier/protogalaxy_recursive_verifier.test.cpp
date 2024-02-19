@@ -118,7 +118,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     /**
      *@brief Create inner circuit and call check_circuit on it
      */
-    static void test_inner_circuit()
+    static void test_circuit()
     {
         Builder builder;
 
@@ -173,21 +173,21 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto prover_instance_2 = composer.create_prover_instance(builder2);
         auto verifier_instance_2 = composer.create_verifier_instance(prover_instance_2);
         // Generate a folding proof
-        auto inner_folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
-        auto inner_folding_proof = inner_folding_prover.fold_instances();
+        auto folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
+        auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         Builder folding_circuit;
         auto verifier =
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
         auto acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
-        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
@@ -232,21 +232,21 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto prover_instance_2 = composer.create_prover_instance(builder2);
         auto verifier_instance_2 = composer.create_verifier_instance(prover_instance_2);
         // Generate a folding proof
-        auto inner_folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
-        auto inner_folding_proof = inner_folding_prover.fold_instances();
+        auto folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
+        auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         Builder folding_circuit;
         auto verifier =
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
         auto acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
-        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
@@ -257,12 +257,12 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
         }
 
-        auto inner_decider_prover = composer.create_decider_prover(inner_folding_proof.accumulator);
-        auto inner_decider_proof = inner_decider_prover.construct_proof();
+        auto decider_prover = composer.create_decider_prover(folding_proof.accumulator);
+        auto decider_proof = decider_prover.construct_proof();
 
         Builder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, acc };
-        auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
+        auto pairing_points = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
@@ -271,7 +271,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         DeciderVerifier native_decider_verifier = composer.create_decider_verifier(verifier_accumulator);
-        auto native_result = native_decider_verifier.verify_proof(inner_decider_proof);
+        auto native_result = native_decider_verifier.verify_proof(decider_proof);
         auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
             pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(native_result, recursive_result);
@@ -299,13 +299,13 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         verifier_accumulator->target_sum = FF::random_element();
 
         // Create a decider proof for the relaxed instance obtained through folding
-        auto inner_decider_prover = composer.create_decider_prover(prover_accumulator);
-        auto inner_decider_proof = inner_decider_prover.construct_proof();
+        auto decider_prover = composer.create_decider_prover(prover_accumulator);
+        auto decider_proof = decider_prover.construct_proof();
 
         // Create a decider verifier circuit for recursively verifying the decider proof
         Builder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, verifier_accumulator };
-        decider_verifier.verify_proof(inner_decider_proof);
+        decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
 
         {
@@ -336,16 +336,16 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
 
         // Generate a folding proof
-        auto inner_folding_prover = composer.create_folding_prover({ prover_accumulator, prover_inst });
-        auto inner_folding_proof = inner_folding_prover.fold_instances();
+        auto folding_prover = composer.create_folding_prover({ prover_accumulator, prover_inst });
+        auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         Builder folding_circuit;
         FoldingRecursiveVerifier verifier{ &folding_circuit,
                                            verifier_accumulator,
                                            { verifier_inst->verification_key } };
-        auto recursive_verifier_acc = verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        EXPECT_FALSE(inner_folding_proof.accumulator->target_sum == recursive_verifier_acc->target_sum.get_value());
+        auto recursive_verifier_acc = verifier.verify_folding_proof(folding_proof.folding_data);
+        EXPECT_FALSE(folding_proof.accumulator->target_sum == recursive_verifier_acc->target_sum.get_value());
     };
 };
 
@@ -354,7 +354,7 @@ TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)
 {
-    TestFixture::test_inner_circuit();
+    TestFixture::test_circuit();
 }
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, NewEvaluate)
