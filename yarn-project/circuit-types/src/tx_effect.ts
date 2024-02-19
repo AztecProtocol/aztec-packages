@@ -29,7 +29,7 @@ export class TxEffect {
      */
     public contractData: ContractData[],
     /**
-     * The logs attached to the l2 block, both encrypted and unencrypted.
+     * The logs of the txEffect, both encrypted and unencrypted.
      */
     public logs: TxEffectLogs,
   ) {
@@ -43,8 +43,8 @@ export class TxEffect {
     const nullifiersBuffer = Buffer.concat(this.newNullifiers.map(x => x.toBuffer()));
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
     const newL2ToL1MsgsBuffer = Buffer.concat(this.newL2ToL1Msgs.map(x => x.toBuffer()));
-    const encryptedLogsHashKernel0 = this.logs!.encryptedLogs.hash();
-    const unencryptedLogsHashKernel0 = this.logs!.unencryptedLogs.hash();
+    const encryptedLogsHashKernel0 = this.logs.encryptedLogs.hash();
+    const unencryptedLogsHashKernel0 = this.logs.unencryptedLogs.hash();
 
     if (
       (this.contractLeaves.length > 1 && !this.contractLeaves[1].isZero()) ||

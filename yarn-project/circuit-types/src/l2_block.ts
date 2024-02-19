@@ -328,21 +328,21 @@ export class L2Block {
    * @returns Stats on tx count, number, and log size and count.
    */
   getStats() {
-    const logsStats = this.body.areLogsAttached() && {
+    const logsStats = {
       encryptedLogLength: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getSerializedLength(),
+        (logCount, txEffect) => logCount + txEffect.logs.encryptedLogs.getSerializedLength(),
         0,
       ),
       encryptedLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.logs.encryptedLogs.getTotalLogCount(),
         0,
       ),
       unencryptedLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.unencryptedLogs.getSerializedLength(),
+        (logCount, txEffect) => logCount + txEffect.logs.unencryptedLogs.getSerializedLength(),
         0,
       ),
       unencryptedLogSize: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.unencryptedLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.logs.unencryptedLogs.getTotalLogCount(),
         0,
       ),
     };

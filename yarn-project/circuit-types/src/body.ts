@@ -18,8 +18,6 @@ export class Body {
    * @returns A serialized L2 block body.
    */
   toBuffer() {
-    this.assertLogsAttached();
-
     const newNoteHashes = this.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
     const newNullifiers = this.txEffects.flatMap(txEffect => txEffect.newNullifiers);
     const newPublicDataWrites = this.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
@@ -109,8 +107,6 @@ export class Body {
    * @returns The calldata hash.
    */
   getCalldataHash() {
-    this.assertLogsAttached();
-
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
       let activeLayer = 0;
@@ -136,16 +132,6 @@ export class Body {
     const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
 
     return computeRoot(leafs);
-  }
-
-  public assertLogsAttached() {
-    if (!this.areLogsAttached()) {
-      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined');
-    }
-  }
-
-  public areLogsAttached() {
-    return this.txEffects.every(txEffect => txEffect.logs !== undefined);
   }
 
   public areLogsEqual(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
