@@ -7,7 +7,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ACVMField } from '../acvm_types.js';
-import { frToNumber, fromACVMField } from '../deserialize.js';
+import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 import { TypedOracle } from './typed_oracle.js';
@@ -292,12 +292,16 @@ export class Oracle {
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
     [sideffectCounter]: ACVMField[],
+    [isStaticCall]: ACVMField[],
+    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const callStackItem = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideffectCounter)),
+      frToBoolean(fromACVMField(isStaticCall)),
+      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return callStackItem.toFields().map(toACVMField);
   }
@@ -306,11 +310,15 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
+    [isStaticCall]: ACVMField[],
+    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const returnValues = await this.typedOracle.callPublicFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
+      frToBoolean(fromACVMField(isStaticCall)),
+      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return padArrayEnd(returnValues, Fr.ZERO, RETURN_VALUES_LENGTH).map(toACVMField);
   }
@@ -320,12 +328,16 @@ export class Oracle {
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
     [sideffectCounter]: ACVMField[],
+    [isStaticCall]: ACVMField[],
+    [isDelegateCall]: ACVMField[],
   ) {
     const enqueuedRequest = await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideffectCounter)),
+      frToBoolean(fromACVMField(isStaticCall)),
+      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
   }

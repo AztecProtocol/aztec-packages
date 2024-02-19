@@ -11,14 +11,14 @@ mod abis;
 mod constants;
 mod contract_class;
 
+mod messaging;
 mod mocked;
 mod hash;
 mod traits;
 mod type_serialization;
 
+mod content_commitment;
 mod header;
-
-mod interop_testing;
 
 mod tests;
 

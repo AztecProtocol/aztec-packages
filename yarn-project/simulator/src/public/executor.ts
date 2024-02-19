@@ -16,7 +16,7 @@ import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { AcirSimulator } from '../index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution, PublicExecutionResult } from './execution.js';
+import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
 /**
@@ -56,7 +56,7 @@ export async function executePublicFunction(
     newNullifiers: newNullifiersPadded,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
-  const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
+  const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newCommitments = newCommitmentsPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
 
@@ -124,11 +124,25 @@ export class PublicExecutor {
       this.commitmentsDb,
     );
 
+    let executionResult;
+
     try {
-      return await executePublicFunction(context, acir);
+      executionResult = await executePublicFunction(context, acir);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during public execution'));
     }
+
+    if (executionResult.execution.callContext.isStaticCall) {
+      checkValidStaticCall(
+        executionResult.newCommitments,
+        executionResult.newNullifiers,
+        executionResult.contractStorageUpdateRequests,
+        executionResult.newL2ToL1Messages,
+        executionResult.unencryptedLogs,
+      );
+    }
+
+    return executionResult;
   }
 
   /**

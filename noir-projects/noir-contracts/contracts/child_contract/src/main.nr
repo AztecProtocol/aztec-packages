@@ -4,12 +4,15 @@ contract Child {
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context}, log::emit_unencrypted_log,
-        state_vars::public_state::PublicState
+        state_vars::{public_state::PublicState, set::Set},
+        protocol_types::{abis::{function_selector::FunctionSelector, call_context::CallContext}, address::AztecAddress},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils}
     };
-    use dep::aztec::protocol_types::{abis::{call_context::CallContext, function_selector::FunctionSelector}, address::AztecAddress};
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
         current_value: PublicState<Field>,
+        a_private_value: Set<ValueNote>,
     }
 
     #[aztec(private)]
@@ -56,6 +59,20 @@ contract Child {
         new_value
     }
 
+    #[aztec(private)]
+    fn privateSetValue(new_value: Field, owner: AztecAddress) -> Field {
+        let mut note = ValueNote::new(new_value, owner);
+        storage.a_private_value.insert(&mut note, true);
+        new_value
+    }
+
+    #[aztec(private)]
+    fn privateGetValue(amount: Field, owner: AztecAddress) -> Field {
+        let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
+        let notes = storage.a_private_value.get_notes(options);
+        notes[0].unwrap_unchecked().value
+    }
+
     // Increments `current_value` by `new_value`
     #[aztec(public)]
     fn pubIncValue(new_value: Field) -> Field {
@@ -93,16 +110,5 @@ contract Child {
 
         let pubSetValueSelector = FunctionSelector::from_signature("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
-    }
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
     }
 }

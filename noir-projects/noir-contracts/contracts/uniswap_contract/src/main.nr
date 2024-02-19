@@ -93,7 +93,7 @@ contract Uniswap {
             canceller_for_L1_to_L2_message,
             caller_on_L1
         );
-        context.message_portal(content_hash);
+        context.message_portal(context.this_portal_address(), content_hash);
     }
     // docs:end:swap_public
 
@@ -164,7 +164,7 @@ contract Uniswap {
             canceller_for_L1_to_L2_message,
             caller_on_L1
         );
-        context.message_portal(content_hash);
+        context.message_portal(context.this_portal_address(), content_hash);
     }
     // docs:end:swap_private
 
@@ -226,16 +226,5 @@ contract Uniswap {
     // this method exists solely for e2e tests to test that nonce gets incremented each time.
     unconstrained fn nonce_for_burn_approval() -> pub Field {
         storage.nonce_for_burn_approval.read()
-    }
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
     }
 }

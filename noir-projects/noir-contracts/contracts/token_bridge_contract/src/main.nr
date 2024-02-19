@@ -56,7 +56,7 @@ contract TokenBridge {
     ) {
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, callerOnL1);
-        context.message_portal(content);
+        context.message_portal(context.this_portal_address(), content);
 
         // Burn tokens
         Token::at(storage.token.read()).burn_public(context, context.msg_sender(), amount, nonce);
@@ -102,7 +102,7 @@ contract TokenBridge {
     ) {
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, callerOnL1);
-        context.message_portal(content);
+        context.message_portal(context.this_portal_address(), content);
 
         // docs:start:call_assert_token_is_same
         // Assert that user provided token address is same as seen in storage.
@@ -154,17 +154,4 @@ contract TokenBridge {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    // docs:start:compute_note_hash_and_nullifier_placeholder
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
-    }
-    // docs:end:compute_note_hash_and_nullifier_placeholder
 }
