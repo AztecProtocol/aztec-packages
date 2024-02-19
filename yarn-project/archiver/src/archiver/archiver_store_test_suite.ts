@@ -370,7 +370,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           block.body.txEffects[0].contractData[0],
         );
 
-        const contractData = await store.getContractData(block.body.txEffects[0].contractData[1].contractAddress);
+        const contractData = await store.getContractData(block.body.txEffects[0].contractData[1]?.contractAddress);
         expect(contractData).toEqual(undefined);
       });
 
