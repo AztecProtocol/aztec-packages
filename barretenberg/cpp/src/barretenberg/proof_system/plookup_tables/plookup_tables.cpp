@@ -116,7 +116,7 @@ const MultiTable& get_table(const MultiTableIdOrPtr& id)
     return *id.ptr;
 }
 
-ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
+ReadData<bb::fr> get_lookup_accumulators(const MultiTableIdOrPtr& id,
                                          const fr& key_a,
                                          const fr& key_b,
                                          const bool is_2_to_1_lookup)
