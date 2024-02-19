@@ -2,7 +2,7 @@
 title: How to define compute_note_hash_and_nullifier
 ---
 
-Every Aztec.nr smart contract that implements a [Storage struct](../storage/define_storage.md) requires a `compute_note_hash_and_nullifier()` function. It tells the [PXE](../../../../learn/concepts/pxe/main.md) how to handle notes.
+Aztec will automatically compute and manage notes and nullifiers that are created in smart contracts. However, in some cases, it might make sense to write custom logic for how these are computed. This is achieved through the `compute_note_hash_and_nullifier()` function, which tells the [PXE](../../../../learn/concepts/pxe/main.md) how to handle notes in your smart contract.
 
 ## Params and returns
 
