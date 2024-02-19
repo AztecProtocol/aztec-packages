@@ -8,6 +8,7 @@ use dep::aztec::oracle::{
     nullifier_key::get_nullifier_secret_key,
     get_public_key::get_public_key,
 };
+use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
 use dep::safe_math::SafeU120;
 use dep::std::option::Option;
 

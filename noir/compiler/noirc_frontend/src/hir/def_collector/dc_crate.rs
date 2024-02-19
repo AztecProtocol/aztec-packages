@@ -257,10 +257,19 @@ impl DefCollector {
         // Add the current crate to the collection of DefMaps
         context.def_maps.insert(crate_id, def_collector.def_map);
 
+        // TODO(#4653): generalize this function
+        for macro_processor in &macro_processors {
+            macro_processor.process_unresolved_traits_impls(&crate_id, context, &def_collector.collected_traits_impls, &mut def_collector.collected_functions).unwrap_or_else(
+                |(macro_err, file_id)| {
+                    errors.push((macro_err.into(), file_id));
+                },
+            );
+        }
+
         let mut preludes = Vec::new();
         preludes.push("std::prelude");
 
-        for macro_processor in macro_processors.iter() {
+        for macro_processor in &macro_processors {
             // Aside from the stdlib prelude, check whether the crate we are processing has dependencies 
             // which supply their own prelude and add it to the list of preludes to be injected.
             match macro_processor.fetch_crate_prelude(&crate_id, context) {

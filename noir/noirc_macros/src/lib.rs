@@ -1,3 +1,5 @@
+use noirc_frontend::hir::def_collector::dc_crate::UnresolvedFunctions;
+use noirc_frontend::hir::def_collector::dc_crate::UnresolvedTraitImpl;
 use noirc_frontend::macros_api::parse_program;
 use noirc_frontend::macros_api::HirContext;
 use noirc_frontend::macros_api::SortedModule;
@@ -22,6 +24,16 @@ impl MacroProcessor for AssertMessageMacro {
         _context: &HirContext,
     ) -> Result<Option<&str>, (MacroError, FileId)> {
         Ok(None)
+    }
+    
+    fn process_unresolved_traits_impls(
+        &self,
+        _crate_id: &CrateId,
+        _context: &mut HirContext,
+        _unresolevd_traits_impls: &Vec<UnresolvedTraitImpl>,
+        _collected_functions: &mut Vec<UnresolvedFunctions>,
+    ) -> Result<(), (MacroError, FileId)> {
+        Ok(())
     }
 
     // This macro does not need to process any information after name resolution

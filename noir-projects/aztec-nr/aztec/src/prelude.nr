@@ -23,5 +23,6 @@ use crate::{
         note_interface::NoteInterface,
         note_getter_options::NoteGetterOptions, 
         note_viewer_options::NoteViewerOptions,
+        utils::compute_note_hash_and_nullifier as utils_compute_note_hash_and_nullifier,
     }
 };
