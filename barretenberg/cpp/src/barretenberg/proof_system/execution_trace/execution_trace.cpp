@@ -109,8 +109,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
 
     // Make a block for the ecc op wires
     if constexpr (IsGoblinFlavor<Flavor>) {
-        TraceBlock ecc_op_block{ builder.ecc_op_wires, builder.ecc_op_selectors };
-        trace_blocks.emplace_back(ecc_op_block);
+        trace_blocks.emplace_back(builder.ecc_op_block);
     }
 
     // Make a block for the public inputs

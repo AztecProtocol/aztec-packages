@@ -211,7 +211,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
     ecc_op_wire_2().emplace_back(in.x_lo);
     ecc_op_wire_3().emplace_back(in.x_hi);
     ecc_op_wire_4().emplace_back(in.y_lo);
-    for (auto& selector : ecc_op_selectors.get()) {
+    for (auto& selector : ecc_op_block.selectors.get()) {
         selector.emplace_back(0);
     }
 
@@ -219,7 +219,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
     ecc_op_wire_2().emplace_back(in.y_hi);
     ecc_op_wire_3().emplace_back(in.z_1);
     ecc_op_wire_4().emplace_back(in.z_2);
-    for (auto& selector : ecc_op_selectors.get()) {
+    for (auto& selector : ecc_op_block.selectors.get()) {
         selector.emplace_back(0);
     }
 
