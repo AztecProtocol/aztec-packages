@@ -23,6 +23,7 @@ template <class Flavor>
 void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
     TraceData& trace_data, Builder& builder, std::shared_ptr<typename Flavor::ProvingKey> proving_key)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
             pkey_wire = std::move(trace_wire);
