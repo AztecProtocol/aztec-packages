@@ -468,6 +468,47 @@ TEST(stdlib_plookup, blake2s_xor)
     EXPECT_EQ(result, true);
 }
 
+TEST(stdlib_plookup, dynamic_uint32_and)
+{
+    Builder builder = Builder();
+
+    const size_t num_lookups = (32 + 5) / 6;
+
+    uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
+    uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
+
+    field_ct left = witness_ct(&builder, bb::fr(left_value));
+    field_ct right = witness_ct(&builder, bb::fr(right_value));
+
+    const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_AND, left, right, true);
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
+    std::vector<uint256_t> out_expected(num_lookups);
+    std::vector<uint256_t> left_expected(num_lookups);
+    std::vector<uint256_t> right_expected(num_lookups);
+
+    for (size_t i = 0; i < left_slices.size(); ++i) {
+        out_expected[i] = left_slices[i] & right_slices[i];
+        left_expected[i] = left_slices[i];
+        right_expected[i] = right_slices[i];
+    }
+
+    for (size_t i = num_lookups - 2; i < num_lookups; --i) {
+        out_expected[i] += out_expected[i + 1] * (1 << 6);
+        left_expected[i] += left_expected[i + 1] * (1 << 6);
+        right_expected[i] += right_expected[i + 1] * (1 << 6);
+    }
+
+    for (size_t i = 0; i < num_lookups; ++i) {
+        EXPECT_EQ(lookup[ColumnIdx::C1][i].get_value(), bb::fr(left_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C2][i].get_value(), bb::fr(right_expected[i]));
+        EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), bb::fr(out_expected[i]));
+    }
+
+    bool result = builder.check_circuit();
+
+    EXPECT_EQ(result, true);
+}
 TEST(stdlib_plookup, uint32_and)
 {
     Builder builder = Builder();

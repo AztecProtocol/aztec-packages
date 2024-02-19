@@ -121,6 +121,21 @@ enum MultiTableId {
     NUM_MULTI_TABLES = KECCAK_NORMALIZE_AND_ROTATE + 25,
 };
 
+struct MultiTable;
+struct MultiTableIdOrPtr {
+    // Used if we are using a lookup table from our predefined list, otherwise set to NUM_MULTI_TABLES and unused.
+    MultiTableId id;
+    MultiTable* ptr;
+    MultiTableIdOrPtr(MultiTable* ptr)
+        : id(NUM_MULTI_TABLES)
+        , ptr(ptr)
+    {}
+    MultiTableIdOrPtr(MultiTableId id)
+        : id(id)
+        , ptr(nullptr)
+    {}
+};
+
 struct MultiTable {
     // Coefficients are accumulated products of corresponding step sizes until that point
     std::vector<bb::fr> column_1_coefficients;
@@ -132,17 +147,17 @@ struct MultiTable {
     std::vector<bb::fr> column_1_step_sizes;
     std::vector<bb::fr> column_2_step_sizes;
     std::vector<bb::fr> column_3_step_sizes;
-    typedef std::array<bb::fr, 2> table_out;
-    typedef std::array<uint64_t, 2> table_in;
+    using table_out = std::array<bb::fr, 2>;
+    using table_in = std::array<uint64_t, 2>;
     std::vector<table_out (*)(table_in)> get_table_values;
 
   private:
     void init_step_sizes()
     {
         const size_t num_lookups = column_1_coefficients.size();
-        column_1_step_sizes.emplace_back(bb::fr(1));
-        column_2_step_sizes.emplace_back(bb::fr(1));
-        column_3_step_sizes.emplace_back(bb::fr(1));
+        column_1_step_sizes.emplace_back(1);
+        column_2_step_sizes.emplace_back(1);
+        column_3_step_sizes.emplace_back(1);
 
         std::vector<bb::fr> coefficient_inverses(column_1_coefficients.begin(), column_1_coefficients.end());
         std::copy(column_2_coefficients.begin(), column_2_coefficients.end(), std::back_inserter(coefficient_inverses));
@@ -191,67 +206,6 @@ struct MultiTable {
     MultiTable& operator=(const MultiTable& other) = default;
     MultiTable& operator=(MultiTable&& other) = default;
 };
-
-// struct PlookupLargeKeyTable {
-//     struct KeyEntry {
-//         uint256_t key;
-//         std::array<bb::fr, 2> value{ bb::fr(0), bb::fr(0) };
-//         bool operator<(const KeyEntry& other) const { return key < other.key; }
-
-//         std::array<bb::fr, 3> to_sorted_list_components(const bool use_two_keys) const
-//         {
-//             return {
-//                 key[0],
-//                 value[0],
-//                 value[1],
-//             };
-//         }
-//     };
-
-//     BasicTableId id;
-//     size_t table_index;
-//     size_t size;
-//     bool use_twin_keys;
-
-//     bb::fr column_1_step_size = bb::fr(0);
-//     bb::fr column_2_step_size = bb::fr(0);
-//     bb::fr column_3_step_size = bb::fr(0);
-//     std::vector<bb::fr> column_1;
-//     std::vector<bb::fr> column_3;
-//     std::vector<bb::fr> column_2;
-//     std::vector<KeyEntry> lookup_gates;
-
-//     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
-// };
-
-// struct PlookupFatKeyTable {
-//     struct KeyEntry {
-//         bb::fr key;
-//         std::array<bb::fr, 2> values{ 0, 0 };
-//         bool operator<(const KeyEntry& other) const
-//         {
-//             return (key.from_montgomery_form() < other.key.from_montgomery_form());
-//         }
-
-//         std::array<bb::fr, 3> to_sorted_list_components() const { return { key, values[0], values[0] }; }
-//     }
-
-//     BasicTableId id;
-//     size_t table_index;
-//     size_t size;
-//     bool use_twin_keys;
-
-//     bb::fr column_1_step_size = bb::fr(0);
-//     bb::fr column_2_step_size = bb::fr(0);
-//     bb::fr column_3_step_size = bb::fr(0);
-//     std::vector<bb::fr> column_1;
-//     std::vector<bb::fr> column_3;
-//     std::vector<bb::fr> column_2;
-//     std::vector<KeyEntry> lookup_gates;
-
-//     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
-
-// }
 
 /**
  * @brief The structure contains the most basic table serving one function (for, example an xor table)
