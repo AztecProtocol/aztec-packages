@@ -1,18 +1,21 @@
-import { buildAppPayload, buildFeePayload, hashPayload } from '@aztec/accounts/defaults';
+import { DefaultAccountContract } from '@aztec/accounts/defaults';
 import {
   AccountManager,
-  AztecNode,
+  AccountWallet,
+  AuthWitness,
+  AuthWitnessProvider,
+  ContractArtifact,
   DebugLogger,
+  GrumpkinPrivateKey,
   GrumpkinScalar,
   PXE,
-  SentTx,
-  SignerlessWallet,
+  PublicKey,
+  TxExecutionRequest,
   Wallet,
   generatePublicKey,
 } from '@aztec/aztec.js';
 import { Fr } from '@aztec/aztec.js/fields';
-import { GrumpkinPrivateKey, PublicKey, UnencryptedL2Log } from '@aztec/circuit-types';
-import { AztecAddress, GeneratorIndex } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { MultiSigAccountContract, MultiSigAccountContractArtifact, TestContract } from '@aztec/noir-contracts.js';
@@ -20,21 +23,20 @@ import { MultiSigAccountContract, MultiSigAccountContractArtifact, TestContract 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+
 const TIMEOUT = 90_000;
 
 describe('e2e_multisig', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNode | undefined;
   let pxe: PXE;
   let walletDeployer: Wallet;
   let walletA: Wallet;
   let walletB: Wallet;
   let walletC: Wallet;
-  let walletNotOwner: Wallet;
-  let signerlessWallet: Wallet;
   let logger: DebugLogger;
   let multisig: MultiSigAccountContract;
+  let multisigWallet: AccountWallet;
   let testContract: TestContract;
   let teardown: () => Promise<void>;
 
@@ -43,16 +45,11 @@ describe('e2e_multisig', () => {
 
   beforeAll(async () => {
     ({
-      aztecNode,
       pxe,
-      wallets: [walletDeployer, walletA, walletB, walletC, walletNotOwner],
+      wallets: [walletDeployer, walletA, walletB, walletC],
       logger,
       teardown,
     } = await setup(5));
-
-    logger.info(
-      `Multisig owners: ${[walletA, walletB, walletC].map(w => w.getCompleteAddress().address.toString()).join(', ')}`,
-    );
 
     // This is the multisig encryption key
     privateKey = GrumpkinScalar.random();
@@ -61,88 +58,103 @@ describe('e2e_multisig', () => {
     logger.info(`Multisig keys: private=${privateKey.toString()} public=${publicKey.toString()}`);
 
     // Deploy the multisig contract via an account manager
-    // This API sucks, because we're sidestepping the manager because we don't have an AccountInterface for the multisig,
-    // and we cannot have one because the multisig has no valid getAuthWitness for each action, but rather needs a collection
-    // of them, so we'll need to tweak the AccountInterface in aztec.js to accommodate for that. Yay dogfooding!
-    signerlessWallet = new SignerlessWallet(pxe);
-    const salt = Fr.random();
-    const accountManager = new AccountManager(
-      pxe,
-      privateKey,
-      {
-        getContractArtifact() {
-          return MultiSigAccountContractArtifact;
-        },
-        getDeploymentArgs() {
-          return [
-            [...[walletA, walletB, walletC].map(w => w.getCompleteAddress()), AztecAddress.ZERO, AztecAddress.ZERO],
-            privateKey.toBuffer(),
-            2,
-          ];
-        },
-        getInterface() {
-          throw new Error('Unimplemented');
-        },
-      },
-      salt,
-    );
-    const deployTx = (await accountManager.getDeployMethod()).send({ contractAddressSalt: salt });
-    await new SentTx(pxe, deployTx.getTxHash()).wait();
-    multisig = await MultiSigAccountContract.at(accountManager.getCompleteAddress().address, signerlessWallet);
-
+    const ownerAddresses = [walletA, walletB, walletC].map(w => w.getCompleteAddress().address);
+    logger.info(`Multisig owners: ${ownerAddresses.map(a => a.toString()).join(', ')}`);
+    const accountManager = getMultisigAccountManager(pxe, privateKey, ownerAddresses, 2);
+    multisigWallet = await accountManager.waitDeploy();
+    multisig = await MultiSigAccountContract.at(multisigWallet.getCompleteAddress().address, multisigWallet);
     logger.info(`Multisig deployed at: ${multisig.address.toString()}`);
 
     // Deploy a test contract for the multisig to interact with
-    testContract = await TestContract.deploy(walletDeployer).send().deployed();
+    const deployedTestContract = await TestContract.deploy(walletDeployer).send().deployed();
+    testContract = deployedTestContract.withWallet(multisigWallet);
     logger.info(`Test contract deployed at: ${testContract.address.toString()}`);
   }, 100_000);
 
   it('sends a tx to the test contract via the multisig', async () => {
-    const addAuthWitnessesForPayload = async (payloadHash: Fr) => {
-      const authWitAKey = Fr.fromBuffer(
-        pedersenHash(
-          [payloadHash, walletA.getCompleteAddress().address.toField()].map(fr => fr.toBuffer()),
-          0,
-        ),
-      );
-      const authWitA = await walletA.createAuthWitness(authWitAKey);
-      const authWitBKey = Fr.fromBuffer(
-        pedersenHash(
-          [payloadHash, walletB.getCompleteAddress().address.toField()].map(fr => fr.toBuffer()),
-          0,
-        ),
-      );
-      const authWitB = await walletB.createAuthWitness(authWitBKey);
+    // Set up the method we want to call on a contract with the multisig as the wallet
+    const action = testContract.methods.emit_msg_sender();
 
-      logger.info(`Adding authwit for A: ${authWitAKey.toString()}`);
-      await signerlessWallet.addAuthWitness(authWitA);
-      logger.info(`Adding authwit for B: ${authWitBKey.toString()}`);
-      await signerlessWallet.addAuthWitness(authWitB);
-    };
+    // We collect the signatures from each owner and register them using addAuthWitness
+    const authWits = await collectSignatures(await action.create(), [walletA, walletB]);
+    await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
-    const call = testContract.methods.emit_msg_sender().request();
-    const payload = buildAppPayload([call]);
-    const payloadHash = Fr.fromBuffer(hashPayload(payload.payload, GeneratorIndex.SIGNATURE_PAYLOAD));
-    logger.info(`App payload hash to check: ${payloadHash.toString()}`);
-    await addAuthWitnessesForPayload(payloadHash);
-
-    const feePayload = Fr.fromBuffer(hashPayload(buildFeePayload().payload, GeneratorIndex.FEE_PAYLOAD));
-    await addAuthWitnessesForPayload(feePayload);
-
-    await signerlessWallet.addCapsule(
+    // This should go away soon!
+    await multisigWallet.addCapsule(
       padArrayEnd(
         [walletA, walletB].map(w => w.getCompleteAddress().address),
         AztecAddress.ZERO,
-        5,
+        MULTISIG_MAX_OWNERS,
       ),
     );
 
-    const tx = await multisig.methods.entrypoint(payload.payload, buildFeePayload().payload).send().wait();
+    // Send the tx after having added all auth witnesses from the signers
+    // TODO: We should be able to call send() on the result of create()
+    const tx = await action.send().wait();
 
     const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    logger.info(`Tx logs: ${logs.logs.map(log => log.toHumanReadable())}`);
+    logger.info(`Multisig address: ${multisig.address}`);
+    logger.info(`Test contract address: ${testContract.address}`);
   });
 
   afterEach(async () => {
     await teardown();
   });
 });
+
+const MULTISIG_MAX_OWNERS = 5;
+
+class AccountManagerMultisigAccountContract extends DefaultAccountContract {
+  constructor(private privateKey: GrumpkinPrivateKey, private owners: AztecAddress[], private threshold: number) {
+    super(MultiSigAccountContractArtifact as ContractArtifact);
+  }
+
+  getDeploymentArgs() {
+    return [
+      padArrayEnd(this.owners, AztecAddress.ZERO, MULTISIG_MAX_OWNERS),
+      this.privateKey.toBuffer(),
+      this.threshold,
+    ];
+  }
+
+  getAuthWitnessProvider(): AuthWitnessProvider {
+    return {
+      createAuthWitness(message: Fr): Promise<AuthWitness> {
+        return Promise.resolve(new AuthWitness(message, []));
+      },
+    };
+  }
+}
+
+function getMultisigAccountManager(
+  pxe: PXE,
+  privateKey: GrumpkinPrivateKey,
+  owners: AztecAddress[],
+  threshold: number,
+) {
+  return new AccountManager(pxe, privateKey, new AccountManagerMultisigAccountContract(privateKey, owners, threshold));
+}
+
+function getMessagesToSignFor(txRequest: TxExecutionRequest, owner: AztecAddress): Fr[] {
+  return txRequest.authWitnesses.map(w =>
+    Fr.fromBuffer(
+      pedersenHash(
+        [w.requestHash, owner.toField()].map(fr => fr.toBuffer()),
+        0, // TODO: Use a non-zero generator point
+      ),
+    ),
+  );
+}
+
+async function collectSignatures(txRequest: TxExecutionRequest, owners: Wallet[]): Promise<AuthWitness[]> {
+  // TODO: Rewrite this using a flatMap instead of two loops because it'd look nicer
+  const authWits: AuthWitness[] = [];
+  for (const ownerWallet of owners) {
+    const messagesToSign = getMessagesToSignFor(txRequest, ownerWallet.getCompleteAddress().address);
+    for (const messageToSign of messagesToSign) {
+      authWits.push(await ownerWallet.createAuthWitness(messageToSign));
+    }
+  }
+  return authWits;
+}
