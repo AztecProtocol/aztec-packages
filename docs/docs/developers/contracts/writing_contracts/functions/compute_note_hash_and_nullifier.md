@@ -23,7 +23,6 @@ It should return `pub [Field; 4]` which is an array of 4 elements that tells the
 If you don't have any private state variables defined, you can use this placeholder function:
 
 #include_code compute_note_hash_and_nullifier_placeholder /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
-:::
 
 ## When using notes
  
