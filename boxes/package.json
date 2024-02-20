@@ -11,9 +11,7 @@
     "blank-react",
     "blank"
   ],
-  "bin": {
-    ".": "npx.js"
-  },
+  "bin": "npx.js",
   "resolutions": {
     "@aztec/accounts": "portal:../yarn-project/accounts",
     "@aztec/aztec.js": "portal:../yarn-project/aztec.js",
