@@ -10,5 +10,5 @@ template <IsUltraFlavor Flavor>
 void prover_setup(const std::shared_ptr<ProverInstance_<Flavor>>& instance,
                   const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
                   const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                  const std::string& domain_separator);
+                  const std::string& domain_separator = "");
 }

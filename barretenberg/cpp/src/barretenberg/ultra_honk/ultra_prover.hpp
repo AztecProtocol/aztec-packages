@@ -27,11 +27,11 @@ template <IsUltraFlavor Flavor> class UltraProver_ {
                           const std::shared_ptr<CommitmentKey>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    // BB_PROFILE void execute_preamble_round();
-    // BB_PROFILE void execute_wire_commitments_round();
-    // BB_PROFILE void execute_sorted_list_accumulator_round();
-    // BB_PROFILE void execute_log_derivative_inverse_round();
-    // BB_PROFILE void execute_grand_product_computation_round();
+    BB_PROFILE void execute_preamble_round();
+    BB_PROFILE void execute_wire_commitments_round();
+    BB_PROFILE void execute_sorted_list_accumulator_round();
+    BB_PROFILE void execute_log_derivative_inverse_round();
+    BB_PROFILE void execute_grand_product_computation_round();
     BB_PROFILE void execute_relation_check_rounds();
     BB_PROFILE void execute_zeromorph_rounds();
 
