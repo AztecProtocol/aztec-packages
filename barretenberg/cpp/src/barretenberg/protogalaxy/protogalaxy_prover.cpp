@@ -6,7 +6,17 @@ template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    prover_setup(instance, commitment_key, transcript, domain_separator);
+    instance->initialize_prover_polynomials();
+    prover_setup(instance, commitment_key, transcript, domain_separator + '_');
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; idx++) {
+        instance->alphas[idx] =
+            transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
+    }
+    auto vk_view = instance->verification_key->get_all();
+    auto labels = instance->commitment_labels.get_precomputed();
+    for (size_t idx = 0; idx < labels.size(); idx++) {
+        transcript->send_to_verifier(domain_separator + "_" + labels[idx], vk_view[idx]);
+    }
 }
 
 template <class ProverInstances>

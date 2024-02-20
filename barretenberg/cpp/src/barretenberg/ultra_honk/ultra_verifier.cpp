@@ -59,7 +59,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     CommitmentLabels commitment_labels;
 
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("instance_size");
     const auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
     const auto pub_inputs_offset = transcript->template receive_from_prover<uint32_t>("pub_inputs_offset");
 

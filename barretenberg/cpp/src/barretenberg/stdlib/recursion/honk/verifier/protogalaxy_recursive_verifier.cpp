@@ -75,17 +75,16 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     inst->instance_size = uint32_t(instance_size.get_value());
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
     inst->public_input_size = uint32_t(public_input_size.get_value());
+    const auto pub_inputs_offset =
+        transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
+
+    inst->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
     }
-
-    const auto pub_inputs_offset =
-        transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
-
-    inst->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
     // Get commitments to first three wire polynomials
     auto labels = inst->commitment_labels;

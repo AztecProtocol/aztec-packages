@@ -70,15 +70,14 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
     inst->public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
+    inst->pub_inputs_offset =
+        transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
     }
-
-    inst->pub_inputs_offset =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
 
     // Get commitments to first three wire polynomials
     auto labels = inst->commitment_labels;

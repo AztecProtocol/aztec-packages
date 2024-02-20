@@ -44,8 +44,6 @@ template <IsUltraFlavor Flavor> class UltraProver_ {
 
     bb::RelationParameters<FF> relation_parameters;
 
-    CommitmentLabels commitment_labels;
-
     Polynomial quotient_W;
 
     SumcheckOutput<Flavor> sumcheck_output;
