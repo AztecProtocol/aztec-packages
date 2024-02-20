@@ -171,8 +171,6 @@ describe('e2e_token_contract', () => {
       const secret = new Fr(100);
       const secretHash = computeMessageSecretHash(secret);
 
-      // const ethAdmin = await EthToken[0].methods.admin().view();
-
       await Promise.all([
         EthToken[0].methods.set_minter(wallets[1].getAddress(), true).send().wait(),
         EthToken[0].methods.set_minter(wallets[2].getAddress(), true).send().wait(),
@@ -209,6 +207,8 @@ describe('e2e_token_contract', () => {
       console.log('Reward balance of 1', await JuiceboxToken[1].methods.getBalance(wallets[1].getAddress()).view());
 
       await Crowdfunding[0].methods.withdraw(1000n).send().wait();
+
+      console.log('Balance of campaign organizaer', await EthToken[0].methods.balance_of_private(wallets[0].getAddress()).view());
     });
   });
 });
