@@ -55,7 +55,7 @@ void prover_setup(const std::shared_ptr<ProverInstance_<Flavor>>& instance,
         witness_commitments.calldata_read_counts = commitment_key->commit(instance->proving_key->calldata_read_counts);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata,
                                      instance->witness_commitments.calldata);
-        transcript->send_to_verifier(domain_separator + "_" + commitment_labels.calldata_read_counts,
+        transcript->send_to_verifier(domain_separator + commitment_labels.calldata_read_counts,
                                      instance->witness_commitments.calldata_read_counts);
     }
 
