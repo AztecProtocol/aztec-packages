@@ -11,7 +11,6 @@ RUN apt update && apt install -y \
   gnupg \
   ninja-build \
   npm \
-\
   libssl-dev \
   jq \
   bash \

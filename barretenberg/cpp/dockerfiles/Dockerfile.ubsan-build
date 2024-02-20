@@ -1,24 +1,25 @@
 # builds with undefined behavior sanitizer
-FROM alpine:3.17 AS builder
-RUN apk update \
-    && apk upgrade \
-    && apk add --no-cache \
-    build-base \
-    clang15 \
-    cmake \
-    ninja \
-    git \
+FROM ubuntu:lunar
+
+RUN apt update && apt install -y \
+    build-essential \
     curl \
-    perl \
-    clang-extra-tools \
-    bash
+    git \
+    cmake \
+    lsb-release \
+    wget \
+    software-properties-common \
+    gnupg \
+    ninja-build \
+    npm \
+    libssl-dev \
+    jq \
+    bash \
+    libstdc++6
+
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
 RUN cmake --preset ubsan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ && cmake --build --preset ubsan
 RUN srs_db/download_grumpkin.sh
-
-FROM alpine:3.17
-RUN apk update && apk add curl libstdc++
-COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
-COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
