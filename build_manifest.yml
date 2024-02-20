@@ -140,7 +140,7 @@ barretenberg-bench:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.bench
   dependencies:
-    - barretenberg-build
+    - barretenberg-op-count-build
 
 barretenberg-docs:
   buildDir: barretenberg/cpp
