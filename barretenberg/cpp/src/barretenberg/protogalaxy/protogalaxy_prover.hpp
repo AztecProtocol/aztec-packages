@@ -475,13 +475,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * be sent to the verifier.
      *
      */
-    void combiner_quotient_round();
-
-    /**
-     * @brief Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
-     * parameters set.
-     *
-     */
     void accumulator_update_round();
 };
 } // namespace bb
