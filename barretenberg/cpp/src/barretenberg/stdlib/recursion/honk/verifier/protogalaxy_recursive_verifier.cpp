@@ -90,16 +90,11 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
+
     if (!inst->is_accumulator) {
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
-        std::vector<FF> gate_challenges(inst->log_instance_size);
-        gate_challenges[0] = beta;
-        for (size_t i = 1; i < inst->log_instance_size; i++) {
-            gate_challenges[i] = gate_challenges[i - 1].sqr();
-        }
-        inst->gate_challenges = gate_challenges;
+        inst->gate_challenges = std::vector<FF>(inst->log_instance_size, 0);
     }
     index++;
 
@@ -124,9 +119,12 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
-    std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1);
-    for (size_t idx = 1; idx <= accumulator->log_instance_size; idx++) {
-        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+    std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1, 0);
+    if (accumulator->is_accumulator) {
+        for (size_t idx = 1; idx <= accumulator->log_instance_size; idx++) {
+            perturbator_coeffs[idx] =
+                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+        }
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;

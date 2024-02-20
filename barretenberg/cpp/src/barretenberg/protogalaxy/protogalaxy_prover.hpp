@@ -127,8 +127,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): handle the case when the accumulator is empty
-    // (i.e. we are in the first round of folding)/
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
@@ -473,6 +471,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     /**
      * @brief Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient will
      * be sent to the verifier.
+     *
+     */
+    void combiner_quotient_round();
+
+    /**
+     * @brief Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
+     * parameters set.
      *
      */
     void accumulator_update_round();
