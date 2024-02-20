@@ -3,7 +3,7 @@ import { AztecNodeConfig } from '@aztec/aztec-node';
 import { AccountManager } from '@aztec/aztec.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { LogFn } from '@aztec/foundation/log';
+import { LogFn, createConsoleLogger } from '@aztec/foundation/log';
 import { P2PConfig } from '@aztec/p2p';
 import { GrumpkinScalar, PXEService, PXEServiceConfig } from '@aztec/pxe';
 
@@ -67,6 +67,7 @@ export const mergeEnvVarsAndCliOptions = <T extends AztecNodeConfig | PXEService
   envVars: AztecNodeConfig | PXEServiceConfig | P2PConfig | ArchiverConfig,
   cliOptions: Record<string, string>,
   contractsRequired = false,
+  userLog = createConsoleLogger(),
 ) => {
   if (contractsRequired && !cliOptions.rollupAddress) {
     throw new Error('Rollup contract address is required to start the service');
@@ -79,12 +80,14 @@ export const mergeEnvVarsAndCliOptions = <T extends AztecNodeConfig | PXEService
     const l1Contracts: L1ContractAddresses = l1ContractsNames.reduce((acc, cn) => {
       const key = cn as keyof L1ContractAddresses;
       if (cliOptions[key]) {
-        return { ...acc, [key]: cliOptions[key] ? EthAddress.fromString(cliOptions[key]) : envVars.l1Contracts[key] };
+        return { ...acc, [key]: EthAddress.fromString(cliOptions[key]) };
+      } else {
+        return { ...acc, [key]: envVars.l1Contracts[key] };
       }
-      return acc;
     }, {} as L1ContractAddresses);
 
     if (hasL1Contracts(envVars) && contractsRequired && !checkContractAddresses(l1Contracts)) {
+      userLog('Deployed L1 contract addresses are required to start the service');
       throw new Error('Deployed L1 contract addresses are required to start the service');
     }
 
@@ -93,8 +96,6 @@ export const mergeEnvVarsAndCliOptions = <T extends AztecNodeConfig | PXEService
       l1Contracts,
     } as T;
   }
-
-  console.log('merged', merged);
 
   return merged;
 };
