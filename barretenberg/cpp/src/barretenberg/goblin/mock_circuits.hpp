@@ -36,6 +36,10 @@ class GoblinMockCircuits {
     using VerificationKey = Flavor::VerificationKey;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
+    /**
+     * @brief
+     *
+     */
     struct FoldOutput {
         std::vector<FF> fold_proof;
         std::shared_ptr<VerificationKey> inst_vk;
@@ -242,7 +246,7 @@ class GoblinMockCircuits {
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
-        // Init
+        // Initial kernel iteration does not have a previous kernel to fold
         if (kernel.fold_proof.empty()) {
             FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { func.inst_vk } };
             auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);

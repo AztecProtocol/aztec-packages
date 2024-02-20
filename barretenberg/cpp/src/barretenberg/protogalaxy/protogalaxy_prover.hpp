@@ -62,8 +62,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     ProverInstances instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-    ProtogalaxyProofConstructionState<ProverInstances> state;
     std::shared_ptr<CommitmentKey> commitment_key;
+    ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
@@ -457,9 +457,28 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         FF& challenge,
         const FF& compressed_perturbator);
 
+    /**
+     * @brief
+     *
+     */
     void preparation_round();
+
+    /**
+     * @brief
+     *
+     */
     void perturbator_round();
+
+    /**
+     * @brief
+     *
+     */
     void combiner_quotient_round();
+
+    /**
+     * @brief
+     *
+     */
     void accumulator_update_round();
 };
 } // namespace bb

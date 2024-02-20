@@ -218,6 +218,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     FF delta = transcript->template get_challenge<FF>("delta");
     state.deltas = compute_round_challenge_pows(state.accumulator->log_instance_size, delta);
     state.perturbator = compute_perturbator(state.accumulator, state.deltas);
+
+    // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of the
+    // accumulator which the folding verifier has from the previous iteration.
     for (size_t idx = 1; idx <= state.accumulator->log_instance_size; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
     }

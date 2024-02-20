@@ -54,7 +54,7 @@ ClientIVC::Proof ClientIVC::prove()
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(Proof& proof, const std::vector<ClientIVC::VerifierAccumulator>& verifier_instances)
+bool ClientIVC::verify(Proof& proof, const std::vector<åVerifierAccumulator>& verifier_instances)
 {
     // Goblin verification (merge, eccvm, translator)
     bool goblin_verified = goblin.verify(proof.goblin_proof);
@@ -90,6 +90,8 @@ HonkProof ClientIVC::decider_prove() const
  */
 void ClientIVC::precompute_folding_verification_keys()
 {
+    using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
+
     Composer composer;
     ClientCircuit initial_function_circuit{ goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);

@@ -4,6 +4,10 @@
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
+
+/**
+ * @brief The stdlib counterpart of VerifierInstance, used in recursive folding verification
+ */
 template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
@@ -92,6 +96,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             FF::from_witness(builder, instance->relation_parameters.lookup_grand_product_delta);
     }
 
+    /**
+     * @brief Return the underlying native VerifierInstance.
+     *
+     * @details In the context of client IVC, we will have several iterations of recursive folding verification. The
+     * RecursiveVerifierInstance is tied to the builder in whose context it was created so in order to preserve the
+     * accumulator values between several iterations we need to retrieve the native VerifierInstance values.
+     */
     VerifierInstance get_value()
     {
         VerifierInstance inst;

@@ -21,7 +21,6 @@ class ClientIVC {
     using FoldProof = std::vector<FF>;
     using ProverAccumulator = std::shared_ptr<ProverInstance_<Flavor>>;
     using VerifierAccumulator = std::shared_ptr<VerifierInstance_<Flavor>>;
-    using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
     using ProverInstance = ProverInstance_<GoblinUltraFlavor>;
     using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
 
@@ -35,15 +34,14 @@ class ClientIVC {
   private:
     using ProverFoldOutput = FoldingResult<GoblinUltraFlavor>;
     using Composer = GoblinUltraComposer;
+    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
+    // be needed in the real IVC as they are provided as inputs
+    std::shared_ptr<ProverInstance> prover_instance;
 
   public:
     Goblin goblin;
     ProverFoldOutput prover_fold_output;
     ProverAccumulator prover_accumulator;
-
-    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
-    // be needed in the real IVC as they are provided as inputs
-    std::shared_ptr<ProverInstance> prover_instance;
 
     std::array<std::shared_ptr<VerificationKey>, 4> vks;
 

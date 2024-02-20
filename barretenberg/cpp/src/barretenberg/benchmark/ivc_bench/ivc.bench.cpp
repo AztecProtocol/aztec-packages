@@ -44,23 +44,26 @@ class IvcBench : public benchmark::Fixture {
      */
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
-        // Initialize IVC with function circuit
+        // Initialize IVC with a function circuit
         Builder initial_function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
         ivc.initialize(initial_function_circuit);
         auto kernel_verifeir_accumulator = std::make_shared<ClientIVC::VerifierInstance>();
         kernel_verifeir_accumulator->verification_key = ivc.vks[0];
 
+        // Accumulate another function circuit
         Builder function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
         auto function_fold_proof = ivc.accumulate(function_circuit);
         FoldOutput function_fold_output = { function_fold_proof, ivc.vks[1] };
 
+        // Create and accumulate the first folding kernel which only verifies the accumulation of a function circuit
         Builder kernel_circuit{ ivc.goblin.op_queue };
         kernel_verifeir_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
             kernel_circuit, function_fold_output, {}, kernel_verifeir_accumulator);
         auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
         FoldOutput kernel_fold_output = { kernel_fold_proof, ivc.vks[2] };
+
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         // Subtract one to account for the "initialization" round above
         NUM_CIRCUITS -= 1;
@@ -71,7 +74,8 @@ class IvcBench : public benchmark::Fixture {
             auto function_fold_proof = ivc.accumulate(function_circuit);
             function_fold_output = { function_fold_proof, ivc.vks[1] };
 
-            // Accumulate kernel circuit
+            // Create kernel circuit containing the recursive folding verification of a function circuit and a kernel
+            // circuit and accumulate it
             Builder kernel_circuit{ ivc.goblin.op_queue };
             kernel_verifeir_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
                 kernel_circuit, function_fold_output, kernel_fold_output, kernel_verifeir_accumulator);

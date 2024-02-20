@@ -11,6 +11,8 @@ namespace bb {
  * required by an Ultra Goblin Honk prover to create a proof. A ProverInstance is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
+ *
+ * @details This is the equivalent of ω in the paper.
  */
 
 template <class Flavor> class ProverInstance_ {
