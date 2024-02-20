@@ -137,7 +137,7 @@ jobs:
           command: cond_spot_run_build avm-transpiler 32
 
   # Barretenberg
-  barretenberg-wasm-build:
+  barretenberg-asan-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -146,9 +146,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-wasm-build 128
+          command: cond_spot_run_build barretenberg-asan-build 128
 
-  barretenberg-gcc-build:
+  barretenberg-assert-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -157,7 +157,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-gcc-build 128
+          command: cond_spot_run_build barretenberg-assert-build 128
 
   barretenberg-build:
     docker:
@@ -181,7 +181,7 @@ jobs:
           name: "Build"
           command: cond_spot_run_build barretenberg-fuzzing-build 128
 
-  barretenberg-assert-build:
+  barretenberg-gcc-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -190,7 +190,62 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-assert-build 128
+          command: cond_spot_run_build barretenberg-gcc-build 128
+
+  barretenberg-msan-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-msan-build 128
+
+  barretenberg-op-count-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-op-count-build 128
+
+  barretenberg-tsan-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-tsan-build 128
+
+  barretenberg-ubsan-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-ubsan-build 128
+
+  barretenberg-wasm-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-wasm-build 128
 
   barretenberg-solidity-verifier:
     docker:
@@ -1240,10 +1295,15 @@ workflows:
       - avm-transpiler: *defaults
 
       # Barretenberg
-      - barretenberg-gcc-build: *defaults
-      - barretenberg-build: *defaults
+      - barretenberg-asan-build: *defaults
       - barretenberg-assert-build: *defaults
+      - barretenberg-build: *defaults
       - barretenberg-fuzzing-build: *defaults
+      - barretenberg-gcc-build: *defaults
+      - barretenberg-msan-build: *defaults
+      - barretenberg-op-count-build: *defaults
+      - barretenberg-tsan-build: *defaults
+      - barretenberg-ubsan-build: *defaults
       - barretenberg-wasm-build: *defaults
       - barretenberg-solidity-verifier: *defaults
       - barretenberg-bench:
