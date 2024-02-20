@@ -55,6 +55,7 @@ contract DecoderBase is Test {
     uint256 chainId;
     address coinbase;
     bytes32 feeRecipient;
+    uint256 summedFee;
     uint256 timestamp;
     uint256 version;
   }

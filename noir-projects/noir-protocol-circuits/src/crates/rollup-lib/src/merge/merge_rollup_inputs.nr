@@ -29,6 +29,7 @@ impl MergeRollupInputs {
 
         let public_inputs = BaseOrMergeRollupPublicInputs {
             rollup_type: MERGE_ROLLUP_TYPE,
+            summed_fee: left.summed_fee + right.summed_fee,
             height_in_block_tree: current_height + 1,
             aggregation_object,
             constants: left.constants,

@@ -23,6 +23,10 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public rollupSubtreeHeight: Fr,
     /**
+     * Summed fees
+     */
+    public summedFee: Fr,
+    /**
      * Native aggregation state at the end of the rollup circuit.
      */
     public aggregationObject: AggregationObject,
@@ -56,6 +60,7 @@ export class BaseOrMergeRollupPublicInputs {
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readObject(AggregationObject),
       reader.readObject(ConstantRollupData),
       reader.readObject(PartialStateReference),
@@ -72,6 +77,7 @@ export class BaseOrMergeRollupPublicInputs {
     return serializeToBuffer(
       this.rollupType,
       this.rollupSubtreeHeight,
+      this.summedFee,
       this.aggregationObject,
       this.constants,
 

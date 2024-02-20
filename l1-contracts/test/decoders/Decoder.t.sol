@@ -75,6 +75,8 @@ contract DecoderTest is DecoderBase {
         assertEq(
           header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
         );
+        assertEq(header.globalVariables.summedFee, globalVariables.summedFee, "Invalid summedFee");
+        emit log_named_uint("SummedFee", header.globalVariables.summedFee);
       }
 
       // ContentCommitment

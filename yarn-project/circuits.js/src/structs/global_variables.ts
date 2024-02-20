@@ -22,6 +22,8 @@ export class GlobalVariables {
     public coinbase: EthAddress,
     /** Address to receive fees. */
     public feeRecipient: AztecAddress,
+    /** Sum of fees */
+    public summedFee: Fr = Fr.ZERO,
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -29,7 +31,7 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO);
+    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO, Fr.ZERO);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
@@ -41,6 +43,7 @@ export class GlobalVariables {
       Fr.fromBuffer(reader),
       reader.readObject(EthAddress),
       reader.readObject(AztecAddress),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -52,6 +55,7 @@ export class GlobalVariables {
       Fr.fromString(obj.timestamp),
       EthAddress.fromString(obj.coinbase),
       AztecAddress.fromString(obj.feeRecipient),
+      Fr.fromString(obj.summedFee),
     );
   }
 
@@ -65,6 +69,7 @@ export class GlobalVariables {
       reader.readField(),
       EthAddress.fromField(reader.readField()),
       AztecAddress.fromField(reader.readField()),
+      reader.readField(),
     );
   }
 
@@ -77,6 +82,7 @@ export class GlobalVariables {
       fields.timestamp,
       fields.coinbase,
       fields.feeRecipient,
+      fields.summedFee,
     ] as const;
   }
 
@@ -102,6 +108,7 @@ export class GlobalVariables {
       timestamp: this.timestamp.toString(),
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
+      summedFee: this.summedFee.toString(),
     };
   }
 
@@ -112,7 +119,8 @@ export class GlobalVariables {
       this.blockNumber.isZero() &&
       this.timestamp.isZero() &&
       this.coinbase.isZero() &&
-      this.feeRecipient.isZero()
+      this.feeRecipient.isZero() &&
+      this.summedFee.isZero()
     );
   }
 }

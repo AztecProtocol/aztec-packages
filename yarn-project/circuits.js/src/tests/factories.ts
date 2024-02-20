@@ -960,6 +960,7 @@ export function makeBaseOrMergeRollupPublicInputs(
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     new Fr(0n),
+    new Fr(0n),
     makeAggregationObject(seed + 0x100),
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),

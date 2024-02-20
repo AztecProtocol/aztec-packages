@@ -121,6 +121,7 @@ impl BaseRollupInputs {
 
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
+            summed_fee: combined.gas_amount(),
             height_in_block_tree: 0,
             aggregation_object,
             constants: self.constants,

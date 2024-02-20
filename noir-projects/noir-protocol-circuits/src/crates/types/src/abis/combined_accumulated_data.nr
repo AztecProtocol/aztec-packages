@@ -55,6 +55,43 @@ impl CombinedAccumulatedData {
         !self.public_call_stack[0].is_empty()
     }
 
+    pub fn gas_amount(self) -> Field {
+        let mut gas_amount = 0;
+        for i in 0..self.new_commitments.len() {
+            if !is_empty(self.new_commitments[i]) {
+                gas_amount += 512;
+            }
+        }
+        for i in 0..self.new_nullifiers.len() {
+            if !is_empty(self.new_nullifiers[i]) {
+                gas_amount += 512;
+            }
+        }
+
+        for i in 0..self.new_l2_to_l1_msgs.len() {
+            if !is_empty(self.new_l2_to_l1_msgs[i]) {
+                gas_amount += 512;
+            }
+        }
+
+        for i in 0..self.new_contracts.len() {
+            if !is_empty(self.new_contracts[i]) {
+                gas_amount += 1344;
+            }
+        }
+
+        for i in 0..self.public_data_update_requests.len() {
+            if !is_empty(self.public_data_update_requests[i]) {
+                gas_amount += 1024;
+            }
+        }
+
+        gas_amount += (self.encrypted_log_preimages_length + self.unencrypted_log_preimages_length) * 16;
+
+        // TODO(LASSE GET BACK HERE)
+        gas_amount
+    }
+
     pub fn recombine(
         non_revertible: PublicAccumulatedNonRevertibleData,
         revertible: PublicAccumulatedRevertibleData

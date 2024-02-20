@@ -15,6 +15,7 @@ struct BaseOrMergeRollupPublicInputs {
     // subtree height is always 0 for base.
     // so that we always pass-in two base/merge circuits of the same height into the next level of recursion
     height_in_block_tree : Field,
+    summed_fee: Field,
     aggregation_object : AggregationObject,
     constants : ConstantRollupData,
 

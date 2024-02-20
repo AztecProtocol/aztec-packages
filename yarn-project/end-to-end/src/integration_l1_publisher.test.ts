@@ -282,6 +282,7 @@ describe('L1Publisher integration', () => {
             version: Number(block.header.globalVariables.version.toBigInt()),
             coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
+            summedFee: `0x${block.header.globalVariables.summedFee.toBuffer().toString('hex').padStart(64, '0')}`,
           },
           lastArchive: {
             nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,

@@ -50,6 +50,7 @@ import {Hash} from "./Hash.sol";
  *  | 0x01b8                                                                           | 0x20         |     timestamp
  *  | 0x01d8                                                                           | 0x14         |     coinbase
  *  | 0x01ec                                                                           | 0x20         |     feeRecipient
+ *  | 0x020c                                                                           | 0x20         |     summedFee
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
@@ -80,6 +81,7 @@ library HeaderLib {
     uint256 timestamp;
     address coinbase;
     bytes32 feeRecipient;
+    uint256 summedFee;
   }
 
   struct ContentCommitment {
@@ -96,7 +98,7 @@ library HeaderLib {
     GlobalVariables globalVariables;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x20c; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x22c; // Header byte length
 
   /**
    * @notice Validates the header
@@ -183,7 +185,8 @@ library HeaderLib {
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0198:0x01b8]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x01b8:0x01d8]));
     header.globalVariables.coinbase = address(bytes20(_header[0x01d8:0x01ec]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01ec:HEADER_LENGTH]);
+    header.globalVariables.feeRecipient = bytes32(_header[0x01ec:0x020c]);
+    header.globalVariables.summedFee = uint256(bytes32(_header[0x020c:HEADER_LENGTH]));
 
     return header;
   }

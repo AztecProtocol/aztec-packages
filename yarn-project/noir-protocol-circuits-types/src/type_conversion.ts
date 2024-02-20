@@ -1357,6 +1357,7 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
     timestamp: mapFieldToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
     fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
+    summed_fee: mapFieldToNoir(globalVariables.summedFee),
   };
 }
 
@@ -1384,6 +1385,7 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
     mapFieldFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),
     mapAztecAddressFromNoir(globalVariables.fee_recipient),
+    mapFieldFromNoir(globalVariables.summed_fee),
   );
 }
 
@@ -1458,6 +1460,7 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
   return {
     rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
     height_in_block_tree: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupSubtreeHeight)),
+    summed_fee: mapFieldToNoir(baseOrMergeRollupPublicInputs.summedFee),
     aggregation_object: {},
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
@@ -1505,6 +1508,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
   return new BaseOrMergeRollupPublicInputs(
     mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.height_in_block_tree),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.summed_fee),
     AggregationObject.makeFake(),
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),

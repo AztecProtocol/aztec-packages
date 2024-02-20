@@ -48,11 +48,14 @@ impl RootRollupInputs {
             out_hash: [0, 0]
         };
 
+        let mut new_global_variables = left.constants.global_variables;
+        new_global_variables.summed_fee = left.summed_fee + right.summed_fee;
+
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
             state,
-            global_variables: left.constants.global_variables
+            global_variables: new_global_variables
         };
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
