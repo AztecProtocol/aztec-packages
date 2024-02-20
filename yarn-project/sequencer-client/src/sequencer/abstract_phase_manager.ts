@@ -447,11 +447,6 @@ export abstract class AbstractPhaseManager {
       simRevertiblePublicDataUpdateRequests.length + simNonRevertiblePublicDataUpdateRequests.length ===
       simPublicDataUpdateRequests.length;
 
-    this.log.debug(`Simulator public data update request`);
-    for (const write of simPublicDataUpdateRequests) {
-      this.log.debug(write.toFriendlyJSON());
-    }
-
     if (!readsAreEqual) {
       throw new Error(
         `Public data reads from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataReads
