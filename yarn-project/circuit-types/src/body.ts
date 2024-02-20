@@ -135,20 +135,6 @@ export class Body {
     return computeRoot(leafs);
   }
 
-  public areLogsEqual(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
-    if (
-      this.txEffects.every(
-        (txEffect, i) =>
-          txEffect.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
-          txEffect.unencryptedLogs.equals(unencryptedLogs.txLogs[i]),
-      )
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
   get encryptedLogs(): L2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
 
