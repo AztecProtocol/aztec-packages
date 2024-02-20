@@ -52,9 +52,8 @@ template <class Flavor> class ExecutionTrace_ {
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
      *
      * @param builder
-     * @param dyadic_circuit_size
      */
-    static void generate(const Builder& builder, size_t dyadic_circuit_size, const std::shared_ptr<ProvingKey>&);
+    static void generate(const Builder& builder, const std::shared_ptr<ProvingKey>&);
 
   private:
     /**

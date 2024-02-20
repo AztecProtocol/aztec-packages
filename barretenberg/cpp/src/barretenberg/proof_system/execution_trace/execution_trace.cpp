@@ -7,11 +7,10 @@ namespace bb {
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::generate(const Builder& builder,
-                                       size_t dyadic_circuit_size,
                                        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
 {
     // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data
-    auto trace_data = construct_trace_data(builder, dyadic_circuit_size);
+    auto trace_data = construct_trace_data(builder, proving_key->circuit_size);
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
