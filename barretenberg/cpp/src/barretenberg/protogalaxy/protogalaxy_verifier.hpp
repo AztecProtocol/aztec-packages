@@ -67,12 +67,6 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     void prepare_for_folding(const std::vector<FF>&);
 
     /**
-     * @brief Instantiatied the accumulator (i.e. the relaxed instance) from the transcript.
-     *
-     */
-    // void receive_accumulator(const std::shared_ptr<Instance>&, const std::string&);
-
-    /**
      * @brief Process the public data ϕ for the Instances to be folded.
      *
      */

@@ -25,7 +25,7 @@ class ClientIVCTests : public ::testing::Test {
     using VerifierAccumulator = ClientIVC::VerifierAccumulator;
     using VerifierInstance = ClientIVC::VerifierInstance;
     using FoldProof = ClientIVC::FoldProof;
-    using FoldOutput = GoblinMockCircuits::FoldOutput;
+    using VerifierFoldData = GoblinMockCircuits::VerifierFoldData;
     using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<Builder>;
     using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<GURecursiveFlavor>;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
@@ -55,8 +55,8 @@ class ClientIVCTests : public ::testing::Test {
      * @param kernel_fold_proof
      */
     static VerifierAccumulator construct_mock_folding_kernel(Builder& builder,
-                                                             FoldOutput& func_accum,
-                                                             FoldOutput& kernel_accum,
+                                                             VerifierFoldData& func_accum,
+                                                             VerifierFoldData& kernel_accum,
                                                              VerifierAccumulator& prev_kernel_accum)
     {
 
@@ -90,25 +90,26 @@ TEST_F(ClientIVCTests, Full)
     FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
     auto function_vk_2 = composer.compute_verification_key(ivc.prover_instance);
     auto kernel_vk = function_vk_2;
-    FoldOutput kernel_fold_output = { kernel_fold_proof, function_vk_2 };
+    VerifierFoldData kernel_fold_output = { kernel_fold_proof, function_vk_2 };
     size_t NUM_CIRCUITS = 1;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Accumulate function circuit
         Builder function_circuit = create_mock_circuit(ivc);
         FoldProof function_fold_proof = ivc.accumulate(function_circuit);
-        FoldOutput function_fold_output = { function_fold_proof, function_vk_2 };
+        VerifierFoldData function_fold_output = { function_fold_proof, function_vk_2 };
         // Accumulate kernel circuit
         Builder kernel_circuit{ ivc.goblin.op_queue };
         kernel_acc =
             construct_mock_folding_kernel(kernel_circuit, kernel_fold_output, function_fold_output, kernel_acc);
         FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
         kernel_vk = composer.compute_verification_key(ivc.prover_instance);
-        FoldOutput kernel_fold_output = { kernel_fold_proof, kernel_vk };
+        VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
     }
 
     // Constuct four proofs: merge, eccvm, translator, decider
     auto proof = ivc.prove();
-    auto inst = std::make_shared<VerifierInstance>(kernel_vk);
+    auto inst = std::make_shared<VerifierInstance>();
+    inst->verification_key = kernel_vk;
     // Verify all four proofs
     EXPECT_TRUE(ivc.verify(proof, { kernel_acc, inst }));
 };

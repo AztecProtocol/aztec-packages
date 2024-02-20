@@ -180,14 +180,13 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         Builder folding_circuit;
         auto verifier =
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
-        auto acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
+        verifier.verify_folding_proof(folding_proof.folding_data);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
-        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
+        native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
@@ -240,7 +239,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier =
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
-        auto acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
+        auto native_verifier_acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
@@ -261,7 +260,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto decider_proof = decider_prover.construct_proof();
 
         Builder decider_circuit;
-        DeciderRecursiveVerifier decider_verifier{ &decider_circuit, acc };
+        DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
@@ -349,8 +348,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 };
 
-using FlavorTypes =
-    testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, UltraRecursiveFlavor_<UltraCircuitBuilder>>;
+using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

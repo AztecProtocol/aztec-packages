@@ -142,13 +142,13 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     next_accumulator->instance_size = accumulator->instance_size;
     next_accumulator->log_instance_size = accumulator->log_instance_size;
     next_accumulator->is_accumulator = true;
-    // Compute next folding parameters and verify against the ones received from the prover
+    // Compute next folding parameters
     next_accumulator->target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // Compute ϕ and verify against the data received from the prover
+    // Compute ϕ
     auto& acc_witness_commitments = next_accumulator->witness_commitments;
     auto witness_labels = commitment_labels.get_witness();
     size_t comm_idx = 0;

@@ -18,37 +18,37 @@ class MockKernelTest : public ::testing::Test {
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    using FoldOutput = GoblinMockCircuits::FoldOutput;
     ClientIVC ivc;
     ivc.precompute_folding_verification_keys();
-    // Accumulate three circuits to generate two folding proofs for input to foldng kernel
+    // Accumulate three circuits to generate two folding proofs for input to folding kernel
     GoblinUltraCircuitBuilder circuit_1{ ivc.goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_1);
     ivc.initialize(circuit_1);
-    auto verifier_acc = std::make_shared<ClientIVC::VerifierInstance>();
-    verifier_acc->verification_key = ivc.vks.first_func_vk;
+    auto initial_acc = std::make_shared<ClientIVC::VerifierInstance>();
+    initial_acc->verification_key = ivc.vks.first_func_vk;
 
     GoblinUltraCircuitBuilder circuit_2{ ivc.goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_2);
-    auto fold_proof_1 = ivc.accumulate(circuit_2);
+    auto func_fold_proof = ivc.accumulate(circuit_2);
 
-    FoldOutput kernel_accum;
     // Construct kernel circuit
     GoblinUltraCircuitBuilder kernel_circuit{ ivc.goblin.op_queue };
-    auto new_acc = GoblinMockCircuits::construct_mock_folding_kernel(
-        kernel_circuit, { fold_proof_1, ivc.vks.func_vk }, {}, verifier_acc);
+    auto kernel_acc = GoblinMockCircuits::construct_mock_folding_kernel(
+        kernel_circuit, { func_fold_proof, ivc.vks.func_vk }, {}, initial_acc);
 
-    auto fold_proof_3 = ivc.accumulate(kernel_circuit);
+    auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
     EXPECT_EQ(ivc.prover_instance->log_instance_size, 17);
 
     GoblinUltraCircuitBuilder circuit_4{ ivc.goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_4);
-    auto fold_proof_4 = ivc.accumulate(circuit_4);
+    func_fold_proof = ivc.accumulate(circuit_4);
 
-    GoblinUltraCircuitBuilder new_kernel_circuit = GoblinUltraCircuitBuilder{ ivc.goblin.op_queue };
-    new_acc = GoblinMockCircuits::construct_mock_folding_kernel(
-        new_kernel_circuit, { fold_proof_3, ivc.vks.first_kernel_vk }, { fold_proof_4, ivc.vks.func_vk }, new_acc);
+    kernel_circuit = GoblinUltraCircuitBuilder{ ivc.goblin.op_queue };
+    kernel_acc = GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit,
+                                                                   { kernel_fold_proof, ivc.vks.first_kernel_vk },
+                                                                   { func_fold_proof, ivc.vks.func_vk },
+                                                                   kernel_acc);
     GoblinUltraComposer composer;
-    auto instance = composer.create_prover_instance(new_kernel_circuit);
+    auto instance = composer.create_prover_instance(kernel_circuit);
     EXPECT_EQ(instance->proving_key->log_circuit_size, 17);
 }

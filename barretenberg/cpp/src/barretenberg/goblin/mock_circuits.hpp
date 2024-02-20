@@ -37,12 +37,12 @@ class GoblinMockCircuits {
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
     /**
-     * @brief
-     *
+     * @brief Information required by the verifier to verify a folding round besides the previous accumulator.
      */
-    struct FoldOutput {
-        std::vector<FF> fold_proof;
-        std::shared_ptr<VerificationKey> inst_vk;
+    struct VerifierFoldData {
+        std::vector<FF> fold_proof; // folding proof
+        std::shared_ptr<VerificationKey>
+            inst_vk; // Verification key of the instance to be folded (note: this would be a vector if k > 1 )
     };
 
     /**
@@ -227,8 +227,8 @@ class GoblinMockCircuits {
      */
     static std::shared_ptr<VerifierInstance> construct_mock_folding_kernel(
         GoblinUltraBuilder& builder,
-        const FoldOutput& func,
-        const FoldOutput& kernel,
+        const VerifierFoldData& func,
+        const VerifierFoldData& kernel,
         std::shared_ptr<VerifierInstance>& prev_kernel_accum)
     {
         using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;

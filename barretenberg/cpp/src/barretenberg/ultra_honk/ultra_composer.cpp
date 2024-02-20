@@ -58,7 +58,7 @@ std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::comput
         verification_key->q_poseidon2_internal = commitment_key->commit(proving_key->q_poseidon2_internal);
     }
 
-    return std::move(verification_key);
+    return verification_key;
 }
 
 template <IsUltraFlavor Flavor>
