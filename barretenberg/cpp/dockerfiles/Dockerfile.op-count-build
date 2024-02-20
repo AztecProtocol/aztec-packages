@@ -12,9 +12,9 @@ RUN apk update \
     perl
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
-# Build targets needed for benchmarking. 
+# Build targets needed for benchmarking.
 RUN cmake --preset op-count-track -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-RUN cmake --build --preset op-count-track --target ultra_honk_rounds_bench --target grumpkin_srs_gen
+RUN cmake --build --preset op-count-track --target ivc_bench --target goblin_ultra_honk_bench --target grumpkin_srs_gen
 
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
