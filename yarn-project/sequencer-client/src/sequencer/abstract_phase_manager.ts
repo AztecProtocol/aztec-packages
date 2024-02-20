@@ -77,7 +77,6 @@ export abstract class AbstractPhaseManager {
   ) {
     this.log = createDebugLogger(`aztec:sequencer:${phase}`);
   }
-
   /**
    *
    * @param tx - the tx to be processed
