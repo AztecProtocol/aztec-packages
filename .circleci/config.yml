@@ -1308,7 +1308,7 @@ workflows:
       - barretenberg-solidity-verifier: *defaults
       - barretenberg-bench:
           requires:
-            - barretenberg-build
+            - barretenberg-op-count-build
           <<: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
