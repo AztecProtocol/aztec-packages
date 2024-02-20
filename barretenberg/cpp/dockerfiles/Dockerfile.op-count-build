@@ -13,7 +13,7 @@ COPY . .
 # Build bb binary and targets needed for benchmarking. 
 # Everything else is built as part linux-clang-assert.
 # Benchmark targets want to run without asserts, so get built alongside bb.
-RUN cmake --preset op-count-track
+RUN cmake --preset op-count-track -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 RUN cmake --build --preset op-count-track --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
 
 FROM alpine:3.18

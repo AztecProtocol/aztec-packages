@@ -15,7 +15,7 @@ RUN apk update \
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
-RUN cmake --preset msan -DCMAKE_BUILD_TYPE=RelWithAssert -DCI=ON && cmake --build --preset msan
+RUN cmake --preset msan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ && cmake --build --preset msan
 RUN srs_db/download_grumpkin.sh
 
 FROM alpine:3.17

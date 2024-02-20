@@ -15,7 +15,7 @@ RUN apk update \
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
-RUN cmake --preset ubsan && cmake --build --preset ubsan
+RUN cmake --preset ubsan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ && cmake --build --preset ubsan
 RUN srs_db/download_grumpkin.sh
 
 FROM alpine:3.17
