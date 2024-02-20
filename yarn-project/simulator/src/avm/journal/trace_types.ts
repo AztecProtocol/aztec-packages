@@ -25,7 +25,7 @@ export type TracedPublicStorageWrite = {
   endLifetime: Fr;
 };
 
-export type TracedNoteHashChecks = {
+export type TracedNoteHashCheck = {
   callPointer: Fr;
   storageAddress: Fr;
   leafIndex: Fr;

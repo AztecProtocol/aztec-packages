@@ -75,7 +75,7 @@ export class EmitNullifier extends Instruction {
     }
 
     const nullifier = context.machineState.memory.get(this.nullifierOffset).toFr();
-    context.worldState.newNullifier(Fr.ZERO, context.environment.storageAddress, nullifier);
+    context.worldState.emitNullifier(Fr.ZERO, context.environment.storageAddress, nullifier);
 
     context.machineState.incrementPc();
   }
@@ -120,7 +120,7 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     const msg = context.machineState.memory.getSlice(this.msgOffset, this.msgSize).map(f => f.toFr());
-    context.worldState.writeL1Message(msg);
+    context.worldState.sendL2ToL1Message(msg);
 
     context.machineState.incrementPc();
   }

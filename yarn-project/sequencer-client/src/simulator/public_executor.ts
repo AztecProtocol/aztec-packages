@@ -1,10 +1,11 @@
-import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, SiblingPath, Tx } from '@aztec/circuit-types';
 import {
   AztecAddress,
   EthAddress,
   Fr,
   FunctionSelector,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
@@ -165,6 +166,10 @@ export class WorldStateDB implements CommitmentsDB {
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
     return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
+  }
+
+  public async getSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
+    return await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 }
 

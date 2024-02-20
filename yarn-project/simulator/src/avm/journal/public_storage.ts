@@ -21,18 +21,24 @@ export class PublicStorage {
     this.pendingStorage.acceptAndMerge(otherPublicStorage.pendingStorage);
   }
 
-  public async read(storageAddress: Fr, key: Fr): Promise<Fr | undefined> {
+  public async read(
+    storageAddress: Fr,
+    slot: Fr
+  ): Promise<[/*exists=*/boolean, /*value=*/Fr]> {
     // First try check this storage cache
-    let value = this.pendingStorage.read(storageAddress, key);
+    let value = this.pendingStorage.read(storageAddress, slot);
     // Then try parent's storage cache (if it exists / written to earlier in this TX)
     if (!value && this.parentStorage) {
-      value = this.parentStorage?.read(storageAddress, key);
+      value = this.parentStorage?.read(storageAddress, slot);
     }
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
-      value = await this.hostPublicStorage.storageRead(storageAddress, key);
+      value = await this.hostPublicStorage.storageRead(storageAddress, slot);
     }
-    return Promise.resolve(value);
+    // if value is undefined, that means this slot has never been written to!
+    const exists = value !== undefined;
+    const valueOrZero = exists ? value : Fr.ZERO;
+    return Promise.resolve([exists, valueOrZero]);
   }
 
   public write(storageAddress: Fr, key: Fr, value: Fr) {

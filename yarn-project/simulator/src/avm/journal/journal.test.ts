@@ -149,7 +149,7 @@ describe('journal', () => {
       const callPointer = new Fr(42);
       const storageAddress = new Fr(1);
       const nullifier = new Fr(1);
-      journal.newNullifier(callPointer, storageAddress, nullifier);
+      journal.emitNullifier(callPointer, storageAddress, nullifier);
       const expectTracedNullifier: TracedNullifier = {
         callPointer,
         storageAddress,
@@ -175,7 +175,7 @@ describe('journal', () => {
       const callPointer = new Fr(42);
       const storageAddress = new Fr(1);
       const nullifier = new Fr(1);
-      journal.newNullifier(callPointer, storageAddress, nullifier);
+      journal.emitNullifier(callPointer, storageAddress, nullifier);
       const exists = await journal.checkNullifierExists(callPointer, storageAddress, nullifier);
       expect(exists).toEqual(true);
     });
@@ -185,7 +185,7 @@ describe('journal', () => {
       const storageAddress = new Fr(1);
       const nullifier = new Fr(1);
       const childJournal = new AvmPersistableState(hostStorage, journal);
-      journal.newNullifier(parentCallPointer, storageAddress, nullifier);
+      journal.emitNullifier(parentCallPointer, storageAddress, nullifier);
       const exists = await childJournal.checkNullifierExists(childCallPointer, storageAddress, nullifier);
       expect(exists).toEqual(true);
     });
@@ -194,7 +194,7 @@ describe('journal', () => {
       const storageAddress = new Fr(1);
       const nullifier = new Fr(1);
 
-      journal.newNullifier(callPointer, storageAddress, nullifier);
+      journal.emitNullifier(callPointer, storageAddress, nullifier);
       const expectTracedNullifier: TracedNullifier = {
         callPointer,
         storageAddress,
@@ -227,7 +227,7 @@ describe('journal', () => {
       const nullifier = new Fr(1);
       const childJournal = new AvmPersistableState(hostStorage, journal);
 
-      journal.newNullifier(parentCallPointer, storageAddress, nullifier);
+      journal.emitNullifier(parentCallPointer, storageAddress, nullifier);
       const expectTracedNullifier: TracedNullifier = {
         callPointer: parentCallPointer,
         storageAddress,
@@ -320,7 +320,7 @@ describe('journal', () => {
     //journal.newNoteHash(commitment);
     //journal.writeLog(logs);
     //journal.writeL1Message(logs);
-    journal.newNullifier(parentCallPointer, storageAddress, commitment);
+    journal.emitNullifier(parentCallPointer, storageAddress, commitment);
     const expectTracedNullifier0: TracedNullifier = {
       callPointer: parentCallPointer,
       storageAddress,
@@ -363,7 +363,7 @@ describe('journal', () => {
       endLifetime: Fr.ZERO,
     };
     //childJournal.newNoteHash(commitmentT1);
-    childJournal.newNullifier(childCallPointer, storageAddress, commitmentT1);
+    childJournal.emitNullifier(childCallPointer, storageAddress, commitmentT1);
     const expectTracedNullifier1: TracedNullifier = {
       callPointer: childCallPointer,
       storageAddress,
