@@ -392,7 +392,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
   public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    if (contractAddress === undefined || contractAddress.isZero()) {
+    if (contractAddress.isZero()) {
       return Promise.resolve(undefined);
     }
     for (const blockContext of this.l2BlockContexts) {

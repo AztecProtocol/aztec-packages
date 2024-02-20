@@ -123,7 +123,7 @@ export class BlockStore {
    * @returns The block number and index of the contract.
    */
   getContractLocation(contractAddress: AztecAddress): [blockNumber: number, index: number] | undefined {
-    return this.#contractIndex.get(contractAddress?.toString());
+    return this.#contractIndex.get(contractAddress.toString());
   }
 
   /**
