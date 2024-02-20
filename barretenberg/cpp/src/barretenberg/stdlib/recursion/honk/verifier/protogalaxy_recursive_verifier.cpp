@@ -232,8 +232,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     return next_accumulator;
 }
 
-// template class ProtoGalaxyRecursiveVerifier_<VerifierInstances_<UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
-// 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
 } // namespace bb::stdlib::recursion::honk

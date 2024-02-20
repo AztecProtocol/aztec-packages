@@ -21,7 +21,6 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
     Builder* builder;
-    // RecursiveVerifierInstances_() = default;
 
     RecursiveVerifierInstances_(Builder* builder,
                                 std::shared_ptr<NativeInstance> accumulator,

@@ -136,8 +136,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     static void test_new_evaluate()
     {
         Builder builder;
-        using fr_ct = bn254<Builder>::ScalarField;
-        using fr = bn254<Builder>::ScalarFieldNative;
+        using fr_ct = typename bn254<Builder>::ScalarField;
+        using fr = typename bn254<Builder>::ScalarFieldNative;
 
         std::vector<fr> coeffs;
         std::vector<fr_ct> coeffs_ct;
@@ -349,7 +349,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 };
 
-using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+using FlavorTypes =
+    testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, UltraRecursiveFlavor_<UltraCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

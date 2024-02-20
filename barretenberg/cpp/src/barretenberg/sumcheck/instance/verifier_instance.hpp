@@ -4,9 +4,11 @@
 
 namespace bb {
 /**
- * @brief
+ * @brief The VerifierInstance encapsulates all the necessary information for a Goblin Ultra Honk Verifier to verify a
+ * proof (sumcheck + Zeromorph). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
+ * target sum and gate challenges.
  *
- * @tparam Flavor
+ * @details This is ϕ in the paper.
  */
 template <class Flavor> class VerifierInstance_ {
   public:

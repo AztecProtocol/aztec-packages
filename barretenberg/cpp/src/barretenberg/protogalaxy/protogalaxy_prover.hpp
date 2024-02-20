@@ -62,8 +62,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     ProverInstances instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-    ProtogalaxyProofConstructionState<ProverInstances> state;
     std::shared_ptr<CommitmentKey> commitment_key;
+    ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
@@ -457,9 +457,31 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         FF& challenge,
         const FF& compressed_perturbator);
 
+    /**
+     * @brief Finalise the prover instances that will be folded: complete computation of all the witness polynomials and
+     * compute commitments. Send commitments to the verifier and retrieve challenges.
+     *
+     */
     void preparation_round();
+
+    /**
+     * @brief Compute perturbator (F polynomial in paper). Send all but the constant coefficient to verifier.
+     *
+     */
     void perturbator_round();
+
+    /**
+     * @brief Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient will
+     * be sent to the verifier.
+     *
+     */
     void combiner_quotient_round();
+
+    /**
+     * @brief Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
+     * parameters set.
+     *
+     */
     void accumulator_update_round();
 };
 } // namespace bb
