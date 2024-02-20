@@ -182,7 +182,7 @@ describe('e2e_token_contract', () => {
       );
 
       const action = EthToken[1].methods.transfer(accounts[1].address, accounts[4].address, 1000n, 0);
-      const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+      const messageHash = computeAuthWitMessageHash(CrowdFunding.address, action.request());
       const witness = await wallets[1].createAuthWitness(messageHash);
       await wallets[1].addAuthWitness(witness);
 
