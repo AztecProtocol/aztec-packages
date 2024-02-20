@@ -3,8 +3,6 @@
 #include "barretenberg/common/serialize.hpp"
 #include "pedersen.hpp"
 
-extern "C" {
-
 using namespace bb;
 
 WASM_EXPORT void pedersen_commit(fr::vec_in_buf inputs_buffer, affine_element::out_buf output)
@@ -14,5 +12,4 @@ WASM_EXPORT void pedersen_commit(fr::vec_in_buf inputs_buffer, affine_element::o
     grumpkin::g1::affine_element pedersen_commitment = crypto::pedersen_commitment::commit_native(to_commit);
 
     serialize::write(output, pedersen_commitment);
-}
 }
