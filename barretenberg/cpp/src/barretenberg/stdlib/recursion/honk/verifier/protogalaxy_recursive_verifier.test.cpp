@@ -188,6 +188,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
         native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
+
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
@@ -242,6 +245,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto native_verifier_acc = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
+
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
@@ -265,9 +271,6 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
-
-        // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         DeciderVerifier native_decider_verifier = composer.create_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
@@ -348,7 +351,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 };
 
-using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+using FlavorTypes =
+    testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, UltraRecursiveFlavor_<UltraCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)
