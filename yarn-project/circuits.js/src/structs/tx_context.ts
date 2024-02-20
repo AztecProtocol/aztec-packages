@@ -1,83 +1,13 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { PublicKey } from '../index.js';
-import { AztecAddress, EthAddress, Fr, Point } from './index.js';
-
-/**
- * Contract deployment data in a TxContext
- * Not to be confused with NewContractData.
- */
-export class ContractDeploymentData {
-  /** Ethereum address of the portal contract on L1. */
-  public portalContractAddress: EthAddress;
-
-  constructor(
-    /** Public key of the contract. */
-    public publicKey: PublicKey,
-    /** Hash of the initialization payload. */
-    public initializationHash: Fr,
-    /** Contract class identifier. */
-    public contractClassId: Fr,
-    /** Contract address salt (used when deriving a contract address). */
-    public contractAddressSalt: Fr,
-    /**
-     * Ethereum address of the portal contract on L1.
-     * TODO(AD): union type kludge due to cbind compiler having special needs
-     */
-    portalContractAddress: EthAddress | AztecAddress,
-  ) {
-    this.portalContractAddress = EthAddress.fromField(portalContractAddress.toField());
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.publicKey,
-      this.initializationHash,
-      this.contractClassId,
-      this.contractAddressSalt,
-      this.portalContractAddress,
-    );
-  }
-
-  /**
-   * Returns an empty ContractDeploymentData.
-   * @returns The empty ContractDeploymentData.
-   */
-  public static empty(): ContractDeploymentData {
-    return new ContractDeploymentData(Point.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
-  }
-
-  isEmpty() {
-    return (
-      this.publicKey.isZero() &&
-      this.initializationHash.isZero() &&
-      this.contractClassId.isZero() &&
-      this.contractAddressSalt.isZero() &&
-      this.portalContractAddress.isZero()
-    );
-  }
-
-  /**
-   * Deserializes contract deployment data rom a buffer or reader.
-   * @param buffer - Buffer to read from.
-   * @returns The deserialized ContractDeploymentData.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
-    const reader = BufferReader.asReader(buffer);
-    return new ContractDeploymentData(
-      reader.readObject(Point),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      new EthAddress(reader.readBytes(32)),
-    );
-  }
-}
+import { GeneratorIndex, TX_CONTEXT_DATA_LENGTH } from '../constants.gen.js';
+import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
 
 /**
  * Transaction context.
- * @see cpp/src/aztec3/circuits/abis/tx_context.hpp.
  */
 export class TxContext {
   constructor(
@@ -119,14 +49,17 @@ export class TxContext {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.isFeePaymentTx,
-      this.isRebatePaymentTx,
-      this.isContractDeploymentTx,
-      this.contractDeploymentData,
-      this.chainId,
-      this.version,
-    );
+    return serializeToBuffer(...TxContext.getFields(this));
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...TxContext.getFields(this));
+    if (fields.length !== TX_CONTEXT_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for TxContext. Expected ${TX_CONTEXT_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**
@@ -184,5 +117,14 @@ export class TxContext {
       fields.chainId,
       fields.version,
     ] as const;
+  }
+
+  hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFields().map(f => f.toBuffer()),
+        GeneratorIndex.TX_CONTEXT,
+      ),
+    );
   }
 }

@@ -32,7 +32,7 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
         C_T_current[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
     }
 
-    FF kappa = transcript->get_challenge("kappa");
+    FF kappa = transcript->template get_challenge<FF>("kappa");
 
     // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
     std::array<FF, Flavor::NUM_WIRES> T_prev_evals;
@@ -47,7 +47,7 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
         t_shift_evals[idx] = transcript->template receive_from_prover<FF>("t_shift_eval_" + std::to_string(idx + 1));
         opening_claims.emplace_back(OpeningClaim{ { kappa, t_shift_evals[idx] }, C_t_shift[idx] });
     }
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_current_evals[idx] =
             transcript->template receive_from_prover<FF>("T_current_eval_" + std::to_string(idx + 1));
         opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, C_T_current[idx] });
@@ -55,11 +55,11 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
 
     // Check the identity T_i(\kappa) = T_{i-1}(\kappa) + t_i^{shift}(\kappa). If it fails, return false
     bool identity_checked = true;
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         identity_checked = identity_checked && (T_current_evals[idx] == T_prev_evals[idx] + t_shift_evals[idx]);
     }
 
-    FF alpha = transcript->get_challenge("alpha");
+    FF alpha = transcript->template get_challenge<FF>("alpha");
 
     // Construct batched commitment and evaluation from constituents
     auto batched_commitment = opening_claims[0].commitment;

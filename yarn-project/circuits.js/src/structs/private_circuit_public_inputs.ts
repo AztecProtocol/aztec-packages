@@ -1,10 +1,12 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { isArrayEmpty } from '@aztec/foundation/collection';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import {
+  GeneratorIndex,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -13,12 +15,15 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
+import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
+import { Header } from '../structs/header.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
-import { Header, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
+import { L2ToL1Message } from './l2_to_l1_message.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
-import { ContractDeploymentData } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.
@@ -38,6 +43,10 @@ export class PrivateCircuitPublicInputs {
      * Return values of the corresponding function call.
      */
     public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
+    /**
+     * The side-effect counter under which all side effects are non-revertible.
+     */
+    public minRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -68,7 +77,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * The end side effect counter for this call.
      */
@@ -135,13 +144,14 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(CallContext),
       reader.readObject(Fr),
       reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readObject(Fr),
       reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
@@ -154,6 +164,32 @@ export class PrivateCircuitPublicInputs {
     );
   }
 
+  static fromFields(fields: Fr[] | FieldReader): PrivateCircuitPublicInputs {
+    const reader = FieldReader.asReader(fields);
+    return new PrivateCircuitPublicInputs(
+      reader.readObject(CallContext),
+      reader.readField(),
+      reader.readFieldArray(RETURN_VALUES_LENGTH),
+      reader.readField(),
+      reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
+      reader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+      reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readField(),
+      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readField(),
+      reader.readField(),
+      reader.readObject(Header),
+      reader.readObject(ContractDeploymentData),
+      reader.readField(),
+      reader.readField(),
+    );
+  }
+
   /**
    * Create an empty PrivateCircuitPublicInputs.
    * @returns An empty PrivateCircuitPublicInputs object.
@@ -163,13 +199,14 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
+      Fr.ZERO,
       makeTuple(MAX_READ_REQUESTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
@@ -191,13 +228,14 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
+      this.minRevertibleSideEffectCounter.isZero() &&
       isEmptyArray(this.readRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newCommitments) &&
       isEmptyArray(this.newNullifiers) &&
       isZeroArray(this.privateCallStackHashes) &&
       isZeroArray(this.publicCallStackHashes) &&
-      isZeroArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.newL2ToL1Msgs) &&
       isZeroArray(this.encryptedLogsHash) &&
       isZeroArray(this.unencryptedLogsHash) &&
       this.encryptedLogPreimagesLength.isZero() &&
@@ -219,6 +257,7 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
+      fields.minRevertibleSideEffectCounter,
       fields.readRequests,
       fields.nullifierKeyValidationRequests,
       fields.newCommitments,
@@ -237,11 +276,34 @@ export class PrivateCircuitPublicInputs {
       fields.version,
     ] as const;
   }
+
   /**
    * Serialize this as a buffer.
    * @returns The buffer.
    */
   toBuffer(): Buffer {
     return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
+  }
+
+  /**
+   * Serialize this as a field array.
+   */
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PrivateCircuitPublicInputs.getFields(this));
+    if (fields.length !== PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateCircuitPublicInputs. Expected ${PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
+  hash(): Fr {
+    return Fr.fromBuffer(
+      pedersenHash(
+        this.toFields().map(field => field.toBuffer()),
+        GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS,
+      ),
+    );
   }
 }

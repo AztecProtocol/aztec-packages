@@ -19,14 +19,15 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
   SequencerConfig,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
+  EthAddress,
   Fr,
-  GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -35,20 +36,21 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computeGlobalsHash, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecLmdbStore } from '@aztec/kv-store';
+import { AztecKVStore } from '@aztec/kv-store';
+import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { initStoreForRollup } from '@aztec/kv-store/utils';
 import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import {
   GlobalVariableBuilder,
   PublicProcessorFactory,
   SequencerClient,
-  buildInitialHeader,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
-import { SiblingPath } from '@aztec/types/membership';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -104,7 +106,12 @@ export class AztecNodeService implements AztecNode {
     }
 
     const log = createDebugLogger('aztec:node');
-    const store = await AztecLmdbStore.open(config.l1Contracts.rollupAddress, config.dataDirectory);
+    const storeLog = createDebugLogger('aztec:node:lmdb');
+    const store = await initStoreForRollup(
+      AztecLmdbStore.open(config.dataDirectory, storeLog),
+      config.l1Contracts.rollupAddress,
+      storeLog,
+    );
 
     let archiver: ArchiveSource;
     if (!config.archiverUrl) {
@@ -239,6 +246,14 @@ export class AztecNodeService implements AztecNode {
     return await this.contractDataSource.getContractData(contractAddress);
   }
 
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return this.contractDataSource.getContractClass(id);
+  }
+
+  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.contractDataSource.getContract(address);
+  }
+
   /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
@@ -265,7 +280,7 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    this.log.info(`Received tx ${await tx.getTxHash()}`);
+    this.log.info(`Received tx ${tx.getTxHash()}`);
     await this.p2pClient!.sendTx(tx);
   }
 
@@ -537,7 +552,7 @@ export class AztecNodeService implements AztecNode {
 
     // No block was not found so we build the initial header.
     const committedDb = await this.#getWorldState('latest');
-    return await buildInitialHeader(committedDb);
+    return await committedDb.buildInitialHeader();
   }
 
   /**
@@ -545,20 +560,24 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to simulate.
    **/
   public async simulatePublicCalls(tx: Tx) {
-    this.log.info(`Simulating tx ${await tx.getTxHash()}`);
+    this.log.info(`Simulating tx ${tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
+
+    // If sequencer is not initialized, we just set these values to zero for simulation.
+    const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
+    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
+
+    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
+      new Fr(blockNumber),
+      coinbase,
+      feeRecipient,
+    );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const prevGlobalVariables = prevHeader?.globalVariables ?? GlobalVariables.empty();
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
-    const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    const globalVariablesHash = computeGlobalsHash(prevGlobalVariables);
-    await merkleTrees.init({
-      globalVariablesHash,
-    });
+    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, this.log);
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),
@@ -570,7 +589,7 @@ export class AztecNodeService implements AztecNode {
     if (failedTxs.length) {
       throw failedTxs[0].error;
     }
-    this.log.info(`Simulated tx ${await tx.getTxHash()} succeeds`);
+    this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
   }
 
   public setConfig(config: Partial<SequencerConfig>): Promise<void> {

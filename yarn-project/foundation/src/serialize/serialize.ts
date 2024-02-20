@@ -1,5 +1,5 @@
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-
+import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
+import { Fr } from '../fields/fields.js';
 import { numToUInt32BE } from './free_funcs.js';
 
 /**
@@ -106,38 +106,27 @@ export type Bufferable =
   | string
   | {
       /**
-       * Serialize to a buffer of 32 bytes.
-       */
-      toBuffer32: () => Buffer;
-    }
-  | {
-      /**
        * Serialize to a buffer.
        */
       toBuffer: () => Buffer;
     }
   | Bufferable[];
 
-/**
- * Checks whether an object implements the toBuffer32 method.
- * @param obj - The object to check.
- * @returns Whether the object implements the toBuffer32 method.
- */
-function isSerializableToBuffer32(obj: object): obj is {
-  /**
-   * Signature of the target serialization function.
-   */
-  toBuffer32: () => Buffer;
-} {
-  return !!(
-    obj as {
-      /**
-       * Signature of the target serialization function.
-       */
-      toBuffer32: () => Buffer;
+/** A type that can be converted to a Field or a Field array. */
+export type Fieldeable =
+  | Fr
+  | boolean
+  | number
+  | bigint
+  | {
+      /** Serialize to a field. */
+      toField: () => Fr;
     }
-  ).toBuffer32;
-}
+  | {
+      /** Serialize to an array of fields. */
+      toFields: () => Fr[];
+    }
+  | Fieldeable[];
 
 /**
  * Serializes a list of objects contiguously.
@@ -159,10 +148,31 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
     } else if (typeof obj === 'string') {
       ret.push(numToUInt32BE(obj.length));
       ret.push(Buffer.from(obj));
-    } else if (isSerializableToBuffer32(obj)) {
-      ret.push(obj.toBuffer32());
     } else {
       ret.push(obj.toBuffer());
+    }
+  }
+  return ret;
+}
+
+/**
+ * Serializes a list of objects contiguously.
+ * @param objs - Objects to serialize.
+ * @returns An array of fields with the concatenation of all fields.
+ */
+export function serializeToFields(...objs: Fieldeable[]): Fr[] {
+  let ret: Fr[] = [];
+  for (const obj of objs) {
+    if (Array.isArray(obj)) {
+      ret = [...ret, ...serializeToFields(...obj)];
+    } else if (obj instanceof Fr) {
+      ret.push(obj);
+    } else if (typeof obj === 'boolean' || typeof obj === 'number' || typeof obj === 'bigint') {
+      ret.push(new Fr(obj));
+    } else if ('toFields' in obj) {
+      ret = [...ret, ...obj.toFields()];
+    } else {
+      ret.push(obj.toField());
     }
   }
   return ret;

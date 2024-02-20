@@ -71,6 +71,24 @@ contract DecoderTest is DecoderBase {
         assertEq(header.globalVariables.chainId, globalVariables.chainId, "Invalid chain Id");
         assertEq(header.globalVariables.timestamp, globalVariables.timestamp, "Invalid timestamp");
         assertEq(header.globalVariables.version, globalVariables.version, "Invalid version");
+        assertEq(header.globalVariables.coinbase, globalVariables.coinbase, "Invalid coinbase");
+        assertEq(
+          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
+        );
+      }
+
+      // ContentCommitment
+      {
+        DecoderBase.ContentCommitment memory contentCommitment = referenceHeader.contentCommitment;
+
+        assertEq(
+          header.contentCommitment.txTreeHeight,
+          contentCommitment.txTreeHeight,
+          "Invalid txTreeSize"
+        );
+        assertEq(header.contentCommitment.txsHash, contentCommitment.txsHash, "Invalid txsHash");
+        assertEq(header.contentCommitment.inHash, contentCommitment.inHash, "Invalid inHash");
+        assertEq(header.contentCommitment.outHash, contentCommitment.outHash, "Invalid outHash");
       }
 
       // StateReference
@@ -152,7 +170,6 @@ contract DecoderTest is DecoderBase {
       assertEq(
         header.lastArchive.root, referenceHeader.lastArchive.root, "Invalid lastArchive.root"
       );
-      assertEq(header.bodyHash, referenceHeader.bodyHash, "Invalid body hash");
     }
 
     // Messages

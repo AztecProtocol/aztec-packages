@@ -1,8 +1,11 @@
-use crate::brillig::brillig_ir::brillig_variable::{BrilligArray, BrilligVariable, BrilligVector};
+use crate::brillig::brillig_ir::brillig_variable::{
+    type_to_heap_value_type, BrilligArray, BrilligVariable, BrilligVector,
+};
 use crate::brillig::brillig_ir::{
     BrilligBinaryOp, BrilligContext, BRILLIG_INTEGER_ARITHMETIC_BIT_SIZE,
 };
 use crate::ssa::ir::dfg::CallStack;
+use crate::ssa::ir::instruction::ConstrainError;
 use crate::ssa::ir::{
     basic_block::{BasicBlock, BasicBlockId},
     dfg::DataFlowGraph,
@@ -22,7 +25,7 @@ use num_bigint::BigUint;
 
 use super::brillig_black_box::convert_black_box_call;
 use super::brillig_block_variables::BlockVariables;
-use super::brillig_fn::FunctionContext;
+use super::brillig_fn::{get_bit_size_from_ssa_type, FunctionContext};
 
 /// Generate the compilation artifacts for compiling a function into brillig bytecode.
 pub(crate) struct BrilligBlock<'block> {
@@ -83,16 +86,6 @@ impl<'block> BrilligBlock<'block> {
             block.terminator().expect("block is expected to be constructed");
 
         self.convert_ssa_terminator(terminator_instruction, dfg);
-    }
-
-    fn get_bit_size_from_ssa_type(typ: Type) -> u32 {
-        match typ {
-            Type::Numeric(num_type) => match num_type {
-                NumericType::Signed { bit_size } | NumericType::Unsigned { bit_size } => bit_size,
-                NumericType::NativeField => FieldElement::max_num_bits(),
-            },
-            _ => unreachable!("ICE bitwise not on a non numeric type"),
-        }
     }
 
     /// Creates a unique global label for a block.
@@ -265,7 +258,30 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                 );
 
-                self.brillig_context.constrain_instruction(condition, assert_message.clone());
+                let assert_message = if let Some(error) = assert_message {
+                    match error.as_ref() {
+                        ConstrainError::Static(string) => Some(string.clone()),
+                        ConstrainError::Dynamic(call_instruction) => {
+                            let Instruction::Call { func, arguments } = call_instruction else {
+                                unreachable!("expected a call instruction")
+                            };
+
+                            let Value::Function(func_id) =  &dfg[*func]  else {
+                                unreachable!("expected a function value")
+                            };
+
+                            self.convert_ssa_function_call(*func_id, arguments, dfg, &[]);
+
+                            // Dynamic assert messages are handled in the generated function call.
+                            // We then don't need to attach one to the constrain instruction.
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                self.brillig_context.constrain_instruction(condition, assert_message);
                 self.brillig_context.deallocate_register(condition);
             }
             Instruction::Allocate => {
@@ -322,7 +338,7 @@ impl<'block> BrilligBlock<'block> {
                     dfg.instruction_results(instruction_id)[0],
                     dfg,
                 );
-                let bit_size = Self::get_bit_size_from_ssa_type(dfg.type_of_value(*value));
+                let bit_size = get_bit_size_from_ssa_type(&dfg.type_of_value(*value));
                 self.brillig_context.not_instruction(condition_register, bit_size, result_register);
             }
             Instruction::Call { func, arguments } => match &dfg[*func] {
@@ -332,13 +348,23 @@ impl<'block> BrilligBlock<'block> {
                     let input_registers = vecmap(arguments, |value_id| {
                         self.convert_ssa_value(*value_id, dfg).to_register_or_memory()
                     });
+                    let input_value_types = vecmap(arguments, |value_id| {
+                        let value_type = dfg.type_of_value(*value_id);
+                        type_to_heap_value_type(&value_type)
+                    });
                     let output_registers = vecmap(result_ids, |value_id| {
                         self.allocate_external_call_result(*value_id, dfg).to_register_or_memory()
+                    });
+                    let output_value_types = vecmap(result_ids, |value_id| {
+                        let value_type = dfg.type_of_value(*value_id);
+                        type_to_heap_value_type(&value_type)
                     });
                     self.brillig_context.foreign_call_instruction(
                         func_name.to_owned(),
                         &input_registers,
+                        &input_value_types,
                         &output_registers,
+                        &output_value_types,
                     );
 
                     for (i, output_register) in output_registers.iter().enumerate() {
@@ -366,7 +392,8 @@ impl<'block> BrilligBlock<'block> {
                     }
                 }
                 Value::Function(func_id) => {
-                    self.convert_ssa_function_call(*func_id, arguments, dfg, instruction_id);
+                    let result_ids = dfg.instruction_results(instruction_id);
+                    self.convert_ssa_function_call(*func_id, arguments, dfg, result_ids);
                 }
                 Value::Intrinsic(Intrinsic::BlackBox(bb_func)) => {
                     // Slices are represented as a tuple of (length, slice contents).
@@ -499,7 +526,9 @@ impl<'block> BrilligBlock<'block> {
                         BrilligVariable::Simple(..) => unreachable!("ICE: ToBits on non-array"),
                     };
 
-                    let radix = self.brillig_context.make_constant(2_usize.into());
+                    let radix = self
+                        .brillig_context
+                        .make_constant(2_usize.into(), FieldElement::max_num_bits());
 
                     // Update the user-facing slice length
                     self.brillig_context.mov_instruction(target_len, limb_count);
@@ -533,7 +562,7 @@ impl<'block> BrilligBlock<'block> {
                     *bit_size,
                 );
             }
-            Instruction::Cast(value, _) => {
+            Instruction::Cast(value, typ) => {
                 let result_ids = dfg.instruction_results(instruction_id);
                 let destination_register = self.variables.define_register_variable(
                     self.function_context,
@@ -542,7 +571,7 @@ impl<'block> BrilligBlock<'block> {
                     dfg,
                 );
                 let source_register = self.convert_ssa_register_value(*value, dfg);
-                self.convert_cast(destination_register, source_register);
+                self.convert_cast(destination_register, source_register, typ);
             }
             Instruction::ArrayGet { array, index } => {
                 let result_ids = dfg.instruction_results(instruction_id);
@@ -596,6 +625,7 @@ impl<'block> BrilligBlock<'block> {
                 self.brillig_context.const_instruction(
                     right,
                     FieldElement::from_be_bytes_reduce(&max.to_bytes_be()).into(),
+                    FieldElement::max_num_bits(),
                 );
 
                 let brillig_binary_op = BrilligBinaryOp::Integer {
@@ -625,7 +655,11 @@ impl<'block> BrilligBlock<'block> {
             .expect("Last uses for instruction should have been computed");
 
         for dead_variable in dead_variables {
-            self.variables.remove_variable(dead_variable);
+            self.variables.remove_variable(
+                dead_variable,
+                self.function_context,
+                self.brillig_context,
+            );
         }
         self.brillig_context.set_call_stack(CallStack::new());
     }
@@ -635,15 +669,13 @@ impl<'block> BrilligBlock<'block> {
         func_id: FunctionId,
         arguments: &[ValueId],
         dfg: &DataFlowGraph,
-        instruction_id: InstructionId,
+        result_ids: &[ValueId],
     ) {
         // Convert the arguments to registers casting those to the types of the receiving function
         let argument_registers: Vec<MemoryAddress> = arguments
             .iter()
             .flat_map(|argument_id| self.convert_ssa_value(*argument_id, dfg).extract_registers())
             .collect();
-
-        let result_ids = dfg.instruction_results(instruction_id);
 
         // Create label for the function that will be called
         let label_of_function_to_call = FunctionContext::function_id_to_function_label(func_id);
@@ -696,7 +728,7 @@ impl<'block> BrilligBlock<'block> {
     ) {
         let (size_as_register, should_deallocate_size) = match array_variable {
             BrilligVariable::BrilligArray(BrilligArray { size, .. }) => {
-                (self.brillig_context.make_constant(size.into()), true)
+                (self.brillig_context.make_usize_constant(size.into()), true)
             }
             BrilligVariable::BrilligVector(BrilligVector { size, .. }) => (size, false),
             _ => unreachable!("ICE: validate array index on non-array"),
@@ -763,7 +795,7 @@ impl<'block> BrilligBlock<'block> {
         let (source_pointer, source_size_as_register) = match source_variable {
             BrilligVariable::BrilligArray(BrilligArray { size, pointer, rc: _ }) => {
                 let source_size_register = self.brillig_context.allocate_register();
-                self.brillig_context.const_instruction(source_size_register, size.into());
+                self.brillig_context.usize_const(source_size_register, size.into());
                 (pointer, source_size_register)
             }
             BrilligVariable::BrilligVector(BrilligVector { size, pointer, rc: _ }) => {
@@ -774,7 +806,7 @@ impl<'block> BrilligBlock<'block> {
             _ => unreachable!("ICE: array set on non-array"),
         };
 
-        let one = self.brillig_context.make_constant(1_usize.into());
+        let one = self.brillig_context.make_usize_constant(1_usize.into());
         let condition = self.brillig_context.allocate_register();
 
         self.brillig_context.binary_instruction(
@@ -802,7 +834,7 @@ impl<'block> BrilligBlock<'block> {
 
         match destination_variable {
             BrilligVariable::BrilligArray(BrilligArray { rc: target_rc, .. }) => {
-                self.brillig_context.const_instruction(target_rc, 1_usize.into());
+                self.brillig_context.usize_const(target_rc, 1_usize.into());
             }
             BrilligVariable::BrilligVector(BrilligVector {
                 size: target_size,
@@ -810,7 +842,7 @@ impl<'block> BrilligBlock<'block> {
                 ..
             }) => {
                 self.brillig_context.mov_instruction(target_size, source_size_as_register);
-                self.brillig_context.const_instruction(target_rc, 1_usize.into());
+                self.brillig_context.usize_const(target_rc, 1_usize.into());
             }
             _ => unreachable!("ICE: array set on non-array"),
         }
@@ -1022,7 +1054,7 @@ impl<'block> BrilligBlock<'block> {
                 // https://github.com/noir-lang/noir/issues/1889#issuecomment-1668048587
                 let user_index = self.convert_ssa_register_value(arguments[2], dfg);
 
-                let converted_index = self.brillig_context.make_constant(element_size.into());
+                let converted_index = self.brillig_context.make_usize_constant(element_size.into());
 
                 self.brillig_context.memory_op(
                     converted_index,
@@ -1065,7 +1097,7 @@ impl<'block> BrilligBlock<'block> {
                 // https://github.com/noir-lang/noir/issues/1889#issuecomment-1668048587
                 let user_index = self.convert_ssa_register_value(arguments[2], dfg);
 
-                let converted_index = self.brillig_context.make_constant(element_size.into());
+                let converted_index = self.brillig_context.make_usize_constant(element_size.into());
                 self.brillig_context.memory_op(
                     converted_index,
                     user_index,
@@ -1121,11 +1153,11 @@ impl<'block> BrilligBlock<'block> {
 
     /// Converts an SSA cast to a sequence of Brillig opcodes.
     /// Casting is only necessary when shrinking the bit size of a numeric value.
-    fn convert_cast(&mut self, destination: MemoryAddress, source: MemoryAddress) {
+    fn convert_cast(&mut self, destination: MemoryAddress, source: MemoryAddress, typ: &Type) {
         // We assume that `source` is a valid `target_type` as it's expected that a truncate instruction was emitted
         // to ensure this is the case.
 
-        self.brillig_context.mov_instruction(destination, source);
+        self.brillig_context.cast_instruction(destination, source, get_bit_size_from_ssa_type(typ));
     }
 
     /// Converts the Binary instruction into a sequence of Brillig opcodes.
@@ -1158,7 +1190,7 @@ impl<'block> BrilligBlock<'block> {
                 // converted to registers so we fetch from the cache.
                 self.variables.get_allocation(self.function_context, value_id, dfg)
             }
-            Value::NumericConstant { constant, .. } => {
+            Value::NumericConstant { constant, typ } => {
                 // Constants might have been converted previously or not, so we get or create and
                 // (re)initialize the value inside.
                 if let Some(variable) = self.variables.get_constant(value_id, dfg) {
@@ -1168,7 +1200,11 @@ impl<'block> BrilligBlock<'block> {
                         self.variables.allocate_constant(self.brillig_context, value_id, dfg);
                     let register_index = new_variable.extract_register();
 
-                    self.brillig_context.const_instruction(register_index, (*constant).into());
+                    self.brillig_context.const_instruction(
+                        register_index,
+                        (*constant).into(),
+                        get_bit_size_from_ssa_type(typ),
+                    );
                     new_variable
                 }
             }
@@ -1184,16 +1220,15 @@ impl<'block> BrilligBlock<'block> {
                         BrilligVariable::BrilligArray(brillig_array) => {
                             self.brillig_context
                                 .allocate_fixed_length_array(brillig_array.pointer, array.len());
-                            self.brillig_context
-                                .const_instruction(brillig_array.rc, 1_usize.into());
+                            self.brillig_context.usize_const(brillig_array.rc, 1_usize.into());
 
                             brillig_array.pointer
                         }
                         BrilligVariable::BrilligVector(vector) => {
-                            self.brillig_context.const_instruction(vector.size, array.len().into());
+                            self.brillig_context.usize_const(vector.size, array.len().into());
                             self.brillig_context
                                 .allocate_array_instruction(vector.pointer, vector.size);
-                            self.brillig_context.const_instruction(vector.rc, 1_usize.into());
+                            self.brillig_context.usize_const(vector.rc, 1_usize.into());
 
                             vector.pointer
                         }
@@ -1205,7 +1240,8 @@ impl<'block> BrilligBlock<'block> {
                     // Write the items
 
                     // Allocate a register for the iterator
-                    let iterator_register = self.brillig_context.make_constant(0_usize.into());
+                    let iterator_register =
+                        self.brillig_context.make_usize_constant(0_usize.into());
 
                     for element_id in array.iter() {
                         let element_variable = self.convert_ssa_value(*element_id, dfg);
@@ -1224,7 +1260,23 @@ impl<'block> BrilligBlock<'block> {
                     new_variable
                 }
             }
-            Value::Function(_) | Value::Intrinsic(_) | Value::ForeignFunction(_) => {
+            Value::Function(_) => {
+                // For the debugger instrumentation we want to allow passing
+                // around values representing function pointers, even though
+                // there is no interaction with the function possible given that
+                // value.
+                let new_variable =
+                    self.variables.allocate_constant(self.brillig_context, value_id, dfg);
+                let register_index = new_variable.extract_register();
+
+                self.brillig_context.const_instruction(
+                    register_index,
+                    value_id.to_usize().into(),
+                    32,
+                );
+                new_variable
+            }
+            Value::Intrinsic(_) | Value::ForeignFunction(_) => {
                 todo!("ICE: Cannot convert value {value:?}")
             }
         }
@@ -1263,7 +1315,7 @@ impl<'block> BrilligBlock<'block> {
                 );
                 let array = variable.extract_array();
                 self.brillig_context.allocate_fixed_length_array(array.pointer, array.size);
-                self.brillig_context.const_instruction(array.rc, 1_usize.into());
+                self.brillig_context.usize_const(array.rc, 1_usize.into());
 
                 variable
             }
@@ -1280,7 +1332,7 @@ impl<'block> BrilligBlock<'block> {
                 // The stack pointer will then be updated by the caller of this method
                 // once the external call is resolved and the array size is known
                 self.brillig_context.set_array_pointer(vector.pointer);
-                self.brillig_context.const_instruction(vector.rc, 1_usize.into());
+                self.brillig_context.usize_const(vector.rc, 1_usize.into());
 
                 variable
             }
@@ -1304,8 +1356,7 @@ impl<'block> BrilligBlock<'block> {
 
         match array_variable {
             BrilligVariable::BrilligArray(BrilligArray { size, .. }) => {
-                self.brillig_context
-                    .const_instruction(result_register, (size / element_size).into());
+                self.brillig_context.usize_const(result_register, (size / element_size).into());
             }
             BrilligVariable::BrilligVector(BrilligVector { size, .. }) => {
                 self.brillig_context.usize_op(
@@ -1411,6 +1462,8 @@ pub(crate) fn convert_ssa_binary_op_to_brillig_binary_op(
             BinaryOp::And => BinaryIntOp::And,
             BinaryOp::Or => BinaryIntOp::Or,
             BinaryOp::Xor => BinaryIntOp::Xor,
+            BinaryOp::Shl => BinaryIntOp::Shl,
+            BinaryOp::Shr => BinaryIntOp::Shr,
         };
 
         BrilligBinaryOp::Integer { op: operation, bit_size }

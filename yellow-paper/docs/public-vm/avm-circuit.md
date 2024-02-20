@@ -1,7 +1,9 @@
 # AVM Circuit
 The AVM circuit's purpose is to prove execution of a sequence of instructions for a public execution request. Regardless of whether execution succeeds or reverts, the circuit always generates a valid proof of execution.
 
-## Circuit Architecture
+## Introduction
+
+### Circuit Architecture Outline
 The circuit is comprised of the following components:
 - **Bytecode Table**: includes bytecode for all calls, indexed by call pointer and program counter.
 - **Instruction Controller**: fetches an instruction from the Bytecode Table. Decodes the instructions into sub-operations to be forwarded to other modules.
@@ -22,7 +24,7 @@ Prior to the VM circuit's execution, a vector is assembled to contain the byteco
 Each entry in the bytecode vector will be paired with a call pointer and program counter. This **Bytecode Table** maps a call pointer and program counter to an instruction, and is used by the Instruction Controller to fetch instructions.
 > Note: "call pointer" is expanded on in a later section.
 
-Each contract's public bytecode is committed to during contract deployment. As part of the AVM circuit verification algorithm, the bytecode vector (as a concatenation of all relevant contract bytecodes) is verified against the corresponding bytecode commitments. This is expanded on in ["Bytecode Validation Circuit"](./bytecode-validation-circuit.md). While the AVM circuit enforces that the correct instructions are executed according to its bytecode table, the verifier checks that bytecode table against the previously validated bytecode commitments.
+Each contract's public bytecode is committed to during contract deployment. As part of the AVM circuit verification algorithm, the bytecode vector (as a concatenation of all relevant contract bytecodes) is verified against the corresponding bytecode commitments. This is expanded on in ["Bytecode Validation Circuit"](./bytecode-validation-circuit). While the AVM circuit enforces that the correct instructions are executed according to its bytecode table, the verifier checks that bytecode table against the previously validated bytecode commitments.
 
 ## Instruction Controller
 The Instruction Controller's responsibilities include instruction fetching and decoding.
@@ -30,7 +32,7 @@ The Instruction Controller's responsibilities include instruction fetching and d
 ### Instruction fetching
 The Instruction Controller's **instruction fetch** mechanism makes use of the bytecode table to determine which instruction to execute based on the call pointer and program counter. Each instruction fetch corresponds to a circuit lookup to enforce that the correct instruction is processed for a given contract and program counter.
 
-The combination of the instruction fetch circuitry, the bytecode table, and the ["Bytecode Validation Circuit"](./bytecode-validation-circuit.md) ensure that VM circuit processes the proper sequence of instructions.
+The combination of the instruction fetch circuitry, the bytecode table, and the ["Bytecode Validation Circuit"](./bytecode-validation-circuit) ensure that VM circuit processes the proper sequence of instructions.
 
 ### Instruction decoding and sub-operations
 An instruction (its opcode, flags, and arguments) represents some high-level VM operation. For example, an `ADD` instruction says "add two items from memory and store the result in memory". The Instruction Controller **instruction decode** mechanism decodes instructions into sub-operations. While an instruction likely requires many circuit components, a **sub-operation** is a smaller task that can be fed to just one VM circuit component for processing. By decoding an instruction into sub-operations, the VM circuit translates high-level instructions into smaller achievable tasks. To continue with the `ADD` example, it would translate "add two items from memory and store the result in memory" to "load an item from memory, load another item from memory, add them, and store the result to memory."
@@ -72,7 +74,7 @@ User code (AVM bytecode) has no concept of "registers", and so instructions ofte
 
 Three intermediate registers exist: $I_a$, $I_b$, and $I_c$.
 
-> Refer to ["AVM State Model"](./state-model) for more details on the absence of "external registers" in the AVM.
+> Refer to ["AVM State Model"](./memory-model) for more details on the absence of "external registers" in the AVM.
 
 ## Control Flow Unit
 Processes updates to the program counter and call pointer to ensure that execution proceeds properly from one instruction to the next.
@@ -108,7 +110,32 @@ The VM circuit's **Memory Controller** processes loads and stores between interm
 When decoded, instructions that operate on memory map to some Memory Controller sub-operations. A memory read maps to a `LOAD` sub-operation which loads a word from memory into an intermediate register. The memory offset for this sub-operation is generally specified by an instruction argument. Similarly, a memory write maps to a `STORE` sub-operation which stores a word from an intermediate register to memory.
 
 ### User Memory
-**TODO**
+
+This table tracks all memory `Read` or `Write` operations. As introduced in the ["Memory State Model"](./memory-model.md), a memory cell is indexed by a 32-bit unsigned integer (`u32`), i.e., the memory capacity is of $2^{32}$ words. Each word is associated with a tag defining its type (`uninitialized`, `u8`, `u16`, `u32`, `u64`, `u128`, `field`). At the beginning of a new call, each memory cell is of type `uninitialized` and has value 0.
+
+The main property enforcement of this table concerns read/write consistency of every memory cell. This must ensure:
+
+- Each initial read on a memory cell must have value 0 (`uninitialized` is compatible with any other type).
+- Each read on a memory cell must have the same value and the same tag as those set by the last write on this memory cell.
+
+In addition, this table ensures that the instruction tag corresponding to a memory operation is the same as the memory cell tag. The instruction tag is passed to the memory controller and added to the pertaining row(s) of this table. Note that this is common for an instruction to generate several memory operations and thus several rows in this table.
+
+The user memory table essentially consists of the following colums:
+
+- `CALL_PTR`: call pointer uniquely identifying the contract call
+- `CLK`: clock value of the memory operation
+- `ADDR`: address (type `u32`) pertaining to the memory operation
+- `VAL`: value which is read (resp. written) from (resp. to) the memory address
+- `TAG`: tag associated to this memory address
+- `IN_TAG`: tag of the pertaining instruction
+- `RW`: boolean indicating whether memory operation is read or write
+- `TAG_ERR`: boolean set to true if there is a mismatch between `TAG` and `IN_TAG`
+
+To facilitate consistency check, the rows are sorted by `CALL_PTR` then by `ADDR` and then by `CLK` in ascending (arrow of time) order. Any (non-initial) read operation row is constrained to have the same `VAL` and `TAG` than the previous row. A write operation does not need to be constrained.
+
+The tag consistency check can be performed within every row (order of rows does not matter).
+
+Note that `CLK` also plays the role of a foreign key to point to the corresponding sub-operation. This is crucial to enforce consistency of copied values between the sub-operations and memory table.
 
 ### Calldata
 **TODO**
@@ -130,40 +157,51 @@ ZK circuit proof systems generally define some mechanism for "public inputs" for
 
 ### AVM public inputs structure
 The VM circuit's I/O (`AvmPublicInputs`) is defined below:
+
 ```
-AvmSideEffects {
-    newNoteHashes,
-    newNullifiers,
-    newL2ToL1Messages,
-    unencryptedLogs,
+AvmSessionInputs {
+    // Initializes Execution Environment
+    origin: AztecAddress,
+    feePerL1Gas: field,
+    feePerL2Gas: field,
+    feePerDaGas: field,
+    globals: PublicGlobalVariables,
+    address: AztecAddress,
+    storageAddress: AztecAddress,
+    sender: AztecAddress,
+    portal: AztecAddress,
+    contractCallDepth: field,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+    // Initializes Machine State
+    l1GasLeft: field,
+    l2GasLeft: field,
+    daGasLeft: field,
 }
-AvmPublicInputs {
-    initialEnvironment: ExecutionEnvironment & {l1GasLeft, l2GasLeft, daGasLeft},
-    calldata: [],
-    sideEffects: AvmSideEffects,
-    storageAccesses,
-    gasResults: {l1GasLeft, l2GasLeft, daGasLeft},
+AvmSessionResults {
+    l1GasLeft: field,
+    l2GasLeft: field,
+    daGasLeft: field,
+    reverted: boolean,
+}
+AvmSessionPublicInputs {
+    sessionInputs: AvmSessionInputs,
+    calldata: [field; MAX_CALLDATA_LENGTH],
+    worldStateAccessTrace: WorldStateAccessTrace,
+    accruedSubstate: AccruedSubstate,
+    sessionResults: AvmSessionResults,
 }
 ```
-> The `ExecutionEnvironment` structure is defined in [the AVM's high level specification](./avm.md).
+
+> The `WorldStateAccessTrace` and `AccruedSubstate` types are defined in ["State"](./state). Their vectors are assigned constant/maximum lengths when used as circuit inputs.
 
 ### AVM public input columns
 The `AvmPublicInputs` structure is represented in the VM trace via the following public input columns:
-1. `initialEnvironment` has a dedicated column and is used to initialize the initial call's `AvmContext.ExecutionEnvironment` and `AvmContext.MachineState`
-1. `calldata` has its own dedicated public input column
-1. `sideEffects: AvmSideEffects`
-    - This represents the final `AccruedSubstate` of the initial contract call
-    - There is a separate sub-table (columns) for each side-effect vector
-        - Each row in the `newNoteHashes` sub-table contains `{contractAddress, noteHash}`
-        - Each row in the `newNullifiers` sub-table contains `{contractAddress, nullifier}`
-        - Each row in the `newL2ToL1Messages` sub-table contains `{contractAddress, wordIndex, messageWord}`
-            - where a message containing N words takes up N entries with increasing `wordIndex`
-        - Each row in the `unencryptedLogs` sub-table contains `{contractAddress, wordIndex, logWord}`
-            - where a log containing N words takes up N entries with increasing `wordIndex`
-    - Side effects are present in the trace in execution-order
-1. `storageAccesses`
-    - This contains the first and last public storage access for each slot that is accessed during execution
-    - Each row in the `storageAccesses` sub-table contains `{contractAddress, slot, value}`
-    - Storage accesses are present in the trace in execution-order
-1. `gasResults: AvmGasResults`
-    - This is derived from the _final_ `AvmContext.MachineState` of the initial contract call
+1. `sessionInputs` has a dedicated column and is used to initialize the initial call's `AvmContext.ExecutionEnvironment` and `AvmContext.MachineState`.
+1. `calldata` occupies its own public input column as it is handled differently from the rest of the `ExecutionEnvironment`. It is used to initialize the initial call's `AvmContext.ExecutionEnvironment.calldata`.
+    - Equivalence is enforced between this `calldata` column and the "input call pointer"'s memory. Through this mechanism, the initial call's `calldata` is placed in a region memory that can be referenced via the `CALLDATACOPY` instruction from within the initial call.
+1. `worldStateAccessTrace` is a trace of all world state accesses. Each of its component vectors has a dedicated set of public input columns (a sub-table). An instruction that reads or writes world state must match a trace entry. The [trace type definition in the "State" section] lists, for each trace vector, the instruction that populate its entries.
+1. `accruedSubstate` contains the final `AccruedSubstate`.
+    - This includes the accrued substate of all _unreverted_ sub-contexts.
+    - Reverted substate is not present in the Circuit I/O as it does not require further validation/processing by downstream circuits.
+1. `sessionResults` has a dedicated column and represents the core "results" of the AVM session processed by this circuit (remaining gas, reverted).

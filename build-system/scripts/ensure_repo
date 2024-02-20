@@ -8,27 +8,25 @@ LIFECYCLE_POLICY='{
   "rules": [
     {
       "rulePriority": 1,
-      "description": "No more than 200 cache images.",
+      "description": "No more than 1000 images, regardless of tag status.",
       "selection": {
-        "tagStatus": "tagged",
-        "tagPrefixList": ["cache-"],
+        "tagStatus": "any",
         "countType": "imageCountMoreThan",
-        "countNumber": 200
+        "countNumber": 1000
       },
       "action": {
         "type": "expire"
       }
     }
   ]
-}
-'
+}'
 
 REPOSITORY=$1
 REGION=$2
 REFRESH_LIFECYCLE=${3:-}
 
 # Login to ECR.
-ecr_login $REGION
+retry ecr_login $REGION
 
 # Create the repository if it doesn't exist.
 if ! aws ecr describe-repositories --region $REGION --repository-names $REPOSITORY > /dev/null 2>&1; then

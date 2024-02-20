@@ -8,6 +8,7 @@ import {
   serializeBufferArrayToVector,
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 /**
  * Used for retrieval of contract data (A3 address, portal contract address, bytecode).
@@ -55,6 +56,18 @@ export interface ContractDataSource {
    * @returns The number of the latest L2 block processed by the implementation.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Returns the contract class for a given contract class id, or undefined if not found.
+   * @param id - Contract class id.
+   */
+  getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
+
+  /**
+   * Returns a publicly deployed contract instance given its address.
+   * @param address - Address of the deployed contract.
+   */
+  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 }
 
 /**
@@ -179,12 +192,17 @@ export class ExtendedContractData {
 
   /** True if this represents an empty instance. */
   public isEmpty(): boolean {
+    return ExtendedContractData.isEmpty(this);
+  }
+
+  /** True if the passed instance is empty . */
+  public static isEmpty(obj: ExtendedContractData): boolean {
     return (
-      this.contractData.isEmpty() &&
-      this.publicFunctions.length === 0 &&
-      this.contractClassId.isZero() &&
-      this.publicKeyHash.isZero() &&
-      this.saltedInitializationHash.isZero()
+      obj.contractData.isEmpty() &&
+      obj.publicFunctions.length === 0 &&
+      obj.contractClassId.isZero() &&
+      obj.publicKeyHash.isZero() &&
+      obj.saltedInitializationHash.isZero()
     );
   }
 
@@ -253,7 +271,7 @@ export class ContractData {
    * @returns Encoded buffer.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.contractAddress, this.portalContractAddress.toBuffer20());
+    return serializeToBuffer(this.contractAddress, this.portalContractAddress);
   }
 
   /**

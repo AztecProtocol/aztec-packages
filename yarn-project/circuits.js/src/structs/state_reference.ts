@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { PartialStateReference } from './partial_state_reference.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 
@@ -20,8 +21,14 @@ export class StateReference {
     return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
   }
 
-  toFieldArray(): Fr[] {
-    return [...this.l1ToL2MessageTree.toFieldArray(), ...this.partial.toFieldArray()];
+  toFields(): Fr[] {
+    const fields = [...this.l1ToL2MessageTree.toFields(), ...this.partial.toFields()];
+    if (fields.length !== STATE_REFERENCE_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for StateReference. Expected ${STATE_REFERENCE_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): StateReference {
@@ -29,11 +36,20 @@ export class StateReference {
     return new StateReference(reader.readObject(AppendOnlyTreeSnapshot), reader.readObject(PartialStateReference));
   }
 
+  static fromFields(fields: Fr[] | FieldReader): StateReference {
+    const reader = FieldReader.asReader(fields);
+
+    const l1ToL2MessageTree = AppendOnlyTreeSnapshot.fromFields(reader);
+    const partial = PartialStateReference.fromFields(reader);
+
+    return new StateReference(l1ToL2MessageTree, partial);
+  }
+
   static empty(): StateReference {
-    return new StateReference(AppendOnlyTreeSnapshot.empty(), PartialStateReference.empty());
+    return new StateReference(AppendOnlyTreeSnapshot.zero(), PartialStateReference.empty());
   }
 
   isEmpty(): boolean {
-    return this.l1ToL2MessageTree.isEmpty() && this.partial.isEmpty();
+    return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
   }
 }

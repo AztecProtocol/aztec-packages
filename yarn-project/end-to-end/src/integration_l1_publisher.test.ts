@@ -10,14 +10,16 @@ import {
   to2Fields,
 } from '@aztec/aztec.js';
 import {
+  EthAddress,
   Header,
-  KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
+  PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import {
@@ -29,14 +31,13 @@ import {
 } from '@aztec/circuits.js/factories';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  buildInitialHeader,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -99,6 +100,9 @@ describe('L1Publisher integration', () => {
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
+  let coinbase: EthAddress;
+  let feeRecipient: AztecAddress;
+
   // To overwrite the test data, set this to true and run the tests.
   const OVERWRITE_TEST_DATA = false;
 
@@ -133,7 +137,7 @@ describe('L1Publisher integration', () => {
       publicClient,
     });
 
-    builderDb = await MerkleTrees.new(await AztecLmdbStore.openTmp()).then(t => t.asLatest());
+    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const vks = getVerificationKeys();
     const simulator = new RealRollupCircuitSimulator();
     const prover = new EmptyRollupProver();
@@ -150,31 +154,34 @@ describe('L1Publisher integration', () => {
       l1BlockPublishRetryIntervalMS: 100,
     });
 
-    prevHeader = await buildInitialHeader(builderDb);
+    coinbase = config.coinbase || EthAddress.random();
+    feeRecipient = config.feeRecipient || AztecAddress.random();
+
+    prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
 
-  const makeEmptyProcessedTx = async () => {
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
+  const makeEmptyProcessedTx = () => {
+    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
-  const makeBloatedProcessedTx = async (seed = 0x1) => {
+  const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = KernelCircuitPublicInputs.empty();
+    const kernelOutput = PublicKernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+      MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
       seed + 0x500,
     );
 
-    const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
+    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+    processedTx.data.end.newCommitments = makeTuple(MAX_REVERTIBLE_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(
-      MAX_NEW_NULLIFIERS_PER_TX,
+      MAX_REVERTIBLE_NULLIFIERS_PER_TX,
       makeNewSideEffectLinkedToNoteHash,
       seed + 0x200,
     );
@@ -256,18 +263,25 @@ describe('L1Publisher integration', () => {
         l2ToL1Messages: block.newL2ToL1Msgs.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
-        // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values bellow.
+        // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.bodyToBuffer().toString('hex')}`,
         calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
-          bodyHash: `0x${block.header.bodyHash.toString('hex').padStart(64, '0')}`,
+          contentCommitment: {
+            inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
+            outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
+            txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
+            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+          },
           globalVariables: {
             blockNumber: block.number,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
+            coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
+            feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
           },
           lastArchive: {
             nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
@@ -354,16 +368,19 @@ describe('L1Publisher integration', () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)
       const totalNullifiersPerBlock = 4 * MAX_NEW_NULLIFIERS_PER_TX;
       const txs = [
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
+
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
+        coinbase,
+        feeRecipient,
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
@@ -406,7 +423,6 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.getCalldataHash().toString('hex')}`,
           `0x${block.bodyToBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
@@ -435,17 +451,15 @@ describe('L1Publisher integration', () => {
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
-      const txs = [
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-      ];
+      const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx()];
+
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
+        coinbase,
+        feeRecipient,
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
@@ -475,7 +489,6 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.getCalldataHash().toString('hex')}`,
           `0x${block.bodyToBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],

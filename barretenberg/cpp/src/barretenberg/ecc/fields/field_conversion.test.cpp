@@ -16,15 +16,6 @@ class FieldConversionTest : public ::testing::Test {
 };
 
 /**
- * @brief Field conversion test for size_t
- */
-TEST_F(FieldConversionTest, FieldConversionSizeT)
-{
-    size_t x = 210849;
-    check_conversion(x);
-}
-
-/**
  * @brief Field conversion test for uint32_t
  */
 TEST_F(FieldConversionTest, FieldConversionUint32)
@@ -138,6 +129,18 @@ TEST_F(FieldConversionTest, FieldConversionUnivariateGrumpkinFr)
     std::array<grumpkin::fr, 4> x1_arr{ 1, 2, 3, 4 };
     bb::Univariate<grumpkin::fr, 4> x1{ x1_arr };
     check_conversion(x1);
+}
+
+/**
+ * @brief Convert challenge test for grumpkin::fr
+ *
+ */
+TEST_F(FieldConversionTest, ConvertChallengeGrumpkinFr)
+{
+    bb::fr chal(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
+    auto result = bb::field_conversion::convert_challenge<grumpkin::fr>(chal);
+    auto expected = uint256_t(chal);
+    EXPECT_EQ(uint256_t(result), expected);
 }
 
 } // namespace bb::field_conversion_tests

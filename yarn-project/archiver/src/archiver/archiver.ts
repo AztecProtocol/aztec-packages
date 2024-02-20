@@ -14,18 +14,28 @@ import {
   LogFilter,
   LogType,
   TxHash,
+  UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import {
+  ContractClassRegisteredEvent,
+  FunctionSelector,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+} from '@aztec/circuits.js';
+import { ContractInstanceDeployedEvent, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-deployer';
 import {
   ContractClass,
-  ContractClassWithId,
+  ContractClassPublic,
   ContractInstance,
   ContractInstanceWithAddress,
 } from '@aztec/types/contracts';
@@ -62,6 +72,12 @@ export class Archiver implements ArchiveSource {
    * Use this to track logged block in order to avoid repeating the same message.
    */
   private lastLoggedL1BlockNumber = 0n;
+
+  /** Address of the ClassRegisterer contract with a salt=1 */
+  private classRegistererAddress = ClassRegistererAddress;
+
+  /** Address of the InstanceDeployer contract with a salt=1 */
+  private instanceDeployerAddress = InstanceDeployerAddress;
 
   /**
    * Creates a new instance of the Archiver.
@@ -272,6 +288,17 @@ export class Archiver implements ArchiveSource {
       ),
     );
 
+    // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+    await Promise.all(
+      retrievedBlocks.retrievedData.map(async block => {
+        const blockLogs = (block.newUnencryptedLogs?.txLogs ?? [])
+          .flatMap(txLog => txLog.unrollLogs())
+          .map(log => UnencryptedL2Log.fromBuffer(log));
+        await this.storeRegisteredContractClasses(blockLogs, block.number);
+        await this.storeDeployedContractInstances(blockLogs, block.number);
+      }),
+    );
+
     // store contracts for which we have retrieved L2 blocks
     const lastKnownL2BlockNum = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
     await Promise.all(
@@ -297,13 +324,63 @@ export class Archiver implements ArchiveSource {
       retrievedBlocks.retrievedData.map(block => {
         // Ensure we pad the L1 to L2 message array to the full size before storing.
         block.newL1ToL2Messages = padArrayEnd(block.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        return L2Block.fromFields(
-          omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']),
-          block.getBlockHash(),
-          block.getL1BlockNumber(),
-        );
+        return L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getL1BlockNumber());
       }),
     );
+  }
+
+  /**
+   * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
+   * @param allLogs - All logs emitted in a bunch of blocks.
+   */
+  private async storeRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number) {
+    const contractClasses: ContractClassPublic[] = [];
+    for (const log of allLogs) {
+      try {
+        if (
+          !log.contractAddress.equals(this.classRegistererAddress) ||
+          toBigIntBE(log.data.subarray(0, 32)) !== REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
+        ) {
+          continue;
+        }
+        const event = ContractClassRegisteredEvent.fromLogData(log.data);
+        contractClasses.push(event.toContractClassPublic());
+      } catch (err) {
+        this.log.warn(`Error processing log ${log.toHumanReadable()}: ${err}`);
+      }
+    }
+
+    if (contractClasses.length > 0) {
+      contractClasses.forEach(c => this.log(`Registering contract class ${c.id.toString()}`));
+      await this.store.addContractClasses(contractClasses, blockNum);
+    }
+  }
+
+  /**
+   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * @param allLogs - All logs emitted in a bunch of blocks.
+   */
+  private async storeDeployedContractInstances(allLogs: UnencryptedL2Log[], blockNum: number) {
+    const contractInstances: ContractInstanceWithAddress[] = [];
+    for (const log of allLogs) {
+      try {
+        if (
+          !log.contractAddress.equals(this.instanceDeployerAddress) ||
+          !ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log.data)
+        ) {
+          continue;
+        }
+        const event = ContractInstanceDeployedEvent.fromLogData(log.data);
+        contractInstances.push(event.toContractInstance());
+      } catch (err) {
+        this.log.warn(`Error processing log ${log.toHumanReadable()}: ${err}`);
+      }
+    }
+
+    if (contractInstances.length > 0) {
+      contractInstances.forEach(c => this.log(`Storing contract instance at ${c.address.toString()}`));
+      await this.store.addContractInstances(contractInstances, blockNum);
+    }
   }
 
   /**
@@ -377,8 +454,37 @@ export class Archiver implements ArchiveSource {
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
    */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return this.store.getExtendedContractData(contractAddress);
+  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return (
+      (await this.store.getExtendedContractData(contractAddress)) ?? this.makeExtendedContractDataFor(contractAddress)
+    );
+  }
+
+  /**
+   * Temporary method for creating a fake extended contract data out of classes and instances registered in the node.
+   * Used as a fallback if the extended contract data is not found.
+   */
+  private async makeExtendedContractDataFor(address: AztecAddress): Promise<ExtendedContractData | undefined> {
+    const instance = await this.store.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+
+    const contractClass = await this.store.getContractClass(instance.contractClassId);
+    if (!contractClass) {
+      this.log.warn(
+        `Contract class ${instance.contractClassId.toString()} for address ${address.toString()} not found`,
+      );
+      return undefined;
+    }
+
+    return new ExtendedContractData(
+      new ContractData(address, instance.portalContractAddress),
+      contractClass.publicFunctions.map(f => new EncodedContractFunction(f.selector, f.isInternal, f.bytecode)),
+      contractClass.id,
+      computeSaltedInitializationHash(instance),
+      instance.publicKeysHash,
+    );
   }
 
   /**
@@ -452,6 +558,14 @@ export class Archiver implements ArchiveSource {
     return this.store.getBlockNumber();
   }
 
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return this.store.getContractClass(id);
+  }
+
+  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.store.getContractInstance(address);
+  }
+
   /**
    * Gets up to `limit` amount of pending L1 to L2 messages.
    * @param limit - The number of messages to return.
@@ -479,7 +593,7 @@ export class Archiver implements ArchiveSource {
  */
 function extendedContractDataToContractClassAndInstance(
   data: ExtendedContractData,
-): [ContractClassWithId, ContractInstanceWithAddress] {
+): [ContractClassPublic, ContractInstanceWithAddress] {
   const contractClass: ContractClass = {
     version: 1,
     artifactHash: Fr.ZERO,
@@ -502,7 +616,7 @@ function extendedContractDataToContractClassAndInstance(
   };
   const address = data.contractData.contractAddress;
   return [
-    { ...contractClass, id: contractClassId },
+    { ...contractClass, id: contractClassId, privateFunctionsRoot: Fr.ZERO },
     { ...contractInstance, address },
   ];
 }

@@ -51,7 +51,7 @@ abstract class BaseField {
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
-        throw new Error('Value >= to field modulus.');
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
       }
     } else if (value instanceof BaseField) {
       this.asBuffer = value.asBuffer;
@@ -89,10 +89,22 @@ abstract class BaseField {
     if (this.asBigInt === undefined) {
       this.asBigInt = toBigIntBE(this.asBuffer!);
       if (this.asBigInt >= this.modulus()) {
-        throw new Error('Value >= to field modulus.');
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
       }
     }
     return this.asBigInt;
+  }
+
+  toBool(): boolean {
+    return Boolean(this.toBigInt());
+  }
+
+  toNumber(): number {
+    const value = this.toBigInt();
+    if (value > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
+    }
+    return Number(value);
   }
 
   toShortString(): string {
@@ -125,7 +137,7 @@ abstract class BaseField {
  * Constructs a field from a Buffer of BufferReader.
  * It maybe not read the full 32 bytes if the Buffer is shorter, but it will padded in BaseField constructor.
  */
-function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f: DerivedField<T>) {
+export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f: DerivedField<T>) {
   const reader = BufferReader.asReader(buffer);
   return new f(reader.readBytes(BaseField.SIZE_IN_BYTES));
 }
@@ -290,8 +302,8 @@ function modInverse(b: bigint) {
   if (gcd != 1n) {
     throw Error('Inverse does not exist');
   }
-  // Add modulus to ensure positive
-  return new Fr(x + Fr.MODULUS);
+  // Add modulus if -ve to ensure positive
+  return new Fr(x > 0 ? x : x + Fr.MODULUS);
 }
 
 /**

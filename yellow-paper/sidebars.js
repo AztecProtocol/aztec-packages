@@ -21,11 +21,43 @@ const sidebars = {
   yellowPaperSidebar: [
     "intro",
     {
+      label: "Cryptography",
+      type: "category",
+      link: { type: "doc", id: "cryptography/index" },
+      items: [
+        {
+          label: "Proving System",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "cryptography/proving-system/performance-targets",
+          },
+          items: [
+            "cryptography/proving-system/performance-targets",
+            "cryptography/proving-system/overview",
+            "cryptography/proving-system/data-bus",
+          ],
+        },
+        {
+          label: "Hashing",
+          type: "category",
+          link: { type: "doc", id: "cryptography/hashing/hashing" },
+          items: [
+            "cryptography/hashing/hashing",
+            "cryptography/hashing/pedersen",
+          ],
+        },
+        "cryptography/merkle-trees",
+      ],
+    },
+    {
       label: "Addresses & Keys",
       type: "category",
       link: { type: "doc", id: "addresses-and-keys/index" },
       items: [
-        "addresses-and-keys/specification",
+        "addresses-and-keys/address",
+        "addresses-and-keys/keys-requirements",
+        "addresses-and-keys/keys",
         "addresses-and-keys/precompiles",
         "addresses-and-keys/diversified-and-stealth",
       ],
@@ -80,10 +112,17 @@ const sidebars = {
       ],
     },
     {
-      label: "Cross-chain communication",
+      label: "L1 smart contracts",
       type: "category",
-      link: { type: "doc", id: "cross-chain-communication/index" },
-      items: ["cross-chain-communication/da"],
+      link: { type: "doc", id: "l1-smart-contracts/index" },
+      items: [
+        "l1-smart-contracts/frontier",
+      ],
+    },
+    {
+      label: "Data publication and availability",
+      type: "doc",
+      id: "data-publication-and-availability/index",
     },
     {
       label: "Logs",
@@ -92,40 +131,40 @@ const sidebars = {
       items: [],
     },
     {
+      label: "Pre-compiled Contracts",
+      type: "category",
+      link: { type: "doc", id: "pre-compiled-contracts/index" },
+      items: [
+        "pre-compiled-contracts/registry",
+      ],
+    },
+    {
       label: "Private Message Delivery",
       type: "category",
       link: { type: "doc", id: "private-message-delivery/index" },
       items: [
         "private-message-delivery/private-msg-delivery", // renamed to avoid routing problems
-        "private-message-delivery/note-discovery",
-        "private-message-delivery/encryption-and-decryption",
-        "private-message-delivery/registry",
         "private-message-delivery/send-note-guidelines",
       ],
     },
     {
       label: "Gas & Fees",
       type: "category",
-      link: { type: "doc", id: "gas-and-fees/gas-and-fees" },
-      items: [],
+      link: { type: "doc", id: "gas-and-fees/index" },
+      items: [
+        "gas-and-fees/fee-payments-and-metering",
+        "gas-and-fees/fee-schedule",
+      ],
     },
     {
       label: "Decentralization",
       type: "category",
       link: { type: "doc", id: "decentralization/governance" },
       items: [
+        "decentralization/actors",
         "decentralization/governance",
         "decentralization/block-production",
         "decentralization/p2p-network",
-      ],
-    },
-    {
-      label: "Cryptography",
-      type: "category",
-      link: { type: "doc", id: "cryptography/performance-targets" },
-      items: [
-        "cryptography/performance-targets",
-        "cryptography/protocol-overview",
       ],
     },
     // Protocol Statements?
@@ -155,17 +194,29 @@ const sidebars = {
       ],
     },
     {
-      label: "Public VM",
+      label: "Aztec (Public) VM",
       type: "category",
-      link: { type: "doc", id: "public-vm/avm" },
+      link: { type: "doc", id: "public-vm/index" },
       items: [
-        "public-vm/avm",
-        "public-vm/state-model",
+        "public-vm/intro",
+        "public-vm/state",
+        "public-vm/memory-model",
+        "public-vm/context",
+        "public-vm/execution",
+        "public-vm/nested-calls",
         "public-vm/instruction-set",
-        "public-vm/avm-circuit",
-        "public-vm/control-flow",
-        "public-vm/alu",
-        "public-vm/bytecode-validation-circuit",
+        {
+          label: "AVM Circuit",
+          type: "category",
+          link: { type: "doc", id: "public-vm/circuit-index" },
+          items: [
+            "public-vm/avm-circuit",
+            "public-vm/control-flow",
+            "public-vm/alu",
+            "public-vm/bytecode-validation-circuit",
+          ],
+        },
+        "public-vm/type-structs",
       ],
     },
   ],

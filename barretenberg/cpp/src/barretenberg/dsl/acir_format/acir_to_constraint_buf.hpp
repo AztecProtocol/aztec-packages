@@ -10,6 +10,7 @@
 #include "barretenberg/dsl/acir_format/keccak_constraint.hpp"
 #include "barretenberg/dsl/acir_format/logic_constraint.hpp"
 #include "barretenberg/dsl/acir_format/pedersen.hpp"
+#include "barretenberg/dsl/acir_format/poseidon2_constraint.hpp"
 #include "barretenberg/dsl/acir_format/range_constraint.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/schnorr_verify.hpp"
@@ -139,6 +140,24 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Sha256Compression>) {
+                af.sha256_compression.push_back(Sha256Compression{
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      return Sha256Input{
+                                          .witness = e.witness.value,
+                                          .num_bits = e.num_bits,
+                                      };
+                                  }),
+                    .hash_values = map(arg.hash_values,
+                                       [](auto& e) {
+                                           return Sha256Input{
+                                               .witness = e.witness.value,
+                                               .num_bits = e.num_bits,
+                                           };
+                                       }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
                     .inputs = map(arg.inputs,
@@ -256,6 +275,11 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .modulus = map(arg.modulus, [](auto& e) -> uint32_t { return e; }),
                     .result = arg.output,
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntToLeBytes>) {
+                af.bigint_to_le_bytes_constraints.push_back(BigIntToLeBytes{
+                    .input = arg.input,
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntAdd>) {
                 af.bigint_operations.push_back(BigIntOperation{
                     .lhs = arg.lhs,
@@ -263,12 +287,12 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .result = arg.output,
                     .opcode = BigIntOperationType::Add,
                 });
-            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntNeg>) {
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntSub>) {
                 af.bigint_operations.push_back(BigIntOperation{
                     .lhs = arg.lhs,
                     .rhs = arg.rhs,
                     .result = arg.output,
-                    .opcode = BigIntOperationType::Neg,
+                    .opcode = BigIntOperationType::Sub,
                 });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntMul>) {
                 af.bigint_operations.push_back(BigIntOperation{
@@ -283,6 +307,12 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, Aci
                     .rhs = arg.rhs,
                     .result = arg.output,
                     .opcode = BigIntOperationType::Div,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Poseidon2Permutation>) {
+                af.poseidon2_constraints.push_back(Poseidon2Constraint{
+                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                    .len = arg.len,
                 });
             }
         },
@@ -340,6 +370,7 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
+    af.recursive = circuit.recursive;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     std::map<uint32_t, BlockConstraint> block_id_to_block_constraint;

@@ -23,6 +23,7 @@ use acvm::{
         BinaryFieldOp, BinaryIntOp, BlackBoxOp, MemoryAddress, Opcode as BrilligOpcode, Value,
         ValueOrArray,
     },
+    brillig_vm::brillig::HeapValueType,
     FieldElement,
 };
 use debug_show::DebugShow;
@@ -41,7 +42,7 @@ pub(crate) const BRILLIG_INTEGER_ARITHMETIC_BIT_SIZE: u32 = 127;
 /// The Brillig VM does not apply a limit to the memory address space,
 /// As a convention, we take use 64 bits. This means that we assume that
 /// memory has 2^64 memory slots.
-pub(crate) const BRILLIG_MEMORY_ADDRESSING_BIT_SIZE: u32 = 64;
+pub(crate) const BRILLIG_MEMORY_ADDRESSING_BIT_SIZE: u32 = 32;
 
 // Registers reserved in runtime for special purposes.
 pub(crate) enum ReservedRegisters {
@@ -131,7 +132,7 @@ impl BrilligContext {
         size: usize,
     ) {
         // debug_show handled by allocate_array_instruction
-        let size_register = self.make_constant(size.into());
+        let size_register = self.make_usize_constant(size.into());
         self.allocate_array_instruction(pointer_register, size_register);
         self.deallocate_register(size_register);
     }
@@ -174,7 +175,7 @@ impl BrilligContext {
     ) {
         self.debug_show.allocate_instruction(pointer_register);
         // A variable can be stored in up to three values, so we reserve three values for that.
-        let size_register = self.make_constant(size.into());
+        let size_register = self.make_usize_constant(size.into());
         self.push_opcode(BrilligOpcode::Mov {
             destination: pointer_register,
             source: ReservedRegisters::stack_pointer(),
@@ -286,7 +287,7 @@ impl BrilligContext {
     where
         F: FnOnce(&mut BrilligContext, MemoryAddress),
     {
-        let iterator_register = self.make_constant(0_u128.into());
+        let iterator_register = self.make_usize_constant(0_u128.into());
 
         let (loop_section, loop_label) = self.reserve_next_section_label();
         self.enter_section(loop_section);
@@ -467,6 +468,9 @@ impl BrilligContext {
             sources.push(*return_register);
             destinations.push(destination_register);
         }
+        destinations
+            .iter()
+            .for_each(|destination| self.registers.ensure_register_is_allocated(*destination));
         self.mov_registers_to_registers_instruction(sources, destinations);
         self.stop_instruction();
     }
@@ -500,6 +504,17 @@ impl BrilligContext {
         self.push_opcode(BrilligOpcode::Mov { destination, source });
     }
 
+    /// Cast truncates the value to the given bit size and converts the type of the value in memory to that bit size.
+    pub(crate) fn cast_instruction(
+        &mut self,
+        destination: MemoryAddress,
+        source: MemoryAddress,
+        bit_size: u32,
+    ) {
+        self.debug_show.cast_instruction(destination, source, bit_size);
+        self.push_opcode(BrilligOpcode::Cast { destination, source, bit_size });
+    }
+
     /// Processes a binary instruction according `operation`.
     ///
     /// This method will compute lhs <operation> rhs
@@ -529,9 +544,18 @@ impl BrilligContext {
     }
 
     /// Stores the value of `constant` in the `result` register
-    pub(crate) fn const_instruction(&mut self, result: MemoryAddress, constant: Value) {
+    pub(crate) fn const_instruction(
+        &mut self,
+        result: MemoryAddress,
+        constant: Value,
+        bit_size: u32,
+    ) {
         self.debug_show.const_instruction(result, constant);
-        self.push_opcode(BrilligOpcode::Const { destination: result, value: constant });
+        self.push_opcode(BrilligOpcode::Const { destination: result, value: constant, bit_size });
+    }
+
+    pub(crate) fn usize_const(&mut self, result: MemoryAddress, constant: Value) {
+        self.const_instruction(result, constant, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
     }
 
     /// Processes a not instruction.
@@ -548,7 +572,7 @@ impl BrilligContext {
         // Compile !x as ((-1) - x)
         let u_max = FieldElement::from(2_i128).pow(&FieldElement::from(bit_size as i128))
             - FieldElement::one();
-        let max = self.make_constant(Value::from(u_max));
+        let max = self.make_constant(Value::from(u_max), bit_size);
         let opcode = BrilligOpcode::BinaryIntOp {
             destination: result,
             op: BinaryIntOp::Sub,
@@ -568,13 +592,19 @@ impl BrilligContext {
         &mut self,
         func_name: String,
         inputs: &[ValueOrArray],
+        input_value_types: &[HeapValueType],
         outputs: &[ValueOrArray],
+        output_value_types: &[HeapValueType],
     ) {
+        assert!(inputs.len() == input_value_types.len());
+        assert!(outputs.len() == output_value_types.len());
         self.debug_show.foreign_call_instruction(func_name.clone(), inputs, outputs);
         let opcode = BrilligOpcode::ForeignCall {
             function: func_name,
             destinations: outputs.to_vec(),
+            destination_value_types: output_value_types.to_vec(),
             inputs: inputs.to_vec(),
+            input_value_types: input_value_types.to_vec(),
         };
         self.push_opcode(opcode);
     }
@@ -704,7 +734,7 @@ impl BrilligContext {
         // The brillig VM performs all arithmetic operations modulo 2**bit_size
         // So to truncate any value to a target bit size we can just issue a no-op arithmetic operation
         // With bit size equal to target_bit_size
-        let zero_register = self.make_constant(Value::from(FieldElement::zero()));
+        let zero_register = self.make_constant(Value::from(FieldElement::zero()), bit_size);
         self.binary_instruction(
             value_to_truncate,
             zero_register,
@@ -721,9 +751,16 @@ impl BrilligContext {
     }
 
     /// Returns a register which holds the value of a constant
-    pub(crate) fn make_constant(&mut self, constant: Value) -> MemoryAddress {
+    pub(crate) fn make_constant(&mut self, constant: Value, bit_size: u32) -> MemoryAddress {
         let register = self.allocate_register();
-        self.const_instruction(register, constant);
+        self.const_instruction(register, constant, bit_size);
+        register
+    }
+
+    /// Returns a register which holds the value of an usize constant
+    pub(crate) fn make_usize_constant(&mut self, constant: Value) -> MemoryAddress {
+        let register = self.allocate_register();
+        self.usize_const(register, constant);
         register
     }
 
@@ -856,7 +893,7 @@ impl BrilligContext {
         op: BinaryIntOp,
         constant: usize,
     ) {
-        let const_register = self.make_constant(Value::from(constant));
+        let const_register = self.make_usize_constant(Value::from(constant));
         self.memory_op(operand, const_register, destination, op);
         // Mark as no longer used for this purpose, frees for reuse
         self.deallocate_register(const_register);
@@ -893,8 +930,11 @@ impl BrilligContext {
         //
         // This means that the arguments will be in the first `n` registers after
         // the number of reserved registers.
-        let (sources, destinations) =
+        let (sources, destinations): (Vec<_>, Vec<_>) =
             arguments.iter().enumerate().map(|(i, argument)| (*argument, self.register(i))).unzip();
+        destinations
+            .iter()
+            .for_each(|destination| self.registers.ensure_register_is_allocated(*destination));
         self.mov_registers_to_registers_instruction(sources, destinations);
         saved_registers
     }
@@ -909,11 +949,12 @@ impl BrilligContext {
     ) {
         // Allocate our result registers and write into them
         // We assume the return values of our call are held in 0..num results register indices
-        let (sources, destinations) = result_registers
+        let (sources, destinations): (Vec<_>, Vec<_>) = result_registers
             .iter()
             .enumerate()
             .map(|(i, result_register)| (self.register(i), *result_register))
             .unzip();
+        sources.iter().for_each(|source| self.registers.ensure_register_is_allocated(*source));
         self.mov_registers_to_registers_instruction(sources, destinations);
 
         // Restore all the same registers we have, in exact reverse order.
@@ -926,13 +967,13 @@ impl BrilligContext {
 
     /// Utility method to transform a HeapArray to a HeapVector by making a runtime constant with the size.
     pub(crate) fn array_to_vector(&mut self, array: &BrilligArray) -> BrilligVector {
-        let size_register = self.make_constant(array.size.into());
+        let size_register = self.make_usize_constant(array.size.into());
         BrilligVector { size: size_register, pointer: array.pointer, rc: array.rc }
     }
 
     /// Issues a blackbox operation.
     pub(crate) fn black_box_op_instruction(&mut self, op: BlackBoxOp) {
-        self.debug_show.black_box_op_instruction(op);
+        self.debug_show.black_box_op_instruction(&op);
         self.push_opcode(BrilligOpcode::BlackBox(op));
     }
 
@@ -947,7 +988,7 @@ impl BrilligContext {
         big_endian: bool,
     ) {
         self.mov_instruction(target_vector.size, limb_count);
-        self.const_instruction(target_vector.rc, 1_usize.into());
+        self.usize_const(target_vector.rc, 1_usize.into());
         self.allocate_array_instruction(target_vector.pointer, target_vector.size);
 
         let shifted_register = self.allocate_register();
@@ -1047,6 +1088,7 @@ pub(crate) mod tests {
         BinaryIntOp, ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value,
         ValueOrArray,
     };
+    use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};
     use acvm::{BlackBoxFunctionSolver, BlackBoxResolutionError, FieldElement};
 
@@ -1148,18 +1190,20 @@ pub(crate) mod tests {
         let mut context = BrilligContext::new(true);
         let r_stack = ReservedRegisters::stack_pointer();
         // Start stack pointer at 0
-        context.const_instruction(r_stack, Value::from(ReservedRegisters::len() + 3));
+        context.usize_const(r_stack, Value::from(ReservedRegisters::len() + 3));
         let r_input_size = MemoryAddress::from(ReservedRegisters::len());
         let r_array_ptr = MemoryAddress::from(ReservedRegisters::len() + 1);
         let r_output_size = MemoryAddress::from(ReservedRegisters::len() + 2);
         let r_equality = MemoryAddress::from(ReservedRegisters::len() + 3);
-        context.const_instruction(r_input_size, Value::from(12_usize));
+        context.usize_const(r_input_size, Value::from(12_usize));
         // copy our stack frame to r_array_ptr
         context.mov_instruction(r_array_ptr, r_stack);
         context.foreign_call_instruction(
             "make_number_sequence".into(),
             &[ValueOrArray::MemoryAddress(r_input_size)],
+            &[HeapValueType::Simple],
             &[ValueOrArray::HeapVector(HeapVector { pointer: r_stack, size: r_output_size })],
+            &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple] }],
         );
         // push stack frame by r_returned_size
         context.memory_op(r_stack, r_output_size, r_stack, BinaryIntOp::Add);

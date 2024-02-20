@@ -5,6 +5,7 @@ import {
   isAztecAddressStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
+  isWrappedFieldStruct,
 } from '@aztec/foundation/abi';
 
 /**
@@ -33,6 +34,9 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isFunctionSelectorStruct(type)) {
         return 'FunctionSelectorLike';
+      }
+      if (isWrappedFieldStruct(type)) {
+        return 'WrappedFieldLike';
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
@@ -165,7 +169,7 @@ function generateAbiStatement(name: string, artifactImportPath: string) {
  * @returns The corresponding ts code.
  */
 export function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
-  const methods = input.functions.filter(f => f.name !== 'constructor' && !f.isInternal).map(generateMethod);
+  const methods = input.functions.filter(f => !f.isInternal).map(generateMethod);
   const deploy = artifactImportPath && generateDeploy(input);
   const ctor = artifactImportPath && generateConstructor(input.name);
   const at = artifactImportPath && generateAt(input.name);
@@ -197,6 +201,7 @@ import {
   Point,
   PublicKey,
   Wallet,
+  WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}
 

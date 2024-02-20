@@ -3,11 +3,10 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_note_hash_for_read_or_nullify,
+        utils::compute_note_hash_for_consumption,
     },
     hash::{compute_secret_hash, pedersen_hash},
     context::PrivateContext,
-    protocol_types::traits::{Serialize, Deserialize}
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
@@ -23,14 +22,12 @@ struct TransparentNote {
     header: NoteHeader,
 }
 
-impl Serialize<TRANSPARENT_NOTE_LEN> for TransparentNote {
-    fn serialize(self) -> [Field; TRANSPARENT_NOTE_LEN] {
+impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
+    fn serialize_content(self) -> [Field; TRANSPARENT_NOTE_LEN] {
         [self.amount, self.secret_hash]
     }
-}
 
-impl Deserialize<TRANSPARENT_NOTE_LEN> for TransparentNote {
-    fn deserialize(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
+    fn deserialize_content(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
         TransparentNote {
             amount: serialized_note[0],
             secret_hash: serialized_note[1],
@@ -38,16 +35,10 @@ impl Deserialize<TRANSPARENT_NOTE_LEN> for TransparentNote {
             header: NoteHeader::empty(),
         }
     }
-}
 
-impl NoteInterface for TransparentNote {
-
-    fn compute_note_hash(self) -> Field {
+    fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
-            self.amount,
-            self.secret_hash,
-        ],0)
+        pedersen_hash(self.serialize_content(), 0)
     }
 
     fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
@@ -55,7 +46,7 @@ impl NoteInterface for TransparentNote {
     }
 
     fn compute_nullifier_without_context(self) -> Field {
-        let siloed_note_hash = compute_note_hash_for_read_or_nullify(self);
+        let siloed_note_hash = compute_note_hash_for_consumption(self);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([self.secret, siloed_note_hash],0)
     }
@@ -70,6 +61,12 @@ impl NoteInterface for TransparentNote {
 
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         assert(false, "TransparentNote does not support broadcast");
+    }
+
+    fn get_note_type_id() -> Field {
+        // TODO(#4519): autogenerate
+        // python -c "print(int(''.join(str(ord(c)) for c in 'TransparentNote')))"
+        84114971101151129711410111011678111116101
     }
 }
 

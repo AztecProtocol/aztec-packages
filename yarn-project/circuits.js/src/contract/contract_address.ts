@@ -1,10 +1,12 @@
 import { FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractInstance } from '@aztec/types/contracts';
 
-import { computeVarArgsHash } from '../abis/abis.js';
-import { AztecAddress, GeneratorIndex, PublicKey } from '../index.js';
+import { GeneratorIndex } from '../constants.gen.js';
+import { computeVarArgsHash } from '../hash/hash.js';
+import { PublicKey } from '../types/public_key.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
@@ -17,7 +19,11 @@ import { AztecAddress, GeneratorIndex, PublicKey } from '../index.js';
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */
-export function computeContractAddressFromInstance(instance: ContractInstance): AztecAddress {
+export function computeContractAddressFromInstance(
+  instance:
+    | ContractInstance
+    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
+): AztecAddress {
   const partialAddress = computePartialAddress(instance);
   const publicKeyHash = instance.publicKeysHash;
   return computeContractAddressFromPartial({ partialAddress, publicKeyHash });
@@ -97,6 +103,16 @@ export function computePublicKeysHash(publicKey: PublicKey | undefined): Fr {
 export function computeInitializationHash(initFn: FunctionAbi, args: any[]): Fr {
   const selector = FunctionSelector.fromNameAndParameters(initFn.name, initFn.parameters);
   const flatArgs = encodeArguments(initFn, args);
-  const argsHash = computeVarArgsHash(flatArgs);
-  return Fr.fromBuffer(pedersenHash([selector.toBuffer(), argsHash.toBuffer()], GeneratorIndex.CONSTRUCTOR));
+  return computeInitializationHashFromEncodedArgs(selector, flatArgs);
+}
+
+/**
+ * Computes the initialization hash for an instance given its constructor function selector and encoded arguments.
+ * @param initFn - Constructor function selector.
+ * @param args - Encoded arguments.
+ * @returns The hash.
+ */
+export function computeInitializationHashFromEncodedArgs(initFn: FunctionSelector, encodedArgs: Fr[]): Fr {
+  const argsHash = computeVarArgsHash(encodedArgs);
+  return Fr.fromBuffer(pedersenHash([initFn.toBuffer(), argsHash.toBuffer()], GeneratorIndex.CONSTRUCTOR));
 }

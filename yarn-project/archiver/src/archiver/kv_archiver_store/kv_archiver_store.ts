@@ -14,7 +14,7 @@ import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore } from '@aztec/kv-store';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
 import { BlockStore } from './block_store.js';
@@ -35,7 +35,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
 
-  #log = createDebugLogger('aztec:archiver:lmdb');
+  #log = createDebugLogger('aztec:archiver:data-store');
 
   constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockStore = new BlockStore(db);
@@ -46,7 +46,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#contractInstanceStore = new ContractInstanceStore(db);
   }
 
-  getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     return Promise.resolve(this.#contractClassStore.getContractClass(id));
   }
 
@@ -54,7 +54,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#contractInstanceStore.getContractInstance(address));
   }
 
-  async addContractClasses(data: ContractClassWithId[], _blockNumber: number): Promise<boolean> {
+  async addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c)))).every(Boolean);
   }
 

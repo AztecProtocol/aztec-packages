@@ -115,14 +115,14 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         return derive_generators(domain_bytes, num_generators, starting_index);
     }
 
-    BBERG_INLINE static void conditional_negate_affine(const affine_element* src,
-                                                       affine_element* dest,
-                                                       uint64_t predicate);
+    BB_INLINE static void conditional_negate_affine(const affine_element* src,
+                                                    affine_element* dest,
+                                                    uint64_t predicate);
 };
 
 } // namespace bb
 
-#ifdef DISABLE_SHENANIGANS
+#ifdef DISABLE_ASM
 #include "group_impl_int128.tcc"
 #else
 #include "group_impl_asm.tcc"

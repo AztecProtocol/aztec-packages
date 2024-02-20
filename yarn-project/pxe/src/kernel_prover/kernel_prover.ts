@@ -1,7 +1,5 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CONTRACT_TREE_HEIGHT,
   CallRequest,
   Fr,
   GrumpkinScalar,
@@ -12,14 +10,13 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
-  MembershipWitness,
   NullifierKeyValidationRequestContext,
-  PreviousKernelData,
   PrivateCallData,
-  PrivateKernelInputsInit,
-  PrivateKernelInputsInner,
-  PrivateKernelInputsOrdering,
-  PrivateKernelPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelInnerData,
+  PrivateKernelTailCircuitPrivateInputs,
   ReadRequestMembershipWitness,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -33,6 +30,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
@@ -94,7 +92,7 @@ export class KernelProver {
     let previousVerificationKey = VerificationKey.makeFake();
 
     let output: ProofOutput = {
-      publicInputs: PrivateKernelPublicInputs.empty(),
+      publicInputs: PrivateKernelInnerCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
 
@@ -102,7 +100,9 @@ export class KernelProver {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
 
-      const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
+      const privateCallRequests = currentExecution.nestedExecutions.map(result =>
+        result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
+      );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
 
       // Start with the partially filled in read request witnesses from the simulator
@@ -140,19 +140,19 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-        const previousKernelData = new PreviousKernelData(
+        const previousKernelData = new PrivateKernelInnerData(
           output.publicInputs,
           output.proof,
           previousVerificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        const proofInput = new PrivateKernelInputsInner(previousKernelData, privateCallData);
+        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.createProofInner(proofInput);
       }
@@ -164,7 +164,7 @@ export class KernelProver {
     }
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-    const previousKernelData = new PreviousKernelData(
+    const previousKernelData = new PrivateKernelInnerData(
       output.publicInputs,
       output.proof,
       previousVerificationKey,
@@ -193,7 +193,7 @@ export class KernelProver {
       output.publicInputs.end.nullifierKeyValidationRequests,
     );
 
-    const privateInputs = new PrivateKernelInputsOrdering(
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       sortedCommitments,
       sortedCommitmentsIndexes,
@@ -204,7 +204,7 @@ export class KernelProver {
       masterNullifierSecretKeys,
     );
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
+    const outputFinal = await this.proofCreator.createProofTail(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
@@ -251,14 +251,15 @@ export class KernelProver {
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
 
-    const contractLeafMembershipWitness = functionData.isConstructor
-      ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
-      : await this.oracle.getContractMembershipWitness(contractAddress);
-
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
       functionData.selector,
     );
+    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+      contractAddress,
+    );
+    const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
+      await this.oracle.getContractClassIdPreimage(contractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
@@ -267,18 +268,21 @@ export class KernelProver {
     // TODO
     const proof = makeEmptyProof();
 
-    return new PrivateCallData(
+    return PrivateCallData.from({
       callStackItem,
       privateCallStack,
       publicCallStack,
       proof,
-      VerificationKey.fromBuffer(vk),
+      vk: VerificationKey.fromBuffer(vk),
+      publicKeysHash,
+      contractClassArtifactHash,
+      contractClassPublicBytecodeCommitment,
+      saltedInitializationHash,
       functionLeafMembershipWitness,
-      contractLeafMembershipWitness,
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
-      portalContractAddress.toField(),
+      readRequestMembershipWitnesses: makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      portalContractAddress: portalContractAddress.toField(),
       acirHash,
-    );
+    });
   }
 
   /**

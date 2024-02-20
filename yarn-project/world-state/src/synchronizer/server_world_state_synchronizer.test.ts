@@ -1,10 +1,10 @@
-import { L2Block, L2BlockSource, MerkleTreeId } from '@aztec/circuit-types';
+import { L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { AztecKVStore, AztecLmdbStore } from '@aztec/kv-store';
+import { AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
-import { SiblingPath } from '@aztec/types/membership';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -104,8 +104,8 @@ describe('server_world_state_synchronizer', () => {
     );
   };
 
-  beforeEach(async () => {
-    db = await AztecLmdbStore.openTmp();
+  beforeEach(() => {
+    db = openTmpStore();
   });
 
   it('can be constructed', () => {

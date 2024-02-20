@@ -1,5 +1,7 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { PARTIAL_STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 
 /**
@@ -27,12 +29,23 @@ export class PartialStateReference {
     );
   }
 
+  static fromFields(fields: Fr[] | FieldReader): PartialStateReference {
+    const reader = FieldReader.asReader(fields);
+
+    const noteHashTree = AppendOnlyTreeSnapshot.fromFields(reader);
+    const nullifierTree = AppendOnlyTreeSnapshot.fromFields(reader);
+    const contractTree = AppendOnlyTreeSnapshot.fromFields(reader);
+    const publicDataTree = AppendOnlyTreeSnapshot.fromFields(reader);
+
+    return new PartialStateReference(noteHashTree, nullifierTree, contractTree, publicDataTree);
+  }
+
   static empty(): PartialStateReference {
     return new PartialStateReference(
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
-      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.zero(),
     );
   }
 
@@ -40,21 +53,27 @@ export class PartialStateReference {
     return serializeToBuffer(this.noteHashTree, this.nullifierTree, this.contractTree, this.publicDataTree);
   }
 
-  toFieldArray() {
-    return [
-      ...this.noteHashTree.toFieldArray(),
-      ...this.nullifierTree.toFieldArray(),
-      ...this.contractTree.toFieldArray(),
-      ...this.publicDataTree.toFieldArray(),
+  toFields() {
+    const fields = [
+      ...this.noteHashTree.toFields(),
+      ...this.nullifierTree.toFields(),
+      ...this.contractTree.toFields(),
+      ...this.publicDataTree.toFields(),
     ];
+    if (fields.length !== PARTIAL_STATE_REFERENCE_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PartialStateReference. Expected ${PARTIAL_STATE_REFERENCE_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   isEmpty(): boolean {
     return (
-      this.noteHashTree.isEmpty() &&
-      this.nullifierTree.isEmpty() &&
-      this.contractTree.isEmpty() &&
-      this.publicDataTree.isEmpty()
+      this.noteHashTree.isZero() &&
+      this.nullifierTree.isZero() &&
+      this.contractTree.isZero() &&
+      this.publicDataTree.isZero()
     );
   }
 }

@@ -7,60 +7,75 @@
 namespace bb::AvmMini_vm {
 
 template <typename FF> struct Alu_chipRow {
-    FF aluChip_alu_u16_r0{};
-    FF aluChip_alu_u16_r3{};
-    FF aluChip_alu_u16_r5{};
-    FF aluChip_alu_u16_r1_shift{};
-    FF aluChip_alu_u16_r0_shift{};
-    FF aluChip_alu_op_add{};
-    FF aluChip_alu_ia{};
-    FF aluChip_alu_u16_r4_shift{};
-    FF aluChip_alu_ib{};
-    FF aluChip_alu_u16_r7{};
-    FF aluChip_alu_u8_r0{};
-    FF aluChip_alu_u16_r7_shift{};
-    FF aluChip_alu_op_sub{};
-    FF aluChip_alu_u16_r6{};
-    FF aluChip_alu_u16_r5_shift{};
-    FF aluChip_alu_op_mul{};
-    FF aluChip_alu_u64_tag{};
+    FF aluChip_alu_ic{};
     FF aluChip_alu_u16_r2_shift{};
-    FF aluChip_alu_u64_r0{};
-    FF aluChip_alu_ff_tag{};
-    FF aluChip_alu_u32_tag{};
-    FF aluChip_alu_u16_tag{};
-    FF aluChip_alu_u16_r4{};
+    FF aluChip_alu_op_not{};
+    FF aluChip_alu_op_add{};
+    FF aluChip_alu_u16_r0_shift{};
+    FF aluChip_alu_u8_r1{};
+    FF aluChip_alu_u16_r6{};
+    FF aluChip_alu_cf{};
+    FF aluChip_alu_u16_r7{};
+    FF aluChip_alu_u16_r5{};
+    FF aluChip_alu_inv_diff{};
+    FF aluChip_alu_op_eq{};
+    FF aluChip_alu_u16_r5_shift{};
+    FF aluChip_alu_u16_r1{};
+    FF aluChip_alu_u16_r3{};
+    FF aluChip_alu_u8_tag{};
+    FF aluChip_alu_u64_tag{};
+    FF aluChip_alu_ib{};
     FF aluChip_alu_u16_r6_shift{};
     FF aluChip_alu_u16_r2{};
-    FF aluChip_alu_ic{};
-    FF aluChip_alu_u8_tag{};
-    FF aluChip_alu_cf{};
+    FF aluChip_alu_u8_r0{};
+    FF aluChip_alu_u16_r4{};
+    FF aluChip_alu_u32_tag{};
+    FF aluChip_alu_op_mul{};
+    FF aluChip_alu_u16_r1_shift{};
+    FF aluChip_alu_u16_tag{};
+    FF aluChip_alu_op_sub{};
+    FF aluChip_alu_u16_r7_shift{};
     FF aluChip_alu_u16_r3_shift{};
-    FF aluChip_alu_u8_r1{};
-    FF aluChip_alu_u16_r1{};
+    FF aluChip_alu_ff_tag{};
+    FF aluChip_alu_u64_r0{};
+    FF aluChip_alu_u16_r0{};
     FF aluChip_alu_u128_tag{};
+    FF aluChip_alu_ia{};
+    FF aluChip_alu_u16_r4_shift{};
 };
 
 inline std::string get_relation_label_alu_chip(int index)
 {
     switch (index) {
-    case 9:
-        return "ALU_MUL_COMMON_1";
+    case 16:
+        return "ALU_RES_IS_BOOL";
 
-    case 8:
-        return "ALU_MULTIPLICATION_FF";
+    case 14:
+        return "ALU_FF_NOT_XOR";
 
     case 6:
         return "ALU_ADD_SUB_1";
 
-    case 7:
-        return "ALU_ADD_SUB_2";
-
     case 10:
         return "ALU_MUL_COMMON_2";
 
+    case 8:
+        return "ALU_MULTIPLICATION_FF";
+
+    case 7:
+        return "ALU_ADD_SUB_2";
+
+    case 9:
+        return "ALU_MUL_COMMON_1";
+
     case 13:
         return "ALU_MULTIPLICATION_OUT_U128";
+
+    case 15:
+        return "ALU_OP_NOT";
+
+    case 17:
+        return "ALU_OP_EQ";
     }
     return std::to_string(index);
 }
@@ -69,8 +84,8 @@ template <typename FF_> class alu_chipImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 6, 6, 8,
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 6, 6, 8, 3, 4, 4, 5,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -271,6 +286,47 @@ template <typename FF_> class alu_chipImpl {
                          aluChip_alu_ic));
             tmp *= scaling_factor;
             std::get<13>(evals) += tmp;
+        }
+        // Contribution 14
+        {
+            AvmMini_DECLARE_VIEWS(14);
+
+            auto tmp = (aluChip_alu_op_not * aluChip_alu_ff_tag);
+            tmp *= scaling_factor;
+            std::get<14>(evals) += tmp;
+        }
+        // Contribution 15
+        {
+            AvmMini_DECLARE_VIEWS(15);
+
+            auto tmp = (aluChip_alu_op_not * ((aluChip_alu_ia + aluChip_alu_ic) -
+                                              ((((((aluChip_alu_u8_tag * FF(256)) + (aluChip_alu_u16_tag * FF(65536))) +
+                                                  (aluChip_alu_u32_tag * FF(4294967296UL))) +
+                                                 (aluChip_alu_u64_tag * FF(uint256_t{ 0, 1, 0, 0 }))) +
+                                                (aluChip_alu_u128_tag * FF(uint256_t{ 0, 0, 1, 0 }))) -
+                                               FF(1))));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += tmp;
+        }
+        // Contribution 16
+        {
+            AvmMini_DECLARE_VIEWS(16);
+
+            auto tmp = (aluChip_alu_op_eq * (aluChip_alu_ic * (-aluChip_alu_ic + FF(1))));
+            tmp *= scaling_factor;
+            std::get<16>(evals) += tmp;
+        }
+        // Contribution 17
+        {
+            AvmMini_DECLARE_VIEWS(17);
+
+            auto tmp =
+                (aluChip_alu_op_eq * ((((aluChip_alu_ia - aluChip_alu_ib) *
+                                        ((aluChip_alu_ic * (-aluChip_alu_inv_diff + FF(1))) + aluChip_alu_inv_diff)) -
+                                       FF(1)) +
+                                      aluChip_alu_ic));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += tmp;
         }
     }
 };

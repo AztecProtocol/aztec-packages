@@ -46,7 +46,8 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
     using CommitmentHandle = typename Curve::Element;
-    using NativeVerificationKey = GoblinUltraFlavor::VerificationKey;
+    using NativeFlavor = GoblinUltraFlavor;
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
@@ -166,7 +167,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = bb::stdlib::recursion::honk::Transcript<CircuitBuilder>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb

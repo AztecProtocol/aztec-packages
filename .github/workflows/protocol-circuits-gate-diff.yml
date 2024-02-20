@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.tag || env.GITHUB_REF }}
 
       - name: Install bleeding edge cmake
         run: |
@@ -34,6 +32,7 @@ jobs:
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/include/* /usr/local/include/
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
+          rm -rf clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04
 
       - uses: actions/cache@v3
         with:
@@ -79,7 +78,7 @@ jobs:
         run: nargo --version
 
       - name: Generate gates report
-        working-directory: ./yarn-project/noir-protocol-circuits/src
+        working-directory: ./noir-projects/noir-protocol-circuits/src
         run: |
           nargo info --json > protocol_circuits_report.json
           mv protocol_circuits_report.json ../../../protocol_circuits_report.json

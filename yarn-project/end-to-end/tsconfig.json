@@ -43,10 +43,13 @@
       "path": "../merkle-tree"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../noir-contracts.js"
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../pxe"

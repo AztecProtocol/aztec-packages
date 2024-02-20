@@ -9,7 +9,7 @@ graph LR
 A[RootRollupInputs] --> C[RootRollupCircuit] --> B[RootRollupPublicInputs] --> D[ProvenBlock] --> E[Node]
 ```
 
-For rollup purposes, the node we want to convince of the correctness is the [validating light node](../cross-chain-communication/index.md) that we put on L1. We will cover it in more detail in the [cross-chain communication](../cross-chain-communication/index.md) section.
+For rollup purposes, the node we want to convince of the correctness is the [validating light node](../l1-smart-contracts/index.md) that we put on L1. We will cover it in more detail in the [cross-chain communication](../l1-smart-contracts/index.md) section.
 
 :::info Squishers
 This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
@@ -39,16 +39,24 @@ class GlobalVariables {
     timestamp: Fr
     version: Fr
     chain_id: Fr
-    coinbase: Address
+    coinbase: EthAddress
+    fee_recipient: Address}
+
+class ContentCommitment {
+    tx_tree_height: Fr
+    txs_hash: Fr[2]
+    in_hash: Fr[2]
+    out_hash: Fr[2]
 }
 
 class Header {
     last_archive: Snapshot
-    body_hash: Fr[2]
+    content_commitment: ContentCommitment
     state: StateReference
     global_variables: GlobalVariables
 }
-Header *.. Body : body_hash
+Header *.. Body : txs_hash
+Header *-- ContentCommitment: content_commitment
 Header *-- StateReference : state
 Header *-- GlobalVariables : global_variables
 
@@ -81,7 +89,6 @@ TxEffect *-- "m" PublicDataWrite: public_writes
 TxEffect *-- Logs : logs
 
 class Body {
-    l1_to_l2_messages: List~Fr~
     tx_effects: List~TxEffect~
 }
 Body *-- "m" TxEffect
@@ -123,8 +130,13 @@ class ChildRollupData {
 }
 ChildRollupData *-- BaseOrMergeRollupPublicInputs: public_inputs
 
+class MessageCompressionBaseOrMergePublicInputs {
+    sha_root: Fr[2]
+    converted_root: Fr
+}
+
 class RootRollupInputs {
-    l1_to_l2_msgs: List~Fr~
+    l1_to_l2_roots: MessageCompressionBaseOrMergePublicInputs
     l1_to_l2_msgs_sibling_path: List~Fr~
     parent: Header,
     parent_sibling_path: List~Fr~
@@ -132,9 +144,10 @@ class RootRollupInputs {
     left: ChildRollupData
     right: ChildRollupData
 }
-RootRollupInputs *-- Header : parent
+RootRollupInputs *-- MessageCompressionBaseOrMergePublicInputs: l1_to_l2_roots
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
+RootRollupInputs *-- Header : parent
 
 class RootRollupPublicInputs {
     aggregation_object: AggregationObject
@@ -148,7 +161,7 @@ RootRollupPublicInputs *--Header : header
 
 ```python
 def RootRollupCircuit(
-    l1_to_l2_msgs: List[Fr],
+    l1_to_l2_roots: MessageCompressionBaseOrMergePublicInputs,
     l1_to_l2_msgs_sibling_path: List[Fr],
     parent: Header,
     parent_sibling_path: List[Fr],
@@ -175,21 +188,22 @@ def RootRollupCircuit(
     )
 
     # Update the l1 to l2 msg tree
-    l1_to_l2_msg_subtree = MerkleTree(l1_to_l2_msgs)
     l1_to_l2_msg_tree = merkle_insertion(
         parent.state.l1_to_l2_message_tree,
-        l1_to_l2_msg_subtree.root,
+        l1_to_l2_roots.converted_root,
         l1_to_l2_msgs_sibling_path,
         L1_TO_L2_SUBTREE_HEIGHT,
         L1_To_L2_HEIGHT
     )
 
-    txs_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.txs_hash)
-    out_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.out_hash)
-
     header = Header(
         last_archive = left.public_inputs.constants.last_archive,
-        body_hash = SHA256(txs_hash | out_hash | SHA256(l1_to_l2_msgs)),
+        content_commitment: ContentCommitment(
+            tx_tree_height = left.public_inputs.height_in_block_tree + 1,
+            txs_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.txs_hash),
+            in_hash = l1_to_l2_roots.sha_root,
+            out_hash = SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
+        ),
         state = StateReference(
             l1_to_l2_message_tree = l1_to_l2_msg_tree,
             partial = right.public_inputs.end,
@@ -214,4 +228,4 @@ def RootRollupCircuit(
     )
 ```
 
-The `RootRollupPublicInputs` can then be used together with `Body` to build a `ProvenBlock` which can be used to convince the [validating light node](../cross-chain-communication/index.md) of state progression.
+The `RootRollupPublicInputs` can then be used together with `Body` to build a `ProvenBlock` which can be used to convince the [validating light node](../l1-smart-contracts/index.md) of state progression.
