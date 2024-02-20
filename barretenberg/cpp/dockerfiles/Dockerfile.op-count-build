@@ -3,11 +3,13 @@ FROM alpine:3.18 AS builder
 RUN apk update \
     && apk upgrade \
     && apk add --no-cache \
-        build-base \
-        cmake \
-        ninja \
-        git \
-        curl
+    build-base \
+    clang16 \
+    cmake \
+    ninja \
+    git \
+    curl \
+    perl
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build bb binary and targets needed for benchmarking. 
