@@ -236,14 +236,22 @@ fn handle_foreign_call(
 ) {
     match function.as_str() {
         "keccak256" | "sha256" => {
-            handle_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
+            emit_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
         }
-        "poseidon" => handle_field_hash_instruction(avm_instrs, function, destinations, inputs),
+        "poseidon" => emit_single_field_hash_instruction(avm_instrs, function, destinations, inputs),
         _ => handle_getter_instruction(avm_instrs, function, destinations, inputs),
     }
 }
 
-fn handle_2_field_hash_instruction(
+/// Two field hash instructions represent instruction's that's outputs are larger than a field element
+/// 
+/// This includes:
+/// - keccak
+/// - sha256
+///
+/// In the future the output of these may expand / contract depending on what is most efficient for the circuit
+/// to reason about. In order to decrease user friction we will use two field outputs. 
+fn emit_2_field_hash_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &String,
     destinations: &[ValueOrArray],
@@ -294,7 +302,16 @@ fn handle_2_field_hash_instruction(
     });
 }
 
-fn handle_field_hash_instruction(
+/// A single field hash instruction includes hash functions that emit a single field element 
+/// directly onto the stack.
+///
+/// This includes (snark friendly functions):
+/// - poseidon2
+///
+/// Pedersen is not implemented this way as the black box function representation has the correct api. 
+/// As the Poseidon BBF only deals with a single permutation, it is not quite suitable for our current avm 
+/// representation.
+fn emit_single_field_hash_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &String,
     destinations: &[ValueOrArray],
@@ -340,6 +357,14 @@ fn handle_field_hash_instruction(
     });
 }
 
+/// Getter Instructions are instructions that take NO inputs, and return information 
+/// from the current execution context. 
+/// 
+/// This includes:
+/// - Global variables
+/// - Caller
+/// - storage address 
+/// - ...
 fn handle_getter_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &String,
@@ -467,6 +492,8 @@ fn emit_mov(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
     }
 }
 
+/// Black box functions, for the meantime only covers pedersen operations as the blackbox function api suits our current needs. 
+/// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
         BlackBoxOp::PedersenHash {
