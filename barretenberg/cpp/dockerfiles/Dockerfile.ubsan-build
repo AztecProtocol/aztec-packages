@@ -22,4 +22,3 @@ COPY . .
 RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
 RUN cmake --preset ubsan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ && cmake --build --preset ubsan
-RUN srs_db/download_grumpkin.sh
