@@ -17,8 +17,10 @@ contract MultiSigAccount {
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils}, oracle::get_public_key::get_public_key,
-        state_vars::singleton::Singleton
+        note::{note_header::NoteHeader, utils as note_utils}, 
+        oracle::get_public_key::get_public_key,
+        state_vars::singleton::Singleton,
+        oracle::debug_log::{debug_log_format, debug_log_array_with_prefix}
     };
     use dep::authwit::{
         auth::IS_VALID_SELECTOR, entrypoint::{app::AppPayload, fee::FeePayload},
@@ -54,6 +56,14 @@ contract MultiSigAccount {
         actions.entrypoint(app_payload, fee_payload);
     }
 
+    // add owners
+
+    // remove owners
+
+    // rotate private key
+
+    // change threshold
+
     #[aztec(private)]
     fn is_valid(message_hash: Field) -> Field {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
@@ -74,11 +84,13 @@ contract MultiSigAccount {
 
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, message_field: Field) -> bool {
-        // Load public key from storage
+        debug_log_format("MultisigAccount.is_valid_impl message_field={0}", [message_field]);
+
         let storage = Storage::init(Context::private(context));
         let state = storage.state.get_note(/*broadcast=*/ true);
 
         let owners_from_pxe: [Field; MAX_MULTISIG_OWNERS] = pop_capsule();
+        debug_log_array_with_prefix("MultisigAccount.is_valid_impl owners_from_pxe=", owners_from_pxe);
         let mut auths_collected : u8 = 0;
         let owners = state.owners;
         let is_valid_selector = FunctionSelector::from_field(IS_VALID_SELECTOR);
@@ -92,15 +104,19 @@ contract MultiSigAccount {
                     auths_collected += is_in_state as u8;
                 }
 
+                let message_field_for_owner = dep::aztec::protocol_types::hash::pedersen_hash([message_field, owner.to_field()], 0);
+                debug_log_format("MultisigAccount.is_valid_impl owner={0} is_in_state={1} message_field_for_owner={2}", [owner, is_in_state as Field, message_field_for_owner]);
                 let result = context.call_private_function(
                     AztecAddress::from_field(owner),
                     is_valid_selector,
-                    [message_field]
+                    [message_field_for_owner]
                 )[0];
 
                 assert(result == IS_VALID_SELECTOR, "Invalid auth");
             }
         }
+
+        debug_log_format("MultisigAccount.is_valid_impl auths_collected={0}", [auths_collected as Field]);
         assert(auths_collected >= state.threshold, "Not enough auths");
 
         context.push_new_nullifier(message_field, /*nullified_commitment=*/ 0);
@@ -108,61 +124,3 @@ contract MultiSigAccount {
         true
     }
 }
-global PLO: Field = 53438638232309528389504892708671455233;
-global PHI: Field = 64323764613183177041862057485226039389;
-
-global TWO_POW_128: Field = 0x100000000000000000000000000000000;
-
-unconstrained fn decompose_unsafe(x: Field) -> (Field, Field) {
-    let x_bytes = x.to_le_bytes(32);
-
-    let mut low: Field = 0;
-    let mut high: Field = 0;
-
-    let mut offset = 1;
-    for i in 0..16 {
-        low += (x_bytes[i] as Field) * offset;
-        high += (x_bytes[i + 16] as Field) * offset;
-        offset *= 256;
-    }
-
-    (low, high)
-}
-
-/// Decompose a single field into two 16 byte fields.
-// pub fn decompose(x: Field) -> (Field, Field) {
-//     // Take hints of the decomposition
-//     let (xlo, xhi) = decompose_unsafe(x);
-//     let borrow = lt_unsafe(PLO, xlo, 16);
-
-//     // Range check the limbs
-//     xlo.assert_max_bit_size(128);
-//     xhi.assert_max_bit_size(128);
-
-//     // Check that the decomposition is correct
-//     assert_eq(x, xlo + TWO_POW_128 * xhi);
-
-//     // Check that (xlo < plo && xhi <= phi) || (xlo >= plo && xhi < phi)
-//     let rlo = PLO - xlo + (borrow as Field) * TWO_POW_128;
-//     let rhi = PHI - xhi - (borrow as Field);
-
-//     rlo.assert_max_bit_size(128);
-//     rhi.assert_max_bit_size(128);
-
-//     (xlo, xhi)
-// }
-fn field_to_grumpkin_private_key(val: Field) -> GrumpkinPrivateKey {
-    let bytes = val.to_be_bytes(32);
-    let mut v = 1;
-    let mut high = 0;
-    let mut low = 0;
-
-    for i in 0..16 {
-        high = high + (bytes[15 - i] as Field) * v;
-        low = low + (bytes[16 + 15 - i] as Field) * v;
-        v = v * 256;
-    }
-
-    GrumpkinPrivateKey { high, low }
-}
-
