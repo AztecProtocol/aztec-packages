@@ -137,7 +137,7 @@ jobs:
           command: cond_spot_run_build avm-transpiler 32
 
   # Barretenberg
-  barretenberg-wasm-linux-clang:
+  barretenberg-wasm-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -146,9 +146,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 128
+          command: cond_spot_run_build barretenberg-wasm-build 128
 
-  barretenberg-x86_64-linux-gcc:
+  barretenberg-gcc-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -157,9 +157,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
+          command: cond_spot_run_build barretenberg-gcc-build 128
 
-  barretenberg-x86_64-linux-clang:
+  barretenberg-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -168,9 +168,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
+          command: cond_spot_run_build barretenberg-build 128
 
-  barretenberg-x86_64-linux-clang-fuzzing:
+  barretenberg-fuzzing-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -179,9 +179,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
+          command: cond_spot_run_build barretenberg-fuzzing-build 128
 
-  barretenberg-x86_64-linux-clang-assert:
+  barretenberg-assert-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -190,9 +190,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
+          command: cond_spot_run_build barretenberg-assert-build 128
 
-  barretenberg-x86_64-linux-clang-sol:
+  barretenberg-solidity-verifier:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -201,7 +201,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
+          command: cond_spot_run_build barretenberg-solidity-verifier 32
 
   barretenberg-docs:
     machine:
@@ -227,7 +227,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 1 stdlib-tests
 
   barretenberg-dsl-tests:
     docker:
@@ -238,7 +238,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 1 dsl_tests
 
   barretenberg-tests:
     docker:
@@ -249,7 +249,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/bb-tests.sh
 
   barretenberg-bench:
     machine:
@@ -277,7 +277,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 1 proof_system_tests
 
   barretenberg-stdlib-recursion-ultra-tests:
     docker:
@@ -288,7 +288,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
 
   barretenberg-join-split-tests:
     docker:
@@ -299,7 +299,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
 
   barretenberg-acir-tests-bb:
     docker:
@@ -1213,7 +1213,7 @@ e2e_test: &e2e_test
 
 bb_test: &bb_test
   requires:
-    - barretenberg-x86_64-linux-clang-assert
+    - barretenberg-assert-build
   <<: *defaults
 
 # Workflows.
@@ -1240,15 +1240,15 @@ workflows:
       - avm-transpiler: *defaults
 
       # Barretenberg
-      - barretenberg-x86_64-linux-gcc: *defaults
-      - barretenberg-x86_64-linux-clang: *defaults
-      - barretenberg-x86_64-linux-clang-assert: *defaults
-      - barretenberg-x86_64-linux-clang-fuzzing: *defaults
-      - barretenberg-wasm-linux-clang: *defaults
-      - barretenberg-x86_64-linux-clang-sol: *defaults
+      - barretenberg-gcc-build: *defaults
+      - barretenberg-build: *defaults
+      - barretenberg-assert-build: *defaults
+      - barretenberg-fuzzing-build: *defaults
+      - barretenberg-wasm-build: *defaults
+      - barretenberg-solidity-verifier: *defaults
       - barretenberg-bench:
           requires:
-            - barretenberg-x86_64-linux-clang
+            - barretenberg-build
           <<: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
@@ -1258,13 +1258,13 @@ workflows:
       - barretenberg-join-split-tests: *bb_test
       - barretenberg-acir-tests-bb:
           requires:
-            - barretenberg-x86_64-linux-clang-assert
+            - barretenberg-assert-build
             - noir-compile-acir-tests
           <<: *defaults
       - barretenberg-docs: *defaults
       - bb-js:
           requires:
-            - barretenberg-wasm-linux-clang
+            - barretenberg-wasm-build
           <<: *defaults
       - bb-js-tests:
           requires:

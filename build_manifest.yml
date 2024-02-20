@@ -53,32 +53,32 @@ noir-compile-acir-tests:
   dependencies:
     - noir
 
-barretenberg-x86_64-linux-clang:
+barretenberg-build:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
+  dockerfile: dockerfiles/Dockerfile.build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-x86_64-linux-clang-assert:
+barretenberg-assert-build:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
+  dockerfile: dockerfiles/Dockerfile.assert-build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-x86_64-linux-clang-fuzzing:
+barretenberg-fuzzing-build:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing
+  dockerfile: dockerfiles/Dockerfile.fuzzing-build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-x86_64-linux-gcc:
+barretenberg-gcc-build:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
+  dockerfile: dockerfiles/Dockerfile.gcc-build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-wasm-linux-clang:
+barretenberg-wasm-build:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
+  dockerfile: dockerfiles/Dockerfile.wasm-build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-x86_64-linux-clang-sol:
+barretenberg-solidity-verifier:
   buildDir: barretenberg
   dockerfile: sol/Dockerfile
   rebuildPatterns: sol/.rebuild_patterns
@@ -86,21 +86,22 @@ barretenberg-x86_64-linux-clang-sol:
 bb.js:
   buildDir: barretenberg/ts
   dependencies:
-    - barretenberg-wasm-linux-clang
+    - barretenberg-wasm-build
 
 barretenberg-acir-tests-bb:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb
   dependencies:
-    - barretenberg-x86_64-linux-clang-assert
+    - barretenberg-assert-build
     - noir-compile-acir-tests
 
-barretenberg-acir-tests-bb-sol:
+# TODO(AD) this is unused?
+barretenberg-acir-tests-bb-solidity:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb.sol
   dependencies:
-    - barretenberg-x86_64-linux-clang-assert
-    - barretenberg-x86_64-linux-clang-sol
+    - barretenberg-assert-build
+    - barretenberg-solidity-verifier
     - noir-compile-acir-tests
 
 barretenberg-acir-tests-bb.js:
@@ -114,7 +115,7 @@ barretenberg-bench:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.bench
   dependencies:
-    - barretenberg-x86_64-linux-clang
+    - barretenberg-build
 
 barretenberg-docs:
   buildDir: barretenberg/cpp

@@ -14,7 +14,6 @@ RUN apk update \
 WORKDIR /usr/src/barretenberg/cpp
 
 COPY ./cpp .
-# Build everything to ensure everything builds. All tests will be run from the result of this build.
 RUN cmake --preset clang16  && cmake --build --preset clang16 --target solidity_key_gen solidity_proof_gen
 
 FROM docker.io/frolvlad/alpine-glibc:alpine-3.17_glibc-2.34 as builder

@@ -1,4 +1,4 @@
-# We have to stay on 3.17 for now, to get clang-format 15, as code is not yet formatted to 16.
+# builds with thread sanitizer
 FROM alpine:3.17 AS builder
 RUN apk update \
     && apk upgrade \
@@ -15,7 +15,7 @@ RUN apk update \
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
-RUN ./format.sh check && cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert -DCI=ON && cmake --build --preset default
+RUN cmake --preset tsan && cmake --build --preset tsan
 RUN srs_db/download_grumpkin.sh
 
 FROM alpine:3.17
