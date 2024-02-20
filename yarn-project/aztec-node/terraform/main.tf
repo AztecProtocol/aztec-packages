@@ -154,7 +154,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}",
-    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec:cache-e2fd516b5f6f5de3c642ebf83f4bd0370f2ace1f",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
     "command": ["start", "--node", "--archiver", "--sequencer"],
     "essential": true,
     "memoryReservation": 3776,
@@ -217,23 +217,23 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS",
-        "value": "0x925957af6173b0517627dc338fccac58c7a73b3a"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.contract_deployment_emitter_address}"
       },
       {
         "name": "ROLLUP_CONTRACT_ADDRESS",
-        "value": "0xa1b823cd37878be071e80684f8af49f719f9ad70"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address}"
       },
       {
         "name": "INBOX_CONTRACT_ADDRESS",
-        "value": "0x3ac9d23ac5b8ee0126baf3fac8def4885e6c7999"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
       },
       {
         "name": "OUTBOX_CONTRACT_ADDRESS",
-        "value": "0x03c6f7f5c15dcef8273884784fd43fe76184992c"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
-        "value": "0xad463e0cb8ec1031998ff1f2335f6445a3e71d20"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.registry_contract_address}"
       },
       {
         "name": "API_KEY",
