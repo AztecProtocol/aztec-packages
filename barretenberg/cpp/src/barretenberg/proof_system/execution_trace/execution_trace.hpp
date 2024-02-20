@@ -11,6 +11,7 @@ namespace bb {
  * @tparam Arithmetization The set of selectors corresponding to the arithmetization
  */
 template <class Arithmetization> struct ExecutionTraceBlock {
+    // WORKTODO: Zac - make this less terrible
     using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, Arithmetization::NUM_WIRES>;
     Wires wires;
     Arithmetization selectors;

@@ -47,6 +47,9 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/862): Eventually trace_blocks will be constructed
+    // directly in the builder, i.e. the gate addition methods will directly populate the wire/selectors in the
+    // appropriate block. In the mean time we do some inefficient copying etc to construct it here post facto.
     auto trace_blocks = create_execution_trace_blocks(builder);
 
     uint32_t offset = 0; // Track offset at which to place each block in the trace polynomials
@@ -67,7 +70,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
                 // Add the address of the witness value to its corresponding copy cycle
                 // WORKTODO: Not adding cycles for wires 3 and 4 here is only needed in order to maintain
                 // consistency with old version. We can remove this special case and the result is simply that all
-                // the zeros in wires 3 and 4 over the PI range are copy constrained together.
+                // the zeros in wires 3 and 4 over the PI range are copy constrained together, but this changes sigma/id
+                // which changes the vkey.
                 if (!(block.is_public_input && wire_idx > 1)) {
                     trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
