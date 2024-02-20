@@ -5,21 +5,22 @@ import {
   DebugLogger,
   ExtendedNote,
   Fr,
-  FunctionSelector,
+  GrumpkinScalar,
   Note,
+  PXE,
   TxHash,
-  TxReceipt,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
+  generatePublicKey,
+  getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { decodeFunctionSignature } from '@aztec/foundation/abi';
-import { CrowdFundingContract } from '@aztec/noir-contracts.js/CrowdFunding';
+import { CrowdFundingContract, CrowdFundingContractArtifact } from '@aztec/noir-contracts.js/CrowdFunding';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import { EthAddress, computePartialAddress } from '@aztec/circuits.js';
 
 const TIMEOUT = 200_000;
 
@@ -45,8 +46,13 @@ describe('e2e_token_contract', () => {
 
   const EthToken: TokenContract[] = [];
   const JuiceboxToken: EasyPrivateTokenContract[] = [];
+  const Crowdfunding: CrowdFundingContract[] = [];
 
   let escrowWallet: AccountWallet;
+
+  let crowdfundingPrivateKey;
+  let crowdfundingPublicKey;
+  let pxe: PXE;
 
   const addPendingShieldNoteToPXE = async (
     accountIndex: number,
@@ -70,12 +76,7 @@ describe('e2e_token_contract', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, wallets, accounts } = await setup(5));
-
-    TokenContract.artifact.functions.forEach(fn => {
-      const sig = decodeFunctionSignature(fn.name, fn.parameters);
-      logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
-    });
+    ({ teardown, logger, wallets, accounts, pxe } = await setup(5));
 
     EthToken.push(
       await TokenContract.deploy(
@@ -88,25 +89,62 @@ describe('e2e_token_contract', () => {
         .send()
         .deployed(),
     );
-    logger(`Token deployed to ${EthToken[0].address}`);
+    logger(`ETH Token deployed to ${EthToken[0].address}`);
+
+    EthToken[1] = EthToken[0].withWallet(wallets[1]);
+    EthToken[2] = EthToken[0].withWallet(wallets[2]);
+    EthToken[3] = EthToken[0].withWallet(wallets[3]);
 
     JuiceboxToken[0] = await EasyPrivateTokenContract.deploy(wallets[0], 0n, accounts[0]).send().deployed();
     JuiceboxToken[1] = JuiceboxToken[0].withWallet(wallets[1]);
     JuiceboxToken[2] = JuiceboxToken[0].withWallet(wallets[2]);
     JuiceboxToken[3] = JuiceboxToken[0].withWallet(wallets[3]);
 
-    logger(`Token deployed to ${JuiceboxToken[0].address}`);
+    crowdfundingPrivateKey = GrumpkinScalar.random();
+    crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
+    const salt = Fr.random();
 
-    EthToken[1] = EthToken[0].withWallet(wallets[1]);
-    EthToken[2] = EthToken[0].withWallet(wallets[2]);
-    EthToken[3] = EthToken[0].withWallet(wallets[3]);
+    const args = [EthToken[0].address, JuiceboxToken[0].address, wallets[0].getAddress()];
 
-    JuiceboxToken[1] = JuiceboxToken[0].withWallet(wallets[1]);
-    JuiceboxToken[2] = JuiceboxToken[0].withWallet(wallets[2]);
-    JuiceboxToken[3] = JuiceboxToken[0].withWallet(wallets[3]);
+    const deployInfo = getContractInstanceFromDeployParams(
+      CrowdFundingContractArtifact,
+      args,
+      salt,
+      crowdfundingPublicKey,
+      EthAddress.ZERO,
+    );
 
-    // This will be an special wallet in the future using a custom account contract
-    escrowWallet = wallets[4];
+    await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(deployInfo));
+
+    const crowdfundingDeploymentReceipt = await CrowdFundingContract.deployWithPublicKey(
+      crowdfundingPublicKey,
+      wallets[0],
+      EthToken[0].address,
+      JuiceboxToken[0].address,
+      wallets[0].getAddress(),
+    )
+    .send({ contractAddressSalt: salt })
+    .wait();
+
+    Crowdfunding[0] = crowdfundingDeploymentReceipt.contract
+
+    logger(`Campaign contract deployed at ${Crowdfunding[0].address}`);
+
+
+    await addFieldNote(Crowdfunding[0].address, new Fr(1), EthToken[0].address.toField(), crowdfundingDeploymentReceipt.txHash);
+    await addFieldNote(Crowdfunding[0].address, new Fr(2), JuiceboxToken[0].address.toField(), crowdfundingDeploymentReceipt.txHash);
+    await addFieldNote(
+      Crowdfunding[0].address,
+      new Fr(3),
+      wallets[0].getAddress().toField(),
+      crowdfundingDeploymentReceipt.txHash,
+    );
+
+    Crowdfunding[1] = Crowdfunding[0].withWallet(wallets[1]);
+    Crowdfunding[2] = Crowdfunding[0].withWallet(wallets[2]);
+    Crowdfunding[3] = Crowdfunding[0].withWallet(wallets[3]);
+
+    logger(`JBT deployed to ${JuiceboxToken[0].address}`);
   }, 100_000);
 
   afterAll(() => teardown());
@@ -161,34 +199,16 @@ describe('e2e_token_contract', () => {
       console.log('balance of 2', await EthToken[2].methods.balance_of_private(wallets[2].getAddress()).view());
       console.log('balance of 3', await EthToken[3].methods.balance_of_private(wallets[3].getAddress()).view());
 
-      const deploymentReceipt = await CrowdFundingContract.deploy(
-        wallets[0],
-        EthToken[0].address,
-        JuiceboxToken[0].address,
-        escrowWallet.getAddress(),
-      )
-        .send()
-        .wait();
-
-      const CrowdFunding = deploymentReceipt.contract;
-
-      await addFieldNote(CrowdFunding.address, new Fr(1), EthToken[0].address.toField(), deploymentReceipt.txHash);
-      await addFieldNote(CrowdFunding.address, new Fr(2), JuiceboxToken[0].address.toField(), deploymentReceipt.txHash);
-      await addFieldNote(
-        CrowdFunding.address,
-        new Fr(3),
-        escrowWallet.getAddress().toField(),
-        deploymentReceipt.txHash,
-      );
-
-      const action = EthToken[1].methods.transfer(accounts[1].address, accounts[4].address, 1000n, 0);
-      const messageHash = computeAuthWitMessageHash(CrowdFunding.address, action.request());
+      const action = EthToken[1].methods.transfer(accounts[1].address, Crowdfunding[0].address, 1000n, 0);
+      const messageHash = computeAuthWitMessageHash(Crowdfunding[0].address, action.request());
       const witness = await wallets[1].createAuthWitness(messageHash);
       await wallets[1].addAuthWitness(witness);
 
-      await CrowdFunding.withWallet(wallets[1]).methods.donate(1000n).send().wait();
+      await Crowdfunding[1].methods.donate(1000n).send().wait();
 
       console.log('Reward balance of 1', await JuiceboxToken[1].methods.getBalance(wallets[1].getAddress()).view());
+
+      await Crowdfunding[0].methods.withdraw(1000n).send().wait();
     });
   });
 });
