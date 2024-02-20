@@ -4,6 +4,7 @@
 #include <iterator>
 
 #include "ref_array.hpp"
+#include "ref_vector.hpp"
 
 namespace bb {
 
@@ -19,6 +20,10 @@ template <typename T> class RefSpan {
     RefSpan(const RefArray<T, Size>& ref_array)
         : storage(ref_array.get_storage())
         , array_size(Size)
+    {}
+    RefSpan(const RefVector<T>& ref_vector)
+        : storage(&ref_vector.get_storage()[0])
+        , array_size(ref_vector.size())
     {}
 
     // Constructor from an array of pointers and size
