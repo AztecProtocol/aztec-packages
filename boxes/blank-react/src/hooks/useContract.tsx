@@ -24,7 +24,7 @@ export function useContract() {
     const { contractAddress } = await toast.promise(tx.wait(), {
       pending: "Deploying contract...",
       success: {
-        render: ({ data }) => `Number: ${data.contractAddress}`,
+        render: ({ data }) => `Address: ${data.contractAddress}`,
       },
       error: "Error deploying contract",
     });

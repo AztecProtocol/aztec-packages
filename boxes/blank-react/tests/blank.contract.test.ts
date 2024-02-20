@@ -4,7 +4,7 @@ import { deployerEnv } from '../src/config.js';
 
 const logger = createDebugLogger('aztec:http-pxe-client');
 
-describe('ZK Contract Tests', () => {
+describe('Blank Contract Tests', () => {
   let wallet: AccountWallet;
   let contract: Contract;
   const { artifact } = BlankContract;

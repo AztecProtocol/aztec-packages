@@ -29,9 +29,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aztec/accounts@portal:../yarn-project/accounts::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/accounts@portal:../yarn-project/accounts::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/accounts@portal:../yarn-project/accounts::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/accounts@portal:../yarn-project/accounts::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
@@ -43,9 +43,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/aztec.js@portal:../yarn-project/aztec.js::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/aztec.js@portal:../yarn-project/aztec.js::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/aztec.js@portal:../yarn-project/aztec.js::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/aztec.js@portal:../yarn-project/aztec.js::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -57,9 +57,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/bb.js@portal:../barretenberg/ts::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^10.0.1"
@@ -140,25 +140,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/boxes@workspace:.":
+"@aztec/circuit-types@portal:../yarn-project/circuit-types::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/boxes@workspace:."
-  dependencies:
-    "@inquirer/confirm": "npm:^3.0.0"
-    "@inquirer/input": "npm:^2.0.0"
-    "@inquirer/select": "npm:^2.0.0"
-    chalk: "npm:^5.3.0"
-    commander: "npm:^12.0.0"
-    node-pty: "npm:^1.0.0"
-    tiged: "npm:^2.12.6"
-  bin:
-    create-aztec: npx.js
-  languageName: unknown
-  linkType: soft
-
-"@aztec/circuit-types@portal:../yarn-project/circuit-types::locator=%40aztec%2Fboxes%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/circuit-types@portal:../yarn-project/circuit-types::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/circuit-types@portal:../yarn-project/circuit-types::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -172,9 +156,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/circuits.js@portal:../yarn-project/circuits.js::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/circuits.js@portal:../yarn-project/circuits.js::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/circuits.js@portal:../yarn-project/circuits.js::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/circuits.js@portal:../yarn-project/circuits.js::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/foundation": "workspace:^"
@@ -185,9 +169,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/ethereum@portal:../yarn-project/ethereum::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/ethereum@portal:../yarn-project/ethereum::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/ethereum@portal:../yarn-project/ethereum::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/ethereum@portal:../yarn-project/ethereum::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/foundation": "workspace:^"
     dotenv: "npm:^16.0.3"
@@ -196,9 +180,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/foundation@portal:../yarn-project/foundation::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/foundation@portal:../yarn-project/foundation::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/foundation@portal:../yarn-project/foundation::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/foundation@portal:../yarn-project/foundation::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@koa/cors": "npm:^4.0.0"
@@ -223,9 +207,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/protocol-contracts@portal:../yarn-project/protocol-contracts::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/protocol-contracts@portal:../yarn-project/protocol-contracts::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/protocol-contracts@portal:../yarn-project/protocol-contracts::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/protocol-contracts@portal:../yarn-project/protocol-contracts::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -235,9 +219,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/types@portal:../yarn-project/types::locator=%40aztec%2Fboxes%40workspace%3A.":
+"@aztec/types@portal:../yarn-project/types::locator=%40signorecello%2Faztec-boxes%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/types@portal:../yarn-project/types::locator=%40aztec%2Fboxes%40workspace%3A."
+  resolution: "@aztec/types@portal:../yarn-project/types::locator=%40signorecello%2Faztec-boxes%40workspace%3A."
   dependencies:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1293,6 +1277,22 @@ __metadata:
   checksum: 10c0/fe951f69dd5a7cdcefbe865bce1b160d6b59ba19bd01d09f0718e54fce37a7d8be158b32f5455f0e9c426a7fbbede3e019bf0baa99bacc88ef26a76a07e115d4
   languageName: node
   linkType: hard
+
+"@signorecello/aztec-boxes@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@signorecello/aztec-boxes@workspace:."
+  dependencies:
+    "@inquirer/confirm": "npm:^3.0.0"
+    "@inquirer/input": "npm:^2.0.0"
+    "@inquirer/select": "npm:^2.0.0"
+    chalk: "npm:^5.3.0"
+    commander: "npm:^12.0.0"
+    node-pty: "npm:^1.0.0"
+    tiged: "npm:^2.12.6"
+  bin:
+    create-aztec: npx.js
+  languageName: unknown
+  linkType: soft
 
 "@sinclair/typebox@npm:^0.27.8":
   version: 0.27.8
