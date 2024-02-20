@@ -2,6 +2,11 @@ contract Blank {
     use dep::aztec::{
         protocol_types::address::AztecAddress,
         state_vars::{singleton::Singleton, map::Map},
+        note::{
+            utils as note_utils,
+            note_interface::NoteInterface,
+            note_header::NoteHeader,
+        },
     };
 
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};

@@ -48,7 +48,7 @@ program.action(async () => {
     message: "Please choose your boilerplate:",
     choices: [
       { value: "blank", name: "Barebones HTML/TS project" },
-      { value: "blank-react", name: "Not-so-barebones React project" },
+      { value: "blank-react", name: "Barebones React project" },
     ],
   });
 
