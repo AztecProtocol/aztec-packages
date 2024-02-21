@@ -10,8 +10,7 @@ import {
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { NewContractData } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
-import { InclusionProofsContract } from '@aztec/noir-contracts/InclusionProofs';
+import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 
 import { jest } from '@jest/globals';
 import { type MemDown, default as memdown } from 'memdown';
@@ -225,7 +224,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       // Choose random block number between deployment and current block number to test archival node
       const blockNumber = await getRandomBlockNumberSinceDeployment();
       const block = await pxe.getBlock(blockNumber);
-      const nullifier = block?.newNullifiers[0];
+      const nullifier = block?.body.txEffects[0].newNullifiers[0];
 
       await contract.methods.test_nullifier_inclusion(nullifier!, true, blockNumber).send().wait();
       await contract.methods.test_nullifier_inclusion(nullifier!, false, 0n).send().wait();
@@ -294,7 +293,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       // This should fail because we choose a block number before the contract was deployed
       const blockNumber = deploymentBlockNumber - 1;
       const contractData = new NewContractData(contract.address, portalContractAddress, contractClassId);
-      const leaf = computeContractLeaf(contractData);
+      const leaf = contractData.computeLeaf();
 
       await expect(
         contract.methods

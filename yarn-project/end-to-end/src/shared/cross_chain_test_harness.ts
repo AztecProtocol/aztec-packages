@@ -15,14 +15,15 @@ import {
   sha256,
 } from '@aztec/aztec.js';
 import {
+  InboxAbi,
   OutboxAbi,
   PortalERC20Abi,
   PortalERC20Bytecode,
   TokenPortalAbi,
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
-import { TokenContract } from '@aztec/noir-contracts/Token';
-import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, getFunctionSelector } from 'viem';
 
@@ -86,14 +87,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send();
-
-  // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
-  const deployReceipt = await deployTx.wait();
-  if (deployReceipt.status !== TxStatus.MINED) {
-    throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
-  }
-  const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
+  const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
   // deploy l2 token bridge and attach to the portal
   const bridge = await TokenBridgeContract.deploy(wallet, token.address)
@@ -109,11 +103,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   }
 
   // make the bridge a minter on the token:
-  const makeMinterTx = token.methods.set_minter(bridge.address, true).send();
-  const makeMinterReceipt = await makeMinterTx.wait();
-  if (makeMinterReceipt.status !== TxStatus.MINED) {
-    throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);
-  }
+  await token.methods.set_minter(bridge.address, true).send().wait();
   if ((await token.methods.is_minter(bridge.address).view()) === 1n) {
     throw new Error(`Bridge is not a minter`);
   }
@@ -145,9 +135,17 @@ export class CrossChainTestHarness {
     const owner = wallet.getCompleteAddress();
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
 
+    const inbox = getContract({
+      address: l1ContractAddresses.inboxAddress.toString(),
+      abi: InboxAbi,
+      walletClient,
+      publicClient,
+    });
+
     const outbox = getContract({
       address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
+      walletClient,
       publicClient,
     });
 
@@ -173,6 +171,7 @@ export class CrossChainTestHarness {
       tokenPortalAddress,
       tokenPortal,
       underlyingERC20,
+      inbox,
       outbox,
       publicClient,
       walletClient,
@@ -200,6 +199,8 @@ export class CrossChainTestHarness {
     public tokenPortal: any,
     /** Underlying token for portal tests. */
     public underlyingERC20: any,
+    /** Message Bridge Inbox. */
+    public inbox: any,
     /** Message Bridge Outbox. */
     public outbox: any,
     /** Viem Public client instance. */
@@ -425,8 +426,16 @@ export class CrossChainTestHarness {
   async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
     this.logger('Adding note to PXE');
     const storageSlot = new Fr(5);
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
     const note = new Note([new Fr(shieldAmount), secretHash]);
-    const extendedNote = new ExtendedNote(note, this.ownerAddress, this.l2Token.address, storageSlot, txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      this.ownerAddress,
+      this.l2Token.address,
+      storageSlot,
+      noteTypeId,
+      txHash,
+    );
     await this.pxeService.addNote(extendedNote);
   }
 

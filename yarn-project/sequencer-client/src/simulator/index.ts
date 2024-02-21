@@ -2,8 +2,8 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   MergeRollupInputs,
-  PublicKernelInputs,
-  PublicKernelPublicInputs,
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelCircuitPublicInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -37,15 +37,21 @@ export interface RollupSimulator {
  */
 export interface PublicKernelCircuitSimulator {
   /**
-   * Simulates the public kernel circuit (with a previous private kernel circuit run) from its inputs.
+   * Simulates the public kernel setup circuit from its inputs.
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitPrivateInput(inputs: PublicKernelInputs): Promise<PublicKernelPublicInputs>;
+  publicKernelCircuitSetup(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
   /**
-   * Simulates the public kernel circuit (with no previous public kernel circuit run) from its inputs.
+   * Simulates the public kernel app logic circuit from its inputs.
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitNonFirstIteration(inputs: PublicKernelInputs): Promise<PublicKernelPublicInputs>;
+  publicKernelCircuitAppLogic(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
+  /**
+   * Simulates the public kernel teardown circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  publicKernelCircuitTeardown(inputs: PublicKernelCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
 }

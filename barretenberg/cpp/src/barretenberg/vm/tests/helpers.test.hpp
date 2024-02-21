@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm/avm_trace/AvmMini_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_trace.hpp"
 
 #define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
     try {                                                                                                              \
@@ -11,6 +11,11 @@
         EXPECT_TRUE(message.find(expectedMessage) != std::string::npos);                                               \
     }
 namespace tests_avm {
+
+using Flavor = bb::AvmFlavor;
+using FF = Flavor::FF;
+using Row = bb::AvmFullRow<bb::fr>;
+
 void validate_trace_proof(std::vector<Row>&& trace);
 void mutate_ic_in_trace(std::vector<Row>& trace,
                         std::function<bool(Row)>&& selectRow,

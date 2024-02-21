@@ -6,16 +6,18 @@ import {
   GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  L2ToL1Message,
 } from '@aztec/circuits.js';
+import { makeHeader } from '@aztec/circuits.js/factories';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ChildContractArtifact } from '@aztec/noir-contracts/Child';
-import { ParentContractArtifact } from '@aztec/noir-contracts/Parent';
-import { TestContractArtifact } from '@aztec/noir-contracts/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
+import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
@@ -42,7 +44,9 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    header = Header.empty();
+    const randomInt = Math.floor(Math.random() * 1000000);
+    header = makeHeader(randomInt);
+
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
   }, 10000);
 
@@ -97,13 +101,11 @@ describe('ACIR public execution simulator', () => {
         expect(result.contractStorageUpdateRequests).toEqual([
           {
             storageSlot: recipientBalanceStorageSlot,
-            oldValue: previousBalance,
             newValue: expectedBalance,
             sideEffectCounter: 3,
           },
           {
             storageSlot: totalSupplyStorageSlot,
-            oldValue: previousTotalSupply,
             newValue: expectedTotalSupply,
             sideEffectCounter: 4,
           },
@@ -186,13 +188,11 @@ describe('ACIR public execution simulator', () => {
         expect(result.contractStorageUpdateRequests).toEqual([
           {
             storageSlot: senderStorageSlot,
-            oldValue: senderBalance,
             newValue: expectedSenderBalance,
             sideEffectCounter: 1, // 1 read (sender balance)
           },
           {
             storageSlot: recipientStorageSlot,
-            oldValue: recipientBalance,
             newValue: expectedRecipientBalance,
             sideEffectCounter: 3, // 1 read (sender balance), 1 write (new sender balance), 1 read (recipient balance)
           },
@@ -342,10 +342,12 @@ describe('ACIR public execution simulator', () => {
       )!;
       const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
 
+      const portalContractAddress = EthAddress.random();
+
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
-        portalContractAddress: EthAddress.random(),
+        portalContractAddress,
         functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
@@ -361,8 +363,12 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
-      expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
+      const expectedNewMessage = new L2ToL1Message(
+        portalContractAddress,
+        Fr.fromBuffer(pedersenHash(params.map(a => a.toBuffer()))),
+      );
+
+      expect(result.newL2ToL1Messages[0]).toEqual(expectedNewMessage);
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
@@ -716,6 +722,52 @@ describe('ACIR public execution simulator', () => {
           );
         });
       });
+    });
+  });
+
+  describe('Historical header in public context', () => {
+    let contractAddress: AztecAddress;
+    let callContext: CallContext;
+    let assertHeaderPublicArtifact: FunctionArtifact;
+    let functionData: FunctionData;
+
+    beforeAll(() => {
+      contractAddress = AztecAddress.random();
+      callContext = CallContext.from({
+        msgSender: AztecAddress.random(),
+        storageContractAddress: AztecAddress.random(),
+        portalContractAddress: EthAddress.ZERO,
+        functionSelector: FunctionSelector.empty(),
+        isContractDeployment: false,
+        isDelegateCall: false,
+        isStaticCall: false,
+        startSideEffectCounter: 0,
+      });
+      assertHeaderPublicArtifact = TestContractArtifact.functions.find(f => f.name === 'assert_header_public')!;
+      functionData = FunctionData.fromAbi(assertHeaderPublicArtifact);
+    });
+
+    beforeEach(() => {
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(assertHeaderPublicArtifact.bytecode, 'base64'));
+    });
+
+    it('Header is correctly set', () => {
+      const args = encodeArguments(assertHeaderPublicArtifact, [header.hash()]);
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+
+      expect(() => executor.simulate(execution, GlobalVariables.empty())).not.toThrow();
+    });
+
+    it('Throws when header is not as expected', async () => {
+      const unexpectedHeaderHash = Fr.random();
+      const args = encodeArguments(assertHeaderPublicArtifact, [unexpectedHeaderHash]);
+
+      const execution: PublicExecution = { contractAddress, functionData, args, callContext };
+      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+
+      await expect(executor.simulate(execution, GlobalVariables.empty())).rejects.toThrowError('Invalid header hash');
     });
   });
 });

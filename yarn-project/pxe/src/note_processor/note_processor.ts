@@ -124,10 +124,7 @@ export class NoteProcessor {
         this.stats.txs++;
         const dataStartIndexForTx =
           dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_COMMITMENTS_PER_TX;
-        const newCommitments = block.newCommitments.slice(
-          indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
-          (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
-        );
+        const newCommitments = block.body.txEffects[indexOfTxInABlock].newNoteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
@@ -160,6 +157,7 @@ export class NoteProcessor {
                     payload.note,
                     payload.contractAddress,
                     payload.storageSlot,
+                    payload.noteTypeId,
                     txHash,
                     newCommitments,
                     dataStartIndexForTx,
@@ -212,7 +210,9 @@ export class NoteProcessor {
       });
     }
 
-    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b => b.blockContext.block.newNullifiers);
+    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
+      b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers),
+    );
     const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNotes.forEach(noteDao => {
       this.log(
@@ -254,8 +254,9 @@ export class NoteProcessor {
     const excludedIndices: Set<number> = new Set();
     const noteDaos: NoteDao[] = [];
     for (const deferredNote of deferredNoteDaos) {
-      const { note, contractAddress, storageSlot, txHash, newCommitments, dataStartIndexForTx } = deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot);
+      const { note, contractAddress, storageSlot, noteTypeId, txHash, newCommitments, dataStartIndexForTx } =
+        deferredNote;
+      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
       try {
         const noteDao = await produceNoteDao(

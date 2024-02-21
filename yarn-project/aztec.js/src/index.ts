@@ -37,7 +37,6 @@ export {
   generatePublicKey,
   FieldLike,
   EthAddressLike,
-  computeMessageSecretHash,
   CheatCodes,
   AztecAddressLike,
   FunctionSelectorLike,
@@ -71,6 +70,8 @@ export {
   getContractInstanceFromDeployParams,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+
+export { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
@@ -141,3 +142,4 @@ export {
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/init.js';
 export * from './api/abi.js';
+export * from './api/fee.js';

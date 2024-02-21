@@ -15,14 +15,6 @@
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
   },
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
-    },
-    "testRegex": "./src/.*\\.test\\.(ts|mjs)$",
-    "rootDir": "./src"
-  },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
@@ -36,8 +28,9 @@
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/types": "workspace:^",

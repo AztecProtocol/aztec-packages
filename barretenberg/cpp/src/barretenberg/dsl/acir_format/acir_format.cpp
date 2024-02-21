@@ -1,6 +1,5 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/dsl/acir_format/bigint_constraint.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include <cstddef>
 
@@ -31,6 +30,9 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // Add sha256 constraints
     for (const auto& constraint : constraint_system.sha256_constraints) {
         create_sha256_constraints(builder, constraint);
+    }
+    for (const auto& constraint : constraint_system.sha256_compression) {
+        create_sha256_compression_constraints(builder, constraint);
     }
 
     // Add schnorr constraints
@@ -78,6 +80,9 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
         create_pedersen_hash_constraint(builder, constraint);
     }
 
+    for (const auto& constraint : constraint_system.poseidon2_constraints) {
+        create_poseidon2_permutations(builder, constraint);
+    }
     // Add fixed base scalar mul constraints
     for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints) {
         create_fixed_base_constraint(builder, constraint);
@@ -108,7 +113,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
     if constexpr (IsGoblinBuilder<Builder>) {
-        if (constraint_system.recursion_constraints.size() > 0) {
+        if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
     } else {
@@ -143,8 +148,15 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
             if (constraint.proof.size() > proof_size_no_pub_inputs) {
                 // The public inputs attached to a proof should match the aggregation object in size
-                ASSERT(constraint.proof.size() - proof_size_no_pub_inputs ==
-                       RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                if (constraint.proof.size() - proof_size_no_pub_inputs !=
+                    RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
+                    auto error_string = format(
+                        "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
+                        "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
+                        "which is {}\n",
+                        RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                    throw_or_abort(error_string);
+                }
                 for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                     // Set the nested aggregation object indices to the current size of the public inputs
                     // This way we know that the nested aggregation object indices will always be the last
@@ -160,7 +172,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                                        constraint.proof.begin() +
                                            static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
             }
-
             current_output_aggregation_object = create_recursion_constraints(builder,
                                                                              constraint,
                                                                              current_input_aggregation_object,

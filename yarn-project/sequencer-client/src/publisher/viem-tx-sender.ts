@@ -92,7 +92,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
-    const args = [`0x${block.getCalldataHash().toString('hex')}`] as const;
+    const args = [`0x${block.body.getCalldataHash().toString('hex')}`] as const;
     return this.availabilityOracleContract.read.isAvailable(args);
   }
 
@@ -160,7 +160,6 @@ export class ViemTxSender implements L1PublisherTxSender {
     const args = [
       `0x${encodedData.header.toString('hex')}`,
       `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.txsHash.toString('hex')}`,
       `0x${encodedData.body.toString('hex')}`,
       `0x${encodedData.proof.toString('hex')}`,
     ] as const;
