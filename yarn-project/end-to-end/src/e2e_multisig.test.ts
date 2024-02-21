@@ -1,28 +1,19 @@
 import { DefaultAccountContract } from '@aztec/accounts/defaults';
-import {
-  AccountManager,
-  AccountWallet,
-  AuthWitness,
-  AuthWitnessProvider,
-  ContractArtifact,
-  DebugLogger,
-  GrumpkinPrivateKey,
-  GrumpkinScalar,
-  PXE,
-  PublicKey,
-  TxExecutionRequest,
-  Wallet,
-  generatePublicKey,
-} from '@aztec/aztec.js';
+import { AccountManager, AccountWallet, AuthWitness, AuthWitnessProvider, ContractArtifact, DebugLogger, ExtendedNote, GrumpkinPrivateKey, GrumpkinScalar, Note, PXE, PublicKey, TxExecutionRequest, TxHash, Wallet, computeMessageSecretHash, generatePublicKey } from '@aztec/aztec.js';
 import { Fr } from '@aztec/aztec.js/fields';
 import { AztecAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { MultiSigAccountContract, MultiSigAccountContractArtifact, TestContract } from '@aztec/noir-contracts.js';
+import { MultiSigAccountContract, MultiSigAccountContractArtifact, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+
+
 
 import { jest } from '@jest/globals';
 
+
+
 import { setup } from './fixtures/utils.js';
+
 
 const TIMEOUT = 90_000;
 
@@ -89,6 +80,49 @@ describe('e2e_multisig', () => {
     logger.info(`Test contract address: ${testContract.address}`);
   });
 
+  it.skip('refuses to send a tx without enough signers', async () => {
+    // Set up the method we want to call on a contract with the multisig as the wallet
+    const action = testContract.methods.emit_msg_sender();
+
+    // We collect the signatures from only one owner
+    const authWits = await collectSignatures(await action.create(), [walletA]);
+    await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
+
+    // Trying to send the tx should fail at simulation
+    await expect(action.send().wait()).rejects.toThrow(/foo/);
+  });
+
+  it.skip('receives a token transfer and then sends it to another account', async () => {
+    // Deploy token contract
+    const token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
+      .send()
+      .deployed();
+    const secret = Fr.random();
+    const secretHash = computeMessageSecretHash(secret);
+    const amount = 1000n;
+
+    // Have the walletDeployer mint 1000 tokens for itself as setup
+    const { txHash: mintTxHash } = await token.methods.mint_private(amount, secretHash).send().wait();
+    await addPendingShieldNoteToPXE(walletDeployer, token.address, amount, secretHash, mintTxHash);
+    expect(await token.methods.balance_of_private(walletDeployer.getCompleteAddress()).view()).toBe(amount);
+
+    // Transfer 200 tokens to the multisig
+    await token.methods
+      .transfer(walletDeployer.getCompleteAddress(), multisigWallet.getCompleteAddress(), 200n, 0)
+      .send()
+      .wait();
+    expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(200n);
+
+    // Have the multisig froward 50 tokens to walletA
+    const action = token.methods.transfer(multisigWallet.getCompleteAddress(), walletA.getCompleteAddress(), 50n, 0);
+    const authWits = await collectSignatures(await action.create(), [walletA, walletB]);
+    await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
+    await action.send().wait();
+
+    expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(150n);
+    expect(await token.methods.balance_of_private(walletA.getCompleteAddress()).view()).toBe(50n);
+  });
+
   afterEach(async () => {
     await teardown();
   });
@@ -148,4 +182,27 @@ async function collectSignatures(txRequest: TxExecutionRequest, owners: Wallet[]
     }
   }
   return authWits;
+}
+
+// Adapted from end-to-end/src/e2e_token_contract.test.ts
+async function addPendingShieldNoteToPXE(
+  wallet: Wallet,
+  token: AztecAddress,
+  amount: bigint,
+  secretHash: Fr,
+  txHash: TxHash,
+) {
+  const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
+  const note = new Note([new Fr(amount), secretHash]);
+  const extendedNote = new ExtendedNote(
+    note,
+    wallet.getCompleteAddress().address,
+    token,
+    storageSlot,
+    noteTypeId,
+    txHash,
+  );
+  await wallet.addNote(extendedNote);
 }
