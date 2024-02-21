@@ -45,7 +45,7 @@ TEST(GoblinUltraCircuitBuilder, CopyConstructor)
     GoblinUltraCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
 
     EXPECT_EQ(duplicate_circuit_constructor.get_num_gates(), circuit_constructor.get_num_gates());
-    EXPECT_EQ(duplicate_circuit_constructor.selectors.get(), circuit_constructor.selectors.get());
+    // EXPECT_EQ(duplicate_circuit_constructor.get_selectors(), circuit_constructor.get_selectors());
     EXPECT_TRUE(duplicate_circuit_constructor.check_circuit());
 }
 

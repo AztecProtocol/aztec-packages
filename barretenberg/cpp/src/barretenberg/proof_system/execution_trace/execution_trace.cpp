@@ -132,8 +132,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
     trace_blocks.emplace_back(public_block);
 
     // Make a block for the basic wires and selectors
-    TraceBlock conventional_block{ builder.wires, builder.selectors };
-    trace_blocks.emplace_back(conventional_block);
+    trace_blocks.emplace_back(builder.main_block);
 
     return trace_blocks;
 }
