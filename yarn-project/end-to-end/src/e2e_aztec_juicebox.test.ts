@@ -18,6 +18,7 @@ import { CrowdFundingContract, CrowdFundingContractArtifact } from '@aztec/noir-
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 
+
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
