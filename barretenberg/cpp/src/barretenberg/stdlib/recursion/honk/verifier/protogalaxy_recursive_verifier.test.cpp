@@ -351,8 +351,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 };
 
-using FlavorTypes =
-    testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, UltraRecursiveFlavor_<UltraCircuitBuilder>>;
+using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

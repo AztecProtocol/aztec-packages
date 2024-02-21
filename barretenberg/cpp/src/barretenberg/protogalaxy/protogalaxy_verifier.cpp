@@ -150,7 +150,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 
     // Compute ϕ
     auto& acc_witness_commitments = next_accumulator->witness_commitments;
-    auto witness_labels = commitment_labels.get_witness();
     size_t comm_idx = 0;
     for (auto& comm : acc_witness_commitments.get_all()) {
         comm = Commitment::infinity();
@@ -201,7 +200,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 
     next_accumulator->verification_key =
         std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
-    auto vk_labels = commitment_labels.get_precomputed();
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;
