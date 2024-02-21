@@ -1,8 +1,8 @@
 use dep::std;
 use dep::types::{
     abis::{
-    call_request::CallRequest, combined_accumulated_data::CombinedAccumulatedData,
-    function_data::FunctionData, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
+    call_request::CallRequest, accumulated_data::CombinedAccumulatedData, function_data::FunctionData,
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
     membership_witness::ReadRequestMembershipWitness, new_contract_data::NewContractData,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,

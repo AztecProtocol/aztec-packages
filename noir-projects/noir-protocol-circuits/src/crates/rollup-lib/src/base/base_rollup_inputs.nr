@@ -15,8 +15,7 @@ use dep::types::{
 },
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
     public_data_read::PublicDataRead, kernel_data::PublicKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    combined_accumulated_data::CombinedAccumulatedData
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, accumulated_data::CombinedAccumulatedData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -569,7 +568,7 @@ mod tests {
         new_contract_data::NewContractData, nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         kernel_data::PublicKernelData, side_effect::SideEffect,
-        combined_accumulated_data::CombinedAccumulatedData
+        accumulated_data::CombinedAccumulatedData
     },
         address::{AztecAddress, EthAddress},
         constants::{
