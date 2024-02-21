@@ -23,7 +23,7 @@ contract MultiSigAccount {
         oracle::debug_log::{debug_log_format, debug_log_array_with_prefix}
     };
     use dep::authwit::{
-        auth::IS_VALID_SELECTOR, entrypoint::{app::AppPayload, fee::FeePayload},
+        auth::{IS_VALID_SELECTOR, assert_valid_authwit}, entrypoint::{app::AppPayload, fee::FeePayload},
         account::AccountActions, auth_witness::get_auth_witness
     };
 
@@ -49,20 +49,36 @@ contract MultiSigAccount {
         storage.state.initialize(&mut note, /*broadcast=*/ true);
     }
 
-    // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload);
+        // We make an external call to is_valid instead of an internal one to create a new
+        // function call frame, otherwise all the is_valid calls to the owners' account contracts
+        // for authorizing the app and fee payload would get done from the same frame, along with
+        // the ones from the payloads, which would go over the limit of 4 calls per frame.
+        // We should roll back to using the default implementation from AccountActions once
+        // we bump that limit.
+        // To make things worse, we cannot call is_valid twice because of a bug in the private simulator
+        // where we cannot get the same singleton note twice in the same tx. So we extract the logic
+        // to a "collect_auths" internal method that receives the state, which we read from the caller.
+        let collect_auths_selector = FunctionSelector::from_signature("collect_auths(Field,[(Field);5],u8)");
+        let this = context.this_address();
+        let storage = Storage::init(Context::private(&mut context));
+        let state = storage.state.get_note(/*broadcast=*/ true);
+        let owners = state.owners;
+        let threshold = state.threshold;
+
+        debug_log_format("MultisigAccount.entrypoint fee_payload_hash={0} fee_payload_len={1}", [fee_payload.hash(), fee_payload.function_calls.len()]);
+        let fee_auths = context.call_private_function(this, collect_auths_selector, [fee_payload.hash(), owners[0].to_field(), owners[1].to_field(), owners[2].to_field(), owners[3].to_field(), owners[4].to_field(), threshold as Field])[0] as u8;
+        assert(fee_auths >= threshold, "Fee payload not authorized by multisig owners");
+        fee_payload.execute_calls(&mut context);
+        context.capture_max_non_revertible_side_effect_counter();
+
+        debug_log_format("MultisigAccount.entrypoint app_payload_hash={0} app_payload_len={1}", [app_payload.hash(), app_payload.function_calls.len()]);
+        let app_auths = context.call_private_function(this, collect_auths_selector, [app_payload.hash(), owners[0].to_field(), owners[1].to_field(), owners[2].to_field(), owners[3].to_field(), owners[4].to_field(), threshold as Field])[0] as u8;
+        assert(app_auths >= threshold, "App payload not authorized by multisig owners");
+        app_payload.execute_calls(&mut context);
+        debug_log_format("MultisigAccount.entrypoint successfully finished", []);
     }
-
-    // add owners
-
-    // remove owners
-
-    // rotate private key
-
-    // change threshold
 
     #[aztec(private)]
     fn is_valid(message_hash: Field) -> Field {
@@ -82,45 +98,38 @@ contract MultiSigAccount {
         actions.internal_set_is_valid_storage(message_hash, value)
     }
 
+    #[aztec(private)]
+    internal fn collect_auths(message_field: Field, owners: [AztecAddress; MAX_MULTISIG_OWNERS], threshold: u8) -> u8 {
+        collect_auths_impl(&mut context, message_field, owners, threshold)
+    }
+
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, message_field: Field) -> bool {
         debug_log_format("MultisigAccount.is_valid_impl message_field={0}", [message_field]);
-
         let storage = Storage::init(Context::private(context));
         let state = storage.state.get_note(/*broadcast=*/ true);
+        
+        let auths_collected = collect_auths_impl(context, message_field, state.owners, state.threshold);
+        debug_log_format("MultisigAccount.is_valid_impl auths_collected={0}", [auths_collected as Field]);
+        auths_collected >= state.threshold
+    }
 
-        let owners_from_pxe: [Field; MAX_MULTISIG_OWNERS] = pop_capsule();
-        debug_log_array_with_prefix("MultisigAccount.is_valid_impl owners_from_pxe=", owners_from_pxe);
-        let mut auths_collected : u8 = 0;
-        let owners = state.owners;
+    #[contract_library_method]
+    fn collect_auths_impl(context: &mut PrivateContext, message_field: Field, owners: [AztecAddress; MAX_MULTISIG_OWNERS], threshold: u8) -> u8 {
         let is_valid_selector = FunctionSelector::from_field(IS_VALID_SELECTOR);
-        for owner in owners_from_pxe {
-            let mut is_in_state = false;
-            if owner != 0 {
-                for state_owner in owners {
-                    if (state_owner.eq(AztecAddress::from_field(owner))) {
-                        is_in_state = true;
-                    }
-                    auths_collected += is_in_state as u8;
-                }
-
+        
+        let mut auths_collected : u8 = 0;
+        for owner in owners {
+            if (!owner.is_zero()) & (auths_collected < threshold) {
                 let message_field_for_owner = dep::aztec::protocol_types::hash::pedersen_hash([message_field, owner.to_field()], 0);
-                debug_log_format("MultisigAccount.is_valid_impl owner={0} is_in_state={1} message_field_for_owner={2}", [owner, is_in_state as Field, message_field_for_owner]);
-                let result = context.call_private_function(
-                    AztecAddress::from_field(owner),
-                    is_valid_selector,
-                    [message_field_for_owner]
-                )[0];
-
-                assert(result == IS_VALID_SELECTOR, "Invalid auth");
+                debug_log_format("MultisigAccount.is_valid_impl owner={0} message_field_for_owner={1}", [owner.to_field(), message_field_for_owner]);
+                let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
+                if result == IS_VALID_SELECTOR {
+                    auths_collected += 1;
+                }
+                debug_log_format("MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}", [owner.to_field(), result as Field, auths_collected as Field]);
             }
         }
-
-        debug_log_format("MultisigAccount.is_valid_impl auths_collected={0}", [auths_collected as Field]);
-        assert(auths_collected >= state.threshold, "Not enough auths");
-
-        context.push_new_nullifier(message_field, /*nullified_commitment=*/ 0);
-
-        true
+        auths_collected
     }
 }

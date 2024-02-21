@@ -79,15 +79,6 @@ describe('e2e_multisig', () => {
     const authWits = await collectSignatures(await action.create(), [walletA, walletB]);
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
-    // This should go away soon!
-    await multisigWallet.addCapsule(
-      padArrayEnd(
-        [walletA, walletB].map(w => w.getCompleteAddress().address),
-        AztecAddress.ZERO,
-        MULTISIG_MAX_OWNERS,
-      ),
-    );
-
     // Send the tx after having added all auth witnesses from the signers
     // TODO: We should be able to call send() on the result of create()
     const tx = await action.send().wait();
