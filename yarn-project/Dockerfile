@@ -4,7 +4,7 @@
 #   - Run the tests.
 #   - Run the formatter checks.
 # Any subsequent build steps needed to support downstream containers should be done in those containers build files.
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base as builder
+FROM aztecprotocol/yarn-project-base as builder
 
 # Copy in the entire workspace.
 COPY . .

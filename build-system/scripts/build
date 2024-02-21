@@ -109,7 +109,7 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   fi
 
   # Substitute references to parent repo, with the relevent built image uri.
-  DEPLOY_URI=$ECR_DEPLOY_URL/$PARENT_REPO
+  DEPLOY_URI=aztecprotocol/$PARENT_REPO
   PARENT_IMAGE_URI=$ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG
   awk '{if ($1 == "FROM" && $2 == "'$DEPLOY_URI'") $2 = "'$PARENT_IMAGE_URI'"; print $0}' $DOCKERFILE > _temp && mv _temp $DOCKERFILE
 done

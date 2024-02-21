@@ -42,11 +42,11 @@
 #      RUN yarn workspaces focus --production && yarn cache clean && rm -rf ../**/src
 #  - Create final slim image by copying needed dirs into a fresh image.
 #
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-projects as noir-projects
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/boxes-files as boxes-files
+FROM aztecprotocol/l1-contracts as contracts
+FROM aztecprotocol/bb.js as bb.js
+FROM aztecprotocol/noir-projects as noir-projects
+FROM aztecprotocol/noir-packages as noir-packages
+FROM aztecprotocol/boxes-files as boxes-files
 
 FROM node:18.19.0
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
