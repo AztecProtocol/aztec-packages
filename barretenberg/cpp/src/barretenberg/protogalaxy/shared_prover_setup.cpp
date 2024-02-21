@@ -140,6 +140,63 @@ void prover_setup_(const std::shared_ptr<ProverInstance_<Flavor>>& instance,
     execute_grand_product_computation_round_(instance, commitment_key, transcript, domain_separator);
 }
 
+template void execute_preamble_round_<UltraFlavor>(const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
+                                                   const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
+                                                   const std::string& domain_separator);
+
+template void execute_preamble_round_<GoblinUltraFlavor>(
+    const std::shared_ptr<ProverInstance_<GoblinUltraFlavor>>& instance,
+    const std::shared_ptr<typename GoblinUltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_wire_commitments_round_<UltraFlavor>(
+    const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
+    const std::shared_ptr<typename UltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_wire_commitments_round_<GoblinUltraFlavor>(
+    const std::shared_ptr<ProverInstance_<GoblinUltraFlavor>>& instance,
+    const std::shared_ptr<typename GoblinUltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename GoblinUltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_sorted_list_accumulator_round_<UltraFlavor>(
+    const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
+    const std::shared_ptr<typename UltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_sorted_list_accumulator_round_<GoblinUltraFlavor>(
+    const std::shared_ptr<ProverInstance_<GoblinUltraFlavor>>& instance,
+    const std::shared_ptr<typename GoblinUltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename GoblinUltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_log_derivative_inverse_round_<UltraFlavor>(
+    const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
+    const std::shared_ptr<typename UltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_log_derivative_inverse_round_<GoblinUltraFlavor>(
+    const std::shared_ptr<ProverInstance_<GoblinUltraFlavor>>& instance,
+    const std::shared_ptr<typename GoblinUltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename GoblinUltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_grand_product_computation_round_<UltraFlavor>(
+    const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
+    const std::shared_ptr<typename UltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
+template void execute_grand_product_computation_round_<GoblinUltraFlavor>(
+    const std::shared_ptr<ProverInstance_<GoblinUltraFlavor>>& instance,
+    const std::shared_ptr<typename GoblinUltraFlavor::CommitmentKey>& commitment_key,
+    const std::shared_ptr<typename GoblinUltraFlavor::Transcript>& transcript,
+    const std::string& domain_separator);
+
 template void prover_setup_<UltraFlavor>(const std::shared_ptr<ProverInstance_<UltraFlavor>>& instance,
                                          const std::shared_ptr<typename UltraFlavor::CommitmentKey>& commitment_key,
                                          const std::shared_ptr<typename UltraFlavor::Transcript>& transcript,
