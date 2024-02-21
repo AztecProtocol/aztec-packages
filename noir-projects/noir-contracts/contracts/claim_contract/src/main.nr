@@ -43,8 +43,8 @@ contract Claim {
     fn claim(proof_note: ValueNote) {
         dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Called Claim", [1]);
 
-        // prove_note_inclusion(proof_note); Contract A
-        // emit nullifier; Contract B
+        prove_note_inclusion(proof_note, context); // Contract A
+        context.push_new_nullifier(proof_note.compute_nullifier(&mut context), 0);
 
         let reward_token_address = AztecAddress::from_field(storage.reward_token.get_note().value);
         let reward_token = Token::at(reward_token_address);

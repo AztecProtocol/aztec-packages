@@ -264,5 +264,46 @@ describe('e2e_aztec_crowdfunding', () => {
       owner:  allCampaignNotes![0].note.items[1],
       randomness: allCampaignNotes![0].note.items[2],
     }).send().wait();
+
+    // Should not be able to claim a non-existent note
+    await expect(Claims.withWallet(donorWallets[0]).methods.claim({
+      header: {
+        contract_address: Crowdfunding.address,
+        storage_slot: 3,
+        is_transient: false,
+        nonce: noteNonces![0],
+      },
+      value: allCampaignNotes![0].note.items[0],
+      owner:  allCampaignNotes![0].note.items[1],
+      randomness: Fr.ZERO,
+    }).send().wait()).rejects.toThrow();
+
+    // Should not be able to claim again
+    await expect(Claims.withWallet(donorWallets[0]).methods.claim({
+      header: {
+        contract_address: Crowdfunding.address,
+        storage_slot: 3,
+        is_transient: false,
+        nonce: noteNonces![0],
+      },
+      value: allCampaignNotes![0].note.items[0],
+      owner:  allCampaignNotes![0].note.items[1],
+      randomness: allCampaignNotes![0].note.items[2],
+    }).send().wait()).rejects.toThrow();
+
+    const balanceOfRewardToken = await JuiceboxToken.methods.balance_of_public(donorWallets[0].getAddress()).view();
+
+    // Balance of public reward token should be the amount claimed
+    expect(balanceOfRewardToken).toEqual(1000n);
+
+    const balanceOfEthTokenBeforeWithdrawal = await EthToken.methods.balance_of_private(operatorWallet.getAddress()).view();
+
+    expect(balanceOfEthTokenBeforeWithdrawal).toEqual(0n);
+
+    await Crowdfunding.methods.withdraw(1000n).send().wait();
+
+    const balanceOfEthTokenAfterWithdrawal = await EthToken.methods.balance_of_private(operatorWallet.getAddress()).view();
+
+    expect(balanceOfEthTokenAfterWithdrawal).toEqual(1000n);
   });
 });
