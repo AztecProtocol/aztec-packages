@@ -1,5 +1,5 @@
 use crate::{
-    address::EthAddress, contract_class::ContractClassId,
+    address::EthAddress, contract_class_id::ContractClassId,
     constants::{CONTRACT_DEPLOYMENT_DATA_LENGTH, GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA},
     grumpkin_point::GrumpkinPoint, hash::pedersen_hash, traits::{Deserialize, Hash, Serialize}
 };
@@ -76,7 +76,6 @@ fn serialization_of_empty() {
     assert(data.eq(deserialized));
 }
 
-// TODO(#4619): Hash non-empty
 #[test]
 fn empty_hash() {
     let data: ContractDeploymentData = dep::std::unsafe::zeroed();
