@@ -4,13 +4,14 @@ set -eu
 
 # enter script folder
 cd "$(dirname $0)"
+
 cd ../../srs_db
 ./download_ignition.sh 1
 ./download_grumpkin.sh
 cd ../build
 
 function bench() {
-  ./bin/$1 --benchmark_out="$1.json" --benchmark_out_format=json --benchmark_counters_tabular=true $2
+  $PREFIX ./bin/$1 --benchmark_out="$1.json" --benchmark_out_format=json --benchmark_counters_tabular=true $2
   cat $1.json
 }
 

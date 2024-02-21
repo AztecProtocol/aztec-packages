@@ -1329,9 +1329,17 @@ workflows:
       - barretenberg-ubsan-build: *defaults
       - barretenberg-wasm-build: *defaults
       - barretenberg-solidity-verifier: *defaults
-      - barretenberg-bench:
+      - barretenberg-op-count-bench:
           requires:
             - barretenberg-op-count-build
+          <<: *defaults
+      - barretenberg-release-bench:
+          requires:
+            - barretenberg-release-build
+          <<: *defaults
+      - barretenberg-wasm-bench:
+          requires:
+            - barretenberg-wasm-build
           <<: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test

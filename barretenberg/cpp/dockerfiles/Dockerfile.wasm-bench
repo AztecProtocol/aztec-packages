@@ -1,4 +1,5 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-wasm-build
 WORKDIR /usr/src/barretenberg/cpp
 RUN apk update && apk add curl libstdc++ jq
-RUN ./scripts/ci/bench.sh
+RUN curl https://wasmtime.dev/install.sh -sSf | bash
+RUN ./scripts/ci/bench_wasm.sh

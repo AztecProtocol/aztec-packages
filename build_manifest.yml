@@ -148,6 +148,12 @@ barretenberg-release-bench:
   dependencies:
     - barretenberg-release-build
 
+barretenberg-wasm-bench:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.wasm-bench
+  dependencies:
+    - barretenberg-wasm-build
+
 barretenberg-docs:
   buildDir: barretenberg/cpp
   dockerfile: docs/Dockerfile
