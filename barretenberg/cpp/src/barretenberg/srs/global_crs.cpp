@@ -33,8 +33,10 @@ void init_crs_factory(std::string crs_path)
     std::vector<g1::affine_element> points;
     // 2**19 points
     points.reserve(1 << 19);
+    auto random_element = g1::affine_element::random_element();
     for (int i = 0; i < (1 << 19); i++) {
-        points.push_back(g1::affine_element::random_element());
+        points.push_back(random_element);
+        random_element = random_element + random_element;
     }
     init_crs_factory(points, g2::affine_element{ fq::random_element(), fq::random_element() });
     std::cout << "WASMTIME_ENV_HACK: finished generating fake bn254 curve" << std::endl;
@@ -63,8 +65,10 @@ void init_grumpkin_crs_factory(std::string crs_path)
     std::vector<curve::Grumpkin::AffineElement> points;
     // 2**18 points
     points.reserve(1 << 18);
+    auto random_element = curve::Grumpkin::AffineElement::random_element();
     for (int i = 0; i < (1 << 18); i++) {
-        points.push_back(curve::Grumpkin::AffineElement::random_element());
+        points.push_back(random_element);
+        random_element = random_element + random_element;
     }
     std::cout << "WASMTIME_ENV_HACK: finished generating fake grumpkin curve" << std::endl;
     init_grumpkin_crs_factory(points);
