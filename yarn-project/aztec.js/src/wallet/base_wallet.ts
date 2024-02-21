@@ -81,6 +81,9 @@ export abstract class BaseWallet implements Wallet {
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
     return this.pxe.getNotes(filter);
   }
+  public getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+    return this.pxe.getNoteNonces(note);
+  }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }

@@ -171,6 +171,15 @@ export interface PXE {
    */
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
 
+    /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   */
+  //! TODO We exposed this to allow for notes to be reconstructed from pxe.getNotes() to pass in as an input to a nr contract
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
+
   /**
    * Adds a note to the database.
    * @throws If the note hash of the note doesn't exist in the tree.

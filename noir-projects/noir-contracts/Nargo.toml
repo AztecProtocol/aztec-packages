@@ -4,6 +4,7 @@ members = [
     "contracts/benchmarking_contract",
     "contracts/card_game_contract",
     "contracts/child_contract",
+    "contracts/claim_contract",
     "contracts/contract_class_registerer_contract",
     "contracts/contract_instance_deployer_contract",
     "contracts/counter_contract",

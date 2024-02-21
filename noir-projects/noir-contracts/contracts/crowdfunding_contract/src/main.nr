@@ -4,24 +4,23 @@ contract CrowdFunding {
     use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{
         context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, immutable_singleton::ImmutableSingleton}
+        state_vars::{map::Map, set::Set, immutable_singleton::ImmutableSingleton}
     };
     use dep::field_note::field_note::FieldNote;
+    use dep::value_note::value_note::ValueNote;
     use interfaces::{Token, PrivateToken};
 
     struct Storage {
         donation_token: ImmutableSingleton<FieldNote>,
-        reward_token: ImmutableSingleton<FieldNote>,
         operator: ImmutableSingleton<FieldNote>,
+        donation: Set<ValueNote>,
     }
 
     #[aztec(private)]
-    fn constructor(donation_token: AztecAddress, reward_token: AztecAddress, operator: AztecAddress) {
+    fn constructor(donation_token: AztecAddress, operator: AztecAddress) {
+        // Add end time
         let mut donation_token = FieldNote::new(donation_token.to_field());
         storage.donation_token.initialize(&mut donation_token, false);
-
-        let mut reward_token = FieldNote::new(reward_token.to_field());
-        storage.reward_token.initialize(&mut reward_token, false);
 
         let mut operator = FieldNote::new(operator.to_field());
         storage.operator.initialize(&mut operator, false);
@@ -43,16 +42,14 @@ contract CrowdFunding {
         );
         dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Transfer done", [1]);
 
-        let reward_token_address = AztecAddress::from_field(storage.reward_token.get_note().value);
-        let reward_token = PrivateToken::at(reward_token_address);
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Got reward token address", [reward_token_address]);
-
-        reward_token.mint(&mut context, amount, context.msg_sender());
+        let mut note = ValueNote::new(amount as Field, context.msg_sender());
+        storage.donation.insert(&mut note, true);
     }
 
     // Withdraws balance. Requires that msg.sender is registered as an owner.
     #[aztec(private)]
     fn withdraw(amount: Field) {
+        // check end time
         let operator_address = AztecAddress::from_field(storage.operator.get_note().value);
 
         let this = context.this_address();
