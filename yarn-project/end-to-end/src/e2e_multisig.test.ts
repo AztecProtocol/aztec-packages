@@ -86,7 +86,7 @@ describe('e2e_multisig', () => {
     const action = testContract.methods.emit_msg_sender();
 
     // We collect the signatures from each owner and register them using addAuthWitness
-    const authWits = await collectSignatures(await action.create(), [walletA, walletB]);
+    const authWits = await collectSignatures(getRequestsFromTxRequest(await action.create()), [walletA, walletB]);
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
     // Send the tx after having added all auth witnesses from the signers
@@ -104,7 +104,7 @@ describe('e2e_multisig', () => {
     const action = testContract.methods.emit_msg_sender();
 
     // We collect the signatures from each owner and register them using addAuthWitness
-    const authWits = await collectSignatures(await action.create(), [walletB, walletC]);
+    const authWits = await collectSignatures(getRequestsFromTxRequest(await action.create()), [walletB, walletC]);
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
     // Send the tx after having added all auth witnesses from the signers
@@ -122,47 +122,79 @@ describe('e2e_multisig', () => {
     const action = testContract.methods.emit_msg_sender();
 
     // We collect the signatures from only one owner
-    const authWits = await collectSignatures(await action.create(), [walletA]);
+    const authWits = await collectSignatures(getRequestsFromTxRequest(await action.create()), [walletA]);
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
     // Trying to send the tx should fail at simulation
     await expect(action.send().wait()).rejects.toThrow();
   });
 
-  it('receives a token transfer and then sends it to another account', async () => {
-    // Deploy token contract
-    const token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
-      .send()
-      .deployed();
-    const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
-    const amount = 1000n;
+  describe('with a token contract', () => {
+    let token: TokenContract;
 
-    // Have the walletDeployer mint 1000 tokens for itself as setup
-    const { txHash: mintTxHash } = await token.methods.mint_private(amount, secretHash).send().wait();
-    await addPendingShieldNoteToPXE(walletDeployer, token.address, amount, secretHash, mintTxHash);
-    await token.methods.redeem_shield(walletDeployer.getCompleteAddress(), amount, secret).send().wait();
-    expect(await token.methods.balance_of_private(walletDeployer.getCompleteAddress()).view()).toBe(amount);
+    beforeAll(async () => {
+      // Deploy token contract
+      token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
+        .send()
+        .deployed();
+      const secret = Fr.random();
+      const secretHash = computeMessageSecretHash(secret);
+      const amount = 1000n;
 
-    // Transfer 200 tokens to the multisig
-    await token.methods
-      .transfer(walletDeployer.getCompleteAddress(), multisigWallet.getCompleteAddress(), 200n, 0)
-      .send()
-      .wait();
-    expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(200n);
+      // Have the walletDeployer mint 1000 tokens for itself as setup
+      const { txHash: mintTxHash } = await token.methods.mint_private(amount, secretHash).send().wait();
+      await addPendingShieldNoteToPXE(walletDeployer, token.address, amount, secretHash, mintTxHash);
+      await token.methods.redeem_shield(walletDeployer.getCompleteAddress(), amount, secret).send().wait();
+      expect(await token.methods.balance_of_private(walletDeployer.getCompleteAddress()).view()).toBe(amount);
 
-    // Have the multisig forward 50 tokens to wallet
-    const action = token
-      .withWallet(multisigWallet)
-      .methods.transfer(multisigWallet.getCompleteAddress(), walletA.getCompleteAddress(), 50n, 0);
-    // compute message hash. caller = MultiSig (from addresses)
-    const authWits = await collectSignatures(await action.create(), [walletA, walletB]);
-    // add authwit to msg.sender
-    await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
-    await action.send().wait();
+      // Transfer 200 tokens to the multisig
+      await token.methods
+        .transfer(walletDeployer.getCompleteAddress(), multisigWallet.getCompleteAddress(), 200n, 0)
+        .send()
+        .wait();
+      expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(200n);
+      logger.info(`Successfully transferred 200 tokens to the multisig`);
+    });
 
-    expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(150n);
-    expect(await token.methods.balance_of_private(walletA.getCompleteAddress()).view()).toBe(50n);
+    it('sends tokens from multisig as msg.sender', async () => {
+      const signers = [walletA, walletB];
+      const transferAction = token
+        .withWallet(multisigWallet)
+        .methods.transfer(multisigWallet.getCompleteAddress(), walletA.getCompleteAddress(), 50n, 0);
+      const authWits = await collectSignatures(getRequestsFromTxRequest(await transferAction.create()), signers);
+      await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
+      await transferAction.send().wait();
+
+      expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(150n);
+      expect(await token.methods.balance_of_private(walletA.getCompleteAddress()).view()).toBe(50n);
+      logger.info(`Successfully sent 50 tokens directly`);
+    });
+
+    it('sends token from multisig via authwit', async () => {
+      const signers = [walletA, walletB];
+      const recipient = walletC.getCompleteAddress();
+      const amount = 25n;
+      const nonce = Fr.random();
+      const sender = walletB.getCompleteAddress().address;
+
+      const action = token
+        .withWallet(walletB)
+        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, nonce);
+
+      const transferFromAuthWitRequest = Fr.fromBuffer(computeAuthWitMessageHash(sender, action.request()));
+      logger.info(`AuthWit request for transferFrom: ${transferFromAuthWitRequest.toString()}`);
+      const transferFromAuthWits = await collectSignatures([transferFromAuthWitRequest], signers);
+      logger.info(
+        `AuthWit requests for transferFrom for each signer (${signers
+          .map(s => s.getCompleteAddress().address.toString())
+          .join(' ')}): ${transferFromAuthWits.map(w => w.requestHash.toString()).join(' ')}`,
+      );
+      await Promise.all(transferFromAuthWits.map(w => walletB.addAuthWitness(w)));
+      await action.send().wait();
+
+      expect(await token.methods.balance_of_private(recipient).view()).toBe(amount);
+      logger.info(`Successfully sent 25 tokens from another account via authwit`);
+    });
   });
 
   it('add a new owner to the multisig', async () => {
@@ -179,7 +211,7 @@ describe('e2e_multisig', () => {
     );
 
     // We collect the signatures from each owner and register them using addAuthWitness
-    const authWits = await collectSignatures(await addAction.create(), [walletA, walletB]);
+    const authWits = await collectSignatures(getRequestsFromTxRequest(await addAction.create()), [walletA, walletB]);
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
     // Send the tx after having added all auth witnesses from the signers
@@ -229,23 +261,30 @@ function getMultisigAccountManager(
   return new AccountManager(pxe, privateKey, new AccountManagerMultisigAccountContract(privateKey, owners, threshold));
 }
 
-function getMessagesToSignFor(txRequest: TxExecutionRequest, owner: AztecAddress): Fr[] {
-  return txRequest.authWitnesses.map(w =>
+// Returns the requests to sign for a given tx request
+function getRequestsFromTxRequest(txRequest: TxExecutionRequest) {
+  return txRequest.authWitnesses.map(w => w.requestHash);
+}
+
+// Given a set of requests and an owner, returns the request that the owner needs to sign
+function getRequestsToSignFor(requests: Fr[], owner: AztecAddress): Fr[] {
+  return requests.map(request =>
     Fr.fromBuffer(
       pedersenHash(
-        [w.requestHash, owner.toField()].map(fr => fr.toBuffer()),
+        [request, owner.toField()].map(fr => fr.toBuffer()),
         0, // TODO: Use a non-zero generator point
       ),
     ),
   );
 }
 
-async function collectSignatures(txRequest: TxExecutionRequest, owners: Wallet[]): Promise<AuthWitness[]> {
+// Returns authwitnesses signed by the `owners` wallets for each of the `requests`
+async function collectSignatures(requests: Fr[], owners: Wallet[]): Promise<AuthWitness[]> {
   // TODO: Rewrite this using a flatMap instead of two loops because it'd look nicer
 
   const authWits: AuthWitness[] = [];
   for (const ownerWallet of owners) {
-    const messagesToSign = getMessagesToSignFor(txRequest, ownerWallet.getCompleteAddress().address);
+    const messagesToSign = getRequestsToSignFor(requests, ownerWallet.getCompleteAddress().address);
     for (const messageToSign of messagesToSign) {
       authWits.push(await ownerWallet.createAuthWitness(messageToSign));
     }
