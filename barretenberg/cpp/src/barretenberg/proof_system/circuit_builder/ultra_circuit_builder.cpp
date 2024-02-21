@@ -3418,10 +3418,10 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
 
         // If we are touching a gate with memory access, we need to update the value of the 4th witness
         if (memory_read_record_gates.contains(i)) {
-            w_4_value = ((w_3_value * eta + w_2_value) * eta + w_1_value) * eta;
+            w_4_value = w_3_value * eta_three + w_2_value * eta_two + w_1_value * eta;
         }
         if (memory_write_record_gates.contains(i)) {
-            w_4_value = ((w_3_value * eta + w_2_value) * eta + w_1_value) * eta + FF::one();
+            w_4_value = w_3_value * eta_three + w_2_value * eta_two + w_1_value * eta + FF::one();
         }
         // Now we can update the tag product for w_4
         update_tag_check_information((uint32_t)w_4_index, w_4_value);
@@ -3441,11 +3441,11 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
             w_4_shifted_value = FF::zero();
         }
         if (memory_read_record_gates.contains(i + 1)) {
-            w_4_shifted_value = ((w_3_shifted_value * eta + w_2_shifted_value) * eta + w_1_shifted_value) * eta;
+            w_4_shifted_value = w_3_shifted_value * eta_three + w_2_shifted_value * eta_two + w_1_shifted_value * eta;
         }
         if (memory_write_record_gates.contains(i + 1)) {
             w_4_shifted_value =
-                ((w_3_shifted_value * eta + w_2_shifted_value) * eta + w_1_shifted_value) * eta + FF::one();
+                w_3_shifted_value * eta_three + w_2_shifted_value * eta_two + w_1_shifted_value * eta + FF::one();
         }
         if (!compute_arithmetic_identity(q_arith_value,
                                          q_1_value,
