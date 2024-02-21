@@ -59,7 +59,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         info("block size = ", block_size);
 
         // Update wire polynomials and copy cycles
-        // WORKTODO: order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
+        // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
             for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                 uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
@@ -68,10 +68,9 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
                 // Insert the real witness values from this block into the wire polys at the correct offset
                 trace_data.wires[wire_idx][trace_row_idx] = builder.get_variable(var_idx);
                 // Add the address of the witness value to its corresponding copy cycle
-                // WORKTODO: Not adding cycles for wires 3 and 4 here is only needed in order to maintain
-                // consistency with old version. We can remove this special case and the result is simply that all
-                // the zeros in wires 3 and 4 over the PI range are copy constrained together, but this changes sigma/id
-                // which changes the vkey.
+                // NB: Not adding cycles for wires 3 and 4 here is only needed in order to maintain consistency with old
+                // version. We can remove this special case and the result is simply that all the zeros in wires 3 and 4
+                // over the PI range are copy constrained together, but this changes sigma/id which changes the vkey.
                 if (!(block.is_public_input && wire_idx > 1)) {
                     trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
