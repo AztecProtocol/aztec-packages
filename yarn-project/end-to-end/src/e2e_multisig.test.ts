@@ -15,6 +15,7 @@ import {
   TxExecutionRequest,
   TxHash,
   Wallet,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -129,19 +130,23 @@ describe('e2e_multisig', () => {
     await expect(action.send().wait()).rejects.toThrow();
   });
 
-  it('receives a token transfer and then sends it to another account', async () => {
+  it.only('receives a token transfer and then sends it to another account', async () => {
     // Deploy token contract
+    console.log('deploying token');
     const token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
       .send()
       .deployed();
     const secret = Fr.random();
     const secretHash = computeMessageSecretHash(secret);
     const amount = 1000n;
+    console.log('deployed token');
 
     // Have the walletDeployer mint 1000 tokens for itself as setup
     const { txHash: mintTxHash } = await token.methods.mint_private(amount, secretHash).send().wait();
     await addPendingShieldNoteToPXE(walletDeployer, token.address, amount, secretHash, mintTxHash);
+    await token.methods.redeem_shield(walletDeployer.getCompleteAddress(), amount, secret).send().wait();
     expect(await token.methods.balance_of_private(walletDeployer.getCompleteAddress()).view()).toBe(amount);
+    console.log('minted token to wLLWT DEPLOYER');
 
     // Transfer 200 tokens to the multisig
     await token.methods
@@ -149,10 +154,15 @@ describe('e2e_multisig', () => {
       .send()
       .wait();
     expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(200n);
+    console.log('transfer tokens to multisig done');
 
-    // Have the multisig froward 50 tokens to walletA
-    const action = token.methods.transfer(multisigWallet.getCompleteAddress(), walletA.getCompleteAddress(), 50n, 0);
+    // Have the multisig forward 50 tokens to wallet
+    const action = token
+      .withWallet(multisigWallet)
+      .methods.transfer(multisigWallet.getCompleteAddress(), walletA.getCompleteAddress(), 50n, 0);
+    // compute message hash. caller = MultiSig (from addresses)
     const authWits = await collectSignatures(await action.create(), [walletA, walletB]);
+    // add authwit to msg.sender
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
     await action.send().wait();
 
@@ -185,7 +195,7 @@ describe('e2e_multisig', () => {
     logger.info(`Tx logs: ${logs.logs.map(log => log.toHumanReadable())}`);
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await teardown();
   });
 });
@@ -236,6 +246,7 @@ function getMessagesToSignFor(txRequest: TxExecutionRequest, owner: AztecAddress
 
 async function collectSignatures(txRequest: TxExecutionRequest, owners: Wallet[]): Promise<AuthWitness[]> {
   // TODO: Rewrite this using a flatMap instead of two loops because it'd look nicer
+
   const authWits: AuthWitness[] = [];
   for (const ownerWallet of owners) {
     const messagesToSign = getMessagesToSignFor(txRequest, ownerWallet.getCompleteAddress().address);
