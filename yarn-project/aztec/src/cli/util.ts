@@ -13,6 +13,7 @@ const l1ContractsNames = [
   'outboxAddress',
   'contractDeploymentEmitterAddress',
   'availabilityOracleAddress',
+  'registryAddress',
 ];
 
 /**
