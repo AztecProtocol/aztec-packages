@@ -4,7 +4,6 @@ struct SlowUpdateInner<N> {
   sibling_path: [Field; N],
 }
 
-// docs:start:slow_update_proof
 // The slow update proof. Containing two merkle paths
 // One for the before and one for the after trees.
 // M = 2 * N + 4
@@ -14,7 +13,6 @@ struct SlowUpdateProof<N, M> {
   before: SlowUpdateInner<N>,
   after: SlowUpdateInner<N>,
 }
-// docs:end:slow_update_proof
 
 pub fn deserialize_slow_update_proof<N, M>(serialized: [Field; M]) -> SlowUpdateProof<N, M> {
     SlowUpdateProof::deserialize(serialized)
