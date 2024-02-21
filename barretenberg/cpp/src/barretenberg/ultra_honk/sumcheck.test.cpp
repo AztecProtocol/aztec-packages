@@ -153,11 +153,13 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     // Generate eta, beta and gamma
     FF eta = FF::random_element();
+    FF eta_two = FF::random_element();
+    FF eta_three = FF::random_element();
     FF beta = FF::random_element();
     FF gamma = FF::random_element();
 
     instance->initialize_prover_polynomials();
-    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
     instance->compute_grand_product_polynomials(beta, gamma);
 
     auto prover_transcript = Transcript::prover_init_empty();

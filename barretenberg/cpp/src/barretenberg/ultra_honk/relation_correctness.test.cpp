@@ -274,11 +274,13 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
 
     // Generate eta, beta and gamma
     FF eta = FF::random_element();
+    FF eta_two = FF::random_element();
+    FF eta_three = FF::random_element();
     FF beta = FF::random_element();
     FF gamma = FF::random_element();
 
     instance->initialize_prover_polynomials();
-    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
     instance->compute_grand_product_polynomials(beta, gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
@@ -327,11 +329,13 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 
     // Generate eta, beta and gamma
     FF eta = FF::random_element();
+    FF eta_two = FF::random_element();
+    FF eta_three = FF::random_element();
     FF beta = FF::random_element();
     FF gamma = FF::random_element();
 
     instance->initialize_prover_polynomials();
-    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
     instance->compute_logderivative_inverse(beta, gamma);
     instance->compute_grand_product_polynomials(beta, gamma);
 

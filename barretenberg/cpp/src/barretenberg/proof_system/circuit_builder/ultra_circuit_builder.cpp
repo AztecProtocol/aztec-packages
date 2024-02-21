@@ -2551,7 +2551,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         // generate the `eta` challenge, we'll use `memory_records` to figure out which gates need a record wire
         // value
         // to be computed.
-        // record (w4) = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag (0 for reads, 1 for writes)
+        // record (w4) = w3 * eta_three + w2 * eta_two + w1 * eta + read_write_flag (0 for reads, 1 for writes)
         // Separate containers used to store gate indices of reads and writes. Need to differentiate because of
         // `read_write_flag` (N.B. all ROM accesses are considered reads. Writes are for RAM operations)
         memory_read_records.push_back(static_cast<uint32_t>(sorted_record.gate_index));
@@ -3037,7 +3037,9 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
     FF w_4_shifted_value,
     FF alpha_base,
     FF alpha,
-    FF eta) const
+    FF eta,
+    FF eta_two,
+    FF eta_three) const
 {
     constexpr FF LIMB_SIZE(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     // TODO(kesha): Replace with a constant defined in header
@@ -3131,7 +3133,7 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
      *  * i: `index` of memory cell being accessed
      *  * v: `value1` of memory cell being accessed (ROM tables can store up to 2 values per index)
      *  * v2:`value2` of memory cell being accessed (ROM tables can store up to 2 values per index)
-     *  * r: `record` of memory cell. record = index * eta + value2 * eta^2 + value1 * eta^3
+     *  * r: `record` of memory cell. record = index * eta + value2 * eta_two + value1 * eta_three
      *
      *  When performing a read/write access, the values of i, t, v, v2, a, r are stored in the following wires +
      * selectors, depending on whether the gate is a RAM read/write or a ROM read
@@ -3155,17 +3157,14 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
      *
      * A ROM/ROM access gate can be evaluated with the identity:
      *
-     * qc + w1 \eta + w2 \eta^2 + w3 \eta^3 - w4 = 0
+     * qc + w1 \eta + w2 \eta_two + w3 \eta_three - w4 = 0
      *
      * For ROM gates, qc = 0
      */
 
-    FF memory_record_check = w_3_value;
-    memory_record_check *= eta;
-    memory_record_check += w_2_value;
-    memory_record_check *= eta;
-    memory_record_check += w_1_value;
-    memory_record_check *= eta;
+    FF memory_record_check = w_3_value * eta_three;
+    memory_record_check += w_2_value * eta_two;
+    memory_record_check += w_1_value * eta;
     memory_record_check += q_c_value;
     FF partial_record_check = memory_record_check; // used in RAM consistency check
     memory_record_check = memory_record_check - w_4_value;
@@ -3204,7 +3203,7 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
      * RAM Consistency Check
      *
      * The 'access' type of the record is extracted with the expression `w_4 - partial_record_check`
-     * (i.e. for an honest Prover `w1 * eta + w2 * eta^2 + w3 * eta^3 - w4 = access`.
+     * (i.e. for an honest Prover `w1 * eta + w2 * eta_two + w3 * eta_three - w4 = access`.
      * This is validated by requiring `access` to be boolean
      *
      * For two adjacent entries in the sorted list if _both_
@@ -3222,12 +3221,9 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
     FF access_check = access_type.sqr() - access_type;   // check value is 0 or 1
 
     // TODO: oof nasty compute here. If we sorted in reverse order we could re-use `partial_record_check`
-    FF next_gate_access_type = w_3_shifted_value;
-    next_gate_access_type *= eta;
-    next_gate_access_type += w_2_shifted_value;
-    next_gate_access_type *= eta;
-    next_gate_access_type += w_1_shifted_value;
-    next_gate_access_type *= eta;
+    FF next_gate_access_type = w_3_shifted_value * eta_three;
+    next_gate_access_type += w_2_shifted_value * eta_two;
+    next_gate_access_type += w_1_shifted_value * eta;
     next_gate_access_type = w_4_shifted_value - next_gate_access_type;
 
     FF value_delta = w_3_shifted_value - w_3_value;
@@ -3307,6 +3303,8 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
     const FF auxillary_base = FF::random_element();
     const FF alpha = FF::random_element();
     const FF eta = FF::random_element();
+    const FF eta_two = FF::random_element();
+    const FF eta_three = FF::random_element();
 
     // We need to get all memory
     std::unordered_set<size_t> memory_read_record_gates;
@@ -3489,7 +3487,9 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
                                        w_4_shifted_value,
                                        auxillary_base,
                                        alpha,
-                                       eta)
+                                       eta,
+                                       eta_two,
+                                       eta_three)
                  .is_zero()) {
 #ifndef FUZZING
             info("Auxilary identity fails at gate ", i);
