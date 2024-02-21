@@ -1,4 +1,3 @@
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 
 import { AvmContext } from '../avm_context.js';

@@ -363,10 +363,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessage = new L2ToL1Message(
-        portalContractAddress,
-        pedersenHash(params.map(a => a.toBuffer())),
-      );
+      const expectedNewMessage = new L2ToL1Message(portalContractAddress, pedersenHash(params.map(a => a.toBuffer())));
 
       expect(result.newL2ToL1Messages[0]).toEqual(expectedNewMessage);
     });
