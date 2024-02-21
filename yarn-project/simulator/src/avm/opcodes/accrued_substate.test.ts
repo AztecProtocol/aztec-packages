@@ -1,8 +1,12 @@
+import { UnencryptedL2Log } from '@aztec/circuit-types';
 import { AvmContext } from '../avm_context.js';
-import { Field } from '../avm_memory_types.js';
+import { Field, Uint32 } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
+import { AztecAddress, EthAddress, Fr, L2ToL1Message } from '@aztec/circuits.js';
+import { EventSelector } from '@aztec/foundation/abi';
+import { TracedNoteHash, TracedNullifier } from '../journal/trace_types.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
@@ -30,9 +34,15 @@ describe('Accrued Substate', () => {
 
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
-      const journalState = context.worldState.flush();
-      const expected = [value.toFr()];
-      expect(journalState.newNoteHashes).toEqual(expected);
+      const sideEffects = context.worldState.getSideEffects();
+      const expected: TracedNoteHash = {
+        callPointer: Fr.ZERO,
+        storageAddress: Fr.ZERO,
+        noteHash: value.toFr(),
+        counter: Fr.ZERO,
+        endLifetime: Fr.ZERO,
+      };
+      expect(sideEffects.trace.newNoteHashes).toEqual([expected]);
     });
   });
 
@@ -55,9 +65,15 @@ describe('Accrued Substate', () => {
 
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
-      const journalState = context.worldState.flush();
-      const expected = [value.toFr()];
-      expect(journalState.newNullifiers).toEqual(expected);
+      const sideEffects = context.worldState.getSideEffects();
+      const expected: TracedNullifier = {
+        callPointer: Fr.ZERO,
+        storageAddress: Fr.ZERO,
+        nullifier: value.toFr(),
+        counter: Fr.ZERO,
+        endLifetime: Fr.ZERO,
+      };
+      expect(sideEffects.trace.newNullifiers).toEqual([expected]);
     });
   });
 
@@ -66,28 +82,40 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // offset
-        ...Buffer.from('a2345678', 'hex'), // length
+        ...Buffer.from('00000123', 'hex'), // selectorOffset
+        ...Buffer.from('12345678', 'hex'), // logOffset
+        ...Buffer.from('a2345678', 'hex'), // logSize
       ]);
-      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678, /*length=*/ 0xa2345678);
+      const inst = new EmitUnencryptedLog(
+        /*indirect=*/ 0x01,
+        /*selectorOffset=*/ 0x0123,
+        /*logOffset=*/ 0x12345678,
+        /*logSize=*/ 0xa2345678
+      );
 
       expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should append unencrypted logs correctly', async () => {
-      const startOffset = 0;
-
+      const logOffset = 0;
+      const selectorOffset = 0x0123;
+      const selector = new Uint32(42);
       const values = [new Field(69n), new Field(420n), new Field(Field.MODULUS - 1n)];
+
+      context.machineState.memory.set(selectorOffset, selector);
       context.machineState.memory.setSlice(0, values);
 
-      const length = values.length;
+      const logSize = values.length;
 
-      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, length).execute(context);
+      await new EmitUnencryptedLog(/*indirect=*/ 0, selectorOffset, logOffset, logSize).execute(context);
 
-      const journalState = context.worldState.flush();
-      const expected = values.map(v => v.toFr());
-      expect(journalState.newLogs).toEqual([expected]);
+      const sideEffects = context.worldState.getSideEffects();
+      const expected = new UnencryptedL2Log(
+        AztecAddress.zero(),
+        EventSelector.fromField(selector.toFr()),
+        Buffer.concat(values.map(field => field.toBuffer())));
+      expect(sideEffects.unencryptedLogs).toEqual([expected]);
     });
   });
 
@@ -106,18 +134,19 @@ describe('Accrued Substate', () => {
     });
 
     it('Should append l1 to l2 messages correctly', async () => {
-      const startOffset = 0;
+      const recipientOffset = 0;
+      const recipient = new Field(42);
+      const contentOffset = 1;
+      const content = new Field(420);
 
-      const values = [new Field(69n), new Field(420n), new Field(Field.MODULUS - 1n)];
-      context.machineState.memory.setSlice(0, values);
+      context.machineState.memory.set(recipientOffset, recipient);
+      context.machineState.memory.set(contentOffset, content);
 
-      const length = values.length;
+      await new SendL2ToL1Message(/*indirect=*/ 0, recipientOffset, contentOffset).execute(context);
 
-      await new SendL2ToL1Message(/*indirect=*/ 0, /*offset=*/ startOffset, length).execute(context);
-
-      const journalState = context.worldState.flush();
-      const expected = values.map(v => v.toFr());
-      expect(journalState.newL1Messages).toEqual([expected]);
+      const sideEffects = context.worldState.getSideEffects();
+      const expected = new L2ToL1Message(EthAddress.fromField(recipient.toFr()), content.toFr());
+      expect(sideEffects.newL2ToL1Messages).toEqual([expected]);
     });
   });
 
@@ -127,8 +156,8 @@ describe('Accrued Substate', () => {
     const instructions = [
       new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),
       new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0),
-      new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ 0, 1),
-      new SendL2ToL1Message(/*indirect=*/ 0, /*offset=*/ 0, 1),
+      new EmitUnencryptedLog(/*indirect=*/ 0, /*selectorOffset=*/ 0, /*logOffset=*/ 0, /*logSize=*/ 1),
+      new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
     ];
 
     for (const instruction of instructions) {

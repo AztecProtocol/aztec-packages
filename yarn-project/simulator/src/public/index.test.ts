@@ -26,7 +26,7 @@ import { getFunctionSelector } from 'viem';
 import { MessageLoadOracleInputs } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { CommitmentsDB, NullifiersDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 
@@ -36,6 +36,7 @@ describe('ACIR public execution simulator', () => {
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
+  let nullifiersDb: MockProxy<NullifiersDB>;
   let executor: PublicExecutor;
   let header: Header;
 
@@ -47,7 +48,7 @@ describe('ACIR public execution simulator', () => {
     const randomInt = Math.floor(Math.random() * 1000000);
     header = makeHeader(randomInt);
 
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
   }, 10000);
 
   describe('Token contract', () => {
@@ -501,7 +502,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         const result = await executor.simulate(execution, globalVariables);
         expect(result.newNullifiers.length).toEqual(1);
       });
@@ -519,7 +520,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError(
           'Message not matching requested key',
         );
@@ -537,7 +538,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Message not in state');
       });
 
@@ -552,7 +553,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid recipient');
       });
 
@@ -567,7 +568,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid sender');
       });
 
@@ -582,7 +583,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables.chainId = Fr.random();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid Chainid');
       });
 
@@ -597,7 +598,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables.version = Fr.random();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid Version');
       });
 
@@ -613,7 +614,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid Content');
       });
 
@@ -629,7 +630,7 @@ describe('ACIR public execution simulator', () => {
         globalVariables = computeGlobalVariables();
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+        executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
         await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError('Invalid message secret');
       });
     });
@@ -699,7 +700,7 @@ describe('ACIR public execution simulator', () => {
           }
 
           const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-          executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+          executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
 
           expect(() => executor.simulate(execution, globalVariables)).not.toThrow();
         });
@@ -715,7 +716,7 @@ describe('ACIR public execution simulator', () => {
           }
 
           const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-          executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+          executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
 
           await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError(
             `Invalid ${description.toLowerCase()}`,
@@ -755,7 +756,7 @@ describe('ACIR public execution simulator', () => {
       const args = encodeArguments(assertHeaderPublicArtifact, [header.hash()]);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
 
       expect(() => executor.simulate(execution, GlobalVariables.empty())).not.toThrow();
     });
@@ -765,7 +766,7 @@ describe('ACIR public execution simulator', () => {
       const args = encodeArguments(assertHeaderPublicArtifact, [unexpectedHeaderHash]);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
+      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, nullifiersDb, header);
 
       await expect(executor.simulate(execution, GlobalVariables.empty())).rejects.toThrowError('Invalid header hash');
     });

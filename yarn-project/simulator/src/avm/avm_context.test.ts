@@ -25,8 +25,7 @@ describe('Avm Context', () => {
       }),
     );
 
-    // We stringify to remove circular references (parentJournal)
-    expect(JSON.stringify(newContext.worldState)).toEqual(JSON.stringify(context.worldState.fork()));
+    expect(newContext.worldState).toEqual(context.worldState.forkForNestedCall(/*callPointer=*/Fr.ZERO, newAddress, newAddress));
   });
 
   it('New static call should fork context correctly', () => {
@@ -51,7 +50,6 @@ describe('Avm Context', () => {
       }),
     );
 
-    // We stringify to remove circular references (parentJournal)
-    expect(JSON.stringify(newContext.worldState)).toEqual(JSON.stringify(context.worldState.fork()));
+    expect(newContext.worldState).toEqual(context.worldState.forkForNestedCall(/*callPointer=*/Fr.ZERO, newAddress, newAddress));
   });
 });

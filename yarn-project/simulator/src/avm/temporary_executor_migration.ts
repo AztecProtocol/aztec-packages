@@ -4,7 +4,6 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   GlobalVariables,
-  L2ToL1Message,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
@@ -13,7 +12,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { PublicExecution, PublicExecutionResult } from '../public/execution.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
-import { JournalData } from './journal/journal.js';
+import { WorldStateAccessTrace } from './journal/trace.js';
+import { TracedContractCall } from './journal/trace_types.js';
 
 /** Temporary Method
  *
@@ -46,64 +46,66 @@ export function temporaryCreateAvmExecutionEnvironment(
   );
 }
 
+export function temporaryAvmCallResults(
+  tracedContractCall: TracedContractCall,
+  initialExecution: PublicExecution,
+  trace: WorldStateAccessTrace,
+  isInitialCall?: boolean,
+): PublicExecutionResult {
+    const callPointer = tracedContractCall.callPointer;
+
+    // For the purpose of this temporary conversion,
+    // assign every nested call sender == initial call
+    const nestedCallContext = initialExecution.callContext;
+    if (isInitialCall) {
+      nestedCallContext.msgSender = initialExecution.contractAddress;
+    }
+
+    const nestedExecutionResult: PublicExecutionResult = {
+      execution: {
+        contractAddress: tracedContractCall.address,
+        // Function data from top execution is borrowed here
+        functionData: initialExecution.functionData,
+        args: [],
+        callContext: nestedCallContext,
+      },
+      newCommitments: trace.newNoteHashes.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffect(traced.noteHash, traced.counter)),
+      newL2ToL1Messages: [],
+      newNullifiers: trace.newNullifiers.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffectLinkedToNoteHash(traced.nullifier, Fr.ZERO, traced.counter)),
+      contractStorageReads: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageRead(traced.slot, traced.value, traced.counter.toNumber())),
+      contractStorageUpdateRequests: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageUpdateRequest(traced.slot, traced.value, traced.counter.toNumber())),
+      returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
+      nestedExecutions: [],
+      unencryptedLogs: FunctionL2Logs.empty(),
+    };
+    return nestedExecutionResult;
+}
 /** Temporary Method
  *
  * Convert the result of an AVM contract call to a PublicExecutionResult for the public kernel
  *
- * @param execution
- * @param newWorldState
- * @param result
+ * @param topExecution - The top-level execution that triggered this AVM execution
+ * @param trace - World state access trace from this AVM session
+ * @param result - The result of the AVM session execution (output data, revert)
  * @returns
  */
-export function temporaryConvertAvmResults(
-  execution: PublicExecution,
-  newWorldState: JournalData,
-  result: AvmContractCallResults,
+export function temporaryConvertAvmSessionResults(
+  topExecution: PublicExecution,
+  trace: WorldStateAccessTrace,
+  _result: AvmContractCallResults,
 ): PublicExecutionResult {
-  const newCommitments = newWorldState.newNoteHashes.map(noteHash => new SideEffect(noteHash, Fr.zero()));
-
-  const contractStorageReads: ContractStorageRead[] = [];
-  const reduceStorageReadRequests = (contractAddress: bigint, storageReads: Map<bigint, Fr[]>) => {
-    return storageReads.forEach((innerArray, key) => {
-      innerArray.forEach(value => {
-        contractStorageReads.push(new ContractStorageRead(new Fr(key), new Fr(value), 0));
-      });
-    });
+  // TODO handle reverts
+  const initialCall: TracedContractCall = {
+    callPointer: Fr.ZERO,
+    address: topExecution.contractAddress,
+    storageAddress: topExecution.callContext.storageContractAddress,
+    endLifetime: Fr.ZERO,
   };
-  newWorldState.storageReads.forEach((storageMap: Map<bigint, Fr[]>, address: bigint) =>
-    reduceStorageReadRequests(address, storageMap),
-  );
-
-  const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
-  const reduceStorageUpdateRequests = (contractAddress: bigint, storageUpdateRequests: Map<bigint, Fr[]>) => {
-    return storageUpdateRequests.forEach((innerArray, key) => {
-      innerArray.forEach(value => {
-        contractStorageUpdateRequests.push(new ContractStorageUpdateRequest(new Fr(key), new Fr(value), 0));
-      });
-    });
-  };
-  newWorldState.storageWrites.forEach((storageMap: Map<bigint, Fr[]>, address: bigint) =>
-    reduceStorageUpdateRequests(address, storageMap),
-  );
-
-  const returnValues = result.output;
-
-  // TODO(follow up in pr tree): NOT SUPPORTED YET, make sure hashing and log resolution is done correctly
-  // Disabled.
-  const nestedExecutions: PublicExecutionResult[] = [];
-  const newNullifiers: SideEffectLinkedToNoteHash[] = [];
-  const unencryptedLogs = FunctionL2Logs.empty();
-  const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.empty());
-
-  return {
-    execution,
-    newCommitments,
-    newL2ToL1Messages,
-    newNullifiers,
-    contractStorageReads,
-    contractStorageUpdateRequests,
-    returnValues,
-    nestedExecutions,
-    unencryptedLogs,
-  };
+  const executionResults: PublicExecutionResult = temporaryAvmCallResults(initialCall, topExecution, trace);
+  // This loop assumes that the contractCalls trace skips the initial call, but that is not
+  // true in the spec!
+  for (const contractCall of trace.contractCalls) {
+    executionResults.nestedExecutions.push(temporaryAvmCallResults(contractCall, topExecution, trace));
+  }
+  return executionResults;
 }
