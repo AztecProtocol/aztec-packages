@@ -72,6 +72,7 @@ template <class Flavor> class ProverInstance_ {
         Trace::generate(circuit, proving_key);
 
         // If Goblin, construct the ECC op queue wire and databus polynomials
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/862): Maybe do this in trace generation?
         if constexpr (IsGoblinFlavor<Flavor>) {
             construct_ecc_op_wire_polynomials(circuit);
             construct_databus_polynomials(circuit);
