@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "barretenberg/proof_system/types/merkle_hash_type.hpp"
 #include "barretenberg/proof_system/types/pedersen_commitment_type.hpp"
@@ -12,6 +13,7 @@ namespace bb {
 template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase<FF> {
   public:
     using Arithmetization = StandardArith<FF>;
+    using TraceBlock = ExecutionTraceBlock<Arithmetization>;
     using Selectors = Arithmetization;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
@@ -24,31 +26,30 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
 
-    std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
-    Arithmetization selectors;
+    TraceBlock main_block;
 
     using WireVector = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l() { return std::get<0>(wires); };
-    WireVector& w_r() { return std::get<1>(wires); };
-    WireVector& w_o() { return std::get<2>(wires); };
+    WireVector& w_l() { return std::get<0>(main_block.wires); };
+    WireVector& w_r() { return std::get<1>(main_block.wires); };
+    WireVector& w_o() { return std::get<2>(main_block.wires); };
 
-    const WireVector& w_l() const { return std::get<0>(wires); };
-    const WireVector& w_r() const { return std::get<1>(wires); };
-    const WireVector& w_o() const { return std::get<2>(wires); };
+    const WireVector& w_l() const { return std::get<0>(main_block.wires); };
+    const WireVector& w_r() const { return std::get<1>(main_block.wires); };
+    const WireVector& w_o() const { return std::get<2>(main_block.wires); };
 
-    SelectorVector& q_m() { return this->selectors.q_m(); };
-    SelectorVector& q_1() { return this->selectors.q_1(); };
-    SelectorVector& q_2() { return this->selectors.q_2(); };
-    SelectorVector& q_3() { return this->selectors.q_3(); };
-    SelectorVector& q_c() { return this->selectors.q_c(); };
+    SelectorVector& q_m() { return main_block.selectors.q_m(); };
+    SelectorVector& q_1() { return main_block.selectors.q_1(); };
+    SelectorVector& q_2() { return main_block.selectors.q_2(); };
+    SelectorVector& q_3() { return main_block.selectors.q_3(); };
+    SelectorVector& q_c() { return main_block.selectors.q_c(); };
 
-    const SelectorVector& q_m() const { return this->selectors.q_m(); };
-    const SelectorVector& q_1() const { return this->selectors.q_1(); };
-    const SelectorVector& q_2() const { return this->selectors.q_2(); };
-    const SelectorVector& q_3() const { return this->selectors.q_3(); };
-    const SelectorVector& q_c() const { return this->selectors.q_c(); };
+    const SelectorVector& q_m() const { return main_block.selectors.q_m(); };
+    const SelectorVector& q_1() const { return main_block.selectors.q_1(); };
+    const SelectorVector& q_2() const { return main_block.selectors.q_2(); };
+    const SelectorVector& q_3() const { return main_block.selectors.q_3(); };
+    const SelectorVector& q_c() const { return main_block.selectors.q_c(); };
 
     static constexpr size_t UINT_LOG2_BASE = 2;
 
@@ -60,7 +61,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     StandardCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        selectors.reserve(size_hint);
+        main_block.selectors.reserve(size_hint);
         w_l().reserve(size_hint);
         w_r().reserve(size_hint);
         w_o().reserve(size_hint);
@@ -82,8 +83,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
         constant_variable_indices = other.constant_variable_indices;
-        wires = other.wires;
-        selectors = other.selectors;
+        main_block = other.main_block;
         return *this;
     };
     ~StandardCircuitBuilder_() override = default;
