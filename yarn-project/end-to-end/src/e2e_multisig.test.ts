@@ -1,19 +1,37 @@
 import { DefaultAccountContract } from '@aztec/accounts/defaults';
-import { AccountManager, AccountWallet, AuthWitness, AuthWitnessProvider, ContractArtifact, DebugLogger, ExtendedNote, GrumpkinPrivateKey, GrumpkinScalar, Note, PXE, PublicKey, TxExecutionRequest, TxHash, Wallet, computeMessageSecretHash, generatePublicKey } from '@aztec/aztec.js';
+import {
+  AccountManager,
+  AccountWallet,
+  AuthWitness,
+  AuthWitnessProvider,
+  ContractArtifact,
+  DebugLogger,
+  ExtendedNote,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
+  Note,
+  PXE,
+  PublicKey,
+  TxExecutionRequest,
+  TxHash,
+  Wallet,
+  computeMessageSecretHash,
+  generatePublicKey,
+} from '@aztec/aztec.js';
 import { Fr } from '@aztec/aztec.js/fields';
 import { AztecAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { MultiSigAccountContract, MultiSigAccountContractArtifact, TestContract, TokenContract } from '@aztec/noir-contracts.js';
-
-
+import {
+  MultiSigAccountContract,
+  MultiSigAccountContractArtifact,
+  TestContract,
+  TokenContract,
+} from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
-
-
 import { setup } from './fixtures/utils.js';
-
 
 const TIMEOUT = 90_000;
 
@@ -62,7 +80,7 @@ describe('e2e_multisig', () => {
     logger.info(`Test contract deployed at: ${testContract.address.toString()}`);
   }, 100_000);
 
-  it('sends a tx to the test contract via the multisig', async () => {
+  it('sends a tx to the test contract via the multisig with first two owners', async () => {
     // Set up the method we want to call on a contract with the multisig as the wallet
     const action = testContract.methods.emit_msg_sender();
 
@@ -80,7 +98,25 @@ describe('e2e_multisig', () => {
     logger.info(`Test contract address: ${testContract.address}`);
   });
 
-  it.skip('refuses to send a tx without enough signers', async () => {
+  it.skip('sends a tx to the test contract via the multisig without the first owner signature', async () => {
+    // Set up the method we want to call on a contract with the multisig as the wallet
+    const action = testContract.methods.emit_msg_sender();
+
+    // We collect the signatures from each owner and register them using addAuthWitness
+    const authWits = await collectSignatures(await action.create(), [walletB, walletC]);
+    await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
+
+    // Send the tx after having added all auth witnesses from the signers
+    // TODO: We should be able to call send() on the result of create()
+    const tx = await action.send().wait();
+
+    const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    logger.info(`Tx logs: ${logs.logs.map(log => log.toHumanReadable())}`);
+    logger.info(`Multisig address: ${multisig.address}`);
+    logger.info(`Test contract address: ${testContract.address}`);
+  });
+
+  it('refuses to send a tx without enough signers', async () => {
     // Set up the method we want to call on a contract with the multisig as the wallet
     const action = testContract.methods.emit_msg_sender();
 
@@ -89,10 +125,10 @@ describe('e2e_multisig', () => {
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
 
     // Trying to send the tx should fail at simulation
-    await expect(action.send().wait()).rejects.toThrow(/foo/);
+    await expect(action.send().wait()).rejects.toThrow();
   });
 
-  it.skip('receives a token transfer and then sends it to another account', async () => {
+  it('receives a token transfer and then sends it to another account', async () => {
     // Deploy token contract
     const token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
       .send()
