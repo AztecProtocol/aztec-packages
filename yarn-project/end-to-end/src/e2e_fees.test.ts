@@ -10,7 +10,6 @@ import {
   Fr,
   FunctionCall,
   FunctionSelector,
-  NativeFeePaymentMethod,
   Note,
   TxHash,
   computeAuthWitMessageHash,
@@ -18,19 +17,21 @@ import {
 } from '@aztec/aztec.js';
 import { CompleteAddress, FunctionData } from '@aztec/circuits.js';
 import { decodeFunctionSignature } from '@aztec/foundation/abi';
-import { BananaFPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract as BananaCoin, BananaFPCContract, GasTokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
-
-import { exit } from 'process';
 
 import { setup } from './fixtures/utils.js';
 
+const TOKEN_NAME = 'BananaCoin';
+const TOKEN_SYMBOL = 'BAC';
+const TOKEN_DECIMALS = 18n;
+
 describe('e2e_fees', () => {
   let aliceAddress: AztecAddress;
-  let _bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
   let gasTokenContract: GasTokenContract;
-  let testContract: TokenContract;
+  let bananaCoin: BananaCoin;
+  let bananaFPC: BananaFPCContract;
 
   let wallets: AccountWallet[];
   let wallet: AccountWallet;
@@ -42,7 +43,7 @@ describe('e2e_fees', () => {
     process.env.PXE_URL = '';
     ({ accounts, aztecNode, wallet, wallets, logger } = await setup(3));
 
-    TokenContract.artifact.functions.forEach(fn => {
+    BananaCoin.artifact.functions.forEach(fn => {
       const sig = decodeFunctionSignature(fn.name, fn.parameters);
       logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
     });
@@ -69,159 +70,122 @@ describe('e2e_fees', () => {
 
     gasTokenContract = contract as GasTokenContract;
     logger(`Gas token contract deployed at ${gasTokenContract.address}`);
+    expect(gasTokenContract.address).toEqual(getCanonicalGasToken().address);
+
     aliceAddress = accounts.at(0)!.address;
-    _bobAddress = accounts.at(1)!.address;
     sequencerAddress = accounts.at(-1)!.address;
+  }, 30_000);
 
-    testContract = await TokenContract.deploy(wallet, aliceAddress, 'Test', 'TEST', 1).send().deployed();
-    logger(`Test contract deployed at ${testContract.address}`);
+  beforeEach(async () => {
+    bananaCoin = await BananaCoin.deploy(wallets[0], accounts[0], TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
+      .send()
+      .deployed();
 
-    // Alice gets a balance of 1000 gas token
-    await gasTokenContract.methods.redeem_bridged_balance(1000, accounts[0].address).send().wait();
+    logger(`BananaCoin deployed at ${bananaCoin.address}`);
+
+    bananaFPC = await BananaFPCContract.deploy(wallets[0], bananaCoin.address, gasTokenContract.address)
+      .send()
+      .deployed();
+    logger(`bananaPay deployed at ${bananaFPC.address}`);
   }, 100_000);
 
-  it('deploys gas token contract at canonical address', () => {
-    expect(gasTokenContract.address).toEqual(getCanonicalGasToken().address);
-  });
+  it('mint banana privately, pay privately with banana via FPC', async () => {
+    const InitialFPCGas = 500n;
+    const PrivateInitialBananasAmount = 100n;
+    const MintedBananasAmount = 1000n;
+    const FeeAmount = 1n;
 
-  describe.skip('NativeFeePaymentMethod', () => {
-    it('pays out the expected fee to the sequencer', async () => {
-      await testContract.methods
-        .mint_public(aliceAddress, 1000)
-        .send({
-          fee: {
-            maxFee: 1,
-            paymentMethod: new NativeFeePaymentMethod(),
-          },
-        })
-        .wait();
+    await gasTokenContract.methods.redeem_bridged_balance(InitialFPCGas, bananaFPC.address).send().wait();
 
-      const [sequencerBalance, aliceBalance] = await Promise.all([
-        gasTokenContract.methods.balance_of_public(sequencerAddress).view(),
-        gasTokenContract.methods.balance_of_public(aliceAddress).view(),
-      ]);
+    // Fee asset
+    {
+      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('⛽', gasTokenContract);
+      expect(sequencerBalance).toEqual(0n);
+      expect(aliceBalance).toEqual(0n);
+      expect(fpcBalance).toEqual(InitialFPCGas);
+    }
 
-      expect(sequencerBalance).toEqual(1n);
-      expect(aliceBalance).toEqual(999n);
-    });
-  });
-  describe('BANANA', () => {
-    let bananas: TokenContract;
-    let bananaPay: BananaFPCContract;
+    // Mint bananas privately
+    const secret = Fr.random();
+    const secretHash = computeMessageSecretHash(secret);
+    const receipt = await bananaCoin.methods.mint_private(PrivateInitialBananasAmount, secretHash).send().wait();
 
-    const TOKEN_NAME = 'BananaCoin';
-    const TOKEN_SYMBOL = 'BAC';
-    const TOKEN_DECIMALS = 18n;
+    // Setup auth wit
+    await addPendingShieldNoteToPXE(0, PrivateInitialBananasAmount, secretHash, receipt.txHash);
+    const txClaim = bananaCoin.methods.redeem_shield(accounts[0].address, PrivateInitialBananasAmount, secret).send();
+    const receiptClaim = await txClaim.wait({ debug: true });
+    const { visibleNotes } = receiptClaim.debugInfo!;
+    expect(visibleNotes[0].note.items[0].toBigInt()).toBe(PrivateInitialBananasAmount);
 
-    const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
-      const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-      const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+    {
+      // Sanity check. No public bananas yet.
+      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('🍌', bananaCoin);
+      expect(sequencerBalance).toEqual(0n);
+      expect(aliceBalance).toEqual(0n);
+      expect(fpcBalance).toEqual(0n);
+    }
 
-      const note = new Note([new Fr(amount), secretHash]);
-      const extendedNote = new ExtendedNote(
-        note,
-        accounts[accountIndex].address,
-        bananas.address,
-        storageSlot,
-        noteTypeId,
-        txHash,
-      );
-      await wallets[accountIndex].addNote(extendedNote);
-    };
+    // set up auth wit for FPC for to unshield Alice's bananas to itself
+    const nonce = 1;
+    const messageHash = computeAuthWitMessageHash(
+      bananaFPC.address,
+      bananaCoin.methods.unshield(accounts[0].address, bananaFPC.address, FeeAmount, nonce).request(),
+    );
+    await wallets[0].createAuthWitness(messageHash);
 
-    it('deploy banana-coin and mint coins to alice privately', async () => {
-      bananas = await TokenContract.deploy(wallets[0], accounts[0], TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
-        .send()
-        .deployed();
+    await bananaCoin.methods
+      .mint_public(aliceAddress, MintedBananasAmount)
+      .send({
+        fee: {
+          maxFee: FeeAmount,
+          paymentMethod: new BananaFeePaymentMethod(bananaFPC.address),
+        },
+      })
+      .wait();
 
-      logger(`BananaCoin deployed at ${bananas.address}`);
+    // Fee asset
+    {
+      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('⛽', gasTokenContract);
+      expect(sequencerBalance).toEqual(FeeAmount);
+      expect(aliceBalance).toEqual(0n);
+      expect(fpcBalance).toEqual(InitialFPCGas - FeeAmount);
+    }
+    // Bananas asset
+    {
+      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('🍌', bananaCoin);
+      expect(sequencerBalance).toEqual(0n);
+      expect(aliceBalance).toEqual(MintedBananasAmount);
+      expect(fpcBalance).toEqual(FeeAmount);
+    }
+  }, 100_000);
 
-      const amount = 100n;
-      const secret = Fr.random();
-      const secretHash = computeMessageSecretHash(secret);
-      const receipt = await bananas.methods.mint_private(amount, secretHash).send().wait();
+  const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
+    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
 
-      await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+    const note = new Note([new Fr(amount), secretHash]);
+    const extendedNote = new ExtendedNote(
+      note,
+      accounts[accountIndex].address,
+      bananaCoin.address,
+      storageSlot,
+      noteTypeId,
+      txHash,
+    );
+    await wallets[accountIndex].addNote(extendedNote);
+  };
 
-      const txClaim = bananas.methods.redeem_shield(accounts[0].address, amount, secret).send();
-      const receiptClaim = await txClaim.wait({ debug: true });
-      const { visibleNotes } = receiptClaim.debugInfo!;
-      expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
-    }, 45_000);
+  const balances = async (symbol: string, contract: Contract) => {
+    const [sequencerBalance, aliceBalance, fpcBalance] = await Promise.all([
+      contract.methods.balance_of_public(sequencerAddress).view(),
+      contract.methods.balance_of_public(aliceAddress).view(),
+      contract.methods.balance_of_public(bananaFPC.address).view(),
+    ]);
 
-    it('deploy banana pay and deposit fees into it', async () => {
-      bananaPay = await BananaFPCContract.deploy(wallets[0], bananas.address, gasTokenContract.address)
-        .send()
-        .deployed();
-      logger(`bananaPay deployed at ${bananaPay.address}`);
+    logger(`${symbol} balances: Alice ${aliceBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`);
 
-      await gasTokenContract.methods.redeem_bridged_balance(500, bananaPay.address).send().wait();
-    }, 30_000);
-
-    const balances = async (symbol: string, contract: Contract) => {
-      const [sequencerBalance, aliceBalance, bananaPayBalance] = await Promise.all([
-        contract.methods.balance_of_public(sequencerAddress).view(),
-        contract.methods.balance_of_public(aliceAddress).view(),
-        contract.methods.balance_of_public(bananaPay.address).view(),
-      ]);
-
-      logger(
-        `${symbol} balances: Alice ${aliceBalance}, bananaPay: ${bananaPayBalance}, sequencer: ${sequencerBalance}`,
-      );
-
-      return { sequencerBalance, aliceBalance, bananaPayBalance };
-    };
-
-    it('pay with bananacoin', async () => {
-      const amount = 1;
-      const nonce = 1;
-      const messageHash = computeAuthWitMessageHash(
-        bananaPay.address,
-        bananas.methods.unshield(accounts[0].address, bananaPay.address, amount, nonce).request(),
-      );
-      await wallets[0].createAuthWitness(messageHash);
-
-      // Fee asset
-      {
-        const { sequencerBalance, aliceBalance, bananaPayBalance } = await balances('⛽', gasTokenContract);
-        expect(sequencerBalance).toEqual(0n);
-        expect(aliceBalance).toEqual(1000n);
-        expect(bananaPayBalance).toEqual(500n);
-      }
-      // Bananas asset
-      {
-        const { sequencerBalance, aliceBalance, bananaPayBalance } = await balances('🍌', bananas);
-        expect(sequencerBalance).toEqual(0n);
-        expect(aliceBalance).toEqual(0n);
-        expect(bananaPayBalance).toEqual(0n);
-      }
-
-      await testContract.methods
-        .mint_public(aliceAddress, 1000)
-        .send({
-          fee: {
-            maxFee: 1,
-            paymentMethod: new BananaFeePaymentMethod(bananaPay.address),
-          },
-        })
-        .wait();
-
-      // Fee asset
-      {
-        const { sequencerBalance, aliceBalance, bananaPayBalance } = await balances('⛽', gasTokenContract);
-        expect(sequencerBalance).toEqual(1n);
-        expect(aliceBalance).toEqual(1000n);
-        expect(bananaPayBalance).toEqual(499n);
-      }
-      // Bananas asset
-      {
-        const { sequencerBalance, aliceBalance, bananaPayBalance } = await balances('🍌', bananas);
-        expect(sequencerBalance).toEqual(0n);
-        expect(aliceBalance).toEqual(0n);
-        expect(bananaPayBalance).toEqual(1n);
-      }
-    });
-  });
+    return { sequencerBalance, aliceBalance, fpcBalance };
+  };
 });
 
 class BananaFeePaymentMethod implements FeePaymentMethod {
