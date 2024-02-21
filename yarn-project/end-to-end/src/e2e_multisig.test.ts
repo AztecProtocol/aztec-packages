@@ -130,7 +130,7 @@ describe('e2e_multisig', () => {
     await expect(action.send().wait()).rejects.toThrow();
   });
 
-  it.only('receives a token transfer and then sends it to another account', async () => {
+  it('receives a token transfer and then sends it to another account', async () => {
     // Deploy token contract
     console.log('deploying token');
     const token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
@@ -173,24 +173,15 @@ describe('e2e_multisig', () => {
   it('add a new owner to the multisig', async () => {
     // Set up the method we want to call on a contract with the multisig as the wallet
     //const action = testContract.methods.emit_msg_sender();
-    const add = multisig.methods.add_owner(walletD.getCompleteAddress().address);
+    const addAction = multisig.methods.add_owner(walletD.getCompleteAddress().address);
 
     // We collect the signatures from each owner and register them using addAuthWitness
-    const authWits = await collectSignatures(await add.create(), [walletA, walletB]);
+    const authWits = await collectSignatures(await addAction.create(), [walletA, walletB]);
     await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
-
-    // This should go away soon!
-    await multisigWallet.addCapsule(
-      padArrayEnd(
-        [walletA, walletB].map(w => w.getCompleteAddress().address),
-        AztecAddress.ZERO,
-        MULTISIG_MAX_OWNERS,
-      ),
-    );
 
     // Send the tx after having added all auth witnesses from the signers
     // TODO: We should be able to call send() on the result of create()
-    const tx = await add.send().wait();
+    const tx = await addAction.send().wait();
     const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
     logger.info(`Tx logs: ${logs.logs.map(log => log.toHumanReadable())}`);
   });

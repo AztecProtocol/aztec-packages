@@ -17,8 +17,7 @@ contract MultiSigAccount {
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils}, 
-        oracle::get_public_key::get_public_key,
+        note::{note_header::NoteHeader, utils as note_utils}, oracle::get_public_key::get_public_key,
         state_vars::singleton::Singleton,
         oracle::debug_log::{debug_log_format, debug_log_array_with_prefix}
     };
@@ -67,14 +66,32 @@ contract MultiSigAccount {
         let owners = state.owners;
         let threshold = state.threshold;
 
-        debug_log_format("MultisigAccount.entrypoint fee_payload_hash={0} fee_payload_len={1}", [fee_payload.hash(), fee_payload.function_calls.len()]);
-        let fee_auths = context.call_private_function(this, collect_auths_selector, [fee_payload.hash(), owners[0].to_field(), owners[1].to_field(), owners[2].to_field(), owners[3].to_field(), owners[4].to_field(), threshold as Field])[0] as u8;
+        debug_log_format(
+            "MultisigAccount.entrypoint fee_payload_hash={0} fee_payload_len={1}",
+            [fee_payload.hash(), fee_payload.function_calls.len()]
+        );
+        let fee_auths = context.call_private_function(
+            this,
+            collect_auths_selector,
+            [
+            fee_payload.hash(), owners[0].to_field(), owners[1].to_field(), owners[2].to_field(), owners[3].to_field(), owners[4].to_field(), threshold as Field
+        ]
+        )[0] as u8;
         assert(fee_auths >= threshold, "Fee payload not authorized by multisig owners");
         fee_payload.execute_calls(&mut context);
         context.capture_max_non_revertible_side_effect_counter();
 
-        debug_log_format("MultisigAccount.entrypoint app_payload_hash={0} app_payload_len={1}", [app_payload.hash(), app_payload.function_calls.len()]);
-        let app_auths = context.call_private_function(this, collect_auths_selector, [app_payload.hash(), owners[0].to_field(), owners[1].to_field(), owners[2].to_field(), owners[3].to_field(), owners[4].to_field(), threshold as Field])[0] as u8;
+        debug_log_format(
+            "MultisigAccount.entrypoint app_payload_hash={0} app_payload_len={1}",
+            [app_payload.hash(), app_payload.function_calls.len()]
+        );
+        let app_auths = context.call_private_function(
+            this,
+            collect_auths_selector,
+            [
+            app_payload.hash(), owners[0].to_field(), owners[1].to_field(), owners[2].to_field(), owners[3].to_field(), owners[4].to_field(), threshold as Field
+        ]
+        )[0] as u8;
         assert(app_auths >= threshold, "App payload not authorized by multisig owners");
         app_payload.execute_calls(&mut context);
         debug_log_format("MultisigAccount.entrypoint successfully finished", []);
@@ -99,13 +116,18 @@ contract MultiSigAccount {
     }
 
     #[aztec(private)]
-    internal fn collect_auths(message_field: Field, owners: [AztecAddress; MAX_MULTISIG_OWNERS], threshold: u8) -> u8 {
+    internal fn collect_auths(
+        message_field: Field,
+        owners: [AztecAddress; MAX_MULTISIG_OWNERS],
+        threshold: u8
+    ) -> u8 {
         collect_auths_impl(&mut context, message_field, owners, threshold)
     }
 
     // add owners
     #[aztec(private)]
     fn add_owner(new_owner: AztecAddress) {
+        // Safeguard mimicking the "internal" keyword which we cannot use here.
         assert(context.this_address().eq(context.msg_sender()));
 
         let storage = Storage::init(Context::private(&mut context));
@@ -136,29 +158,46 @@ contract MultiSigAccount {
 
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, message_field: Field) -> bool {
-        debug_log_format("MultisigAccount.is_valid_impl message_field={0}", [message_field]);
+        debug_log_format(
+            "MultisigAccount.is_valid_impl message_field={0}",
+            [message_field]
+        );
         let storage = Storage::init(Context::private(context));
         let state = storage.state.get_note(/*broadcast=*/ true);
-        
+
         let auths_collected = collect_auths_impl(context, message_field, state.owners, state.threshold);
-        debug_log_format("MultisigAccount.is_valid_impl auths_collected={0}", [auths_collected as Field]);
+        debug_log_format(
+            "MultisigAccount.is_valid_impl auths_collected={0}",
+            [auths_collected as Field]
+        );
         auths_collected >= state.threshold
     }
 
     #[contract_library_method]
-    fn collect_auths_impl(context: &mut PrivateContext, message_field: Field, owners: [AztecAddress; MAX_MULTISIG_OWNERS], threshold: u8) -> u8 {
+    fn collect_auths_impl(
+        context: &mut PrivateContext,
+        message_field: Field,
+        owners: [AztecAddress; MAX_MULTISIG_OWNERS],
+        threshold: u8
+    ) -> u8 {
         let is_valid_selector = FunctionSelector::from_field(IS_VALID_SELECTOR);
-        
+
         let mut auths_collected : u8 = 0;
         for owner in owners {
             if (!owner.is_zero()) & (auths_collected < threshold) {
                 let message_field_for_owner = dep::aztec::protocol_types::hash::pedersen_hash([message_field, owner.to_field()], 0);
-                debug_log_format("MultisigAccount.is_valid_impl owner={0} message_field_for_owner={1}", [owner.to_field(), message_field_for_owner]);
+                debug_log_format(
+                    "MultisigAccount.is_valid_impl owner={0} message_field_for_owner={1}",
+                    [owner.to_field(), message_field_for_owner]
+                );
                 let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
                 if result == IS_VALID_SELECTOR {
                     auths_collected += 1;
                 }
-                debug_log_format("MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}", [owner.to_field(), result as Field, auths_collected as Field]);
+                debug_log_format(
+                    "MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}",
+                    [owner.to_field(), result as Field, auths_collected as Field]
+                );
             }
         }
         auths_collected
