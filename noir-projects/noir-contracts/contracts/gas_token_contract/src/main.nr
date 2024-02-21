@@ -16,11 +16,11 @@ contract GasToken {
     fn constructor() {}
 
     #[aztec(public)]
-    fn redeem_bridged_balance(amount: Field) {
+    fn redeem_bridged_balance(amount: Field, to: AztecAddress) {
         // mock
         let amount_u120 = SafeU120::new(amount);
-        let new_balance = storage.balances.at(context.msg_sender()).read().add(amount_u120);
-        storage.balances.at(context.msg_sender()).write(new_balance);
+        let new_balance = storage.balances.at(to).read().add(amount_u120);
+        storage.balances.at(to).write(new_balance);
     }
 
     #[aztec(public)]
@@ -46,18 +46,7 @@ contract GasToken {
     }
 
     // utility function for testing
-    unconstrained fn balance_of(owner: AztecAddress) -> pub Field {
+    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.balances.at(owner).read().value as Field
-    }
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
     }
 }
