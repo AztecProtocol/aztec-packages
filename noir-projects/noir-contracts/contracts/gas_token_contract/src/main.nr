@@ -4,12 +4,10 @@ contract GasToken {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::aztec::{hash::{compute_secret_hash}, state_vars::{public_state::PublicState, map::Map}};
 
-    use dep::safe_math::SafeU120;
-
     use crate::fee::calculate_fee;
 
     struct Storage {
-        balances: Map<AztecAddress, PublicState<SafeU120>>,
+        balances: Map<AztecAddress, PublicState<U128>>,
     }
 
     #[aztec(private)]
@@ -18,36 +16,36 @@ contract GasToken {
     #[aztec(public)]
     fn redeem_bridged_balance(amount: Field) {
         // mock
-        let amount_u120 = SafeU120::new(amount);
+        let amount_u120 = U128::from_integer(amount);
         let new_balance = storage.balances.at(context.msg_sender()).read().add(amount_u120);
         storage.balances.at(context.msg_sender()).write(new_balance);
     }
 
     #[aztec(public)]
     fn check_balance(fee_limit: Field) {
-        let fee_limit_u120 = SafeU120::new(fee_limit);
-        assert(storage.balances.at(context.msg_sender()).read().ge(fee_limit_u120), "Balance too low");
+        let fee_limit_u120 = U128::from_integer(fee_limit);
+        assert(storage.balances.at(context.msg_sender()).read() >= fee_limit_u120, "Balance too low");
     }
 
     #[aztec(public)]
     fn pay_fee(fee_limit: Field) -> Field {
-        let fee_limit_u120 = SafeU120::new(fee_limit);
+        let fee_limit_u128 = U128::from_integer(fee_limit);
         let fee = calculate_fee(context);
-        assert(fee.le(fee_limit_u120), "Fee too high");
+        assert(fee <= fee_limit_u128, "Fee too high");
 
-        let sender_new_balance = storage.balances.at(context.msg_sender()).read().sub(fee);
+        let sender_new_balance = storage.balances.at(context.msg_sender()).read() - fee;
         storage.balances.at(context.msg_sender()).write(sender_new_balance);
 
-        let recipient_new_balance = storage.balances.at(context.fee_recipient()).read().add(fee);
+        let recipient_new_balance = storage.balances.at(context.fee_recipient()).read() + fee;
         storage.balances.at(context.fee_recipient()).write(recipient_new_balance);
 
-        let rebate = fee_limit_u120.sub(fee);
-        rebate.value as Field
+        let rebate = fee_limit_u128 - fee;
+        rebate.to_field()
     }
 
     // utility function for testing
     unconstrained fn balance_of(owner: AztecAddress) -> pub Field {
-        storage.balances.at(owner).read().value as Field
+        storage.balances.at(owner).read().to_field()
     }
 
     // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
