@@ -8,7 +8,7 @@ RUN cmake --preset wasm && cmake --build --preset wasm
 RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
 RUN ./scripts/strip-wasm.sh
 
-FROM scratch
+FROM ubuntu:lunar
 WORKDIR /usr/src/barretenberg/cpp
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 # copy to build/ for bench.sh compatibility
