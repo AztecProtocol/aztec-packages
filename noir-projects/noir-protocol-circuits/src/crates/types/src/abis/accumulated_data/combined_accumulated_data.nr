@@ -4,7 +4,7 @@ use crate::{
     public_accumulated_non_revertible_data::PublicAccumulatedNonRevertibleData,
     public_accumulated_revertible_data::PublicAccumulatedRevertibleData
 },
-    call_request::CallRequest, new_contract_data::NewContractData,
+    call_request::CallRequest, caller_context::CallerContext, new_contract_data::NewContractData,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -94,7 +94,7 @@ impl CombinedAccumulatedData {
 mod tests {
     use crate::abis::{
         accumulated_data::combined_accumulated_data_builder::CombinedAccumulatedDataBuilder,
-        call_request::{CallRequest, CallerContext}, new_contract_data::NewContractData,
+        call_request::CallRequest, caller_context::CallerContext, new_contract_data::NewContractData,
         nullifier_key_validation_request::NullifierKeyValidationRequestContext,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
