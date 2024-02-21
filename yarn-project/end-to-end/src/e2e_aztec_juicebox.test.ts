@@ -1,7 +1,6 @@
 import {
   AccountWallet,
   AztecAddress,
-  CompleteAddress,
   DebugLogger,
   ExtendedNote,
   Fr,
@@ -14,6 +13,7 @@ import {
   generatePublicKey,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
+import { EthAddress, computePartialAddress } from '@aztec/circuits.js';
 import { CrowdFundingContract, CrowdFundingContractArtifact } from '@aztec/noir-contracts.js/CrowdFunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
@@ -21,11 +21,10 @@ import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
-import { EthAddress, computePartialAddress } from '@aztec/circuits.js';
 
 const TIMEOUT = 200_000;
 
-describe('e2e_token_contract', () => {
+describe('e2e_aztec_crowdfunding', () => {
   jest.setTimeout(TIMEOUT);
 
   const ethTokenMetadata = {
@@ -41,22 +40,22 @@ describe('e2e_token_contract', () => {
   };
 
   let teardown: () => Promise<void>;
+  let operatorWallet: AccountWallet;
+  let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
-  let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
-  const DonationCurrencyToken: TokenContract[] = [];
-  const RewardToken: TokenContract[] = [];
-  const JuiceboxContract: CrowdFundingContract[] = [];
-  const Claims: ClaimContract[] = [];
-
+  let EthToken: TokenContract;
+  let JuiceboxToken: TokenContract;
+  let Crowdfunding: CrowdFundingContract;
+  let Claims: ClaimContract;
 
   let crowdfundingPrivateKey;
   let crowdfundingPublicKey;
   let pxe: PXE;
 
   const addPendingShieldNoteToPXE = async (
-    accountIndex: number,
+    wallet: AccountWallet,
     amount: bigint,
     secretHash: Fr,
     txHash: TxHash,
@@ -65,53 +64,40 @@ describe('e2e_token_contract', () => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
     const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
     const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      accounts[accountIndex].address,
-      address,
-      storageSlot,
-      noteTypeId,
-      txHash,
-    );
-    await wallets[accountIndex].addNote(extendedNote);
+    const extendedNote = new ExtendedNote(note, wallet.getAddress(), address, storageSlot, noteTypeId, txHash);
+    await wallet.addNote(extendedNote);
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, wallets, accounts, pxe } = await setup(5));
+    ({ teardown, logger, pxe, wallets } = await setup(5));
+    operatorWallet = wallets[0];
+    donorWallets = wallets.slice(1);
 
-    DonationCurrencyToken.push(
-      await TokenContract.deploy(
-        wallets[0],
-        accounts[0],
-        ethTokenMetadata.name,
-        ethTokenMetadata.symbol,
-        ethTokenMetadata.decimals,
-      )
-        .send()
-        .deployed(),
-    );
-    logger(`ETH Token deployed to ${DonationCurrencyToken[0].address}`);
+    EthToken = await TokenContract.deploy(
+      operatorWallet,
+      operatorWallet.getAddress(),
+      ethTokenMetadata.name,
+      ethTokenMetadata.symbol,
+      ethTokenMetadata.decimals,
+    )
+      .send()
+      .deployed();
+    logger(`ETH Token deployed to ${EthToken.address}`);
 
-    DonationCurrencyToken[1] = DonationCurrencyToken[0].withWallet(wallets[1]);
-    DonationCurrencyToken[2] = DonationCurrencyToken[0].withWallet(wallets[2]);
-    DonationCurrencyToken[3] = DonationCurrencyToken[0].withWallet(wallets[3]);
-
-    RewardToken[0] = await TokenContract.deploy(
-      wallets[0],
-      wallets[0].getAddress(),
+    JuiceboxToken = await TokenContract.deploy(
+      operatorWallet,
+      operatorWallet.getAddress(),
       rewardsTokenMetadata.name,
       rewardsTokenMetadata.symbol,
-      rewardsTokenMetadata.decimals,
-    ).send().deployed();
-    RewardToken[1] = RewardToken[0].withWallet(wallets[1]);
-    RewardToken[2] = RewardToken[0].withWallet(wallets[2]);
-    RewardToken[3] = RewardToken[0].withWallet(wallets[3]);
+      rewardsTokenMetadata.decimals,)
+      .send()
+      .deployed();
 
     crowdfundingPrivateKey = GrumpkinScalar.random();
     crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
     const salt = Fr.random();
 
-    const args = [DonationCurrencyToken[0].address, wallets[0].getAddress()];
+    const args = [EthToken.address, operatorWallet.getAddress()];
 
     const deployInfo = getContractInstanceFromDeployParams(
       CrowdFundingContractArtifact,
@@ -125,38 +111,35 @@ describe('e2e_token_contract', () => {
 
     const crowdfundingDeploymentReceipt = await CrowdFundingContract.deployWithPublicKey(
       crowdfundingPublicKey,
-      wallets[0],
-      DonationCurrencyToken[0].address,
-      wallets[0].getAddress(),
+      operatorWallet,
+      EthToken.address,
+      operatorWallet.getAddress(),
     )
-    .send({ contractAddressSalt: salt })
-    .wait();
+      .send({ contractAddressSalt: salt })
+      .wait();
 
-    JuiceboxContract[0] = crowdfundingDeploymentReceipt.contract
+    Crowdfunding = crowdfundingDeploymentReceipt.contract;
 
-    logger(`Campaign contract deployed at ${JuiceboxContract[0].address}`);
+    logger(`Campaign contract deployed at ${Crowdfunding.address}`);
 
-    await addFieldNote(JuiceboxContract[0].address, new Fr(1), DonationCurrencyToken[0].address.toField(), crowdfundingDeploymentReceipt.txHash);
-    await addFieldNote(JuiceboxContract[0].address, new Fr(2), wallets[0].getAddress().toField(), crowdfundingDeploymentReceipt.txHash);
+    await addFieldNote(Crowdfunding.address, new Fr(1), EthToken.address.toField(), crowdfundingDeploymentReceipt.txHash);
+    await addFieldNote(Crowdfunding.address, new Fr(2), operatorWallet.getAddress().toField(), crowdfundingDeploymentReceipt.txHash);
 
-    JuiceboxContract[1] = JuiceboxContract[0].withWallet(wallets[1]);
-    JuiceboxContract[2] = JuiceboxContract[0].withWallet(wallets[2]);
-    JuiceboxContract[3] = JuiceboxContract[0].withWallet(wallets[3]);
 
-    logger(`JBT deployed to ${RewardToken[0].address}`);
+    logger(`JBT deployed to ${JuiceboxToken.address}`);
 
     const claimContractReceipt = await ClaimContract.deploy(
-      wallets[0],
-      JuiceboxContract[0].address,
-      RewardToken[0].address,
+      operatorWallet,
+      Crowdfunding.address,
+      JuiceboxToken.address,
     ).send().wait();
 
-    Claims[0] = claimContractReceipt.contract;
+    Claims = claimContractReceipt.contract;
 
-    await addFieldNote(Claims[0].address, new Fr(1), JuiceboxContract[0].address.toField(), claimContractReceipt.txHash);
-    await addFieldNote(Claims[0].address, new Fr(2), RewardToken[0].address.toField(), claimContractReceipt.txHash);
+    await addFieldNote(Claims.address, new Fr(1), Crowdfunding.address.toField(), claimContractReceipt.txHash);
+    await addFieldNote(Claims.address, new Fr(2), JuiceboxToken.address.toField(), claimContractReceipt.txHash);
 
-    await RewardToken[0].methods.set_minter(Claims[0].address, true).send().wait();
+    await JuiceboxToken.methods.set_minter(Claims.address, true).send().wait();
   }, 100_000);
 
   afterAll(() => teardown());
@@ -178,75 +161,108 @@ describe('e2e_token_contract', () => {
     }
   };
 
-  describe('Reading constants', () => {
-    it('must exist', async () => {
-      console.log('test');
-      const secret = new Fr(100);
-      const secretHash = computeMessageSecretHash(secret);
+  it('donor flow', async () => {
+    const secret = new Fr(100);
+    const secretHash = computeMessageSecretHash(secret);
 
-      await Promise.all([
-        DonationCurrencyToken[0].methods.set_minter(wallets[1].getAddress(), true).send().wait(),
-        DonationCurrencyToken[0].methods.set_minter(wallets[2].getAddress(), true).send().wait(),
-        DonationCurrencyToken[0].methods.set_minter(wallets[3].getAddress(), true).send().wait(),
-      ]);
+    await Promise.all([
+      EthToken.withWallet(operatorWallet).methods.set_minter(donorWallets[0].getAddress(), true).send().wait(),
+      EthToken.withWallet(operatorWallet).methods.set_minter(donorWallets[1].getAddress(), true).send().wait(),
+      EthToken.withWallet(operatorWallet).methods.set_minter(donorWallets[2].getAddress(), true).send().wait(),
+    ]);
 
-      const [txReceipt1, txReceipt2, txReceipt3] = await Promise.all([
-        DonationCurrencyToken[1].methods.mint_private(1234n, secretHash).send().wait(),
-        DonationCurrencyToken[2].methods.mint_private(2345n, secretHash).send().wait(),
-        DonationCurrencyToken[3].methods.mint_private(3456n, secretHash).send().wait(),
-      ]);
+    const [txReceipt1, txReceipt2, txReceipt3] = await Promise.all([
+      EthToken.withWallet(donorWallets[0]).methods.mint_private(1234n, secretHash).send().wait(),
+      EthToken.withWallet(donorWallets[1]).methods.mint_private(2345n, secretHash).send().wait(),
+      EthToken.withWallet(donorWallets[2]).methods.mint_private(3456n, secretHash).send().wait(),
+    ]);
 
-      await addPendingShieldNoteToPXE(0, 1234n, secretHash, txReceipt1.txHash, DonationCurrencyToken[0].address);
-      await addPendingShieldNoteToPXE(0, 2345n, secretHash, txReceipt2.txHash, DonationCurrencyToken[0].address);
-      await addPendingShieldNoteToPXE(0, 3456n, secretHash, txReceipt3.txHash, DonationCurrencyToken[0].address);
+    await addPendingShieldNoteToPXE(
+      donorWallets[0],
+      1234n,
+      secretHash,
+      txReceipt1.txHash,
+      EthToken.withWallet(operatorWallet).address,
+    );
+    await addPendingShieldNoteToPXE(
+      donorWallets[1],
+      2345n,
+      secretHash,
+      txReceipt2.txHash,
+      EthToken.withWallet(operatorWallet).address,
+    );
+    await addPendingShieldNoteToPXE(
+      donorWallets[2],
+      3456n,
+      secretHash,
+      txReceipt3.txHash,
+      EthToken.withWallet(operatorWallet).address,
+    );
 
-      await Promise.all([
-        DonationCurrencyToken[1].methods.redeem_shield(wallets[1].getAddress(), 1234n, secret).send().wait(),
-        DonationCurrencyToken[2].methods.redeem_shield(wallets[2].getAddress(), 2345n, secret).send().wait(),
-        DonationCurrencyToken[3].methods.redeem_shield(wallets[3].getAddress(), 3456n, secret).send().wait(),
-      ]);
+    await Promise.all([
+      EthToken.withWallet(donorWallets[0])
+        .methods.redeem_shield(donorWallets[0].getAddress(), 1234n, secret)
+        .send()
+        .wait(),
+      EthToken.withWallet(donorWallets[1])
+        .methods.redeem_shield(donorWallets[1].getAddress(), 2345n, secret)
+        .send()
+        .wait(),
+      EthToken.withWallet(donorWallets[2])
+        .methods.redeem_shield(donorWallets[2].getAddress(), 3456n, secret)
+        .send()
+        .wait(),
+    ]);
 
-      console.log('balance of 1', await DonationCurrencyToken[1].methods.balance_of_private(wallets[1].getAddress()).view());
-      console.log('balance of 2', await DonationCurrencyToken[2].methods.balance_of_private(wallets[2].getAddress()).view());
-      console.log('balance of 3', await DonationCurrencyToken[3].methods.balance_of_private(wallets[3].getAddress()).view());
+    console.log(
+      'balance of 1',
+      await EthToken.withWallet(donorWallets[0]).methods.balance_of_private(donorWallets[0].getAddress()).view(),
+    );
+    console.log(
+      'balance of 2',
+      await EthToken.withWallet(donorWallets[1]).methods.balance_of_private(donorWallets[1].getAddress()).view(),
+    );
+    console.log(
+      'balance of 3',
+      await EthToken.withWallet(donorWallets[2]).methods.balance_of_private(donorWallets[2].getAddress()).view(),
+    );
 
-      const action = DonationCurrencyToken[1].methods.transfer(accounts[1].address, JuiceboxContract[0].address, 1000n, 0);
-      const messageHash = computeAuthWitMessageHash(JuiceboxContract[0].address, action.request());
-      const witness = await wallets[1].createAuthWitness(messageHash);
-      await wallets[1].addAuthWitness(witness);
+    const action = EthToken.withWallet(donorWallets[0]).methods.transfer(
+      donorWallets[0].getAddress(),
+      Crowdfunding.address,
+      1000n,
+      0,
+    );
+    const messageHash = computeAuthWitMessageHash(Crowdfunding.address, action.request());
+    const witness = await donorWallets[0].createAuthWitness(messageHash);
+    await donorWallets[0].addAuthWitness(witness);
 
-      const donateTxReceipt = await JuiceboxContract[1].methods.donate(1000n).send().wait({
-        debug: true
-      });
-
-      const allCampaignNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x => x.contractAddress.equals(JuiceboxContract[0].address));
-
-      expect(allCampaignNotes?.length).toEqual(1);
-
-      console.log('rewardnote ', allCampaignNotes![0])
-
-      const noteNonces = await pxe.getNoteNonces(allCampaignNotes![0]);
-
-      expect(noteNonces?.length).toEqual(1);
-
-      console.log('noteNonce ', noteNonces![0]);
-
-      await Claims[0].methods.claim({
-        header: {
-          contract_address: JuiceboxContract[0].address,
-          storage_slot: 3,
-          is_transient: false,
-          nonce: noteNonces![0],
-        },
-        value: allCampaignNotes![0].note.items[0],
-        owner:  allCampaignNotes![0].note.items[1],
-        randomness: allCampaignNotes![0].note.items[2],
-      }).send().wait();
-    //   // console.log('Reward balance of 1', await RewardToken[1].methods.getBalance(wallets[1].getAddress()).view());
-
-    //   // await JuiceboxContract[0].methods.withdraw(1000n).send().wait();
-
-    //   // console.log('Balance of campaign organizaer', await DonationCurrencyToken[0].methods.balance_of_private(wallets[0].getAddress()).view());
+    const donateTxReceipt = await Crowdfunding.withWallet(donorWallets[0]).methods.donate(1000n).send().wait({
+      debug: true
     });
+
+    const allCampaignNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x => x.contractAddress.equals(Crowdfunding.address));
+
+    expect(allCampaignNotes?.length).toEqual(1);
+
+    console.log('rewardnote ', allCampaignNotes![0])
+
+    const noteNonces = await pxe.getNoteNonces(allCampaignNotes![0]);
+
+    expect(noteNonces?.length).toEqual(1);
+
+    console.log('noteNonce ', noteNonces![0]);
+
+    await Claims.withWallet(donorWallets[0]).methods.claim({
+      header: {
+        contract_address: Crowdfunding.address,
+        storage_slot: 3,
+        is_transient: false,
+        nonce: noteNonces![0],
+      },
+      value: allCampaignNotes![0].note.items[0],
+      owner:  allCampaignNotes![0].note.items[1],
+      randomness: allCampaignNotes![0].note.items[2],
+    }).send().wait();
   });
 });
