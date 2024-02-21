@@ -48,7 +48,7 @@ program.action(async () => {
     message: "Please choose your boilerplate:",
     choices: [
       { value: "blank", name: "Barebones HTML/TS project" },
-      { value: "blank-react", name: "Not-so-barebones React project" },
+      { value: "blank-react", name: "Barebones React project" },
     ],
   });
 
@@ -120,7 +120,15 @@ program.action(async () => {
           ptyProcess.on("exit", function (exitCode, signal) {
             updatePathEnvVar();
             resolve();
-            log(chalk.bgGreen("The Sandbox is installed!"));
+            if (exitCode === 0) {
+              log(chalk.bgGreen("The Sandbox is installed!"));
+            } else {
+              reject(
+                chalk.bgRed(
+                  "Failed to install the Sandbox. Please visit the docs at https://docs.aztec.network",
+                ),
+              );
+            }
           });
         });
 

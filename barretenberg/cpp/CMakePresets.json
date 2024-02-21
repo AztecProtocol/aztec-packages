@@ -59,6 +59,18 @@
       }
     },
     {
+      "name": "clang16-dbg-fast",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16-dbg",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-O2 -gdwarf",
+        "CXXFLAGS": "-O2 -gdwarf-4",
+        "LDFLAGS": "-O2 -gdwarf-4"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-16",
       "description": "Build with address sanitizer on clang16 with debugging information",
@@ -159,11 +171,15 @@
       "description": "Build with thread sanitizer on clang16 with debugging information",
       "inherits": "clang16-dbg",
       "binaryDir": "build-msan",
-      "generator": "Unix Makefiles",
       "environment": {
         "CFLAGS": "-fsanitize=memory",
         "CXXFLAGS": "-fsanitize=memory",
         "LDFLAGS": "-fsanitize=memory"
+      },
+      "cacheVariables": {
+        "HAVE_STD_REGEX": "ON",
+        "CMAKE_CXX_FLAGS": "$env{MSAN_CFLAGS}",
+        "CMAKE_EXE_LINKER_FLAGS": "$env{MSAN_LFLAGS}"
       }
     },
     {
@@ -334,6 +350,11 @@
       "name": "clang16-dbg",
       "inherits": "default",
       "configurePreset": "clang16-dbg"
+    },
+    {
+      "name": "clang16-dbg-fast",
+      "inherits": "default",
+      "configurePreset": "clang16-dbg-fast"
     },
     {
       "name": "asan",

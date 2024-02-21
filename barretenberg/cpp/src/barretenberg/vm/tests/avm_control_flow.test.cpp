@@ -3,7 +3,7 @@
 using namespace bb;
 
 namespace tests_avm {
-using namespace avm_trace;
+using namespace bb::avm_trace;
 
 class AvmControlFlowTests : public ::testing::Test {
   public:
@@ -11,11 +11,7 @@ class AvmControlFlowTests : public ::testing::Test {
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        trace_builder = AvmTraceBuilder(); // Clean instance for every run.
-    };
+    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
 };
 
 /******************************************************************************

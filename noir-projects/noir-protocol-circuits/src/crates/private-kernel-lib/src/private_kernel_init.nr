@@ -10,7 +10,7 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
-    mocked::{Proof, verify_previous_kernel_state}, transaction::request::TxRequest,
+    mocked::{Proof, verify_previous_kernel_state}, transaction::tx_request::TxRequest,
     traits::is_empty_array
 };
 
@@ -26,7 +26,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
         };
-        public_inputs.max_non_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.max_non_revertible_side_effect_counter;
+        public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
 
     // Confirm that the TxRequest (user's intent) 
@@ -121,7 +121,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
-    use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL};
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
@@ -129,10 +128,12 @@ mod tests {
         private_kernel::private_call_data::PrivateCallData,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
-        grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
-        address::{AztecAddress, compute_initialization_hash},
+        address::{AztecAddress, EthAddress, compute_initialization_hash},
+        constants::MAX_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
+        grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_constructor_hash, compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
-        tests::private_call_data_builder::PrivateCallDataBuilder, transaction::request::TxRequest,
+        messaging::l2_to_l1_message::L2ToL1Message,
+        tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
         utils::arrays::array_length
     };
 
@@ -322,7 +323,12 @@ mod tests {
     fn input_validation_malformed_arrays_new_l2_to_l1_msgs() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array([0, 9123]);
+        builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(
+            [
+            L2ToL1Message::empty(),
+            L2ToL1Message { recipient: EthAddress::from_field(6), content: 9123 }
+        ]
+        );
 
         builder.failed();
     }

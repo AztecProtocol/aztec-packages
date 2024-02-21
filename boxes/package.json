@@ -1,7 +1,8 @@
 {
-  "name": "@aztec/boxes",
+  "name": "create-aztec-app",
   "packageManager": "yarn@4.1.0",
-  "private": true,
+  "version": "0.1.0",
+  "type": "module",
   "scripts": {
     "compile": "yarn workspaces foreach -A -v run compile",
     "build": "yarn workspaces foreach -A -v run build"
@@ -10,9 +11,7 @@
     "blank-react",
     "blank"
   ],
-  "bin": {
-    "create-aztec": "npx.js"
-  },
+  "bin": "npx.js",
   "resolutions": {
     "@aztec/accounts": "portal:../yarn-project/accounts",
     "@aztec/aztec.js": "portal:../yarn-project/aztec.js",

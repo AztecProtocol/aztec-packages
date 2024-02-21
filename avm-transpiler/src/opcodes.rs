@@ -76,6 +76,7 @@ pub enum AvmOpcode {
     // Control Flow - Contract Calls
     CALL,
     STATICCALL,
+    DELEGATECALL,
     RETURN,
     REVERT,
 
@@ -149,10 +150,10 @@ impl AvmOpcode {
             // World State
             AvmOpcode::SLOAD => "SLOAD",   // Public Storage
             AvmOpcode::SSTORE => "SSTORE", // Public Storage
-            AvmOpcode::NOTEHASHEXISTS => "NOTEHASHEXISTS",   // Notes & Nullifiers
-            AvmOpcode::EMITNOTEHASH => "EMITNOTEHASH",       // Notes & Nullifiers
+            AvmOpcode::NOTEHASHEXISTS => "NOTEHASHEXISTS", // Notes & Nullifiers
+            AvmOpcode::EMITNOTEHASH => "EMITNOTEHASH", // Notes & Nullifiers
             AvmOpcode::NULLIFIEREXISTS => "NULLIFIEREXISTS", // Notes & Nullifiers
-            AvmOpcode::EMITNULLIFIER => "EMITNULLIFIER",     // Notes & Nullifiers
+            AvmOpcode::EMITNULLIFIER => "EMITNULLIFIER", // Notes & Nullifiers
             AvmOpcode::READL1TOL2MSG => "READL1TOL2MSG", // Messages
             AvmOpcode::HEADERMEMBER => "HEADERMEMBER", // Archive tree & Headers
 
@@ -163,6 +164,7 @@ impl AvmOpcode {
             // Control Flow - Contract Calls
             AvmOpcode::CALL => "CALL",
             AvmOpcode::STATICCALL => "STATICCALL",
+            AvmOpcode::DELEGATECALL => "DELEGATECALL",
             AvmOpcode::RETURN => "RETURN",
             AvmOpcode::REVERT => "REVERT",
 

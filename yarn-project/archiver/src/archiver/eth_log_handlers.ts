@@ -107,14 +107,14 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
+  const [headerHex, archiveRootHex, bodyHex] = args! as [Hex, Hex, Hex, Hex];
   const blockBuffer = Buffer.concat([
     Buffer.from(hexToBytes(headerHex)),
     Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
     numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
     Buffer.from(hexToBytes(bodyHex)),
   ]);
-  const block = L2Block.fromBufferWithLogs(blockBuffer);
+  const block = L2Block.fromBuffer(blockBuffer);
   if (BigInt(block.number) !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
   }
@@ -177,12 +177,12 @@ export async function getContractDeploymentLogs(
 
 /**
  * Processes newly received ContractDeployment logs.
- * @param blockHashMapping - A mapping from block number to relevant block hash.
+ * @param blockNumberToBodyHash - A mapping from block number to relevant body hash.
  * @param logs - ContractDeployment logs.
  * @returns The set of retrieved extended contract data items.
  */
 export function processContractDeploymentLogs(
-  blockHashMapping: { [key: number]: Buffer | undefined },
+  blockNumberToBodyHash: { [key: number]: Buffer | undefined },
   logs: Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
 ): [ExtendedContractData[], number][] {
   const extendedContractData: [ExtendedContractData[], number][] = [];
@@ -190,7 +190,7 @@ export function processContractDeploymentLogs(
     const log = logs[i];
     const l2BlockNum = Number(log.args.l2BlockNum);
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
-    const expectedBlockHash = blockHashMapping[l2BlockNum];
+    const expectedBlockHash = blockNumberToBodyHash[l2BlockNum];
     if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
       continue;
     }

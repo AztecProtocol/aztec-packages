@@ -5,6 +5,7 @@
 using namespace bb;
 using namespace benchmark;
 
+#ifndef DISABLE_ASM
 namespace {
 void asm_add_with_coarse_reduction(State& state) noexcept
 {
@@ -204,6 +205,7 @@ void sqr(State& state) noexcept
 }
 BENCHMARK(sqr);
 } // namespace
+#endif
 
-// NOLINTNEXTLINE macro invokation triggers style guideline errors from googletest code
+// NOLINTNEXTLINE macro invocation triggers style guideline errors from googletest code
 BENCHMARK_MAIN();

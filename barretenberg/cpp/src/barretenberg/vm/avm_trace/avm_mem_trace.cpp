@@ -1,6 +1,7 @@
 #include "avm_mem_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 /**
  * @brief Constructor of a memory trace builder of AVM. Only serves to set the capacity of the
@@ -84,6 +85,10 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
                                                         AvmMemoryTag const m_tag)
 {
     FF one_min_inv = FF(1) - (FF(static_cast<uint32_t>(m_in_tag)) - FF(static_cast<uint32_t>(m_tag))).invert();
+
+    // Lookup counter hint, used for #[equiv_tag_err] lookup (joined on clk)
+    m_tag_err_lookup_counts[m_clk]++;
+
     mem_trace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
                                              .m_sub_clk = m_sub_clk,
                                              .m_addr = m_addr,
@@ -209,4 +214,4 @@ void AvmMemTraceBuilder::write_into_memory(
     store_in_mem_trace(clk, interm_reg, addr, val, m_in_tag);
 }
 
-} // namespace avm_trace
+} // namespace bb::avm_trace

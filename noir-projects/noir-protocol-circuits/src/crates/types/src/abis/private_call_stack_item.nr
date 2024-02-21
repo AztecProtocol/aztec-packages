@@ -68,6 +68,7 @@ fn serialization_of_empty() {
     assert(item.eq(deserialized));
 }
 
+// TODO(#4619): Hash non-empty
 #[test]
 fn empty_hash() {
     let mut item: PrivateCallStackItem = dep::std::unsafe::zeroed();
@@ -75,5 +76,5 @@ fn empty_hash() {
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x2442dd521c59987a4291be0fd11198e5a4d87c8bc36cf3b65c5229f61fc37b30);
+    assert_eq(hash, 0x07151bc7440eb0b1c4c61a0bcfacca82cf2aed402c20d3742557179f7fedb635);
 }

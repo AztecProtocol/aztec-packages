@@ -2,7 +2,7 @@
 
 #include "avm_common.hpp"
 
-namespace avm_trace {
+namespace bb::avm_trace {
 
 class AvmMemTraceBuilder {
 
@@ -14,6 +14,10 @@ class AvmMemTraceBuilder {
     static const uint32_t SUB_CLK_STORE_A = 3;
     static const uint32_t SUB_CLK_STORE_B = 4;
     static const uint32_t SUB_CLK_STORE_C = 5;
+
+    // Keeps track of the number of times a mem tag err should appear in the trace
+    // clk -> count
+    std::map<uint32_t, uint32_t> m_tag_err_lookup_counts;
 
     struct MemoryTraceEntry {
         uint32_t m_clk{};
@@ -90,4 +94,4 @@ class AvmMemTraceBuilder {
     void store_in_mem_trace(
         uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
 };
-} // namespace avm_trace
+} // namespace bb::avm_trace
