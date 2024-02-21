@@ -1,4 +1,4 @@
-import { DefaultAccountContract, buildAppPayload, buildFeePayload } from '@aztec/accounts/defaults';
+import { DefaultAccountContract } from '@aztec/accounts/defaults';
 import {
   AccountManager,
   AccountWallet,
@@ -15,7 +15,6 @@ import {
   TxExecutionRequest,
   TxHash,
   Wallet,
-  computeAuthWitMessageHash,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -132,21 +131,18 @@ describe('e2e_multisig', () => {
 
   it('receives a token transfer and then sends it to another account', async () => {
     // Deploy token contract
-    console.log('deploying token');
     const token = await TokenContract.deploy(walletDeployer, walletDeployer.getCompleteAddress(), 'TOKEN', 'TKN', 18)
       .send()
       .deployed();
     const secret = Fr.random();
     const secretHash = computeMessageSecretHash(secret);
     const amount = 1000n;
-    console.log('deployed token');
 
     // Have the walletDeployer mint 1000 tokens for itself as setup
     const { txHash: mintTxHash } = await token.methods.mint_private(amount, secretHash).send().wait();
     await addPendingShieldNoteToPXE(walletDeployer, token.address, amount, secretHash, mintTxHash);
     await token.methods.redeem_shield(walletDeployer.getCompleteAddress(), amount, secret).send().wait();
     expect(await token.methods.balance_of_private(walletDeployer.getCompleteAddress()).view()).toBe(amount);
-    console.log('minted token to wLLWT DEPLOYER');
 
     // Transfer 200 tokens to the multisig
     await token.methods
@@ -154,7 +150,6 @@ describe('e2e_multisig', () => {
       .send()
       .wait();
     expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(200n);
-    console.log('transfer tokens to multisig done');
 
     // Have the multisig forward 50 tokens to wallet
     const action = token
@@ -172,8 +167,16 @@ describe('e2e_multisig', () => {
 
   it('add a new owner to the multisig', async () => {
     // Set up the method we want to call on a contract with the multisig as the wallet
-    //const action = testContract.methods.emit_msg_sender();
-    const addAction = multisig.methods.add_owner(walletD.getCompleteAddress().address);
+    const addAction = multisig.methods.update_config(
+      [
+        walletA.getCompleteAddress().address,
+        walletB.getCompleteAddress().address,
+        walletC.getCompleteAddress().address,
+        walletD.getCompleteAddress().address,
+        AztecAddress.zero(),
+      ],
+      3,
+    );
 
     // We collect the signatures from each owner and register them using addAuthWitness
     const authWits = await collectSignatures(await addAction.create(), [walletA, walletB]);
@@ -181,9 +184,11 @@ describe('e2e_multisig', () => {
 
     // Send the tx after having added all auth witnesses from the signers
     // TODO: We should be able to call send() on the result of create()
-    const tx = await addAction.send().wait();
-    const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
-    logger.info(`Tx logs: ${logs.logs.map(log => log.toHumanReadable())}`);
+    await addAction.send().wait();
+
+    const owners: Fr[] = await multisig.methods.get_owners().view();
+    expect(await multisig.methods.get_threshold().view()).toBe(3n);
+    expect(owners.filter(owner => !owner.isZero()).length).toBe(4);
   });
 
   afterAll(async () => {

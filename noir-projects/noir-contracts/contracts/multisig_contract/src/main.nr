@@ -59,6 +59,7 @@ contract MultiSigAccount {
         // To make things worse, we cannot call is_valid twice because of a bug in the private simulator
         // where we cannot get the same singleton note twice in the same tx. So we extract the logic
         // to a "collect_auths" internal method that receives the state, which we read from the caller.
+        // ^ this should be fixed in (thanks alvaro). Jean is creating a PR for this.
         let collect_auths_selector = FunctionSelector::from_signature("collect_auths(Field,[(Field);5],u8)");
         let this = context.this_address();
         let storage = Storage::init(Context::private(&mut context));
@@ -124,34 +125,21 @@ contract MultiSigAccount {
         collect_auths_impl(&mut context, message_field, owners, threshold)
     }
 
-    // add owners
     #[aztec(private)]
-    fn add_owner(new_owner: AztecAddress) {
+    fn update_config(new_owners: [AztecAddress; MAX_MULTISIG_OWNERS], new_threshold: u8) {
         // Safeguard mimicking the "internal" keyword which we cannot use here.
         assert(context.this_address().eq(context.msg_sender()));
 
-        let storage = Storage::init(Context::private(&mut context));
         let state = storage.state.get_note(/*broadcast=*/ true);
-        let mut pos : u8 = MAX_MULTISIG_OWNERS as u8;
-        for i in 1..MAX_MULTISIG_OWNERS {
-            if (state.owners[i].eq(AztecAddress::zero()) & !state.owners[i - 1].eq(AztecAddress::zero())) {
-                pos = i as u8;
-            }
-        }
+        assert(
+            new_threshold <= new_owners.len() as u8, "New threshold is greater than the number of owners"
+        );
 
-        if (state.owners[0].eq(AztecAddress::zero())) {
-            pos = 0;
-        }
-
-        assert(pos < MAX_MULTISIG_OWNERS as u8);
-
-        let mut new_owners: [AztecAddress; MAX_MULTISIG_OWNERS] = state.owners;
-        new_owners[pos] = new_owner;
         let mut new_note: MultiSigNote = MultiSigNote::new(
             new_owners,
             state.private_key,
-            state.threshold,
-            state.contract_address
+            new_threshold,
+            context.this_address()
         );
         storage.state.replace(&mut new_note, /*broadcast*/ true);
     }
@@ -201,5 +189,13 @@ contract MultiSigAccount {
             }
         }
         auths_collected
+    }
+
+    unconstrained fn get_owners() -> pub [AztecAddress; MAX_MULTISIG_OWNERS] {
+        storage.state.view_note().owners
+    }
+
+    unconstrained fn get_threshold() -> pub u8 {
+        storage.state.view_note().threshold
     }
 }
