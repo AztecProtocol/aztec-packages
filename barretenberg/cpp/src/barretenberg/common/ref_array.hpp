@@ -59,7 +59,11 @@ template <typename T, std::size_t N> class RefArray {
             , pos(pos)
         {}
 
-        T& operator*() const { return (*array)[pos]; }
+        T& operator*() const
+        {
+            ASSERT(pos < N);
+            return (*array)[pos];
+        }
 
         iterator& operator++()
         {
