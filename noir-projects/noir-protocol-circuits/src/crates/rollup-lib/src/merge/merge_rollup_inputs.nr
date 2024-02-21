@@ -67,8 +67,8 @@ mod tests {
     #[test(should_fail_with="input proofs have different constants")]
     fn constants_different_fails() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = 1;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.public_kernel_vk_tree_root = 0;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.base_rollup_vk_hash = 1;
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.base_rollup_vk_hash = 0;
         let _output = inputs.merge_rollup_circuit();
     }
 

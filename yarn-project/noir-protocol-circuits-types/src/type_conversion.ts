@@ -1395,8 +1395,6 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
 export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupData): ConstantRollupDataNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constantRollupData.lastArchive),
-    private_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.privateKernelVkTreeRoot),
-    public_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.publicKernelVkTreeRoot),
     base_rollup_vk_hash: mapFieldToNoir(constantRollupData.baseRollupVkHash),
     merge_rollup_vk_hash: mapFieldToNoir(constantRollupData.mergeRollupVkHash),
     global_variables: mapGlobalVariablesToNoir(constantRollupData.globalVariables),
@@ -1439,8 +1437,6 @@ export function mapPublicCircuitPublicInputsToNoir(
 export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollupDataNoir): ConstantRollupData {
   return new ConstantRollupData(
     mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.last_archive),
-    mapFieldFromNoir(constantRollupData.private_kernel_vk_tree_root),
-    mapFieldFromNoir(constantRollupData.public_kernel_vk_tree_root),
     mapFieldFromNoir(constantRollupData.base_rollup_vk_hash),
     mapFieldFromNoir(constantRollupData.merge_rollup_vk_hash),
     mapGlobalVariablesFromNoir(constantRollupData.global_variables),

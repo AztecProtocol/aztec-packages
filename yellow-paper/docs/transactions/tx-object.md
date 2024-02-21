@@ -55,19 +55,16 @@ Output of the last iteration of the private kernel circuit. Includes _accumulate
 | newContracts | NewContractData[] | All the new contracts deployed in this transaction. |
 | maxBlockNum | Field | Maximum block number (inclusive) for inclusion of this transaction in a block. |
 
-**Block header**
+**Header**
 
 <!-- prettier-ignore -->
 | Field | Type | Description |
 |-------|------|-------------|
-| noteHashTreeRoot | Field | Root of the note hash tree at the time of when this information was assembled. |
-| nullifierTreeRoot | Field | Root of the nullifier tree at the time of when this information was assembled. |
-| contractTreeRoot | Field | Root of the contract tree at the time of when this information was assembled. |
-| l1ToL2MessageTreeRoot | Field | Root of the L1 to L2 message tree at the time of when this information was assembled. |
-| archiveRoot | Field | Root of the archive at the time of when this information was assembled. |
-| privateKernelVkTreeRoot | Field | Root of the private kernel VK tree at the time of when this information was assembled (future enhancement). |
-| publicDataTreeRoot | Field | Current public state tree hash. |
-| globalVariablesHash | Field | Previous globals hash, this value is used to recalculate the block hash. |
+| lastArchive | AppendOnlyTreeSnapshot | A snapshot (root and next available leaf index) of the archive tree before the state changes made by this block were applied. |
+| contentCommitment | ContentCommitment | Commitment to the content of the block. |
+| state | StateReference | Reference to the state of the network. |
+| globalVariables | GlobalVariables | Global variables. |
+
 
 ### Public call request
 

@@ -27,15 +27,6 @@ export class ConstantRollupData {
   constructor(
     /** Archive tree snapshot at the very beginning of the entire rollup. */
     public lastArchive: AppendOnlyTreeSnapshot,
-
-    /**
-     * Root of the private kernel verification key tree.
-     */
-    public privateKernelVkTreeRoot: Fr,
-    /**
-     * Root of the public kernel circuit verification key tree.
-     */
-    public publicKernelVkTreeRoot: Fr,
     /**
      * Hash of the base rollup circuit verification key.
      */
@@ -60,21 +51,12 @@ export class ConstantRollupData {
       reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
     );
   }
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
-    return [
-      fields.lastArchive,
-      fields.privateKernelVkTreeRoot,
-      fields.publicKernelVkTreeRoot,
-      fields.baseRollupVkHash,
-      fields.mergeRollupVkHash,
-      fields.globalVariables,
-    ] as const;
+    return [fields.lastArchive, fields.baseRollupVkHash, fields.mergeRollupVkHash, fields.globalVariables] as const;
   }
 
   toBuffer() {

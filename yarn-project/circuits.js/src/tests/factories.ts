@@ -893,8 +893,6 @@ export function makeConstantBaseRollupData(
 ): ConstantRollupData {
   return ConstantRollupData.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
-    privateKernelVkTreeRoot: fr(seed + 0x401),
-    publicKernelVkTreeRoot: fr(seed + 0x402),
     baseRollupVkHash: fr(seed + 0x403),
     mergeRollupVkHash: fr(seed + 0x404),
     globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x405),

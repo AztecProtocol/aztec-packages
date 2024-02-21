@@ -439,8 +439,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     return ConstantRollupData.from({
       baseRollupVkHash: DELETE_FR,
       mergeRollupVkHash: DELETE_FR,
-      privateKernelVkTreeRoot: FUTURE_FR,
-      publicKernelVkTreeRoot: FUTURE_FR,
       lastArchive: await this.getTreeSnapshot(MerkleTreeId.ARCHIVE),
       globalVariables,
     });
