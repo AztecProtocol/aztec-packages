@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -149,7 +150,8 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     // Add information about public inputs to the computation
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
 
-    // WORKTODO: this is brittle. depends on when PI are placed. how can we make this more robust
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/862): this is brittle. depends on when PI are placed.
+    // how can we make this more robust?
     // The public inputs are placed at the top of the execution trace, potentially offset by a zero row.
     const size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     size_t pub_input_offset = num_zero_rows;
@@ -181,7 +183,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
  */
 template <typename Flavor>
 void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
-    const RefVector<typename Flavor::Polynomial>& permutation_polynomials, // sigma or ID poly
+    const RefSpan<typename Flavor::Polynomial>& permutation_polynomials, // sigma or ID poly
     std::array<std::vector<permutation_subgroup_element>, Flavor::NUM_WIRES>& permutation_mappings,
     typename Flavor::ProvingKey* proving_key)
 {
