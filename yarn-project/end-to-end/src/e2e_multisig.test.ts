@@ -1,4 +1,4 @@
-import { DefaultAccountContract } from '@aztec/accounts/defaults';
+import { DefaultAccountContract, buildAppPayload, buildFeePayload } from '@aztec/accounts/defaults';
 import {
   AccountManager,
   AccountWallet,
@@ -43,6 +43,7 @@ describe('e2e_multisig', () => {
   let walletA: Wallet;
   let walletB: Wallet;
   let walletC: Wallet;
+  let walletD: Wallet;
   let logger: DebugLogger;
   let multisig: MultiSigAccountContract;
   let multisigWallet: AccountWallet;
@@ -55,7 +56,7 @@ describe('e2e_multisig', () => {
   beforeAll(async () => {
     ({
       pxe,
-      wallets: [walletDeployer, walletA, walletB, walletC],
+      wallets: [walletDeployer, walletA, walletB, walletC, walletD],
       logger,
       teardown,
     } = await setup(5));
@@ -157,6 +158,31 @@ describe('e2e_multisig', () => {
 
     expect(await token.methods.balance_of_private(multisigWallet.getCompleteAddress()).view()).toBe(150n);
     expect(await token.methods.balance_of_private(walletA.getCompleteAddress()).view()).toBe(50n);
+  });
+
+  it('add a new owner to the multisig', async () => {
+    // Set up the method we want to call on a contract with the multisig as the wallet
+    //const action = testContract.methods.emit_msg_sender();
+    const add = multisig.methods.add_owner(walletD.getCompleteAddress().address);
+
+    // We collect the signatures from each owner and register them using addAuthWitness
+    const authWits = await collectSignatures(await add.create(), [walletA, walletB]);
+    await Promise.all(authWits.map(w => multisigWallet.addAuthWitness(w)));
+
+    // This should go away soon!
+    await multisigWallet.addCapsule(
+      padArrayEnd(
+        [walletA, walletB].map(w => w.getCompleteAddress().address),
+        AztecAddress.ZERO,
+        MULTISIG_MAX_OWNERS,
+      ),
+    );
+
+    // Send the tx after having added all auth witnesses from the signers
+    // TODO: We should be able to call send() on the result of create()
+    const tx = await add.send().wait();
+    const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
+    logger.info(`Tx logs: ${logs.logs.map(log => log.toHumanReadable())}`);
   });
 
   afterEach(async () => {
