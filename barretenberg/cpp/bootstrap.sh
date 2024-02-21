@@ -58,7 +58,7 @@ cmake --build --preset $PRESET --target bb
 if [ ! -d ./srs_db/grumpkin ]; then
   # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
   # If tests require more points, the parameter can be increased here.
-  (cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 8192)
+  (cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 16384)
 fi
 
 # Install wasi-sdk.
