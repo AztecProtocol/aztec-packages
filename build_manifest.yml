@@ -63,11 +63,6 @@ barretenberg-assert-build:
   dockerfile: dockerfiles/Dockerfile.assert-build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-build:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.build
-  rebuildPatterns: .rebuild_patterns
-
 barretenberg-fuzzing-build:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.fuzzing-build
@@ -86,6 +81,11 @@ barretenberg-msan-build:
 barretenberg-op-count-build:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.op-count-build
+  rebuildPatterns: .rebuild_patterns
+
+barretenberg-release-build:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.release-build
   rebuildPatterns: .rebuild_patterns
 
 barretenberg-tsan-build:

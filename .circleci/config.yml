@@ -159,7 +159,7 @@ jobs:
           name: "Build"
           command: cond_spot_run_build barretenberg-assert-build 128
 
-  barretenberg-build:
+  barretenberg-release-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -168,7 +168,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-build 128
+          command: cond_spot_run_build barretenberg-release-build 128
 
   barretenberg-fuzzing-build:
     docker:
@@ -1297,11 +1297,11 @@ workflows:
       # Barretenberg
       - barretenberg-asan-build: *defaults
       - barretenberg-assert-build: *defaults
-      - barretenberg-build: *defaults
       - barretenberg-fuzzing-build: *defaults
       - barretenberg-gcc-build: *defaults
       - barretenberg-msan-build: *defaults
       - barretenberg-op-count-build: *defaults
+      - barretenberg-release-build: *defaults
       - barretenberg-tsan-build: *defaults
       - barretenberg-ubsan-build: *defaults
       - barretenberg-wasm-build: *defaults

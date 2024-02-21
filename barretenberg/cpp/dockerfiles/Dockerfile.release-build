@@ -1,3 +1,4 @@
+# Build bb and benchmarks with max optimizations
 FROM alpine:3.18 AS builder
 RUN apk update \
     && apk upgrade \
@@ -15,7 +16,7 @@ COPY . .
 # Everything else is built as part linux-clang-assert.
 # Benchmark targets want to run without asserts, so get built alongside bb.
 RUN cmake --preset default
-RUN cmake --build --preset default --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
+RUN cmake --build --preset default --target goblin_ultra_honk_bench --target ultra_honk_bench --target ivc_bench --target bb --target grumpkin_srs_gen
 
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
