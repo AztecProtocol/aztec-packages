@@ -136,11 +136,17 @@ barretenberg-acir-tests-bb.js:
     - bb.js
     - noir-compile-acir-tests
 
-barretenberg-bench:
+barretenberg-op-count-bench:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.bench
+  dockerfile: dockerfiles/Dockerfile.op-count-bench
   dependencies:
     - barretenberg-op-count-build
+
+barretenberg-release-bench:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.release-bench
+  dependencies:
+    - barretenberg-release-build
 
 barretenberg-docs:
   buildDir: barretenberg/cpp

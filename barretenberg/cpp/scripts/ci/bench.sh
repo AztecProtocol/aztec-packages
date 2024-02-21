@@ -8,11 +8,12 @@ cd ../../srs_db
 ./download_ignition.sh 1
 ./download_grumpkin.sh
 cd ../build
-./bin/ultra_honk_bench --benchmark_format=json | tee ultra_honk_bench.json
-./bin/goblin_ultra_honk_bench --benchmark_format=json | tee goblin_ultra_honk_bench.json
-./bin/ivc_bench --benchmark_format=json | tee ivc_bench.json
-echo "Testing if we have created valid JSON."
-cat ultra_honk_bench.json | jq empty
-cat goblin_ultra_honk_bench.json | jq empty
-cat ivc_bench.json | jq empty
-echo "JSON is valid. Continuing."
+
+function bench() {
+  ./bin/$1 --benchmark_out="$1.json" --benchmark_out_format=json --benchmark_counters_tabular=true $2
+  cat $1.json
+}
+
+bench ultra_honk_bench --benchmark_filter=construct_proof_ultrahonk_power_of_2/20
+bench goblin_ultra_honk_bench --benchmark_filter=construct_proof_goblinultrahonk_power_of_2/20
+bench ivc_bench --benchmark_filter=IvcBench/Full/2

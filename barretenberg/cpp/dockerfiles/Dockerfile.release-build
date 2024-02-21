@@ -22,9 +22,7 @@ FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
-COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-COPY --from=builder /usr/src/barretenberg/cpp/build/bin/ultra_honk_rounds_bench /usr/src/barretenberg/cpp/build/bin/ultra_honk_rounds_bench
-COPY --from=builder /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen
+COPY --from=builder /usr/src/barretenberg/cpp/build /usr/src/barretenberg/cpp/build
 # Copy libs for consuming projects.
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a

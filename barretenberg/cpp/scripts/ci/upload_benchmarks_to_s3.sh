@@ -3,6 +3,8 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
+PREFIX=$1
+
 extract_repo barretenberg-bench /usr/src extracted-repo
 
 BUCKET_NAME="aztec-ci-artifacts"
@@ -17,4 +19,6 @@ else
   exit
 fi
 echo "Uploading to s3://$BUCKET_NAME/$TARGET_FOLDER"
-aws s3 cp extracted-repo/src/barretenberg/cpp/build/ultra_honk_rounds_bench.json "s3://$BUCKET_NAME/$TARGET_FOLDER/ultra_honk_rounds_bench.json"
+aws s3 cp extracted-repo/src/barretenberg/cpp/build/ultra_honk_bench.json "s3://$BUCKET_NAME/$TARGET_FOLDER/$PREFIX/ultra_honk_bench.json"
+aws s3 cp extracted-repo/src/barretenberg/cpp/build/goblin_ultra_honk_bench.json "s3://$BUCKET_NAME/$TARGET_FOLDER/$PREFIX/goblin_ultra_honk_bench.json"
+aws s3 cp extracted-repo/src/barretenberg/cpp/build/ivc_bench.json "s3://$BUCKET_NAME/$TARGET_FOLDER/$PREFIX/ivc_bench.json"

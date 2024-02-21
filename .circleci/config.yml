@@ -306,7 +306,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/bb-tests.sh
 
-  barretenberg-bench:
+  barretenberg-release-bench:
     machine:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
@@ -317,11 +317,45 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_spot_run_build barretenberg-bench 32
+          command: cond_spot_run_build barretenberg-release-bench 16
       - run:
           name: "Upload"
           command: |
-            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh release
+
+  barretenberg-op-count-bench:
+    machine:
+      # NOTE: we usually use alpine build image when making spot images, but
+      # we are not able to upload to S3 with it
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_build barretenberg-op-count-bench 16
+      - run:
+          name: "Upload"
+          command: |
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh op-count
+
+  barretenberg-wasm-bench:
+    machine:
+      # NOTE: we usually use alpine build image when making spot images, but
+      # we are not able to upload to S3 with it
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_build barretenberg-wasm-bench 16
+      - run:
+          name: "Upload"
+          command: |
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh wasm
 
   barretenberg-proof-system-tests:
     docker:

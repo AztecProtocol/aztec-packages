@@ -52,7 +52,7 @@ total_time = 0
 
 for (key, time) in ns_per_op.items():
     full_key = "fr::" + key
-    if (full_key in mct.keys()):
+    if full_key in mct.keys():
         count = int(mct[full_key])
         if (count is not None):
             print(f'aggregating { count } counts of {key} at time {ns_per_op[key]} ns.')
