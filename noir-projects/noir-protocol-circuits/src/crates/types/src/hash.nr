@@ -302,7 +302,7 @@ pub fn compute_unique_siloed_note_hash(nonce: Field, siloed_note_hash: Field) ->
     )
 }
 
-pub fn compute_unique_siloed_note_hashs<N>(
+pub fn compute_unique_siloed_note_hashes<N>(
     first_nullifier: Field,
     siloed_note_hashs: [SideEffect; N]
 ) -> [SideEffect; N] {

@@ -22,7 +22,7 @@ export interface PublicExecutionResult {
   execution: PublicExecution;
   /** The return values of the function. */
   returnValues: Fr[];
-  /** The new note hashes to be inserted into the commitments tree. */
+  /** The new note hashes to be inserted into the note hashes tree. */
   newNoteHashes: SideEffect[];
   /** The new l2 to l1 messages generated in this call. */
   newL2ToL1Messages: L2ToL1Message[];
