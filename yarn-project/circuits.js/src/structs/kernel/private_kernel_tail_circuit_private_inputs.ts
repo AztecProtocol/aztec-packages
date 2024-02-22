@@ -21,11 +21,11 @@ export class PrivateKernelTailCircuitPrivateInputs {
      */
     public previousKernel: PrivateKernelInnerData,
     /**
-     * The sorted new commitments.
+     * The sorted new note hashes.
      */
     public sortedNewNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
-     * The sorted new commitments indexes. Maps original to sorted.
+     * The sorted new note hashes indexes. Maps original to sorted.
      */
     public sortedNewNoteHashesIndexes: Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**

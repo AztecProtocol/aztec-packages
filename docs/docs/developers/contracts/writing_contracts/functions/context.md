@@ -15,7 +15,7 @@ On this page, you'll learn
 - The details and functionalities of the private context in Aztec.nr
 - Difference between the private and public contexts and their unified APIs
 - Components of the private context, such as inputs, block header, and contract deployment data
-- Elements like return values, read requests, new commitments, and nullifiers in transaction processing
+- Elements like return values, read requests, new note hashes, and nullifiers in transaction processing
 - Differences between the private and public contexts, especially the unique features and variables in the public context
 
 ## Two contexts, one API
@@ -105,9 +105,9 @@ The return values are a set of values that are returned from an applications exe
 
 <!-- TODO(maddiaa): leaving as todo until their is further clarification around their implementation in the protocol -->
 
-### New Commitments
+### New note hashes
 
-New commitments contains an array of all of the commitments created in the current execution context.
+New note hashes contains an array of all of the commitments created in the current execution context.
 
 ### New Nullifiers
 

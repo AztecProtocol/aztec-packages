@@ -161,7 +161,7 @@ export class CombinedAccumulatedData {
       typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     >,
     /**
-     * The new commitments made in this transaction.
+     * The new note hashes made in this transaction.
      */
     public newNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
@@ -361,7 +361,7 @@ export class PublicAccumulatedRevertibleData {
       typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     >,
     /**
-     * The new commitments made in this transaction.
+     * The new note hashes made in this transaction.
      */
     public newNoteHashes: Tuple<SideEffect, typeof MAX_REVERTIBLE_NOTE_HASHES_PER_TX>,
     /**
@@ -518,7 +518,7 @@ export class PublicAccumulatedRevertibleData {
 export class PrivateAccumulatedRevertibleData {
   constructor(
     /**
-     * The new commitments made in this transaction.
+     * The new note hashes made in this transaction.
      */
     public newNoteHashes: Tuple<SideEffect, typeof MAX_REVERTIBLE_NOTE_HASHES_PER_TX>,
     /**

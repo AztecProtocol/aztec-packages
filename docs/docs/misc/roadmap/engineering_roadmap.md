@@ -52,7 +52,7 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
     - Just emit the initially-enqueued public function request data? (The 'inputs' of the tx);
         - I.e. contract address, function selector, args, call_context.
     - OR, Just emit the final state transitions? (The 'outputs' of the tx)
-        - I.e. the leaf indices and new values of the public data tree; and the new commitments/nullifiers of the note hash tree; and logs; and l2->L1 messages.
+        - I.e. the leaf indices and new values of the public data tree; and the new note hashes/nullifiers of the note hash tree; and logs; and l2->L1 messages.
 
 ## Proper specs
 
@@ -195,7 +195,7 @@ We often pack data in circuit A, and then unpack it again in circuit B.
 
 Also, for logs in particular, we allow arbitrary-sized logs. But this requires sha256 packing inside an app circuit (which is slow) (and sha256 unpacking in Solidity (which is relatively cheap)). Perhaps we also use the bus ideas for logs, to give _some_ variability in log length, but up to an upper bound. 
 
-Also, we do a lot of sha256-compressing in our kernel and rollup circuits for data which must be checked on-chain, but grows exponentially with every round of iteration. E.g.: new contract deployment data, new nullifiers, new commitments, public state transition data, etc. This might be unavoidable. Maybe all we can do is use polynomial commitments when the EIP-4844 work is done. But maybe we can use the bus for this stuff too.
+Also, we do a lot of sha256-compressing in our kernel and rollup circuits for data which must be checked on-chain, but grows exponentially with every round of iteration. E.g.: new contract deployment data, new nullifiers, new note hashes, public state transition data, etc. This might be unavoidable. Maybe all we can do is use polynomial commitments when the EIP-4844 work is done. But maybe we can use the bus for this stuff too.
 
 ### Write proper circuits
 

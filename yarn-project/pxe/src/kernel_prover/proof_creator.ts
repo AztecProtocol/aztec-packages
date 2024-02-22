@@ -53,7 +53,7 @@ export interface ProofCreator {
   /**
    * Computes the siloed commitments for a given set of public inputs.
    *
-   * @param publicInputs - The public inputs containing the contract address and new commitments to be used in generating siloed commitments.
+   * @param publicInputs - The public inputs containing the contract address and new note hashes to be used in generating siloed commitments.
    * @returns An array of Fr (finite field) elements representing the siloed commitments.
    */
   getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;

@@ -24,7 +24,7 @@ This error may also happen when you deploy a new contract and the contract data 
 
 #### 2005 - PRIVATE_KERNEL\_\_NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL
 
-For static calls, new commitments aren't allowed
+For static calls, new note hashes aren't allowed
 
 #### 2006 - PRIVATE_KERNEL\_\_NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL
 
@@ -122,11 +122,11 @@ Same as [3022](#3022---public_kernel__public_call_stack_contract_storage_updates
 
 #### 3026 - PUBLIC_KERNEL\_\_NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL
 
-For static calls, no new commitments or nullifiers can be added to the state.
+For static calls, no new note hashes or nullifiers can be added to the state.
 
 #### 3027 - PUBLIC_KERNEL\_\_NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL
 
-For static calls, no new commitments or nullifiers can be added to the state.
+For static calls, no new note hashes or nullifiers can be added to the state.
 
 ### Rollup circuit errors
 
@@ -148,7 +148,7 @@ Some scary bugs like `4003 - BASE__INVALID_NULLIFIER_SUBTREE` and `4004 - BASE__
 
 Circuits work by having a fixed size array. As such, we have limits on how many UTXOs can be created (aka "commitments") or destroyed/nullified (aka "nullifiers") in a transaction. Similarly we have limits on many reads or writes you can do, how many contracts you can create in a transaction. This error typically says that you have reached the current limits of what you can do in a transaction. Some examples when you may hit this error are:
 
-- too many new commitments in one tx
+- too many new note hashes in one tx
 - too many new nullifiers in one tx
   - Note: Nullifiers may be created even outside the context of your Aztec.nr code. Eg, when creating a contract, we add a nullifier for its address to prevent same address from ever occurring. Similarly, we add a nullifier for your transaction hash too.
 - too many private function calls in one tx (i.e. call stack size exceeded)
@@ -170,7 +170,7 @@ Users may create a proof against a historical state in Aztec. The rollup circuit
 - using invalid historical contracts data tree state
 - using invalid historical L1 to L2 message data tree state
 - inserting a subtree into the greater tree
-  - we make a smaller merkle tree of all the new commitments/nullifiers etc that were created in a transaction or in a rollup and add it to the bigger state tree. Before inserting, we do a merkle membership check to ensure that the index to insert at is indeed an empty subtree (otherwise we would be overwriting state). This can happen when `next_available_leaf_index` in the state tree's snapshot is wrong (it is fetched by the sequencer from the archiver). The error message should reveal which tree is causing this issue
+  - we make a smaller merkle tree of all the new note hashes/nullifiers etc that were created in a transaction or in a rollup and add it to the bigger state tree. Before inserting, we do a merkle membership check to ensure that the index to insert at is indeed an empty subtree (otherwise we would be overwriting state). This can happen when `next_available_leaf_index` in the state tree's snapshot is wrong (it is fetched by the sequencer from the archiver). The error message should reveal which tree is causing this issue
   - nullifier tree related errors - The nullifier tree uses an [Indexed Merkle Tree](../../learn/concepts/storage/trees/indexed_merkle_tree.md). It requires additional data from the archiver to know which is the nullifier in the tree that is just below the current nullifier before it can perform batch insertion. If the low nullifier is wrong, or the nullifier is in incorrect range, you may receive this error.
 
 ---

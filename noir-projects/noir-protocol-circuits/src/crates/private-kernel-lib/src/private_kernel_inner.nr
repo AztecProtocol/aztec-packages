@@ -518,7 +518,7 @@ mod tests {
         // The current call stack has 1 commitment;
         builder.private_call.public_inputs.new_note_hashes.push(SideEffect { value: 4321, counter: 0 });
 
-        // Mock the previous new commitments to be full, therefore no more commitments can be added.
+        // Mock the previous new note hashes to be full, therefore no more commitments can be added.
         let mut full_new_note_hashes = [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_TX];
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             full_new_note_hashes[i] = SideEffect {

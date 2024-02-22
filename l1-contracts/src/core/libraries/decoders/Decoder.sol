@@ -156,7 +156,7 @@ library Decoder {
   /**
    * @notice Computes consumables for the block
    * @param _body - The L2 block body.
-   * @return diffRoot - The root of the diff tree (new commitments, nullifiers etc)
+   * @return diffRoot - The root of the diff tree (new note hashes, nullifiers etc)
    * @return l1ToL2MsgsHash - The hash of the L1 to L2 messages
    * @return l2ToL1Msgs - The L2 to L1 messages of the block
    * @return l1ToL2Msgs - The L1 to L2 messages of the block

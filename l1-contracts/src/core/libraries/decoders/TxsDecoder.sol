@@ -66,7 +66,7 @@ library TxsDecoder {
   /**
    * @notice Computes consumables for the block
    * @param _body - The L2 block calldata.
-   * @return diffRoot - The root of the diff tree (new commitments, nullifiers etc)
+   * @return diffRoot - The root of the diff tree (new note hashes, nullifiers etc)
    */
   function decode(bytes calldata _body) internal pure returns (bytes32) {
     ArrayOffsets memory offsets;

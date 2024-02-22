@@ -137,7 +137,7 @@ describe('sequencer/solo_block_builder', () => {
     return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
   };
 
-  // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
+  // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
     const newContracts = txs.flatMap(tx => tx.data.end.newContracts.map(cd => cd.hash()));
     for (const [tree, leaves] of [

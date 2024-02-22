@@ -168,10 +168,10 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_commitments() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
-        // Setup 2 new commitments on the previous kernel.
+        // Setup 2 new note hashes on the previous kernel.
         builder.previous_kernel.append_new_note_hashes(2);
         let previous = builder.previous_kernel.end.new_note_hashes.storage;
-        // Setup 2 new commitments on the current public inputs.
+        // Setup 2 new note hashes on the current public inputs.
         let current = [
             SideEffect { value: previous[1].value + 1, counter: 3 },
             SideEffect { value: previous[1].value + 2, counter: 4 }
@@ -232,7 +232,7 @@ mod tests {
         // Setup 2 new nullifiers on the previous kernel.
         builder.previous_kernel.append_new_nullifiers_from_public(2);
         let previous = builder.previous_kernel.end.new_nullifiers.storage;
-        // Setup 2 new commitments on the current public inputs.
+        // Setup 2 new note hashes on the current public inputs.
 
         let current = [
             SideEffectLinkedToNoteHash { value: previous[1].value + 1, note_hash: 0, counter: 4 }, SideEffectLinkedToNoteHash { value: previous[1].value + 2, note_hash: 0, counter: 5 }

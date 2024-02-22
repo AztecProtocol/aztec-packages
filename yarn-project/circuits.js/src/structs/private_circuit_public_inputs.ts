@@ -59,7 +59,7 @@ export class PrivateCircuitPublicInputs {
       typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
     >,
     /**
-     * New commitments created by the corresponding function call.
+     * New note hashes created by the corresponding function call.
      */
     public newNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
     /**

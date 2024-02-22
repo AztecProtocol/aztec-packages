@@ -31,7 +31,7 @@ export class L2Tx {
 
   constructor(
     /**
-     * New commitments created by the transaction.
+     * New note hashes created by the transaction.
      */
     public newNoteHashes: Fr[],
     /**

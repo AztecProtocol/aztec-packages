@@ -302,7 +302,7 @@ describe('ACIR public execution simulator', () => {
       params = [amount, new Fr(1)];
     });
 
-    it('Should be able to create a commitment from the public context', async () => {
+    it('Should be able to create a note hash from the public context', async () => {
       const shieldArtifact = TokenContractArtifact.functions.find(f => f.name === 'shield')!;
       const msgSender = AztecAddress.random();
       const secretHash = Fr.random();
@@ -327,7 +327,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.simulate(execution, GlobalVariables.empty());
 
-      // Assert the commitment was created
+      // Assert the note hash was created
       expect(result.newNoteHashes.length).toEqual(1);
 
       const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);

@@ -941,7 +941,7 @@ describe('Private Execution test suite', () => {
       );
       expect(newNoteHashes).toHaveLength(1);
 
-      const commitment = newNoteHashes[0];
+      const noteHash = newNoteHashes[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
 
@@ -951,7 +951,7 @@ describe('Private Execution test suite', () => {
         noteTypeId,
         noteAndSlot.note,
       );
-      expect(commitment).toEqual(innerNoteHash);
+      expect(noteHash).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.readRequests)[0];
@@ -1033,14 +1033,14 @@ describe('Private Execution test suite', () => {
       );
       expect(newNoteHashes).toHaveLength(1);
 
-      const commitment = newNoteHashes[0];
+      const noteHash = newNoteHashes[0];
       const innerNoteHash = await acirSimulator.computeInnerNoteHash(
         contractAddress,
         noteAndSlot.storageSlot,
         noteAndSlot.noteTypeId,
         noteAndSlot.note,
       );
-      expect(commitment).toEqual(innerNoteHash);
+      expect(noteHash).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.readRequests[0];
@@ -1097,8 +1097,8 @@ describe('Private Execution test suite', () => {
       );
       expect(newNoteHashes).toHaveLength(1);
 
-      const commitment = newNoteHashes[0];
-      expect(commitment).toEqual(
+      const noteHash = newNoteHashes[0];
+      expect(noteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(
           contractAddress,
           storageSlot,

@@ -273,7 +273,7 @@ mod tests {
         }
 
         pub fn append_transient_commitments(&mut self, num_commitments: Field) {
-            // All new commitments aggregated in the previous kernel are transient commitments.
+            // All new note hashes aggregated in the previous kernel are transient commitments.
             self.previous_kernel.append_new_note_hashes(num_commitments);
         }
 
