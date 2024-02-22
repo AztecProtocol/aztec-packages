@@ -31,7 +31,12 @@ export function initContext(overrides?: {
 
 /** Creates an empty world state with mocked storage. */
 export function initMockWorldStateJournal(): AvmWorldStateJournal {
-  const hostStorage = new HostAztecState(mock<PublicStateDB>(), mock<PublicContractsDB>(), mock<CommitmentsDB>(), mock<NullifiersDB>());
+  const hostStorage = new HostAztecState(
+    mock<PublicStateDB>(),
+    mock<PublicContractsDB>(),
+    mock<CommitmentsDB>(),
+    mock<NullifiersDB>(),
+  );
   return new AvmWorldStateJournal(hostStorage);
 }
 

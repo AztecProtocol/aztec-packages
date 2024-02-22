@@ -42,7 +42,12 @@ describe('Storage Instructions', () => {
 
       await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
 
-      expect(journal.writePublicStorage).toHaveBeenCalledWith(/*callPointer=*/Fr.ZERO, address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
+      expect(journal.writePublicStorage).toHaveBeenCalledWith(
+        /*callPointer=*/ Fr.ZERO,
+        address,
+        new Fr(a.toBigInt()),
+        new Fr(b.toBigInt()),
+      );
     });
 
     it('Should not be able to write to storage in a static call', async () => {
@@ -89,7 +94,7 @@ describe('Storage Instructions', () => {
 
       await new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
 
-      expect(journal.readPublicStorage).toHaveBeenCalledWith(/*callPointer=*/Fr.ZERO, address, new Fr(a.toBigInt()));
+      expect(journal.readPublicStorage).toHaveBeenCalledWith(/*callPointer=*/ Fr.ZERO, address, new Fr(a.toBigInt()));
 
       const actual = context.machineState.memory.get(1);
       expect(actual).toEqual(new Field(expectedResult));

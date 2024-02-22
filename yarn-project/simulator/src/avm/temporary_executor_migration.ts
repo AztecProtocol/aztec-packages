@@ -1,12 +1,10 @@
 // All code in this file needs to die once the public executor is phased out.
 import { FunctionL2Logs } from '@aztec/circuit-types';
 import {
-  CallContext,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  GlobalVariables,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
+  CallContext, //ContractStorageRead,
+  //ContractStorageUpdateRequest,
+  GlobalVariables, //SideEffect,
+  //SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -50,50 +48,50 @@ export function temporaryCreateAvmExecutionEnvironment(
 export function temporaryAvmCallResults(
   tracedContractCall: TracedContractCall,
   initialExecution: PublicExecution,
-  trace: WorldStateAccessTrace,
+  _trace: WorldStateAccessTrace,
   isInitialCall?: boolean,
 ): PublicExecutionResult {
-    const callPointer = tracedContractCall.callPointer;
+  //const callPointer = tracedContractCall.callPointer;
 
-    const callContext: CallContext = CallContext.from(initialExecution.callContext);
-    if (!isInitialCall) {
-     callContext.msgSender = initialExecution.contractAddress;
-    }
+  const callContext: CallContext = CallContext.from(initialExecution.callContext);
+  if (!isInitialCall) {
+    callContext.msgSender = initialExecution.contractAddress;
+  }
 
-    // For the purpose of this temporary conversion,
-    // assign every nested call sender == initial call
-    const execution: PublicExecution = isInitialCall
-      ? initialExecution
-      : {
+  // For the purpose of this temporary conversion,
+  // assign every nested call sender == initial call
+  const execution: PublicExecution = isInitialCall
+    ? initialExecution
+    : {
         contractAddress: tracedContractCall.address,
         // Function data from top execution is borrowed here
         functionData: initialExecution.functionData,
         args: [],
         callContext: callContext,
       };
-    //const nestedExecutionResult: PublicExecutionResult = {
-    //  execution: execution,
-    //  newCommitments: trace.newNoteHashes.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffect(traced.noteHash, traced.counter)),
-    //  newL2ToL1Messages: [],
-    //  newNullifiers: trace.newNullifiers.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffectLinkedToNoteHash(traced.nullifier, Fr.ZERO, traced.counter)),
-    //  contractStorageReads: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageRead(traced.slot, traced.value, traced.counter.toNumber())),
-    //  contractStorageUpdateRequests: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageUpdateRequest(traced.slot, traced.value, traced.counter.toNumber())),
-    //  returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
-    //  nestedExecutions: [],
-    //  unencryptedLogs: FunctionL2Logs.empty(),
-    //};
-    const nestedExecutionResult: PublicExecutionResult = {
-      execution: execution,
-      newCommitments: [],
-      newL2ToL1Messages: [],
-      newNullifiers: [],
-      contractStorageReads: [],
-      contractStorageUpdateRequests: [],
-      returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
-      nestedExecutions: [],
-      unencryptedLogs: FunctionL2Logs.empty(),
-    };
-    return nestedExecutionResult;
+  //const nestedExecutionResult: PublicExecutionResult = {
+  //  execution: execution,
+  //  newCommitments: trace.newNoteHashes.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffect(traced.noteHash, traced.counter)),
+  //  newL2ToL1Messages: [],
+  //  newNullifiers: trace.newNullifiers.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffectLinkedToNoteHash(traced.nullifier, Fr.ZERO, traced.counter)),
+  //  contractStorageReads: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageRead(traced.slot, traced.value, traced.counter.toNumber())),
+  //  contractStorageUpdateRequests: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageUpdateRequest(traced.slot, traced.value, traced.counter.toNumber())),
+  //  returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
+  //  nestedExecutions: [],
+  //  unencryptedLogs: FunctionL2Logs.empty(),
+  //};
+  const nestedExecutionResult: PublicExecutionResult = {
+    execution: execution,
+    newCommitments: [],
+    newL2ToL1Messages: [],
+    newNullifiers: [],
+    contractStorageReads: [],
+    contractStorageUpdateRequests: [],
+    returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
+    nestedExecutions: [],
+    unencryptedLogs: FunctionL2Logs.empty(),
+  };
+  return nestedExecutionResult;
 }
 /** Temporary Method
  *
@@ -116,7 +114,12 @@ export function temporaryConvertAvmSessionResults(
     storageAddress: topExecution.callContext.storageContractAddress,
     endLifetime: Fr.ZERO,
   };
-  const executionResults: PublicExecutionResult = temporaryAvmCallResults(initialCall, topExecution, trace, /*isInitialCall=*/true);
+  const executionResults: PublicExecutionResult = temporaryAvmCallResults(
+    initialCall,
+    topExecution,
+    trace,
+    /*isInitialCall=*/ true,
+  );
   executionResults.returnValues = result.output;
   // This loop assumes that the contractCalls trace skips the initial call, but that is not
   // true in the spec!

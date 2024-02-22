@@ -25,7 +25,9 @@ describe('Avm Context', () => {
       }),
     );
 
-    expect(newContext.worldState).toEqual(context.worldState.forkForNestedCall(/*callPointer=*/Fr.ZERO, newAddress, newAddress));
+    expect(newContext.worldState).toEqual(
+      context.worldState.forkForNestedCall(/*callPointer=*/ Fr.ZERO, newAddress, newAddress),
+    );
   });
 
   it('New static call should fork context correctly', () => {
@@ -50,6 +52,8 @@ describe('Avm Context', () => {
       }),
     );
 
-    expect(newContext.worldState).toEqual(context.worldState.forkForNestedCall(/*callPointer=*/Fr.ZERO, newAddress, newAddress));
+    expect(newContext.worldState).toEqual(
+      context.worldState.forkForNestedCall(/*callPointer=*/ Fr.ZERO, newAddress, newAddress),
+    );
   });
 });

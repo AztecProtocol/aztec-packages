@@ -46,7 +46,9 @@ describe('AVM simulator', () => {
       const bytecode = Buffer.from(addArtifact.bytecode, 'base64');
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest.spyOn(context.worldState.hostAztecState.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
+      jest
+        .spyOn(context.worldState.hostAztecState.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(bytecode));
 
       const results = await new AvmSimulator(context).execute();
 

@@ -7,10 +7,7 @@ export class Nullifiers {
   private readonly parentNullifiers: PendingNullifiers | undefined;
   private pendingNullifiers: PendingNullifiers;
 
-  constructor(
-    hostNullifiers: NullifiersDB,
-    parent?: Nullifiers,
-  ) {
+  constructor(hostNullifiers: NullifiersDB, parent?: Nullifiers) {
     this.hostNullifiers = hostNullifiers;
     this.parentNullifiers = parent?.pendingNullifiers;
     this.pendingNullifiers = new PendingNullifiers();
@@ -22,7 +19,8 @@ export class Nullifiers {
 
   public async getNullifierIndex(
     storageAddress: Fr,
-    nullifier: Fr): Promise<[/*exists=*/boolean, /*isPending=*/boolean, /*leafIndex=*/Fr]> {
+    nullifier: Fr,
+  ): Promise<[/*exists=*/ boolean, /*isPending=*/ boolean, /*leafIndex=*/ Fr]> {
     // First check this pending nullifiers
     let existsAsPending = this.pendingNullifiers.exists(storageAddress, nullifier);
     // Then check parent's pending nullifiers
@@ -31,19 +29,18 @@ export class Nullifiers {
     }
     // Finally try the host's Aztec state (a trip to the database)
     // If the value is found in the database, it will be associated with a leaf index!
-    let leafIndex: bigint|undefined = undefined;
+    let leafIndex: bigint | undefined = undefined;
     if (!existsAsPending) {
-        leafIndex = await this.hostNullifiers.getNullifierIndex(nullifier);
+      leafIndex = await this.hostNullifiers.getNullifierIndex(nullifier);
     }
     const exists = existsAsPending || leafIndex !== undefined;
-    leafIndex = leafIndex === undefined ? BigInt(0): leafIndex;
+    leafIndex = leafIndex === undefined ? BigInt(0) : leafIndex;
     return Promise.resolve([exists, existsAsPending, new Fr(leafIndex)]);
   }
 
   public append(storageAddress: Fr, nullifier: Fr) {
     this.pendingNullifiers.append(storageAddress, nullifier);
   }
-
 }
 
 export class PendingNullifiers {
@@ -63,7 +60,9 @@ export class PendingNullifiers {
       this.nullifiers.set(storageAddress.toBigInt(), nullifiersForContract);
     }
     if (nullifiersForContract.has(nullifier.toBigInt())) {
-      throw new Error(`Failed to emit new nullifier. Nullifier ${nullifier} already exists for contract ${storageAddress}!`);
+      throw new Error(
+        `Failed to emit new nullifier. Nullifier ${nullifier} already exists for contract ${storageAddress}!`,
+      );
     }
     nullifiersForContract.add(nullifier.toBigInt());
   }
@@ -86,7 +85,9 @@ export class PendingNullifiers {
         // Merge in the child's staged writes.
         for (const nullifier of incomingNullifiers) {
           if (currentNullifiers.has(nullifier)) {
-            throw new Error(`Failed to accept child call's nullifiers. Nullifier ${nullifier} already exists for contract ${storageAddress}!`);
+            throw new Error(
+              `Failed to accept child call's nullifiers. Nullifier ${nullifier} already exists for contract ${storageAddress}!`,
+            );
           }
           currentNullifiers.add(nullifier);
         }

@@ -37,7 +37,7 @@ export class AvmContext {
    */
   public createNestedContractCallContext(address: AztecAddress, calldata: Fr[]): AvmContext {
     const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedCall(address, calldata);
-    const forkedWorldState = this.worldState.forkForNestedCall(/*callPointer=*/Fr.ZERO, address, address);
+    const forkedWorldState = this.worldState.forkForNestedCall(/*callPointer=*/ Fr.ZERO, address, address);
     const machineState = AvmMachineState.fromState(this.machineState);
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }
@@ -56,7 +56,7 @@ export class AvmContext {
    */
   public createNestedContractStaticCallContext(address: AztecAddress, calldata: Fr[]): AvmContext {
     const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedStaticCall(address, calldata);
-    const forkedWorldState = this.worldState.forkForNestedCall(/*callPointer=*/Fr.ZERO, address, address);
+    const forkedWorldState = this.worldState.forkForNestedCall(/*callPointer=*/ Fr.ZERO, address, address);
     const machineState = AvmMachineState.fromState(this.machineState);
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }

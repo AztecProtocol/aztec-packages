@@ -6,7 +6,12 @@ import { CommitmentsDB, NullifiersDB, PublicContractsDB, PublicStateDB } from '.
 import { HostAztecState } from './host_storage.js';
 import { AvmWorldStateJournal } from './journal.js';
 import { WorldStateAccessTrace } from './trace.js';
-import { TracedNullifierCheck, TracedNullifier, TracedPublicStorageRead, TracedPublicStorageWrite } from './trace_types.js';
+import {
+  TracedNullifier,
+  TracedNullifierCheck,
+  TracedPublicStorageRead,
+  TracedPublicStorageWrite,
+} from './trace_types.js';
 
 describe('journal', () => {
   let publicStorageDb: MockProxy<PublicStateDB>;
@@ -122,9 +127,9 @@ describe('journal', () => {
       const { publicStorageReads, publicStorageWrites }: WorldStateAccessTrace = journal.getWorldStateAccessTrace();
       expect(publicStorageReads.length).toEqual(2);
       expect(publicStorageWrites.length).toEqual(1);
-      expect(publicStorageReads[0]).toEqual(expectTracedRead0)
-      expect(publicStorageReads[1]).toEqual(expectTracedRead1)
-      expect(publicStorageWrites[0]).toEqual(expectTracedWrite0)
+      expect(publicStorageReads[0]).toEqual(expectTracedRead0);
+      expect(publicStorageReads[1]).toEqual(expectTracedRead1);
+      expect(publicStorageWrites[0]).toEqual(expectTracedWrite0);
     });
   });
 
@@ -415,15 +420,8 @@ describe('journal', () => {
     // Ensure trace order and contents are preserved after merge
     const trace: WorldStateAccessTrace = journal.getWorldStateAccessTrace();
 
-    expect(trace.publicStorageReads).toEqual([
-      expectTracedRead0,
-      expectTracedRead1,
-      expectTracedRead2,
-    ]);
-    expect(trace.publicStorageWrites).toEqual([
-      expectTracedWrite0,
-      expectTracedWrite1,
-    ]);
+    expect(trace.publicStorageReads).toEqual([expectTracedRead0, expectTracedRead1, expectTracedRead2]);
+    expect(trace.publicStorageWrites).toEqual([expectTracedWrite0, expectTracedWrite1]);
     //expect(trace.noteHashChecks).toEqual([commitment, commitmentT1]);
     //expect(trace.newNoteHashes).toEqual([commitment, commitmentT1]);
     expect(trace.nullifierChecks).toEqual([
@@ -431,10 +429,7 @@ describe('journal', () => {
       expectTracedNullifierCheck1,
       expectTracedNullifierCheck2,
     ]);
-    expect(trace.newNullifiers).toEqual([
-      expectTracedNullifier0,
-      expectTracedNullifier1,
-    ]);
+    expect(trace.newNullifiers).toEqual([expectTracedNullifier0, expectTracedNullifier1]);
     //expect(trace.newLogs).toEqual([logs, logsT1]);
     //expect(trace.newL1Messages).toEqual([logs, logsT1]);
   });

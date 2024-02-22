@@ -1,9 +1,10 @@
-import { EthAddress, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+
 import type { AvmContext } from '../avm_context.js';
+import { TypeTag, Uint32 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
-import { TypeTag, Uint32 } from '../avm_memory_types.js';
 
 export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
@@ -61,13 +62,19 @@ export class EmitUnencryptedLog extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32, OperandType.UINT32];
+  static readonly wireFormat = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+  ];
 
   constructor(
     private indirect: number,
     private selectorOffset: number,
     private logOffset: number,
-    private logSize: number
+    private logSize: number,
   ) {
     super();
   }
@@ -81,11 +88,7 @@ export class EmitUnencryptedLog extends Instruction {
     const selector = context.machineState.memory.getAs<Uint32>(this.selectorOffset);
     const log = context.machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
 
-    context.worldState.appendUnencryptedLog(
-      context.environment.address,
-      selector,
-      log,
-    );
+    context.worldState.appendUnencryptedLog(context.environment.address, selector, log);
 
     context.machineState.incrementPc();
   }

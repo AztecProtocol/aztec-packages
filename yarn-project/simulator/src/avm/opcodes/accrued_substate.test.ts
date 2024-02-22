@@ -1,12 +1,13 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
+import { AztecAddress, EthAddress, Fr, L2ToL1Message } from '@aztec/circuits.js';
+import { EventSelector } from '@aztec/foundation/abi';
+
 import { AvmContext } from '../avm_context.js';
 import { Field, Uint32 } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { TracedNoteHash, TracedNullifier } from '../journal/trace_types.js';
 import { EmitNoteHash, EmitNullifier, EmitUnencryptedLog, SendL2ToL1Message } from './accrued_substate.js';
 import { StaticCallStorageAlterError } from './storage.js';
-import { AztecAddress, EthAddress, Fr, L2ToL1Message } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
-import { TracedNoteHash, TracedNullifier } from '../journal/trace_types.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
@@ -90,7 +91,7 @@ describe('Accrued Substate', () => {
         /*indirect=*/ 0x01,
         /*selectorOffset=*/ 0x0123,
         /*logOffset=*/ 0x12345678,
-        /*logSize=*/ 0xa2345678
+        /*logSize=*/ 0xa2345678,
       );
 
       expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
@@ -114,7 +115,8 @@ describe('Accrued Substate', () => {
       const expected = new UnencryptedL2Log(
         AztecAddress.zero(),
         EventSelector.fromField(selector.toFr()),
-        Buffer.concat(values.map(field => field.toBuffer())));
+        Buffer.concat(values.map(field => field.toBuffer())),
+      );
       expect(sideEffects.unencryptedLogs).toEqual([expected]);
     });
   });

@@ -61,7 +61,7 @@ export class SLoad extends BaseStorageInstruction {
     const data: Fr = await context.worldState.readPublicStorage(
       Fr.ZERO, // callPointer
       context.environment.storageAddress,
-      new Fr(slot.toBigInt())
+      new Fr(slot.toBigInt()),
     );
 
     context.machineState.memory.set(this.bOffset, new Field(data));

@@ -2,16 +2,12 @@ import { Fr } from '@aztec/foundation/fields';
 
 import type { PublicStateDB } from '../../index.js';
 
-
 export class PublicStorage {
   private readonly hostPublicStorage: PublicStateDB;
   private readonly parentStorage: PendingStorage | undefined;
   private pendingStorage: PendingStorage;
 
-  constructor(
-    hostPublicStorage: PublicStateDB,
-    parent?: PublicStorage,
-  ) {
+  constructor(hostPublicStorage: PublicStateDB, parent?: PublicStorage) {
     this.hostPublicStorage = hostPublicStorage;
     this.parentStorage = parent?.pendingStorage;
     this.pendingStorage = new PendingStorage();
@@ -25,10 +21,7 @@ export class PublicStorage {
     this.pendingStorage.acceptAndMerge(otherPublicStorage.pendingStorage);
   }
 
-  public async read(
-    storageAddress: Fr,
-    slot: Fr
-  ): Promise<[/*exists=*/boolean, /*value=*/Fr]> {
+  public async read(storageAddress: Fr, slot: Fr): Promise<[/*exists=*/ boolean, /*value=*/ Fr]> {
     // First try check this storage cache
     let value = this.pendingStorage.read(storageAddress, slot);
     // Then try parent's storage cache (if it exists / written to earlier in this TX)
@@ -74,7 +67,6 @@ export class PendingStorage {
     }
     storageForContract.set(slot.toBigInt(), value);
   }
-
 
   /**
    * Merges a nested/child call's staged public storage modifications
