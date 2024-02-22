@@ -7,8 +7,9 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 export class TxEffect {
   constructor(
@@ -42,6 +43,71 @@ export class TxEffect {
     public encryptedLogs: TxL2Logs,
     public unencryptedLogs: TxL2Logs,
   ) {}
+
+  toBuffer(): Buffer {
+    // TODO(benesjan): move to foundation package?
+    const serializeAndPrefixWithUint8 = (
+      arr: {
+        /**
+         * Serialize to a buffer.
+         */
+        toBuffer: () => Buffer;
+      }[],
+    ) => {
+      const length = Buffer.alloc(1);
+      length.writeUInt8(arr.length);
+      return Buffer.concat([length, ...arr.map(x => x.toBuffer())]);
+    };
+
+    const nonZeroNoteHashes = this.newNoteHashes.filter(h => h.isZero());
+    const nonZeroNullifiers = this.newNullifiers.filter(h => h.isZero());
+    const nonZeroL2ToL1Msgs = this.newL2ToL1Msgs.filter(h => h.isZero());
+    const nonZeroPublicDataWrites = this.newPublicDataWrites.filter(h => h.isEmpty());
+    const nonZeroContractLeaves = this.contractLeaves.filter(h => h.isZero());
+    const nonZeroContractData = this.contractData.filter(h => h.isEmpty());
+
+    return Buffer.concat([
+      serializeAndPrefixWithUint8(nonZeroNoteHashes),
+      serializeAndPrefixWithUint8(nonZeroNullifiers),
+      serializeAndPrefixWithUint8(nonZeroL2ToL1Msgs),
+      serializeAndPrefixWithUint8(nonZeroPublicDataWrites),
+      serializeAndPrefixWithUint8(nonZeroContractLeaves),
+      // We don't prefix the contract data with the length because we already have that info before contract leaves
+      ...nonZeroContractData.map(x => x.toBuffer()),
+      this.encryptedLogs.toBuffer(),
+      this.unencryptedLogs.toBuffer(),
+    ]);
+  }
+
+  /**
+   * Deserializes the L2Tx object from a Buffer.
+   * @param buffer - Buffer or BufferReader object to deserialize.
+   * @returns An instance of L2Tx.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): TxEffect {
+    const reader = BufferReader.asReader(buffer);
+
+    const nonZeroNoteHashes = reader.readVectorUint8Prefix(Fr);
+    const nonZeroNullifiers = reader.readVectorUint8Prefix(Fr);
+    const nonZeroL2ToL1Msgs = reader.readVectorUint8Prefix(Fr);
+    const nonZeroPublicDataWrites = reader.readVectorUint8Prefix(PublicDataWrite);
+
+    const nonZeroContractLeaves = reader.readVectorUint8Prefix(Fr);
+
+    const numContracts = nonZeroContractLeaves.length;
+    const nonZeroContractData = reader.readArray(numContracts, ContractData);
+
+    return new TxEffect(
+      padArrayEnd(nonZeroNoteHashes, Fr.ZERO, MAX_NEW_NOTE_HASHES_PER_TX),
+      padArrayEnd(nonZeroNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_TX),
+      padArrayEnd(nonZeroL2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX),
+      padArrayEnd(nonZeroPublicDataWrites, PublicDataWrite.empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+      padArrayEnd(nonZeroContractLeaves, Fr.ZERO, MAX_NEW_CONTRACTS_PER_TX),
+      padArrayEnd(nonZeroContractData, ContractData.empty(), MAX_NEW_CONTRACTS_PER_TX),
+      TxL2Logs.fromBuffer(reader),
+      TxL2Logs.fromBuffer(reader),
+    );
+  }
 
   hash() {
     const noteHashesBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
