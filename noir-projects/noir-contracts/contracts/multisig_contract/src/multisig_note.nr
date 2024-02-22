@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 
 global MAX_MULTISIG_OWNERS: Field = 5;
-global MULTISIG_NOTE_LEN: Field = 8;
+global MULTISIG_NOTE_LEN: Field = 10;
 
 struct MultiSigNote {
     owners: [AztecAddress; MAX_MULTISIG_OWNERS],

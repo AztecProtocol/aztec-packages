@@ -2,11 +2,8 @@ import { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 
-
-
 import { Wallet } from '../account/wallet.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
-
 
 export { SendMethodOptions };
 
@@ -43,12 +40,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * user's wallet, ready to be simulated.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(): Promise<TxExecutionRequest> {
+  public async create(options?: SendMethodOptions): Promise<TxExecutionRequest> {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], {});
+      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], options);
     }
     return this.txRequest;
   }

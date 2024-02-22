@@ -81,8 +81,8 @@ function buildPayload(calls: FunctionCall[], maxCalls: number, nonce: Fr = Fr.ra
 }
 
 /** Assembles an entrypoint app payload from a set of private and public function calls */
-export function buildAppPayload(calls: FunctionCall[]): PayloadWithArguments {
-  return buildPayload(calls, ACCOUNT_MAX_CALLS);
+export function buildAppPayload(calls: FunctionCall[], feeOpts?: Partial<FeeOptions>): PayloadWithArguments {
+  return buildPayload(calls, ACCOUNT_MAX_CALLS, feeOpts?.nonce);
 }
 
 /** Creates the payload for paying the fee for a transaction */
