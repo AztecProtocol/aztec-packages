@@ -124,6 +124,7 @@ template <typename FF> struct PowPolynomial {
      */
     BB_PROFILE void compute_values()
     {
+        BB_OP_COUNT_TIME();
         size_t pow_size = 1 << betas.size();
         pow_betas = std::vector<FF>(pow_size);
 
@@ -137,19 +138,31 @@ template <typename FF> struct PowPolynomial {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
-
+        static_cast<void>(iterations_per_thread);
         // // first generate values for each thread with one thread
         // size_t cur_pow = 1;
+        // size_t level = betas.size() - 1;
         // while (cur_pow < max_num_threads) {
-
-        //     pow_betas[]
+        //     for (size_t i = 0; i < cur_pow; i++) {
+        //         pow_betas[(i << (level + 1)) + (1 << level)] = pow_betas[(i << (level + 1))] * betas[level];
+        //     }
+        //     cur_pow++;
+        //     level--;
         // }
-        // each thread computes a tree
+        // // each thread computes a tree at i<<level
+        // parallel_for(num_threads, [level, this, iterations_per_thread](size_t thread_idx) {
+        //     size_t start_idx = thread_idx * iterations_per_thread;
+        //     size_t cur_pow = 1;
+        //     while (level > 0) {
+        //         for (size_t i =)
+        //             level--;
+        //     }
+        // });
+
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
             for (size_t i = start; i < end; i++) {
-                // compute a tree actually
                 auto res = FF(1);
                 for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
                     if ((j & 1) == 1) {
@@ -159,20 +172,6 @@ template <typename FF> struct PowPolynomial {
                 pow_betas[i] = res;
             }
         });
-
-        // parallel_for(num_threads, [&](size_t thread_idx) {
-        //     size_t start = thread_idx * iterations_per_thread;
-        //     size_t end = (thread_idx + 1) * iterations_per_thread;
-        //     for (size_t i = start; i < end; i++) {
-        //         auto res = FF(1);
-        //         for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-        //             if ((j & 1) == 1) {
-        //                 res *= betas[beta_idx];
-        //             }
-        //         }
-        //         pow_betas[i] = res;
-        //     }
-        // });
     }
 };
 } // namespace bb
