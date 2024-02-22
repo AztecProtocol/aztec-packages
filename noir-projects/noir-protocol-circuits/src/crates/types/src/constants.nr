@@ -35,21 +35,33 @@ global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: Field = 1;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_COMMITMENTS_PER_TX: Field = 64;
+global MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX: Field = 8;
+global MAX_REVERTIBLE_COMMITMENTS_PER_TX: Field = 56;
+
 global MAX_NEW_NULLIFIERS_PER_TX: Field = 64;
+global MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX: Field = 8;
+global MAX_REVERTIBLE_NULLIFIERS_PER_TX: Field = 56;
+
 global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: Field = 8;
+
 global MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX: Field = 8;
+global MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX: Field = 3;
+global MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX: Field = 5;
+
+global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: Field = 32;
+global MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: Field = 16;
+global MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: Field = 16;
+
+global MAX_PUBLIC_DATA_READS_PER_TX: Field = 32;
+global MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX: Field = 16;
+global MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX: Field = 16;
+
 global MAX_NEW_L2_TO_L1_MSGS_PER_TX: Field = 2;
-global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: Field = 16;
-global MAX_PUBLIC_DATA_READS_PER_TX: Field = 16;
 global MAX_NEW_CONTRACTS_PER_TX: Field = 1;
 global MAX_READ_REQUESTS_PER_TX: Field = 128;
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX: Field = 4;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
-
-global MAX_NEW_COMMITMENTS_PER_TX_META: Field = 8;
-global MAX_NEW_NULLIFIERS_PER_TX_META: Field = 8;
-global MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META: Field = 2;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
@@ -72,10 +84,10 @@ global CONTRACT_SUBTREE_SIBLING_PATH_LENGTH: Field = 16;
 global NOTE_HASH_SUBTREE_HEIGHT: Field = 6;
 global NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH: Field = 26;
 global NULLIFIER_SUBTREE_HEIGHT: Field = 6;
-global PUBLIC_DATA_SUBTREE_HEIGHT: Field = 4;
+global PUBLIC_DATA_SUBTREE_HEIGHT: Field = 5;
 global ARCHIVE_HEIGHT: Field = 16;
 global NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH: Field = 14;
-global PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH: Field = 36;
+global PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH: Field = 35;
 global L1_TO_L2_MSG_SUBTREE_HEIGHT: Field = 4;
 global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: Field = 12;
 
@@ -115,8 +127,6 @@ global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bd
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
 // Move these constants to a noir file once the issue below is resolved:
 // https://github.com/noir-lang/noir/issues/1734
-global L1_TO_L2_MESSAGE_LENGTH: Field = 8;
-global L2_TO_L1_MESSAGE_LENGTH: Field = 2;
 global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: Field = 25;
 global MAX_NOTE_FIELDS_LENGTH: Field = 20;
 // GET_NOTE_ORACLE_RETURN_LENGT = MAX_NOTE_FIELDS_LENGTH + 1 + 2
@@ -126,27 +136,40 @@ global GET_NOTE_ORACLE_RETURN_LENGTH: Field = 23;
 global MAX_NOTES_PER_PAGE: Field = 10;
 // VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
 global VIEW_NOTE_ORACLE_RETURN_LENGTH: Field = 212;
+
+// LENGTH OF STRUCTS SERIALIZED TO FIELDS
+global AZTEC_ADDRESS_LENGTH = 1;
 global CALL_CONTEXT_LENGTH: Field = 8;
-global GLOBAL_VARIABLES_LENGTH: Field = 6;
-global PARTIAL_STATE_REFERENCE_LENGTH: Field = 8;
-global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
 global CONTENT_COMMITMENT_LENGTH: Field = 7;
-global HEADER_LENGTH: Field = 25; // 2 for last_archive, 7 for content commitment, 10 for state reference, 6 for global vars
-global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
+global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
+global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 2;
+global ETH_ADDRESS_LENGTH = 1;
+global FUNCTION_DATA_LENGTH: Field = 4;
+global FUNCTION_LEAF_PREIMAGE_LENGTH: Field = 5;
+global GLOBAL_VARIABLES_LENGTH: Field = 6;
+global HEADER_LENGTH: Field = 25; // 2 for last_archive, 7 for content commitment, 10 for state reference, 6 for global vars
+global L1_TO_L2_MESSAGE_LENGTH: Field = 8;
+global L2_TO_L1_MESSAGE_LENGTH: Field = 2;
+global NEW_CONTRACT_DATA_LENGTH: Field = 3;
+global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
+global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
+global PARTIAL_STATE_REFERENCE_LENGTH: Field = 8;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: Field = 219;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 214;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: Field = 219;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 194;
-global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 2;
-global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
+global STATE_REFERENCE_LENGTH: Field = 10; // 2 for snap + 8 for partial
+global TX_CONTEXT_DATA_LENGTH: Field = 11;
+global TX_REQUEST_LENGTH: Field = 17;
+
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
 global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
-global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: Field = 1024;
+global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 32;
 global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED: Field = 52;

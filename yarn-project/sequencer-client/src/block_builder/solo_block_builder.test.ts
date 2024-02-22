@@ -1,11 +1,12 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   L2Block,
-  L2BlockL2Logs,
   MerkleTreeId,
   PublicDataWrite,
   Tx,
+  TxEffect,
   TxL2Logs,
   makeEmptyLogs,
   mockTx,
@@ -18,11 +19,15 @@ import {
   Fr,
   GlobalVariables,
   Header,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -36,7 +41,6 @@ import {
   SideEffectLinkedToNoteHash,
   StateReference,
 } from '@aztec/circuits.js';
-import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
@@ -132,24 +136,33 @@ describe('sequencer/solo_block_builder', () => {
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts.map(n => computeContractLeaf(n)));
+    const newContracts = txs.flatMap(tx => tx.data.end.newContracts.map(cd => cd.hash()));
     for (const [tree, leaves] of [
-      [MerkleTreeId.NOTE_HASH_TREE, txs.flatMap(tx => tx.data.end.newCommitments.map(l => l.value.toBuffer()))],
+      [
+        MerkleTreeId.NOTE_HASH_TREE,
+        txs.flatMap(tx =>
+          [...tx.data.endNonRevertibleData.newCommitments, ...tx.data.end.newCommitments].map(l => l.value.toBuffer()),
+        ),
+      ],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
-      txs.flatMap(tx => tx.data.end.newNullifiers.map(x => x.value.toBuffer())),
+      txs.flatMap(tx =>
+        [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers].map(x => x.value.toBuffer()),
+      ),
       NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const tx of txs) {
       await expectsDb.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        tx.data.end.publicDataUpdateRequests.map(write => {
-          return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
-        }),
+        [...tx.data.endNonRevertibleData.publicDataUpdateRequests, ...tx.data.end.publicDataUpdateRequests].map(
+          write => {
+            return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
+          },
+        ),
         PUBLIC_DATA_SUBTREE_HEIGHT,
       );
     }
@@ -190,7 +203,7 @@ describe('sequencer/solo_block_builder', () => {
     const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
     kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
 
-    const tx = await makeProcessedTx(
+    const tx = makeProcessedTx(
       new Tx(
         kernelOutput,
         emptyProof,
@@ -214,38 +227,33 @@ describe('sequencer/solo_block_builder', () => {
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
 
-    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
-    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
-    const newContractData = txs
-      .flatMap(tx => tx.data.end.newContracts)
-      .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
-    const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+    // Collect all new nullifiers, commitments, and contracts from all txs in this block
+    const txEffects: TxEffect[] = txs.map(
+      tx =>
+        new TxEffect(
+          tx.data.combinedData.newCommitments.map((c: SideEffect) => c.value),
+          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
+          tx.data.combinedData.newL2ToL1Msgs,
+          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+          tx.data.combinedData.newContracts.map(cd => cd.hash()),
+          tx.data.combinedData.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
+          tx.encryptedLogs || new TxL2Logs([]),
+          tx.unencryptedLogs || new TxL2Logs([]),
+        ),
     );
-    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
-    const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
-    const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
 
+    const body = new Body(mockL1ToL2Messages, txEffects);
     // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
     const l2Block = L2Block.fromFields({
       archive: AppendOnlyTreeSnapshot.zero(),
       header: Header.empty(),
       // Only the values below go to body hash/calldata hash
-      newCommitments: newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
-      newNullifiers: newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
-      newContracts,
-      newContractData,
-      newPublicDataWrites,
-      newL1ToL2Messages: mockL1ToL2Messages,
-      newL2ToL1Msgs,
-      newEncryptedLogs,
-      newUnencryptedLogs,
+      body,
     });
 
     // Now we update can make the final header, compute the block hash and update archive
     rootRollupOutput.header.globalVariables = globalVariables;
-    rootRollupOutput.header.contentCommitment.txsHash = l2Block.getCalldataHash();
+    rootRollupOutput.header.contentCommitment.txsHash = l2Block.body.getCalldataHash();
     rootRollupOutput.header.state = await getStateReference();
 
     await updateArchive();
@@ -297,25 +305,44 @@ describe('sequencer/solo_block_builder', () => {
       const kernelOutput = PublicKernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
         seed + 0x500,
       );
+      kernelOutput.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
+        MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+        seed + 0x600,
+      );
 
-      const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
+      const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+      processedTx.data.end.newCommitments = makeTuple(
+        MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+        makeNewSideEffect,
+        seed + 0x100,
+      );
+      processedTx.data.endNonRevertibleData.newCommitments = makeTuple(
+        MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX,
+        makeNewSideEffect,
+        seed + 0x100,
+      );
       processedTx.data.end.newNullifiers = makeTuple(
-        MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_REVERTIBLE_NULLIFIERS_PER_TX,
         makeNewSideEffectLinkedToNoteHash,
         seed + 0x200,
+      );
+      processedTx.data.endNonRevertibleData.newNullifiers = makeTuple(
+        MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+        makeNewSideEffectLinkedToNoteHash,
+        seed + 0x300,
       );
       processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-      processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-      processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+      processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
+      processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
       return processedTx;
     };

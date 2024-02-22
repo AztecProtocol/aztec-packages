@@ -28,6 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
@@ -73,6 +74,8 @@ export interface KernelProverOutput extends ProofOutputFinal {
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
+  private log = createDebugLogger('aztec:kernel-prover');
+
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
 
   /**
@@ -100,7 +103,9 @@ export class KernelProver {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
 
-      const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
+      const privateCallRequests = currentExecution.nestedExecutions.map(result =>
+        result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
+      );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
 
       // Start with the partially filled in read request witnesses from the simulator
@@ -189,6 +194,10 @@ export class KernelProver {
 
     const masterNullifierSecretKeys = await this.getMasterNullifierSecretKeys(
       output.publicInputs.end.nullifierKeyValidationRequests,
+    );
+
+    this.log.debug(
+      `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
@@ -351,10 +360,13 @@ export class KernelProver {
     commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    const alreadyUsed = new Set<number>();
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
       if (!nullifiedCommitments[i].isZero()) {
-        const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
+        const equalToCommitment = (cmt: SideEffect, index: number) =>
+          cmt.value.equals(nullifiedCommitments[i]) && !alreadyUsed.has(index);
         const result = commitments.findIndex(equalToCommitment);
+        alreadyUsed.add(result);
         if (result == -1) {
           throw new Error(
             `The nullified commitment at index ${i} with value ${nullifiedCommitments[

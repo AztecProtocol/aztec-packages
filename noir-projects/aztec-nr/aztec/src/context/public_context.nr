@@ -155,14 +155,12 @@ impl PublicContext {
         self.new_l2_to_l1_msgs.push(message);
     }
 
-    // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
-    // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
-    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
+    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field, sender: EthAddress) {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
             this,
-            self.this_portal_address(),
+            sender,
             self.chain_id(),
             self.version(),
             msg_key,
@@ -194,10 +192,10 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false)
+        call_public_function_internal(contract_address, function_selector, args_hash, false, false)
     }
 
-    pub fn call_public_function_static<ARGS_COUNT>(
+    pub fn static_call_public_function<ARGS_COUNT>(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -205,7 +203,18 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, true)
+        call_public_function_internal(contract_address, function_selector, args_hash, true, false)
+    }
+
+    pub fn delegate_call_public_function<ARGS_COUNT>(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        call_public_function_internal(contract_address, function_selector, args_hash, false, true)
     }
 
     pub fn call_public_function_no_args(
@@ -213,14 +222,22 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false)
+        call_public_function_internal(contract_address, function_selector, 0, false, false)
     }
 
-    pub fn call_public_function_no_args_static(
+    pub fn static_call_public_function_no_args(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, true)
+        call_public_function_internal(contract_address, function_selector, 0, true, false)
+    }
+
+    pub fn delegate_call_public_function_no_args(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        call_public_function_internal(contract_address, function_selector, 0, false, true)
     }
 }

@@ -1,8 +1,8 @@
 use dep::std;
 use dep::types::{
     abis::{
-    call_request::CallRequest, combined_accumulated_data::CombinedAccumulatedData,
-    function_data::FunctionData, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
+    call_request::CallRequest, accumulated_data::CombinedAccumulatedData, function_data::FunctionData,
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
     membership_witness::ReadRequestMembershipWitness, new_contract_data::NewContractData,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -11,7 +11,7 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
-    contract_class::ContractClassId, contrakt::deployment_data::ContractDeploymentData,
+    contract_class_id::ContractClassId, contrakt::contract_deployment_data::ContractDeploymentData,
     constants::{
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_COMMITMENTS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_READ_REQUESTS_PER_CALL,
@@ -86,6 +86,7 @@ pub fn initialize_end_values(
     public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
 ) {
     public_inputs.constants = previous_kernel.public_inputs.constants;
+    public_inputs.min_revertible_side_effect_counter = previous_kernel.public_inputs.min_revertible_side_effect_counter;
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
@@ -137,12 +138,14 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     }
 }
 
-fn is_valid_caller(request: CallRequest, private_call: PrivateCallData) -> bool {
-    let call_context = private_call.call_stack_item.public_inputs.call_context;
-    let valid_caller_context = request.caller_context.msg_sender.eq(call_context.msg_sender)
-        & request.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
-    request.caller_contract_address.eq(private_call.call_stack_item.contract_address)
-        & (request.caller_context.is_empty() | valid_caller_context)
+fn is_valid_caller(request_from_stack: CallRequest, fn_being_verified: PrivateCallData) -> bool {
+    let call_context = fn_being_verified.call_stack_item.public_inputs.call_context;
+
+    let valid_caller_context = request_from_stack.caller_context.msg_sender.eq(call_context.msg_sender)
+        & request_from_stack.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
+
+    request_from_stack.caller_contract_address.eq(fn_being_verified.call_stack_item.contract_address)
+        & (request_from_stack.caller_context.is_empty() | valid_caller_context)
 }
 
 fn validate_call_requests<N>(
