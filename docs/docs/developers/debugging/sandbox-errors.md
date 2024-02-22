@@ -22,7 +22,7 @@ Remember that for each function call (i.e. each item in the call stack), there i
 Cannot call contract at address(0x0) privately.
 This error may also happen when you deploy a new contract and the contract data hash is inconsistent to the expected contract address.
 
-#### 2005 - PRIVATE_KERNEL\_\_NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL
+#### 2005 - PRIVATE_KERNEL\_\_NEW_NOTE_HASHES_PROHIBITED_IN_STATIC_CALL
 
 For static calls, new note hashes aren't allowed
 
@@ -120,7 +120,7 @@ For static calls, no contract storage change requests are allowed.
 
 Same as [3022](#3022---public_kernel__public_call_stack_contract_storage_updates_prohibited_for_static_call), no contract changes are allowed for static calls.
 
-#### 3026 - PUBLIC_KERNEL\_\_NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL
+#### 3026 - PUBLIC_KERNEL\_\_NOTE_HASHES_PROHIBITED_IN_STATIC_CALL
 
 For static calls, no new note hashes or nullifiers can be added to the state.
 
