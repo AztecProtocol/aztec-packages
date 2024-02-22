@@ -45,13 +45,13 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     const WireVector& ecc_op_wire_3() const { return std::get<2>(ecc_op_block.wires); };
     const WireVector& ecc_op_wire_4() const { return std::get<3>(ecc_op_block.wires); };
 
-    SelectorVector& q_busread() { return this->main_block.selectors.q_busread(); };
-    SelectorVector& q_poseidon2_external() { return this->main_block.selectors.q_poseidon2_external(); };
-    SelectorVector& q_poseidon2_internal() { return this->main_block.selectors.q_poseidon2_internal(); };
+    SelectorVector& q_busread() { return this->blocks[1].selectors.q_busread(); };
+    SelectorVector& q_poseidon2_external() { return this->blocks[1].selectors.q_poseidon2_external(); };
+    SelectorVector& q_poseidon2_internal() { return this->blocks[1].selectors.q_poseidon2_internal(); };
 
-    const SelectorVector& q_busread() const { return this->main_block.selectors.q_busread(); };
-    const SelectorVector& q_poseidon2_external() const { return this->main_block.selectors.q_poseidon2_external(); };
-    const SelectorVector& q_poseidon2_internal() const { return this->main_block.selectors.q_poseidon2_internal(); };
+    const SelectorVector& q_busread() const { return this->blocks[1].selectors.q_busread(); };
+    const SelectorVector& q_poseidon2_external() const { return this->blocks[1].selectors.q_poseidon2_external(); };
+    const SelectorVector& q_poseidon2_internal() const { return this->blocks[1].selectors.q_poseidon2_internal(); };
 
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;

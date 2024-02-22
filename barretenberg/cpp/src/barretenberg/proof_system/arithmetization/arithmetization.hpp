@@ -35,6 +35,7 @@ namespace bb {
 // accessible through clearly named static class members.
 template <typename FF_> class StandardArith {
   public:
+    static constexpr size_t NUM_BLOCKS = 2; // arith, PI
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t NUM_SELECTORS = 5;
     using FF = FF_;
@@ -69,6 +70,7 @@ template <typename FF_> class StandardArith {
 
 template <typename FF_> class UltraArith {
   public:
+    static constexpr size_t NUM_BLOCKS = 2; // main, PI
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
@@ -125,6 +127,7 @@ template <typename FF_> class UltraArith {
  */
 template <typename FF_> class UltraHonkArith {
   public:
+    static constexpr size_t NUM_BLOCKS = 2; // goblin, PI, main
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
     using FF = FF_;

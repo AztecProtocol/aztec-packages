@@ -30,6 +30,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
   public:
     using Selectors = Arithmetization;
     using TraceBlock = ExecutionTraceBlock<Arithmetization>;
+    using GateBlocks = std::array<TraceBlock, Arithmetization::NUM_BLOCKS>;
+
     using FF = typename Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
@@ -459,7 +461,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             builder->q_aux().resize(num_gates);
             builder->q_lookup_type().resize(num_gates);
             if constexpr (HasAdditionalSelectors<Arithmetization>) {
-                builder->main_block.selectors.resize_additional(num_gates);
+                builder->blocks[1].selectors.resize_additional(num_gates);
             }
         }
         /**
@@ -573,46 +575,47 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     };
 
     // Block for all gates
-    TraceBlock main_block;
+    GateBlocks blocks;
+    // const size_t MAIN = 1;
 
-    const auto& get_wires() const { return main_block.wires; };
+    const auto& get_wires() const { return blocks[1].wires; };
 
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l() { return std::get<0>(main_block.wires); };
-    WireVector& w_r() { return std::get<1>(main_block.wires); };
-    WireVector& w_o() { return std::get<2>(main_block.wires); };
-    WireVector& w_4() { return std::get<3>(main_block.wires); };
+    WireVector& w_l() { return std::get<0>(blocks[1].wires); };
+    WireVector& w_r() { return std::get<1>(blocks[1].wires); };
+    WireVector& w_o() { return std::get<2>(blocks[1].wires); };
+    WireVector& w_4() { return std::get<3>(blocks[1].wires); };
 
-    const WireVector& w_l() const { return std::get<0>(main_block.wires); };
-    const WireVector& w_r() const { return std::get<1>(main_block.wires); };
-    const WireVector& w_o() const { return std::get<2>(main_block.wires); };
-    const WireVector& w_4() const { return std::get<3>(main_block.wires); };
+    const WireVector& w_l() const { return std::get<0>(blocks[1].wires); };
+    const WireVector& w_r() const { return std::get<1>(blocks[1].wires); };
+    const WireVector& w_o() const { return std::get<2>(blocks[1].wires); };
+    const WireVector& w_4() const { return std::get<3>(blocks[1].wires); };
 
-    SelectorVector& q_m() { return main_block.selectors.q_m(); };
-    SelectorVector& q_c() { return main_block.selectors.q_c(); };
-    SelectorVector& q_1() { return main_block.selectors.q_1(); };
-    SelectorVector& q_2() { return main_block.selectors.q_2(); };
-    SelectorVector& q_3() { return main_block.selectors.q_3(); };
-    SelectorVector& q_4() { return main_block.selectors.q_4(); };
-    SelectorVector& q_arith() { return main_block.selectors.q_arith(); };
-    SelectorVector& q_sort() { return main_block.selectors.q_sort(); };
-    SelectorVector& q_elliptic() { return main_block.selectors.q_elliptic(); };
-    SelectorVector& q_aux() { return main_block.selectors.q_aux(); };
-    SelectorVector& q_lookup_type() { return main_block.selectors.q_lookup_type(); };
+    SelectorVector& q_m() { return blocks[1].selectors.q_m(); };
+    SelectorVector& q_c() { return blocks[1].selectors.q_c(); };
+    SelectorVector& q_1() { return blocks[1].selectors.q_1(); };
+    SelectorVector& q_2() { return blocks[1].selectors.q_2(); };
+    SelectorVector& q_3() { return blocks[1].selectors.q_3(); };
+    SelectorVector& q_4() { return blocks[1].selectors.q_4(); };
+    SelectorVector& q_arith() { return blocks[1].selectors.q_arith(); };
+    SelectorVector& q_sort() { return blocks[1].selectors.q_sort(); };
+    SelectorVector& q_elliptic() { return blocks[1].selectors.q_elliptic(); };
+    SelectorVector& q_aux() { return blocks[1].selectors.q_aux(); };
+    SelectorVector& q_lookup_type() { return blocks[1].selectors.q_lookup_type(); };
 
-    const SelectorVector& q_c() const { return main_block.selectors.q_c(); };
-    const SelectorVector& q_1() const { return main_block.selectors.q_1(); };
-    const SelectorVector& q_2() const { return main_block.selectors.q_2(); };
-    const SelectorVector& q_3() const { return main_block.selectors.q_3(); };
-    const SelectorVector& q_4() const { return main_block.selectors.q_4(); };
-    const SelectorVector& q_arith() const { return main_block.selectors.q_arith(); };
-    const SelectorVector& q_sort() const { return main_block.selectors.q_sort(); };
-    const SelectorVector& q_elliptic() const { return main_block.selectors.q_elliptic(); };
-    const SelectorVector& q_aux() const { return main_block.selectors.q_aux(); };
-    const SelectorVector& q_lookup_type() const { return main_block.selectors.q_lookup_type(); };
-    const SelectorVector& q_m() const { return main_block.selectors.q_m(); };
+    const SelectorVector& q_c() const { return blocks[1].selectors.q_c(); };
+    const SelectorVector& q_1() const { return blocks[1].selectors.q_1(); };
+    const SelectorVector& q_2() const { return blocks[1].selectors.q_2(); };
+    const SelectorVector& q_3() const { return blocks[1].selectors.q_3(); };
+    const SelectorVector& q_4() const { return blocks[1].selectors.q_4(); };
+    const SelectorVector& q_arith() const { return blocks[1].selectors.q_arith(); };
+    const SelectorVector& q_sort() const { return blocks[1].selectors.q_sort(); };
+    const SelectorVector& q_elliptic() const { return blocks[1].selectors.q_elliptic(); };
+    const SelectorVector& q_aux() const { return blocks[1].selectors.q_aux(); };
+    const SelectorVector& q_lookup_type() const { return blocks[1].selectors.q_lookup_type(); };
+    const SelectorVector& q_m() const { return blocks[1].selectors.q_m(); };
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -653,7 +656,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        main_block.selectors.reserve(size_hint);
+        blocks[1].selectors.reserve(size_hint);
         w_l().reserve(size_hint);
         w_r().reserve(size_hint);
         w_o().reserve(size_hint);
@@ -682,7 +685,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                          bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        main_block.selectors.reserve(size_hint);
+        blocks[1].selectors.reserve(size_hint);
         w_l().reserve(size_hint);
         w_r().reserve(size_hint);
         w_o().reserve(size_hint);
@@ -709,7 +712,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
         : CircuitBuilderBase<FF>(std::move(other))
     {
-        main_block = other.main_block;
+        blocks = other.blocks;
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
@@ -726,7 +729,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
-        main_block = other.main_block;
+        blocks = other.blocks;
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
@@ -754,9 +757,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 #if NDEBUG
         // do nothing
 #else
-        size_t nominal_size = main_block.selectors.get()[0].size();
-        for (size_t idx = 1; idx < main_block.selectors.get().size(); ++idx) {
-            ASSERT(main_block.selectors.get()[idx].size() == nominal_size);
+        size_t nominal_size = blocks[1].selectors.get()[0].size();
+        for (size_t idx = 1; idx < blocks[1].selectors.get().size(); ++idx) {
+            ASSERT(blocks[1].selectors.get()[idx].size() == nominal_size);
         }
 #endif // NDEBUG
     }
