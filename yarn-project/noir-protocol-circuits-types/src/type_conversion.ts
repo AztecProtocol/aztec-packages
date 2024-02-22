@@ -720,7 +720,7 @@ export function mapReadRequestMembershipWitnessToNoir(
     leaf_index: mapFieldToNoir(readRequestMembershipWitness.leafIndex),
     sibling_path: mapTuple(readRequestMembershipWitness.siblingPath, mapFieldToNoir),
     is_transient: readRequestMembershipWitness.isTransient,
-    hint_to_commitment: mapFieldToNoir(readRequestMembershipWitness.hintToCommitment),
+    hint_to_note_hash: mapFieldToNoir(readRequestMembershipWitness.hintToNoteHash),
   };
 }
 

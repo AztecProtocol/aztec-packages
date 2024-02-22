@@ -67,13 +67,13 @@ For a non transient read, we fetch the merkle root from the membership witnesses
 
 #### 2019 - PRIVATE_KERNEL\_\_TRANSIENT_READ_REQUEST_NO_MATCH
 
-A pending commitment is the one that is not yet added to note hash tree.
-A transient read is when we try to "read" a pending commitment.
-This error happens when you try to read a pending commitment that doesn't exist.
+A pending note hash is the one that is not yet added to note hash tree.
+A transient read is when we try to "read" a pending note hash.
+This error happens when you try to read a pending note hash that doesn't exist.
 
 #### 2021 - PRIVATE_KERNEL\_\_UNRESOLVED_NON_TRANSIENT_READ_REQUEST
 
-For a transient read request we skip merkle membership checks since pending commitments aren't inserted into the note hash tree yet.
+For a transient read request we skip merkle membership checks since pending note hashes aren't inserted into the note hash tree yet.
 But for non transient reads, we do a merkle membership check. Reads are done at the kernel circuit. So this checks that there are no already unresolved reads from a previous kernel iteration (other than non transient ones).
 
 #### 3001 - PUBLIC_KERNEL\_\_UNSUPPORTED_OP

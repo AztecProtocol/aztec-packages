@@ -893,7 +893,7 @@ describe('Private Execution test suite', () => {
     });
   });
 
-  describe('pending commitments contract', () => {
+  describe('pending note hashes contract', () => {
     beforeEach(() => {
       oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
         if (address.equals(owner)) {
@@ -912,7 +912,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should be able to insert, read, and nullify pending commitments in one call', async () => {
+    it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -973,7 +973,7 @@ describe('Private Execution test suite', () => {
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 
-    it('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
+    it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;

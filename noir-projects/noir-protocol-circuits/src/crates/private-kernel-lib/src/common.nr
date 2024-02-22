@@ -63,11 +63,11 @@ pub fn validate_read_requests(
         let read_request = read_requests[rr_idx].value;
         let witness = read_request_membership_witnesses[rr_idx];
 
-        // A pending commitment is the one that is not yet added to note hash tree
-        // A "transient read" is when we try to "read" a pending commitment within a transaction
+        // A pending note hash is the one that is not yet added to note hash tree
+        // A "transient read" is when we try to "read" a pending note hash within a transaction
         // between function calls, as opposed to reading the outputs of a previous transaction
         // which is a "pending read".
-        // A transient read is when we try to "read" a pending commitment
+        // A transient read is when we try to "read" a pending note hash
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a 'pending note read'.

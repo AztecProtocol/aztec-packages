@@ -177,7 +177,7 @@ Some example features:
     - This would give much more flexibility over the sizes of various arrays that a circuit can output. Without it, if one array of an app circuit needs to be size 2000, but other arrays aren't used, we'd use a kernel where every array is size 2048, meaning a huge amount of unnecessary loops of computation for those empty arrays.
 - Improvements
     - We can definitely change how call stacks are processed within a kernel, to reduce hashing.
-    - Squash pending commitments/nullifiers in every kernel iteration, to enable a deeper nested call depth.
+    - Squash pending note hashes/nullifiers in every kernel iteration, to enable a deeper nested call depth.
 - Topology of a rollup
     - Revisit the current topology:
         - We can make the rollup trees 'wonky' (rather than balanced), meaning a sequencer doesn't need to prove a load of pointless 'padding' proofs?
