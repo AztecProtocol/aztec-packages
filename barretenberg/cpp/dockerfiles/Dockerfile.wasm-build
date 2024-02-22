@@ -4,7 +4,8 @@ WORKDIR /usr/src/barretenberg/cpp
 COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
 RUN ./scripts/install-wasi-sdk.sh
 COPY . .
-RUN cmake --preset wasm && cmake --build --preset wasm
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/865) reconsider single-threaded barretenberg
+# RUN cmake --preset wasm && cmake --build --preset wasm
 RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
 RUN ./scripts/strip-wasm.sh
 
@@ -14,5 +15,6 @@ COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/s
 # copy to build/ for bench.sh compatibility
 COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
 COPY --from=builder /usr/src/barretenberg/cpp/build-wasm /usr/src/barretenberg/cpp/build
-COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/865) reconsider single-threaded barretenberg
+# COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm
 COPY --from=builder /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm

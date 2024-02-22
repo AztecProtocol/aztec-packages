@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
@@ -9,7 +9,7 @@ cd ../../srs_db
 cd ../build
 
 function bench() {
-  wasmtime run -Wthreads=y -Sthreads=y ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2 | grep -v WASMTIME_ENV_HACK > $1.json
+  wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2 > $1.json
   cat $1.json
 }
 

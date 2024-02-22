@@ -14,4 +14,4 @@ cmake --build --preset wasm-bench --target $BENCHMARK
 cd build-wasm-bench
 # Consistency with _wasm.sh targets / shorter $COMMAND.
 cp ./bin/$BENCHMARK .
-wasmtime run -Wthreads=y -Sthreads=y $COMMAND
+wasmtime run -Wthreads=y -Sthreads=y --dir=.. $COMMAND
