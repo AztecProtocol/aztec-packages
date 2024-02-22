@@ -44,7 +44,7 @@ contract MultiSigAccount {
         assert(
             compute_public_key(private_key).eq(get_public_key(contract_address)), "Mismatching private key"
         );
-        let mut note = MultiSigNote::new(owners, private_key, threshold, contract_address);
+        let mut note = MultiSigNote::new(owners, private_key, threshold, contract_address, 0, true);
         storage.state.initialize(&mut note, /*broadcast=*/ true);
     }
 
@@ -60,12 +60,14 @@ contract MultiSigAccount {
         // where we cannot get the same singleton note twice in the same tx. So we extract the logic
         // to a "collect_auths" internal method that receives the state, which we read from the caller.
         // ^ this should be fixed in (thanks alvaro). Jean is creating a PR for this.
-        let collect_auths_selector = FunctionSelector::from_signature("collect_auths(Field,[(Field);5],u8)");
+        let collect_auths_selector = FunctionSelector::from_signature("collect_auths(Field,[(Field);5],u8,u32)");
+        let update_config_selector = FunctionSelector::from_signature("update_config([(Field);5],u8)");
         let this = context.this_address();
         let storage = Storage::init(Context::private(&mut context));
         let state = storage.state.get_note(/*broadcast=*/ true);
         let owners = state.owners;
         let threshold = state.threshold;
+        assert(app_payload.nonce == state.multisig_account_nonce as Field + 1, "Nonce not an increment");
 
         debug_log_format(
             "MultisigAccount.entrypoint fee_payload_hash={0} fee_payload_len={1}",
@@ -95,12 +97,24 @@ contract MultiSigAccount {
         )[0] as u8;
         assert(app_auths >= threshold, "App payload not authorized by multisig owners");
         app_payload.execute_calls(&mut context);
+        if (app_payload.function_calls[0].function_selector != update_config_selector) {
+            let mut new_note = MultiSigNote::new(
+                owners,
+                state.private_key,
+                threshold,
+                state.contract_address,
+                app_payload.nonce as u32,
+                false
+            );
+            storage.state.replace(&mut new_note, /*broadcast*/ true);
+        }
         debug_log_format("MultisigAccount.entrypoint successfully finished", []);
     }
 
     #[aztec(private)]
     fn is_valid(message_hash: Field) -> Field {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        // nonce check
         actions.is_valid(message_hash)
     }
 
@@ -120,7 +134,8 @@ contract MultiSigAccount {
     internal fn collect_auths(
         message_field: Field,
         owners: [AztecAddress; MAX_MULTISIG_OWNERS],
-        threshold: u8
+        threshold: u8,
+        nonce: u32
     ) -> u8 {
         collect_auths_impl(&mut context, message_field, owners, threshold)
     }
@@ -139,7 +154,9 @@ contract MultiSigAccount {
             new_owners,
             state.private_key,
             new_threshold,
-            context.this_address()
+            context.this_address(),
+            state.multisig_account_nonce + 1,
+            true
         );
         storage.state.replace(&mut new_note, /*broadcast*/ true);
     }
@@ -154,6 +171,7 @@ contract MultiSigAccount {
         let state = storage.state.get_note(/*broadcast=*/ true);
 
         let auths_collected = collect_auths_impl(context, message_field, state.owners, state.threshold);
+
         debug_log_format(
             "MultisigAccount.is_valid_impl auths_collected={0}",
             [auths_collected as Field]
@@ -197,5 +215,9 @@ contract MultiSigAccount {
 
     unconstrained fn get_threshold() -> pub u8 {
         storage.state.view_note().threshold
+    }
+
+    unconstrained fn get_nonce() -> pub u32 {
+        storage.state.view_note().multisig_account_nonce
     }
 }
