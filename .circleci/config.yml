@@ -387,7 +387,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build yarn-project-base | add_timestamps
+          command: cond_spot_run_build yarn-project-base 8 | add_timestamps
 
   yarn-project:
     machine:
