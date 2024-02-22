@@ -15,6 +15,6 @@ if [ "$1" = "master" ]; then
 else
     # Regular deploy if the argument is not "master"
     DEPLOY_OUTPUT=$(netlify deploy --site aztec-docs-dev)
-    UNIQUE_DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'Unique deploy URL:.*' | awk '{print $4}')
+    UNIQUE_DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
     echo "$UNIQUE_DEPLOY_URL"
 fi
