@@ -116,7 +116,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         public_inputs.end.new_nullifiers.storage = self.sorted_new_nullifiers;
     }
 
-    fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
+    fn match_nullifiers_to_note_hashes_and_squash(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
         let mut new_note_hashes = public_inputs.end.new_note_hashes.storage;
@@ -125,19 +125,19 @@ impl PrivateKernelTailCircuitPrivateInputs {
         for n_idx in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = new_nullifiers[n_idx];
             // TODO - should not be able to squash the first nullifier.
-            let nullified_commitment = nullifier.note_hash;
+            let nullified_note_hash = nullifier.note_hash;
             let hint_pos = self.nullifier_commitment_hints[n_idx] as u64;
 
             // Nullified_commitment of value `0` implies non-transient (persistable)
             // nullifier in which case no attempt will be made to match it to a hash.
-            // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a hash below!
-            // 0-valued nullified_commitment is empty and will be ignored
-            if nullified_commitment != 0 {
+            // Non-empty nullified_note_hash implies transient nullifier which MUST be matched to a hash below!
+            // 0-valued nullified_note_hash is empty and will be ignored
+            if nullified_note_hash != 0 {
                 assert(
                     hint_pos < MAX_NEW_NOTE_HASHES_PER_TX as u64, "New nullifier is transient but hint is invalid"
                 );
                 let hash = new_note_hashes[hint_pos];
-                assert_eq(nullified_commitment, hash.value, "Hinted hash does not match");
+                assert_eq(nullified_note_hash, hash.value, "Hinted hash does not match");
                 assert(
                     nullifier.counter > hash.counter, "Nullifier counter must be greater than hash counter"
                 );
@@ -214,7 +214,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         self.match_reads_to_commitments(&mut public_inputs);
 
-        self.match_nullifiers_to_commitments_and_squash(&mut public_inputs);
+        self.match_nullifiers_to_note_hashes_and_squash(&mut public_inputs);
 
         PrivateKernelTailCircuitPrivateInputs::apply_note_hash_nonces(&mut public_inputs);
 
