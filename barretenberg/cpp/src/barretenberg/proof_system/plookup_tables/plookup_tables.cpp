@@ -96,9 +96,13 @@ void init_multi_tables()
             keccak_tables::Rho<8, i>::get_rho_output_table(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE);
     });
     MULTI_TABLES[MultiTableId::HONK_DUMMY_MULTI] = dummy_tables::get_honk_dummy_multitable();
+    inited = true;
 }
 } // namespace
-
+void initialize_multitables()
+{
+    init_multi_tables();
+}
 const MultiTable& create_table(const MultiTableId id)
 {
     if (!inited) {

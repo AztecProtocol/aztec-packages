@@ -17,7 +17,7 @@
 #include "uint.hpp"
 
 namespace bb::plookup {
-
+void initialize_multitables();
 const MultiTable& create_table(MultiTableId id);
 
 ReadData<bb::fr> get_lookup_accumulators(MultiTableId id,
