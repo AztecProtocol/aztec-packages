@@ -289,12 +289,12 @@ function processFiles(baseDir, outputBaseDir) {
 
 
 let baseDir = path.resolve(__dirname, '../../../noir-projects/aztec-nr');
-let outputBaseDir = path.resolve(__dirname, './developers/contracts/references/aztec-nr');
+let outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
 
-if (process.env.CI === 'true') {
-    baseDir = path.resolve(__dirname, '../noir-projects/aztec-nr');
-    outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
-}
+// if (process.env.CI === 'true') {
+//     baseDir = path.resolve(__dirname, '../noir-projects/aztec-nr');
+//     outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
+// }
 
 processFiles(baseDir, outputBaseDir);
 
