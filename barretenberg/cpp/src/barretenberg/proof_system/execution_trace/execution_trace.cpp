@@ -94,6 +94,7 @@ template <class Flavor>
 std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor>::create_execution_trace_blocks(
     const Builder& builder)
 {
+    using GateTypes = Flavor::CircuitBuilder::Arithmetization::GateTypes;
     std::vector<TraceBlock> trace_blocks;
 
     // Make a block for the zero row
@@ -110,7 +111,7 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
 
     // Make a block for the ecc op wires
     if constexpr (IsGoblinFlavor<Flavor>) {
-        trace_blocks.emplace_back(builder.ecc_op_block);
+        trace_blocks.emplace_back(builder.blocks[GateTypes::EccOp]);
     }
 
     // Make a block for the public inputs
@@ -127,12 +128,11 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
             selector.emplace_back(0);
         }
     }
-
     public_block.is_public_input = true;
     trace_blocks.emplace_back(public_block);
 
     // Make a block for the basic wires and selectors
-    trace_blocks.emplace_back(builder.main_block);
+    trace_blocks.emplace_back(builder.blocks[GateTypes::Main]);
 
     return trace_blocks;
 }

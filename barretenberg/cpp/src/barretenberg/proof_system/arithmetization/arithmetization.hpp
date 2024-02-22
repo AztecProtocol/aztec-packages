@@ -40,6 +40,8 @@ template <typename FF_> class StandardArith {
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
 
+    enum GateTypes { PubInputs, Main, NUM_BLOCKS };
+
     std::array<SelectorType, NUM_SELECTORS> selectors;
 
     SelectorType& q_m() { return selectors[0]; };
@@ -73,6 +75,8 @@ template <typename FF_> class UltraArith {
     static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+
+    enum GateTypes { PubInputs, Main, NUM_BLOCKS };
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
@@ -129,6 +133,8 @@ template <typename FF_> class UltraHonkArith {
     static constexpr size_t NUM_SELECTORS = 14;
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+
+    enum GateTypes { EccOp, PubInputs, Main, NUM_BLOCKS };
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
