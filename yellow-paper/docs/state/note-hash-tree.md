@@ -11,11 +11,11 @@ The Kernel circuit also guarantees uniqueness of commitments by further hashing 
 The pseudocode for siloing and making a commitment unique is the following, where each `hash` operation is a Pedersen hash with a unique generator index, indicated by the constant in all caps.
 
 ```
-fn compute_unique_siloed_commitment(commitment, contract, transaction):
-  let siloed_commitment = hash([contract, commitment], SILOED_COMMITMENT)
+fn compute_unique_siloed_note_hash(commitment, contract, transaction):
+  let siloed_note_hash = hash([contract, commitment], SILOED_NOTE_HASH)
   let index = index_of(commitment, transaction.commitments)
-  let nonce = hash([transaction.tx_hash, index], COMMITMENT_NONCE)
-  return hash([nonce, siloed_commitment], UNIQUE_COMMITMENT)
+  let nonce = hash([transaction.tx_hash, index], NOTE_HASH_NONCE)
+  return hash([nonce, siloed_note_hash], UNIQUE_NOTE_HASH)
 ```
 
 The unique siloed commitment of a note is included in the [transaction `data`](../transactions/tx-object.md), and then inserted into the Note Hash tree by the sequencer as the transaction is included in a block.

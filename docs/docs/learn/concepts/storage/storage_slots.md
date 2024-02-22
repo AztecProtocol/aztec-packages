@@ -53,7 +53,7 @@ When reading the values for these notes, the application circuit can then constr
 To ensure that one contract cannot insert storage that other contracts would believe is theirs, we do a second siloing by hashing the `commitment` with the contract address. 
 
 ```rust
-siloed_commitment = H(contract_address, commitment);
+siloed_note_hash = H(contract_address, commitment);
 ```
 
 By doing this address-siloing at the kernel circuit we *force* the inserted commitments to include and not lie about the `contract_address`.
