@@ -114,6 +114,7 @@ function sendGitHubRequest(url: string, method = 'GET', data?: object): Promise<
 
 /** Entrypoint */
 export default async function main(commentType: COMMENT_TYPES = COMMENT_TYPES.BENCH) {
+  console.log(commentType);
   const existingComment = await getExistingComment(commentType);
   await upsertComment(existingComment?.id, commentType);
 }

@@ -1118,14 +1118,14 @@ jobs:
             fi
       - run:
           name: "Build docs"
-          command: build docs
-          aztec_manifest_key: docs
-      - run:
-          name: "Deploy docs and comment on PR"
           command: |
+
+            build docs
+
             echo "Deploying docs"
             UNIQUE_DEPLOY_URL=$(docs/deploy_netlify.sh $CIRCLE_BRANCH)
 
+            echo "Unique deploy URL: $UNIQUE_DEPLOY_URL"
             if [ -n "$UNIQUE_DEPLOY_URL" ]; then
               export DOCKER_RUN_OPTS="\
               -e UNIQUE_DEPLOY_URL=${UNIQUE_DEPLOY_URL} \
