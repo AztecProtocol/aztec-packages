@@ -95,6 +95,8 @@ contract MultiSigAccount {
         ]
         )[0] as u8;
         assert(app_auths >= threshold, "App payload not authorized by multisig owners");
+        
+        // TODO: Should we emit the authwit as a nullifier to prevent from replaying the same payload?
         app_payload.execute_calls(&mut context);
         debug_log_format("MultisigAccount.entrypoint successfully finished", []);
     }
@@ -180,16 +182,17 @@ contract MultiSigAccount {
                     [owner.to_field(), message_field_for_owner]
                 );
                 
-                let try_call: [Field; 5] = try_call_unconstrained_function(owner, is_valid_selector, [message_field_for_owner]);
-                let call_succeeded = try_call[0];
-                let call_result = try_call[1];
+                let try_call = try_call_unconstrained_function(owner, is_valid_selector, [message_field_for_owner]);
+                // TODO: Use map_or here after I learn how to use lambdas in Noir
+                let call_succeeded = try_call.is_some();
+                let call_result = try_call.unwrap_unchecked()[0];
 
                 debug_log_format(
                     "MultisigAccount.is_valid_impl try_call owner={0} call_succeeded={1}, call_result={2}",
-                    [owner.to_field(), call_succeeded, call_result]
+                    [owner.to_field(), call_succeeded as Field, call_result]
                 );
 
-                if (call_succeeded == 1) & (call_result == IS_VALID_SELECTOR) {
+                if (call_succeeded) & (call_result == IS_VALID_SELECTOR) {
                     let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
                     if result == IS_VALID_SELECTOR {
                         auths_collected += 1;
