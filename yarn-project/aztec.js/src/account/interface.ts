@@ -1,7 +1,10 @@
 import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 
+
+
 import { FeePaymentMethod } from '../fee/fee_payment_method.js';
+
 
 /**
  * Fee payment options for a transaction.
@@ -11,6 +14,7 @@ export type FeeOptions = {
   paymentMethod: FeePaymentMethod;
   /** The fee limit to pay */
   maxFee: bigint | number | Fr;
+  nonce: Fr;
 };
 
 // docs:start:account-interface
@@ -31,7 +35,7 @@ export interface EntrypointInterface {
    * @param feeOpts - The fee to be paid for the transaction.
    * @returns The authenticated transaction execution request.
    */
-  createTxExecutionRequest(executions: FunctionCall[], feeOpts?: FeeOptions): Promise<TxExecutionRequest>;
+  createTxExecutionRequest(executions: FunctionCall[], feeOpts?: Partial<FeeOptions>): Promise<TxExecutionRequest>;
 }
 
 /**

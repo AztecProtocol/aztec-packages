@@ -1,4 +1,4 @@
-import { DefaultAccountContract } from '@aztec/accounts/defaults';
+import { DefaultAccountContract, DefaultAccountInterface } from '@aztec/accounts/defaults';
 import {
   AccountManager,
   AccountWallet,
@@ -7,8 +7,10 @@ import {
   ContractArtifact,
   DebugLogger,
   ExtendedNote,
+  FunctionCall,
   GrumpkinPrivateKey,
   GrumpkinScalar,
+  NodeInfo,
   Note,
   PXE,
   PublicKey,
@@ -19,8 +21,9 @@ import {
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
+import { AccountInterface, FeeOptions } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import {
@@ -232,7 +235,12 @@ describe('e2e_multisig', () => {
 const MULTISIG_MAX_OWNERS = 5;
 
 class AccountManagerMultisigAccountContract extends DefaultAccountContract {
-  constructor(private privateKey: GrumpkinPrivateKey, private owners: AztecAddress[], private threshold: number) {
+  constructor(
+    private privateKey: GrumpkinPrivateKey,
+    private owners: AztecAddress[],
+    private threshold: number,
+    private pxe: PXE,
+  ) {
     super(MultiSigAccountContractArtifact as ContractArtifact);
   }
 
@@ -251,6 +259,30 @@ class AccountManagerMultisigAccountContract extends DefaultAccountContract {
       },
     };
   }
+
+  getInterface(address: CompleteAddress, nodeInfo: NodeInfo): AccountInterface {
+    return new MultisigAccountInterface(this.getAuthWitnessProvider(), address, nodeInfo, this.pxe);
+  }
+}
+
+class MultisigAccountInterface extends DefaultAccountInterface {
+  constructor(
+    authWitnessProvider: AuthWitnessProvider,
+    address: CompleteAddress,
+    nodeInfo: Pick<NodeInfo, 'chainId' | 'protocolVersion'>,
+    private pxe: PXE,
+  ) {
+    super(authWitnessProvider, address, nodeInfo);
+  }
+  async createTxExecutionRequest(
+    executions: FunctionCall[],
+    fee: Partial<FeeOptions> = {},
+  ): Promise<TxExecutionRequest> {
+    const multisig = await MultiSigAccountContract.at(this.getCompleteAddress().address, this.pxe as Wallet);
+    // const nonce = await multisig.methods.get_nonce().view();
+    const nonce = new Fr(10);
+    return this.entrypoint.createTxExecutionRequest(executions, { ...fee, nonce });
+  }
 }
 
 function getMultisigAccountManager(
@@ -259,7 +291,11 @@ function getMultisigAccountManager(
   owners: AztecAddress[],
   threshold: number,
 ) {
-  return new AccountManager(pxe, privateKey, new AccountManagerMultisigAccountContract(privateKey, owners, threshold));
+  return new AccountManager(
+    pxe,
+    privateKey,
+    new AccountManagerMultisigAccountContract(privateKey, owners, threshold, pxe),
+  );
 }
 
 // Returns the requests to sign for a given tx request
