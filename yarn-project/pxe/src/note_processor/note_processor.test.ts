@@ -43,7 +43,7 @@ describe('Note Processor', () => {
   const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
   const firstBlockDataEndIndex = firstBlockNum * numCommitmentsPerBlock;
 
-  const computeMockNoteHash = (note: Note) => Fr.fromBuffer(pedersenHash(note.items.map(i => i.toBuffer())));
+  const computeMockNoteHash = (note: Note) => pedersenHash(note.items.map(i => i.toBuffer()));
 
   // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
   const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: L1NotePayload[]) => {
@@ -105,7 +105,11 @@ describe('Note Processor', () => {
       } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
-      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.note));
+      for (let i = 0; i < TXS_PER_BLOCK; i++) {
+        block.body.txEffects[i].newNoteHashes = newNotes
+          .map(n => computeMockNoteHash(n.note))
+          .slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX);
+      }
 
       const randomBlockContext = new L2BlockContext(block);
       blockContexts.push(randomBlockContext);
@@ -192,7 +196,7 @@ describe('Note Processor', () => {
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
       }),
     ]);
-  });
+  }, 30_000);
 
   it('should not store notes that do not belong to us', async () => {
     const { blockContexts, encryptedLogsArr } = mockData([]);

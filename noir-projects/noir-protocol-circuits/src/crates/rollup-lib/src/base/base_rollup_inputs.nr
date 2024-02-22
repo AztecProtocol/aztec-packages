@@ -15,8 +15,7 @@ use dep::types::{
 },
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
     public_data_read::PublicDataRead, kernel_data::PublicKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    combined_accumulated_data::CombinedAccumulatedData
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, accumulated_data::CombinedAccumulatedData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -259,7 +258,7 @@ impl BaseRollupInputs {
         // Consist of
         // MAX_NEW_COMMITMENTS_PER_TX fields for commitments
         // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-        // 16 public data update requests -> 32 fields
+        // 32 public data update requests -> 64 fields
         // 2 l2 -> l1 messages -> 2 fields
         // 1 contract deployments -> 3 fields
         // 1 encrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
@@ -498,7 +497,7 @@ fn consistent_not_hash_subtree_width() {
     );
 }
 
-global CALLDATA_HASH_INPUT_SIZE = 169;
+global CALLDATA_HASH_INPUT_SIZE = 201;
 
 #[test]
 fn consistent_calldata_hash_input_size() {
@@ -522,7 +521,7 @@ fn consistent_call_data_hash_log_fields() {
     );
 }
 
-global CALL_DATA_HASH_FULL_FIELDS = 165;
+global CALL_DATA_HASH_FULL_FIELDS = 197;
 
 #[test]
 fn consistent_call_data_hash_full_fields() {
@@ -569,7 +568,7 @@ mod tests {
         new_contract_data::NewContractData, nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         kernel_data::PublicKernelData, side_effect::SideEffect,
-        combined_accumulated_data::CombinedAccumulatedData
+        accumulated_data::CombinedAccumulatedData
     },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -581,7 +580,7 @@ mod tests {
         PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
         NUM_FIELDS_PER_SHA256
     },
-        contract_class::ContractClassId, partial_state_reference::PartialStateReference,
+        contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::kernel_data_builder::PreviousKernelDataBuilder,
