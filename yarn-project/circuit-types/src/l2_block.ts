@@ -1,14 +1,4 @@
-import {
-  Body,
-  ContractData,
-  L2Tx,
-  LogType,
-  PublicDataWrite,
-  TxEffect,
-  TxEffectLogs,
-  TxHash,
-  TxL2Logs,
-} from '@aztec/circuit-types';
+import { Body, ContractData, L2Tx, LogType, PublicDataWrite, TxEffect, TxHash, TxL2Logs } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   Header,
@@ -94,7 +84,7 @@ export class L2Block {
    * @returns A serialized L2 block logs.
    */
   toBuffer() {
-    return serializeToBuffer(this.header, this.archive, this.body.toBuffer());
+    return serializeToBuffer(this.header, this.archive, this.body);
   }
 
   /**
@@ -133,7 +123,6 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-    withLogs = true,
   ): L2Block {
     const txEffects = [...new Array(txsPerBlock)].map(
       _ =>
@@ -144,12 +133,8 @@ export class L2Block {
           times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
           times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
           times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
-          withLogs
-            ? new TxEffectLogs(
-                TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
-                TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
-              )
-            : undefined,
+          TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
+          TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
         ),
     );
 
@@ -331,21 +316,21 @@ export class L2Block {
    * @returns Stats on tx count, number, and log size and count.
    */
   getStats() {
-    const logsStats = this.body.areLogsAttached() && {
+    const logsStats = {
       encryptedLogLength: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getSerializedLength(),
+        (logCount, txEffect) => logCount + txEffect.encryptedLogs.getSerializedLength(),
         0,
       ),
       encryptedLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.encryptedLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.encryptedLogs.getTotalLogCount(),
         0,
       ),
       unencryptedLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.unencryptedLogs.getSerializedLength(),
+        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getSerializedLength(),
         0,
       ),
       unencryptedLogSize: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.logs!.unencryptedLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getTotalLogCount(),
         0,
       ),
     };

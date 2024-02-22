@@ -145,9 +145,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it.each(blockTests)('retrieves previously stored logs', async (from, limit, getExpectedBlocks) => {
         const expectedLogs = getExpectedBlocks().map(block =>
-          logType === LogType.ENCRYPTED
-            ? new L2BlockL2Logs(block.body.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs))
-            : new L2BlockL2Logs(block.body.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs)),
+          logType === LogType.ENCRYPTED ? block.body.encryptedLogs : block.body.unencryptedLogs,
         );
         const actualLogs = await store.getLogs(from, limit, logType);
         expect(actualLogs).toEqual(expectedLogs);
@@ -369,10 +367,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns previously stored contract data', async () => {
-        // Assuming the first (and only) contract data in the first TX
         await expect(store.getContractData(block.body.txEffects[0].contractData[0].contractAddress)).resolves.toEqual(
           block.body.txEffects[0].contractData[0],
         );
+
+        expect(block.body.txEffects[0].contractData[1]).toBe(undefined);
       });
 
       it('returns undefined if contract data is not found', async () => {
@@ -537,9 +536,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetFunctionLogIndex = Math.floor(Math.random() * numPublicFunctionCalls);
         const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
         const targetContractAddress = UnencryptedL2Log.fromBuffer(
-          blocks[targetBlockIndex].body.txEffects[targetTxIndex].logs!.unencryptedLogs.functionLogs[
-            targetFunctionLogIndex
-          ].logs[targetLogIndex],
+          blocks[targetBlockIndex].body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[targetFunctionLogIndex]
+            .logs[targetLogIndex],
         ).contractAddress;
 
         const response = await store.getUnencryptedLogs({ contractAddress: targetContractAddress });
@@ -558,9 +556,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetFunctionLogIndex = Math.floor(Math.random() * numPublicFunctionCalls);
         const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
         const targetSelector = UnencryptedL2Log.fromBuffer(
-          blocks[targetBlockIndex].body.txEffects[targetTxIndex].logs!.unencryptedLogs.functionLogs[
-            targetFunctionLogIndex
-          ].logs[targetLogIndex],
+          blocks[targetBlockIndex].body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[targetFunctionLogIndex]
+            .logs[targetLogIndex],
         ).selector;
 
         const response = await store.getUnencryptedLogs({ selector: targetSelector });

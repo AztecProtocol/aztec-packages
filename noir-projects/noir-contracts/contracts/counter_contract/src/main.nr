@@ -16,7 +16,7 @@ contract Counter {
                 VALUE_NOTE_LEN,
             },
     };
-    use dep::easy_private_state::easy_private_state::EasyPrivateUint;
+    use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
     // docs:start:storage_struct
@@ -47,17 +47,4 @@ contract Counter {
         balance_utils::get_balance(counters.at(owner).set)
     }
     // docs:end:get_counter
-
-    // docs:start:nullifier
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; VALUE_NOTE_LEN]
-    ) -> pub [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
-    }
-    // docs:end:nullifier
 }

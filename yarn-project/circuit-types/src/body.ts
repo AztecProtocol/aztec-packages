@@ -1,4 +1,4 @@
-import { ContractData, L2BlockL2Logs, PublicDataWrite, TxEffect, TxEffectLogs } from '@aztec/circuit-types';
+import { ContractData, L2BlockL2Logs, PublicDataWrite, TxEffect } from '@aztec/circuit-types';
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
@@ -18,8 +18,6 @@ export class Body {
    * @returns A serialized L2 block body.
    */
   toBuffer() {
-    this.assertLogsAttached();
-
     const newNoteHashes = this.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
     const newNullifiers = this.txEffects.flatMap(txEffect => txEffect.newNullifiers);
     const newPublicDataWrites = this.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
@@ -27,8 +25,8 @@ export class Body {
     const newContracts = this.txEffects.flatMap(txEffect => txEffect.contractLeaves);
     const newContractData = this.txEffects.flatMap(txEffect => txEffect.contractData);
     const newL1ToL2Messages = this.l1ToL2Messages;
-    const newEncryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.encryptedLogs);
-    const newUnencryptedLogs = this.txEffects.flatMap(txEffect => txEffect.logs!.unencryptedLogs);
+    const newEncryptedLogs = this.encryptedLogs;
+    const newUnencryptedLogs = this.unencryptedLogs;
 
     return serializeToBuffer(
       newNoteHashes.length,
@@ -44,8 +42,8 @@ export class Body {
       newContractData,
       newL1ToL2Messages.length,
       newL1ToL2Messages,
-      new L2BlockL2Logs(newEncryptedLogs),
-      new L2BlockL2Logs(newUnencryptedLogs),
+      newEncryptedLogs,
+      newUnencryptedLogs,
     );
   }
 
@@ -94,7 +92,8 @@ export class Body {
           ),
           newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
           newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX),
-          new TxEffectLogs(newEncryptedLogs!.txLogs[i], newUnencryptedLogs!.txLogs[i]),
+          newEncryptedLogs!.txLogs[i],
+          newUnencryptedLogs!.txLogs[i],
         ),
       );
     }
@@ -109,8 +108,6 @@ export class Body {
    * @returns The calldata hash.
    */
   getCalldataHash() {
-    this.assertLogsAttached();
-
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
       let activeLayer = 0;
@@ -138,46 +135,14 @@ export class Body {
     return computeRoot(leafs);
   }
 
-  public assertLogsAttached() {
-    if (!this.areLogsAttached()) {
-      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined');
-    }
-  }
-
-  public areLogsAttached() {
-    return this.txEffects.every(txEffect => txEffect.logs !== undefined);
-  }
-
-  public areLogsEqual(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs) {
-    if (
-      this.txEffects.every(
-        (txEffect, i) =>
-          txEffect.logs?.encryptedLogs.equals(encryptedLogs.txLogs[i]) &&
-          txEffect.logs?.unencryptedLogs.equals(unencryptedLogs.txLogs[i]),
-      )
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
   get encryptedLogs(): L2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.logs!.encryptedLogs);
-
-    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
-      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
-    }
+    const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
 
     return new L2BlockL2Logs(logs);
   }
 
   get unencryptedLogs(): L2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.logs!.unencryptedLogs);
-
-    if (logs.length !== this.txEffects.length || logs.some(log => log === undefined)) {
-      throw new Error('Returned logs should be the same length as our length of txeffects and should be defined');
-    }
+    const logs = this.txEffects.map(txEffect => txEffect.unencryptedLogs);
 
     return new L2BlockL2Logs(logs);
   }

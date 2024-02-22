@@ -11,12 +11,6 @@ describe('L2Block', () => {
     expect(recovered).toEqual(block);
   });
 
-  it('cannot serialize an L2 block without logs', () => {
-    const block = L2Block.random(42, 4, 2, 3, 2, 1, false);
-
-    expect(() => block.toString()).toThrow('newEncryptedLogs and newUnencryptedLogs must be defined');
-  });
-
   // TS equivalent of `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
   it('correctly computes kernel logs hash when there are no logs', () => {
     // The following 2 values are copied from `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
