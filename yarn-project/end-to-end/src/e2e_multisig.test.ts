@@ -21,7 +21,7 @@ import {
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
-import { AccountInterface, FeeOptions } from '@aztec/aztec.js/account';
+import { AccountInterface, TxExecutionOptions } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import { AztecAddress, CompleteAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -201,7 +201,7 @@ describe('e2e_multisig', () => {
       logger.info(`Successfully sent 25 tokens from another account via authwit`);
     });
 
-    it('should execute transactions in order', async () => {
+    it.only('should execute token transfer transactions in order', async () => {
       const signers = [walletA, walletB];
       const recipient = walletC.getCompleteAddress();
       const amount = 1n;
@@ -211,29 +211,39 @@ describe('e2e_multisig', () => {
 
       // create and add authwits for first transfer
       const action1 = token
-        .withWallet(walletB)
-        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, Fr.random());
+        .withWallet(multisigWallet)
+        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, 0);
       const nonce1 = currentNonce + 1n;
       const transferFromAuthWits1 = await collectSignatures(
         getRequestsFromTxRequest(await action1.create({ nonce: new Fr(nonce1) })),
         signers,
       );
+      // await action1.create({ nonce: new Fr(nonce1) });
+      // const transferFromAuthWitRequest1 = Fr.fromBuffer(computeAuthWitMessageHash(sender, action1.request()));
+      // const transferFromAuthWits1 = await collectSignatures([transferFromAuthWitRequest1], signers);
       await Promise.all(transferFromAuthWits1.map(w => walletB.addAuthWitness(w)));
 
       // create and add authwits for second transfer
       const action2 = token
-        .withWallet(walletB)
-        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, Fr.random());
+        .withWallet(multisigWallet)
+        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, 0);
       const nonce2 = nonce1 + 1n;
       const transferFromAuthWits2 = await collectSignatures(
         getRequestsFromTxRequest(await action2.create({ nonce: new Fr(nonce2) })),
         signers,
       );
+      // await action1.create({ nonce: new Fr(nonce2) });
+      // const transferFromAuthWitRequest2 = Fr.fromBuffer(computeAuthWitMessageHash(sender, action2.request()));
+      // const transferFromAuthWits2 = await collectSignatures([transferFromAuthWitRequest2], signers);
       await Promise.all(transferFromAuthWits2.map(w => walletB.addAuthWitness(w)));
 
       await expect(action2.send().wait()).rejects.toThrow();
-      //await action2.send().wait();
-    });
+
+      const balance = await token.methods.balance_of_private(recipient).view();
+      await action1.send().wait();
+      await action2.send().wait();
+      expect(await token.methods.balance_of_private(recipient).view()).toBe(balance + 2n);
+    }, 1_000_000_000);
   });
 
   it('add a new owner to the multisig', async () => {
@@ -311,11 +321,11 @@ class MultisigAccountInterface extends DefaultAccountInterface {
   }
   async createTxExecutionRequest(
     executions: FunctionCall[],
-    fee: Partial<FeeOptions> = {},
+    options: TxExecutionOptions = {},
   ): Promise<TxExecutionRequest> {
     const multisig = await MultiSigAccountContract.at(this.getCompleteAddress().address, this.pxe as Wallet);
-    const nonce = fee.nonce ? fee.nonce : new Fr((await multisig.methods.get_nonce().view()) + 1n);
-    return this.entrypoint.createTxExecutionRequest(executions, { ...fee, nonce });
+    const nonce = options.nonce ? options.nonce : new Fr((await multisig.methods.get_nonce().view()) + 1n);
+    return this.entrypoint.createTxExecutionRequest(executions, { ...options, nonce });
   }
 }
 

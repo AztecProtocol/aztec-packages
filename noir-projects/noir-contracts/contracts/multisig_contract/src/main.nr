@@ -20,7 +20,7 @@ contract MultiSigAccount {
         note::{note_header::NoteHeader, utils as note_utils}, oracle::get_public_key::get_public_key,
         state_vars::singleton::Singleton,
         oracle::debug_log::{debug_log_format, debug_log_array_with_prefix},
-        oracle::try_call_unconstrained_function::try_call_unconstrained_function,
+        oracle::try_call_unconstrained_function::try_call_unconstrained_function
     };
     use dep::authwit::{
         auth::{IS_VALID_SELECTOR, assert_valid_authwit}, entrypoint::{app::AppPayload, fee::FeePayload},
@@ -61,7 +61,7 @@ contract MultiSigAccount {
         // where we cannot get the same singleton note twice in the same tx. So we extract the logic
         // to a "collect_auths" internal method that receives the state, which we read from the caller.
         // ^ this should be fixed in (thanks alvaro). Jean is creating a PR for this.
-        let collect_auths_selector = FunctionSelector::from_signature("collect_auths(Field,[(Field);5],u8,u32)");
+        let collect_auths_selector = FunctionSelector::from_signature("collect_auths(Field,[(Field);5],u8)");
         let update_config_selector = FunctionSelector::from_signature("update_config([(Field);5],u8)");
         let this = context.this_address();
         let storage = Storage::init(Context::private(&mut context));
@@ -97,7 +97,7 @@ contract MultiSigAccount {
         ]
         )[0] as u8;
         assert(app_auths >= threshold, "App payload not authorized by multisig owners");
-        
+
         // TODO: Should we emit the authwit as a nullifier to prevent from replaying the same payload?
         app_payload.execute_calls(&mut context);
         if (app_payload.function_calls[0].function_selector != update_config_selector) {
@@ -137,8 +137,7 @@ contract MultiSigAccount {
     internal fn collect_auths(
         message_field: Field,
         owners: [AztecAddress; MAX_MULTISIG_OWNERS],
-        threshold: u8,
-        nonce: u32
+        threshold: u8
     ) -> u8 {
         collect_auths_impl(&mut context, message_field, owners, threshold)
     }
@@ -199,7 +198,7 @@ contract MultiSigAccount {
                     "MultisigAccount.is_valid_impl owner={0} message_field_for_owner={1}",
                     [owner.to_field(), message_field_for_owner]
                 );
-                
+
                 let try_call = try_call_unconstrained_function(owner, is_valid_selector, [message_field_for_owner]);
                 // TODO: Use map_or here after I learn how to use lambdas in Noir
                 let call_succeeded = try_call.is_some();
