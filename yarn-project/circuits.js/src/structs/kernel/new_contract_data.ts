@@ -47,19 +47,17 @@ export class NewContractData {
   }
 
   /**
-   * Computes a contract leaf of the given contract.
+   * Computes a hash of contract data which is a leaf in the contracts tree.
    * @param cd - The contract data of the deployed contract.
-   * @returns The contract leaf.
+   * @returns The contract data hash/contract tree leaf.
    */
-  computeLeaf(): Fr {
+  hash(): Fr {
     if (this.isEmpty()) {
       return new Fr(0);
     }
-    return Fr.fromBuffer(
-      pedersenHash(
-        NewContractData.getFields(this).map(f => f.toBuffer()),
-        GeneratorIndex.CONTRACT_LEAF,
-      ),
+    return pedersenHash(
+      NewContractData.getFields(this).map(f => f.toBuffer()),
+      GeneratorIndex.CONTRACT_LEAF,
     );
   }
 
