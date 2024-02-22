@@ -19,7 +19,8 @@ contract MultiSigAccount {
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils}, oracle::get_public_key::get_public_key,
         state_vars::singleton::Singleton,
-        oracle::debug_log::{debug_log_format, debug_log_array_with_prefix}
+        oracle::debug_log::{debug_log_format, debug_log_array_with_prefix},
+        oracle::try_call_unconstrained_function::try_call_unconstrained_function,
     };
     use dep::authwit::{
         auth::{IS_VALID_SELECTOR, assert_valid_authwit}, entrypoint::{app::AppPayload, fee::FeePayload},
@@ -96,6 +97,8 @@ contract MultiSigAccount {
         ]
         )[0] as u8;
         assert(app_auths >= threshold, "App payload not authorized by multisig owners");
+        
+        // TODO: Should we emit the authwit as a nullifier to prevent from replaying the same payload?
         app_payload.execute_calls(&mut context);
         if (app_payload.function_calls[0].function_selector != update_config_selector) {
             let mut new_note = MultiSigNote::new(
@@ -196,14 +199,27 @@ contract MultiSigAccount {
                     "MultisigAccount.is_valid_impl owner={0} message_field_for_owner={1}",
                     [owner.to_field(), message_field_for_owner]
                 );
-                let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
-                if result == IS_VALID_SELECTOR {
-                    auths_collected += 1;
-                }
+                
+                let try_call = try_call_unconstrained_function(owner, is_valid_selector, [message_field_for_owner]);
+                // TODO: Use map_or here after I learn how to use lambdas in Noir
+                let call_succeeded = try_call.is_some();
+                let call_result = try_call.unwrap_unchecked()[0];
+
                 debug_log_format(
-                    "MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}",
-                    [owner.to_field(), result as Field, auths_collected as Field]
+                    "MultisigAccount.is_valid_impl try_call owner={0} call_succeeded={1}, call_result={2}",
+                    [owner.to_field(), call_succeeded as Field, call_result]
                 );
+
+                if (call_succeeded) & (call_result == IS_VALID_SELECTOR) {
+                    let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
+                    if result == IS_VALID_SELECTOR {
+                        auths_collected += 1;
+                    }
+                    debug_log_format(
+                        "MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}",
+                        [owner.to_field(), result as Field, auths_collected as Field]
+                    );
+                }
             }
         }
         auths_collected

@@ -287,6 +287,19 @@ export class Oracle {
     return toACVMField(0);
   }
 
+  async tryCallUnconstrainedFunction(
+    [contractAddress]: ACVMField[],
+    [functionSelector]: ACVMField[],
+    ...args: ACVMField[][]
+  ): Promise<ACVMField[]> {
+    const result = await this.typedOracle.tryCallUnconstrainedFunction(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      FunctionSelector.fromField(fromACVMField(functionSelector)),
+      args.map(([arg]) => fromACVMField(arg)),
+    );
+    return result.map(toACVMField);
+  }
+
   async callPrivateFunction(
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],

@@ -15,6 +15,7 @@ import {
   TxExecutionRequest,
   TxHash,
   Wallet,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -99,7 +100,7 @@ describe('e2e_multisig', () => {
     logger.info(`Test contract address: ${testContract.address}`);
   });
 
-  it.skip('sends a tx to the test contract via the multisig without the first owner signature', async () => {
+  it('sends a tx to the test contract via the multisig without the first owner signature', async () => {
     // Set up the method we want to call on a contract with the multisig as the wallet
     const action = testContract.methods.emit_msg_sender();
 
