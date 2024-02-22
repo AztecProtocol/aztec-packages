@@ -39,10 +39,10 @@ class ClientIVCTests : public ::testing::Test {
      2)
      *
      */
-    static Builder create_mock_circuit(ClientIVC& ivc, size_t num_gates = 1 << 15)
+    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 15)
     {
         Builder circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_arithmetic_circuit(circuit, num_gates);
+        GoblinMockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
         GoblinMockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
