@@ -3,7 +3,7 @@ import {
   CallRequest,
   Fr,
   GrumpkinScalar,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -177,7 +177,7 @@ export class KernelProver {
 
     const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
       SideEffect,
-      typeof MAX_NEW_COMMITMENTS_PER_TX
+      typeof MAX_NEW_NOTE_HASHES_PER_TX
     >(output.publicInputs.end.newCommitments);
 
     const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
@@ -329,7 +329,7 @@ export class KernelProver {
    */
   private getReadRequestHints(
     readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    commitments: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
     const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
@@ -360,7 +360,7 @@ export class KernelProver {
    */
   private getNullifierHints(
     nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    commitments: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
     const alreadyUsed = new Set<number>();

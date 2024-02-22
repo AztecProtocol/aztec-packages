@@ -25,7 +25,7 @@ import {
   GrumpkinScalar,
   Header,
   L2ToL1Message,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -879,7 +879,7 @@ export function mapCombinedAccumulatedDataFromNoir(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
       mapNullifierKeyValidationRequestContextFromNoir,
     ),
-    mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.private_call_stack,

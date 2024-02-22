@@ -2,7 +2,7 @@ import { Body, ContractData, L2Tx, LogType, PublicDataWrite, TxEffect, TxHash, T
 import {
   AppendOnlyTreeSnapshot,
   Header,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -16,6 +16,7 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -127,12 +128,12 @@ export class L2Block {
     const txEffects = [...new Array(txsPerBlock)].map(
       _ =>
         new TxEffect(
-          times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
-          times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-          times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
-          times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-          times(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
-          times(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
+          makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
+          makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
+          makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
+          makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+          makeTuple(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
+          makeTuple(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
           TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
           TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
         ),

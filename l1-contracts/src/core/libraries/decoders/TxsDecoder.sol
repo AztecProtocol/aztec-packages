@@ -77,7 +77,7 @@ library TxsDecoder {
 
       // Commitments
       uint256 count = read4(_body, offset);
-      vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_COMMITMENTS_PER_TX);
+      vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
       offsets.commitment = 0x4;
       offset += 0x4 + count * 0x20;
       offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4

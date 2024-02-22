@@ -85,7 +85,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
-    use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NEW_COMMITMENTS_PER_TX};
+    use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX};
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
@@ -519,8 +519,8 @@ mod tests {
         builder.private_call.public_inputs.new_commitments.push(SideEffect { value: 4321, counter: 0 });
 
         // Mock the previous new commitments to be full, therefore no more commitments can be added.
-        let mut full_new_commitments = [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_TX];
-        for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
+        let mut full_new_commitments = [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_TX];
+        for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             full_new_commitments[i] = SideEffect {
                 value: i + 1,
                 counter: i as u32,

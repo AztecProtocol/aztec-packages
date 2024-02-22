@@ -16,7 +16,7 @@ use crate::{
     tests::{fixtures, testing_harness::build_tx_context}, transaction::tx_context::TxContext
 };
 use crate::constants::{
-    MAX_NEW_COMMITMENTS_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256,
     VK_TREE_HEIGHT
 };
@@ -122,7 +122,7 @@ impl PreviousKernelDataBuilder {
 
     pub fn append_new_commitments(&mut self, num_new_commitments: Field) {
         let mocked_value_offset = self.end.new_commitments.len() + 1;
-        for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
+        for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i as u64 < num_new_commitments as u64 {
                 // The default value is its index + 1.
                 self.end.new_commitments.push(

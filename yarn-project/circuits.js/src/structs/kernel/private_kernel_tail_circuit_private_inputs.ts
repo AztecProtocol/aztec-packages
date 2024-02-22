@@ -1,7 +1,7 @@
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
@@ -23,11 +23,11 @@ export class PrivateKernelTailCircuitPrivateInputs {
     /**
      * The sorted new commitments.
      */
-    public sortedNewCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public sortedNewCommitments: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The sorted new commitments indexes. Maps original to sorted.
      */
-    public sortedNewCommitmentsIndexes: Tuple<number, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public sortedNewCommitmentsIndexes: Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
@@ -76,8 +76,8 @@ export class PrivateKernelTailCircuitPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailCircuitPrivateInputs(
       reader.readObject(PrivateKernelInnerData),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
-      reader.readNumbers(MAX_NEW_COMMITMENTS_PER_TX),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
+      reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),

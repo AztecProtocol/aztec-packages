@@ -174,7 +174,7 @@ library Decoder {
 
       // Commitments
       uint256 count = read4(_body, offset);
-      vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_COMMITMENTS_PER_TX);
+      vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
       offset += 0x4;
       offsets.commitment = offset;
       offset += count * 0x20;

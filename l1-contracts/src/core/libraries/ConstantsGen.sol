@@ -25,7 +25,7 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
   uint256 internal constant MAX_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 1;
-  uint256 internal constant MAX_NEW_COMMITMENTS_PER_TX = 64;
+  uint256 internal constant MAX_NEW_NOTE_HASHES_PER_TX = 64;
   uint256 internal constant MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX = 8;
   uint256 internal constant MAX_REVERTIBLE_COMMITMENTS_PER_TX = 56;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;

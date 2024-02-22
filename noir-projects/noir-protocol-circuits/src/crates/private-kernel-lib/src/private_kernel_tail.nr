@@ -8,7 +8,7 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
 },
     constants::{
-    MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_READ_REQUESTS_PER_TX,
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX
 },
@@ -19,8 +19,8 @@ use dep::types::{
 
 struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelInnerData,
-    sorted_new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
-    sorted_new_commitments_indexes: [u32; MAX_NEW_COMMITMENTS_PER_TX],
+    sorted_new_commitments: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_new_commitments_indexes: [u32; MAX_NEW_NOTE_HASHES_PER_TX],
     read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
     sorted_new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
@@ -136,7 +136,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             // 0-valued nullified_commitment is empty and will be ignored
             if nullified_commitment != 0 {
                 assert(
-                    hint_pos < MAX_NEW_COMMITMENTS_PER_TX as u64, "New nullifier is transient but hint is invalid"
+                    hint_pos < MAX_NEW_NOTE_HASHES_PER_TX as u64, "New nullifier is transient but hint is invalid"
                 );
                 let commitment = new_commitments[hint_pos];
                 assert_eq(nullified_commitment, commitment.value, "Hinted commitment does not match");
@@ -157,7 +157,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         let mut new_commitments_vec = BoundedVec::new(SideEffect::empty());
 
-        for c_idx in 0..MAX_NEW_COMMITMENTS_PER_TX {
+        for c_idx in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if new_commitments[c_idx].value != 0 {
                 new_commitments_vec.push(new_commitments[c_idx]);
             }
@@ -182,7 +182,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         let first_nullifier = public_inputs.end.new_nullifiers.get(0);
         let mut unique_commitments = public_inputs.end.new_commitments.storage;
 
-        for c_idx in 0..MAX_NEW_COMMITMENTS_PER_TX {
+        for c_idx in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             // Apply nonce to all non-zero/non-empty commitments
             // Nonce is the hash of the first (0th) nullifier and the commitment's index into new_commitments array
             let nonce = compute_commitment_nonce(first_nullifier.value, c_idx);
@@ -228,7 +228,7 @@ mod tests {
     use dep::std::cmp::Eq;
     use crate::private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
     use dep::types::constants::{
-        MAX_READ_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, MAX_REVERTIBLE_COMMITMENTS_PER_TX
     };
     use dep::types::{
@@ -255,7 +255,7 @@ mod tests {
             }
         }
 
-        pub fn get_new_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
+        pub fn get_new_commitments(self) -> [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX] {
             self.previous_kernel.end.new_commitments.storage
         }
 
@@ -263,7 +263,7 @@ mod tests {
             self.previous_kernel.end.new_nullifiers.storage
         }
 
-        pub fn get_unique_siloed_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
+        pub fn get_unique_siloed_commitments(self) -> [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX] {
             self.compute_unique_siloed_commitments(self.previous_kernel.end.new_commitments.storage)
         }
 
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     unconstrained fn native_matching_some_read_requests_to_commitments_works() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-        builder.append_transient_commitments(MAX_NEW_COMMITMENTS_PER_TX);
+        builder.append_transient_commitments(MAX_NEW_NOTE_HASHES_PER_TX);
         // prepare for the split: first MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX are added to end_non_revertible_accumulted_data
         // neeed to take the counter of the side effect at the given index because
         builder.previous_kernel.min_revertible_side_effect_counter = builder.previous_kernel.end.new_commitments.get(MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX).counter;
@@ -543,7 +543,7 @@ mod tests {
         // The nullifier at index 1 is nullifying the commitment at index 0;
         builder.nullify_transient_commitment(1, 0);
         // Change the hint to be out of bounds.
-        builder.nullifier_commitment_hints[1] = MAX_NEW_COMMITMENTS_PER_TX;
+        builder.nullifier_commitment_hints[1] = MAX_NEW_NOTE_HASHES_PER_TX;
         builder.failed();
     }
 

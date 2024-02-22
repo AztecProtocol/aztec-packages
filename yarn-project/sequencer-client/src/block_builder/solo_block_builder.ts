@@ -10,6 +10,8 @@ import {
   GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -103,13 +105,14 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = txs.map(
       tx =>
+      // TODO(benesjan): Combined data should most likely contain the tx effect directly
         new TxEffect(
-          tx.data.combinedData.newCommitments.map((c: SideEffect) => c.value),
-          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
+          tx.data.combinedData.newCommitments.map((c: SideEffect) => c.value) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
           tx.data.combinedData.newL2ToL1Msgs,
-          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-          tx.data.combinedData.newContracts.map(cd => cd.hash()),
-          tx.data.combinedData.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)),
+          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue))  as Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+          tx.data.combinedData.newContracts.map(cd => cd.hash()) as Tuple<Fr, typeof MAX_NEW_CONTRACTS_PER_TX>,
+          tx.data.combinedData.newContracts.map(cd => new ContractData(cd.contractAddress, cd.portalContractAddress)) as Tuple<ContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
           tx.encryptedLogs || new TxL2Logs([]),
           tx.unencryptedLogs || new TxL2Logs([]),
         ),

@@ -1,5 +1,5 @@
 import {
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -121,7 +121,7 @@ export class L2Tx {
   static random() {
     const rand = (min: number, max: number) => Math.floor(Math.random() * max) + min;
     return new L2Tx(
-      times(rand(0, MAX_NEW_COMMITMENTS_PER_TX), Fr.random),
+      times(rand(0, MAX_NEW_NOTE_HASHES_PER_TX), Fr.random),
       times(rand(1, MAX_NEW_NULLIFIERS_PER_TX), Fr.random),
       times(rand(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX), PublicDataWrite.random),
       times(rand(0, MAX_NEW_L2_TO_L1_MSGS_PER_TX), Fr.random),

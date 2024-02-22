@@ -16,7 +16,7 @@ use crate::{
 }
 };
 use crate::constants::{
-    MAX_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX,
+    MAX_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, NUM_FIELDS_PER_SHA256,
@@ -36,7 +36,7 @@ struct CombinedAccumulatedDataBuilder {
     read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
 
-    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -156,7 +156,7 @@ impl CombinedAccumulatedDataBuilder {
         let mut non_revertible_builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
         let mut revertible_builder: AccumulatedRevertibleDataBuilder = unsafe::zeroed();
 
-        for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
+        for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let commitment = self.new_commitments.storage[i];
             // TODO(fees) we shouldn't need to check is_empty here,
             // but we do because new_commitments is bounded to MAX_REVERTIBLE_COMMITMENTS_PER_TX
