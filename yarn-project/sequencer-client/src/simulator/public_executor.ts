@@ -8,7 +8,13 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
+import {
+  CommitmentsDB,
+  MessageLoadOracleInputs,
+  NullifiersDB as NDB,
+  PublicContractsDB,
+  PublicStateDB,
+} from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
@@ -165,5 +171,24 @@ export class WorldStateDB implements CommitmentsDB {
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
     return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
+  }
+
+  /**
+   * Gets the value (note hash) for a leaf in the tree.
+   * @param index - The index of the leaf.
+   */
+  public async getNoteHashByLeafIndex(index: bigint): Promise<Buffer | undefined> {
+    return await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, index);
+  }
+}
+
+/**
+ * Implements Nullifier db.
+ */
+export class NullifiersDB implements NDB {
+  constructor(private db: MerkleTreeOperations) {}
+
+  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+    return await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 }

@@ -5,17 +5,17 @@ import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/in
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
-import { HostStorage } from '../avm/journal/host_storage.js';
+import { HostAztecState } from '../avm/journal/host_storage.js';
 import { AvmWorldStateJournal } from '../avm/journal/index.js';
 import {
-  temporaryConvertAvmResults,
+  temporaryConvertAvmSessionResults,
   temporaryCreateAvmExecutionEnvironment,
 } from '../avm/temporary_executor_migration.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { AcirSimulator } from '../index.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { CommitmentsDB, NullifiersDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
@@ -91,6 +91,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
+    private readonly nullifiersDb: NullifiersDB,
     private readonly header: Header,
   ) {}
 
@@ -157,7 +158,7 @@ export class PublicExecutor {
   ): Promise<PublicExecutionResult> {
     // Temporary code to construct the AVM context
     // These data structures will permiate across the simulator when the public executor is phased out
-    const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
+    const hostStorage = new HostAztecState(this.stateDb, this.contractsDb, this.commitmentsDb, this.nullifiersDb);
     const worldStateJournal = new AvmWorldStateJournal(hostStorage);
     const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
     const machineState = new AvmMachineState(0, 0, 0);
@@ -166,7 +167,6 @@ export class PublicExecutor {
     const simulator = new AvmSimulator(context);
 
     const result = await simulator.execute();
-    const newWorldState = context.worldState.flush();
-    return temporaryConvertAvmResults(execution, newWorldState, result);
+    return temporaryConvertAvmSessionResults(execution, context.worldState.getWorldStateAccessTrace(), result);
   }
 }
