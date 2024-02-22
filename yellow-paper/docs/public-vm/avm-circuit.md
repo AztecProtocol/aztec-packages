@@ -150,7 +150,7 @@ Any lookup into calldata from a request's initial contract call must retrieve a 
 
 ## Chiplets
 
-A chiplet is essentially a sub-circuit for performing specialized sub-operations. A chiplet is defined as a dedicated table (a set of columns and relations) in the AVM circuit that is activated when the the relevant sub-operation is used. The main rationale behind the use of chiplets is to offload specialized computations to a region of the circuit _outside the main operations trace and instruction controller_ where the computations might require many rows and/or additional dedicated columns. In addition, this approach offers strong modularity for the operations implemented as chiplets.
+A chiplet is essentially a sub-circuit for performing specialized sub-operations. A chiplet is defined as a dedicated table (a set of columns and relations) in the AVM circuit that is activated when the relevant sub-operation is used. The main rationale behind the use of chiplets is to offload specialized computations to a region of the circuit _outside the main operations trace and instruction controller_ where the computations might require many rows and/or additional dedicated columns. In addition, this approach offers strong modularity for the operations implemented as chiplets.
 
 The interaction between a chiplet and the instruction controller follows the following pattern:
 
