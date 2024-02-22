@@ -52,7 +52,7 @@ void AvmTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     // a + b = c
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
-    FF c = alu_trace_builder.op_add(a, b, in_tag, clk);
+    FF c = tag_match ? alu_trace_builder.op_add(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
@@ -97,7 +97,7 @@ void AvmTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     // a - b = c
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
-    FF c = alu_trace_builder.op_sub(a, b, in_tag, clk);
+    FF c = tag_match ? alu_trace_builder.op_sub(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
@@ -142,7 +142,7 @@ void AvmTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     // a * b = c
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
-    FF c = alu_trace_builder.op_mul(a, b, in_tag, clk);
+    FF c = tag_match ? alu_trace_builder.op_mul(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
@@ -788,6 +788,21 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
         dest.avm_alu_alu_u64_r0 = FF(src.alu_u64_r0);
         dest.avm_alu_alu_op_eq_diff_inv = FF(src.alu_op_eq_diff_inv);
+
+        // Not all rows in ALU are enabled with a selector. For instance,
+        // multiplication over u128 is taking two lines.
+        if (dest.avm_alu_alu_op_add == FF(1) || dest.avm_alu_alu_op_sub == FF(1) || dest.avm_alu_alu_op_mul == FF(1) ||
+            dest.avm_alu_alu_op_eq == FF(1) || dest.avm_alu_alu_op_not == FF(1)) {
+            dest.avm_alu_alu_sel = FF(1);
+        }
+    }
+
+    for (Row& r : main_trace) {
+        if ((r.avm_main_sel_op_add == FF(1) || r.avm_main_sel_op_sub == FF(1) || r.avm_main_sel_op_mul == FF(1) ||
+             r.avm_main_sel_op_eq == FF(1) || r.avm_main_sel_op_not == FF(1)) &&
+            r.avm_main_tag_err == FF(0)) {
+            r.avm_main_alu_sel = FF(1);
+        }
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.

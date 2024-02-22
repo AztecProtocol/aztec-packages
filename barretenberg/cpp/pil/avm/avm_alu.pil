@@ -17,6 +17,7 @@ namespace avm_alu(256);
     pol commit alu_op_div;
     pol commit alu_op_not;
     pol commit alu_op_eq;
+    pol commit alu_sel; // Predicate to activate the copy of intermediate registers to ALU table.
 
     // Flattened boolean instruction tags
     pol commit alu_ff_tag;
@@ -45,6 +46,9 @@ namespace avm_alu(256);
 
     // Carry flag
     pol commit alu_cf;
+
+    // Compute predicate telling whether there is an row entry in the ALU table.
+    alu_sel = alu_op_add + alu_op_sub + alu_op_mul + alu_op_not + alu_op_eq;
 
     // ========= Type Constraints =============================================
     // TODO: Range constraints

@@ -7,35 +7,36 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct Avm_mainRow {
-    FF avm_main_sel_op_eq{};
-    FF avm_main_rwb{};
-    FF avm_main_mem_idx_b{};
-    FF avm_main_sel_internal_call{};
-    FF avm_main_pc_shift{};
-    FF avm_main_rwa{};
-    FF avm_main_mem_op_b{};
-    FF avm_main_mem_idx_a{};
-    FF avm_main_inv{};
-    FF avm_main_ia{};
     FF avm_main_mem_op_a{};
-    FF avm_main_rwc{};
-    FF avm_main_tag_err{};
-    FF avm_main_sel_op_sub{};
-    FF avm_main_internal_return_ptr{};
-    FF avm_main_sel_internal_return{};
-    FF avm_main_sel_op_add{};
-    FF avm_main_sel_op_mul{};
-    FF avm_main_sel_halt{};
-    FF avm_main_mem_op_c{};
-    FF avm_main_sel_jump{};
-    FF avm_main_ib{};
-    FF avm_main_ic{};
-    FF avm_main_pc{};
-    FF avm_main_sel_op_div{};
-    FF avm_main_op_err{};
-    FF avm_main_internal_return_ptr_shift{};
+    FF avm_main_mem_idx_b{};
     FF avm_main_sel_op_not{};
+    FF avm_main_op_err{};
+    FF avm_main_rwa{};
+    FF avm_main_internal_return_ptr_shift{};
+    FF avm_main_sel_op_mul{};
+    FF avm_main_alu_sel{};
+    FF avm_main_sel_op_add{};
+    FF avm_main_pc_shift{};
+    FF avm_main_sel_jump{};
+    FF avm_main_sel_internal_call{};
+    FF avm_main_ic{};
+    FF avm_main_sel_internal_return{};
+    FF avm_main_sel_op_sub{};
+    FF avm_main_sel_op_eq{};
+    FF avm_main_inv{};
+    FF avm_main_mem_op_b{};
+    FF avm_main_internal_return_ptr{};
+    FF avm_main_tag_err{};
+    FF avm_main_mem_op_c{};
+    FF avm_main_mem_idx_a{};
+    FF avm_main_rwc{};
+    FF avm_main_pc{};
     FF avm_main_first{};
+    FF avm_main_ib{};
+    FF avm_main_ia{};
+    FF avm_main_rwb{};
+    FF avm_main_sel_halt{};
+    FF avm_main_sel_op_div{};
 };
 
 inline std::string get_relation_label_avm_main(int index)
@@ -44,23 +45,23 @@ inline std::string get_relation_label_avm_main(int index)
     case 32:
         return "RETURN_POINTER_DECREMENT";
 
+    case 23:
+        return "SUBOP_DIVISION_ZERO_ERR2";
+
+    case 21:
+        return "SUBOP_DIVISION_FF";
+
     case 22:
         return "SUBOP_DIVISION_ZERO_ERR1";
 
     case 37:
         return "PC_INCREMENT";
 
-    case 24:
-        return "SUBOP_ERROR_RELEVANT_OP";
-
-    case 21:
-        return "SUBOP_DIVISION_FF";
-
-    case 23:
-        return "SUBOP_DIVISION_ZERO_ERR2";
-
     case 38:
         return "INTERNAL_RETURN_POINTER_CONSISTENCY";
+
+    case 24:
+        return "SUBOP_ERROR_RELEVANT_OP";
 
     case 26:
         return "RETURN_POINTER_INCREMENT";
@@ -72,9 +73,9 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 39> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
+        3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -405,6 +406,17 @@ template <typename FF_> class avm_mainImpl {
                         (avm_main_internal_return_ptr_shift - avm_main_internal_return_ptr));
             tmp *= scaling_factor;
             std::get<38>(evals) += tmp;
+        }
+        // Contribution 39
+        {
+            Avm_DECLARE_VIEWS(39);
+
+            auto tmp = (avm_main_alu_sel -
+                        (((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_not) +
+                          avm_main_sel_op_eq) *
+                         (-avm_main_tag_err + FF(1))));
+            tmp *= scaling_factor;
+            std::get<39>(evals) += tmp;
         }
     }
 };

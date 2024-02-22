@@ -39,6 +39,9 @@ namespace avm_main(256);
     // EQ
     pol commit sel_op_eq;
 
+    // Helper selector to characterize an ALU chiplet selector
+    pol commit alu_sel;
+
     // Instruction memory tag (0: uninitialized, 1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6:field)
     pol commit in_tag;
 
@@ -194,6 +197,14 @@ namespace avm_main(256);
     
     #[equiv_tag_err]
     avm_mem.m_tag_err {avm_mem.m_clk} in tag_err {clk};
+
+    // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
+    // the operation is not copied to the ALU table.
+    // TODO: when division is moved to the alu, we will need to add the selector in the list below:
+    alu_sel = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_not + sel_op_eq) * (1 - tag_err);
+
+    #[equiv_inter_reg_alu]
+    alu_sel {clk, ia, ib, ic} is avm_alu.alu_sel {avm_alu.alu_clk, avm_alu.alu_ia, avm_alu.alu_ib, avm_alu.alu_ic};
 
     // TODO: Map memory trace with intermediate register values whenever there is no tag error, sthg like:
     // mem_op_a * (1 - tag_err) {mem_idx_a, clk, ia, rwa} IS m_sub_clk == 0 && 1 - m_tag_err {m_addr, m_clk, m_val, m_rw}
