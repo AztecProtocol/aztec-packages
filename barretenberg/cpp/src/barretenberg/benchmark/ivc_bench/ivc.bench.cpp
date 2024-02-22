@@ -65,8 +65,9 @@ class IvcBench : public benchmark::Fixture {
         VerifierFoldData kernel_fold_output = { kernel_fold_proof, ivc.vks.first_kernel_vk };
 
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
-        // Subtract one to account for the "initialization" round above
-        NUM_CIRCUITS -= 1;
+        // Subtract two to account for the "initialization" round above i.e. we have already folded two function
+        // circuits
+        NUM_CIRCUITS -= 2;
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             // Accumulate function circuit
             Builder function_circuit{ ivc.goblin.op_queue };
@@ -175,7 +176,6 @@ BENCHMARK_DEFINE_F(IvcBench, Translator)(benchmark::State& state)
 
 #define ARGS                                                                                                           \
     Arg(IvcBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)                                                                    \
-        ->Arg(1 << 0)                                                                                                  \
         ->Arg(1 << 1)                                                                                                  \
         ->Arg(1 << 2)                                                                                                  \
         ->Arg(1 << 3)                                                                                                  \
