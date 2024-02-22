@@ -60,4 +60,8 @@ export class TaggedNote {
     }
     return new TaggedNote(decryptedL1NotePayload, tag);
   }
+
+  static random(): TaggedNote {
+    return new TaggedNote(L1NotePayload.random());
+  }
 }
