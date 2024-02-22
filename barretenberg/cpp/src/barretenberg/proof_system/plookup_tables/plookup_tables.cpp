@@ -1,6 +1,6 @@
 #include "plookup_tables.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
-
+#include <mutex>
 namespace bb::plookup {
 
 using namespace bb;
@@ -11,9 +11,15 @@ namespace {
 std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES> MULTI_TABLES;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool inited = false;
-
+std::mutex multi_table_mutex;
 void init_multi_tables()
 {
+#ifndef NO_MULTITHREADING
+    std::unique_lock<std::mutex> lock(multi_table_mutex);
+#endif
+    if (inited) {
+        return;
+    }
     MULTI_TABLES[MultiTableId::SHA256_CH_INPUT] = sha256_tables::get_choose_input_table(MultiTableId::SHA256_CH_INPUT);
     MULTI_TABLES[MultiTableId::SHA256_MAJ_INPUT] =
         sha256_tables::get_majority_input_table(MultiTableId::SHA256_MAJ_INPUT);
@@ -99,10 +105,6 @@ void init_multi_tables()
     inited = true;
 }
 } // namespace
-void initialize_multitables()
-{
-    init_multi_tables();
-}
 const MultiTable& create_table(const MultiTableId id)
 {
     if (!inited) {
