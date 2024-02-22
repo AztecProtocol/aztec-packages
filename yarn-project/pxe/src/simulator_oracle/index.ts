@@ -143,6 +143,10 @@ export class SimulatorOracle implements DBOracle {
     return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
+  async getNoteHashByLeafIndex(index: bigint) : Promise<Buffer | undefined> {
+    throw new Error('Not implemented');
+  }
+
   async getNullifierIndex(nullifier: Fr) {
     return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }

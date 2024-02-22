@@ -111,6 +111,12 @@ export interface DBOracle extends CommitmentsDB {
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
 
   /**
+   * Gets the note hash at the specified leaf index.
+   * @param index - The index of the leaf.
+   */
+  getNoteHashByLeafIndex(index: bigint): Promise<Buffer | undefined>;
+
+  /**
    * Gets the index of a nullifier in the nullifier tree.
    * @param nullifier - The nullifier.
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
