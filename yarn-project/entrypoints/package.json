@@ -16,14 +16,13 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn build:copy-contracts && tsc -b",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "build:copy-contracts": "./scripts/copy-contracts.sh"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
     "../package.common.json",

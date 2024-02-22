@@ -4,7 +4,8 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { AccountWalletWithPrivateKey, computeAuthWitMessageHash } from '../index.js';
+import { computeAuthWitMessageHash } from '../utils/authwit.js';
+import { AccountWalletWithPrivateKey } from '../wallet/account_wallet_with_private_key.js';
 import { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
