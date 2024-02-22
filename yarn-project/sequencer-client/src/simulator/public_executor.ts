@@ -1,15 +1,20 @@
-import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, SiblingPath, Tx } from '@aztec/circuit-types';
+import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import {
   AztecAddress,
   EthAddress,
   Fr,
   FunctionSelector,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { CommitmentsDB, MessageLoadOracleInputs, NullifiersDB as NDB, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
+import {
+  CommitmentsDB,
+  MessageLoadOracleInputs,
+  NullifiersDB as NDB,
+  PublicContractsDB,
+  PublicStateDB,
+} from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
