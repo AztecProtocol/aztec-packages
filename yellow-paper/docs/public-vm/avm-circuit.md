@@ -166,7 +166,7 @@ The planned chiplets for the AVM are:
 
 - **ALU**: Arithmetic and bitwise operations such as addition, multiplication, XOR, etc...
 - **Type Converter**: Dedicated to casting words between different types and/or type constraints.
-- **Complex Operations:** Cryptographic relevant operations or other computationally intensive gadgets. Potentially comprised of several chiplets (TBD).
+- **Gadgets:** Relevant cryptographic operations or other computationally intensive operations. There will likely be multiple chiplets of this category, including `Poseidon2Permutation`, `Keccakf1600`, and `ECADD`.
 
 ## Circuit I/O
 ### How do "Public Inputs" work in the AVM circuit?
