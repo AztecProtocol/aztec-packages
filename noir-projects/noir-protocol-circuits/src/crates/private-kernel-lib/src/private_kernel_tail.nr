@@ -234,7 +234,7 @@ mod tests {
         kernel_circuit_public_inputs::PrivateKernelTailCircuitPublicInputs,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
-        hash::compute_unique_siloed_note_hashs, tests::kernel_data_builder::PreviousKernelDataBuilder,
+        hash::compute_unique_siloed_note_hashes, tests::kernel_data_builder::PreviousKernelDataBuilder,
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
 
@@ -261,15 +261,15 @@ mod tests {
             self.previous_kernel.end.new_nullifiers.storage
         }
 
-        pub fn get_unique_siloed_note_hashs(self) -> [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX] {
-            self.compute_unique_siloed_note_hashs(self.previous_kernel.end.new_note_hashes.storage)
+        pub fn get_unique_siloed_note_hashes(self) -> [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX] {
+            self.compute_unique_siloed_note_hashes(self.previous_kernel.end.new_note_hashes.storage)
         }
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // commitments for the given commitments.
-        pub fn compute_unique_siloed_note_hashs<N>(self, commitments: [SideEffect; N]) -> [SideEffect; N] {
+        pub fn compute_unique_siloed_note_hashes<N>(self, commitments: [SideEffect; N]) -> [SideEffect; N] {
             let first_nullifier = self.previous_kernel.end.new_nullifiers.get_unchecked(0);
-            compute_unique_siloed_note_hashs(first_nullifier.value, commitments)
+            compute_unique_siloed_note_hashes(first_nullifier.value, commitments)
         }
 
         pub fn append_transient_commitments(&mut self, num_commitments: Field) {
@@ -363,11 +363,11 @@ mod tests {
         builder.append_transient_commitments(1);
         builder.add_transient_read(0);
 
-        let unique_siloed_note_hashs = builder.get_unique_siloed_note_hashs();
+        let unique_siloed_note_hashes = builder.get_unique_siloed_note_hashes();
 
         let public_inputs = builder.execute();
         assert(array_length(public_inputs.end.new_note_hashes) == 1);
-        assert(public_inputs.end.new_note_hashes[0].eq(unique_siloed_note_hashs[0]));
+        assert(public_inputs.end.new_note_hashes[0].eq(unique_siloed_note_hashes[0]));
     }
 
     #[test]
@@ -381,12 +381,12 @@ mod tests {
         builder.add_transient_read(1);
         // Read the hash at index 3;
         builder.add_transient_read(3);
-        let unique_siloed_note_hashs = builder.get_unique_siloed_note_hashs();
+        let unique_siloed_note_hashes = builder.get_unique_siloed_note_hashes();
         let public_inputs = builder.execute();
         assert_eq(array_length(public_inputs.end.new_note_hashes), MAX_REVERTIBLE_NOTE_HASHES_PER_TX);
         for i in 0..MAX_REVERTIBLE_NOTE_HASHES_PER_TX {
             assert(
-                public_inputs.end.new_note_hashes[i].eq(unique_siloed_note_hashs[MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX + i])
+                public_inputs.end.new_note_hashes[i].eq(unique_siloed_note_hashes[MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX + i])
             );
         }
     }
@@ -433,13 +433,13 @@ mod tests {
         builder.nullify_transient_commitment(1, 0);
         let new_note_hashes = builder.get_new_note_hashes();
         // The 0th hash will be chopped.
-        let unique_siloed_note_hashs = builder.compute_unique_siloed_note_hashs([new_note_hashes[1]]);
+        let unique_siloed_note_hashes = builder.compute_unique_siloed_note_hashes([new_note_hashes[1]]);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
         assert(
             array_eq(
                 public_inputs.end.new_note_hashes,
-                [unique_siloed_note_hashs[0]]
+                [unique_siloed_note_hashes[0]]
             )
         );
         // The nullifier at index 1 is chopped.
@@ -498,14 +498,14 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let sorted_unique_note_hashs = compute_unique_siloed_note_hashs(
+        let sorted_unique_note_hashes = compute_unique_siloed_note_hashes(
             // tx nullifier is part of non revertible accumulated data
             public_inputs.end_non_revertible.new_nullifiers[0].value,
             sorted_new_note_hashes
         );
 
         for i in 0..10 {
-            assert(public_inputs.end.new_note_hashes[i].eq(sorted_unique_note_hashs[i]));
+            assert(public_inputs.end.new_note_hashes[i].eq(sorted_unique_note_hashes[i]));
             assert(public_inputs.end.new_nullifiers[i].eq(sorted_new_nullifiers[i]));
         }
     }
@@ -615,7 +615,7 @@ mod tests {
         let new_note_hashes = builder.previous_kernel.end.new_note_hashes.storage;
         let public_inputs = builder.execute();
 
-        let siloed_note_hashes = compute_unique_siloed_note_hashs(
+        let siloed_note_hashes = compute_unique_siloed_note_hashes(
             // tx nullifier is part of non revertible accumulated data
             public_inputs.end_non_revertible.new_nullifiers[0].value,
             new_note_hashes
