@@ -114,7 +114,7 @@ class GoblinMockCircuits {
         // that the circuit size does not scale linearly with number of iterations due to e.g. amortization of
         // lookup costs
         const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates) const
-        size_t NUM_ITERATIONS_MEDIUM = 2;       // results in circuit size 2^17 (124843 gates)
+        size_t NUM_ITERATIONS_MEDIUM = 3;       // results in circuit size 2^17 (124843 gates)
         const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
         stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
