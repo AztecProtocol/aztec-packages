@@ -23,11 +23,11 @@ export class PrivateKernelTailCircuitPrivateInputs {
     /**
      * The sorted new commitments.
      */
-    public sortedNewCommitments: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public sortedNewNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The sorted new commitments indexes. Maps original to sorted.
      */
-    public sortedNewCommitmentsIndexes: Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public sortedNewNoteHashesIndexes: Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
@@ -57,8 +57,8 @@ export class PrivateKernelTailCircuitPrivateInputs {
   toBuffer() {
     return serializeToBuffer(
       this.previousKernel,
-      this.sortedNewCommitments,
-      this.sortedNewCommitmentsIndexes,
+      this.sortedNewNoteHashes,
+      this.sortedNewNoteHashesIndexes,
       this.readCommitmentHints,
       this.sortedNewNullifiers,
       this.sortedNewNullifiersIndexes,

@@ -2,21 +2,21 @@ import { Body, ContractData, L2Tx, LogType, PublicDataWrite, TxEffect, TxHash, T
 import {
   AppendOnlyTreeSnapshot,
   Header,
-  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   STRING_ENCODING,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/factories';
+import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.

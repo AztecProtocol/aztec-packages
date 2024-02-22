@@ -50,8 +50,8 @@ import {Hash} from "../Hash.sol";
  *  | 0x0208                                                                           | 0x04         | endL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex
  *  | 0x020c                                                                           | 0x20         | endArchiveSnapshot.root
  *  | 0x022c                                                                           | 0x04         | endArchiveSnapshot.nextAvailableLeafIndex
- *  | 0x0230                                                                           | 0x04         | len(newCommitments) (denoted a)
- *  | 0x0234                                                                           | a * 0x20     | newCommitments
+ *  | 0x0230                                                                           | 0x04         | len(newNoteHashes) (denoted a)
+ *  | 0x0234                                                                           | a * 0x20     | newNoteHashes
  *  | 0x0234 + a * 0x20                                                                | 0x04         | len(newNullifiers) (denoted b)
  *  | 0x0238 + a * 0x20                                                                | b * 0x20     | newNullifiers
  *  | 0x0238 + a * 0x20 + b * 0x20                                                     | 0x04         | len(newPublicDataWrites) (denoted c)
@@ -226,7 +226,7 @@ library Decoder {
         /*
          * Compute the leaf to insert.
          * Leaf_i = (
-         *    newCommitmentsKernel,
+         *    newNoteHashesKernel,
          *    newNullifiersKernel,
          *    newPublicDataWritesKernel,
          *    newL2ToL1MsgsKernel,
@@ -253,7 +253,7 @@ library Decoder {
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
           bytes.concat(
-            slice(_body, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_body, offsets.commitment, Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_body, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_body, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_body, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),
@@ -267,7 +267,7 @@ library Decoder {
           bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
 
-        offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.commitment += Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP;

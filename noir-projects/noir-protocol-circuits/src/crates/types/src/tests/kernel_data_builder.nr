@@ -114,18 +114,18 @@ impl PreviousKernelDataBuilder {
 
     pub fn add_read_request_for_transient_commitment(&mut self, commitment_index: Field) -> Field {
         let new_read_request_index = self.end.read_requests.len();
-        let commitment = self.end.new_commitments.get(commitment_index);
+        let commitment = self.end.new_note_hashes.get(commitment_index);
         let read_request = SideEffect { value: commitment.value, counter: self.next_sideffect_counter() };
         self.end.read_requests.push(read_request);
         new_read_request_index
     }
 
-    pub fn append_new_commitments(&mut self, num_new_commitments: Field) {
-        let mocked_value_offset = self.end.new_commitments.len() + 1;
+    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: Field) {
+        let mocked_value_offset = self.end.new_note_hashes.len() + 1;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-            if i as u64 < num_new_commitments as u64 {
+            if i as u64 < num_new_note_hashes as u64 {
                 // The default value is its index + 1.
-                self.end.new_commitments.push(
+                self.end.new_note_hashes.push(
                     SideEffect { value: i + mocked_value_offset, counter: self.next_sideffect_counter() }
                 );
             }

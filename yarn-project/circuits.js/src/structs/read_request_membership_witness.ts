@@ -3,7 +3,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { MAX_NEW_COMMITMENTS_PER_CALL, NOTE_HASH_TREE_HEIGHT } from '../constants.gen.js';
+import { MAX_NEW_NOTE_HASHES_PER_CALL, NOTE_HASH_TREE_HEIGHT } from '../constants.gen.js';
 import { MembershipWitness } from './membership_witness.js';
 
 /**
@@ -32,9 +32,9 @@ export class ReadRequestMembershipWitness {
      */
     public hintToCommitment: Fr,
   ) {
-    if (hintToCommitment.toBigInt() > MAX_NEW_COMMITMENTS_PER_CALL) {
+    if (hintToCommitment.toBigInt() > MAX_NEW_NOTE_HASHES_PER_CALL) {
       throw new Error(
-        `Expected ReadRequestMembershipWitness' hintToCommitment(${hintToCommitment}) to be <= NEW_COMMITMENTS_LENGTH(${MAX_NEW_COMMITMENTS_PER_CALL})`,
+        `Expected ReadRequestMembershipWitness' hintToCommitment(${hintToCommitment}) to be <= NEW_COMMITMENTS_LENGTH(${MAX_NEW_NOTE_HASHES_PER_CALL})`,
       );
     }
   }

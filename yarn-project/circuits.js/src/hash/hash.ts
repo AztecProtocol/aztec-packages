@@ -125,7 +125,7 @@ export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: numbe
  * @param innerCommitment - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr {
+export function siloNoteHash(contract: AztecAddress, innerCommitment: Fr): Fr {
   return pedersenHash([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT);
 }
 

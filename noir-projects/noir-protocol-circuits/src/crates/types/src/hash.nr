@@ -158,7 +158,7 @@ pub fn read_request_root_from_siblings(
     root_from_sibling_path(read_request, leaf_index, sibling_path)
 }
 
-pub fn silo_commitment(address: AztecAddress, inner_commitment: Field) -> Field {
+pub fn silo_note_hash(address: AztecAddress, inner_commitment: Field) -> Field {
     pedersen_hash(
         [
         address.to_field(),

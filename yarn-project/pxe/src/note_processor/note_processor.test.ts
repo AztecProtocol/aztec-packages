@@ -15,6 +15,7 @@ import { Fr, MAX_NEW_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
+import { Tuple } from '@aztec/foundation/serialize';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AcirSimulator } from '@aztec/simulator';
@@ -26,7 +27,6 @@ import { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
-import { Tuple } from '@aztec/foundation/serialize';
 
 const TXS_PER_BLOCK = 4;
 
@@ -109,7 +109,10 @@ describe('Note Processor', () => {
       for (let i = 0; i < TXS_PER_BLOCK; i++) {
         block.body.txEffects[i].newNoteHashes = newNotes
           .map(n => computeMockNoteHash(n.note))
-          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
+          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<
+          Fr,
+          typeof MAX_NEW_NOTE_HASHES_PER_TX
+        >;
       }
 
       const randomBlockContext = new L2BlockContext(block);

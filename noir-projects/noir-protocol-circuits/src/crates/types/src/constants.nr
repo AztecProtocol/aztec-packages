@@ -11,19 +11,19 @@ global RETURN_VALUES_LENGTH: Field = 4;
  *  - MAX_NEW_NULLIFIERS_PER_CALL
  *  - MAX_NEW_NOTE_HASHES_PER_TX
  *
- * In the kernel circuits, we accumulate elements such as commitments and the nullifiers from all functions calls in a
+ * In the kernel circuits, we accumulate elements such as note hashes and the nullifiers from all functions calls in a
  * transaction. Therefore, we always must have:
  * MAX_XXX_PER_TX ≥ MAX_XXX_PER_CALL
  *
  * For instance:
- * MAX_NEW_NOTE_HASHES_PER_TX ≥ MAX_NEW_COMMITMENTS_PER_CALL
+ * MAX_NEW_NOTE_HASHES_PER_TX ≥ MAX_NEW_NOTE_HASHES_PER_CALL
  * MAX_NEW_NULLIFIERS_PER_TX ≥ MAX_NEW_NULLIFIERS_PER_CALL
  *
  */
 
 // docs:start:constants
 // "PER CALL" CONSTANTS
-global MAX_NEW_COMMITMENTS_PER_CALL: Field = 16;
+global MAX_NEW_NOTE_HASHES_PER_CALL: Field = 16;
 global MAX_NEW_NULLIFIERS_PER_CALL: Field = 16;
 global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: Field = 4;
 global MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL: Field = 4;
@@ -35,8 +35,8 @@ global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: Field = 1;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_NOTE_HASHES_PER_TX: Field = 64;
-global MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX: Field = 8;
-global MAX_REVERTIBLE_COMMITMENTS_PER_TX: Field = 56;
+global MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX: Field = 8;
+global MAX_REVERTIBLE_NOTE_HASHES_PER_TX: Field = 56;
 
 global MAX_NEW_NULLIFIERS_PER_TX: Field = 64;
 global MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX: Field = 8;
@@ -167,7 +167,7 @@ global TX_CONTEXT_DATA_LENGTH: Field = 11;
 global TX_REQUEST_LENGTH: Field = 17;
 
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
-global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
+global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 32;

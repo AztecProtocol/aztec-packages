@@ -178,7 +178,7 @@ export class KernelProver {
     const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_NOTE_HASHES_PER_TX
-    >(output.publicInputs.end.newCommitments);
+    >(output.publicInputs.end.newNoteHashes);
 
     const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
       SideEffectLinkedToNoteHash,
@@ -214,7 +214,7 @@ export class KernelProver {
     const outputFinal = await this.proofCreator.createProofTail(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
-    const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
+    const finalNewCommitments = outputFinal.publicInputs.end.newNoteHashes;
     const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
@@ -308,11 +308,11 @@ export class KernelProver {
     } = executionResult;
     const contractAddress = publicInputs.callContext.storageContractAddress;
     // Assuming that for each new commitment there's an output note added to the execution result.
-    const newCommitments = await this.proofCreator.getSiloedCommitments(publicInputs);
+    const newNoteHashes = await this.proofCreator.getSiloedCommitments(publicInputs);
     return newNotes.map((data, i) => ({
       contractAddress,
       data,
-      commitment: newCommitments[i],
+      commitment: newNoteHashes[i],
     }));
   }
 

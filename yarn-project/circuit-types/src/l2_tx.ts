@@ -1,7 +1,7 @@
 import {
-  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   Vector,
@@ -33,7 +33,7 @@ export class L2Tx {
     /**
      * New commitments created by the transaction.
      */
-    public newCommitments: Fr[],
+    public newNoteHashes: Fr[],
     /**
      * New nullifiers created by the transaction.
      */
@@ -100,7 +100,7 @@ export class L2Tx {
    */
   toBuffer() {
     return Buffer.concat([
-      new Vector(this.newCommitments).toBuffer(),
+      new Vector(this.newNoteHashes).toBuffer(),
       new Vector(this.newNullifiers).toBuffer(),
       new Vector(this.newPublicDataWrites).toBuffer(),
       new Vector(this.newL2ToL1Msgs).toBuffer(),

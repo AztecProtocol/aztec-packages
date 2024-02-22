@@ -30,7 +30,7 @@ impl NewContractData {
 }
 
 struct DataToHash {
-    new_commitments: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
+    new_note_hashes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
     new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
@@ -101,7 +101,7 @@ impl U256 {
 unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA256] {
     let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
-    let new_commitments = kernel_data.new_commitments;
+    let new_note_hashes = kernel_data.new_note_hashes;
     let new_nullifiers = kernel_data.new_nullifiers;
     let public_data_update_requests = kernel_data.public_data_update_requests;
     let newL2ToL1msgs = kernel_data.new_l2_to_l1_msgs;
@@ -111,7 +111,7 @@ unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA
     let mut offset = 0;
 
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-        calldata_hash_inputs[offset + j] = new_commitments[j];
+        calldata_hash_inputs[offset + j] = new_note_hashes[j];
     }
     offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 

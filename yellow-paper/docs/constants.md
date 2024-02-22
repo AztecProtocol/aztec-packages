@@ -41,7 +41,7 @@ The statically-sized nature the kernel & rollup circuits will restrict the quant
 <!-- prettier-ignore -->
 | Name | Value | Description |
 |---|---|---|
-| `MAX_NEW_COMMITMENTS_PER_CALL` | 128 |
+| `MAX_NEW_NOTE_HASHES_PER_CALL` | 128 |
 | `MAX_NEW_NULLIFIERS_PER_CALL` | 128 |
 | `MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL` | 32 |
 | `MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL` | 32 |
