@@ -15,6 +15,7 @@ import {
   TxExecutionRequest,
   TxHash,
   Wallet,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
