@@ -20,7 +20,7 @@ contract GasToken {
         let content_hash = get_bridge_gas_msg_hash(to, amount, canceller);
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
 
         let new_balance = storage.balances.at(to).read().add(SafeU120::new(amount));
         storage.balances.at(to).write(new_balance);

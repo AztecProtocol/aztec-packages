@@ -40,7 +40,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       GeneratorIndex.SIGNATURE_PAYLOAD,
     );
 
-    const authWitness = await this.userAuthWitnessProvider.createAuthWitness(Fr.fromBuffer(hash));
+    const authWitness = await this.userAuthWitnessProvider.createAuthWitness(hash);
 
     const txRequest = TxExecutionRequest.from({
       argsHash: entrypointPackedArgs.hash,
