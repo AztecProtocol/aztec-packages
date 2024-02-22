@@ -67,12 +67,10 @@ impl PrivateKernelTailCircuitPrivateInputs {
             let read_commitment_hint = self.read_commitment_hints[rr_idx] as u64;
 
             if (read_request.value != 0) {
-                let commitment = new_note_hashes.get_unchecked(read_commitment_hint as Field);
-                assert_eq(
-                    read_request.value, commitment.value, "Hinted commitment does not match read request"
-                );
+                let hash = new_note_hashes.get_unchecked(read_commitment_hint as Field);
+                assert_eq(read_request.value, hash.value, "Hinted hash does not match read request");
                 assert(
-                    read_request.counter > commitment.counter, "Read request counter must be greater than commitment counter"
+                    read_request.counter > hash.counter, "Read request counter must be greater than hash counter"
                 );
             }
         }
@@ -131,20 +129,20 @@ impl PrivateKernelTailCircuitPrivateInputs {
             let hint_pos = self.nullifier_commitment_hints[n_idx] as u64;
 
             // Nullified_commitment of value `0` implies non-transient (persistable)
-            // nullifier in which case no attempt will be made to match it to a commitment.
-            // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a commitment below!
+            // nullifier in which case no attempt will be made to match it to a hash.
+            // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a hash below!
             // 0-valued nullified_commitment is empty and will be ignored
             if nullified_commitment != 0 {
                 assert(
                     hint_pos < MAX_NEW_NOTE_HASHES_PER_TX as u64, "New nullifier is transient but hint is invalid"
                 );
-                let commitment = new_note_hashes[hint_pos];
-                assert_eq(nullified_commitment, commitment.value, "Hinted commitment does not match");
+                let hash = new_note_hashes[hint_pos];
+                assert_eq(nullified_commitment, hash.value, "Hinted hash does not match");
                 assert(
-                    nullifier.counter > commitment.counter, "Nullifier counter must be greater than commitment counter"
+                    nullifier.counter > hash.counter, "Nullifier counter must be greater than hash counter"
                 );
                 // match found!
-                // squash both the nullifier and the commitment
+                // squash both the nullifier and the hash
                 // (set to 0 here and then rearrange array after loop)
                 new_note_hashes[hint_pos] = SideEffect::empty();
                 new_nullifiers[n_idx as u64] = SideEffectLinkedToNoteHash::empty();
@@ -180,23 +178,23 @@ impl PrivateKernelTailCircuitPrivateInputs {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // tx hash
         let first_nullifier = public_inputs.end.new_nullifiers.get(0);
-        let mut unique_commitments = public_inputs.end.new_note_hashes.storage;
+        let mut unique_note_hashes = public_inputs.end.new_note_hashes.storage;
 
         for c_idx in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-            // Apply nonce to all non-zero/non-empty commitments
-            // Nonce is the hash of the first (0th) nullifier and the commitment's index into new_note_hashes array
+            // Apply nonce to all non-zero/non-empty note hashes
+            // Nonce is the hash of the first (0th) nullifier and the note hash's index into new_note_hashes array
             let nonce = compute_commitment_nonce(first_nullifier.value, c_idx);
-            let commitment = unique_commitments[c_idx];
-            if commitment.value != 0 {
-                let unique_commitment = compute_unique_siloed_commitment(nonce, commitment.value);
-                unique_commitments[c_idx] = SideEffect{
+            let hash = unique_note_hashes[c_idx];
+            if hash.value != 0 {
+                let unique_commitment = compute_unique_siloed_commitment(nonce, hash.value);
+                unique_note_hashes[c_idx] = SideEffect{
                     value: unique_commitment,
-                    counter: commitment.counter
+                    counter: hash.counter
                 };
             }
         }
 
-        public_inputs.end.new_note_hashes.storage = unique_commitments;
+        public_inputs.end.new_note_hashes.storage = unique_note_hashes;
     }
 
     pub fn native_private_kernel_circuit_ordering(self) -> PrivateKernelTailCircuitPublicInputs {
@@ -379,9 +377,9 @@ mod tests {
         // prepare for the split: first MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX are added to end_non_revertible_accumulted_data
         // neeed to take the counter of the side effect at the given index because
         builder.previous_kernel.min_revertible_side_effect_counter = builder.previous_kernel.end.new_note_hashes.get(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX).counter;
-        // Read the commitment at index 1;
+        // Read the hash at index 1;
         builder.add_transient_read(1);
-        // Read the commitment at index 3;
+        // Read the hash at index 3;
         builder.add_transient_read(3);
         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
         let public_inputs = builder.execute();
@@ -393,12 +391,12 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with="Hinted commitment does not match read request")]
+    #[test(should_fail_with="Hinted hash does not match read request")]
     unconstrained fn native_read_request_unknown_fails() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.add_transient_read(0);
-        // Tweak the read request so that it does not match the commitment at index 0;
+        // Tweak the read request so that it does not match the hash at index 0;
         let read_request = builder.previous_kernel.end.read_requests.pop();
         builder.previous_kernel.end.read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
         builder.failed();
@@ -409,7 +407,7 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.append_nullifiers(2);
-        // The nullifier at index 1 is nullifying the commitment at index 0;
+        // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_transient_commitment(1, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
@@ -431,10 +429,10 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
-        // The nullifier at index 1 is nullifying the commitment at index 0;
+        // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_transient_commitment(1, 0);
         let new_note_hashes = builder.get_new_note_hashes();
-        // The 0th commitment will be chopped.
+        // The 0th hash will be chopped.
         let unique_siloed_commitments = builder.compute_unique_siloed_commitments([new_note_hashes[1]]);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
@@ -461,9 +459,9 @@ mod tests {
 
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
-        // The nullifier at index 1 is nullifying the commitment at index 1;
+        // The nullifier at index 1 is nullifying the hash at index 1;
         builder.nullify_transient_commitment(1, 1);
-        // The nullifier at index 2 is nullifying the commitment at index 0;
+        // The nullifier at index 2 is nullifying the hash at index 0;
         builder.nullify_transient_commitment(2, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
@@ -540,23 +538,23 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.append_nullifiers(1);
-        // The nullifier at index 1 is nullifying the commitment at index 0;
+        // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_transient_commitment(1, 0);
         // Change the hint to be out of bounds.
         builder.nullifier_commitment_hints[1] = MAX_NEW_NOTE_HASHES_PER_TX;
         builder.failed();
     }
 
-    #[test(should_fail_with="Hinted commitment does not match")]
+    #[test(should_fail_with="Hinted hash does not match")]
     unconstrained fn wrong_nullifier_commitment_hint_fails() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
-        // The nullifier at index 1 is nullifying the commitment at index 1;
+        // The nullifier at index 1 is nullifying the hash at index 1;
         builder.nullify_transient_commitment(1, 1);
-        // The nullifier at index 2 is nullifying the commitment at index 0;
+        // The nullifier at index 2 is nullifying the hash at index 0;
         builder.nullify_transient_commitment(2, 0);
-        // Tweak the hint to be for the commitment at index 1.
+        // Tweak the hint to be for the hash at index 1.
         builder.nullifier_commitment_hints[2] = 1;
         builder.failed();
     }
@@ -617,7 +615,7 @@ mod tests {
         let new_note_hashes = builder.previous_kernel.end.new_note_hashes.storage;
         let public_inputs = builder.execute();
 
-        let unique_commitments = compute_unique_siloed_commitments(
+        let unique_note_hashes = compute_unique_siloed_commitments(
             // tx nullifier is part of non revertible accumulated data
             public_inputs.end_non_revertible.new_nullifiers[0].value,
             new_note_hashes
@@ -626,14 +624,14 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end_non_revertible.new_note_hashes,
-                [unique_commitments[0], unique_commitments[1]]
+                [unique_note_hashes[0], unique_note_hashes[1]]
             )
         );
 
         assert(
             array_eq(
                 public_inputs.end.new_note_hashes,
-                [unique_commitments[2], unique_commitments[3]]
+                [unique_note_hashes[2], unique_note_hashes[3]]
             )
         );
     }
@@ -642,7 +640,7 @@ mod tests {
     unconstrained fn split_side_effect_squashing() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-        // add one commitment in non-revertible part
+        // add one hash in non-revertible part
         builder.previous_kernel.append_new_note_hashes(1);
         builder.previous_kernel.capture_min_revertible_side_effect_counter();
 

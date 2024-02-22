@@ -81,7 +81,7 @@ export class Body {
     const numberOfTxsIncludingEmpty = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
 
     for (let i = 0; i < numberOfTxsIncludingEmpty; i += 1) {
-      // TODO(benesjan): this should use TxEffect.fromBuffer
+      // TODO(#4720): this should use TxEffect.fromBuffer
       txEffects.push(
         new TxEffect(
           newNoteHashes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<

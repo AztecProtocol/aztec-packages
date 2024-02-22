@@ -42,7 +42,7 @@ import {Hash} from "../Hash.sol";
  */
 library TxsDecoder {
   struct ArrayOffsets {
-    uint256 commitment;
+    uint256 noteHash;
     uint256 nullifier;
     uint256 publicData;
     uint256 l2ToL1Msgs;
@@ -78,7 +78,7 @@ library TxsDecoder {
       // Commitments
       uint256 count = read4(_body, offset);
       vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
-      offsets.commitment = 0x4;
+      offsets.noteHash = 0x4;
       offset += 0x4 + count * 0x20;
       offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
 
@@ -155,7 +155,7 @@ library TxsDecoder {
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
           bytes.concat(
-            slice(_body, offsets.commitment, Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_body, offsets.noteHash, Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_body, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_body, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_body, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),
@@ -169,7 +169,7 @@ library TxsDecoder {
           bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
 
-        offsets.commitment += Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.noteHash += Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP;

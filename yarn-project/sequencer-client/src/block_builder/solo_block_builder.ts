@@ -105,7 +105,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = txs.map(
       tx =>
-        // TODO(benesjan): Combined data should most likely contain the tx effect directly
+        // TODO(#4720): Combined data should most likely contain the tx effect directly
         new TxEffect(
           tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<
             Fr,

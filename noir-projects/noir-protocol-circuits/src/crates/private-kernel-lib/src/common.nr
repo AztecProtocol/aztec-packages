@@ -230,7 +230,7 @@ pub fn update_end_values(
     }
     public_inputs.end.new_nullifiers.extend_from_bounded_vec(siloed_new_nullifiers);
 
-    // commitments
+    // note hashes
     let mut siloed_new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL> = BoundedVec::new(SideEffect::empty());
     for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL {
         let new_note_hash = new_note_hashes[i].value;

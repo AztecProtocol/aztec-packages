@@ -63,7 +63,7 @@ library MessagesDecoder {
 
     uint256 offset = 0;
 
-    // Commitments
+    // Note hashes
     uint256 count = read4(_body, offset);
     offset += 0x4 + count * 0x20;
 
