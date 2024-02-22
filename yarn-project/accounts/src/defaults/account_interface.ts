@@ -3,6 +3,8 @@ import { AuthWitness, FunctionCall, TxExecutionRequest } from '@aztec/circuit-ty
 import { CompleteAddress, Fr } from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
 
+
+
 import { DefaultAccountEntrypoint } from './account_entrypoint.js';
 
 /**
@@ -10,11 +12,11 @@ import { DefaultAccountEntrypoint } from './account_entrypoint.js';
  * entrypoint signature, which accept an AppPayload and a FeePayload as defined in noir-libs/aztec-noir/src/entrypoint module
  */
 export class DefaultAccountInterface implements AccountInterface {
-  private entrypoint: EntrypointInterface;
+  protected entrypoint: EntrypointInterface;
 
   constructor(
-    private authWitnessProvider: AuthWitnessProvider,
-    private address: CompleteAddress,
+    protected authWitnessProvider: AuthWitnessProvider,
+    protected address: CompleteAddress,
     nodeInfo: Pick<NodeInfo, 'chainId' | 'protocolVersion'>,
   ) {
     this.entrypoint = new DefaultAccountEntrypoint(
