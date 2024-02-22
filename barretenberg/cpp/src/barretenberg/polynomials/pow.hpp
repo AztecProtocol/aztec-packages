@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 
 #include <cstddef>
@@ -138,7 +139,6 @@ template <typename FF> struct PowPolynomial {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
-        static_cast<void>(iterations_per_thread);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/864): This computation is asymtotically slow as it
         // does pow_size * log(pow_size) work. However, in practice, its super efficient because its trivially
