@@ -1,6 +1,7 @@
 // All code in this file needs to die once the public executor is phased out.
 import { FunctionL2Logs } from '@aztec/circuit-types';
 import {
+  CallContext,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   GlobalVariables,
@@ -54,26 +55,40 @@ export function temporaryAvmCallResults(
 ): PublicExecutionResult {
     const callPointer = tracedContractCall.callPointer;
 
-    // For the purpose of this temporary conversion,
-    // assign every nested call sender == initial call
-    const nestedCallContext = initialExecution.callContext;
-    if (isInitialCall) {
-      nestedCallContext.msgSender = initialExecution.contractAddress;
+    const callContext: CallContext = CallContext.from(initialExecution.callContext);
+    if (!isInitialCall) {
+     callContext.msgSender = initialExecution.contractAddress;
     }
 
-    const nestedExecutionResult: PublicExecutionResult = {
-      execution: {
+    // For the purpose of this temporary conversion,
+    // assign every nested call sender == initial call
+    const execution: PublicExecution = isInitialCall
+      ? initialExecution
+      : {
         contractAddress: tracedContractCall.address,
         // Function data from top execution is borrowed here
         functionData: initialExecution.functionData,
         args: [],
-        callContext: nestedCallContext,
-      },
-      newCommitments: trace.newNoteHashes.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffect(traced.noteHash, traced.counter)),
+        callContext: callContext,
+      };
+    //const nestedExecutionResult: PublicExecutionResult = {
+    //  execution: execution,
+    //  newCommitments: trace.newNoteHashes.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffect(traced.noteHash, traced.counter)),
+    //  newL2ToL1Messages: [],
+    //  newNullifiers: trace.newNullifiers.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffectLinkedToNoteHash(traced.nullifier, Fr.ZERO, traced.counter)),
+    //  contractStorageReads: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageRead(traced.slot, traced.value, traced.counter.toNumber())),
+    //  contractStorageUpdateRequests: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageUpdateRequest(traced.slot, traced.value, traced.counter.toNumber())),
+    //  returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
+    //  nestedExecutions: [],
+    //  unencryptedLogs: FunctionL2Logs.empty(),
+    //};
+    const nestedExecutionResult: PublicExecutionResult = {
+      execution: execution,
+      newCommitments: [],
       newL2ToL1Messages: [],
-      newNullifiers: trace.newNullifiers.filter(traced => traced.callPointer == callPointer).map(traced => new SideEffectLinkedToNoteHash(traced.nullifier, Fr.ZERO, traced.counter)),
-      contractStorageReads: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageRead(traced.slot, traced.value, traced.counter.toNumber())),
-      contractStorageUpdateRequests: trace.publicStorageReads.filter(traced => traced.callPointer == callPointer).map(traced => new ContractStorageUpdateRequest(traced.slot, traced.value, traced.counter.toNumber())),
+      newNullifiers: [],
+      contractStorageReads: [],
+      contractStorageUpdateRequests: [],
       returnValues: [], // just use empty return values for now since they aren't relevant in 1-TX-per-circuit public kernel
       nestedExecutions: [],
       unencryptedLogs: FunctionL2Logs.empty(),
@@ -92,7 +107,7 @@ export function temporaryAvmCallResults(
 export function temporaryConvertAvmSessionResults(
   topExecution: PublicExecution,
   trace: WorldStateAccessTrace,
-  _result: AvmContractCallResults,
+  result: AvmContractCallResults,
 ): PublicExecutionResult {
   // TODO handle reverts
   const initialCall: TracedContractCall = {
@@ -101,11 +116,12 @@ export function temporaryConvertAvmSessionResults(
     storageAddress: topExecution.callContext.storageContractAddress,
     endLifetime: Fr.ZERO,
   };
-  const executionResults: PublicExecutionResult = temporaryAvmCallResults(initialCall, topExecution, trace);
+  const executionResults: PublicExecutionResult = temporaryAvmCallResults(initialCall, topExecution, trace, /*isInitialCall=*/true);
+  executionResults.returnValues = result.output;
   // This loop assumes that the contractCalls trace skips the initial call, but that is not
   // true in the spec!
-  for (const contractCall of trace.contractCalls) {
-    executionResults.nestedExecutions.push(temporaryAvmCallResults(contractCall, topExecution, trace));
-  }
+  //for (const contractCall of trace.contractCalls) {
+  //  executionResults.nestedExecutions.push(temporaryAvmCallResults(contractCall, topExecution, trace));
+  //}
   return executionResults;
 }

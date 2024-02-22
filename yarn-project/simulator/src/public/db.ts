@@ -1,9 +1,8 @@
-import { EthAddress, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/circuits.js';
+import { EthAddress, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { MessageLoadOracleInputs } from '../acvm/index.js';
-import { SiblingPath } from '@aztec/circuit-types';
 
 /**
  * Database interface for providing access to public state.

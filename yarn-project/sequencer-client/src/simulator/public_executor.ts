@@ -8,8 +8,8 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
-import { CommitmentsDB, MessageLoadOracleInputs, NullifiersDB as NfyDB, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { CommitmentsDB, MessageLoadOracleInputs, NullifiersDB as NDB, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
@@ -180,7 +180,7 @@ export class WorldStateDB implements CommitmentsDB {
 /**
  * Implements Nullifier db.
  */
-export class NullifiersDB implements NfyDB {
+export class NullifiersDB implements NDB {
   constructor(private db: MerkleTreeOperations) {}
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
