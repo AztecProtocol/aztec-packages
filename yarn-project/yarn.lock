@@ -414,7 +414,7 @@ __metadata:
     lodash.every: ^4.6.0
     memdown: ^6.1.1
     process: ^0.11.10
-    puppeteer: ^21.3.4
+    puppeteer: 21.11.0
     resolve-typescript-plugin: ^2.0.1
     stream-browserify: ^3.0.0
     string-argv: ^0.3.2
@@ -5038,15 +5038,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chromium-bidi@npm:0.5.4":
-  version: 0.5.4
-  resolution: "chromium-bidi@npm:0.5.4"
+"chromium-bidi@npm:0.5.8":
+  version: 0.5.8
+  resolution: "chromium-bidi@npm:0.5.8"
   dependencies:
     mitt: 3.0.1
-    urlpattern-polyfill: 9.0.0
+    urlpattern-polyfill: 10.0.0
   peerDependencies:
     devtools-protocol: "*"
-  checksum: ac256ae94a9f792a220303379c81a7cff49f5aedd07dd0fcd0cd28c79b204a468ef26a9ef6fa9132d65a477ee624fff6372bebdd51b88cb4e7c7ad2275fb9b77
+  checksum: 4e4bb8d3907b3a17adf15e95220fc16733e0c4b03d0eccb071010a78ca85d122a0435da95ab657ade6d15e8c9b3cd917088b6128a0aec45e4444916625a4076f
   languageName: node
   linkType: hard
 
@@ -11290,30 +11290,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"puppeteer-core@npm:21.9.0":
-  version: 21.9.0
-  resolution: "puppeteer-core@npm:21.9.0"
+"puppeteer-core@npm:21.11.0":
+  version: 21.11.0
+  resolution: "puppeteer-core@npm:21.11.0"
   dependencies:
     "@puppeteer/browsers": 1.9.1
-    chromium-bidi: 0.5.4
+    chromium-bidi: 0.5.8
     cross-fetch: 4.0.0
     debug: 4.3.4
     devtools-protocol: 0.0.1232444
     ws: 8.16.0
-  checksum: 7c92cc0bbbb33fc647ec7dde2902cca47732a5cba65bf95bd46f352c9275e30097ae26a42714d7b6407c83f1940bad82f42d8640e3051efb309fe47b8385ceea
+  checksum: 953018ca679542d747e5974fd732349d73f4c685c0b49dd6027d493ad95d64a23b2d6e3e72f0a0a12c7335d3e08a0b3e6bc9ac3adfb3fb0316fb1ca62f46f129
   languageName: node
   linkType: hard
 
-"puppeteer@npm:^21.3.4":
-  version: 21.9.0
-  resolution: "puppeteer@npm:21.9.0"
+"puppeteer@npm:21.11.0":
+  version: 21.11.0
+  resolution: "puppeteer@npm:21.11.0"
   dependencies:
     "@puppeteer/browsers": 1.9.1
     cosmiconfig: 9.0.0
-    puppeteer-core: 21.9.0
+    puppeteer-core: 21.11.0
   bin:
     puppeteer: lib/esm/puppeteer/node/cli.js
-  checksum: 0cb28d29a183af04869022ff30632116be65f1f8ec4ba729cc36a22332aefee697909adc7c4a15ceae53fdf657c9450aa9b8d8eacab05535adf4972ef2e50038
+  checksum: 0f2e6f6d9269e511022ec8e8478f42bf5f3dbddbdac7b50d31c90504993eaef436e8729a5b3f105576ec2031519de723d4a9d0ad797821d0f16540073fabc37a
   languageName: node
   linkType: hard
 
@@ -13261,10 +13261,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"urlpattern-polyfill@npm:9.0.0":
-  version: 9.0.0
-  resolution: "urlpattern-polyfill@npm:9.0.0"
-  checksum: d3658b78a10eaee514c464f5a4336c408c70cf01e9b915cb1df5892b3c49003d1ed4042dc72d1b18493b8b847883e84fbf2bf358abb5dff84b2725d5e8463bcb
+"urlpattern-polyfill@npm:10.0.0":
+  version: 10.0.0
+  resolution: "urlpattern-polyfill@npm:10.0.0"
+  checksum: 61d890f151ea4ecf34a3dcab32c65ad1f3cda857c9d154af198260c6e5b2ad96d024593409baaa6d4428dd1ab206c14799bf37fe011117ac93a6a44913ac5aa4
   languageName: node
   linkType: hard
 
