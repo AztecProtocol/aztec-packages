@@ -168,10 +168,10 @@ BENCHMARK_DEFINE_F(IvcBench, Translator)(benchmark::State& state)
         ->Arg(1 << 6)
 
 BENCHMARK_REGISTER_F(IvcBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(IvcBench, Accumulate)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(IvcBench, Decide)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(IvcBench, ECCVM)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(IvcBench, Translator)->Unit(benchmark::kMillisecond)->ARGS;
+// BENCHMARK_REGISTER_F(IvcBench, Accumulate)->Unit(benchmark::kMillisecond)->ARGS;
+// BENCHMARK_REGISTER_F(IvcBench, Decide)->Unit(benchmark::kMillisecond)->ARGS;
+// BENCHMARK_REGISTER_F(IvcBench, ECCVM)->Unit(benchmark::kMillisecond)->ARGS;
+// BENCHMARK_REGISTER_F(IvcBench, Translator)->Unit(benchmark::kMillisecond)->ARGS;
 
 } // namespace
 

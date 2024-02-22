@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/thread.hpp"
 
 #include <cstddef>
@@ -121,7 +122,7 @@ template <typename FF> struct PowPolynomial {
      * @brief Given \vec{β} = {β_0,...,β_{d-1}} compute pow_\vec{β}(i) for i=0,...,2^{d}-1
      *
      */
-    void compute_values()
+    BB_PROFILE void compute_values()
     {
         size_t pow_size = 1 << betas.size();
         pow_betas = std::vector<FF>(pow_size);
@@ -136,10 +137,19 @@ template <typename FF> struct PowPolynomial {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
+
+        // // first generate values for each thread with one thread
+        // size_t cur_pow = 1;
+        // while (cur_pow < max_num_threads) {
+
+        //     pow_betas[]
+        // }
+        // each thread computes a tree
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
             for (size_t i = start; i < end; i++) {
+                // compute a tree actually
                 auto res = FF(1);
                 for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
                     if ((j & 1) == 1) {
@@ -149,6 +159,20 @@ template <typename FF> struct PowPolynomial {
                 pow_betas[i] = res;
             }
         });
+
+        // parallel_for(num_threads, [&](size_t thread_idx) {
+        //     size_t start = thread_idx * iterations_per_thread;
+        //     size_t end = (thread_idx + 1) * iterations_per_thread;
+        //     for (size_t i = start; i < end; i++) {
+        //         auto res = FF(1);
+        //         for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
+        //             if ((j & 1) == 1) {
+        //                 res *= betas[beta_idx];
+        //             }
+        //         }
+        //         pow_betas[i] = res;
+        //     }
+        // });
     }
 };
 } // namespace bb
