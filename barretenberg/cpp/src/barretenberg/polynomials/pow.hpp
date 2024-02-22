@@ -139,26 +139,11 @@ template <typename FF> struct PowPolynomial {
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
         static_cast<void>(iterations_per_thread);
-        // // first generate values for each thread with one thread
-        // size_t cur_pow = 1;
-        // size_t level = betas.size() - 1;
-        // while (cur_pow < max_num_threads) {
-        //     for (size_t i = 0; i < cur_pow; i++) {
-        //         pow_betas[(i << (level + 1)) + (1 << level)] = pow_betas[(i << (level + 1))] * betas[level];
-        //     }
-        //     cur_pow++;
-        //     level--;
-        // }
-        // // each thread computes a tree at i<<level
-        // parallel_for(num_threads, [level, this, iterations_per_thread](size_t thread_idx) {
-        //     size_t start_idx = thread_idx * iterations_per_thread;
-        //     size_t cur_pow = 1;
-        //     while (level > 0) {
-        //         for (size_t i =)
-        //             level--;
-        //     }
-        // });
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/864): This computation is asymtotically slow as it
+        // does pow_size * log(pow_size) work. However, in practice, its super efficient because its trivially
+        // parallelizable and only takes 45ms for the whole 6 iter IVC benchmark. Its also very readable, so we're
+        // leaving it unoptimized for now.
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
