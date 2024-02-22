@@ -45,16 +45,27 @@ class IvcBench : public benchmark::Fixture {
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
         // Initialize IVC with a function circuit
-        Builder initial_function_circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
-        ivc.initialize(initial_function_circuit);
+
+        const size_t num_cpus = std::max(get_num_cpus(), static_cast<size_t>(2));
+        const size_t num_total_functions_circuits = static_cast<size_t>(state.range(0));
+        const size_t num_simultaneous_circuits = std::min(num_cpus, num_total_functions_circuits);
+        constexpr size_t num_initial_circuits = 2;
+        std::vector<Builder> function_circuits(num_simultaneous_circuits);
+        parallel_for(num_simultaneous_circuits, [&](size_t i) {
+            function_circuits[i] = Builder();
+            GoblinMockCircuits::construct_mock_function_circuit(function_circuits[i]);
+        });
+        function_circuits[0].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+        ivc.initialize(function_circuits[0]);
+        ivc.goblin.op_queue.swap(function_circuits[0].op_queue);
+
         auto kernel_verifier_accumulator = std::make_shared<ClientIVC::VerifierInstance>();
         kernel_verifier_accumulator->verification_key = ivc.vks.first_func_vk;
 
         // Accumulate another function circuit
-        Builder function_circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-        auto function_fold_proof = ivc.accumulate(function_circuit);
+        function_circuits[1].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+        auto function_fold_proof = ivc.accumulate(function_circuits[1]);
+        ivc.goblin.op_queue.swap(function_circuits[1].op_queue);
         VerifierFoldData function_fold_output = { function_fold_proof, ivc.vks.func_vk };
 
         // Create and accumulate the first folding kernel which only verifies the accumulation of a function circuit
@@ -69,10 +80,21 @@ class IvcBench : public benchmark::Fixture {
         // circuits
         NUM_CIRCUITS -= 2;
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+            if ((circuit_idx + num_initial_circuits) % num_simultaneous_circuits == 0) {
+                parallel_for(std::min(num_simultaneous_circuits, NUM_CIRCUITS - circuit_idx), [&](size_t i) {
+                    function_circuits[i] = Builder();
+                    GoblinMockCircuits::construct_mock_function_circuit(function_circuits[i]);
+                });
+            }
             // Accumulate function circuit
-            Builder function_circuit{ ivc.goblin.op_queue };
-            GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-            auto function_fold_proof = ivc.accumulate(function_circuit);
+
+            function_circuits[(circuit_idx + num_initial_circuits) % num_simultaneous_circuits]
+                .op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+            auto function_fold_proof =
+                ivc.accumulate(function_circuits[(circuit_idx + num_initial_circuits) % num_simultaneous_circuits]);
+
+            function_circuits[(circuit_idx + num_initial_circuits) % num_simultaneous_circuits].op_queue.swap(
+                ivc.goblin.op_queue);
             function_fold_output = { function_fold_proof, ivc.vks.func_vk };
 
             // Create kernel circuit containing the recursive folding verification of a function circuit and a kernel
