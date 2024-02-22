@@ -19,7 +19,8 @@ contract MultiSigAccount {
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils}, oracle::get_public_key::get_public_key,
         state_vars::singleton::Singleton,
-        oracle::debug_log::{debug_log_format, debug_log_array_with_prefix}
+        oracle::debug_log::{debug_log_format, debug_log_array_with_prefix},
+        oracle::try_call_unconstrained_function::try_call_unconstrained_function,
     };
     use dep::authwit::{
         auth::{IS_VALID_SELECTOR, assert_valid_authwit}, entrypoint::{app::AppPayload, fee::FeePayload},
@@ -178,14 +179,26 @@ contract MultiSigAccount {
                     "MultisigAccount.is_valid_impl owner={0} message_field_for_owner={1}",
                     [owner.to_field(), message_field_for_owner]
                 );
-                let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
-                if result == IS_VALID_SELECTOR {
-                    auths_collected += 1;
-                }
+                
+                let try_call: [Field; 5] = try_call_unconstrained_function(owner, is_valid_selector, [message_field_for_owner]);
+                let call_succeeded = try_call[0];
+                let call_result = try_call[1];
+
                 debug_log_format(
-                    "MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}",
-                    [owner.to_field(), result as Field, auths_collected as Field]
+                    "MultisigAccount.is_valid_impl try_call owner={0} call_succeeded={1}, call_result={2}",
+                    [owner.to_field(), call_succeeded, call_result]
                 );
+
+                if (call_succeeded == 1) & (call_result == IS_VALID_SELECTOR) {
+                    let result = context.call_private_function(owner, is_valid_selector, [message_field_for_owner])[0];
+                    if result == IS_VALID_SELECTOR {
+                        auths_collected += 1;
+                    }
+                    debug_log_format(
+                        "MultisigAccount.is_valid_impl owner={0} result={1}, auths_collected={2}",
+                        [owner.to_field(), result as Field, auths_collected as Field]
+                    );
+                }
             }
         }
         auths_collected

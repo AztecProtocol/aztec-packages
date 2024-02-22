@@ -13,6 +13,7 @@ import {
   FunctionData,
   FunctionSelector,
   Header,
+  PrivateCircuitPublicInputs,
   PublicCallRequest,
   ReadRequestMembershipWitness,
   SideEffect,
@@ -20,18 +21,20 @@ import {
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/hash';
-import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionArtifact, FunctionType, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { NoteData, toACVMWitness } from '../acvm/index.js';
+import { NoteData, Oracle, acvm, extractReturnWitness, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionResult, NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
+import { AcirSimulator } from './simulator.js';
 import { ViewDataOracle } from './view_data_oracle.js';
 
 /**
@@ -319,6 +322,85 @@ export class ClientExecutionContext extends ViewDataOracle {
     }
   }
 
+  async tryCallUnconstrainedFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]> {
+    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+
+    this.log(
+      `Trying to call unconstrained function ${targetContractAddress}:${targetArtifact.name}#${functionSelector}(${args
+        .map(arg => arg.toString())
+        .join(' ')}) from ${this.callContext.storageContractAddress}`,
+    );
+
+    // Set initialWitness for execution based on the function type
+    // TODO(@spalladino): This is probably a massive security risk. We're hydrating a full private context and calling a function in an unconstrained
+    // way, so we should discard any side effects coming from it, but it'll be able to inject those changes anyway into this oracle.
+    let initialWitness: Map<number, string>;
+    if (targetArtifact.functionType === FunctionType.UNCONSTRAINED) {
+      initialWitness = toACVMWitness(0, args);
+    } else if (targetArtifact.functionType === FunctionType.SECRET) {
+      const derivedTxContext = new TxContext(
+        false,
+        false,
+        false,
+        ContractDeploymentData.empty(),
+        this.txContext.chainId,
+        this.txContext.version,
+      );
+
+      const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, 0, false, false);
+
+      const argsHash = this.packedArgsCache.pack(args);
+      const context = new ClientExecutionContext(
+        targetContractAddress,
+        argsHash,
+        derivedTxContext,
+        derivedCallContext,
+        this.historicalHeader,
+        this.authWitnesses,
+        this.packedArgsCache,
+        this.noteCache,
+        this.db,
+        this.curve,
+        this.node,
+      );
+      initialWitness = context.getInitialWitness(targetArtifact);
+    } else {
+      throw new Error(`Not calling public because not implemented yet`);
+    }
+
+    // Execute the function and grab return witness
+    let returnWitness: Fr[];
+    try {
+      // Copied from simulator/src/client/unconstrained_execution.ts but removing the decodeArguments from the end.
+      // TODO(@spalladino): Duplicating code is bad, but this was written during a hackathon, so all bets are off.
+      const acir = Buffer.from(targetArtifact.bytecode, 'base64');
+      const context = new ViewDataOracle(targetContractAddress, [], this.db, this.node);
+      const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, new Oracle(context));
+      returnWitness = extractReturnWitness(acir, partialWitness);
+    } catch (err: any) {
+      this.log.warn(`Error executing unconstrained function: ${err.message ?? err}`);
+      // This is a hack so I get the same return type shape in both the happy and unhappy paths.
+      // For unconstrained funcionts, we should grab the return size from their ABI and return that many zero fields.
+      return [Fr.ZERO, ...times(4, Fr.zero)];
+    }
+
+    // If the function is private, we got to extract the return values from the app circuit public inputs
+    // If it's unconstrained, we pad the result to 4 elements. This would break with unconstrained functions that return more than 4 fields.
+    let returnValues: Fr[];
+    if (targetArtifact.functionType === FunctionType.SECRET) {
+      const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+      returnValues = publicInputs.returnValues;
+    } else {
+      returnValues = padArrayEnd(returnWitness, Fr.ZERO, 4);
+    }
+    this.log(`Return data from unconstrained function: ${returnValues.map(v => v.toString()).join(' ')}`);
+    return [new Fr(1), ...returnValues];
+  }
+
   /**
    * Calls a private function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
@@ -338,7 +420,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     isDelegateCall: boolean,
   ) {
     this.log(
-      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
+      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);

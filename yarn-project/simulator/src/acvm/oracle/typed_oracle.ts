@@ -189,6 +189,14 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  tryCallUnconstrainedFunction(
+    _targetContractAddress: AztecAddress,
+    _functionSelector: FunctionSelector,
+    _args: Fr[],
+  ): Promise<Fr[]> {
+    throw new Error('Not available.');
+  }
+
   callPrivateFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,

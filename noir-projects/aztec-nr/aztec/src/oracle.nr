@@ -20,3 +20,4 @@ mod public_call;
 mod notes;
 mod storage;
 mod logs;
+mod try_call_unconstrained_function;
