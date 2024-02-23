@@ -110,11 +110,10 @@ class GoblinMockCircuits {
     static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
     {
         BB_OP_COUNT_TIME();
-        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note
-        // that the circuit size does not scale linearly with number of iterations due to e.g. amortization of
-        // lookup costs
-        const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates) const
-        size_t NUM_ITERATIONS_MEDIUM = 3;       // results in circuit size 2^17 (124843 gates)
+        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
+        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
+        const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates)
+        const size_t NUM_ITERATIONS_MEDIUM = 3; // results in circuit size 2^17 (124843 gates)
         const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
         stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
