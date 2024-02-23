@@ -83,7 +83,6 @@ jobs:
           name: Generate Pipeline generated_config.yml file
           command: |
             # filter our circleci config to the minimal pipeline
-            pip install PyYAML
             build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
       - continuation/continue:
           configuration_path: .circleci/generated_config.yml
