@@ -70,9 +70,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/box-blank-react@workspace:blank-react":
+"@aztec/box-react@workspace:react":
   version: 0.0.0-use.local
-  resolution: "@aztec/box-blank-react@workspace:blank-react"
+  resolution: "@aztec/box-react@workspace:react"
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
@@ -121,9 +121,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/box-blank@workspace:blank":
+"@aztec/box-vanilla@workspace:vanilla-js":
   version: 0.0.0-use.local
-  resolution: "@aztec/box-blank@workspace:blank"
+  resolution: "@aztec/box-vanilla@workspace:vanilla-js"
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"

@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/box-blank",
+  "name": "@aztec/box-vanilla",
   "private": true,
   "version": "0.1.0",
   "type": "module",

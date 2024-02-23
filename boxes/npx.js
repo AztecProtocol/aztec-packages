@@ -83,7 +83,6 @@ async function replacePaths(rootDir) {
 
   files.forEach((file) => {
     const filePath = path.join(rootDir, file.name);
-    // console.log(filePath);
     if (file.isDirectory()) {
       replacePaths(filePath); // Recursively search subdirectories
     } else if (file.name === "Nargo.toml") {
@@ -91,10 +90,7 @@ async function replacePaths(rootDir) {
 
       try {
         Object.keys(content.dependencies).forEach((dep) => {
-          const directory = content.dependencies[dep].path.replace(
-            "../../../../",
-            "",
-          );
+          const directory = content.dependencies[dep].path.replace(/^(..\/)+/);
           content.dependencies[dep] = {
             git: "https://github.com/AztecProtocol/aztec-packages/",
             tag: `aztec-packages-v${version}`,
@@ -109,11 +105,9 @@ async function replacePaths(rootDir) {
     } else if (file.name === "package.json") {
       try {
         let content = JSON.parse(fs.readFileSync(filePath, "utf8"));
-        content.dependencies = {
-          ...content.dependencies,
-          "@aztec/accounts": `${version}`,
-          "@aztec/aztec.js": `${version}`,
-        };
+        Object.keys(content.dependencies)
+          .filter((deps) => deps.match("@aztec"))
+          .map((dep) => (content.dependencies[dep] = `^${version}`));
         fs.writeFileSync(filePath, JSON.stringify(content), "utf8");
       } catch (e) {
         console.log("No package.json to update");
@@ -124,10 +118,10 @@ async function replacePaths(rootDir) {
 
 program.action(async () => {
   const appType = await select({
-    message: "Please choose your boilerplate:",
+    message: "Please choose your Aztec boilerplate:",
     choices: [
-      { value: "blank", name: "Barebones HTML/TS project" },
-      { value: "blank-react", name: "Barebones React project" },
+      { value: "vanilla", name: "HTML/TS project" },
+      { value: "react", name: "React project" },
     ],
   });
 
@@ -145,8 +139,6 @@ program.action(async () => {
       `AztecProtocol/aztec-packages/boxes/${appType}#aztec-packages-v${version}`,
       {
         disableCache: true,
-        verbose: true,
-        mode: "git",
       },
     );
 

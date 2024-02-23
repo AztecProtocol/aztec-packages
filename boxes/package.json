@@ -1,5 +1,5 @@
 {
-  "name": "create-aztec",
+  "name": "create-aztec-app",
   "packageManager": "yarn@4.1.0",
   "version": "0.1.1",
   "type": "module",
@@ -8,8 +8,8 @@
     "build": "yarn workspaces foreach -A -v run build"
   },
   "workspaces": [
-    "blank-react",
-    "blank"
+    "react",
+    "vanilla-js"
   ],
   "bin": "npx.js",
   "resolutions": {
