@@ -65,7 +65,7 @@ for P in "${PROJECTS[@]}"; do
   echo -e "\033[1mBootstrapping $P...\033[0m"
   echo "**************************************"
   echo
-  $P/bootstrap.sh
+  (cd $P && ./bootstrap.sh)
   echo
   echo
 done
