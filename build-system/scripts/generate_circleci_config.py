@@ -47,7 +47,7 @@ def is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
 
 def get_already_built_circleci_job_names(circleci_jobs):
     already_built_manifest_jobs = list(get_already_built_manifest_job_names())
-    for key in jobs_to_remove:
+    for key in already_built_manifest_jobs:
         eprint("Detected cached manifest key:", key)
     for job_name, circleci_job in circleci_jobs.items():
         if is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
