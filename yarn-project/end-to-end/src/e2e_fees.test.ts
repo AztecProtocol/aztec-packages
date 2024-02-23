@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  Contract,
   ExtendedNote,
   Fr,
   FunctionSelector,
@@ -15,7 +14,13 @@ import { TokenContract as BananaCoin, FPCContract, GasTokenContract } from '@azt
 
 import { jest } from '@jest/globals';
 
-import { EndToEndContext, setup } from './fixtures/utils.js';
+import {
+  EndToEndContext,
+  PublicBalancesFn,
+  assertPublicBalances,
+  getPublicBalancesFn,
+  setup,
+} from './fixtures/utils.js';
 import { GasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
 const TOKEN_NAME = 'BananaCoin';
@@ -33,6 +38,9 @@ describe('e2e_fees', () => {
 
   let gasBridgeTestHarness: GasBridgingTestHarness;
   let e2eContext: EndToEndContext;
+
+  let gasBalances: PublicBalancesFn;
+  let bananaBalances: PublicBalancesFn;
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
@@ -90,20 +98,15 @@ describe('e2e_fees', () => {
       .deployed();
     e2eContext.logger(`bananaPay deployed at ${bananaFPC.address}`);
     await gasBridgeTestHarness.bridgeFromL1ToL2(InitialFPCGas + 1n, InitialFPCGas, bananaFPC.address);
-    {
-      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('⛽', gasTokenContract);
-      expect(sequencerBalance).toEqual(0n);
-      expect(aliceBalance).toEqual(0n);
-      expect(fpcBalance).toEqual(InitialFPCGas);
-    }
 
-    {
-      // Sanity check. No public bananas yet.
-      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('🍌', bananaCoin);
-      expect(sequencerBalance).toEqual(0n);
-      expect(aliceBalance).toEqual(0n);
-      expect(fpcBalance).toEqual(0n);
-    }
+    gasBalances = getPublicBalancesFn('⛽', gasTokenContract, e2eContext.logger);
+    bananaBalances = getPublicBalancesFn('🍌', bananaCoin, e2eContext.logger);
+    await assertPublicBalances(
+      gasBalances,
+      [sequencerAddress, aliceAddress, bananaFPC.address],
+      [0n, 0n, InitialFPCGas],
+    );
+    await assertPublicBalances(bananaBalances, [sequencerAddress, aliceAddress, bananaFPC.address], [0n, 0n, 0n]);
   }, 100_000);
 
   it('mint banana privately, pay privately with banana via FPC', async () => {
@@ -142,20 +145,17 @@ describe('e2e_fees', () => {
       })
       .wait();
 
-    // Fee asset
-    {
-      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('⛽', gasTokenContract);
-      expect(sequencerBalance).toEqual(FeeAmount);
-      expect(aliceBalance).toEqual(0n);
-      expect(fpcBalance).toEqual(InitialFPCGas - FeeAmount);
-    }
-    // Bananas asset
-    {
-      const { sequencerBalance, aliceBalance, fpcBalance } = await balances('🍌', bananaCoin);
-      expect(sequencerBalance).toEqual(0n);
-      expect(aliceBalance).toEqual(MintedBananasAmount);
-      expect(fpcBalance).toEqual(FeeAmount);
-    }
+    await assertPublicBalances(
+      gasBalances,
+      [sequencerAddress, aliceAddress, bananaFPC.address],
+      [FeeAmount, 0n, InitialFPCGas - FeeAmount],
+    );
+
+    await assertPublicBalances(
+      bananaBalances,
+      [sequencerAddress, aliceAddress, bananaFPC.address],
+      [0n, MintedBananasAmount, FeeAmount],
+    );
   }, 100_000);
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
@@ -172,19 +172,5 @@ describe('e2e_fees', () => {
       txHash,
     );
     await e2eContext.wallets[accountIndex].addNote(extendedNote);
-  };
-
-  const balances = async (symbol: string, contract: Contract) => {
-    const [sequencerBalance, aliceBalance, fpcBalance] = await Promise.all([
-      contract.methods.balance_of_public(sequencerAddress).view(),
-      contract.methods.balance_of_public(aliceAddress).view(),
-      contract.methods.balance_of_public(bananaFPC.address).view(),
-    ]);
-
-    e2eContext.logger(
-      `${symbol} balances: Alice ${aliceBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`,
-    );
-
-    return { sequencerBalance, aliceBalance, fpcBalance };
   };
 });

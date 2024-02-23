@@ -1,7 +1,6 @@
 import {
   AccountWalletWithPrivateKey,
   AztecAddress,
-  Contract,
   FeePaymentMethod,
   Fr,
   PrivateFeePaymentMethod,
@@ -20,7 +19,13 @@ import {
 
 import { jest } from '@jest/globals';
 
-import { EndToEndContext, setup } from './fixtures/utils.js';
+import {
+  EndToEndContext,
+  PublicBalancesFn,
+  assertPublicBalances,
+  getPublicBalancesFn,
+  setup,
+} from './fixtures/utils.js';
 import { GasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
 jest.setTimeout(1_000_000);
@@ -43,6 +48,12 @@ describe('e2e_fees', () => {
   let bananaFPC: FPCContract;
   let e2eContext: EndToEndContext;
   let gasBridgeTestHarness: GasBridgingTestHarness;
+  let gasBalances: PublicBalancesFn;
+
+  const FEE_AMOUNT = 1n;
+  const SUBSCRIPTION_AMOUNT = 100n;
+  const BRIDGED_GAS_BALANCE = 1000n;
+  const MINTED_BANANAS = 1000n;
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
@@ -83,7 +94,7 @@ describe('e2e_fees', () => {
       bobAddress,
       // anyone can purchase a subscription for 100 test tokens
       bananaCoin.address,
-      100n,
+      SUBSCRIPTION_AMOUNT,
       // I had to pass this in because the address kept changing
       gasTokenContract.address,
     )
@@ -92,31 +103,35 @@ describe('e2e_fees', () => {
 
     // mint some test tokens for Alice
     // she'll pay for the subscription with these
-    await bananaCoin.methods.privately_mint_private_note(1000n).send().wait();
-    await bananaCoin.methods.mint_public(aliceAddress, 1000n).send().wait();
+    await bananaCoin.methods.privately_mint_private_note(MINTED_BANANAS).send().wait();
+    await bananaCoin.methods.mint_public(aliceAddress, MINTED_BANANAS).send().wait();
+    await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE, subscriptionContract.address);
+    await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE, bananaFPC.address);
 
-    await gasBridgeTestHarness.bridgeFromL1ToL2(1000n, 1000n, subscriptionContract.address);
-    await gasBridgeTestHarness.bridgeFromL1ToL2(1000n, 1000n, bananaFPC.address);
+    gasBalances = getPublicBalancesFn('⛽', gasTokenContract, e2eContext.logger);
 
-    {
-      const { sequencerBalance, subscriptionBalance, fpcBalance } = await balances('⛽', gasTokenContract);
-      expect(sequencerBalance).toEqual(0n);
-      expect(subscriptionBalance).toEqual(1000n);
-      expect(fpcBalance).toEqual(1000n);
-    }
+    await assertPublicBalances(
+      gasBalances,
+      [sequencerAddress, subscriptionContract.address, bananaFPC.address],
+      [0n, BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE],
+    );
   });
 
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     // Authorize the subscription contract to transfer the subscription amount from the subscriber.
     await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet));
-    expect(await bananaCoin.methods.balance_of_private(aliceAddress).view()).toBe(899n);
-    expect(await bananaCoin.methods.balance_of_private(bobAddress).view()).toBe(100n);
-    expect(await bananaCoin.methods.balance_of_public(bananaFPC).view()).toBe(1n);
+    expect(await bananaCoin.methods.balance_of_private(aliceAddress).view()).toBe(
+      BRIDGED_GAS_BALANCE - SUBSCRIPTION_AMOUNT - FEE_AMOUNT,
+    );
+    expect(await bananaCoin.methods.balance_of_private(bobAddress).view()).toBe(SUBSCRIPTION_AMOUNT);
+    expect(await bananaCoin.methods.balance_of_public(bananaFPC).view()).toBe(FEE_AMOUNT);
 
     // remains unchanged
-    expect(await gasTokenContract.methods.balance_of_public(subscriptionContract).view()).toBe(1000n);
-    expect(await gasTokenContract.methods.balance_of_public(bananaFPC).view()).toBe(999n);
-    expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(1n);
+    await assertPublicBalances(
+      gasBalances,
+      [subscriptionContract.address, bananaFPC.address, sequencerAddress],
+      [BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE - FEE_AMOUNT, FEE_AMOUNT],
+    );
   });
 
   it('should allow Alice to subscribe by paying with bananas in public', async () => {
@@ -124,17 +139,20 @@ describe('e2e_fees', () => {
     await subscribe(new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet));
 
     // assert that Alice paid 100n for the subscription
-    expect(await bananaCoin.methods.balance_of_private(aliceAddress).view()).toBe(799n);
-    expect(await bananaCoin.methods.balance_of_private(bobAddress).view()).toBe(200n);
+    expect(await bananaCoin.methods.balance_of_private(aliceAddress).view()).toBe(
+      BRIDGED_GAS_BALANCE - 2n * SUBSCRIPTION_AMOUNT - FEE_AMOUNT,
+    );
+    expect(await bananaCoin.methods.balance_of_private(bobAddress).view()).toBe(2n * SUBSCRIPTION_AMOUNT);
 
     // assert that Alice has paid one banana publicly for the tx above
-    expect(await bananaCoin.methods.balance_of_public(aliceAddress).view()).toBe(999n);
-    expect(await bananaCoin.methods.balance_of_public(bananaFPC).view()).toBe(2n);
-    expect(await gasTokenContract.methods.balance_of_public(bananaFPC).view()).toBe(998n);
+    expect(await bananaCoin.methods.balance_of_public(aliceAddress).view()).toBe(MINTED_BANANAS - FEE_AMOUNT);
+    expect(await bananaCoin.methods.balance_of_public(bananaFPC).view()).toBe(2n * FEE_AMOUNT);
 
-    // remains unchanged
-    expect(await gasTokenContract.methods.balance_of_public(subscriptionContract).view()).toBe(1000n);
-    expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(2n);
+    await assertPublicBalances(
+      gasBalances,
+      [subscriptionContract.address, bananaFPC.address, sequencerAddress],
+      [BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE - 2n * FEE_AMOUNT, 2n * FEE_AMOUNT],
+    );
   });
 
   it('should call dapp subscription entrypoint', async () => {
@@ -147,8 +165,12 @@ describe('e2e_fees', () => {
     await sentTx.wait();
 
     expect(await counterContract.methods.get_counter(bobAddress).view()).toBe(1n);
-    expect(await gasTokenContract.methods.balance_of_public(subscriptionContract).view()).toBe(999n);
-    expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(3n);
+
+    await assertPublicBalances(
+      gasBalances,
+      [subscriptionContract.address, sequencerAddress],
+      [BRIDGED_GAS_BALANCE - FEE_AMOUNT, FEE_AMOUNT * 3n],
+    );
   });
 
   it('should reject after the sub runs out', async () => {
@@ -169,7 +191,7 @@ describe('e2e_fees', () => {
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
     {
       const nonce = Fr.random();
-      const action = bananaCoin.methods.transfer(aliceAddress, bobAddress, 100n, nonce);
+      const action = bananaCoin.methods.transfer(aliceAddress, bobAddress, SUBSCRIPTION_AMOUNT, nonce);
       const messageHash = computeAuthWitMessageHash(subscriptionContract.address, action.request());
       await aliceWallet.createAuthWitness(messageHash);
 
@@ -194,19 +216,5 @@ describe('e2e_fees', () => {
     const tx = await pxe.simulateTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();
-  }
-
-  async function balances(symbol: string, contract: Contract) {
-    const [sequencerBalance, subscriptionBalance, fpcBalance] = await Promise.all([
-      contract.methods.balance_of_public(sequencerAddress).view(),
-      contract.methods.balance_of_public(subscriptionContract.address).view(),
-      contract.methods.balance_of_public(bananaFPC.address).view(),
-    ]);
-
-    e2eContext.logger(
-      `${symbol} balances: Alice ${subscriptionBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`,
-    );
-
-    return { sequencerBalance, subscriptionBalance, fpcBalance };
   }
 });

@@ -410,17 +410,29 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   expect(asciiLogs).toStrictEqual(logMessages);
 };
 
-export function getBalancesFn(
-  addresses: AztecAddress[],
-): (symbol: string, contract: Contract) => Record<AztecAddress, bigint> {
-  const balances = async (symbol: string, contract: Contract, logger?: any) => {
+export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
+export function getPublicBalancesFn(
+  symbol: string,
+  contract: Contract,
+  logger: any,
+): (...addresses: AztecAddress[]) => Promise<bigint[]> {
+  const balances = async (...addresses: AztecAddress[]) => {
     const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
-
-    const debugString = ``;
-
-    logger();
-    // `${symbol} balances: Alice ${aliceBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`,
-
-    return { sequencerBalance, aliceBalance, fpcBalance };
+    const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
+    logger(debugString);
+    return b;
   };
+
+  return balances;
+}
+
+export async function assertPublicBalances(
+  balances: PublicBalancesFn,
+  addresses: AztecAddress[],
+  expectedBalances: bigint[],
+) {
+  const actualBalances = await balances(...addresses);
+  for (let i = 0; i < addresses.length; i++) {
+    expect(actualBalances[i]).toBe(expectedBalances[i]);
+  }
 }
