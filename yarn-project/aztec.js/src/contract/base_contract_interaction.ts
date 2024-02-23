@@ -1,4 +1,5 @@
 import { PXE, Tx, TxExecutionRequest } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
 
 import { SentTx } from './sent_tx.js';
 
@@ -11,6 +12,7 @@ export type SendMethodOptions = {
    * Wether to skip the simulation of the public part of the transaction.
    */
   skipPublicSimulation?: boolean;
+  nonce?: Fr;
 };
 
 /**

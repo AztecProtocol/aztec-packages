@@ -4,6 +4,7 @@ export {
   AuthWitnessProvider,
   EntrypointInterface,
   Salt,
+  TxExecutionOptions,
   Wallet,
   FeeOptions,
 } from '../account/index.js';

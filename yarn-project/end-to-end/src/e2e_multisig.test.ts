@@ -1,4 +1,4 @@
-import { DefaultAccountContract } from '@aztec/accounts/defaults';
+import { DefaultAccountContract, DefaultAccountInterface } from '@aztec/accounts/defaults';
 import {
   AccountManager,
   AccountWallet,
@@ -7,8 +7,10 @@ import {
   ContractArtifact,
   DebugLogger,
   ExtendedNote,
+  FunctionCall,
   GrumpkinPrivateKey,
   GrumpkinScalar,
+  NodeInfo,
   Note,
   PXE,
   PublicKey,
@@ -19,8 +21,9 @@ import {
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
+import { AccountInterface, TxExecutionOptions } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import {
@@ -48,6 +51,7 @@ describe('e2e_multisig', () => {
   let logger: DebugLogger;
   let multisig: MultiSigAccountContract;
   let multisigWallet: AccountWallet;
+  let multisigAccountManager: AccountManager;
   let testContract: TestContract;
   let teardown: () => Promise<void>;
 
@@ -71,8 +75,8 @@ describe('e2e_multisig', () => {
     // Deploy the multisig contract via an account manager
     const ownerAddresses = [walletA, walletB, walletC].map(w => w.getCompleteAddress().address);
     logger.info(`Multisig owners: ${ownerAddresses.map(a => a.toString()).join(', ')}`);
-    const accountManager = getMultisigAccountManager(pxe, privateKey, ownerAddresses, 2);
-    multisigWallet = await accountManager.waitDeploy();
+    multisigAccountManager = getMultisigAccountManager(pxe, privateKey, ownerAddresses, 2);
+    multisigWallet = await multisigAccountManager.waitDeploy();
     multisig = await MultiSigAccountContract.at(multisigWallet.getCompleteAddress().address, multisigWallet);
     logger.info(`Multisig deployed at: ${multisig.address.toString()}`);
 
@@ -196,6 +200,50 @@ describe('e2e_multisig', () => {
       expect(await token.methods.balance_of_private(recipient).view()).toBe(amount);
       logger.info(`Successfully sent 25 tokens from another account via authwit`);
     });
+
+    it('should execute token transfer transactions in order', async () => {
+      const signers = [walletA, walletB];
+      const recipient = walletC.getCompleteAddress();
+      const amount = 1n;
+      // const sender = walletB.getCompleteAddress().address;
+
+      const currentNonce: bigint = await multisig.methods.get_nonce().view();
+
+      // create and add authwits for first transfer
+      const action1 = token
+        .withWallet(multisigWallet)
+        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, 0);
+      const nonce1 = currentNonce + 1n;
+      const transferFromAuthWits1 = await collectSignatures(
+        getRequestsFromTxRequest(await action1.create({ nonce: new Fr(nonce1) })),
+        signers,
+      );
+      // await action1.create({ nonce: new Fr(nonce1) });
+      // const transferFromAuthWitRequest1 = Fr.fromBuffer(computeAuthWitMessageHash(sender, action1.request()));
+      // const transferFromAuthWits1 = await collectSignatures([transferFromAuthWitRequest1], signers);
+      await Promise.all(transferFromAuthWits1.map(w => walletB.addAuthWitness(w)));
+
+      // create and add authwits for second transfer
+      const action2 = token
+        .withWallet(multisigWallet)
+        .methods.transfer(multisigWallet.getCompleteAddress(), recipient, amount, 0);
+      const nonce2 = nonce1 + 1n;
+      const transferFromAuthWits2 = await collectSignatures(
+        getRequestsFromTxRequest(await action2.create({ nonce: new Fr(nonce2) })),
+        signers,
+      );
+      // await action1.create({ nonce: new Fr(nonce2) });
+      // const transferFromAuthWitRequest2 = Fr.fromBuffer(computeAuthWitMessageHash(sender, action2.request()));
+      // const transferFromAuthWits2 = await collectSignatures([transferFromAuthWitRequest2], signers);
+      await Promise.all(transferFromAuthWits2.map(w => walletB.addAuthWitness(w)));
+
+      await expect(action2.send().wait()).rejects.toThrow();
+
+      const balance = await token.methods.balance_of_private(recipient).view();
+      await action1.send().wait();
+      await action2.send().wait();
+      expect(await token.methods.balance_of_private(recipient).view()).toBe(balance + 2n);
+    }, 1_000_000_000);
   });
 
   it('add a new owner to the multisig', async () => {
@@ -232,7 +280,12 @@ describe('e2e_multisig', () => {
 const MULTISIG_MAX_OWNERS = 5;
 
 class AccountManagerMultisigAccountContract extends DefaultAccountContract {
-  constructor(private privateKey: GrumpkinPrivateKey, private owners: AztecAddress[], private threshold: number) {
+  constructor(
+    private privateKey: GrumpkinPrivateKey,
+    private owners: AztecAddress[],
+    private threshold: number,
+    private pxe: PXE,
+  ) {
     super(MultiSigAccountContractArtifact as ContractArtifact);
   }
 
@@ -251,6 +304,29 @@ class AccountManagerMultisigAccountContract extends DefaultAccountContract {
       },
     };
   }
+
+  getInterface(address: CompleteAddress, nodeInfo: NodeInfo): AccountInterface {
+    return new MultisigAccountInterface(this.getAuthWitnessProvider(), address, nodeInfo, this.pxe);
+  }
+}
+
+class MultisigAccountInterface extends DefaultAccountInterface {
+  constructor(
+    authWitnessProvider: AuthWitnessProvider,
+    address: CompleteAddress,
+    nodeInfo: Pick<NodeInfo, 'chainId' | 'protocolVersion'>,
+    private pxe: PXE,
+  ) {
+    super(authWitnessProvider, address, nodeInfo);
+  }
+  async createTxExecutionRequest(
+    executions: FunctionCall[],
+    options: TxExecutionOptions = {},
+  ): Promise<TxExecutionRequest> {
+    const multisig = await MultiSigAccountContract.at(this.getCompleteAddress().address, this.pxe as Wallet);
+    const nonce = options.nonce ? options.nonce : new Fr((await multisig.methods.get_nonce().view()) + 1n);
+    return this.entrypoint.createTxExecutionRequest(executions, { ...options, nonce });
+  }
 }
 
 function getMultisigAccountManager(
@@ -259,7 +335,11 @@ function getMultisigAccountManager(
   owners: AztecAddress[],
   threshold: number,
 ) {
-  return new AccountManager(pxe, privateKey, new AccountManagerMultisigAccountContract(privateKey, owners, threshold));
+  return new AccountManager(
+    pxe,
+    privateKey,
+    new AccountManagerMultisigAccountContract(privateKey, owners, threshold, pxe),
+  );
 }
 
 // Returns the requests to sign for a given tx request

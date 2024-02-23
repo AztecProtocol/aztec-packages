@@ -11,6 +11,12 @@ export type FeeOptions = {
   paymentMethod: FeePaymentMethod;
   /** The fee limit to pay */
   maxFee: bigint | number | Fr;
+  nonce: Fr;
+};
+
+export type TxExecutionOptions = {
+  nonce?: Fr;
+  fee?: FeeOptions;
 };
 
 // docs:start:account-interface
@@ -28,10 +34,10 @@ export interface EntrypointInterface {
   /**
    * Generates an authenticated request out of set of function calls.
    * @param executions - The execution intents to be run.
-   * @param feeOpts - The fee to be paid for the transaction.
+   * @param options - The nonce and fee to be paid for the transaction.
    * @returns The authenticated transaction execution request.
    */
-  createTxExecutionRequest(executions: FunctionCall[], feeOpts?: FeeOptions): Promise<TxExecutionRequest>;
+  createTxExecutionRequest(executions: FunctionCall[], options?: TxExecutionOptions): Promise<TxExecutionRequest>;
 }
 
 /**

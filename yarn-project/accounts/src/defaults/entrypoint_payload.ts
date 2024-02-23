@@ -49,8 +49,9 @@ export type PayloadWithArguments = {
  * @param maxCalls - The maximum number of call expected to be run. Used for padding
  * @returns A payload object and packed arguments
  */
-function buildPayload(calls: FunctionCall[], maxCalls: number): PayloadWithArguments {
-  const nonce = Fr.random();
+function buildPayload(calls: FunctionCall[], maxCalls: number, nonce: Fr = Fr.random()): PayloadWithArguments {
+  // moved to input to allow for specification for multisig account transaction ordering
+  //const nonce = Fr.random();
 
   const paddedCalls = padArrayEnd(calls, emptyFunctionCall(), maxCalls);
   const packedArguments: PackedArguments[] = [];
@@ -80,8 +81,8 @@ function buildPayload(calls: FunctionCall[], maxCalls: number): PayloadWithArgum
 }
 
 /** Assembles an entrypoint app payload from a set of private and public function calls */
-export function buildAppPayload(calls: FunctionCall[]): PayloadWithArguments {
-  return buildPayload(calls, ACCOUNT_MAX_CALLS);
+export function buildAppPayload(calls: FunctionCall[], feeOpts?: Partial<FeeOptions>): PayloadWithArguments {
+  return buildPayload(calls, ACCOUNT_MAX_CALLS, feeOpts?.nonce);
 }
 
 /** Creates the payload for paying the fee for a transaction */

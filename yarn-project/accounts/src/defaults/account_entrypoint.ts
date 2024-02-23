@@ -1,4 +1,4 @@
-import { AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
+import { AuthWitnessProvider, EntrypointInterface, TxExecutionOptions } from '@aztec/aztec.js/account';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionData, GeneratorIndex, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
@@ -18,9 +18,12 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(executions: FunctionCall[], feeOpts?: FeeOptions): Promise<TxExecutionRequest> {
-    const { payload: appPayload, packedArguments: appPackedArguments } = buildAppPayload(executions);
-    const { payload: feePayload, packedArguments: feePackedArguments } = buildFeePayload(feeOpts);
+  async createTxExecutionRequest(
+    executions: FunctionCall[],
+    options?: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
+    const { payload: appPayload, packedArguments: appPackedArguments } = buildAppPayload(executions, options);
+    const { payload: feePayload, packedArguments: feePackedArguments } = buildFeePayload(options?.fee);
 
     const abi = this.getEntrypointAbi();
     const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [appPayload, feePayload]));

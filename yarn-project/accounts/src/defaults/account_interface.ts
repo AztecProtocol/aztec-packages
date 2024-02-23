@@ -1,4 +1,9 @@
-import { AccountInterface, AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
+import {
+  AccountInterface,
+  AuthWitnessProvider,
+  EntrypointInterface,
+  TxExecutionOptions,
+} from '@aztec/aztec.js/account';
 import { AuthWitness, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
 import { CompleteAddress, Fr } from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
@@ -10,11 +15,11 @@ import { DefaultAccountEntrypoint } from './account_entrypoint.js';
  * entrypoint signature, which accept an AppPayload and a FeePayload as defined in noir-libs/aztec-noir/src/entrypoint module
  */
 export class DefaultAccountInterface implements AccountInterface {
-  private entrypoint: EntrypointInterface;
+  protected entrypoint: EntrypointInterface;
 
   constructor(
-    private authWitnessProvider: AuthWitnessProvider,
-    private address: CompleteAddress,
+    protected authWitnessProvider: AuthWitnessProvider,
+    protected address: CompleteAddress,
     nodeInfo: Pick<NodeInfo, 'chainId' | 'protocolVersion'>,
   ) {
     this.entrypoint = new DefaultAccountEntrypoint(
@@ -25,8 +30,8 @@ export class DefaultAccountInterface implements AccountInterface {
     );
   }
 
-  createTxExecutionRequest(executions: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(executions, fee);
+  createTxExecutionRequest(executions: FunctionCall[], options?: TxExecutionOptions): Promise<TxExecutionRequest> {
+    return this.entrypoint.createTxExecutionRequest(executions, options);
   }
 
   createAuthWitness(message: Fr): Promise<AuthWitness> {
