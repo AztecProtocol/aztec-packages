@@ -201,7 +201,7 @@ describe('e2e_multisig', () => {
       logger.info(`Successfully sent 25 tokens from another account via authwit`);
     });
 
-    it.only('should execute token transfer transactions in order', async () => {
+    it('should execute token transfer transactions in order', async () => {
       const signers = [walletA, walletB];
       const recipient = walletC.getCompleteAddress();
       const amount = 1n;
