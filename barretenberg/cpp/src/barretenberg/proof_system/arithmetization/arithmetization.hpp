@@ -113,6 +113,11 @@ template <typename FF_> class UltraArith {
         WireType& w_o() { return std::get<2>(wires); };
         WireType& w_4() { return std::get<3>(wires); };
 
+        const WireType& w_l() const { return std::get<0>(wires); };
+        const WireType& w_r() const { return std::get<1>(wires); };
+        const WireType& w_o() const { return std::get<2>(wires); };
+        const WireType& w_4() const { return std::get<3>(wires); };
+
         SelectorType& q_m() { return selectors[0]; };
         SelectorType& q_c() { return selectors[1]; };
         SelectorType& q_1() { return selectors[2]; };
@@ -186,6 +191,11 @@ template <typename FF_> class UltraHonkArith {
         WireType& w_r() { return std::get<1>(wires); };
         WireType& w_o() { return std::get<2>(wires); };
         WireType& w_4() { return std::get<3>(wires); };
+
+        const WireType& w_l() const { return std::get<0>(wires); };
+        const WireType& w_r() const { return std::get<1>(wires); };
+        const WireType& w_o() const { return std::get<2>(wires); };
+        const WireType& w_4() const { return std::get<3>(wires); };
 
         SelectorType& q_m() { return selectors[0]; };
         SelectorType& q_c() { return selectors[1]; };

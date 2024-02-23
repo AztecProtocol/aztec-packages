@@ -345,21 +345,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             stored_state.real_variable_index = builder.real_variable_index;
             stored_state.real_variable_tags = builder.real_variable_tags;
             stored_state.constant_variable_indices = builder.constant_variable_indices;
-            stored_state.w_l = builder.w_l();
-            stored_state.w_r = builder.w_r();
-            stored_state.w_o = builder.w_o();
-            stored_state.w_4 = builder.w_4();
-            stored_state.q_m = builder.q_m();
-            stored_state.q_c = builder.q_c();
-            stored_state.q_1 = builder.q_1();
-            stored_state.q_2 = builder.q_2();
-            stored_state.q_3 = builder.q_3();
-            stored_state.q_4 = builder.q_4();
-            stored_state.q_arith = builder.q_arith();
-            stored_state.q_sort = builder.q_sort();
-            stored_state.q_elliptic = builder.q_elliptic();
-            stored_state.q_aux = builder.q_aux();
-            stored_state.q_lookup_type = builder.q_lookup_type();
+            stored_state.w_l = builder.blocks.main.w_l();
+            stored_state.w_r = builder.blocks.main.w_r();
+            stored_state.w_o = builder.blocks.main.w_o();
+            stored_state.w_4 = builder.blocks.main.w_4();
+            stored_state.q_m = builder.blocks.main.q_m();
+            stored_state.q_c = builder.blocks.main.q_c();
+            stored_state.q_1 = builder.blocks.main.q_1();
+            stored_state.q_2 = builder.blocks.main.q_2();
+            stored_state.q_3 = builder.blocks.main.q_3();
+            stored_state.q_4 = builder.blocks.main.q_4();
+            stored_state.q_arith = builder.blocks.main.q_arith();
+            stored_state.q_sort = builder.blocks.main.q_sort();
+            stored_state.q_elliptic = builder.blocks.main.q_elliptic();
+            stored_state.q_aux = builder.blocks.main.q_aux();
+            stored_state.q_lookup_type = builder.blocks.main.q_lookup_type();
             stored_state.current_tag = builder.current_tag;
             stored_state.tau = builder.tau;
 
@@ -444,21 +444,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             builder->circuit_finalized = circuit_finalized;
             builder->num_gates = num_gates;
             builder->cached_partial_non_native_field_multiplications = cached_partial_non_native_field_multiplications;
-            builder->w_l().resize(num_gates);
-            builder->w_r().resize(num_gates);
-            builder->w_o().resize(num_gates);
-            builder->w_4().resize(num_gates);
-            builder->q_m().resize(num_gates);
-            builder->q_c().resize(num_gates);
-            builder->q_1().resize(num_gates);
-            builder->q_2().resize(num_gates);
-            builder->q_3().resize(num_gates);
-            builder->q_4().resize(num_gates);
-            builder->q_arith().resize(num_gates);
-            builder->q_sort().resize(num_gates);
-            builder->q_elliptic().resize(num_gates);
-            builder->q_aux().resize(num_gates);
-            builder->q_lookup_type().resize(num_gates);
+            builder->blocks.main.w_l().resize(num_gates);
+            builder->blocks.main.w_r().resize(num_gates);
+            builder->blocks.main.w_o().resize(num_gates);
+            builder->blocks.main.w_4().resize(num_gates);
+            builder->blocks.main.q_m().resize(num_gates);
+            builder->blocks.main.q_c().resize(num_gates);
+            builder->blocks.main.q_1().resize(num_gates);
+            builder->blocks.main.q_2().resize(num_gates);
+            builder->blocks.main.q_3().resize(num_gates);
+            builder->blocks.main.q_4().resize(num_gates);
+            builder->blocks.main.q_arith().resize(num_gates);
+            builder->blocks.main.q_sort().resize(num_gates);
+            builder->blocks.main.q_elliptic().resize(num_gates);
+            builder->blocks.main.q_aux().resize(num_gates);
+            builder->blocks.main.q_lookup_type().resize(num_gates);
             if constexpr (HasAdditionalSelectors<Arithmetization>) {
                 builder->blocks.main.resize_additional(num_gates);
             }
@@ -493,49 +493,49 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             if (!(constant_variable_indices == builder.constant_variable_indices)) {
                 return false;
             }
-            if (!(w_l == builder.w_l())) {
+            if (!(w_l == builder.blocks.main.w_l())) {
                 return false;
             }
-            if (!(w_r == builder.w_r())) {
+            if (!(w_r == builder.blocks.main.w_r())) {
                 return false;
             }
-            if (!(w_o == builder.w_o())) {
+            if (!(w_o == builder.blocks.main.w_o())) {
                 return false;
             }
-            if (!(w_4 == builder.w_4())) {
+            if (!(w_4 == builder.blocks.main.w_4())) {
                 return false;
             }
-            if (!(q_m == builder.q_m())) {
+            if (!(q_m == builder.blocks.main.q_m())) {
                 return false;
             }
-            if (!(q_c == builder.q_c())) {
+            if (!(q_c == builder.blocks.main.q_c())) {
                 return false;
             }
-            if (!(q_1 == builder.q_1())) {
+            if (!(q_1 == builder.blocks.main.q_1())) {
                 return false;
             }
-            if (!(q_2 == builder.q_2())) {
+            if (!(q_2 == builder.blocks.main.q_2())) {
                 return false;
             }
-            if (!(q_3 == builder.q_3())) {
+            if (!(q_3 == builder.blocks.main.q_3())) {
                 return false;
             }
-            if (!(q_4 == builder.q_4())) {
+            if (!(q_4 == builder.blocks.main.q_4())) {
                 return false;
             }
-            if (!(q_arith == builder.q_arith())) {
+            if (!(q_arith == builder.blocks.main.q_arith())) {
                 return false;
             }
-            if (!(q_sort == builder.q_sort())) {
+            if (!(q_sort == builder.blocks.main.q_sort())) {
                 return false;
             }
-            if (!(q_elliptic == builder.q_elliptic())) {
+            if (!(q_elliptic == builder.blocks.main.q_elliptic())) {
                 return false;
             }
-            if (!(q_aux == builder.q_aux())) {
+            if (!(q_aux == builder.blocks.main.q_aux())) {
                 return false;
             }
-            if (!(q_lookup_type == builder.q_lookup_type())) {
+            if (!(q_lookup_type == builder.blocks.main.q_lookup_type())) {
                 return false;
             }
             if (!(current_tag == builder.current_tag)) {
@@ -575,45 +575,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     // Block for all gates
     GateBlocks blocks;
-
-    const auto& get_wires() const { return blocks.main.wires; };
-
-    using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
-    using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
-
-    WireVector& w_l() { return std::get<0>(blocks.main.wires); };
-    WireVector& w_r() { return std::get<1>(blocks.main.wires); };
-    WireVector& w_o() { return std::get<2>(blocks.main.wires); };
-    WireVector& w_4() { return std::get<3>(blocks.main.wires); };
-
-    const WireVector& w_l() const { return std::get<0>(blocks.main.wires); };
-    const WireVector& w_r() const { return std::get<1>(blocks.main.wires); };
-    const WireVector& w_o() const { return std::get<2>(blocks.main.wires); };
-    const WireVector& w_4() const { return std::get<3>(blocks.main.wires); };
-
-    SelectorVector& q_m() { return blocks.main.q_m(); };
-    SelectorVector& q_c() { return blocks.main.q_c(); };
-    SelectorVector& q_1() { return blocks.main.q_1(); };
-    SelectorVector& q_2() { return blocks.main.q_2(); };
-    SelectorVector& q_3() { return blocks.main.q_3(); };
-    SelectorVector& q_4() { return blocks.main.q_4(); };
-    SelectorVector& q_arith() { return blocks.main.q_arith(); };
-    SelectorVector& q_sort() { return blocks.main.q_sort(); };
-    SelectorVector& q_elliptic() { return blocks.main.q_elliptic(); };
-    SelectorVector& q_aux() { return blocks.main.q_aux(); };
-    SelectorVector& q_lookup_type() { return blocks.main.q_lookup_type(); };
-
-    const SelectorVector& q_c() const { return blocks.main.q_c(); };
-    const SelectorVector& q_1() const { return blocks.main.q_1(); };
-    const SelectorVector& q_2() const { return blocks.main.q_2(); };
-    const SelectorVector& q_3() const { return blocks.main.q_3(); };
-    const SelectorVector& q_4() const { return blocks.main.q_4(); };
-    const SelectorVector& q_arith() const { return blocks.main.q_arith(); };
-    const SelectorVector& q_sort() const { return blocks.main.q_sort(); };
-    const SelectorVector& q_elliptic() const { return blocks.main.q_elliptic(); };
-    const SelectorVector& q_aux() const { return blocks.main.q_aux(); };
-    const SelectorVector& q_lookup_type() const { return blocks.main.q_lookup_type(); };
-    const SelectorVector& q_m() const { return blocks.main.q_m(); };
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
