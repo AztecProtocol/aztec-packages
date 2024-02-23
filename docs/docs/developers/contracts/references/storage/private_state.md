@@ -16,7 +16,7 @@ Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_trans
 
 To greatly simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
 
-- [Singleton<NoteType\>](#singletonnotetype)
+- [PrivateMutable<NoteType\>](#singletonnotetype)
 - [PrivateImmutable<NoteType\>](#privateimmutablenotetype)
 - [Set<NoteType\>](#setnotetype)
 
@@ -42,19 +42,19 @@ A note should implement the following traits:
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-A private state variable (of type `Singleton`, `PrivateImmutable` or `Set`) may be declared in storage.
+A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `Set`) may be declared in storage.
 
 Every note contains a header, which contains the contract address and storage slot of the state variable to which it is associated. A note is associated with a private state variable if the storage slot of the private state variable matches the storage slot contained in the note's header. The header provides information that helps the user interpret the note's data.
 
-Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `Singleton` and `Set` types.
+Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `PrivateMutable` and `Set` types.
 
 A private state variable points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
 
 An `PrivateImmutable` will point to _one_ note over the lifetime of the contract. This note is a struct of information that is persisted forever.
 
-A `Singleton` may point to _one_ note at a time. But since it's not "immutable", the note that it points to may be [replaced](#replace) by functions of the contract. The current value of a `Singleton` is interpreted as the one note which has not-yet been nullified. The act of replacing a Singleton's note is how a `Singleton` state may be modified by functions.
+A `PrivateMutable` may point to _one_ note at a time. But since it's not "immutable", the note that it points to may be [replaced](#replace) by functions of the contract. The current value of a `PrivateMutable` is interpreted as the one note which has not-yet been nullified. The act of replacing a PrivateMutable's note is how a `PrivateMutable` state may be modified by functions.
 
-`Singleton` is a useful type when declaring a private state variable which may only ever be modified by those who are privy to the current value of that state.
+`PrivateMutable` is a useful type when declaring a private state variable which may only ever be modified by those who are privy to the current value of that state.
 
 A `Set` may point to _multiple_ notes at a time. The "current value" of a private state variable of type `Set` is some accumulation of all not-yet nullified notes which belong to the `Set`.
 
@@ -66,27 +66,27 @@ Think of a ZCash balance (or even a Bitcoin balance). The "current value" of a u
 
 Interestingly, if a developer requires a private state to be modifiable by users who _aren't_ privy to the value of that state, a `Set` is a very useful type. The `insert` method allows new notes to be added to the `Set` without knowing any of the other notes in the set! (Like posting an envelope into a post box, you don't know what else is in there!).
 
-## `Singleton<NoteType>`
+## `PrivateMutable<NoteType>`
 
-Singleton is a private state variable that is unique in a way. When a Singleton is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
+PrivateMutable is a private state variable that is unique in a way. When a PrivateMutable is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
 
 Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/state_vars/singleton.nr).
 
-An example of singleton usage in the account contracts is keeping track of public keys. The `Singleton` is added to the `Storage` struct as follows:
+An example of singleton usage in the account contracts is keeping track of public keys. The `PrivateMutable` is added to the `Storage` struct as follows:
 
 #include_code storage-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `new`
 
-As part of the initialization of the `Storage` struct, the `Singleton` is created as follows at the specified storage slot.
+As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows at the specified storage slot.
 
 #include_code start_vars_singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `initialize`
 
-As mentioned, the Singleton is initialized to create the first note and value.
+As mentioned, the PrivateMutable is initialized to create the first note and value.
 
-When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialized again.
+When this function is called, a nullifier of the storage slot is created, preventing this PrivateMutable from being initialized again.
 
 :::danger Privacy-Leak
 Beware that because this nullifier is created only from the storage slot without randomness it leaks privacy. This means that it is possible for an external observer to determine when the note is nullified.
@@ -94,7 +94,7 @@ Beware that because this nullifier is created only from the storage slot without
 For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
 :::
 
-Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `PrivateImmutable` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
+Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `PrivateMutable`, `PrivateImmutable` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
 
 :::info
 Extend on what happens if you try to use non-initialized state.
@@ -102,29 +102,29 @@ Extend on what happens if you try to use non-initialized state.
 
 ### `is_initialized`
 
-An unconstrained method to check whether the Singleton has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/singleton.nr).
+An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/singleton.nr).
 
 #include_code singleton_is_initialized /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `replace`
 
-To update the value of a `Singleton`, we can use the `replace` method. The method takes a new note as input, and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
+To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a new note as input, and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
 
 An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
 
-#include_code state_vars-SingletonReplace /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code state_vars-PrivateMutableReplace /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-If two people are trying to modify the Singleton at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
+If two people are trying to modify the PrivateMutable at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
 
 ### `get_note`
 
-This function allows us to get the note of a Singleton, essentially reading the value.
+This function allows us to get the note of a PrivateMutable, essentially reading the value.
 
-#include_code state_vars-SingletonGet /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code state_vars-PrivateMutableGet /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 #### Nullifying Note reads
 
-To ensure that a user's private execution always uses the latest value of a Singleton, the `get_note` function will nullify the note that it is reading. This means that if two people are trying to use this function with the same note, only one will succeed (no duplicate nullifiers allowed).
+To ensure that a user's private execution always uses the latest value of a PrivateMutable, the `get_note` function will nullify the note that it is reading. This means that if two people are trying to use this function with the same note, only one will succeed (no duplicate nullifiers allowed).
 
 This also makes read operations indistinguishable from write operations and allows the sequencer to verifying correct execution without learning anything about the value of the note.
 
@@ -138,7 +138,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 ### `new`
 
-As part of the initialization of the `Storage` struct, the `Singleton` is created as follows, here at storage slot 1.
+As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows, here at storage slot 1.
 
 #include_code storage-immutable-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
@@ -164,13 +164,13 @@ An unconstrained method to check if the PrivateImmutable has been initialized. T
 
 ### `get_note`
 
-Similar to the `Singleton`, we can use the `get_note` method to read the value of an PrivateImmutable.
+Similar to the `PrivateMutable`, we can use the `get_note` method to read the value of an PrivateImmutable.
 
 Use this method to retrieve the value of an initialized PrivateImmutable.
 
 #include_code get_note-immutable-singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Unlike a `Singleton`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
+Unlike a `PrivateMutable`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
 
 This function will throw if the `PrivateImmutable` hasn't been initialized.
 

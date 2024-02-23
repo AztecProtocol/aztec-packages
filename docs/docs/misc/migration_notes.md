@@ -205,12 +205,12 @@ impl Storage {
                     1,
                     LeaderSerializationMethods,
                 ),
-                legendary_card: Singleton::new(context, 2, CardNoteMethods),
+                legendary_card: PrivateMutable::new(context, 2, CardNoteMethods),
                 profiles: Map::new(
                     context,
                     3,
                     |context, slot| {
-                        Singleton::new(context, slot, CardNoteMethods)
+                        PrivateMutable::new(context, slot, CardNoteMethods)
                     },
                 ),
                 test: Set::new(context, 4, CardNoteMethods),
@@ -466,12 +466,12 @@ impl Storage {
                 context,
                 1
             ),
-            legendary_card: Singleton::new(context, 2),
+            legendary_card: PrivateMutable::new(context, 2),
             profiles: Map::new(
                 context,
                 3,
                 |context, slot| {
-                    Singleton::new(context, slot)
+                    PrivateMutable::new(context, slot)
                 },
             ),
             test: Set::new(context, 4),

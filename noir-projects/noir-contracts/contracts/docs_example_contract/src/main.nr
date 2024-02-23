@@ -25,7 +25,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_mutable::PublicMutable,singleton::Singleton, private_immutable::PrivateImmutable, set::Set, shared_immutable::SharedImmutable},
+        state_vars::{map::Map, public_mutable::PublicMutable,private_mutable::PrivateMutable, private_immutable::PrivateImmutable, set::Set, shared_immutable::SharedImmutable},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -40,11 +40,11 @@ contract DocsExample {
         leader: PublicMutable<Leader>,
         // docs:end:storage-leader-declaration
         // docs:start:storage-singleton-declaration
-        legendary_card: Singleton<CardNote>,
+        legendary_card: PrivateMutable<CardNote>,
         // docs:end:storage-singleton-declaration
         // just used for docs example to show how to create a singleton map. 
         // docs:start:storage-map-singleton-declaration
-        profiles: Map<AztecAddress, Singleton<CardNote>>,
+        profiles: Map<AztecAddress, PrivateMutable<CardNote>>,
         // docs:end:storage-map-singleton-declaration
         // docs:start:storage-set-declaration
         set: Set<CardNote>,
@@ -70,18 +70,18 @@ contract DocsExample {
                 ),
                 // docs:end:storage-leader-init
                 // docs:start:start_vars_singleton
-                legendary_card: Singleton::new(context, 3),
+                legendary_card: PrivateMutable::new(context, 3),
                 // docs:end:start_vars_singleton
                 // just used for docs example (not for game play):
-                // docs:start:state_vars-MapSingleton
+                // docs:start:state_vars-MapPrivateMutable
                 profiles: Map::new(
                     context,
                     4,
                     |context, slot| {
-                        Singleton::new(context, slot)
+                        PrivateMutable::new(context, slot)
                     },
                 ),
-                // docs:end:state_vars-MapSingleton
+                // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
                 set: Set::new(context, 5),
                 // docs:end:storage-set-init
@@ -180,16 +180,16 @@ contract DocsExample {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
 
-        // docs:start:state_vars-SingletonGet
+        // docs:start:state_vars-PrivateMutableGet
         let card = storage.legendary_card.get_note(false);
-        // docs:end:state_vars-SingletonGet
+        // docs:end:state_vars-PrivateMutableGet
 
         let points = card.points + 1;
 
         let mut new_card = CardNote::new(points, card.randomness, context.msg_sender());
-        // docs:start:state_vars-SingletonReplace
+        // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(&mut new_card, true);
-        // docs:end:state_vars-SingletonReplace
+        // docs:end:state_vars-PrivateMutableReplace
 
         context.call_public_function(
             context.this_address(),
@@ -228,7 +228,7 @@ contract DocsExample {
         storage.imm_singleton.view_note()
     }
 
-    unconstrained fn is_imm_initialized() -> pub bool {
+    unconstrained fn is_priv_imm_initialized() -> pub bool {
         storage.imm_singleton.is_initialized()
     }
 
