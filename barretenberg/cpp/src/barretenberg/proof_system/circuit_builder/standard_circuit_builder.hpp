@@ -14,7 +14,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
   public:
     using Arithmetization = StandardArith<FF>;
     using TraceBlock = ExecutionTraceBlock<Arithmetization>;
-    using GateBlocks = std::array<TraceBlock, Arithmetization::NUM_BLOCKS>;
+    using GateBlocks = Arithmetization::TraceBlocks;
     using GateTypes = Arithmetization::GateTypes;
     using Selectors = Arithmetization;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
@@ -30,29 +30,6 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
 
     GateBlocks blocks;
 
-    using WireVector = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
-    using SelectorVector = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
-
-    template <size_t gate_type_idx> WireVector& w_l() { return std::get<0>(blocks[gate_type_idx].wires); };
-    template <size_t gate_type_idx> WireVector& w_r() { return std::get<1>(blocks[gate_type_idx].wires); };
-    template <size_t gate_type_idx> WireVector& w_o() { return std::get<2>(blocks[gate_type_idx].wires); };
-
-    template <size_t gate_type_idx> const WireVector& w_l() const { return blocks[gate_type_idx].wires[0]; };
-    template <size_t gate_type_idx> const WireVector& w_r() const { return blocks[gate_type_idx].wires[1]; };
-    template <size_t gate_type_idx> const WireVector& w_o() const { return blocks[gate_type_idx].wires[2]; };
-
-    template <size_t gate_type_idx> SelectorVector& q_m() { return blocks[gate_type_idx].selectors.q_m(); };
-    template <size_t gate_type_idx> SelectorVector& q_1() { return blocks[gate_type_idx].selectors.q_1(); };
-    template <size_t gate_type_idx> SelectorVector& q_2() { return blocks[gate_type_idx].selectors.q_2(); };
-    template <size_t gate_type_idx> SelectorVector& q_3() { return blocks[gate_type_idx].selectors.q_3(); };
-    template <size_t gate_type_idx> SelectorVector& q_c() { return blocks[gate_type_idx].selectors.q_c(); };
-
-    template <size_t gate_type_idx> const SelectorVector& q_m() const { return blocks[gate_type_idx].selectors.q_m(); };
-    template <size_t gate_type_idx> const SelectorVector& q_1() const { return blocks[gate_type_idx].selectors.q_1(); };
-    template <size_t gate_type_idx> const SelectorVector& q_2() const { return blocks[gate_type_idx].selectors.q_2(); };
-    template <size_t gate_type_idx> const SelectorVector& q_3() const { return blocks[gate_type_idx].selectors.q_3(); };
-    template <size_t gate_type_idx> const SelectorVector& q_c() const { return blocks[gate_type_idx].selectors.q_c(); };
-
     static constexpr size_t UINT_LOG2_BASE = 2;
 
     // These are variables that we have used a gate on, to enforce that they are
@@ -63,10 +40,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     StandardCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        blocks[GateTypes::Main].selectors.reserve(size_hint);
-        blocks[GateTypes::Main].wires[0].reserve(size_hint);
-        blocks[GateTypes::Main].wires[2].reserve(size_hint);
-        blocks[GateTypes::Main].wires[3].reserve(size_hint);
+        blocks.arithmetic.reserve(size_hint);
         // To effieciently constrain wires to zero, we set the first value of w_1 to be 0, and use copy constraints for
         // all future zero values.
         // (#216)(Adrian): This should be done in a constant way, maybe by initializing the constant_variable_indices

@@ -6,7 +6,7 @@
 namespace bb {
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::generate(const Builder& builder,
+void ExecutionTrace_<Flavor>::generate(Builder& builder,
                                        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
 {
     // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data
@@ -20,7 +20,7 @@ void ExecutionTrace_<Flavor>::generate(const Builder& builder,
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
-    TraceData& trace_data, const Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+    TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
 {
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
@@ -42,7 +42,7 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(const Builder& builder,
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(Builder& builder,
                                                                                           size_t dyadic_circuit_size)
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
@@ -92,7 +92,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
 template <class Flavor>
 std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor>::create_execution_trace_blocks(
-    const Builder& builder)
+    Builder& builder)
 {
     using GateTypes = Flavor::CircuitBuilder::Arithmetization::GateTypes;
     std::vector<TraceBlock> trace_blocks;
@@ -132,9 +132,35 @@ std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor
     trace_blocks.emplace_back(public_block);
 
     // Make a block for the basic wires and selectors
-    trace_blocks.emplace_back(builder.blocks[GateTypes::Main]);
+    // WORKTODO: skip Standard while I'm updating to a new type
+    if constexpr (!IsStandardFlavor<Flavor>) {
+        trace_blocks.emplace_back(builder.blocks[GateTypes::Main]);
+    }
 
     return trace_blocks;
+}
+
+template <class Flavor>
+typename Flavor::CircuitBuilder::Arithmetization::TraceBlocks ExecutionTrace_<
+    Flavor>::create_execution_trace_blocks_standard(Builder& builder)
+    requires IsStandardFlavor<Flavor>
+{
+    // Update the public inputs block
+    for (auto& idx : builder.public_inputs) {
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            if (wire_idx < 2) { // first two wires get a copy of the public inputs
+                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
+            } else { // the remaining wires get zeros
+                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
+            }
+        }
+        for (auto& selector : builder.blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
+    builder.blocks.pub_inputs.is_public_input = true;
+
+    return builder.blocks;
 }
 
 template class ExecutionTrace_<UltraFlavor>;

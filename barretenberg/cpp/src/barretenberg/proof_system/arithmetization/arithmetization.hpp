@@ -39,31 +39,58 @@ template <typename FF_> class StandardArith {
     static constexpr size_t NUM_SELECTORS = 5;
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
+    using Wires = std::array<WireType, NUM_WIRES>;
 
     enum GateTypes { PubInputs, Main, NUM_BLOCKS };
 
-    std::array<SelectorType, NUM_SELECTORS> selectors;
+    struct ExecutionTraceBlock {
+        Wires wires;
+        Selectors selectors;
+        bool is_public_input = false;
 
-    SelectorType& q_m() { return selectors[0]; };
-    SelectorType& q_1() { return selectors[1]; };
-    SelectorType& q_2() { return selectors[2]; };
-    SelectorType& q_3() { return selectors[3]; };
-    SelectorType& q_c() { return selectors[4]; };
+        // WORKTODO: would be nice to do this instead of getters but we lose convenience of block.wires
+        // WireType w_l;
+        // WireType w_r;
+        // WireType w_o;
 
-    const SelectorType& q_m() const { return selectors[0]; };
-    const SelectorType& q_1() const { return selectors[1]; };
-    const SelectorType& q_2() const { return selectors[2]; };
-    const SelectorType& q_3() const { return selectors[3]; };
-    const SelectorType& q_c() const { return selectors[4]; };
-
-    auto& get() { return selectors; };
-
-    void reserve(size_t size_hint)
-    {
-        for (auto& p : selectors) {
-            p.reserve(size_hint);
+        void update_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3)
+        {
+            wires[0].emplace_back(idx_1);
+            wires[1].emplace_back(idx_2);
+            wires[2].emplace_back(idx_3);
         }
-    }
+
+        WireType& w_l() { return std::get<0>(wires); };
+        WireType& w_r() { return std::get<1>(wires); };
+        WireType& w_o() { return std::get<2>(wires); };
+
+        SelectorType& q_m() { return selectors[0]; };
+        SelectorType& q_1() { return selectors[1]; };
+        SelectorType& q_2() { return selectors[2]; };
+        SelectorType& q_3() { return selectors[3]; };
+        SelectorType& q_c() { return selectors[4]; };
+
+        void reserve(size_t size_hint)
+        {
+            for (auto& w : wires) {
+                w.reserve(size_hint);
+            }
+            for (auto& p : selectors) {
+                p.reserve(size_hint);
+            }
+        }
+    };
+
+    struct TraceBlocks {
+        ExecutionTraceBlock pub_inputs;
+        ExecutionTraceBlock arithmetic;
+    };
+
+    // WORKTODO: only needed for now to get things to build. may need something equiv inside TraceBlock?
+    std::array<SelectorType, NUM_SELECTORS> selectors;
+    auto& get() { return selectors; };
 
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
     inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
@@ -75,8 +102,22 @@ template <typename FF_> class UltraArith {
     static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
+    using Wires = std::array<WireType, NUM_WIRES>;
 
     enum GateTypes { PubInputs, Main, NUM_BLOCKS };
+
+    struct ExecutionTraceBlock {
+        Wires wires;
+        Selectors selectors;
+        bool is_public_input = false;
+    };
+
+    struct TraceBlocks {
+        ExecutionTraceBlock pub_inputs;
+        ExecutionTraceBlock arithmetic;
+    };
 
   private:
     std::array<SelectorType, NUM_SELECTORS> selectors;
@@ -133,6 +174,20 @@ template <typename FF_> class UltraHonkArith {
     static constexpr size_t NUM_SELECTORS = 14;
     using FF = FF_;
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
+    using Wires = std::array<WireType, NUM_WIRES>;
+
+    struct ExecutionTraceBlock {
+        Wires wires;
+        Selectors selectors;
+        bool is_public_input = false;
+    };
+
+    struct TraceBlocks {
+        ExecutionTraceBlock pub_inputs;
+        ExecutionTraceBlock arithmetic;
+    };
 
     enum GateTypes { EccOp, PubInputs, Main, NUM_BLOCKS };
 

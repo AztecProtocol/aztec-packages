@@ -36,7 +36,7 @@ template <class Flavor> class ExecutionTrace_ {
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
         std::vector<CyclicPermutation> copy_cycles;
 
-        TraceData(size_t dyadic_circuit_size, const Builder& builder)
+        TraceData(size_t dyadic_circuit_size, Builder& builder)
         {
             // Initializate the wire and selector polynomials
             for (auto& wire : wires) {
@@ -54,7 +54,7 @@ template <class Flavor> class ExecutionTrace_ {
      *
      * @param builder
      */
-    static void generate(const Builder& builder, const std::shared_ptr<ProvingKey>&);
+    static void generate(Builder& builder, const std::shared_ptr<ProvingKey>&);
 
   private:
     /**
@@ -65,7 +65,7 @@ template <class Flavor> class ExecutionTrace_ {
      * @param proving_key
      */
     static void add_wires_and_selectors_to_proving_key(TraceData& trace_data,
-                                                       const Builder& builder,
+                                                       Builder& builder,
                                                        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key);
 
     /**
@@ -75,7 +75,7 @@ template <class Flavor> class ExecutionTrace_ {
      * @param dyadic_circuit_size
      * @return TraceData
      */
-    static TraceData construct_trace_data(const Builder& builder, size_t dyadic_circuit_size);
+    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size);
 
     /**
      * @brief Temporary helper method to construct execution trace blocks from existing builder structures
@@ -84,7 +84,11 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @return std::vector<TraceBlock>
      */
-    static std::vector<TraceBlock> create_execution_trace_blocks(const Builder& builder);
+    static std::vector<TraceBlock> create_execution_trace_blocks(Builder& builder);
+
+    static typename Flavor::CircuitBuilder::Arithmetization::TraceBlocks create_execution_trace_blocks_standard(
+        Builder& builder)
+        requires IsStandardFlavor<Flavor>;
 };
 
 } // namespace bb
