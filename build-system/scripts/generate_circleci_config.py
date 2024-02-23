@@ -8,7 +8,7 @@ import subprocess
 
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_job_names():
-    manifest = json.load(open("build_manifest.json"))
+    manifest = yaml.load(open("build_manifest.yml"))
     return list(manifest)
 
 def has_associated_manifest_job(circleci_job, manifest_names):
@@ -20,7 +20,6 @@ def has_associated_manifest_job(circleci_job, manifest_names):
             if manifest_name in command:
                 return True
     return False
-
 
 def get_already_built_circleci_job_names(circleci_jobs):
     manifest_names = list(get_already_built_manifest_job_names())
@@ -64,6 +63,7 @@ def remove_jobs_from_workflow(jobs, to_remove):
     for job in jobs:
         key = next(iter(job))
         if key in to_remove:
+            print(key)
             continue
         # remove our filtered jobs from the dependency graph via the requires attribute
         job[key]["requires"] = [r for r in job[key].get("requires", []) if r not in jobs_to_remove]
@@ -87,4 +87,4 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
-    print(new_workflow_json_str)
+    # print(new_workflow_json_str)
