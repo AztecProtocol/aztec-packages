@@ -11,7 +11,6 @@ using namespace bb;
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
     using Arithmetization = UltraHonkArith<FF>;
-    using GateTypes = Arithmetization::GateTypes;
 
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;

@@ -680,11 +680,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                          bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        blocks.main.selectors.reserve(size_hint);
-        w_l().reserve(size_hint);
-        w_r().reserve(size_hint);
-        w_o().reserve(size_hint);
-        w_4().reserve(size_hint);
+        blocks.main.reserve(size_hint);
 
         for (size_t idx = 0; idx < varnum; ++idx) {
             // Zeros are added for variables whose existence is known but whose values are not yet known. The values may

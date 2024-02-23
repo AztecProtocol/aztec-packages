@@ -50,11 +50,11 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/862): Eventually trace_blocks will be constructed
     // directly in the builder, i.e. the gate addition methods will directly populate the wire/selectors in the
     // appropriate block. In the mean time we do some inefficient copying etc to construct it here post facto.
-    auto trace_blocks = create_execution_trace_blocks(builder);
+    create_execution_trace_blocks(builder);
 
-    uint32_t offset = 0; // Track offset at which to place each block in the trace polynomials
+    uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
-    for (auto& block : trace_blocks.get()) {
+    for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.wires[0].size());
 
         // Update wire polynomials and copy cycles
@@ -90,59 +90,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     return trace_data;
 }
 
-// template <class Flavor>
-// std::vector<typename ExecutionTrace_<Flavor>::TraceBlock> ExecutionTrace_<Flavor>::create_execution_trace_blocks(
-//     Builder& builder)
-// {
-//     // using GateTypes = Flavor::CircuitBuilder::Arithmetization::GateTypes;
-//     std::vector<TraceBlock> trace_blocks;
-
-//     // Make a block for the zero row
-//     if constexpr (Flavor::has_zero_row) {
-//         TraceBlock zero_block;
-//         for (auto& wire : zero_block.wires) {
-//             wire.emplace_back(builder.zero_idx);
-//         }
-//         for (auto& selector : zero_block.selectors.get()) {
-//             selector.emplace_back(0);
-//         }
-//         trace_blocks.emplace_back(zero_block);
-//     }
-
-//     // // Make a block for the ecc op wires
-//     // if constexpr (IsGoblinFlavor<Flavor>) {
-//     //     trace_blocks.emplace_back(builder.blocks[GateTypes::EccOp]);
-//     // }
-
-//     // Make a block for the public inputs
-//     TraceBlock public_block;
-//     for (auto& idx : builder.public_inputs) {
-//         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-//             if (wire_idx < 2) { // first two wires get a copy of the public inputs
-//                 public_block.wires[wire_idx].emplace_back(idx);
-//             } else { // the remaining wires get zeros
-//                 public_block.wires[wire_idx].emplace_back(builder.zero_idx);
-//             }
-//         }
-//         for (auto& selector : public_block.selectors.get()) {
-//             selector.emplace_back(0);
-//         }
-//     }
-//     public_block.is_public_input = true;
-//     trace_blocks.emplace_back(public_block);
-
-//     // Make a block for the basic wires and selectors
-//     // WORKTODO: skip Standard while I'm updating to a new type
-//     // if constexpr (!IsStandardFlavor<Flavor>) {
-//     //     trace_blocks.emplace_back(builder.blocks[GateTypes::Main]);
-//     // }
-
-//     return trace_blocks;
-// }
-
-template <class Flavor>
-typename Flavor::CircuitBuilder::Arithmetization::TraceBlocks ExecutionTrace_<Flavor>::create_execution_trace_blocks(
-    Builder& builder)
+template <class Flavor> void ExecutionTrace_<Flavor>::create_execution_trace_blocks(Builder& builder)
 {
     // Update the public inputs block
     for (auto& idx : builder.public_inputs) {
@@ -158,8 +106,6 @@ typename Flavor::CircuitBuilder::Arithmetization::TraceBlocks ExecutionTrace_<Fl
         }
     }
     builder.blocks.pub_inputs.is_public_input = true;
-
-    return builder.blocks;
 }
 
 template class ExecutionTrace_<UltraFlavor>;
