@@ -190,7 +190,7 @@ Storage definition and initialization has been simplified. Previously:
 
 ```rust
 struct Storage {
-    leader: PublicState<Leader, LEADER_SERIALIZED_LEN>,
+    leader: PublicMutable<Leader, LEADER_SERIALIZED_LEN>,
     legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
     profiles: Map<AztecAddress, Singleton<CardNote, CARD_NOTE_LEN>>,
     test: Set<CardNote, CARD_NOTE_LEN>,
@@ -200,7 +200,7 @@ struct Storage {
 impl Storage {
         fn init(context: Context) -> Self {
             Storage {
-                leader: PublicState::new(
+                leader: PublicMutable::new(
                     context,
                     1,
                     LeaderSerializationMethods,
@@ -224,7 +224,7 @@ Now:
 
 ```rust
 struct Storage {
-    leader: PublicState<Leader>,
+    leader: PublicMutable<Leader>,
     legendary_card: Singleton<CardNote>,
     profiles: Map<AztecAddress, Singleton<CardNote>>,
     test: Set<CardNote>,
@@ -462,7 +462,7 @@ It is still possible to manually implement the storage initialization (for custo
 impl Storage {
     fn init(context: Context) -> Self {
         Storage {
-            leader: PublicState::new(
+            leader: PublicMutable::new(
                 context,
                 1
             ),
@@ -554,7 +554,7 @@ Before:
 
 ```rust
 struct Storage {
-    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>
+    balances: Map<PublicMutable<Field, FIELD_SERIALIZED_LEN>>
 }
 
 let user_balance = balances.at(owner.to_field())

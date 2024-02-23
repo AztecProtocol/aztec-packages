@@ -25,7 +25,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_state::PublicState,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_public_state::StablePublicState},
+        state_vars::{map::Map, public_mutable::PublicMutable,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_public_state::StablePublicState},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -35,9 +35,9 @@ contract DocsExample {
     };
 
     struct Storage {
-        // Shows how to create a custom struct in PublicState
+        // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
-        leader: PublicState<Leader>,
+        leader: PublicMutable<Leader>,
         // docs:end:storage-leader-declaration
         // docs:start:storage-singleton-declaration
         legendary_card: Singleton<CardNote>,
@@ -56,7 +56,7 @@ contract DocsExample {
         stable_value: StablePublicState<Leader>,
         // docs:end:storage-stable-declaration
         // docs:start:storage-minters-declaration
-        minters: Map<AztecAddress, PublicState<bool>>, 
+        minters: Map<AztecAddress, PublicMutable<bool>>, 
         // docs:end:storage-minters-declaration
     }
 
@@ -64,7 +64,7 @@ contract DocsExample {
         fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage-leader-init
-                leader: PublicState::new(
+                leader: PublicMutable::new(
                     context,
                     1
                 ),
@@ -94,7 +94,7 @@ contract DocsExample {
                     context,
                     8,
                     |context, slot| {
-                        PublicState::new(context, slot)
+                        PublicMutable::new(context, slot)
                     },
                 ),
                 // docs:end:storage-minters-init

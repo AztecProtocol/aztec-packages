@@ -70,6 +70,10 @@ impl PublicContext {
         }
     }
 
+    pub fn assert_deployment() {
+        // TODO(#4738): Implement this
+    }
+
     pub fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }

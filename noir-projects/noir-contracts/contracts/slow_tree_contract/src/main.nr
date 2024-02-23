@@ -12,7 +12,7 @@ contract SlowTree {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set},
+        state_vars::{map::Map, public_mutable::PublicMutable, set::Set},
         protocol_types::type_serialization::FIELD_SERIALIZED_LEN
     };
     use dep::slow_updates_tree::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};

@@ -5,7 +5,7 @@ contract InclusionProofs {
         grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
     };
     use dep::aztec::{
-        state_vars::{map::Map, set::Set, public_state::PublicState}, context::Context,
+        state_vars::{map::Map, set::Set, public_mutable::PublicMutable}, context::Context,
         note::{
         note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
         note_header::NoteHeader, utils as note_utils
@@ -32,8 +32,8 @@ contract InclusionProofs {
     // docs:end:value_note_imports
     struct Storage {
         private_values: Map<AztecAddress, Set<ValueNote>>,
-        public_value: PublicState<Field>,
-        public_unused_value: PublicState<Field>,
+        public_value: PublicMutable<Field>,
+        public_unused_value: PublicMutable<Field>,
     }
 
     #[aztec(private)]

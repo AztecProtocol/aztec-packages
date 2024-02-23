@@ -4,7 +4,7 @@ contract DelegatedOn {
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context}, log::emit_unencrypted_log,
-        state_vars::{public_state::PublicState, set::Set},
+        state_vars::{public_mutable::PublicMutable, set::Set},
         protocol_types::{abis::{function_selector::FunctionSelector, call_context::CallContext}, address::AztecAddress},
         note::{
         note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
@@ -14,7 +14,7 @@ contract DelegatedOn {
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
-        current_value: PublicState<Field>,
+        current_value: PublicMutable<Field>,
         a_private_value: Set<ValueNote>,
     }
 

@@ -29,6 +29,8 @@ impl<T> StablePublicState<T> {
         // This is currently impractical, as public functions are never marked `is_contract_deployment`
         // in the `call_context`, only private functions will have this flag set.
         let fields = T::serialize(value);
+        // TODO(benesjan): check here that the value is not already set
+        // storage_write(self.storage_slot, 0xdead);
         storage_write(self.storage_slot, fields);
     }
 

@@ -23,7 +23,7 @@ contract Token {
             utils as note_utils,
         },
         hash::{compute_secret_hash},
-        state_vars::{map::Map, public_state::PublicState, stable_public_state::StablePublicState,  set::Set},
+        state_vars::{map::Map, public_mutable::PublicMutable, stable_public_state::StablePublicState,  set::Set},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress
@@ -49,19 +49,19 @@ contract Token {
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<AztecAddress>,
+        admin: PublicMutable<AztecAddress>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicState<bool>>,
+        minters: Map<AztecAddress, PublicMutable<bool>>, 
         // docs:end:storage_minters
         // docs:start:storage_balances
         balances: BalancesMap<TokenNote>,
         // docs:end:storage_balances
-        total_supply: PublicState<SafeU120>,
+        total_supply: PublicMutable<SafeU120>, 
         // docs:start:storage_pending_shields
         pending_shields: Set<TransparentNote>,
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
+        public_balances: Map<AztecAddress, PublicMutable<SafeU120>>,
         symbol: StablePublicState<FieldCompressedString>,
         name: StablePublicState<FieldCompressedString>,
         // docs:start:storage_decimals

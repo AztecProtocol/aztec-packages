@@ -6,12 +6,12 @@ contract StatefulTest {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set}
+        state_vars::{map::Map, public_mutable::PublicMutable, set::Set}
     };
 
     struct Storage {
         notes: Map<AztecAddress, Set<ValueNote>>,
-        public_values: Map<AztecAddress, PublicState<Field>>,
+        public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[aztec(private)]
