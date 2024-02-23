@@ -32,7 +32,6 @@ def get_already_built_circleci_job_names(circleci_jobs):
 # Helper for multiprocessing
 def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
-    eprint(manifest_name, content_hash)
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
         return manifest_name
@@ -84,6 +83,9 @@ if __name__ == '__main__':
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
+    for remove in jobs_to_remove:
+      eprint("REMOVE")
+      eprint(remove)
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
@@ -93,6 +95,7 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
-    # for t in workflow_dict["workflows"]["system"]["jobs"]:
-    #   print(t)
-    print(new_workflow_json_str)
+    for t in workflow_dict["workflows"]["system"]["jobs"]:
+      eprint("KEPT")
+      eprint(t)
+    # print(new_workflow_json_str)
