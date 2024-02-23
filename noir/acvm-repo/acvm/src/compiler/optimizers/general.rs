@@ -17,6 +17,7 @@ impl GeneralOptimizer {
     }
 }
 
+
 // Remove all terms with zero as a coefficient
 fn remove_zero_coefficients(mut opcode: Expression) -> Expression {
     // Check the mul terms
