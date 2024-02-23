@@ -87,4 +87,4 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
-    # print(new_workflow_json_str)
+    print(new_workflow_json_str)
