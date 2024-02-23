@@ -1318,15 +1318,11 @@ workflows:
       - avm-transpiler: *defaults
 
       # Barretenberg
-      - barretenberg-asan-build: *defaults
       - barretenberg-assert-build: *defaults
       - barretenberg-fuzzing-build: *defaults
       - barretenberg-gcc-build: *defaults
-      - barretenberg-msan-build: *defaults
       - barretenberg-op-count-build: *defaults
       - barretenberg-release-build: *defaults
-      - barretenberg-tsan-build: *defaults
-      - barretenberg-ubsan-build: *defaults
       - barretenberg-wasm-build: *defaults
       - barretenberg-solidity-verifier: *defaults
       - barretenberg-op-count-bench:

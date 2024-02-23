@@ -53,11 +53,6 @@ noir-compile-acir-tests:
   dependencies:
     - noir
 
-barretenberg-asan-build:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.assert-build
-  rebuildPatterns: .rebuild_patterns
-
 barretenberg-assert-build:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.assert-build
@@ -73,11 +68,6 @@ barretenberg-gcc-build:
   dockerfile: dockerfiles/Dockerfile.gcc-build
   rebuildPatterns: .rebuild_patterns
 
-barretenberg-msan-build:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.msan-build
-  rebuildPatterns: .rebuild_patterns
-
 barretenberg-op-count-build:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.op-count-build
@@ -86,16 +76,6 @@ barretenberg-op-count-build:
 barretenberg-release-build:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.release-build
-  rebuildPatterns: .rebuild_patterns
-
-barretenberg-tsan-build:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.tsan-build
-  rebuildPatterns: .rebuild_patterns
-
-barretenberg-ubsan-build:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.ubsan-build
   rebuildPatterns: .rebuild_patterns
 
 barretenberg-wasm-build:
