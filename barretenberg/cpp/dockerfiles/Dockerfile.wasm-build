@@ -14,7 +14,7 @@ WORKDIR /usr/src/barretenberg/cpp
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 # copy to build/ for bench.sh compatibility
 COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
-COPY --from=builder /usr/src/barretenberg/cpp/build-wasm /usr/src/barretenberg/cpp/build
+COPY --from=builder /usr/src/barretenberg/cpp/build-wasm-threads /usr/src/barretenberg/cpp/build
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/865) reconsider single-threaded barretenberg
 # COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm
 COPY --from=builder /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm
