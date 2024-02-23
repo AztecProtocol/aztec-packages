@@ -25,8 +25,6 @@ def has_associated_manifest_job(circleci_job, manifest_names):
 
 def get_already_built_circleci_job_names(circleci_jobs):
     manifest_names = list(get_already_built_manifest_job_names())
-    for man in manifest_names:
-      eprint("MAN", man)
     for job_name, circleci_job in circleci_jobs.items():
         if has_associated_manifest_job(circleci_job, manifest_names):
             yield job_name
@@ -34,7 +32,6 @@ def get_already_built_circleci_job_names(circleci_jobs):
 # Helper for multiprocessing
 def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
-    eprint("CON", content_hash)
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
         return manifest_name
@@ -44,19 +41,12 @@ def _get_already_built_manifest_job_names(manifest_name):
 def get_already_built_manifest_job_names():
     manifest_names = get_manifest_job_names()
 
-    for key in manifest_names:
-        res = _get_already_built_manifest_job_names(key)
-        if res is not None:
-            yield res
-
-    # with ProcessPoolExecutor() as executor:
-    #     futures = [executor.submit(_get_already_built_manifest_job_names, key) for key in manifest_names]
-    #     for future in as_completed(futures):
-    #         eprint('fut', future)
-    #         result = future.result()
-    #         eprint('res', result)
-    #         if result is not None:
-    #             yield result
+    with ProcessPoolExecutor() as executor:
+        futures = {executor.submit(_get_already_built_manifest_job_names, key): key for key in manifest_names}
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                yield result
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
@@ -93,6 +83,7 @@ if __name__ == '__main__':
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
+
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
     del workflow_dict["workflows"]["setup-workflow"]
@@ -102,6 +93,5 @@ if __name__ == '__main__':
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
     for t in workflow_dict["workflows"]["system"]["jobs"]:
-      eprint("KEPT")
-      eprint(t)
-    # print(new_workflow_json_str)
+      eprint("KEPT", t)
+    print(new_workflow_json_str)
