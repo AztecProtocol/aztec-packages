@@ -14,9 +14,9 @@ import {
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { EthAddress, computePartialAddress } from '@aztec/circuits.js';
+import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdFundingContract, CrowdFundingContractArtifact } from '@aztec/noir-contracts.js/CrowdFunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 
 import { jest } from '@jest/globals';
 
@@ -89,7 +89,8 @@ describe('e2e_aztec_crowdfunding', () => {
       operatorWallet.getAddress(),
       rewardsTokenMetadata.name,
       rewardsTokenMetadata.symbol,
-      rewardsTokenMetadata.decimals,)
+      rewardsTokenMetadata.decimals,
+    )
       .send()
       .deployed();
 
@@ -122,17 +123,24 @@ describe('e2e_aztec_crowdfunding', () => {
 
     logger(`Campaign contract deployed at ${Crowdfunding.address}`);
 
-    await addFieldNote(Crowdfunding.address, new Fr(1), EthToken.address.toField(), crowdfundingDeploymentReceipt.txHash);
-    await addFieldNote(Crowdfunding.address, new Fr(2), operatorWallet.getAddress().toField(), crowdfundingDeploymentReceipt.txHash);
-
+    await addFieldNote(
+      Crowdfunding.address,
+      new Fr(1),
+      EthToken.address.toField(),
+      crowdfundingDeploymentReceipt.txHash,
+    );
+    await addFieldNote(
+      Crowdfunding.address,
+      new Fr(2),
+      operatorWallet.getAddress().toField(),
+      crowdfundingDeploymentReceipt.txHash,
+    );
 
     logger(`JBT deployed to ${JuiceboxToken.address}`);
 
-    const claimContractReceipt = await ClaimContract.deploy(
-      operatorWallet,
-      Crowdfunding.address,
-      JuiceboxToken.address,
-    ).send().wait();
+    const claimContractReceipt = await ClaimContract.deploy(operatorWallet, Crowdfunding.address, JuiceboxToken.address)
+      .send()
+      .wait();
 
     Claims = claimContractReceipt.contract;
 
@@ -238,14 +246,16 @@ describe('e2e_aztec_crowdfunding', () => {
     await donorWallets[0].addAuthWitness(witness);
 
     const donateTxReceipt = await Crowdfunding.withWallet(donorWallets[0]).methods.donate(1000n).send().wait({
-      debug: true
+      debug: true,
     });
 
-    const allCampaignNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x => x.contractAddress.equals(Crowdfunding.address));
+    const allCampaignNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
+      x.contractAddress.equals(Crowdfunding.address),
+    );
 
     expect(allCampaignNotes?.length).toEqual(1);
 
-    console.log('rewardnote ', allCampaignNotes![0])
+    console.log('rewardnote ', allCampaignNotes![0]);
 
     const noteNonces = await pxe.getNoteNonces(allCampaignNotes![0]);
 
@@ -253,56 +263,73 @@ describe('e2e_aztec_crowdfunding', () => {
 
     console.log('noteNonce ', noteNonces![0]);
 
-    await Claims.withWallet(donorWallets[0]).methods.claim({
-      header: {
-        contract_address: Crowdfunding.address,
-        storage_slot: 3,
-        is_transient: false,
-        nonce: noteNonces![0],
-      },
-      value: allCampaignNotes![0].note.items[0],
-      owner:  allCampaignNotes![0].note.items[1],
-      randomness: allCampaignNotes![0].note.items[2],
-    }).send().wait();
+    await Claims.withWallet(donorWallets[0])
+      .methods.claim({
+        header: {
+          contract_address: Crowdfunding.address,
+          storage_slot: 3,
+          is_transient: false,
+          nonce: noteNonces![0],
+        },
+        value: allCampaignNotes![0].note.items[0],
+        owner: allCampaignNotes![0].note.items[1],
+        randomness: allCampaignNotes![0].note.items[2],
+      })
+      .send()
+      .wait();
 
     // Should not be able to claim a non-existent note
-    await expect(Claims.withWallet(donorWallets[0]).methods.claim({
-      header: {
-        contract_address: Crowdfunding.address,
-        storage_slot: 3,
-        is_transient: false,
-        nonce: noteNonces![0],
-      },
-      value: allCampaignNotes![0].note.items[0],
-      owner:  allCampaignNotes![0].note.items[1],
-      randomness: Fr.ZERO,
-    }).send().wait()).rejects.toThrow();
+    await expect(
+      Claims.withWallet(donorWallets[0])
+        .methods.claim({
+          header: {
+            contract_address: Crowdfunding.address,
+            storage_slot: 3,
+            is_transient: false,
+            nonce: noteNonces![0],
+          },
+          value: allCampaignNotes![0].note.items[0],
+          owner: allCampaignNotes![0].note.items[1],
+          randomness: Fr.ZERO,
+        })
+        .send()
+        .wait(),
+    ).rejects.toThrow();
 
     // Should not be able to claim again
-    await expect(Claims.withWallet(donorWallets[0]).methods.claim({
-      header: {
-        contract_address: Crowdfunding.address,
-        storage_slot: 3,
-        is_transient: false,
-        nonce: noteNonces![0],
-      },
-      value: allCampaignNotes![0].note.items[0],
-      owner:  allCampaignNotes![0].note.items[1],
-      randomness: allCampaignNotes![0].note.items[2],
-    }).send().wait()).rejects.toThrow();
+    await expect(
+      Claims.withWallet(donorWallets[0])
+        .methods.claim({
+          header: {
+            contract_address: Crowdfunding.address,
+            storage_slot: 3,
+            is_transient: false,
+            nonce: noteNonces![0],
+          },
+          value: allCampaignNotes![0].note.items[0],
+          owner: allCampaignNotes![0].note.items[1],
+          randomness: allCampaignNotes![0].note.items[2],
+        })
+        .send()
+        .wait(),
+    ).rejects.toThrow();
 
     const balanceOfRewardToken = await JuiceboxToken.methods.balance_of_public(donorWallets[0].getAddress()).view();
 
     // Balance of public reward token should be the amount claimed
     expect(balanceOfRewardToken).toEqual(1000n);
 
-    const balanceOfEthTokenBeforeWithdrawal = await EthToken.methods.balance_of_private(operatorWallet.getAddress()).view();
+    const balanceOfEthTokenBeforeWithdrawal = await EthToken.methods
+      .balance_of_private(operatorWallet.getAddress())
+      .view();
 
     expect(balanceOfEthTokenBeforeWithdrawal).toEqual(0n);
 
     await Crowdfunding.methods.withdraw(1000n).send().wait();
 
-    const balanceOfEthTokenAfterWithdrawal = await EthToken.methods.balance_of_private(operatorWallet.getAddress()).view();
+    const balanceOfEthTokenAfterWithdrawal = await EthToken.methods
+      .balance_of_private(operatorWallet.getAddress())
+      .view();
 
     expect(balanceOfEthTokenAfterWithdrawal).toEqual(1000n);
   });

@@ -3,12 +3,26 @@ contract CrowdFunding {
 
     use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{
-        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, set::Set, immutable_singleton::ImmutableSingleton}
+        log::emit_unencrypted_log_from_private, context::{PrivateContext, Context},
+        note::{note_header::NoteHeader, utils as note_utils},
+        state_vars::{map::Map, set::Set, immutable_singleton::ImmutableSingleton},
+        protocol_types::traits::Serialize
     };
     use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
     use interfaces::{Token, PrivateToken};
+
+    #[event]
+    struct WithdrawalProcessed {
+        who: AztecAddress,
+        amount: u64,
+    }
+
+    impl Serialize<2> for WithdrawalProcessed {
+        fn serialize(self: Self) -> [Field; 2] {
+            [self.who.to_field(), self.amount as Field]
+        }
+    }
 
     struct Storage {
         donation_token: ImmutableSingleton<FieldNote>,
@@ -28,10 +42,8 @@ contract CrowdFunding {
 
     #[aztec(private)]
     fn donate(amount: u64) {
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Start donate", [1]);
         let donation_token_address = AztecAddress::from_field(storage.donation_token.get_note().value);
         let donation_token = Token::at(donation_token_address);
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Got donation token", [donation_token_address]);
 
         donation_token.transfer(
             &mut context,
@@ -40,7 +52,6 @@ contract CrowdFunding {
             amount as Field,
             0
         );
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Transfer done", [1]);
 
         let mut note = ValueNote::new(amount as Field, context.msg_sender());
         storage.donation.insert(&mut note, true);
@@ -59,8 +70,10 @@ contract CrowdFunding {
 
         let donation_token_address = AztecAddress::from_field(storage.donation_token.get_note().value);
         let donation_token = Token::at(donation_token_address);
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Got donation token", [donation_token_address]);
 
         donation_token.transfer(&mut context, this, sender, amount as Field, 0);
+
+        let event = WithdrawalProcessed { amount: amount as u64, who: this };
+        emit_unencrypted_log_from_private(&mut context, event.serialize());
     }
 }
