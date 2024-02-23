@@ -87,7 +87,8 @@ jobs:
             set +eu
             # convert to json, run a python script, write out json (which is a readable as YAML)
             pip install PyYAML
-            build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
+            build-system/scripts/generate_circleci_config.py 
+            #> .circleci/generated_config.yml
             cat .circleci/generated_config.yml
             echo "[]" > .circleci/generated_config.yml
       - continuation/continue:
