@@ -1,16 +1,16 @@
 // Tests a performance regression found in aztec-packages with brillig cow optimization
 
-global MAX_NEW_COMMITMENTS_PER_TX = 64;
-global MAX_NEW_NULLIFIERS_PER_TX = 64;
-global MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
-global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 16;
-global MAX_NEW_CONTRACTS_PER_TX = 1;
-global NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
-global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
-global NUM_FIELDS_PER_SHA256 = 2;
-global CALLDATA_HASH_INPUT_SIZE = 169;
-global CALL_DATA_HASH_LOG_FIELDS = 4;
-global CALL_DATA_HASH_FULL_FIELDS = 165;
+global MAX_NEW_COMMITMENTS_PER_TX: u64 = 64;
+global MAX_NEW_NULLIFIERS_PER_TX: u64 = 64;
+global MAX_NEW_L2_TO_L1_MSGS_PER_TX: u64 = 2;
+global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u64 = 16;
+global MAX_NEW_CONTRACTS_PER_TX: u64 = 1;
+global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
+global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
+global NUM_FIELDS_PER_SHA256: u64 = 2;
+global CALLDATA_HASH_INPUT_SIZE: u64 = 169;
+global CALL_DATA_HASH_LOG_FIELDS: u64 = 4;
+global CALL_DATA_HASH_FULL_FIELDS: u64 = 165;
 
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
@@ -108,7 +108,7 @@ unconstrained fn main(kernel_data: DataToHash) -> pub [Field; NUM_FIELDS_PER_SHA
     let encryptedLogsHash = kernel_data.encrypted_logs_hash;
     let unencryptedLogsHash = kernel_data.unencrypted_logs_hash;
 
-    let mut offset = 0;
+    let mut offset: u64 = 0;
 
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
         calldata_hash_inputs[offset + j] = new_note_hashes[j];
