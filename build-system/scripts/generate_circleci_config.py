@@ -2,7 +2,7 @@
 # Operates on circleci (loaded as json) from stdin
 # Outputs filtered circleci without the jobs we don't need to run
 # NOTE: This uses the build manifest YAML file to filter the dependency graph in CircleCI BUT it is not one-to-one.
-# There is a heuristic here where we expect a job to be associated with a manifest job if it lists the build_manifest.yml job name in its command.
+# There is a heuristic here where we expect a job to be associated with a manifest job if it lists the build_manifest.yml job name in its command with a known build command.
 import json
 import yaml
 from concurrent.futures import ProcessPoolExecutor, as_completed
