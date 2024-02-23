@@ -9,7 +9,6 @@
 using namespace bb;
 
 
-//WORKTODO: Go through documentation. 
 class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
