@@ -23,7 +23,7 @@ contract Token {
             utils as note_utils,
         },
         hash::{compute_secret_hash},
-        state_vars::{map::Map, public_mutable::PublicMutable, stable_public_state::StablePublicState,  set::Set},
+        state_vars::{map::Map, public_mutable::PublicMutable, shared_immutable::SharedImmutable,  set::Set},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress
@@ -62,10 +62,10 @@ contract Token {
         pending_shields: Set<TransparentNote>,
         // docs:end:storage_pending_shields
         public_balances: Map<AztecAddress, PublicMutable<SafeU120>>,
-        symbol: StablePublicState<FieldCompressedString>,
-        name: StablePublicState<FieldCompressedString>,
+        symbol: SharedImmutable<FieldCompressedString>,
+        name: SharedImmutable<FieldCompressedString>,
         // docs:start:storage_decimals
-        decimals: StablePublicState<u8>,
+        decimals: SharedImmutable<u8>,
         // docs:end:storage_decimals
     }
     // docs:end:storage_struct

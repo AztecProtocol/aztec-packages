@@ -5,14 +5,14 @@ use dep::std::option::Option;
 use dep::protocol_types::traits::{Deserialize, Serialize};
 use crate::state_vars::storage::Storage;
 
-struct StablePublicState<T>{
+struct SharedImmutable<T>{
     context: Context,
     storage_slot: Field,
 }
 
-impl<T> Storage<T> for StablePublicState<T> {}
+impl<T> Storage<T> for SharedImmutable<T> {}
 
-impl<T> StablePublicState<T> {
+impl<T> SharedImmutable<T> {
     pub fn new(
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         context: Context,
@@ -24,7 +24,10 @@ impl<T> StablePublicState<T> {
 
     // Intended to be only called once. 
     pub fn initialize<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
-        assert(self.context.private.is_none(), "Public state wrties only supported in public functions");
+        assert(
+            self.context.private.is_none(), "SharedImmutable can only be initialized from public functions"
+        );
+        self.context.public.unwrap_unchecked().assert_deployment();
         // TODO: Must throw if the storage slot is not empty -> cannot allow overwriting
         // This is currently impractical, as public functions are never marked `is_contract_deployment`
         // in the `call_context`, only private functions will have this flag set.

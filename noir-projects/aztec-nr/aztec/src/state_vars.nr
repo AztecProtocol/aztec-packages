@@ -3,5 +3,5 @@ mod map;
 mod public_mutable;
 mod set;
 mod singleton;
-mod stable_public_state;
+mod shared_immutable;
 mod storage;

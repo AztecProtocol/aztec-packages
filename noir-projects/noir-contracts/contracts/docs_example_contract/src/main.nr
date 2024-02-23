@@ -25,7 +25,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_mutable::PublicMutable,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, stable_public_state::StablePublicState},
+        state_vars::{map::Map, public_mutable::PublicMutable,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, shared_immutable::SharedImmutable},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -53,7 +53,7 @@ contract DocsExample {
         imm_singleton: ImmutableSingleton<CardNote>,
         // docs:end:storage-immutable-singleton-declaration
         // docs:start:storage-stable-declaration
-        stable_value: StablePublicState<Leader>,
+        stable_value: SharedImmutable<Leader>,
         // docs:end:storage-stable-declaration
         // docs:start:storage-minters-declaration
         minters: Map<AztecAddress, PublicMutable<bool>>, 
@@ -87,7 +87,7 @@ contract DocsExample {
                 // docs:end:storage-set-init
                 imm_singleton: ImmutableSingleton::new(context, 6),
                 // docs:start:storage-stable-init
-                stable_value: StablePublicState::new(context, 7),
+                stable_value: SharedImmutable::new(context, 7),
                 // docs:end:storage-stable-init
                 // docs:start:storage-minters-init
                 minters: Map::new(
