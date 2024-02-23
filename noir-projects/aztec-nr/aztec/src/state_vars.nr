@@ -1,4 +1,4 @@
-mod immutable_singleton;
+mod private_immutable;
 mod map;
 mod public_mutable;
 mod set;

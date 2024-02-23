@@ -10,15 +10,15 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-struct ImmutableSingleton<Note> {
+struct PrivateImmutable<Note> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
 }
 // docs:end:struct
 
-impl<T> Storage<T> for ImmutableSingleton<T> {}
+impl<T> Storage<T> for PrivateImmutable<T> {}
 
-impl<Note> ImmutableSingleton<Note> {
+impl<Note> PrivateImmutable<Note> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -30,7 +30,7 @@ impl<Note> ImmutableSingleton<Note> {
     // When this initialization nullifier is emitted, an observer could do a dictionary or rainbow attack to learn the preimage of this nullifier to deduce the storage slot and contract address.
     // For some applications, leaking the details that a particular state variable of a particular contract has been initialized will be unacceptable.
     // Under such circumstances, such application developers might wish to _not_ use this state variable type.
-    // This is especially dangerous for initial assignment to elements of a `Map<AztecAddress, ImmutableSingleton>` type (for example), because the storage slot often also identifies an actor. 
+    // This is especially dangerous for initial assignment to elements of a `Map<AztecAddress, PrivateImmutable>` type (for example), because the storage slot often also identifies an actor. 
     // e.g. the initial assignment to `my_map.at(msg.sender)` will leak: `msg.sender`, the fact that an element of `my_map` was assigned-to for the first time, and the contract_address.
     pub fn compute_initialization_nullifier(self) -> Field {
         pedersen_hash(

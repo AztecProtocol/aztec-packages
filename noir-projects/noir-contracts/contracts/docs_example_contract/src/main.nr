@@ -25,7 +25,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{map::Map, public_mutable::PublicMutable,singleton::Singleton, immutable_singleton::ImmutableSingleton, set::Set, shared_immutable::SharedImmutable},
+        state_vars::{map::Map, public_mutable::PublicMutable,singleton::Singleton, private_immutable::PrivateImmutable, set::Set, shared_immutable::SharedImmutable},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -50,7 +50,7 @@ contract DocsExample {
         set: Set<CardNote>,
         // docs:end:storage-set-declaration
         // docs:start:storage-immutable-singleton-declaration
-        imm_singleton: ImmutableSingleton<CardNote>,
+        imm_singleton: PrivateImmutable<CardNote>,
         // docs:end:storage-immutable-singleton-declaration
         // docs:start:storage-stable-declaration
         stable_value: SharedImmutable<Leader>,
@@ -85,7 +85,7 @@ contract DocsExample {
                 // docs:start:storage-set-init
                 set: Set::new(context, 5),
                 // docs:end:storage-set-init
-                imm_singleton: ImmutableSingleton::new(context, 6),
+                imm_singleton: PrivateImmutable::new(context, 6),
                 // docs:start:storage-stable-init
                 stable_value: SharedImmutable::new(context, 7),
                 // docs:end:storage-stable-init
@@ -126,7 +126,7 @@ contract DocsExample {
 
     // docs:start:initialize-immutable-singleton
     #[aztec(private)]
-    fn initialize_immutable_singleton(randomness: Field, points: u8) {
+    fn initialize_private_immutable(randomness: Field, points: u8) {
         let mut new_card = CardNote::new(points, randomness, context.msg_sender());
         storage.imm_singleton.initialize(&mut new_card, true);
     }

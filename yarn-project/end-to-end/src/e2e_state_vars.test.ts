@@ -132,7 +132,7 @@ describe('e2e_state_vars', () => {
 
     it('initialize singleton', async () => {
       expect(await contract.methods.is_imm_initialized().view()).toEqual(false);
-      const receipt = await contract.methods.initialize_immutable_singleton(RANDOMNESS, POINTS).send().wait();
+      const receipt = await contract.methods.initialize_private_immutable(RANDOMNESS, POINTS).send().wait();
       expect(receipt.status).toEqual(TxStatus.MINED);
 
       const tx = await wallet.getTx(receipt.txHash);
@@ -145,7 +145,7 @@ describe('e2e_state_vars', () => {
     it('fail to reinitialize', async () => {
       expect(await contract.methods.is_imm_initialized().view()).toEqual(true);
       await expect(
-        contract.methods.initialize_immutable_singleton(RANDOMNESS, POINTS).send().wait(),
+        contract.methods.initialize_private_immutable(RANDOMNESS, POINTS).send().wait(),
       ).rejects.toThrowError();
       expect(await contract.methods.is_imm_initialized().view()).toEqual(true);
     });

@@ -29,7 +29,7 @@ contract TokenBlacklist {
         },
         context::{PrivateContext, PublicContext, Context},
         hash::{compute_secret_hash},
-        state_vars::{map::Map, public_mutable::PublicMutable, set::Set, immutable_singleton::ImmutableSingleton},
+        state_vars::{map::Map, public_mutable::PublicMutable, set::Set, private_immutable::PrivateImmutable},
     };
 
     use dep::field_note::field_note::FieldNote;
@@ -57,7 +57,7 @@ contract TokenBlacklist {
         total_supply: PublicMutable<SafeU120>, 
         pending_shields: Set<TransparentNote>, 
         public_balances: Map<AztecAddress, PublicMutable<SafeU120>>, 
-        slow_update: ImmutableSingleton<FieldNote>,
+        slow_update: PrivateImmutable<FieldNote>,
         public_slow_update: PublicMutable<AztecAddress>,
     }
 

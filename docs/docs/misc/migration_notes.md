@@ -194,7 +194,7 @@ struct Storage {
     legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
     profiles: Map<AztecAddress, Singleton<CardNote, CARD_NOTE_LEN>>,
     test: Set<CardNote, CARD_NOTE_LEN>,
-    imm_singleton: ImmutableSingleton<CardNote, CARD_NOTE_LEN>,
+    imm_singleton: PrivateImmutable<CardNote, CARD_NOTE_LEN>,
 }
 
 impl Storage {
@@ -214,7 +214,7 @@ impl Storage {
                     },
                 ),
                 test: Set::new(context, 4, CardNoteMethods),
-                imm_singleton: ImmutableSingleton::new(context, 4, CardNoteMethods),
+                imm_singleton: PrivateImmutable::new(context, 4, CardNoteMethods),
             }
         }
     }
@@ -228,7 +228,7 @@ struct Storage {
     legendary_card: Singleton<CardNote>,
     profiles: Map<AztecAddress, Singleton<CardNote>>,
     test: Set<CardNote>,
-    imm_singleton: ImmutableSingleton<CardNote>,
+    imm_singleton: PrivateImmutable<CardNote>,
 }
 ```
 
@@ -475,7 +475,7 @@ impl Storage {
                 },
             ),
             test: Set::new(context, 4),
-            imm_singleton: ImmutableSingleton::new(context, 4),
+            imm_singleton: PrivateImmutable::new(context, 4),
         }
     }
 }

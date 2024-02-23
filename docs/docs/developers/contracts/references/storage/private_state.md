@@ -17,7 +17,7 @@ Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_trans
 To greatly simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
 
 - [Singleton<NoteType\>](#singletonnotetype)
-- [ImmutableSingleton<NoteType\>](#immutablesingletonnotetype)
+- [PrivateImmutable<NoteType\>](#privateimmutablenotetype)
 - [Set<NoteType\>](#setnotetype)
 
 These three structs abstract-away many of Aztec's protocol complexities, by providing intuitive methods to modify notes in the utxo tree in a privacy-preserving way.
@@ -42,15 +42,15 @@ A note should implement the following traits:
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-A private state variable (of type `Singleton`, `ImmutableSingleton` or `Set`) may be declared in storage.
+A private state variable (of type `Singleton`, `PrivateImmutable` or `Set`) may be declared in storage.
 
 Every note contains a header, which contains the contract address and storage slot of the state variable to which it is associated. A note is associated with a private state variable if the storage slot of the private state variable matches the storage slot contained in the note's header. The header provides information that helps the user interpret the note's data.
 
-Management of the header is abstracted-away from developers who use the `ImmutableSingleton`, `Singleton` and `Set` types.
+Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `Singleton` and `Set` types.
 
 A private state variable points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
 
-An `ImmutableSingleton` will point to _one_ note over the lifetime of the contract. This note is a struct of information that is persisted forever.
+An `PrivateImmutable` will point to _one_ note over the lifetime of the contract. This note is a struct of information that is persisted forever.
 
 A `Singleton` may point to _one_ note at a time. But since it's not "immutable", the note that it points to may be [replaced](#replace) by functions of the contract. The current value of a `Singleton` is interpreted as the one note which has not-yet been nullified. The act of replacing a Singleton's note is how a `Singleton` state may be modified by functions.
 
@@ -94,7 +94,7 @@ Beware that because this nullifier is created only from the storage slot without
 For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
 :::
 
-Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `ImmutableSingleton` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
+Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `PrivateImmutable` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
 
 :::info
 Extend on what happens if you try to use non-initialized state.
@@ -132,9 +132,9 @@ This also makes read operations indistinguishable from write operations and allo
 
 Functionally similar to [`get_note`](#get_note), but executed in unconstrained functions and can be used by the wallet to fetch notes for use by front-ends etc.
 
-## `ImmutableSingleton<NoteType>`
+## `PrivateImmutable<NoteType>`
 
-`ImmutableSingleton` represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/immutable_singleton.nr).
+`PrivateImmutable` represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
 
 ### `new`
 
@@ -144,7 +144,7 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 ### `initialize`
 
-When this function is invoked, it creates a nullifier for the storage slot, ensuring that the ImmutableSingleton cannot be initialized again.
+When this function is invoked, it creates a nullifier for the storage slot, ensuring that the PrivateImmutable cannot be initialized again.
 
 :::danger Privacy-Leak
 Beware that because this nullifier is created only from the storage slot without randomness it leaks privacy. This means that it is possible for an external observer to determine when the note is nullified.
@@ -152,27 +152,27 @@ Beware that because this nullifier is created only from the storage slot without
 For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
 :::
 
-Set the value of an ImmutableSingleton by calling the `initialize` method:
+Set the value of an PrivateImmutable by calling the `initialize` method:
 
 #include_code initialize-immutable-singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Once initialized, an ImmutableSingleton's value remains unchangeable. This method can only be called once.
+Once initialized, an PrivateImmutable's value remains unchangeable. This method can only be called once.
 
 ### `is_initialized`
 
-An unconstrained method to check if the ImmutableSingleton has been initialized. Takes an optional owner and returns a boolean. You can find the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/immutable_singleton.nr).
+An unconstrained method to check if the PrivateImmutable has been initialized. Takes an optional owner and returns a boolean. You can find the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
 
 ### `get_note`
 
-Similar to the `Singleton`, we can use the `get_note` method to read the value of an ImmutableSingleton.
+Similar to the `Singleton`, we can use the `get_note` method to read the value of an PrivateImmutable.
 
-Use this method to retrieve the value of an initialized ImmutableSingleton.
+Use this method to retrieve the value of an initialized PrivateImmutable.
 
 #include_code get_note-immutable-singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Unlike a `Singleton`, the `get_note` function for an ImmutableSingleton doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
+Unlike a `Singleton`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
 
-This function will throw if the `ImmutableSingleton` hasn't been initialized.
+This function will throw if the `PrivateImmutable` hasn't been initialized.
 
 ### `view_note`
 
