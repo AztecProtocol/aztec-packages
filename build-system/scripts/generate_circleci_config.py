@@ -65,7 +65,6 @@ def remove_jobs_from_workflow(jobs, to_remove):
     for job in jobs:
         key = next(iter(job))
         if key in to_remove:
-            print(key)
             continue
         # remove our filtered jobs from the dependency graph via the requires attribute
         job[key]["requires"] = [r for r in job[key].get("requires", []) if r not in jobs_to_remove]
@@ -80,7 +79,6 @@ if __name__ == '__main__':
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
-    print(jobs_to_remove)
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
@@ -90,4 +88,6 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
-    # print(new_workflow_json_str)
+    # for t in workflow_dict["workflows"]["system"]["jobs"]:
+    #   print(t)
+    print(new_workflow_json_str)
