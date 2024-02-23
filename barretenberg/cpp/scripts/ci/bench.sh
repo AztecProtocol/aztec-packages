@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
@@ -10,7 +10,7 @@ cd ../../srs_db
 ./download_grumpkin.sh
 cd ../build
 
-function bench() {
+bench() {
   $PREFIX ./bin/$1 --benchmark_out="$1.json" --benchmark_out_format=json --benchmark_counters_tabular=true $2
   cat $1.json
 }

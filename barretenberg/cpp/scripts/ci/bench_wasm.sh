@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
@@ -8,7 +8,7 @@ cd "$(dirname $0)"
 cd ../../srs_db
 cd ../build
 
-function bench() {
+bench() {
   wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2 > $1.json
   cat $1.json
 }
