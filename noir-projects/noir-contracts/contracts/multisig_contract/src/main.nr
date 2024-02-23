@@ -100,6 +100,7 @@ contract MultiSigAccount {
 
         // TODO: Should we emit the authwit as a nullifier to prevent from replaying the same payload?
         app_payload.execute_calls(&mut context);
+        // We don't update the nonce if it's an update config since we do it in a single operation in that method
         if (app_payload.function_calls[0].function_selector != update_config_selector) {
             let mut new_note = MultiSigNote::new(
                 owners,
