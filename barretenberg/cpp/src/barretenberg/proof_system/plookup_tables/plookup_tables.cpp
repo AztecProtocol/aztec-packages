@@ -11,7 +11,9 @@ namespace {
 std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES> MULTI_TABLES;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool inited = false;
+#ifndef NO_MULTITHREADING
 std::mutex multi_table_mutex;
+#endif
 void init_multi_tables()
 {
 #ifndef NO_MULTITHREADING
