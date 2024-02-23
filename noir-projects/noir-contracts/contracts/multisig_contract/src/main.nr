@@ -117,7 +117,6 @@ contract MultiSigAccount {
     #[aztec(private)]
     fn is_valid(message_hash: Field) -> Field {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        // nonce check
         actions.is_valid(message_hash)
     }
 
