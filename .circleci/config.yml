@@ -1119,20 +1119,12 @@ jobs:
       - run:
           name: "Build docs"
           command: |
-
+            echo "Building docs"
             build docs
 
             echo "Deploying docs"
-            UNIQUE_DEPLOY_URL=$(docs/deploy_netlify.sh $CIRCLE_BRANCH)
+            docs/deploy_netlify.sh $CIRCLE_BRANCH $CIRCLE_PULL_REQUEST
 
-            echo "Unique deploy URL: $UNIQUE_DEPLOY_URL"
-            if [ -n "$UNIQUE_DEPLOY_URL" ]; then
-              export DOCKER_RUN_OPTS="\
-              -e UNIQUE_DEPLOY_URL=${UNIQUE_DEPLOY_URL} \
-              -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN \
-              -e CIRCLE_PULL_REQUEST"
-              yarn-project/scripts/run_script.sh workspace @aztec/scripts docs-preview
-            fi
   yellow-paper:
     machine:
       image: ubuntu-2204:2023.07.2

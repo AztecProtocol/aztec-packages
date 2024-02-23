@@ -46,7 +46,7 @@ async function getExistingComment(commentType: COMMENT_TYPES) {
 /** Function to create or update a comment */
 async function upsertComment(existingCommentId: string, commentType: COMMENT_TYPES) {
   try {
-    const commentContent = getMarkdown(commentType);
+    const commentContent = await getMarkdown(commentType);
     const commentData = { body: commentContent };
 
     const requestMethod = existingCommentId ? 'PATCH' : 'POST';
@@ -114,7 +114,6 @@ function sendGitHubRequest(url: string, method = 'GET', data?: object): Promise<
 
 /** Entrypoint */
 export default async function main(commentType: COMMENT_TYPES = COMMENT_TYPES.BENCH) {
-  console.log(commentType);
   const existingComment = await getExistingComment(commentType);
   await upsertComment(existingComment?.id, commentType);
 }
