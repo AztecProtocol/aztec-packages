@@ -80,7 +80,6 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build noir 32
-          aztec_manifest_key: noir  
 
   noir-arm64:
     docker:
