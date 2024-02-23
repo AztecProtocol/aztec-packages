@@ -5,28 +5,52 @@
 # There is a heuristic here where we expect a job to be associated with a manifest job if it lists the build_manifest.yml job name in its command with a known build command.
 import json
 import yaml
+import re
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import subprocess
+
+# Define the regex pattern with known prefixes in uppercase
+KNOWN_PREFIXES_PATTERN = r'(BUILD|COND_SPOT_RUN_BUILD|COND_SPOT_RUN_TEST|COND_SPOT_RUN_CONTAINER|COND_SPOT_RUN_COMPOSE)[\s_-]+(\w[\w_-]*)'
 
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_job_names():
     manifest = yaml.safe_load(open("build_manifest.yml"))
     return list(manifest)
 
-def has_associated_manifest_job(circleci_job, manifest_names):
+def is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
+    """
+    This function checks if a given CircleCI job is associated with a specific already-built manifest job. 
+    It does so by analyzing the job's steps for commands that contain references to manifest names. 
+    The association is based on a heuristic where a job is considered linked to a manifest job if 
+    its command includes the name of the manifest. This is not a direct one-to-one mapping but 
+    rather a pattern-matching approach using known command prefixes and the build manifest YAML file. 
+    The method ensures that only one matching step exists in the CircleCI job that aligns with this criteria.
+    """
     steps = circleci_job.get("steps", [])
+    matching_steps = 0
     for step in steps:
         run_info = step.get("run", {})
-        command = run_info.get("command", "")
-        for manifest_name in manifest_names:
-            if manifest_name in command:
-                return True
-    return False
+        # Check if run_info is a string, short-hand notation
+        if isinstance(run_info, str):
+            command = run_info
+        else:
+            command = run_info.get("command", "")
+        match = re.search(KNOWN_PREFIXES_PATTERN, command, re.IGNORECASE)
+        if not match:
+            continue
+        matched_manifest = match.group(2)
+        if matched_manifest in already_built_manifest_jobs:
+            matching_steps += 1
+        else:
+            # We have found a different string here - bail out
+            return False
+    # All steps have matched - but make sure that's actually more than one step
+    return matching_steps > 0 
 
 def get_already_built_circleci_job_names(circleci_jobs):
-    manifest_names = list(get_already_built_manifest_job_names())
+    already_built_manifest_jobs = list(get_already_built_manifest_job_names())
     for job_name, circleci_job in circleci_jobs.items():
-        if has_associated_manifest_job(circleci_job, manifest_names):
+        if is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
             yield job_name
 
 # Helper for multiprocessing
@@ -83,6 +107,8 @@ if __name__ == '__main__':
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
+    for key in jobs_to_remove:
+        eprint("KEY", key)
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
@@ -94,4 +120,4 @@ if __name__ == '__main__':
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
     for t in workflow_dict["workflows"]["system"]["jobs"]:
       eprint("KEPT", t)
-    print(new_workflow_json_str)
+    # print(new_workflow_json_str)
