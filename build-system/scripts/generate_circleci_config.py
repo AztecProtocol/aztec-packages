@@ -47,6 +47,8 @@ def is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
 
 def get_already_built_circleci_job_names(circleci_jobs):
     already_built_manifest_jobs = list(get_already_built_manifest_job_names())
+    for key in jobs_to_remove:
+        eprint("Detected cached manifest key:", key)
     for job_name, circleci_job in circleci_jobs.items():
         if is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
             yield job_name
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
     for key in jobs_to_remove:
-        eprint("SKIPPING BUILT MANIFEST KEY", key)
+        eprint("Skipping circleci job", key)
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
