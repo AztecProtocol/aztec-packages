@@ -24,6 +24,7 @@ import {
   parseTxHash,
 } from './parse_args.js';
 
+// TEST
 /**
  * If we can successfully resolve 'host.docker.internal', then we are running in a container, and we should treat
  * localhost as being host.docker.internal.
