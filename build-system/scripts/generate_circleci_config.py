@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Operates on circleci (loaded as json) from stdin
 # Outputs filtered circleci without the jobs we don't need to run
+# NOTE: This uses the build manifest YAML file to filter the dependency graph in CircleCI BUT it is not one-to-one.
+# There is a heuristic here where we expect a job to be associated with a manifest job if it lists the build_manifest.yml job name in its command.
 import json
 import yaml
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -8,7 +10,7 @@ import subprocess
 
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_job_names():
-    manifest = yaml.load(open("build_manifest.yml"))
+    manifest = yaml.safe_load(open("build_manifest.yml"))
     return list(manifest)
 
 def has_associated_manifest_job(circleci_job, manifest_names):
