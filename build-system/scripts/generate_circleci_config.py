@@ -8,6 +8,10 @@ import yaml
 import re
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import subprocess
+import sys
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_job_names():
@@ -88,10 +92,6 @@ def remove_jobs_from_workflow(jobs, to_remove):
         job[key]["requires"] = [r for r in job[key].get("requires", []) if r not in jobs_to_remove]
         new_jobs.append(job)
     return new_jobs
-import sys
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
 
 if __name__ == '__main__':
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
     for key in jobs_to_remove:
-        eprint("KEY", key)
+        eprint("SKIPPING BUILT MANIFEST KEY", key)
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
@@ -112,4 +112,4 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
-    # print(new_workflow_json_str)
+    print(new_workflow_json_str)
