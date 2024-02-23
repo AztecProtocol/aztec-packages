@@ -32,6 +32,7 @@ def get_already_built_circleci_job_names(circleci_jobs):
 # Helper for multiprocessing
 def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
+    eprint(manifest_name, content_hash)
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
         return manifest_name
@@ -70,6 +71,10 @@ def remove_jobs_from_workflow(jobs, to_remove):
         job[key]["requires"] = [r for r in job[key].get("requires", []) if r not in jobs_to_remove]
         new_jobs.append(job)
     return new_jobs
+import sys
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 if __name__ == '__main__':
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
