@@ -7,6 +7,6 @@
 	remote = https://github.com/noir-lang/noir
 	branch = master
 	commit = 78ef0134b82e76a73dadb6c7975def22290e3a1a
-	parent = e23d048e916fa12966fe01d1a8c0d3bfb50c2943
+	parent = faa9586ef702e3f150e6aa8217dcbcd63611dea2
 	method = merge
 	cmdver = 0.4.6
