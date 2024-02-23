@@ -6,7 +6,6 @@ import {
   Fr,
   AccountWalletWithPrivateKey,
 } from '@aztec/aztec.js';
-import { BlankContractArtifact } from './artifacts/Blank.js';
 
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import { VanillaContract } from '../artifacts/Vanilla';
@@ -28,11 +27,11 @@ document.querySelector('#deploy').addEventListener('click', async ({ target }: a
   wallet = await account.register();
 
   const { artifact, at } = VanillaContract;
-  const contractDeployer = new ContractDeployer(artifact, pxe);
-  const { contractAddress } = await contractDeployer
+  const contractDeployer = new ContractDeployer(artifact, wallet);
+  const { address: contractAddress } = await contractDeployer
     .deploy(Fr.random(), wallet.getCompleteAddress().address)
     .send({ contractAddressSalt: Fr.random() })
-    .wait();
+    .deployed();
   contract = await at(contractAddress, wallet);
   alert(`Contract deployed at ${contractAddress}`);
 
