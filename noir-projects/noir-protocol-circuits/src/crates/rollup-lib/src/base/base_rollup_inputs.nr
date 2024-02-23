@@ -15,20 +15,19 @@ use dep::types::{
 },
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
     public_data_read::PublicDataRead, kernel_data::PublicKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    combined_accumulated_data::CombinedAccumulatedData
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, accumulated_data::CombinedAccumulatedData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_NEW_CONTRACTS_PER_TX,
     NOTE_HASH_SUBTREE_HEIGHT, CONTRACT_SUBTREE_HEIGHT, NUM_FIELDS_PER_SHA256,
-    MAX_NEW_COMMITMENTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
     PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_REVERTIBLE_COMMITMENTS_PER_TX,
-    MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
+    MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
     MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX
 },
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
@@ -165,7 +164,7 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self, combined: CombinedAccumulatedData) -> Field {
-        calculate_subtree(combined.new_commitments.map(|c: SideEffect| c.value))
+        calculate_subtree(combined.new_note_hashes.map(|c: SideEffect| c.value))
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self, combined: CombinedAccumulatedData) -> AppendOnlyTreeSnapshot {
@@ -257,16 +256,16 @@ impl BaseRollupInputs {
     fn components_compute_kernel_calldata_hash(combined: CombinedAccumulatedData) -> [Field; NUM_FIELDS_PER_SHA256] {
         // Compute calldata hashes
         // Consist of
-        // MAX_NEW_COMMITMENTS_PER_TX fields for commitments
+        // MAX_NEW_NOTE_HASHES_PER_TX fields for commitments
         // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-        // 16 public data update requests -> 32 fields
+        // 32 public data update requests -> 64 fields
         // 2 l2 -> l1 messages -> 2 fields
         // 1 contract deployments -> 3 fields
         // 1 encrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
         // 1 unencrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
         let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
-        let new_commitments = combined.new_commitments;
+        let new_note_hashes = combined.new_note_hashes;
         let new_nullifiers = combined.new_nullifiers;
         let public_data_update_requests = combined.public_data_update_requests;
         let newL2ToL1msgs = combined.new_l2_to_l1_msgs;
@@ -275,10 +274,10 @@ impl BaseRollupInputs {
 
         let mut offset = 0;
 
-        for j in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            calldata_hash_inputs[offset + j] = new_commitments[j].value;
+        for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
+            calldata_hash_inputs[offset + j] = new_note_hashes[j].value;
         }
-        offset += MAX_NEW_COMMITMENTS_PER_TX ;
+        offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 
         for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
             calldata_hash_inputs[offset + j] = new_nullifiers[j].value;
@@ -494,15 +493,15 @@ fn validate_public_data_reads(
 #[test]
 fn consistent_not_hash_subtree_width() {
     assert_eq(
-        MAX_NEW_COMMITMENTS_PER_TX, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT), "note hash subtree width is incorrect"
+        MAX_NEW_NOTE_HASHES_PER_TX, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT), "note hash subtree width is incorrect"
     );
 }
 
-global CALLDATA_HASH_INPUT_SIZE = 169;
+global CALLDATA_HASH_INPUT_SIZE = 201;
 
 #[test]
 fn consistent_calldata_hash_input_size() {
-    let expected_size = MAX_NEW_COMMITMENTS_PER_TX
+    let expected_size = MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
         + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
@@ -522,7 +521,7 @@ fn consistent_call_data_hash_log_fields() {
     );
 }
 
-global CALL_DATA_HASH_FULL_FIELDS = 165;
+global CALL_DATA_HASH_FULL_FIELDS = 197;
 
 #[test]
 fn consistent_call_data_hash_full_fields() {
@@ -569,19 +568,19 @@ mod tests {
         new_contract_data::NewContractData, nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         kernel_data::PublicKernelData, side_effect::SideEffect,
-        combined_accumulated_data::CombinedAccumulatedData
+        accumulated_data::CombinedAccumulatedData
     },
         address::{AztecAddress, EthAddress},
         constants::{
         CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, CONTRACT_TREE_HEIGHT, CONTRACT_SUBTREE_HEIGHT,
         ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
+        MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
         NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT,
         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
         NUM_FIELDS_PER_SHA256
     },
-        contract_class::ContractClassId, partial_state_reference::PartialStateReference,
+        contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::kernel_data_builder::PreviousKernelDataBuilder,
@@ -698,7 +697,7 @@ mod tests {
 
     struct BaseRollupInputsBuilder {
         kernel_data: PreviousKernelDataBuilder,
-        pre_existing_notes: [Field; MAX_NEW_COMMITMENTS_PER_TX],
+        pre_existing_notes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
@@ -1019,17 +1018,17 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn new_commitments_tree() {
+    unconstrained fn new_note_hashes_tree() {
         let mut builder = BaseRollupInputsBuilder::new();
 
-        let new_commitments = [27, 28, 29, 30, 31, 32];
-        let mut new_commitments_vec = builder.kernel_data.end.new_commitments;
-        for i in 0..new_commitments.len() {
-            new_commitments_vec.push(SideEffect { value: new_commitments[i], counter: 0 });
+        let new_note_hashes = [27, 28, 29, 30, 31, 32];
+        let mut new_note_hashes_vec = builder.kernel_data.end.new_note_hashes;
+        for i in 0..new_note_hashes.len() {
+            new_note_hashes_vec.push(SideEffect { value: new_note_hashes[i], counter: 0 });
         }
-        builder.kernel_data.end.new_commitments = new_commitments_vec;
+        builder.kernel_data.end.new_note_hashes = new_note_hashes_vec;
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
-            [0; MAX_NEW_COMMITMENTS_PER_TX * 2],
+            [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],
             [0; NOTE_HASH_TREE_HEIGHT],
             [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT - 1],
             [0; NOTE_HASH_SUBTREE_HEIGHT + 1]
@@ -1038,19 +1037,19 @@ mod tests {
         let outputs = builder.execute();
         let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
-            next_available_leaf_index: MAX_NEW_COMMITMENTS_PER_TX as u32
+            next_available_leaf_index: MAX_NEW_NOTE_HASHES_PER_TX as u32
         };
         assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
-        for i in 0..new_commitments.len() {
+        for i in 0..new_note_hashes.len() {
             expected_commitments_tree.update_leaf(
-                (i as u64) + (MAX_NEW_COMMITMENTS_PER_TX as u64),
-                new_commitments[i]
+                (i as u64) + (MAX_NEW_NOTE_HASHES_PER_TX as u64),
+                new_note_hashes[i]
             );
         }
         let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
-            next_available_leaf_index: (MAX_NEW_COMMITMENTS_PER_TX * 2) as u32
+            next_available_leaf_index: (MAX_NEW_NOTE_HASHES_PER_TX * 2) as u32
         };
         assert(outputs.end.note_hash_tree.eq(expected_end_note_hash_tree_snapshot));
     }
