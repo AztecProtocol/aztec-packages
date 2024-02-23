@@ -73,9 +73,9 @@ setup_env: &setup_env
 jobs:
   # Dynamically filter our code, quickly figuring out which jobs we can skip.
   generate-config:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -84,6 +84,7 @@ jobs:
           command: |
             # ability to query ECR images
             ecr_login
+            set +eu
             # convert to json, run a python script, write out json (which is a readable as YAML)
             pip install PyYAML
             build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
