@@ -151,6 +151,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build noir-compile-acir-tests 32
+          aztec_manifest_key: noir # for circleci build filtering
 
   avm-transpiler:
     docker:
@@ -162,6 +163,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build avm-transpiler 32
+          aztec_manifest_key: avm-transpiler # for circleci build filtering
 
   # Barretenberg
   barretenberg-wasm-linux-clang:
@@ -174,6 +176,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-wasm-linux-clang 128
+          aztec_manifest_key: barretenberg-wasm-linux-clang # for circleci build filtering
 
   barretenberg-x86_64-linux-gcc:
     docker:
@@ -185,6 +188,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
+          aztec_manifest_key: barretenberg-x86_64-linux-gcc # for circleci build filtering
 
   barretenberg-x86_64-linux-clang:
     docker:
@@ -196,6 +200,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
+          aztec_manifest_key: barretenberg-x86_64-linux-clang
 
   barretenberg-x86_64-linux-clang-fuzzing:
     docker:
@@ -207,7 +212,8 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
-
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
+          
   barretenberg-x86_64-linux-clang-assert:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -218,6 +224,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-x86_64-linux-clang-sol:
     docker:
@@ -229,6 +236,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-sol
 
   barretenberg-docs:
     machine:
@@ -240,6 +248,7 @@ jobs:
       - run:
           name: "Build barretenberg docs"
           command: build barretenberg-docs
+          aztec_manifest_key: barretenberg-docs
       - run:
           name: "Deploy barretenberg docs"
           command: |
@@ -255,6 +264,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-dsl-tests:
     docker:
@@ -266,6 +276,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-tests:
     docker:
@@ -277,6 +288,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-bench:
     machine:
@@ -290,6 +302,7 @@ jobs:
       - run:
           name: "Benchmark"
           command: cond_spot_run_build barretenberg-bench 32
+          aztec_manifest_key: barretenberg-bench
       - run:
           name: "Upload"
           command: |
@@ -305,6 +318,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-stdlib-recursion-ultra-tests:
     docker:
@@ -316,6 +330,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-join-split-tests:
     docker:
@@ -327,6 +342,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-acir-tests-bb:
     docker:
@@ -338,6 +354,7 @@ jobs:
       - run:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb 32
+          aztec_manifest_key: barretenberg-acir-tests-bb
 
   bb-js:
     machine:
@@ -349,6 +366,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build bb.js
+          aztec_manifest_key: bb.js
 
   bb-js-tests:
     docker:
@@ -360,6 +378,7 @@ jobs:
       - run:
           name: "Build and test"
           command: cond_spot_run_test bb.js 32 ./scripts/run_tests
+          aztec_manifest_key: bb.js
 
   bb-js-acir-tests:
     docker:
@@ -371,6 +390,7 @@ jobs:
       - run:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
+          aztec_manifest_key: barretenberg-acir-tests-bb.js
 
   l1-contracts:
     machine:
@@ -382,6 +402,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build l1-contracts
+          aztec_manifest_key: l1-contracts
 
   noir-projects:
     machine:
@@ -393,6 +414,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build noir-projects
+          aztec_manifest_key: noir-projects
 
   boxes-files:
     machine:
@@ -404,6 +426,7 @@ jobs:
       - run:
           name: "Build"
           command: build boxes-files
+          aztec_manifest_key: boxes-files
 
   yarn-project-base:
     machine:
@@ -415,6 +438,7 @@ jobs:
       - run:
           name: "Build"
           command: build yarn-project-base | add_timestamps
+          aztec_manifest_key: yarn-project-base
 
   yarn-project:
     machine:
@@ -426,6 +450,7 @@ jobs:
       - run:
           name: Build
           command: build yarn-project | add_timestamps
+          aztec_manifest_key: yarn-project
 
   yarn-project-prod:
     machine:
@@ -437,6 +462,7 @@ jobs:
       - run:
           name: Build
           command: build yarn-project-prod | add_timestamps
+          aztec_manifest_key: yarn-project-prod
 
   yarn-project-formatting:
     docker:
@@ -448,6 +474,7 @@ jobs:
       - run:
           name: Check Formatting
           command: cond_spot_run_container yarn-project 8 formatting | add_timestamps
+          aztec_manifest_key: yarn-project
 
   yarn-project-tests:
     docker:
@@ -459,6 +486,7 @@ jobs:
       - run:
           name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
+          aztec_manifest_key: yarn-project
 
   aztec-package:
     machine:
@@ -470,6 +498,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build aztec
+          aztec_manifest_key: aztec
 
   cli:
     machine:
@@ -481,6 +510,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build cli
+          aztec_manifest_key: cli
 
   mainnet-fork:
     machine:
@@ -492,6 +522,7 @@ jobs:
       - run:
           name: "Build"
           command: build mainnet-fork | add_timestamps
+          aztec_manifest_key: mainnet-fork
 
   aztec-faucet:
     machine:
@@ -503,6 +534,7 @@ jobs:
       - run:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
+          aztec_manifest_key: aztec-faucet
 
   boxes:
     docker:
@@ -514,6 +546,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build boxes 4
+          aztec_manifest_key: boxes
 
   boxes-blank:
     docker:
@@ -525,6 +558,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank
+          aztec_manifest_key: boxes
 
   boxes-blank-react:
     docker:
@@ -536,6 +570,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank-react
+          aztec_manifest_key: boxes
 
   end-to-end:
     machine:
@@ -547,6 +582,7 @@ jobs:
       - run:
           name: "Build"
           command: build end-to-end
+          aztec_manifest_key: end-to-end
 
   e2e-2-pxes:
     docker:
@@ -558,6 +594,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_2_pxes.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-note-getter:
     docker:
@@ -569,6 +606,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_note_getter.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-counter:
     docker:
@@ -580,6 +618,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_counter_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-private-voting:
     docker:
@@ -591,6 +630,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_private_voting_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-multiple-accounts-1-enc-key:
     docker:
@@ -602,6 +642,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_multiple_accounts_1_enc_key.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-deploy-contract:
     docker:
@@ -613,6 +654,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_deploy_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-lending-contract:
     docker:
@@ -624,6 +666,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_lending_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-token-contract:
     docker:
@@ -635,6 +678,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_token_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-blacklist-token-contract:
     docker:
@@ -646,6 +690,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   # TODO(3458): Investigate intermittent failure
   # e2e-slow-tree:
@@ -658,6 +703,7 @@ jobs:
   #     - run:
   #         name: "Test"
   #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
+  #         aztec_manifest_key: end-to-end
 
   e2e-sandbox-example:
     docker:
@@ -669,6 +715,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_sandbox_example.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-state-vars:
     docker:
@@ -680,6 +727,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_state_vars.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-block-building:
     docker:
@@ -691,6 +739,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_block_building.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-nested-contract:
     docker:
@@ -702,6 +751,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_nested_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-static-calls:
     docker:
@@ -713,6 +763,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_static_calls.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-delegate-calls:
     docker:
@@ -724,6 +775,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_delegate_calls.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-non-contract-account:
     docker:
@@ -735,6 +787,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_non_contract_account.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-cross-chain-messaging:
     docker:
@@ -746,6 +799,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cross_chain_messaging.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-public-cross-chain-messaging:
     docker:
@@ -757,6 +811,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_cross_chain_messaging.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-public-to-private-messaging:
     docker:
@@ -768,6 +823,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_to_private_messaging.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-account-contracts:
     docker:
@@ -779,6 +835,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_account_contracts.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-escrow-contract:
     docker:
@@ -790,6 +847,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_escrow_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-inclusion-proofs-contract:
     docker:
@@ -812,6 +870,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_commitments_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-ordering:
     docker:
@@ -823,6 +882,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_ordering.test.ts
+          aztec_manifest_key: end-to-end
 
   uniswap-trade-on-l1-from-l2:
     docker:
@@ -834,6 +894,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=uniswap_trade_on_l1_from_l2.test.ts
+          aztec_manifest_key: end-to-end
 
   integration-archiver-l1-to-l2:
     docker:
@@ -845,6 +906,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_archiver_l1_to_l2.test.ts
+          aztec_manifest_key: end-to-end
 
   integration-l1-publisher:
     docker:
@@ -856,6 +918,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_l1_publisher.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-cli:
     docker:
@@ -867,6 +930,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cli.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-persistence:
     docker:
@@ -878,6 +942,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=e2e_persistence.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-browser:
     docker:
@@ -889,6 +954,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-browser.yml TEST=e2e_aztec_js_browser.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-card-game:
     docker:
@@ -900,6 +966,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_card_game.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-avm-simulator:
     docker:
@@ -911,6 +978,7 @@ jobs:
       - run:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-fees:
     docker:
@@ -922,6 +990,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_fees.test.ts
+          aztec_manifest_key: end-to-end
 
   pxe:
     docker:
@@ -933,6 +1002,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=pxe_sandbox.test.ts
+          aztec_manifest_key: end-to-end
 
   cli-docs-sandbox:
     docker:
@@ -944,6 +1014,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=cli_docs_sandbox.test.ts
+          aztec_manifest_key: end-to-end
 
   e2e-docs-examples:
     docker:
@@ -955,6 +1026,7 @@ jobs:
       - run:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
+          aztec_manifest_key: end-to-end
 
   guides-writing-an-account-contract:
     docker:
@@ -966,6 +1038,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/writing_an_account_contract.test.ts
+          aztec_manifest_key: end-to-end
 
   guides-dapp-testing:
     docker:
@@ -977,6 +1050,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/dapp_testing.test.ts
+          aztec_manifest_key: end-to-end
 
   guides-sample-dapp:
     docker:
@@ -988,6 +1062,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=sample-dapp
+          aztec_manifest_key: end-to-end
 
   guides-up-quick-start:
     docker:
@@ -999,6 +1074,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/up_quick_start.test.ts
+          aztec_manifest_key: end-to-end
 
   bench-publish-rollup:
     docker:
@@ -1010,6 +1086,7 @@ jobs:
       - run:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+          aztec_manifest_key: end-to-end
 
   bench-process-history:
     docker:
@@ -1021,6 +1098,7 @@ jobs:
       - run:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+          aztec_manifest_key: end-to-end
 
   build-docs:
     machine:
@@ -1046,6 +1124,7 @@ jobs:
       - run:
           name: "Build docs"
           command: build docs
+          aztec_manifest_key: docs
       - run:
           name: "Deploy docs"
           command: |
@@ -1066,6 +1145,7 @@ jobs:
       - run:
           name: "Build yellow paper"
           command: build yellow-paper
+          aztec_manifest_key: yellow-paper
 
   e2e-join:
     docker:
