@@ -1,4 +1,4 @@
-if [ -n "$RETRY_DISABLED" ]; then
+if [ -n "${RETRY_DISABLED:-}" ]; then
     "$@" && exit || exit 1
 fi
 
