@@ -11,7 +11,7 @@ cd ../../srs_db
 cd ../build
 
 bench() {
-  $PREFIX ./bin/$1 --benchmark_out="$1.json" --benchmark_out_format=json --benchmark_counters_tabular=true $2
+  ./bin/$1 --benchmark_out="$1.json" --benchmark_out_format=json --benchmark_counters_tabular=true $2
   cat $1.json
 }
 
