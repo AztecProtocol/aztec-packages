@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
@@ -86,6 +87,8 @@ template <typename FF_> class StandardArith {
     struct TraceBlocks {
         ExecutionTraceBlock pub_inputs;
         ExecutionTraceBlock arithmetic;
+
+        auto get() { return RefArray{ pub_inputs, arithmetic }; }
     };
 
     // WORKTODO: only needed for now to get things to build. may need something equiv inside TraceBlock?
@@ -112,11 +115,52 @@ template <typename FF_> class UltraArith {
         Wires wires;
         Selectors selectors;
         bool is_public_input = false;
+
+        WireType& w_l() { return std::get<0>(wires); };
+        WireType& w_r() { return std::get<1>(wires); };
+        WireType& w_o() { return std::get<2>(wires); };
+        WireType& w_4() { return std::get<3>(wires); };
+
+        SelectorType& q_m() { return selectors[0]; };
+        SelectorType& q_1() { return selectors[1]; };
+        SelectorType& q_2() { return selectors[2]; };
+        SelectorType& q_3() { return selectors[3]; };
+        SelectorType& q_c() { return selectors[4]; };
+        SelectorType& q_4() { return selectors[5]; };
+        SelectorType& q_arith() { return selectors[6]; };
+        SelectorType& q_sort() { return selectors[7]; };
+        SelectorType& q_elliptic() { return selectors[8]; };
+        SelectorType& q_aux() { return selectors[9]; };
+        SelectorType& q_lookup_type() { return selectors[10]; };
+
+        const SelectorType& q_m() const { return selectors[0]; };
+        const SelectorType& q_c() const { return selectors[1]; };
+        const SelectorType& q_1() const { return selectors[2]; };
+        const SelectorType& q_2() const { return selectors[3]; };
+        const SelectorType& q_3() const { return selectors[4]; };
+        const SelectorType& q_4() const { return selectors[5]; };
+        const SelectorType& q_arith() const { return selectors[6]; };
+        const SelectorType& q_sort() const { return selectors[7]; };
+        const SelectorType& q_elliptic() const { return selectors[8]; };
+        const SelectorType& q_aux() const { return selectors[9]; };
+        const SelectorType& q_lookup_type() const { return selectors[10]; };
+
+        void reserve(size_t size_hint)
+        {
+            for (auto& w : wires) {
+                w.reserve(size_hint);
+            }
+            for (auto& p : selectors) {
+                p.reserve(size_hint);
+            }
+        }
     };
 
     struct TraceBlocks {
         ExecutionTraceBlock pub_inputs;
-        ExecutionTraceBlock arithmetic;
+        ExecutionTraceBlock main;
+
+        auto get() { return RefArray{ pub_inputs, main }; }
     };
 
   private:
@@ -182,11 +226,73 @@ template <typename FF_> class UltraHonkArith {
         Wires wires;
         Selectors selectors;
         bool is_public_input = false;
+
+        WireType& w_l() { return std::get<0>(wires); };
+        WireType& w_r() { return std::get<1>(wires); };
+        WireType& w_o() { return std::get<2>(wires); };
+        WireType& w_4() { return std::get<3>(wires); };
+
+        SelectorType& q_m() { return selectors[0]; };
+        SelectorType& q_c() { return selectors[1]; };
+        SelectorType& q_1() { return selectors[2]; };
+        SelectorType& q_2() { return selectors[3]; };
+        SelectorType& q_3() { return selectors[4]; };
+        SelectorType& q_4() { return selectors[5]; };
+        SelectorType& q_arith() { return selectors[6]; };
+        SelectorType& q_sort() { return selectors[7]; };
+        SelectorType& q_elliptic() { return selectors[8]; };
+        SelectorType& q_aux() { return selectors[9]; };
+        SelectorType& q_lookup_type() { return selectors[10]; };
+        SelectorType& q_busread() { return selectors[11]; };
+        SelectorType& q_poseidon2_external() { return this->selectors[12]; };
+        SelectorType& q_poseidon2_internal() { return this->selectors[13]; };
+
+        const SelectorType& q_m() const { return selectors[0]; };
+        const SelectorType& q_c() const { return selectors[1]; };
+        const SelectorType& q_1() const { return selectors[2]; };
+        const SelectorType& q_2() const { return selectors[3]; };
+        const SelectorType& q_3() const { return selectors[4]; };
+        const SelectorType& q_4() const { return selectors[5]; };
+        const SelectorType& q_arith() const { return selectors[6]; };
+        const SelectorType& q_sort() const { return selectors[7]; };
+        const SelectorType& q_elliptic() const { return selectors[8]; };
+        const SelectorType& q_aux() const { return selectors[9]; };
+        const SelectorType& q_lookup_type() const { return selectors[10]; };
+        const SelectorType& q_busread() const { return selectors[11]; };
+        const SelectorType& q_poseidon2_external() const { return this->selectors[12]; };
+        const SelectorType& q_poseidon2_internal() const { return this->selectors[13]; };
+
+        void reserve(size_t size_hint)
+        {
+            for (auto& w : wires) {
+                w.reserve(size_hint);
+            }
+            for (auto& p : selectors) {
+                p.reserve(size_hint);
+            }
+        }
+
+        void pad_additional()
+        {
+            q_busread().emplace_back(0);
+            q_poseidon2_external().emplace_back(0);
+            q_poseidon2_internal().emplace_back(0);
+        };
+
+        void resize_additional(size_t new_size)
+        {
+            q_busread().resize(new_size);
+            q_poseidon2_external().resize(new_size);
+            q_poseidon2_internal().resize(new_size);
+        };
     };
 
     struct TraceBlocks {
+        ExecutionTraceBlock ecc_op;
         ExecutionTraceBlock pub_inputs;
-        ExecutionTraceBlock arithmetic;
+        ExecutionTraceBlock main;
+
+        auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
     };
 
     enum GateTypes { EccOp, PubInputs, Main, NUM_BLOCKS };

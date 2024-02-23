@@ -13,7 +13,7 @@ namespace bb {
 template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase<FF> {
   public:
     using Arithmetization = StandardArith<FF>;
-    using TraceBlock = ExecutionTraceBlock<Arithmetization>;
+    // using TraceBlock = ExecutionTraceBlock<Arithmetization>;
     using GateBlocks = Arithmetization::TraceBlocks;
     using GateTypes = Arithmetization::GateTypes;
     using Selectors = Arithmetization;

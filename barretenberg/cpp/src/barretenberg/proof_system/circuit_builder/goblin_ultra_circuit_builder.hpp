@@ -11,7 +11,6 @@ using namespace bb;
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
     using Arithmetization = UltraHonkArith<FF>;
-    using TraceBlock = ExecutionTraceBlock<Arithmetization>;
     using GateTypes = Arithmetization::GateTypes;
 
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
@@ -33,29 +32,23 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
-    WireVector& ecc_op_wire_1() { return std::get<0>(this->blocks[GateTypes::EccOp].wires); };
-    WireVector& ecc_op_wire_2() { return std::get<1>(this->blocks[GateTypes::EccOp].wires); };
-    WireVector& ecc_op_wire_3() { return std::get<2>(this->blocks[GateTypes::EccOp].wires); };
-    WireVector& ecc_op_wire_4() { return std::get<3>(this->blocks[GateTypes::EccOp].wires); };
+    WireVector& ecc_op_wire_1() { return std::get<0>(this->blocks.ecc_op.wires); };
+    WireVector& ecc_op_wire_2() { return std::get<1>(this->blocks.ecc_op.wires); };
+    WireVector& ecc_op_wire_3() { return std::get<2>(this->blocks.ecc_op.wires); };
+    WireVector& ecc_op_wire_4() { return std::get<3>(this->blocks.ecc_op.wires); };
 
-    const WireVector& ecc_op_wire_1() const { return std::get<0>(this->blocks[GateTypes::EccOp].wires); };
-    const WireVector& ecc_op_wire_2() const { return std::get<1>(this->blocks[GateTypes::EccOp].wires); };
-    const WireVector& ecc_op_wire_3() const { return std::get<2>(this->blocks[GateTypes::EccOp].wires); };
-    const WireVector& ecc_op_wire_4() const { return std::get<3>(this->blocks[GateTypes::EccOp].wires); };
+    const WireVector& ecc_op_wire_1() const { return std::get<0>(this->blocks.ecc_op.wires); };
+    const WireVector& ecc_op_wire_2() const { return std::get<1>(this->blocks.ecc_op.wires); };
+    const WireVector& ecc_op_wire_3() const { return std::get<2>(this->blocks.ecc_op.wires); };
+    const WireVector& ecc_op_wire_4() const { return std::get<3>(this->blocks.ecc_op.wires); };
 
-    SelectorVector& q_busread() { return this->blocks[GateTypes::Main].selectors.q_busread(); };
-    SelectorVector& q_poseidon2_external() { return this->blocks[GateTypes::Main].selectors.q_poseidon2_external(); };
-    SelectorVector& q_poseidon2_internal() { return this->blocks[GateTypes::Main].selectors.q_poseidon2_internal(); };
+    SelectorVector& q_busread() { return this->blocks.main.q_busread(); };
+    SelectorVector& q_poseidon2_external() { return this->blocks.main.q_poseidon2_external(); };
+    SelectorVector& q_poseidon2_internal() { return this->blocks.main.q_poseidon2_internal(); };
 
-    const SelectorVector& q_busread() const { return this->blocks[GateTypes::Main].selectors.q_busread(); };
-    const SelectorVector& q_poseidon2_external() const
-    {
-        return this->blocks[GateTypes::Main].selectors.q_poseidon2_external();
-    };
-    const SelectorVector& q_poseidon2_internal() const
-    {
-        return this->blocks[GateTypes::Main].selectors.q_poseidon2_internal();
-    };
+    const SelectorVector& q_busread() const { return this->blocks.main.q_busread(); };
+    const SelectorVector& q_poseidon2_external() const { return this->blocks.main.q_poseidon2_external(); };
+    const SelectorVector& q_poseidon2_internal() const { return this->blocks.main.q_poseidon2_internal(); };
 
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;

@@ -10,19 +10,18 @@ namespace bb {
  *
  * @tparam Arithmetization The set of selectors corresponding to the arithmetization
  */
-template <class Arithmetization> struct ExecutionTraceBlock {
-    // WORKTODO: Zac - make this less terrible
-    using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, Arithmetization::NUM_WIRES>;
-    Wires wires;
-    Arithmetization selectors;
-    bool is_public_input = false;
-};
+// template <class Arithmetization> struct ExecutionTraceBlock {
+//     // WORKTODO: Zac - make this less terrible
+//     using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>,
+//     Arithmetization::NUM_WIRES>; Wires wires; Arithmetization selectors; bool is_public_input = false;
+// };
 
 template <class Flavor> class ExecutionTrace_ {
     using Builder = typename Flavor::CircuitBuilder;
     using Polynomial = typename Flavor::Polynomial;
     using FF = typename Flavor::FF;
-    using TraceBlock = ExecutionTraceBlock<typename Builder::Selectors>;
+    // using TraceBlock = ExecutionTraceBlock<typename Builder::Selectors>;
+    using TrackBlocks = Builder::Arithmetization::TraceBlocks;
     using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, Builder::NUM_WIRES>;
     using Selectors = typename Builder::Selectors;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -84,11 +83,7 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @return std::vector<TraceBlock>
      */
-    static std::vector<TraceBlock> create_execution_trace_blocks(Builder& builder);
-
-    static typename Flavor::CircuitBuilder::Arithmetization::TraceBlocks create_execution_trace_blocks_standard(
-        Builder& builder)
-        requires IsStandardFlavor<Flavor>;
+    static TrackBlocks create_execution_trace_blocks(Builder& builder);
 };
 
 } // namespace bb

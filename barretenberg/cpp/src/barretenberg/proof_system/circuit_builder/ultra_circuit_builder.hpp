@@ -30,9 +30,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
   public:
     using Arithmetization = Arithmetization_;
     using Selectors = Arithmetization;
-    using TraceBlock = ExecutionTraceBlock<Arithmetization>;
-    using GateBlocks = std::array<TraceBlock, Arithmetization::NUM_BLOCKS>;
-    using GateTypes = Arithmetization::GateTypes;
+    using GateBlocks = Arithmetization::TraceBlocks;
 
     using FF = typename Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
@@ -463,7 +461,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             builder->q_aux().resize(num_gates);
             builder->q_lookup_type().resize(num_gates);
             if constexpr (HasAdditionalSelectors<Arithmetization>) {
-                builder->blocks[GateTypes::Main].selectors.resize_additional(num_gates);
+                builder->blocks.main.resize_additional(num_gates);
             }
         }
         /**
@@ -579,44 +577,44 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     // Block for all gates
     GateBlocks blocks;
 
-    const auto& get_wires() const { return blocks[GateTypes::Main].wires; };
+    const auto& get_wires() const { return blocks.main.wires; };
 
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l() { return std::get<0>(blocks[GateTypes::Main].wires); };
-    WireVector& w_r() { return std::get<1>(blocks[GateTypes::Main].wires); };
-    WireVector& w_o() { return std::get<2>(blocks[GateTypes::Main].wires); };
-    WireVector& w_4() { return std::get<3>(blocks[GateTypes::Main].wires); };
+    WireVector& w_l() { return std::get<0>(blocks.main.wires); };
+    WireVector& w_r() { return std::get<1>(blocks.main.wires); };
+    WireVector& w_o() { return std::get<2>(blocks.main.wires); };
+    WireVector& w_4() { return std::get<3>(blocks.main.wires); };
 
-    const WireVector& w_l() const { return std::get<0>(blocks[GateTypes::Main].wires); };
-    const WireVector& w_r() const { return std::get<1>(blocks[GateTypes::Main].wires); };
-    const WireVector& w_o() const { return std::get<2>(blocks[GateTypes::Main].wires); };
-    const WireVector& w_4() const { return std::get<3>(blocks[GateTypes::Main].wires); };
+    const WireVector& w_l() const { return std::get<0>(blocks.main.wires); };
+    const WireVector& w_r() const { return std::get<1>(blocks.main.wires); };
+    const WireVector& w_o() const { return std::get<2>(blocks.main.wires); };
+    const WireVector& w_4() const { return std::get<3>(blocks.main.wires); };
 
-    SelectorVector& q_m() { return blocks[GateTypes::Main].selectors.q_m(); };
-    SelectorVector& q_c() { return blocks[GateTypes::Main].selectors.q_c(); };
-    SelectorVector& q_1() { return blocks[GateTypes::Main].selectors.q_1(); };
-    SelectorVector& q_2() { return blocks[GateTypes::Main].selectors.q_2(); };
-    SelectorVector& q_3() { return blocks[GateTypes::Main].selectors.q_3(); };
-    SelectorVector& q_4() { return blocks[GateTypes::Main].selectors.q_4(); };
-    SelectorVector& q_arith() { return blocks[GateTypes::Main].selectors.q_arith(); };
-    SelectorVector& q_sort() { return blocks[GateTypes::Main].selectors.q_sort(); };
-    SelectorVector& q_elliptic() { return blocks[GateTypes::Main].selectors.q_elliptic(); };
-    SelectorVector& q_aux() { return blocks[GateTypes::Main].selectors.q_aux(); };
-    SelectorVector& q_lookup_type() { return blocks[GateTypes::Main].selectors.q_lookup_type(); };
+    SelectorVector& q_m() { return blocks.main.q_m(); };
+    SelectorVector& q_c() { return blocks.main.q_c(); };
+    SelectorVector& q_1() { return blocks.main.q_1(); };
+    SelectorVector& q_2() { return blocks.main.q_2(); };
+    SelectorVector& q_3() { return blocks.main.q_3(); };
+    SelectorVector& q_4() { return blocks.main.q_4(); };
+    SelectorVector& q_arith() { return blocks.main.q_arith(); };
+    SelectorVector& q_sort() { return blocks.main.q_sort(); };
+    SelectorVector& q_elliptic() { return blocks.main.q_elliptic(); };
+    SelectorVector& q_aux() { return blocks.main.q_aux(); };
+    SelectorVector& q_lookup_type() { return blocks.main.q_lookup_type(); };
 
-    const SelectorVector& q_c() const { return blocks[GateTypes::Main].selectors.q_c(); };
-    const SelectorVector& q_1() const { return blocks[GateTypes::Main].selectors.q_1(); };
-    const SelectorVector& q_2() const { return blocks[GateTypes::Main].selectors.q_2(); };
-    const SelectorVector& q_3() const { return blocks[GateTypes::Main].selectors.q_3(); };
-    const SelectorVector& q_4() const { return blocks[GateTypes::Main].selectors.q_4(); };
-    const SelectorVector& q_arith() const { return blocks[GateTypes::Main].selectors.q_arith(); };
-    const SelectorVector& q_sort() const { return blocks[GateTypes::Main].selectors.q_sort(); };
-    const SelectorVector& q_elliptic() const { return blocks[GateTypes::Main].selectors.q_elliptic(); };
-    const SelectorVector& q_aux() const { return blocks[GateTypes::Main].selectors.q_aux(); };
-    const SelectorVector& q_lookup_type() const { return blocks[GateTypes::Main].selectors.q_lookup_type(); };
-    const SelectorVector& q_m() const { return blocks[GateTypes::Main].selectors.q_m(); };
+    const SelectorVector& q_c() const { return blocks.main.q_c(); };
+    const SelectorVector& q_1() const { return blocks.main.q_1(); };
+    const SelectorVector& q_2() const { return blocks.main.q_2(); };
+    const SelectorVector& q_3() const { return blocks.main.q_3(); };
+    const SelectorVector& q_4() const { return blocks.main.q_4(); };
+    const SelectorVector& q_arith() const { return blocks.main.q_arith(); };
+    const SelectorVector& q_sort() const { return blocks.main.q_sort(); };
+    const SelectorVector& q_elliptic() const { return blocks.main.q_elliptic(); };
+    const SelectorVector& q_aux() const { return blocks.main.q_aux(); };
+    const SelectorVector& q_lookup_type() const { return blocks.main.q_lookup_type(); };
+    const SelectorVector& q_m() const { return blocks.main.q_m(); };
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -657,11 +655,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        blocks[GateTypes::Main].selectors.reserve(size_hint);
-        w_l().reserve(size_hint);
-        w_r().reserve(size_hint);
-        w_o().reserve(size_hint);
-        w_4().reserve(size_hint);
+        blocks.main.reserve(size_hint);
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
@@ -686,7 +680,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                          bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        blocks[GateTypes::Main].selectors.reserve(size_hint);
+        blocks.main.selectors.reserve(size_hint);
         w_l().reserve(size_hint);
         w_r().reserve(size_hint);
         w_o().reserve(size_hint);
@@ -758,9 +752,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 #if NDEBUG
         // do nothing
 #else
-        size_t nominal_size = blocks[GateTypes::Main].selectors.get()[0].size();
-        for (size_t idx = 1; idx < blocks[GateTypes::Main].selectors.get().size(); ++idx) {
-            ASSERT(blocks[GateTypes::Main].selectors.get()[idx].size() == nominal_size);
+        size_t nominal_size = blocks.main.selectors[0].size();
+        for (size_t idx = 1; idx < blocks.main.selectors.size(); ++idx) {
+            ASSERT(blocks.main.selectors[idx].size() == nominal_size);
         }
 #endif // NDEBUG
     }
