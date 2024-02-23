@@ -25,6 +25,8 @@ def has_associated_manifest_job(circleci_job, manifest_names):
 
 def get_already_built_circleci_job_names(circleci_jobs):
     manifest_names = list(get_already_built_manifest_job_names())
+    for man in manifest_names:
+      eprint("MAN", man)
     for job_name, circleci_job in circleci_jobs.items():
         if has_associated_manifest_job(circleci_job, manifest_names):
             yield job_name
@@ -83,10 +85,6 @@ if __name__ == '__main__':
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
-    for remove in jobs_to_remove:
-      eprint("REMOVE")
-      eprint(remove)
-
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
     del workflow_dict["workflows"]["setup-workflow"]
