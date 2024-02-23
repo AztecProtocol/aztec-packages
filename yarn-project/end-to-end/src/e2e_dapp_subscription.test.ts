@@ -2,8 +2,10 @@ import {
   AccountWalletWithPrivateKey,
   AztecAddress,
   Contract,
+  FeePaymentMethod,
   Fr,
   PrivateFeePaymentMethod,
+  PublicFeePaymentMethod,
   SentTx,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
@@ -21,7 +23,7 @@ import { jest } from '@jest/globals';
 import { EndToEndContext, setup } from './fixtures/utils.js';
 import { GasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
-jest.setTimeout(100_000);
+jest.setTimeout(1_000_000);
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BAC';
@@ -91,22 +93,10 @@ describe('e2e_fees', () => {
     // mint some test tokens for Alice
     // she'll pay for the subscription with these
     await bananaCoin.methods.privately_mint_private_note(1000n).send().wait();
+    await bananaCoin.methods.mint_public(aliceAddress, 1000n).send().wait();
+
     await gasBridgeTestHarness.bridgeFromL1ToL2(1000n, 1000n, subscriptionContract.address);
     await gasBridgeTestHarness.bridgeFromL1ToL2(1000n, 1000n, bananaFPC.address);
-
-    const balances = async (symbol: string, contract: Contract) => {
-      const [sequencerBalance, subscriptionBalance, fpcBalance] = await Promise.all([
-        contract.methods.balance_of_public(sequencerAddress).view(),
-        contract.methods.balance_of_public(subscriptionContract.address).view(),
-        contract.methods.balance_of_public(bananaFPC.address).view(),
-      ]);
-
-      e2eContext.logger(
-        `${symbol} balances: Alice ${subscriptionBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`,
-      );
-
-      return { sequencerBalance, subscriptionBalance, fpcBalance };
-    };
 
     {
       const { sequencerBalance, subscriptionBalance, fpcBalance } = await balances('⛽', gasTokenContract);
@@ -114,11 +104,11 @@ describe('e2e_fees', () => {
       expect(subscriptionBalance).toEqual(1000n);
       expect(fpcBalance).toEqual(1000n);
     }
-  }, 100_000);
+  });
 
-  it('should allow Alice to subscribe', async () => {
+  it('should allow Alice to subscribe by paying privately with bananas', async () => {
     // Authorize the subscription contract to transfer the subscription amount from the subscriber.
-    await subscribe();
+    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet));
     expect(await bananaCoin.methods.balance_of_private(aliceAddress).view()).toBe(899n);
     expect(await bananaCoin.methods.balance_of_private(bobAddress).view()).toBe(100n);
     expect(await bananaCoin.methods.balance_of_public(bananaFPC).view()).toBe(1n);
@@ -127,7 +117,25 @@ describe('e2e_fees', () => {
     expect(await gasTokenContract.methods.balance_of_public(subscriptionContract).view()).toBe(1000n);
     expect(await gasTokenContract.methods.balance_of_public(bananaFPC).view()).toBe(999n);
     expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(1n);
-  }, 100_000);
+  });
+
+  it('should allow Alice to subscribe by paying with bananas in public', async () => {
+    // Authorize the subscription contract to transfer the subscription amount from the subscriber.
+    await subscribe(new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet));
+
+    // assert that Alice paid 100n for the subscription
+    expect(await bananaCoin.methods.balance_of_private(aliceAddress).view()).toBe(799n);
+    expect(await bananaCoin.methods.balance_of_private(bobAddress).view()).toBe(200n);
+
+    // assert that Alice has paid one banana publicly for the tx above
+    expect(await bananaCoin.methods.balance_of_public(aliceAddress).view()).toBe(999n);
+    expect(await bananaCoin.methods.balance_of_public(bananaFPC).view()).toBe(2n);
+    expect(await gasTokenContract.methods.balance_of_public(bananaFPC).view()).toBe(998n);
+
+    // remains unchanged
+    expect(await gasTokenContract.methods.balance_of_public(subscriptionContract).view()).toBe(1000n);
+    expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(2n);
+  });
 
   it('should call dapp subscription entrypoint', async () => {
     const { pxe } = e2eContext;
@@ -140,25 +148,25 @@ describe('e2e_fees', () => {
 
     expect(await counterContract.methods.get_counter(bobAddress).view()).toBe(1n);
     expect(await gasTokenContract.methods.balance_of_public(subscriptionContract).view()).toBe(999n);
-    expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(2n);
-  }, 100_000);
+    expect(await gasTokenContract.methods.balance_of_public(sequencerAddress).view()).toBe(3n);
+  });
 
   it('should reject after the sub runs out', async () => {
     // subscribe again. This will overwrite the subscription
-    await subscribe(0);
+    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), 0);
     await expect(dappIncrement()).rejects.toThrow(
       "Failed to solve brillig function, reason: explicit trap hit in brillig '(context.block_number()) as u64 < expiry_block_number as u64'",
     );
-  }, 100_000);
+  });
 
   it('should reject after the txs run out', async () => {
     // subscribe again. This will overwrite the subscription
-    await subscribe(5, 1);
+    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), 5, 1);
     await expect(dappIncrement()).resolves.toBeDefined();
     await expect(dappIncrement()).rejects.toThrow(/note.remaining_txs as u64 > 0/);
-  }, 100_000);
+  });
 
-  async function subscribe(blockDelta: number = 5, txCount: number = 4) {
+  async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
     {
       const nonce = Fr.random();
       const action = bananaCoin.methods.transfer(aliceAddress, bobAddress, 100n, nonce);
@@ -171,7 +179,7 @@ describe('e2e_fees', () => {
         .send({
           fee: {
             maxFee: 1n,
-            paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod,
           },
         })
         .wait();
@@ -186,5 +194,19 @@ describe('e2e_fees', () => {
     const tx = await pxe.simulateTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();
+  }
+
+  async function balances(symbol: string, contract: Contract) {
+    const [sequencerBalance, subscriptionBalance, fpcBalance] = await Promise.all([
+      contract.methods.balance_of_public(sequencerAddress).view(),
+      contract.methods.balance_of_public(subscriptionContract.address).view(),
+      contract.methods.balance_of_public(bananaFPC.address).view(),
+    ]);
+
+    e2eContext.logger(
+      `${symbol} balances: Alice ${subscriptionBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`,
+    );
+
+    return { sequencerBalance, subscriptionBalance, fpcBalance };
   }
 });

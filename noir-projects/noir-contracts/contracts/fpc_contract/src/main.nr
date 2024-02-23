@@ -49,7 +49,7 @@ contract FPC {
 
     #[aztec(private)]
     fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
-        let _void = context.call_private_function(
+        let _void = context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("prepare_fee((Field),Field,(Field),Field)"),
             [context.msg_sender().to_field(), amount, asset.to_field(), nonce]
@@ -70,7 +70,7 @@ contract FPC {
     #[aztec(public)]
     internal fn pay_fee(from: AztecAddress, amount: Field, asset: AztecAddress) {
         let _void = context.call_public_function(
-            storage.fee_asset.read_private(),
+            storage.fee_asset.read_public(),
             FunctionSelector::from_signature("pay_fee(Field)"),
             [amount.to_field()]
         );

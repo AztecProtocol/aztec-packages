@@ -51,7 +51,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    */
   getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.asset, {
+    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
       args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
       functionData: new FunctionData(
         FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
@@ -67,7 +67,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
-          FunctionSelector.fromSignature('fee_entrypoint_public((Field),Field,(Field),Field)'),
+          FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
           false,
           true,
           false,
