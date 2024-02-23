@@ -82,7 +82,7 @@ jobs:
       - run:
           name: Generate Pipeline generated_config.yml file
           command: |
-            echo "$AZTEC_GITHUB_TOKEN"
+            echo "$AWS_SECRET_ACCESS_KEY"
             # ability to query ECR images
             ecr_login
             # convert to json, run a python script, write out json (which is a readable as YAML)
