@@ -21,9 +21,6 @@ impl<T> PublicMutable<T> {
         context: Context,
         storage_slot: Field
     ) -> Self {
-        assert(
-            context.private.is_none(), "Initializing public mutable is only supported in public functions"
-        );
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicMutable { context, storage_slot }
     }
