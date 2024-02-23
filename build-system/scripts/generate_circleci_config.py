@@ -9,9 +9,6 @@ import re
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import subprocess
 
-# Define the regex pattern with known prefixes in uppercase
-KNOWN_PREFIXES_PATTERN = r'(BUILD|COND_SPOT_RUN_BUILD|COND_SPOT_RUN_TEST|COND_SPOT_RUN_CONTAINER|COND_SPOT_RUN_COMPOSE)[\s_-]+(\w[\w_-]*)'
-
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_job_names():
     manifest = yaml.safe_load(open("build_manifest.yml"))
@@ -20,30 +17,27 @@ def get_manifest_job_names():
 def is_already_built_circleci_job(circleci_job, already_built_manifest_jobs):
     """
     This function checks if a given CircleCI job is associated with a specific already-built manifest job. 
-    It does so by analyzing the job's steps for commands that contain references to manifest names. 
-    The association is based on a heuristic where a job is considered linked to a manifest job if 
-    its command includes the name of the manifest. This is not a direct one-to-one mapping but 
-    rather a pattern-matching approach using known command prefixes and the build manifest YAML file. 
-    The method ensures that only one matching step exists in the CircleCI job that aligns with this criteria.
+    It does so by checking the job's steps for an 'aztec_manifest_key' that contain references to manifest names.
+    We want to see at least one such key, and for all such keys to be in 'already_built_manifest_jobs'.
     """
     steps = circleci_job.get("steps", [])
     matching_steps = 0
     for step in steps:
-        run_info = step.get("run", {})
+        run_info = step.get("run", "")
         # Check if run_info is a string, short-hand notation
         if isinstance(run_info, str):
-            command = run_info
-        else:
-            command = run_info.get("command", "")
-        match = re.search(KNOWN_PREFIXES_PATTERN, command, re.IGNORECASE)
-        if not match:
+            # if there's no run key, or we use string short-hand, continue
             continue
-        matched_manifest = match.group(2)
-        if matched_manifest in already_built_manifest_jobs:
-            matching_steps += 1
-        else:
-            # We have found a different string here - bail out
-            return False
+        keys = run_info.get("aztec_manifest_key", [])
+        if isinstance(keys, str):
+            keys = [keys]
+        if not keys: # empty list? continue
+            continue
+        for key in keys:
+            if key not in already_built_manifest_jobs:
+                # We have found a different string here - bail out
+                return False
+        matching_steps += 1
     # All steps have matched - but make sure that's actually more than one step
     return matching_steps > 0 
 
