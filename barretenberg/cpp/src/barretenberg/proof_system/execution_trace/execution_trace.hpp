@@ -11,7 +11,6 @@ template <class Flavor> class ExecutionTrace_ {
     using FF = typename Flavor::FF;
     using TrackBlocks = typename Builder::Arithmetization::TraceBlocks;
     using Wires = std::array<std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>, Builder::NUM_WIRES>;
-    using Selectors = typename Builder::Selectors;
     using ProvingKey = typename Flavor::ProvingKey;
 
   public:
@@ -19,7 +18,7 @@ template <class Flavor> class ExecutionTrace_ {
 
     struct TraceData {
         std::array<Polynomial, NUM_WIRES> wires;
-        std::array<Polynomial, Builder::Selectors::NUM_SELECTORS> selectors;
+        std::array<Polynomial, Builder::Arithmetization::NUM_SELECTORS> selectors;
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
         std::vector<CyclicPermutation> copy_cycles;
 

@@ -29,8 +29,7 @@ template <typename Arithmetization_>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_::FF> {
   public:
     using Arithmetization = Arithmetization_;
-    using Selectors = Arithmetization;
-    using GateBlocks = Arithmetization::TraceBlocks;
+    using GateBlocks = typename Arithmetization::TraceBlocks;
 
     using FF = typename Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
