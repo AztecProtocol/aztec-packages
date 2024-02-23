@@ -5,10 +5,13 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import times from 'lodash.times';
 
 export class Body {
   constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
@@ -166,6 +169,21 @@ export class Body {
   get numberOfTxs() {
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
     return this.txEffects.reduce((acc, txEffect) => (!txEffect.newNullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
+  }
+
+  static random(
+    txsPerBlock = 4,
+    numPrivateCallsPerTx = 2,
+    numPublicCallsPerTx = 3,
+    numEncryptedLogsPerCall = 2,
+    numUnencryptedLogsPerCall = 1,
+  ) {
+    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+    const txEffects = [...new Array(txsPerBlock)].map(_ =>
+      TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+    );
+
+    return new Body(newL1ToL2Messages, txEffects);
   }
 }
 
