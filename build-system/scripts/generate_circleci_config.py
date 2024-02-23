@@ -34,6 +34,7 @@ def get_already_built_circleci_job_names(circleci_jobs):
 # Helper for multiprocessing
 def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
+    eprint("CON", content_hash)
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
         return manifest_name
