@@ -2,18 +2,16 @@ import {
   AztecAddress,
   Contract,
   ExtendedNote,
-  FeePaymentMethod,
   Fr,
-  FunctionCall,
   FunctionSelector,
   Note,
+  PrivateFeePaymentMethod,
   TxHash,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { FunctionData } from '@aztec/circuits.js';
 import { decodeFunctionSignature } from '@aztec/foundation/abi';
-import { TokenContract as BananaCoin, BananaFPCContract, GasTokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract as BananaCoin, FPCContract, GasTokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -31,7 +29,7 @@ describe('e2e_fees', () => {
   let sequencerAddress: AztecAddress;
   let gasTokenContract: GasTokenContract;
   let bananaCoin: BananaCoin;
-  let bananaFPC: BananaFPCContract;
+  let bananaFPC: FPCContract;
 
   let gasBridgeTestHarness: GasBridgingTestHarness;
   let e2eContext: EndToEndContext;
@@ -56,7 +54,7 @@ describe('e2e_fees', () => {
       const sig = decodeFunctionSignature(fn.name, fn.parameters);
       logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
     });
-    BananaFPCContract.artifact.functions.forEach(fn => {
+    FPCContract.artifact.functions.forEach(fn => {
       const sig = decodeFunctionSignature(fn.name, fn.parameters);
       logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
     });
@@ -87,7 +85,7 @@ describe('e2e_fees', () => {
 
     e2eContext.logger(`BananaCoin deployed at ${bananaCoin.address}`);
 
-    bananaFPC = await BananaFPCContract.deploy(e2eContext.wallets[0], bananaCoin.address, gasTokenContract.address)
+    bananaFPC = await FPCContract.deploy(e2eContext.wallets[0], bananaCoin.address, gasTokenContract.address)
       .send()
       .deployed();
     e2eContext.logger(`bananaPay deployed at ${bananaFPC.address}`);
@@ -139,7 +137,7 @@ describe('e2e_fees', () => {
       .send({
         fee: {
           maxFee: FeeAmount,
-          paymentMethod: new BananaFeePaymentMethod(bananaFPC.address),
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, wallets[0]),
         },
       })
       .wait();
@@ -190,51 +188,3 @@ describe('e2e_fees', () => {
     return { sequencerBalance, aliceBalance, fpcBalance };
   };
 });
-
-class BananaFeePaymentMethod implements FeePaymentMethod {
-  constructor(public readonly bananaPay: AztecAddress) {}
-
-  /**
-   * Gets the native gas asset used to pay the fee.
-   * @returns The asset used to pay the fee.
-   */
-  getAsset() {
-    return this.bananaPay;
-  }
-
-  /**
-   * The contract responsible for fee payment. This will be the same as the asset.
-   * @returns The contract address responsible for holding the fee payment.
-   */
-  getPaymentContract() {
-    return this.bananaPay;
-  }
-
-  /**
-   * Fee payments in the native gas token are always public.
-   * @returns false
-   */
-  isPrivateFeePayment(): boolean {
-    return true;
-  }
-
-  /**
-   * Creates a function call to pay the fee in gas token..
-   * @param feeLimit - The maximum fee to be paid in gas token.
-   * @returns A function call
-   */
-  getFunctionCalls(feeLimit: Fr): Promise<FunctionCall[]> {
-    return Promise.resolve([
-      {
-        to: this.bananaPay,
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('pay_with_bananas(Field,Field)'),
-          false,
-          true,
-          false,
-        ),
-        args: [feeLimit, new Fr(1)],
-      },
-    ]);
-  }
-}

@@ -26,28 +26,6 @@ impl Token {
         );
     }
 
-    pub fn mint_public(self: Self, context: PublicContext, to: AztecAddress, amount: Field) {
-        let _ = context.call_public_function(
-            self.address,
-            FunctionSelector::from_signature("mint_public((Field),Field)"),
-            [to.to_field(), amount]
-        );
-    }
-
-    pub fn burn_public(
-        self: Self,
-        context: PublicContext,
-        from: AztecAddress,
-        amount: Field,
-        nonce: Field
-    ) {
-        let _ = context.call_public_function(
-            self.address,
-            FunctionSelector::from_signature("burn_public((Field),Field,Field)"),
-            [from.to_field(), amount, nonce]
-        );
-    }
-
     // Private
     pub fn unshield(
         self: Self,
@@ -61,20 +39,6 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("unshield((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce]
-        )
-    }
-
-    pub fn burn(
-        self: Self,
-        context: &mut PrivateContext,
-        from: AztecAddress,
-        amount: Field,
-        nonce: Field
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        context.call_private_function(
-            self.address,
-            FunctionSelector::from_signature("burn((Field),Field,Field)"),
-            [from.to_field(), amount, nonce]
         )
     }
 }

@@ -11,8 +11,8 @@ import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
   AppSubscriptionContractContract,
   TokenContract as BananaCoin,
-  BananaFPCContract,
   CounterContract,
+  FPCContract,
   GasTokenContract,
 } from '@aztec/noir-contracts.js';
 
@@ -38,7 +38,7 @@ describe('e2e_fees', () => {
   let counterContract: CounterContract;
   let subscriptionContract: AppSubscriptionContractContract;
   let gasTokenContract: GasTokenContract;
-  let bananaFPC: BananaFPCContract;
+  let bananaFPC: FPCContract;
   let e2eContext: EndToEndContext;
   let gasBridgeTestHarness: GasBridgingTestHarness;
 
@@ -71,9 +71,7 @@ describe('e2e_fees', () => {
     bananaCoin = await BananaCoin.deploy(aliceWallet, aliceAddress, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
       .send()
       .deployed();
-    bananaFPC = await BananaFPCContract.deploy(aliceWallet, bananaCoin.address, gasTokenContract.address)
-      .send()
-      .deployed();
+    bananaFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address, gasTokenContract.address).send().deployed();
 
     counterContract = await CounterContract.deploy(bobWallet, 0, bobAddress).send().deployed();
 

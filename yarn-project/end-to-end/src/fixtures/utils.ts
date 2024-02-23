@@ -2,9 +2,11 @@ import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
+  AztecAddress,
   AztecNode,
   CheatCodes,
   CompleteAddress,
+  Contract,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -407,3 +409,18 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
 
   expect(asciiLogs).toStrictEqual(logMessages);
 };
+
+export function getBalancesFn(
+  addresses: AztecAddress[],
+): (symbol: string, contract: Contract) => Record<AztecAddress, bigint> {
+  const balances = async (symbol: string, contract: Contract, logger?: any) => {
+    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+
+    const debugString = ``;
+
+    logger();
+    // `${symbol} balances: Alice ${aliceBalance}, bananaPay: ${fpcBalance}, sequencer: ${sequencerBalance}`,
+
+    return { sequencerBalance, aliceBalance, fpcBalance };
+  };
+}

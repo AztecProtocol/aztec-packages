@@ -1,5 +1,5 @@
 [package]
-name = "banana_contract"
+name = "fpc_contract"
 authors = [""]
 compiler_version = ">=0.18.0"
 type = "contract"
