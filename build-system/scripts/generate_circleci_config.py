@@ -48,6 +48,7 @@ def get_already_built_manifest_job_names():
         for future in as_completed(futures):
             result = future.result()
             if result is not None:
+                eprint("res", result)
                 yield result
 
 def remove_jobs_from_workflow(jobs, to_remove):
