@@ -90,7 +90,6 @@ def remove_jobs_from_workflow(jobs, to_remove):
     return new_jobs
 
 if __name__ == '__main__':
-    print("HI!")
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
     
     # Convert the JSON string to a Python dictionary
