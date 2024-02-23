@@ -170,10 +170,24 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 relation_evaluations, alpha, running_challenge, output, linearly_dependent_contributions[row]);
             full_honk_evaluations[row] = output;
         });
-
-        for (FF& linearly_dependent_contribution : linearly_dependent_contributions) {
-            full_honk_evaluations[0] += linearly_dependent_contribution;
-        }
+#ifndef NO_MULTITHREADING
+        std::mutex evaluation_mutex;
+#endif
+        run_loop_in_parallel_if_effective(
+            instance_size,
+            [&](size_t start, size_t end) {
+                auto accumulator = FF(0);
+                for (size_t i = start; i < end; i++) {
+                    accumulator += linearly_dependent_contributions[i];
+                }
+                {
+#ifndef NO_MULTITHREADING
+                    std::unique_lock<std::mutex> evaluation_lock(evaluation_mutex);
+#endif
+                    full_honk_evaluations[0] += accumulator;
+                }
+            },
+            1);
         return full_honk_evaluations;
     }
 
