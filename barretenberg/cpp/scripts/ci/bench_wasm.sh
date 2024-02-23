@@ -9,7 +9,7 @@ cd ../../srs_db
 cd ../build
 
 bench() {
-  wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2 > $1.json
+  ~/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2 > $1.json
   cat $1.json
 }
 
